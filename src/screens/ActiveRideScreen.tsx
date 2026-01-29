@@ -7,13 +7,16 @@ import {
     SafeAreaView,
     Platform,
     Animated,
+    Alert,
 } from 'react-native';
 import { Location as LocationType, FareEstimate } from '../types/ride';
 import { useRideSubscription, useDriverLocationSubscription } from '../services/realtime';
+import { supabase } from '../services/supabase';
 import { theme } from '../theme';
 import { RainBackground } from '../components/RainBackground';
 import { GlassView } from '../components/GlassView';
 import { GlassButton } from '../components/GlassButton';
+import { RideProgressBar } from '../components/RideProgressBar';
 
 interface Driver {
     name: string;
@@ -30,6 +33,7 @@ interface ActiveRideScreenProps {
             fare: FareEstimate;
             driver: Driver;
             rideId?: string;
+            paymentMethod?: 'cash' | 'card';
         };
     };
 }
@@ -37,7 +41,7 @@ interface ActiveRideScreenProps {
 type RidePhase = 'arriving' | 'arrived' | 'in_progress';
 
 export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
-    const { destination, fare, driver, rideId } = route.params;
+    const { destination, fare, driver, rideId, paymentMethod = 'cash' } = route.params;
     const [phase, setPhase] = useState<RidePhase>('arriving');
     const [eta, setEta] = useState(3);
 
@@ -51,6 +55,9 @@ export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
     useEffect(() => {
         if (rideUpdate) {
             switch (rideUpdate.status) {
+                case 'arrived':
+                    setPhase('arrived');
+                    break;
                 case 'in_progress':
                     setPhase('in_progress');
                     break;
@@ -58,17 +65,21 @@ export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
                     navigation.replace('Rating', { driver, fare });
                     break;
                 case 'cancelled':
-                    navigation.popToTop();
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'Home' }],
+                    });
                     break;
             }
         }
     }, [rideUpdate]);
 
-    // DEMO: Simulate ride progression if no rideId
+    // AUTOMATIC BOT SIMULATION: Progress ride through states
+    // Since we don't have a Driver App yet, auto-trigger ride progression
     useEffect(() => {
         if (!rideId) {
+            // No rideId = pure frontend demo (legacy fallback)
             const timers: NodeJS.Timeout[] = [];
-
             timers.push(setTimeout(() => setPhase('arrived'), 3000));
             timers.push(setTimeout(() => setPhase('in_progress'), 6000));
             timers.push(setTimeout(() => {
@@ -83,6 +94,48 @@ export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
                 timers.forEach(clearTimeout);
                 clearInterval(etaInterval);
             };
+        } else {
+            // Real rideId = trigger backend simulation via RPC
+            const runBotSimulation = async () => {
+                try {
+                    // Step 1: Wait 5 seconds, then "arrive"
+                    await new Promise(r => setTimeout(r, 5000));
+                    console.log('🤖 Bot: Arriving at pickup...');
+                    await supabase.rpc('simulate_ride_update', {
+                        p_ride_id: rideId,
+                        p_status: 'arrived',
+                        p_lat: destination.latitude - 0.001,
+                        p_lng: destination.longitude - 0.001
+                    });
+
+                    // Step 2: Wait 5 seconds, then start ride
+                    await new Promise(r => setTimeout(r, 5000));
+                    console.log('🤖 Bot: Starting ride...');
+                    await supabase.rpc('simulate_ride_update', {
+                        p_ride_id: rideId,
+                        p_status: 'in_progress'
+                    });
+
+                    // Step 3: Wait 10 seconds, then complete
+                    await new Promise(r => setTimeout(r, 10000));
+                    console.log('🤖 Bot: Completing ride...');
+                    await supabase.rpc('simulate_ride_update', {
+                        p_ride_id: rideId,
+                        p_status: 'completed'
+                    });
+                } catch (e) {
+                    console.error('Bot simulation error:', e);
+                }
+            };
+
+            runBotSimulation();
+
+            // ETA countdown
+            const etaInterval = setInterval(() => {
+                setEta(prev => Math.max(0, prev - 1));
+            }, 1000);
+
+            return () => clearInterval(etaInterval);
         }
     }, [rideId]);
 
@@ -110,6 +163,24 @@ export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
     };
 
     const phaseInfo = getPhaseInfo();
+
+    // SIMULATION CONTROLS (Dev Only)
+    const handleSimulation = async (status: string) => {
+        if (!rideId) return;
+        try {
+            const { error } = await supabase.rpc('simulate_ride_update', {
+                p_ride_id: rideId,
+                p_status: status,
+                // Optional: Teleport driver to destination if 'arrived'
+                p_lat: status === 'arrived' ? destination.latitude - 0.001 : undefined,
+                p_lng: status === 'arrived' ? destination.longitude - 0.001 : undefined
+            });
+            if (error) throw error;
+        } catch (e) {
+            console.error('Simulation failed:', e);
+            Alert.alert('Sim Error', 'Could not update ride state');
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -149,24 +220,16 @@ export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
                         </View>
                     </GlassView>
 
-                    {/* Trip progress */}
-                    <View style={styles.tripProgress}>
-                        <View style={styles.progressStep}>
-                            <View style={[styles.progressDot, styles.progressDotComplete]} />
-                            <Text style={styles.progressLabel}>Pickup</Text>
-                        </View>
-                        <View style={[
-                            styles.progressLine,
-                            phase !== 'arriving' && styles.progressLineComplete
-                        ]} />
-                        <View style={styles.progressStep}>
-                            <View style={[
-                                styles.progressDot,
-                                phase === 'in_progress' && styles.progressDotComplete
-                            ]} />
-                            <Text style={styles.progressLabel}>Drop-off</Text>
+                    {/* Payment Badge */}
+                    <View style={styles.badgeContainer}>
+                        <View style={styles.paymentBadge}>
+                            <Text style={styles.paymentIcon}>{paymentMethod === 'cash' ? '💵' : '💳'}</Text>
+                            <Text style={styles.paymentText}>{paymentMethod === 'cash' ? 'Cash' : 'Card'}</Text>
                         </View>
                     </View>
+
+                    {/* Trip progress */}
+                    <RideProgressBar phase={phase} />
 
                     {/* Actions */}
                     <View style={styles.actions}>
@@ -189,6 +252,8 @@ export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
                             <Text style={styles.actionText}>Safety</Text>
                         </TouchableOpacity>
                     </View>
+
+
                 </GlassView>
             </SafeAreaView>
         </View>
@@ -241,11 +306,41 @@ const styles = StyleSheet.create({
         color: theme.colors.text.secondary,
         fontSize: theme.typography.sizes.md,
     },
+
+
+    // ... existing code
+
+    // New Styles for Badge
+    badgeContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginBottom: theme.spacing.lg,
+    },
+    paymentBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.glass.backgroundLight,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
+    },
+    paymentIcon: {
+        fontSize: 14,
+        marginRight: 6,
+    },
+    paymentText: {
+        color: theme.colors.text.secondary,
+        fontSize: theme.typography.sizes.sm,
+        fontWeight: theme.typography.weights.medium,
+    },
+
     bottomSheet: {
         borderTopLeftRadius: theme.borderRadius.xxl,
         borderTopRightRadius: theme.borderRadius.xxl,
         paddingHorizontal: theme.spacing.xl,
-        paddingTop: theme.spacing.xxl,
+        paddingTop: theme.spacing.xl, // Reduced top padding
         paddingBottom: Platform.OS === 'ios' ? 34 : theme.spacing.xxl,
         borderBottomWidth: 0,
     },

@@ -14,16 +14,40 @@ CREATE TABLE IF NOT EXISTS profiles (
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 -- Allow users to view and update their own profile
-CREATE POLICY "Users can view own profile" ON profiles
-  FOR SELECT USING ((SELECT auth.uid()) = id);
+-- Allow users to view and update their own profile
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_policies 
+        WHERE tablename = 'profiles' 
+        AND policyname = 'Users can view own profile'
+    ) THEN
+        CREATE POLICY "Users can view own profile" ON profiles
+          FOR SELECT USING ((SELECT auth.uid()) = id);
+    END IF;
 
-CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING ((SELECT auth.uid()) = id)
-  WITH CHECK ((SELECT auth.uid()) = id);
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_policies 
+        WHERE tablename = 'profiles' 
+        AND policyname = 'Users can update own profile'
+    ) THEN
+        CREATE POLICY "Users can update own profile" ON profiles
+          FOR UPDATE USING ((SELECT auth.uid()) = id)
+          WITH CHECK ((SELECT auth.uid()) = id);
+    END IF;
 
--- Allow insert only by the authenticated user for themselves
-CREATE POLICY "Users can insert own profile" ON profiles
-  FOR INSERT WITH CHECK ((SELECT auth.uid()) = id);
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_policies 
+        WHERE tablename = 'profiles' 
+        AND policyname = 'Users can insert own profile'
+    ) THEN
+        CREATE POLICY "Users can insert own profile" ON profiles
+          FOR INSERT WITH CHECK ((SELECT auth.uid()) = id);
+    END IF;
+END $$;
 
 -- Trigger to auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -68,24 +92,51 @@ CREATE TABLE IF NOT EXISTS rides (
 ALTER TABLE rides ENABLE ROW LEVEL SECURITY;
 
 -- Riders can read their own rides
-CREATE POLICY "Riders can view own rides" ON rides
-  FOR SELECT USING ((SELECT auth.uid()) = rider_id);
+-- Riders can read their own rides
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_policies 
+        WHERE tablename = 'rides' 
+        AND policyname = 'Riders can view own rides'
+    ) THEN
+        CREATE POLICY "Riders can view own rides" ON rides
+          FOR SELECT USING ((SELECT auth.uid()) = rider_id);
+    END IF;
 
--- Note: The Supabase service_role key bypasses RLS automatically; no policy required.
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_policies 
+        WHERE tablename = 'rides' 
+        AND policyname = 'Riders can insert own rides'
+    ) THEN
+        CREATE POLICY "Riders can insert own rides" ON rides
+          FOR INSERT WITH CHECK ((SELECT auth.uid()) = rider_id);
+    END IF;
 
--- Allow riders to create rides where rider_id matches their auth uid
-CREATE POLICY "Riders can insert own rides" ON rides
-  FOR INSERT WITH CHECK ((SELECT auth.uid()) = rider_id);
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_policies 
+        WHERE tablename = 'rides' 
+        AND policyname = 'Riders can update own rides'
+    ) THEN
+        CREATE POLICY "Riders can update own rides" ON rides
+          FOR UPDATE
+          USING ((SELECT auth.uid()) = rider_id)
+          WITH CHECK ((SELECT auth.uid()) = rider_id);
+    END IF;
 
--- Allow riders to update their rides
-CREATE POLICY "Riders can update own rides" ON rides
-  FOR UPDATE
-  USING ((SELECT auth.uid()) = rider_id)
-  WITH CHECK ((SELECT auth.uid()) = rider_id);
-
--- Disallow deleting by client; allow server-side delete only
-CREATE POLICY "No client deletes" ON rides
-  FOR DELETE TO authenticated USING (false);
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM pg_policies 
+        WHERE tablename = 'rides' 
+        AND policyname = 'No client deletes'
+    ) THEN
+        CREATE POLICY "No client deletes" ON rides
+          FOR DELETE TO authenticated USING (false);
+    END IF;
+END $$;
 
 -- ============================================
 -- UBER-STANDARD: ONE ACTIVE RIDE PER RIDER
@@ -113,4 +164,15 @@ CREATE OR REPLACE TRIGGER rides_updated_at
 -- ============================================
 -- ENABLE REALTIME
 -- ============================================
-ALTER PUBLICATION supabase_realtime ADD TABLE rides;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime'
+        AND schemaname = 'public'
+        AND tablename = 'rides'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE rides;
+    END IF;
+END $$;

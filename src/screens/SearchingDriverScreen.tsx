@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { Location as LocationType, FareEstimate } from '../types/ride';
 import { useRideSubscription, fetchDriverDetails } from '../services/realtime';
-import { cancelRide } from '../services/api';
+import { cancelRide, matchDriver, getActiveRide } from '../services/api';
+import { supabase } from '../services/supabase';
 import { theme } from '../theme';
+import { RadarScanner } from '../components/RadarScanner';
 
 interface SearchingDriverScreenProps {
     navigation: any;
@@ -21,12 +23,13 @@ interface SearchingDriverScreenProps {
             destination: LocationType;
             fare: FareEstimate;
             rideId?: string;
+            paymentMethod?: 'cash' | 'card';
         };
     };
 }
 
 export function SearchingDriverScreen({ navigation, route }: SearchingDriverScreenProps) {
-    const { destination, fare, rideId } = route.params;
+    const { destination, fare, rideId, paymentMethod = 'cash' } = route.params;
     const [dots, setDots] = useState('');
     const [cancelling, setCancelling] = useState(false);
 
@@ -47,7 +50,10 @@ export function SearchingDriverScreen({ navigation, route }: SearchingDriverScre
                 handleDriverAssigned(rideUpdate.driver_id);
             } else if (rideUpdate.status === 'cancelled') {
                 Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
-                navigation.popToTop();
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Home' }],
+                });
             }
         }
     }, [rideUpdate]);
@@ -64,6 +70,8 @@ export function SearchingDriverScreen({ navigation, route }: SearchingDriverScre
                 plate: 'Loading...',
                 rating: 4.8,
             },
+            rideId,
+            paymentMethod,
         });
     };
 
@@ -124,24 +132,90 @@ export function SearchingDriverScreen({ navigation, route }: SearchingDriverScre
         return () => clearInterval(interval);
     }, []);
 
-    // DEMO: Simulate driver found after 5 seconds if no realtime
+    // POLLING FALLBACK: Check status every 4s in case Realtime fails
     useEffect(() => {
-        if (!rideId) {
-            // No rideId means demo mode - simulate finding driver
-            const timer = setTimeout(() => {
-                navigation.replace('ActiveRide', {
-                    destination,
-                    fare,
-                    driver: {
-                        name: 'Demo Driver',
-                        vehicle: 'Toyota Corolla',
-                        plate: 'TAX 1234',
-                        rating: 4.9,
-                    },
-                });
-            }, 5000);
-            return () => clearTimeout(timer);
-        }
+        if (!rideId) return;
+
+        const checkStatus = async () => {
+            // Don't poll if we are already seeing success
+            if (rideUpdate?.status === 'assigned') return;
+
+            try {
+                const response = await getActiveRide();
+                if (response.success && response.data) {
+                    const ride = response.data;
+                    if (ride.ride_id === rideId && ride.status === 'assigned') {
+                        console.log("Polling found assigned driver! (Recovering from lost packet)");
+
+                        // We need driver_id, but getActiveRide might not have it. Fetch it.
+                        const { data: rideData, error } = await supabase
+                            .from('rides')
+                            .select('driver_id')
+                            .eq('id', rideId)
+                            .single();
+
+                        if (!error && rideData?.driver_id) {
+                            handleDriverAssigned(rideData.driver_id);
+                        }
+                    } else if (ride.status === 'cancelled') {
+                        navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+                    }
+                }
+            } catch (e) {
+                console.log("Polling check failed", e);
+            }
+        };
+
+        const pollInterval = setInterval(checkStatus, 4000);
+        return () => clearInterval(pollInterval);
+    }, [rideId, rideUpdate]);
+
+    // Trigger matching process on mount
+    useEffect(() => {
+        const startMatching = async () => {
+            if (!rideId) return;
+
+            console.log('Requesting driver match for:', rideId);
+            try {
+                const response = await matchDriver(rideId);
+
+                // HANDLE FAILURE (Crucial Fix)
+                if (!response.success) {
+                    console.error('Match driver API failed:', response.error);
+                    Alert.alert(
+                        'Connection Error',
+                        'Could not reach the driver network. Please try again.',
+                        [{ text: 'OK', onPress: () => navigation.goBack() }]
+                    );
+                    return;
+                }
+
+                // IMMEDIATE HANDOFF (Uber Pattern)
+                if (response.data && response.data.driver) {
+                    const driverData = response.data.driver;
+                    console.log('Match success (Synchronous):', driverData.name);
+
+                    navigation.replace('ActiveRide', {
+                        destination,
+                        fare,
+                        driver: {
+                            name: driverData.name,
+                            vehicle: driverData.vehicle,
+                            plate: driverData.plate,
+                            rating: driverData.rating
+                        },
+                        rideId,
+                        paymentMethod,
+                    });
+                }
+            } catch (error) {
+                console.error('Unexpected error requesting match:', error);
+                Alert.alert('Error', 'An unexpected error occurred.');
+                navigation.goBack();
+            }
+        };
+
+        startMatching();
     }, [rideId]);
 
     const handleCancel = async () => {
@@ -164,7 +238,10 @@ export function SearchingDriverScreen({ navigation, route }: SearchingDriverScre
                                 return;
                             }
                         }
-                        navigation.popToTop();
+                        navigation.reset({
+                            index: 0,
+                            routes: [{ name: 'Home' }],
+                        });
                     }
                 },
             ]
@@ -180,6 +257,7 @@ export function SearchingDriverScreen({ navigation, route }: SearchingDriverScre
         <View style={styles.container}>
             {/* Background orbs */}
             <Animated.View
+                pointerEvents="none"
                 style={[
                     styles.backgroundOrb,
                     styles.orbTop,
@@ -191,6 +269,8 @@ export function SearchingDriverScreen({ navigation, route }: SearchingDriverScre
                 {/* Map area with pulsing car */}
                 <View style={styles.mapContainer}>
                     <View style={styles.glassMap}>
+
+
                         {/* Connection status indicator */}
                         <View style={[
                             styles.connectionIndicator,
@@ -202,16 +282,9 @@ export function SearchingDriverScreen({ navigation, route }: SearchingDriverScre
                             </Text>
                         </View>
 
-                        {/* Pulsing animation */}
-                        <Animated.View
-                            style={[
-                                styles.pulseCircle,
-                                {
-                                    transform: [{ scale: pulseAnim }],
-                                    opacity: pulseOpacity,
-                                }
-                            ]}
-                        />
+                        {/* Radar Animation */}
+                        <RadarScanner />
+
                         <View style={styles.carContainer}>
                             <Text style={styles.carIcon}>🚗</Text>
                         </View>

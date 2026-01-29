@@ -5,7 +5,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface RideUpdate {
     ride_id: string;
-    status: 'requested' | 'searching' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+    status: 'requested' | 'searching' | 'assigned' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
     driver_id?: string;
     driver_name?: string;
     driver_vehicle?: string;
@@ -111,10 +111,11 @@ export function useDriverLocationSubscription(driverId: string | null) {
                     },
                     (payload) => {
                         const driver = payload.new as any;
-                        if (driver.current_lat && driver.current_lng) {
+                        // Use lat/lng which matches the database schema
+                        if (driver.lat !== undefined && driver.lng !== undefined) {
                             setDriverLocation({
-                                lat: driver.current_lat,
-                                lng: driver.current_lng,
+                                lat: driver.lat,
+                                lng: driver.lng,
                             });
                         }
                     }
@@ -140,7 +141,7 @@ export function useDriverLocationSubscription(driverId: string | null) {
 export async function fetchDriverDetails(driverId: string) {
     const { data, error } = await supabase
         .from('drivers')
-        .select('id, full_name, vehicle_make, vehicle_model, license_plate, rating')
+        .select('id, name, vehicle_model, plate_number, rating')
         .eq('id', driverId)
         .single();
 
@@ -150,9 +151,9 @@ export async function fetchDriverDetails(driverId: string) {
     }
 
     return {
-        name: data.full_name,
-        vehicle: `${data.vehicle_make} ${data.vehicle_model}`,
-        plate: data.license_plate,
+        name: data.name,
+        vehicle: data.vehicle_model, // We only have vehicle_model in DB currently
+        plate: data.plate_number,
         rating: data.rating || 4.8,
     };
 }

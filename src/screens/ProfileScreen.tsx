@@ -78,6 +78,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         <View style={styles.container}>
             {/* Background Orbs */}
             <Animated.View
+                pointerEvents="none"
                 style={[
                     styles.backgroundOrb,
                     styles.orbTop,
@@ -85,6 +86,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
                 ]}
             />
             <Animated.View
+                pointerEvents="none"
                 style={[
                     styles.backgroundOrb,
                     styles.orbBottom,

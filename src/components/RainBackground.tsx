@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { View, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, Easing, Platform } from 'react-native';
 import { theme } from '../theme';
 
 const { width, height } = Dimensions.get('window');
@@ -25,7 +25,7 @@ const RainDrop = () => {
                     toValue: height + 100,
                     duration: duration,
                     easing: Easing.linear,
-                    useNativeDriver: true,
+                    useNativeDriver: Platform.OS !== 'web',
                 })
             ]).start(() => {
                 // Determine next delay randomly for irregularity

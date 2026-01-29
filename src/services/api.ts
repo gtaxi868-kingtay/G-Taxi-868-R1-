@@ -31,6 +31,7 @@ interface CreateRideParams {
     dropoff_lat: number;
     dropoff_lng: number;
     dropoff_address: string;
+    vehicle_type?: 'Standard' | 'XL' | 'Premium';
 }
 
 interface CreateRideResponse {
@@ -222,13 +223,162 @@ export async function cancelRide(
 }
 
 /**
+ * DEV/DRIVER: Update location
+ */
+export async function updateDriverLocation(
+    driverId: string,
+    lat: number,
+    lng: number,
+    heading: number = 0
+): Promise<ApiResponse<void>> {
+    // For MVP/Sim, we use anon headers, assuming function is open or we are the rider
+    const headers = getAnonHeaders();
+    return fetchWithRetry<void>(
+        `${FUNCTIONS_URL}/update_driver_location`,
+        {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ driver_id: driverId, lat, lng, heading }),
+        }
+    );
+}
+
+/**
+ * DEV/DRIVER: Accept Ride
+ */
+export async function acceptRide(
+    rideId: string,
+    driverId: string
+): Promise<ApiResponse<any>> {
+    const headers = getAnonHeaders();
+    return fetchWithRetry<any>(
+        `${FUNCTIONS_URL}/accept_ride`,
+        {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ ride_id: rideId, driver_id: driverId }),
+        }
+    );
+}
+
+/**
  * Format cents to TTD currency string
  */
 export function formatCurrency(cents: number): string {
     return `$${(cents / 100).toFixed(2)} TTD`;
 }
 
+/**
+ * Get online drivers for map (Ghost Cars)
+ * Returns a list of drivers with their locations
+ */
+import { Driver } from '../types/ride';
+export async function getOnlineDrivers(): Promise<Driver[]> {
+    const { data, error } = await supabase
+        .from('drivers')
+        .select('*')
+        .eq('is_online', true);
+
+    if (error) {
+        console.error('Error fetching drivers:', error);
+        return [];
+    }
+
+    return data as Driver[];
+}
+
 // Legacy export for AuthContext compatibility
 export function setAuthToken(_token: string) {
     // No longer needed - we get fresh token from Supabase each time
+}
+
+/**
+ * Saved Places API
+ */
+import { SavedPlace, Location } from '../types/ride';
+
+export async function getSavedPlaces(): Promise<SavedPlace[]> {
+    const { data, error } = await supabase
+        .from('saved_places')
+        .select('*')
+        .order('created_at', { ascending: false }); // Show newest first? Or maybe specific order.
+
+    if (error) {
+        console.error('Error fetching saved places:', error);
+        return [];
+    }
+    return data as SavedPlace[];
+}
+
+export async function savePlace(place: Omit<SavedPlace, 'id' | 'created_at' | 'updated_at'>): Promise<SavedPlace | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+        .from('saved_places')
+        .upsert({
+            user_id: user.id,
+            ...place
+        }, { onConflict: 'user_id, label' }) // Updates existing label if present
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error saving place:', error);
+        return null;
+    }
+    return data as SavedPlace;
+}
+
+export async function deletePlace(id: string): Promise<boolean> {
+    const { error } = await supabase
+        .from('saved_places')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error deleting place:', error);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Recent Rides API
+ * Fetches unique recent destinations from ride history
+ */
+export async function getRecentRides(): Promise<Location[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    // Fetch last 20 completed rides
+    const { data, error } = await supabase
+        .from('rides')
+        .select('dropoff_lat, dropoff_lng, dropoff_address, created_at')
+        .eq('rider_id', user.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+    if (error) {
+        console.error('Error fetching recent rides:', error);
+        return [];
+    }
+
+    // Dedup by address
+    const uniqueDestinations: Location[] = [];
+    const seenAddresses = new Set<string>();
+
+    data?.forEach((ride: any) => {
+        if (ride.dropoff_address && !seenAddresses.has(ride.dropoff_address)) {
+            seenAddresses.add(ride.dropoff_address);
+            uniqueDestinations.push({
+                latitude: ride.dropoff_lat,
+                longitude: ride.dropoff_lng,
+                address: ride.dropoff_address,
+            });
+        }
+    });
+
+    return uniqueDestinations.slice(0, 5); // Return top 5
 }

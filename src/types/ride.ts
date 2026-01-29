@@ -35,3 +35,22 @@ export interface Location {
     longitude: number;
     address?: string;
 }
+
+export interface Driver {
+    id: string;
+    lat: number;
+    lng: number;
+    heading: number;
+    name: string;
+    vehicle_model: string;
+    plate_number: string;
+}
+
+export interface SavedPlace {
+    id: string;
+    label: string; // 'Home', 'Work', etc.
+    address: string;
+    lat: number;
+    lng: number;
+    icon?: string;
+}

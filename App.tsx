@@ -21,6 +21,8 @@ import { SearchingDriverScreen } from './src/screens/SearchingDriverScreen';
 import { ActiveRideScreen } from './src/screens/ActiveRideScreen';
 import { RatingScreen } from './src/screens/RatingScreen';
 
+import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
+
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
 const queryClient = new QueryClient();
@@ -44,21 +46,24 @@ function AuthNavigator() {
 // Main app screens (for logged-in users)
 function AppNavigator() {
     return (
-        <AppStack.Navigator
-            screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: '#000' },
-                animation: 'slide_from_right',
-            }}
-        >
-            <AppStack.Screen name="Home" component={HomeScreen} />
-            <AppStack.Screen name="Profile" component={ProfileScreen} />
-            <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} />
-            <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} />
-            <AppStack.Screen name="SearchingDriver" component={SearchingDriverScreen} />
-            <AppStack.Screen name="ActiveRide" component={ActiveRideScreen} />
-            <AppStack.Screen name="Rating" component={RatingScreen} />
-        </AppStack.Navigator>
+        <>
+            <ActiveRideRestorationHandler />
+            <AppStack.Navigator
+                screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: '#000' },
+                    animation: 'slide_from_right',
+                }}
+            >
+                <AppStack.Screen name="Home" component={HomeScreen} />
+                <AppStack.Screen name="Profile" component={ProfileScreen} />
+                <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} />
+                <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} />
+                <AppStack.Screen name="SearchingDriver" component={SearchingDriverScreen} />
+                <AppStack.Screen name="ActiveRide" component={ActiveRideScreen} />
+                <AppStack.Screen name="Rating" component={RatingScreen} />
+            </AppStack.Navigator>
+        </>
     );
 }
 
@@ -98,3 +103,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
     },
 });
+
+import { registerRootComponent } from 'expo';
+registerRootComponent(App);

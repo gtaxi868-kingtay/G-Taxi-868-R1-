@@ -18,6 +18,8 @@ import { theme } from '../theme';
 import { RainBackground } from '../components/RainBackground';
 import { GlassView } from '../components/GlassView';
 import { GlassButton } from '../components/GlassButton';
+import { VehicleSelection, VehicleType } from '../components/VehicleSelection';
+import { PaymentSelector, PaymentMethod } from '../components/PaymentSelector';
 
 interface RideConfirmationScreenProps {
     navigation: any;
@@ -43,6 +45,13 @@ export function RideConfirmationScreen({ navigation, route }: RideConfirmationSc
     const [fare, setFare] = useState<FareEstimate | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [confirming, setConfirming] = useState(false);
+
+    // Vehicle Selection State
+    const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('Standard');
+    const [priceMultiplier, setPriceMultiplier] = useState(1.0);
+
+    // Payment Selection State
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
 
     // Glow Animation
     const glowAnim = useRef(new Animated.Value(0)).current;
@@ -99,7 +108,8 @@ export function RideConfirmationScreen({ navigation, route }: RideConfirmationSc
             pickup_address: pickupLocation.address || 'Current Location',
             dropoff_lat: destination.latitude,
             dropoff_lng: destination.longitude,
-            dropoff_address: destination.address,
+            dropoff_address: destination.address || 'Unknown Destination',
+            vehicle_type: selectedVehicle,
         });
 
         if (response.success && response.data) {
@@ -108,6 +118,7 @@ export function RideConfirmationScreen({ navigation, route }: RideConfirmationSc
                 fare,
                 pickup: pickupLocation,
                 rideId: response.data.ride_id,
+                paymentMethod,
             });
         } else {
             Alert.alert('Error', response.error || 'Failed to create ride');
@@ -180,20 +191,21 @@ export function RideConfirmationScreen({ navigation, route }: RideConfirmationSc
                     </View>
                 </GlassView>
 
-                {/* Vehicle Option with Price */}
-                <GlassView style={styles.glassVehicleCard} intensity="light">
-                    <View style={styles.vehicleIconContainer}>
-                        <Text style={styles.vehicleIcon}>🚗</Text>
-                    </View>
-                    <View style={styles.vehicleInfo}>
-                        <Text style={styles.vehicleName}>G-Taxi Standard</Text>
-                        <Text style={styles.vehicleTime}>Arrives in ~{fare.duration_min} min</Text>
-                    </View>
-                    <View style={styles.priceContainer}>
-                        <Text style={styles.priceValue}>{formatCurrency(fare.total_fare_cents)}</Text>
-                        <Text style={styles.priceCurrency}>TTD</Text>
-                    </View>
-                </GlassView>
+                {/* Vehicle Selection Carousel */}
+                <VehicleSelection
+                    basePrice={fare.total_fare_cents}
+                    selectedType={selectedVehicle}
+                    onSelect={(type, multiplier) => {
+                        setSelectedVehicle(type);
+                        setPriceMultiplier(multiplier);
+                    }}
+                />
+
+                {/* Payment Method Selector */}
+                <PaymentSelector
+                    selected={paymentMethod}
+                    onSelect={setPaymentMethod}
+                />
 
                 {/* Confirm button */}
                 <GlassButton

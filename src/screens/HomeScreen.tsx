@@ -17,6 +17,11 @@ import { theme } from '../theme';
 import { RainBackground } from '../components/RainBackground';
 import { GlassView } from '../components/GlassView';
 import { GlassButton } from '../components/GlassButton';
+import { MapComponent } from '../components/MapComponent';
+import { SavedPlaceModal } from '../components/SavedPlaceModal';
+import { RecentRidesModal } from '../components/RecentRidesModal';
+import { getOnlineDrivers, getSavedPlaces, savePlace, getRecentRides } from '../services/api';
+import { Driver, SavedPlace, Location as RideLocation } from '../types/ride';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,8 +33,18 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [loading, setLoading] = useState(true);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [drivers, setDrivers] = useState<Driver[]>([]); // Ghost Cars state
+    const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
+    const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
+    const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null); // 'Home', 'Work', or null
+    const [showRecentModal, setShowRecentModal] = useState(false);
 
     const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    const fetchPlaces = async () => {
+        const places = await getSavedPlaces();
+        setSavedPlaces(places);
+    };
 
     useEffect(() => {
         (async () => {
@@ -45,6 +60,13 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     accuracy: Location.Accuracy.Balanced,
                 });
                 setLocation(currentLocation);
+
+                // Once we have location, fetch nearby drivers
+                console.log('[Home] Fetching drivers...');
+                const onlineDrivers = await getOnlineDrivers();
+                console.log('[Home] Drivers loaded:', onlineDrivers.length);
+                setDrivers(onlineDrivers); // Initial seed
+
             } catch (error) {
                 console.log('Location error:', error);
                 setErrorMsg('Using default location');
@@ -52,7 +74,28 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 setLoading(false);
             }
         })();
+
+        fetchPlaces();
     }, []);
+
+    // Ghost Car Simulation Loop
+    useEffect(() => {
+        if (drivers.length === 0) return;
+
+        const interval = setInterval(() => {
+            setDrivers(currentDrivers =>
+                currentDrivers.map(d => ({
+                    ...d,
+                    // Jitter position slightly to simulate driving
+                    lat: d.lat + (Math.random() - 0.5) * 0.0002, // ~20 meters
+                    lng: d.lng + (Math.random() - 0.5) * 0.0002,
+                    heading: d.heading + (Math.random() - 0.5) * 10, // Slight turn
+                }))
+            );
+        }, 3000); // Update every 3 seconds
+
+        return () => clearInterval(interval);
+    }, [drivers.length > 0]);
 
     useEffect(() => {
         // Pulse animation
@@ -61,16 +104,81 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 Animated.timing(pulseAnim, {
                     toValue: 1.2,
                     duration: 1500,
-                    useNativeDriver: true,
+                    useNativeDriver: Platform.OS !== 'web',
                 }),
                 Animated.timing(pulseAnim, {
                     toValue: 1,
                     duration: 1500,
-                    useNativeDriver: true,
+                    useNativeDriver: Platform.OS !== 'web',
                 }),
             ])
+
         ).start();
     }, []);
+
+    const handleQuickAction = async (label: string) => {
+        if (label === 'Home' || label === 'Work') {
+            const place = savedPlaces.find(p => p.label === label);
+            if (place) {
+                // Navigate to Ride Confirmation with saved destination
+                navigation.navigate('RideConfirmation', {
+                    destination: {
+                        latitude: place.lat,
+                        longitude: place.lng,
+                        address: place.address,
+                    },
+                    pickup: location ? {
+                        latitude: location.coords.latitude,
+                        longitude: location.coords.longitude,
+                        address: 'Current Location',
+                    } : undefined
+                });
+            } else {
+                // Prompt to save
+                setActiveModalLabel(label);
+            }
+        } else if (label === 'Recent') {
+            setLoading(true);
+            const recents: RideLocation[] = await getRecentRides(); // Explicit type
+            setRecentRides(recents);
+            setLoading(false);
+            setShowRecentModal(true);
+        } else {
+            // For now, these are placeholders
+            console.log('Action:', label);
+        }
+    };
+
+    const handleRecentSelect = (selectedLocation: RideLocation) => {
+        navigation.navigate('RideConfirmation', {
+            destination: {
+                latitude: selectedLocation.latitude,
+                longitude: selectedLocation.longitude,
+                address: selectedLocation.address,
+            },
+            pickup: location ? {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                address: 'Current Location',
+            } : undefined
+        });
+    };
+
+    const handleSavePlace = async (label: string, address: string) => {
+        // In a real app, we'd Geocode the address here to get lat/lng
+        // For now, we'll mock it relative to current location or default
+        const mockLat = (location?.coords.latitude || DEFAULT_LOCATION.latitude) + (Math.random() - 0.5) * 0.05;
+        const mockLng = (location?.coords.longitude || DEFAULT_LOCATION.longitude) + (Math.random() - 0.5) * 0.05;
+
+        await savePlace({
+            label,
+            address,
+            lat: mockLat,
+            lng: mockLng,
+            icon: label === 'Home' ? '🏠' : '💼',
+        });
+        await fetchPlaces();
+    };
 
     const currentLat = location?.coords.latitude ?? DEFAULT_LOCATION.latitude;
     const currentLng = location?.coords.longitude ?? DEFAULT_LOCATION.longitude;
@@ -103,32 +211,15 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     <View style={styles.placeholder} />
                 </View>
 
-                {/* Map Area - Glass Container */}
+                {/* Map Area - Real Map (Cross Platform) */}
                 <View style={styles.mapContainer}>
-                    <GlassView style={styles.glassMap} intensity="medium">
-                        {loading ? (
-                            <View style={styles.loadingContainer}>
-                                <ActivityIndicator size="large" color={theme.colors.brand.primary} />
-                                <Text style={styles.loadingText}>Getting location...</Text>
-                            </View>
-                        ) : (
-                            <View style={styles.locationDisplay}>
-                                <Animated.View
-                                    style={[
-                                        styles.locationPulse,
-                                        { transform: [{ scale: pulseAnim }] }
-                                    ]}
-                                />
-                                <View style={styles.locationDot}>
-                                    <View style={styles.locationDotInner} />
-                                </View>
-                                <Text style={styles.coordsLabel}>YOUR LOCATION</Text>
-                                <Text style={styles.coords}>
-                                    {currentLat.toFixed(4)}°, {currentLng.toFixed(4)}°
-                                </Text>
-                            </View>
-                        )}
-                    </GlassView>
+                    <MapComponent
+                        location={location}
+                        loading={loading}
+                        currentLat={currentLat}
+                        currentLng={currentLng}
+                        drivers={drivers}
+                    />
                 </View>
 
                 {/* Bottom Glass Card - Using GlassView container */}
@@ -161,7 +252,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                             { icon: '⭐', label: 'Saved' },
                             { icon: '🕐', label: 'Recent' },
                         ].map((item, index) => (
-                            <TouchableOpacity key={index} style={styles.quickAction} activeOpacity={0.7}>
+                            <TouchableOpacity
+                                key={index}
+                                style={styles.quickAction}
+                                activeOpacity={0.7}
+                                onPress={() => handleQuickAction(item.label)}
+                            >
                                 <GlassView style={styles.quickActionGlass} intensity="light">
                                     <Text style={styles.quickActionIcon}>{item.icon}</Text>
                                 </GlassView>
@@ -171,6 +267,22 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     </View>
                 </GlassView>
             </SafeAreaView>
+
+            {/* Saved Place Modal */}
+            <SavedPlaceModal
+                visible={!!activeModalLabel}
+                defaultLabel={activeModalLabel || ''}
+                onClose={() => setActiveModalLabel(null)}
+                onSave={handleSavePlace}
+            />
+
+            {/* Recent Rides Modal */}
+            <RecentRidesModal
+                visible={showRecentModal}
+                onClose={() => setShowRecentModal(false)}
+                onSelect={handleRecentSelect}
+                recentLocations={recentRides}
+            />
         </View>
     );
 }
@@ -214,64 +326,22 @@ const styles = StyleSheet.create({
     },
     mapContainer: {
         flex: 1,
-        margin: theme.spacing.lg,
+        marginHorizontal: theme.spacing.lg,
+        marginTop: theme.spacing.lg,
+        marginBottom: theme.spacing.md,
         borderRadius: theme.borderRadius.xxl,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: theme.colors.glass.border,
     },
-    glassMap: {
-        flex: 1,
+    map: {
+        width: '100%',
+        height: '100%',
+    },
+    mapLoaderOverlay: {
+        ...StyleSheet.absoluteFillObject,
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: theme.borderRadius.xxl,
-    },
-    loadingContainer: {
-        alignItems: 'center',
-    },
-    loadingText: {
-        marginTop: theme.spacing.md,
-        color: theme.colors.text.secondary,
-        fontSize: theme.typography.sizes.md,
-    },
-    locationDisplay: {
-        alignItems: 'center',
-    },
-    locationPulse: {
-        position: 'absolute',
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: theme.colors.brand.glow,
-        opacity: 0.3,
-    },
-    locationDot: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: theme.colors.glass.backgroundLight,
-        borderWidth: 2,
-        borderColor: theme.colors.brand.primary,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: theme.spacing.lg,
-        ...theme.shadows.glow,
-    },
-    locationDotInner: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        backgroundColor: theme.colors.brand.primary,
-    },
-    coordsLabel: {
-        fontSize: theme.typography.sizes.xs,
-        fontWeight: theme.typography.weights.bold,
-        color: theme.colors.text.tertiary,
-        letterSpacing: 2,
-        marginBottom: theme.spacing.xs,
-    },
-    coords: {
-        color: theme.colors.text.secondary,
-        fontSize: theme.typography.sizes.sm,
-        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     },
     bottomCard: {
         borderTopLeftRadius: theme.borderRadius.xxl,

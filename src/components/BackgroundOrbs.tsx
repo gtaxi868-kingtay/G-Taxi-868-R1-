@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated, Dimensions } from 'react-native';
+import { View, StyleSheet, Animated, Dimensions, Platform } from 'react-native';
 import { theme } from '../theme';
 
 const { width, height } = Dimensions.get('window');
@@ -13,12 +13,12 @@ export const BackgroundOrbs = () => {
                 Animated.timing(floatAnim, {
                     toValue: 1,
                     duration: 4000,
-                    useNativeDriver: true,
+                    useNativeDriver: Platform.OS !== 'web',
                 }),
                 Animated.timing(floatAnim, {
                     toValue: 0,
                     duration: 4000,
-                    useNativeDriver: true,
+                    useNativeDriver: Platform.OS !== 'web',
                 }),
             ])
         ).start();
