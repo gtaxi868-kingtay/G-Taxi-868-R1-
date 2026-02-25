@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, supabaseAdmin } from './lib/supabase';
 import { ShieldAlert, AlertTriangle, Car, CheckCircle2, XCircle, Search, Settings, Wallet, Users } from 'lucide-react';
+import Login from './pages/Login';
 
 interface Ride {
   id: string;
@@ -14,6 +15,10 @@ interface Ride {
 }
 
 function App() {
+  if (window.location.pathname === '/login') {
+    return <Login />;
+  }
+
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,6 +28,31 @@ function App() {
 
   // Phase 10: Waitlist & Authorization
   const [allUsers, setAllUsers] = useState<{ id: string, name: string, email: string, is_driver: boolean }[]>([]);
+
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) {
+        window.location.href = '/login';
+        return;
+      }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profile?.role !== 'admin') {
+        await supabase.auth.signOut();
+        window.location.href = '/unauthorized';
+        return;
+      }
+      setIsAdmin(true);
+      setAuthChecked(true);
+    });
+  }, []);
 
   const fetchAdminData = async () => {
     // 1. Fetch Flags
@@ -85,6 +115,8 @@ function App() {
   };
 
   useEffect(() => {
+    if (!isAdmin) return;
+
     fetchRides();
     fetchAdminData();
 
@@ -104,7 +136,7 @@ function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isAdmin]);
 
   const handleForceCancel = async (rideId: string) => {
     if (!window.confirm("Are you sure you want to FORCE CANCEL this ride?")) return;
@@ -173,6 +205,16 @@ function App() {
     }
     fetchAdminData();
   };
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) return null;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
