@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { ShieldAlert } from 'lucide-react';
 
-export default function Login() {
+interface LoginProps {
+    onLoginSuccess: () => void;
+}
+
+export default function Login({ onLoginSuccess }: LoginProps) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -13,16 +17,13 @@ export default function Login() {
         setLoading(true);
         setError('');
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
             setError(error.message);
             setLoading(false);
         } else {
-            window.location.href = '/dashboard';
+            onLoginSuccess();
         }
     };
 
@@ -33,9 +34,7 @@ export default function Login() {
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">
                     G-Taxi Operations
                 </h2>
-                <p className="mt-2 text-center text-sm text-slate-600">
-                    Admin Sign In
-                </p>
+                <p className="mt-2 text-center text-sm text-slate-600">Admin Sign In</p>
             </div>
 
             <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

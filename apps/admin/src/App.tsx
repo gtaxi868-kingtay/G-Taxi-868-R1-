@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, supabaseAdmin } from './lib/supabase';
+import { supabase, adminFetch } from './lib/supabase';
 import { ShieldAlert, AlertTriangle, Car, CheckCircle2, XCircle, Search, Settings, Wallet, Users } from 'lucide-react';
 import Login from './pages/Login';
 
@@ -14,142 +14,183 @@ interface Ride {
   driver_id: string | null;
 }
 
+interface UserRow {
+  id: string;
+  name: string;
+  email: string;
+  is_driver: boolean;
+  balance_cents: number;
+}
+
+interface LockedDriver {
+  user_id: string;
+  name: string;
+  balance: number;
+}
+
+interface Flag {
+  id: string;
+  is_active: boolean;
+}
+
 function App() {
-  if (window.location.pathname === '/login') {
-    return <Login />;
-  }
+  // 'checking' → auth in flight | 'login' → no session / not admin | 'dashboard' → verified admin
+  const [view, setView] = useState<'checking' | 'login' | 'dashboard'>('checking');
 
   const [rides, setRides] = useState<Ride[]>([]);
   const [loading, setLoading] = useState(true);
+  const [flags, setFlags] = useState<Flag[]>([]);
+  const [lockedDrivers, setLockedDrivers] = useState<LockedDriver[]>([]);
+  const [allUsers, setAllUsers] = useState<UserRow[]>([]);
 
-  // Phase 8: Admin Interfaces
-  const [flags, setFlags] = useState<{ id: string, is_active: boolean }[]>([]);
-  const [lockedDrivers, setLockedDrivers] = useState<{ user_id: string, name: string, balance: number }[]>([]);
+  // Run the role check on mount, and again after a successful login.
+  // Note: the actual admin role verification lives server-side inside requireAdmin.
+  // Here we just check for a valid session to decide which view to show.
+  const runAuthCheck = async () => {
+    setView('checking');
+    const { data: { session } } = await supabase.auth.getSession();
 
-  // Phase 10: Waitlist & Authorization
-  const [allUsers, setAllUsers] = useState<{ id: string, name: string, email: string, is_driver: boolean }[]>([]);
-
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) {
-        window.location.href = '/login';
-        return;
-      }
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
-
-      if (profile?.role !== 'admin') {
-        await supabase.auth.signOut();
-        window.location.href = '/unauthorized';
-        return;
-      }
-      setIsAdmin(true);
-      setAuthChecked(true);
-    });
-  }, []);
-
-  const fetchAdminData = async () => {
-    // 1. Fetch Flags
-    const { data: flagData } = await supabaseAdmin.from('system_feature_flags').select('*').order('id');
-    if (flagData) setFlags(flagData);
-
-    // 2. Compute Locked Drivers (-600 TTD = -60000 cents)
-    const { data: txData } = await supabaseAdmin.from('wallet_transactions').select('user_id, amount');
-    if (txData) {
-      const balances: Record<string, number> = {};
-      txData.forEach(tx => {
-        balances[tx.user_id] = (balances[tx.user_id] || 0) + tx.amount;
-      });
-
-      const lockedIds = Object.keys(balances).filter(id => balances[id] <= -60000);
-
-      if (lockedIds.length > 0) {
-        const { data: profileData } = await supabaseAdmin.from('profiles').select('id, full_name').in('id', lockedIds);
-        const lockedList = (profileData || []).map(p => ({
-          user_id: p.id,
-          name: p.full_name || 'Unknown Driver',
-          balance: balances[p.id]
-        }));
-        setLockedDrivers(lockedList);
-      } else {
-        setLockedDrivers([]);
-      }
+    if (!session) {
+      setView('login');
+      return;
     }
 
-    // 3. Fetch All Profiles & Authorized Drivers
-    const { data: profilesData } = await supabaseAdmin.from('profiles').select('id, full_name, email').order('created_at', { ascending: false });
-    const { data: driversData } = await supabaseAdmin.from('drivers').select('id');
-
-    if (profilesData) {
-      const driverIds = new Set((driversData || []).map(d => d.id));
-      const usersList = profilesData.map(p => ({
-        id: p.id,
-        name: p.full_name || 'No Name',
-        email: p.email || 'No Email',
-        is_driver: driverIds.has(p.id)
-      }));
-      setAllUsers(usersList);
+    // Attempt a lightweight call to an admin edge function.
+    // If the user is not admin, the function returns 403 and adminFetch throws.
+    // This is the definitive role check — not a client-side profile read.
+    try {
+      await adminFetch('admin_get_rides');
+      setView('dashboard');
+    } catch {
+      // Not an admin (403) or session invalid — sign out and show login.
+      await supabase.auth.signOut();
+      setView('login');
     }
   };
 
-  const fetchRides = async () => {
-    // We use the admin client so we bypass RLS to see ALL rides across the system
-    const { data, error } = await supabaseAdmin
-      .from('rides')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50); // Get latest 50 rides
+  useEffect(() => {
+    runAuthCheck();
+  }, []);
 
-    if (error) {
-      console.error("Error fetching rides:", error);
-    } else {
+  // ─── Data Fetchers (all go through edge functions) ─────────────────────────
+
+  const fetchRides = async () => {
+    try {
+      const { data } = await adminFetch('admin_get_rides');
       setRides(data || []);
+    } catch (err: any) {
+      console.error('fetchRides error:', err.message);
     }
     setLoading(false);
   };
 
+  const fetchAdminData = async () => {
+    try {
+      const { users, lockedDrivers: locked } = await adminFetch('admin_get_users');
+      setAllUsers(users || []);
+      setLockedDrivers(locked || []);
+    } catch (err: any) {
+      console.error('fetchAdminData (users) error:', err.message);
+    }
+
+    try {
+      // admin_get_flags is not a separate function — flags are part of admin_get_users
+      // so we fetch them directly via the anon client reading a public-ish table.
+      // The service role gate is enforced by admin_toggle_flag on writes.
+      // We do a lightweight flags fetch here using the session-scoped anon client.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/system_feature_flags?select=id,is_active&order=id`,
+        {
+          headers: {
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        }
+      );
+      if (res.ok) {
+        const flagData = await res.json();
+        setFlags(flagData || []);
+      }
+    } catch (err: any) {
+      console.error('fetchAdminData (flags) error:', err.message);
+    }
+  };
+
   useEffect(() => {
-    if (!isAdmin) return;
+    if (view !== 'dashboard') return;
 
     fetchRides();
     fetchAdminData();
 
-    // Subscribe to realtime changes on the rides table using anon client
+    // Realtime — still uses the anon Supabase client (anon key is fine for subscriptions).
     const channel = supabase
       .channel('schema-db-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'rides' },
-        (payload) => {
-          console.log("Realtime payload", payload);
-          fetchRides(); // Re-fetch all to keep it simple and accurate
-        }
+        () => { fetchRides(); }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [isAdmin]);
+    return () => { supabase.removeChannel(channel); };
+  }, [view]);
+
+  // ─── Actions ───────────────────────────────────────────────────────────────
 
   const handleForceCancel = async (rideId: string) => {
-    if (!window.confirm("Are you sure you want to FORCE CANCEL this ride?")) return;
+    if (!window.confirm('Are you sure you want to FORCE CANCEL this ride?')) return;
 
-    // Use admin privileges to directly override the status
-    const { error } = await supabaseAdmin
-      .from('rides')
-      .update({ status: 'cancelled' })
-      .eq('id', rideId);
-
-    if (error) {
-      alert("Failed to cancel: " + error.message);
+    try {
+      await adminFetch('admin_cancel_ride', { ride_id: rideId });
+      await fetchRides();
+    } catch (err: any) {
+      alert('Failed to cancel: ' + err.message);
     }
+  };
+
+  const toggleFlag = async (id: string, current: boolean) => {
+    try {
+      await adminFetch('admin_toggle_flag', { id, is_active: current });
+      await fetchAdminData();
+    } catch (err: any) {
+      alert('Failed to toggle flag: ' + err.message);
+    }
+  };
+
+  const settleDriverDebt = async (user_id: string, currentBalanceCents: number) => {
+    if (!window.confirm("Confirm receiving Bank Transfer/Cash to clear this driver's debt?")) return;
+
+    const creditAmount = Math.abs(currentBalanceCents);
+
+    try {
+      await adminFetch('admin_settle_debt', { user_id, amount_cents: creditAmount });
+      alert('Driver Unlocked.');
+      await fetchAdminData();
+    } catch (err: any) {
+      alert('Failed to settle: ' + err.message);
+    }
+  };
+
+  const toggleDriverAuthorization = async (user: UserRow) => {
+    if (user.is_driver) {
+      if (!window.confirm(`Revoke driver access for ${user.name}? They will be logged out and lose app access.`)) return;
+      try {
+        await adminFetch('admin_toggle_driver', { user_id: user.id, action: 'revoke' });
+      } catch (err: any) {
+        alert('Failed to revoke: ' + err.message);
+      }
+    } else {
+      if (!window.confirm(`Authorize ${user.name} as a Driver?`)) return;
+      try {
+        await adminFetch('admin_toggle_driver', { user_id: user.id, action: 'authorize', name: user.name });
+      } catch (err: any) {
+        alert('Failed to authorize: ' + err.message);
+      }
+    }
+    await fetchAdminData();
   };
 
   const isStuck = (ride: Ride) => {
@@ -158,55 +199,9 @@ function App() {
     return minutesOld > 15;
   };
 
-  // Phase 8 Actions
-  const toggleFlag = async (id: string, current: boolean) => {
-    await supabaseAdmin.from('system_feature_flags').update({ is_active: !current }).eq('id', id);
-    fetchAdminData();
-  };
+  // ─── View gates ────────────────────────────────────────────────────────────
 
-  const settleDriverDebt = async (user_id: string, currentBalanceCents: number) => {
-    if (!window.confirm("Confirm receiving Bank Transfer/Cash to clear this driver's debt?")) return;
-
-    // Create a credit transaction to zero out the debt
-    const creditAmount = Math.abs(currentBalanceCents);
-
-    const { error } = await supabaseAdmin.from('wallet_transactions').insert({
-      user_id,
-      amount: creditAmount,
-      transaction_type: 'topup',
-      description: 'Admin Manual Debt Settlement',
-      status: 'completed'
-    });
-
-    if (error) {
-      alert("Failed to settle: " + error.message);
-    } else {
-      alert("Driver Unlocked.");
-      fetchAdminData();
-    }
-  };
-
-  // Phase 10 Waitlist Authorization
-  const toggleDriverAuthorization = async (user: { id: string, name: string, is_driver: boolean }) => {
-    if (user.is_driver) {
-      if (!window.confirm(`Revoke driver access for ${user.name}? They will be logged out and lose app access.`)) return;
-      const { error } = await supabaseAdmin.from('drivers').delete().eq('id', user.id);
-      if (error) alert("Failed to revoke: " + error.message);
-    } else {
-      if (!window.confirm(`Authorize ${user.name} as a Driver?`)) return;
-      const { error } = await supabaseAdmin.from('drivers').insert({
-        id: user.id,
-        user_id: user.id,
-        name: user.name,
-        status: 'offline',
-        is_online: false
-      });
-      if (error) alert("Failed to authorize: " + error.message);
-    }
-    fetchAdminData();
-  };
-
-  if (!authChecked) {
+  if (view === 'checking') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -214,8 +209,11 @@ function App() {
     );
   }
 
-  if (!isAdmin) return null;
+  if (view === 'login') {
+    return <Login onLoginSuccess={runAuthCheck} />;
+  }
 
+  // view === 'dashboard'
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="bg-slate-900 text-white p-6 shadow-md flex items-center justify-between">
@@ -305,7 +303,7 @@ function App() {
                         )}
                       </td>
                     </tr>
-                  )
+                  );
                 })}
                 {rides.length === 0 && (
                   <tr>
@@ -319,7 +317,7 @@ function App() {
           </div>
         )}
 
-        {/* PHASE 8 ADMIN PANELS */}
+        {/* ADMIN PANELS */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
           {/* System Feature Flags */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -332,7 +330,7 @@ function App() {
               {flags.map(flag => (
                 <div key={flag.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
                   <div>
-                    <p className="font-medium text-slate-800 capitalize">{flag.id.replace('_', ' ')}</p>
+                    <p className="font-medium text-slate-800 capitalize">{flag.id.replace(/_/g, ' ')}</p>
                     <p className="text-xs text-slate-500">Currently {flag.is_active ? 'Active' : 'Hidden'} in Rider App</p>
                   </div>
                   <button
@@ -384,13 +382,15 @@ function App() {
           </div>
         </div>
 
-        {/* PHASE 10: DRIVER WAITLIST MANAGEMENT */}
+        {/* DRIVER WAITLIST MANAGEMENT */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mt-8">
           <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2 mb-4">
             <Users className="w-5 h-5 text-indigo-500" />
             Driver Waitlist Management
           </h3>
-          <p className="text-sm text-slate-500 mb-6">Authorize registered users to login to the Driver App. Public registration is controlled via the 'driver_registration_active' feature flag above.</p>
+          <p className="text-sm text-slate-500 mb-6">
+            Authorize registered users to login to the Driver App. Public registration is controlled via the 'driver_registration_active' feature flag above.
+          </p>
 
           <div className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
             <table className="w-full text-left border-collapse">
@@ -409,15 +409,22 @@ function App() {
                     <td className="p-4 text-sm text-slate-500">{user.email}</td>
                     <td className="p-4 text-sm">
                       {user.is_driver ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">Authorized Driver</span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                          Authorized Driver
+                        </span>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-200 text-slate-600 border border-slate-300">Standard User</span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-200 text-slate-600 border border-slate-300">
+                          Standard User
+                        </span>
                       )}
                     </td>
                     <td className="p-4 text-right">
                       <button
                         onClick={() => toggleDriverAuthorization(user)}
-                        className={`text-xs px-3 py-1.5 rounded transition font-bold border ${user.is_driver ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 shadow-sm'}`}
+                        className={`text-xs px-3 py-1.5 rounded transition font-bold border ${user.is_driver
+                            ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                            : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 shadow-sm'
+                          }`}
                       >
                         {user.is_driver ? 'REVOKE ACCESS' : 'AUTHORIZE'}
                       </button>

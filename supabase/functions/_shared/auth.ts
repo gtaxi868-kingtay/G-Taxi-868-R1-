@@ -43,3 +43,28 @@ export async function requireDriver(req: Request, supabaseAdmin: any) {
 
     return { user, driver }
 }
+
+export async function requireAdmin(req: Request) {
+    const user = await requireAuth(req)
+
+    // Use the service role key to read the profiles table server-side.
+    // This bypasses RLS and ensures the role check cannot be spoofed.
+    const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
+    const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    if (error || profile?.role !== 'admin') {
+        throw new Response(JSON.stringify({ error: 'Forbidden: admin role required' }), {
+            status: 403, headers: { 'Content-Type': 'application/json' }
+        })
+    }
+
+    return { user, supabaseAdmin }
+}
