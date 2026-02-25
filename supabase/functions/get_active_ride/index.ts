@@ -1,83 +1,102 @@
 // Supabase Edge Function: get_active_ride
-// Path: supabase/functions/get_active_ride/index.ts
+// HARDENED - Secure auth via supabase.auth.getUser()
 //
-// Returns the user's current active ride (if any).
-// Used for state restoration on app reload.
+// Gets the user's currently active ride.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-// Extract user ID from JWT payload (base64 decode)
-function getUserIdFromJWT(token: string): string | null {
-    try {
-        const parts = token.replace("Bearer ", "").split(".");
-        if (parts.length !== 3) return null;
-        const payload = JSON.parse(atob(parts[1]));
-        return payload.sub || null;
-    } catch {
-        return null;
-    }
-}
+const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req: Request) => {
-    const corsHeaders = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    };
-
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
 
     try {
-        // Get user from JWT
-        const authHeader = req.headers.get("Authorization");
-        if (!authHeader) {
+        // 1. Initialize Supabase Client with Auth Context (using ANON KEY + user JWT)
+        const supabaseClient = createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY,
+            {
+                global: {
+                    headers: { Authorization: req.headers.get("Authorization")! },
+                },
+            }
+        );
+
+        // 2. AUTHENTICATION (The Gatekeeper)
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+
+        if (authError || !user) {
+            console.error("Auth failed:", authError);
             return new Response(
-                JSON.stringify({ success: false, error: "Missing authorization", data: null }),
+                JSON.stringify({ success: false, error: "Unauthorized: Valid JWT required" }),
                 { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        // Extract user ID directly from JWT (Supabase signs these)
-        const userId = getUserIdFromJWT(authHeader);
-        if (!userId) {
-            return new Response(
-                JSON.stringify({ success: false, error: "Invalid token format", data: null }),
-                { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-        }
+        const userId = user.id;
+        console.log("Verifying active ride for user:", userId);
 
-        // Query active ride with service role
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        const { data: ride, error: queryError } = await supabase
+        // 3. Get active ride
+        const activeStatuses = ["requested", "searching", "assigned", "arrived", "in_progress"];
+        const { data: ride, error: rideError } = await supabaseAdmin
             .from("rides")
             .select("*")
             .eq("rider_id", userId)
-            .in("status", ["requested", "searching", "assigned", "in_progress"])
+            .in("status", activeStatuses)
             .order("created_at", { ascending: false })
-            .limit(1)
             .maybeSingle();
 
-        if (queryError) {
-            console.error("Query error:", queryError);
+        if (rideError) {
+            console.error("Query error:", rideError);
             return new Response(
-                JSON.stringify({ success: false, error: "Failed to get ride", data: null }),
+                JSON.stringify({ success: false, error: "Failed to fetch ride", data: null }),
                 { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        // No active ride is a valid state
+        // No active ride
         if (!ride) {
             return new Response(
                 JSON.stringify({ success: true, error: null, data: null }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
+        }
+
+        // Get driver info if assigned
+        let driver = null;
+        if (ride.driver_id) {
+            const { data: driverData } = await supabaseAdmin
+                .from("drivers")
+                .select("id, name, phone_number, vehicle_model, plate_number, rating, current_lat, current_lng")
+                .eq("id", ride.driver_id)
+                .single();
+
+            if (driverData) {
+                driver = {
+                    id: driverData.id,
+                    name: driverData.name,
+                    phone_number: driverData.phone_number,
+                    vehicle: driverData.vehicle_model,
+                    plate: driverData.plate_number,
+                    rating: driverData.rating,
+                    location: {
+                        lat: driverData.current_lat,
+                        lng: driverData.current_lng,
+                    },
+                };
+            }
         }
 
         return new Response(
@@ -96,14 +115,19 @@ serve(async (req: Request) => {
                     total_fare_cents: ride.total_fare_cents,
                     distance_meters: ride.distance_meters,
                     duration_seconds: ride.duration_seconds,
+                    vehicle_type: ride.vehicle_type,
+                    payment_method: ride.payment_method,
+                    payment_status: ride.payment_status,
+                    driver,
                     created_at: ride.created_at,
+                    updated_at: ride.updated_at, // For TTL check
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
 
     } catch (error) {
-        console.error("get_active_ride error:", error);
+        console.error("Get active ride error:", error);
         return new Response(
             JSON.stringify({ success: false, error: "Internal server error", data: null }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -7,7 +7,9 @@
  * @noformat
  * @nolint
  * @flow strict-local
- * @generated SignedSource<<83073425aa3f71ced2c8c51f25a25938>>
+ * @generated SignedSource<<67d18226984338ab9301147ce0a7d414>>
+ *
+ * This file was sync'd from the facebook/react repository.
  */
 
 'use strict';
@@ -82,6 +84,8 @@ export function register(name: string, callback: () => ViewConfig): string {
     typeof callback === 'function',
     'View config getter callback for component `%s` must be a function (received `%s`)',
     name,
+    /* $FlowFixMe[invalid-compare] Error discovered during Constant Condition
+     * roll out. See https://fburl.com/workplace/5whu3i34. */
     callback === null ? 'null' : typeof callback,
   );
   viewConfigCallbacks.set(name, callback);

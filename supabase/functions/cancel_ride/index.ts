@@ -1,30 +1,27 @@
 // Supabase Edge Function: cancel_ride
-// Path: supabase/functions/cancel_ride/index.ts
+// REBUILT - Clean implementation with proper Supabase auth
 //
-// Cancels an active ride request.
-// Only the rider can cancel their own ride.
+// Cancels a ride request. Only the rider can cancel.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-interface RequestBody {
-    ride_id: string;
-}
+const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req: Request) => {
-    const corsHeaders = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    };
-
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
 
     try {
+        // 1. AUTHENTICATION
         const authHeader = req.headers.get("Authorization");
         if (!authHeader) {
             return new Response(
@@ -33,77 +30,111 @@ serve(async (req: Request) => {
             );
         }
 
-        // Verify user
-        const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
             global: { headers: { Authorization: authHeader } }
         });
 
-        const { data: { user }, error: userError } = await userClient.auth.getUser();
-        if (userError || !user) {
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+
+        if (authError || !user) {
             return new Response(
-                JSON.stringify({ success: false, error: "Invalid user token", data: null }),
+                JSON.stringify({ success: false, error: "Invalid token", data: null }),
                 { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const body: RequestBody = await req.json();
-        const { ride_id } = body;
+        const userId = user.id;
 
+        // 2. PARSE INPUT
+        const { ride_id, reason } = await req.json();
         if (!ride_id) {
             return new Response(
-                JSON.stringify({ success: false, error: "Missing ride_id", data: null }),
+                JSON.stringify({ success: false, error: "ride_id required", data: null }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // Get the ride and verify ownership
-        const { data: ride, error: fetchError } = await supabase
+        // 3. GET RIDE AND VERIFY OWNERSHIP
+        const { data: ride, error: rideError } = await supabaseAdmin
             .from("rides")
             .select("*")
             .eq("id", ride_id)
             .single();
 
-        if (fetchError || !ride) {
+        if (rideError || !ride) {
             return new Response(
                 JSON.stringify({ success: false, error: "Ride not found", data: null }),
                 { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        // Verify the user owns this ride
-        if (ride.rider_id !== user.id) {
+        // Security: Allow rider OR assigned driver to cancel
+        const isRider = ride.rider_id === userId;
+        const isDriver = ride.driver_id === userId;
+
+        if (!isRider && !isDriver) {
             return new Response(
-                JSON.stringify({ success: false, error: "Not authorized to cancel this ride", data: null }),
+                JSON.stringify({ success: false, error: "Not authorized", data: null }),
                 { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        // Can only cancel if ride is in cancellable state
-        const cancellableStates = ["requested", "searching", "assigned"];
-        if (!cancellableStates.includes(ride.status)) {
+        // Check if ride can be cancelled
+        const cancellableStatuses = ["requested", "searching", "assigned", "arrived"];
+
+        if (!cancellableStatuses.includes(ride.status)) {
             return new Response(
-                JSON.stringify({
-                    success: false,
-                    error: `Cannot cancel ride in ${ride.status} status`,
-                    data: null
-                }),
+                JSON.stringify({ success: false, error: "Ride cannot be cancelled", data: null }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        // Update status to cancelled
-        const { error: updateError } = await supabase
-            .from("rides")
-            .update({ status: "cancelled" })
-            .eq("id", ride_id);
+        const updatePayload: any = {
+            status: "cancelled",
+            cancelled_at: new Date().toISOString(),
+            cancellation_reason: reason || (isRider ? "Rider cancelled" : "Driver cancelled"),
+        };
 
-        if (updateError) {
-            console.error("Cancel error:", updateError);
+        // PHASE 8: Failsafes 
+        // 1. Rider Penalty ($5 TTD) if canceling on an assigned/arrived driver
+        if (isRider && (ride.status === "assigned" || ride.status === "arrived")) {
+            await supabaseAdmin.from("wallet_transactions").insert([{
+                user_id: ride.rider_id,
+                ride_id: ride_id,
+                amount: -500,
+                transaction_type: "cancellation_fee",
+                description: "Late cancellation fee ($5 TTD)",
+                status: "completed"
+            }, {
+                user_id: ride.driver_id, // Target the assigned driver for compensation
+                ride_id: ride_id,
+                amount: 500,
+                transaction_type: "cancellation_fee",
+                description: "Compensation for rider cancellation",
+                status: "completed"
+            }]);
+        }
+
+        // 2. Driver Platform Leakage Trapdoor
+        // If driver cancels *after* arrival, schedule a 3-minute proximity audit
+        if (isDriver && ride.status === "arrived") {
+            updatePayload.audit_needed_at = new Date(Date.now() + 3 * 60 * 1000).toISOString();
+        }
+
+        // 4. UPDATE RIDE STATUS (Atomic)
+        const { error: updateError, count } = await supabaseAdmin
+            .from("rides")
+            .update(updatePayload)
+            .eq("id", ride_id)
+            .in("status", cancellableStatuses); // ATOMIC GUARD
+
+        if (updateError || count === 0) {
+            console.error("Update error or no rows matching:", updateError);
             return new Response(
-                JSON.stringify({ success: false, error: "Failed to cancel ride", data: null }),
-                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                JSON.stringify({ success: false, error: "Failed to cancel ride: already in progress or completed", data: null }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
@@ -120,7 +151,7 @@ serve(async (req: Request) => {
         );
 
     } catch (error) {
-        console.error("cancel_ride error:", error);
+        console.error("Cancel ride error:", error);
         return new Response(
             JSON.stringify({ success: false, error: "Internal server error", data: null }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

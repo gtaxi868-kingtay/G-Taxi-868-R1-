@@ -16,17 +16,16 @@ import {AnimatedEvent} from '../../../Libraries/Animated/AnimatedEvent';
 import AnimatedNode from '../../../Libraries/Animated/nodes/AnimatedNode';
 import {isPlainObject} from '../../../Libraries/Animated/nodes/AnimatedObject';
 import flattenStyle from '../../../Libraries/StyleSheet/flattenStyle';
-import * as ReactNativeFeatureFlags from '../featureflags/ReactNativeFeatureFlags';
 import nullthrows from 'nullthrows';
-import {useInsertionEffect, useMemo, useRef, useState} from 'react';
+import {useInsertionEffect, useMemo, useRef} from 'react';
 
 type CompositeKey = {
   style?: {[string]: CompositeKeyComponent},
   [string]:
     | CompositeKeyComponent
     | AnimatedEvent
-    | $ReadOnlyArray<mixed>
-    | $ReadOnly<{[string]: mixed}>,
+    | $ReadOnlyArray<unknown>
+    | $ReadOnly<{[string]: unknown}>,
 };
 
 type CompositeKeyComponent =
@@ -39,8 +38,8 @@ type $ReadOnlyCompositeKey = $ReadOnly<{
   [string]:
     | $ReadOnlyCompositeKeyComponent
     | AnimatedEvent
-    | $ReadOnlyArray<mixed>
-    | $ReadOnly<{[string]: mixed}>,
+    | $ReadOnlyArray<unknown>
+    | $ReadOnly<{[string]: unknown}>,
 }>;
 
 type $ReadOnlyCompositeKeyComponent =
@@ -50,7 +49,7 @@ type $ReadOnlyCompositeKeyComponent =
 
 type AnimatedPropsMemoHook = (
   () => AnimatedProps,
-  props: $ReadOnly<{[string]: mixed}>,
+  props: $ReadOnly<{[string]: unknown}>,
 ) => AnimatedProps;
 
 /**
@@ -63,20 +62,7 @@ export function createAnimatedPropsMemoHook(
 ): AnimatedPropsMemoHook {
   return function useAnimatedPropsMemo(
     create: () => AnimatedProps,
-    props: $ReadOnly<{[string]: mixed}>,
-  ): AnimatedProps {
-    // NOTE: This feature flag must be evaluated inside the hook because this
-    // module factory can be evaluated much sooner, before overrides are set.
-    const useAnimatedPropsImpl =
-      ReactNativeFeatureFlags.avoidStateUpdateInAnimatedPropsMemo()
-        ? useAnimatedPropsMemo_ref
-        : useAnimatedPropsMemo_state;
-    return useAnimatedPropsImpl(create, props);
-  };
-
-  function useAnimatedPropsMemo_ref(
-    create: () => AnimatedProps,
-    props: $ReadOnly<{[string]: mixed}>,
+    props: $ReadOnly<{[string]: unknown}>,
   ): AnimatedProps {
     const compositeKey = useMemo(
       () => createCompositeKeyForProps(props, allowlist),
@@ -102,39 +88,7 @@ export function createAnimatedPropsMemoHook(
     }, [next]);
 
     return next.node;
-  }
-
-  function useAnimatedPropsMemo_state(
-    create: () => AnimatedProps,
-    props: $ReadOnly<{[string]: mixed}>,
-  ): AnimatedProps {
-    const compositeKey = useMemo(
-      () => createCompositeKeyForProps(props, allowlist),
-      [props],
-    );
-
-    const [state, setState] = useState<{
-      allowlist: ?AnimatedPropsAllowlist,
-      compositeKey: $ReadOnlyCompositeKey | null,
-      value: AnimatedProps,
-    }>(() => ({
-      allowlist,
-      compositeKey,
-      value: create(),
-    }));
-
-    if (
-      state.allowlist !== allowlist ||
-      !areCompositeKeysEqual(state.compositeKey, compositeKey)
-    ) {
-      setState({
-        allowlist,
-        compositeKey,
-        value: create(),
-      });
-    }
-    return state.value;
-  }
+  };
 }
 
 /**
@@ -153,7 +107,7 @@ export function createAnimatedPropsMemoHook(
  * returns null.
  */
 export function createCompositeKeyForProps(
-  props: $ReadOnly<{[string]: mixed}>,
+  props: $ReadOnly<{[string]: unknown}>,
   allowlist: ?AnimatedPropsAllowlist,
 ): $ReadOnlyCompositeKey | null {
   let compositeKey: CompositeKey | null = null;
@@ -168,7 +122,7 @@ export function createCompositeKeyForProps(
       if (key === 'style') {
         // $FlowFixMe[incompatible-call] - `style` is a valid argument.
         // $FlowFixMe[incompatible-type] - `flattenStyle` returns an object.
-        const flatStyle: ?{[string]: mixed} = flattenStyle(value);
+        const flatStyle: ?{[string]: unknown} = flattenStyle(value);
         if (flatStyle != null) {
           compositeKeyComponent = createCompositeKeyForObject(
             flatStyle,
@@ -206,7 +160,7 @@ export function createCompositeKeyForProps(
  * If `array` contains no `AnimatedNode` instances, this returns null.
  */
 function createCompositeKeyForArray(
-  array: $ReadOnlyArray<mixed>,
+  array: $ReadOnlyArray<unknown>,
 ): $ReadOnlyArray<$ReadOnlyCompositeKeyComponent | null> | null {
   let compositeKey: Array<$ReadOnlyCompositeKeyComponent | null> | null = null;
 
@@ -246,7 +200,7 @@ function createCompositeKeyForArray(
  * If `object` contains no `AnimatedNode` instances, this returns null.
  */
 function createCompositeKeyForObject(
-  object: $ReadOnly<{[string]: mixed}>,
+  object: $ReadOnly<{[string]: unknown}>,
   allowlist?: ?AnimatedStyleAllowlist,
 ): $ReadOnly<{[string]: $ReadOnlyCompositeKeyComponent}> | null {
   let compositeKey: {[string]: $ReadOnlyCompositeKeyComponent} | null = null;
@@ -310,9 +264,9 @@ export function areCompositeKeysEqual(
       // We know style components are objects with non-mixed values.
       if (
         !areCompositeKeyComponentsEqual(
-          // $FlowIgnore[incompatible-cast]
+          // $FlowFixMe[incompatible-type]
           prevComponent as $ReadOnlyCompositeKeyComponent,
-          // $FlowIgnore[incompatible-cast]
+          // $FlowFixMe[incompatible-type]
           nextComponent as $ReadOnlyCompositeKeyComponent,
         )
       ) {
@@ -335,9 +289,9 @@ export function areCompositeKeysEqual(
       } else {
         if (
           !areCompositeKeyComponentsEqual(
-            // $FlowIgnore[incompatible-cast]
+            // $FlowFixMe[incompatible-type]
             prevComponent as $ReadOnlyCompositeKeyComponent,
-            // $FlowIgnore[incompatible-cast]
+            // $FlowFixMe[incompatible-type]
             nextComponent as $ReadOnlyCompositeKeyComponent,
           )
         ) {
@@ -399,8 +353,8 @@ function areCompositeKeyComponentsEqual(
 
 // Supported versions of JSC do not implement the newer Object.hasOwn. Remove
 // this shim when they do.
-// $FlowIgnore[method-unbinding]
+// $FlowFixMe[method-unbinding]
 const _hasOwnProp = Object.prototype.hasOwnProperty;
 const hasOwn: (obj: $ReadOnly<{...}>, prop: string) => boolean =
-  // $FlowIgnore[method-unbinding]
+  // $FlowFixMe[method-unbinding]
   Object.hasOwn ?? ((obj, prop) => _hasOwnProp.call(obj, prop));

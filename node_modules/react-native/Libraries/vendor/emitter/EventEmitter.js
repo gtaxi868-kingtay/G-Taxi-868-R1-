@@ -20,8 +20,8 @@ export interface IEventEmitter<
 > {
   addListener<TEvent: $Keys<TEventToArgsMap>>(
     eventType: TEvent,
-    listener: (...args: TEventToArgsMap[TEvent]) => mixed,
-    context?: mixed,
+    listener: (...args: TEventToArgsMap[TEvent]) => unknown,
+    context?: unknown,
   ): EventSubscription;
 
   emit<TEvent: $Keys<TEventToArgsMap>>(
@@ -35,8 +35,8 @@ export interface IEventEmitter<
 }
 
 interface Registration<TArgs> {
-  +context: mixed;
-  +listener: (...args: TArgs) => mixed;
+  +context: unknown;
+  +listener: (...args: TArgs) => unknown;
   +remove: () => void;
 }
 
@@ -85,8 +85,8 @@ export default class EventEmitter<
    */
   addListener<TEvent: $Keys<TEventToArgsMap>>(
     eventType: TEvent,
-    listener: (...args: TEventToArgsMap[TEvent]) => mixed,
-    context: mixed,
+    listener: (...args: TEventToArgsMap[TEvent]) => unknown,
+    context: unknown,
   ): EventSubscription {
     if (typeof listener !== 'function') {
       throw new TypeError(
@@ -126,7 +126,7 @@ export default class EventEmitter<
       // Copy `registrations` to take a snapshot when we invoke `emit`, in case
       // registrations are added or removed when listeners are invoked.
       for (const registration of Array.from(registrations)) {
-        // $FlowFixMe[incompatible-call]
+        // $FlowFixMe[incompatible-type]
         registration.listener.apply(registration.context, args);
       }
     }

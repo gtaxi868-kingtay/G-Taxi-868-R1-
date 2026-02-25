@@ -17,12 +17,12 @@ type NativeCommandsOptions<T = string> = $ReadOnly<{
 function codegenNativeCommands<T: interface {}>(
   options: NativeCommandsOptions<$Keys<T>>,
 ): T {
-  const commandObj: {[$Keys<T>]: (...$ReadOnlyArray<mixed>) => void} = {};
+  const commandObj: {[$Keys<T>]: (...$ReadOnlyArray<unknown>) => void} = {};
 
   options.supportedCommands.forEach(command => {
     // $FlowFixMe[missing-local-annot]
     commandObj[command] = (ref, ...args) => {
-      // $FlowFixMe[incompatible-call]
+      // $FlowFixMe[incompatible-type]
       dispatchCommand(ref, command, args);
     };
   });

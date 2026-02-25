@@ -1,18 +1,17 @@
 // Supabase Edge Function: update_driver_location
-// Path: supabase/functions/update_driver_location/index.ts
+// HARDENED MODE - Strict Auth Verification
 //
-// Called by the Driver App (or simulation script) to update location.
+// Called by the Driver App to update location.
 // Writes to 'driver_locations' (history) and 'drivers' (current snapshot).
-// Broadcasts Realtime event for the Rider App.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 interface RequestBody {
-    driver_id: string; // In production, get from Auth. For MVP/Sim, body.
     lat: number;
     lng: number;
     heading?: number;
@@ -30,21 +29,61 @@ serve(async (req: Request) => {
     }
 
     try {
-        const body: RequestBody = await req.json();
-        const { driver_id, lat, lng, heading = 0, speed = 0 } = body;
+        // 1. Initialize Supabase Client with Auth Context
+        const authClient = createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY,
+            {
+                global: {
+                    headers: { Authorization: req.headers.get("Authorization")! },
+                },
+            }
+        );
 
-        if (!driver_id || lat === undefined || lng === undefined) {
+        // 2. AUTHENTICATION (The Gatekeeper)
+        // Verify the user is logged in.
+        const {
+            data: { user },
+            error: authError,
+        } = await authClient.auth.getUser();
+
+        if (authError || !user) {
+            console.error("Auth failed:", authError);
             return new Response(
-                JSON.stringify({ success: false, error: "Missing driver_id, lat, or lng" }),
+                JSON.stringify({ success: false, error: "Unauthorized: Valid JWT required" }),
+                { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        const driver_id = user.id; // STRICT usage of verified ID. Cannot spoof others.
+
+        // 3. Parse Body
+        let body: RequestBody;
+        try {
+            body = await req.json();
+        } catch {
+            return new Response(
+                JSON.stringify({ success: false, error: "Invalid JSON body" }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { lat, lng, heading = 0, speed = 0 } = body;
 
-        // 1. Insert into history (driver_locations)
-        // Fire and forget? No, we want to confirm receipt.
-        const { error: historyError } = await supabase
+        if (lat === undefined || lng === undefined) {
+            return new Response(
+                JSON.stringify({ success: false, error: "Missing lat or lng" }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        // 4. DB Interaction (Privileged)
+        // We use the Service Role key to ensure we can write to the tables 
+        // regardless of RLS, since we have already authenticated the user ourselves.
+        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        // A. Insert into history (driver_locations)
+        const { error: historyError } = await adminClient
             .from("driver_locations")
             .insert({
                 driver_id,
@@ -56,22 +95,19 @@ serve(async (req: Request) => {
 
         if (historyError) {
             console.error("History insert error:", historyError);
-            // We continue anyway? No, history is important.
             throw historyError;
         }
 
-        // 2. Update current snapshot (drivers table) for "Ghost Car" queries
-        // This allows 'get_nearby_drivers' to work fast without joining huge history table.
-        // We also update 'location' geography column for PostGIS.
-        const { error: snapshotError } = await supabase
+        // B. Update current snapshot (drivers table)
+        // This keeps the "Ghost Cars" and distance calcs fresh.
+        const { error: snapshotError } = await adminClient
             .from("drivers")
             .update({
                 lat,
                 lng,
                 heading,
-                // Make sure to sync PostGIS location!
-                // We trust the database trigger 'sync_driver_location' (from 005) to handle the 'location' column update based on lat/lng.
-                last_seen: new Date().toISOString() // Assuming we added this, or just updated_at
+                is_online: true, // Implicitly mark as online if sending updates
+                last_seen: new Date().toISOString()
             })
             .eq("id", driver_id);
 
@@ -80,22 +116,15 @@ serve(async (req: Request) => {
             throw snapshotError;
         }
 
-        // 3. (Optional) Explicit Realtime Broadcast?
-        // Supabase Realtime listens to DB changes.
-        // Since we updated 'drivers' and 'driver_locations', the clients subscribed to:
-        // 'drivers' table (filter: id=eq.driver_id) WILL get the update automatically!
-        // So we don't need to manually broadcast unless we wanted a custom channel.
-        // Uber Standard: Database is source of truth. Rely on Postgres WAL.
-
         return new Response(
             JSON.stringify({ success: true }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("update_driver_location error:", error);
         return new Response(
-            JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Internal Error" }),
+            JSON.stringify({ success: false, error: error.message || "Internal Error" }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }

@@ -135,8 +135,8 @@ function reportException(
 }
 
 declare var console: {
-  error: (...data: $ReadOnlyArray<mixed>) => void,
-  _errorOriginal: (...data: $ReadOnlyArray<mixed>) => void,
+  error: (...data: $ReadOnlyArray<unknown>) => void,
+  _errorOriginal: (...data: $ReadOnlyArray<unknown>) => void,
   reportErrorsAsExceptions: boolean,
   ...
 };
@@ -148,7 +148,7 @@ let inExceptionHandler = false;
 /**
  * Logs exceptions to the (native) console and displays them
  */
-function handleException(e: mixed, isFatal: boolean) {
+function handleException(e: unknown, isFatal: boolean) {
   // TODO(T196834299): We should really use a c++ turbomodule for this
   const reportToConsole = true;
   if (
@@ -169,7 +169,7 @@ function handleException(e: mixed, isFatal: boolean) {
       inExceptionHandler = true;
       /* $FlowFixMe[class-object-subtyping] added when improving typing for this
        * parameters */
-      // $FlowFixMe[incompatible-call]
+      // $FlowFixMe[incompatible-type]
       reportException(error, isFatal, reportToConsole);
     } finally {
       inExceptionHandler = false;
@@ -242,6 +242,8 @@ function reactConsoleErrorHandler(...args) {
     if (__DEV__) {
       // If we're not reporting to the console in reportException,
       // we need to report it as a console.error here.
+      /* $FlowFixMe[constant-condition] Error discovered during Constant
+       * Condition roll out. See https://fburl.com/workplace/1v97vimq. */
       if (!reportToConsole) {
         require('../LogBox/LogBox').default.addConsoleLog('error', ...args);
       }
@@ -257,7 +259,7 @@ function reactConsoleErrorHandler(...args) {
     reportException(
       /* $FlowFixMe[class-object-subtyping] added when improving typing for this
        * parameters */
-      // $FlowFixMe[incompatible-call]
+      // $FlowFixMe[incompatible-type]
       error,
       isFatal,
       reportToConsole,

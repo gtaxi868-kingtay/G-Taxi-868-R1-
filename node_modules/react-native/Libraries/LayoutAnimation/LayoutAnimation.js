@@ -108,6 +108,8 @@ function configureNext(
   if (UIManager?.configureNextLayoutAnimation) {
     UIManager.configureNextLayoutAnimation(
       config,
+      /* $FlowFixMe[constant-condition] Error discovered during Constant
+       * Condition roll out. See https://fburl.com/workplace/1v97vimq. */
       onAnimationComplete ?? function () {},
       onAnimationDidFail ??
         function () {} /* this should never be called in Non-Fabric */,
@@ -199,7 +201,7 @@ const LayoutAnimation = {
     scaleY: 'scaleY',
     scaleXY: 'scaleXY',
   }) as LayoutAnimationProperties,
-  checkConfig(...args: Array<mixed>) {
+  checkConfig(...args: Array<unknown>) {
     console.error('LayoutAnimation.checkConfig(...) has been disabled.');
   },
   Presets,

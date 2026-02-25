@@ -38,7 +38,26 @@ serve(async (req: Request) => {
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // 1. ATOMIC UPDATE
+        // 1. ATOMIC OFFER LOCK
+        // Verify this driver actually holds a 'pending' offer for this ride.
+        const { data: offer, error: offerError } = await supabase
+            .from("ride_offers")
+            .update({ status: "accepted" })
+            .eq("ride_id", ride_id)
+            .eq("driver_id", driver_id)
+            .eq("status", "pending")
+            .select()
+            .single();
+
+        if (offerError || !offer) {
+            console.error("Accept failed: Offer expired or invalid", offerError);
+            return new Response(
+                JSON.stringify({ success: false, error: "Offer expired or no longer available" }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        // 2. ATOMIC RIDE ASSIGNMENT
         // Only update if status is 'searching' or 'requested'.
         // This prevents race conditions where two drivers accept same ride.
         const { data, error } = await supabase

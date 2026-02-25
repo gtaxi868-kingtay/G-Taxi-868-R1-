@@ -1,182 +1,219 @@
 // Supabase Edge Function: match_driver
-// Path: supabase/functions/match_driver/index.ts
+// HARDENED - Secure auth via supabase.auth.getUser()
+// FIXED: Direct driver query instead of RPC
 //
-// Uses PostGIS RPC 'get_nearby_drivers' for efficient geospatial matching.
-// Includes a "System Test Driver" fallback for reliable App Store testing.
+// Matches a driver to a ride request.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-interface RequestBody {
-    ride_id: string;
-}
+const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req: Request) => {
-    const corsHeaders = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    };
-
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
 
     try {
-        const authHeader = req.headers.get("Authorization");
-        if (!authHeader) {
+        // 1. Initialize Supabase Client with Auth Context (using ANON KEY + user JWT)
+        const supabaseClient = createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY,
+            {
+                global: {
+                    headers: { Authorization: req.headers.get("Authorization")! },
+                },
+            }
+        );
+
+        // 2. AUTHENTICATION (The Gatekeeper)
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+
+        if (authError || !user) {
             return new Response(
-                JSON.stringify({ success: false, error: "Missing authorization", data: null }),
+                JSON.stringify({ success: false, error: "Unauthorized: Valid JWT required" }),
                 { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const body: RequestBody = await req.json();
-        const { ride_id } = body;
+        const userId = user.id;
+        console.log("Verified user ID for matching:", userId);
 
+        // Parse request body
+        const { ride_id } = await req.json();
         if (!ride_id) {
-            return new Response(
-                JSON.stringify({ success: false, error: "Missing ride_id", data: null }),
-                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
+            return new Response(JSON.stringify({ success: false, error: "ride_id required" }), { status: 400, headers: corsHeaders });
         }
 
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // 1. Set Status -> Searching
-        const { error: searchingError } = await supabase
-            .from("rides")
-            .update({ status: "searching" })
-            .eq("id", ride_id)
-            .eq("status", "requested");
-
-        if (searchingError) {
-            console.error("Error updating to searching:", searchingError);
-            return new Response(
-                JSON.stringify({ success: false, error: "Failed to start search", data: null }),
-                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-        }
-
-        // Simulate network/search delay
-        const delay = 1000 + Math.random() * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-
-        // 2. Get Ride Coordinates
-        const { data: ride, error: rideError } = await supabase
-            .from("rides")
-            .select("pickup_lat, pickup_lng")
-            .eq("id", ride_id)
-            .single();
-
+        // Get ride
+        const { data: ride, error: rideError } = await supabaseAdmin.from("rides").select("*").eq("id", ride_id).single();
         if (rideError || !ride) {
-            throw new Error("Ride not found");
+            return new Response(JSON.stringify({ success: false, error: "Ride not found" }), { status: 404, headers: corsHeaders });
         }
 
-        // 3. Radius Expansion Strategy
-        const searchRadii = [2000, 5000, 10000, 50000]; // 2km -> 5km -> 10km -> 50km
+        // 1. Get previously offered drivers (exclusions)
+        const { data: previousOffers } = await supabaseAdmin.from("ride_offers").select("driver_id").eq("ride_id", ride_id);
+        const excludedDriverIds = previousOffers?.map((o: any) => o.driver_id) || [];
+
+        // 2. TIER 1 FAMILIARITY: Query rider's past 5-star drivers
+        const { data: familiarRides } = await supabaseAdmin
+            .from("rides")
+            .select("driver_id")
+            .eq("rider_id", ride.rider_id)
+            .eq("rating", 5)
+            .not("driver_id", "is", null);
+
+        const familiarDriverIds = familiarRides?.map((r: any) => r.driver_id) || [];
+        const validFamiliarIds = [...new Set(familiarDriverIds)].filter(id => !excludedDriverIds.includes(id));
+
+        // 3. Find available live drivers
+        const { data: availableDrivers, error: driverError } = await supabaseAdmin
+            .from("drivers")
+            .select("*")
+            .or("status.eq.available,status.eq.online,is_online.eq.true");
+
+        // PHASE 5: Cold Start Queueing
+        if (driverError || !availableDrivers || availableDrivers.length === 0) {
+            console.log("Phase 5 Queueing: No drivers online. Moving to waiting_queue.");
+            await supabaseAdmin.from("rides").update({ status: "waiting_queue" }).eq("id", ride_id);
+
+            // Trigger Admin Alert Webhook (Slack / Discord / Push)
+            const webhookUrl = Deno.env.get("ADMIN_WEBHOOK_URL");
+            if (webhookUrl) {
+                // Fire and forget - don't block the rider response
+                fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event: "ride_queued",
+                        ride_id,
+                        message: "URGENT: A rider is in the queue but no drivers are online! Go online now.",
+                        timestamp: new Date().toISOString()
+                    })
+                }).catch(e => console.error("Webhook failed:", e));
+            }
+
+            return new Response(JSON.stringify({ success: true, data: { status: "waiting_queue", message: "Queued" } }), { headers: corsHeaders });
+        }
+
+        // Exclude drivers who already declined or timed out
+        let candidateDrivers = availableDrivers.filter((d: any) => !excludedDriverIds.includes(d.id));
+
+        if (candidateDrivers.length === 0) {
+            return new Response(JSON.stringify({ success: false, error: "NO_DRIVERS" }), { status: 404, headers: corsHeaders });
+        }
+
+        // PHASE 8: The -$600 TTD Lockout Trapdoor
+        // Fetch wallet balances to ensure we don't dispatch to drivers who owe too much commission
+        const candidateIds = candidateDrivers.map((d: any) => d.id);
+        const { data: balances } = await supabaseAdmin
+            .from("wallet_transactions")
+            .select("user_id, amount")
+            .in("user_id", candidateIds)
+            .eq("status", "completed");
+
+        const walletMap: Record<string, number> = {};
+        if (balances) {
+            balances.forEach((b: any) => {
+                walletMap[b.user_id] = (walletMap[b.user_id] || 0) + Number(b.amount);
+            });
+        }
+
+        // Lockout drivers with balance <= -60000 cents (-600 TTD)
+        candidateDrivers = candidateDrivers.filter((d: any) => {
+            const bal = walletMap[d.id] || 0;
+            if (bal <= -60000) {
+                console.log(`Driver ${d.id} locked out due to debt: ${bal} cents`);
+                return false;
+            }
+            return true;
+        });
+
+        if (candidateDrivers.length === 0) {
+            return new Response(JSON.stringify({ success: false, error: "NO_DRIVERS" }), { status: 404, headers: corsHeaders });
+        }
+
+        // Haversine distance calculator
+        function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+            const R = 6371e3;
+            const f1 = lat1 * Math.PI / 180;
+            const f2 = lat2 * Math.PI / 180;
+            const df = (lat2 - lat1) * Math.PI / 180;
+            const dl = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(df / 2) * Math.sin(df / 2) + Math.cos(f1) * Math.cos(f2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        candidateDrivers = candidateDrivers.map((d: any) => {
+            const lat = d.lat || d.current_lat || d.latitude || 0;
+            const lng = d.lng || d.current_lng || d.longitude || 0;
+            return { ...d, _distance: getDistanceMeters(ride.pickup_lat, ride.pickup_lng, lat, lng) };
+        });
+
+        // Drop candidates > 15km away
+        candidateDrivers = candidateDrivers.filter((d: any) => d._distance < 15000);
+
+        if (candidateDrivers.length === 0) {
+            return new Response(JSON.stringify({ success: false, error: "NO_DRIVERS_NEARBY" }), { status: 404, headers: corsHeaders });
+        }
+
+        // Sort Tiers
+        const familiarCandidates = candidateDrivers.filter((d: any) => validFamiliarIds.includes(d.id));
         let selectedDriver = null;
 
-        // Attempt Real Search
-        for (const radius of searchRadii) {
-            console.log(`Searching radius: ${radius}m`);
-            const { data: nearbyDrivers, error: nearbyError } = await supabase
-                .rpc('get_nearby_drivers', {
-                    center_lat: ride.pickup_lat,
-                    center_lng: ride.pickup_lng,
-                    radius_meters: radius
-                });
-
-            if (!nearbyError && nearbyDrivers && nearbyDrivers.length > 0) {
-                // Filter out the bot to prefer real humans first
-                const realDrivers = nearbyDrivers.filter((d: any) => d.id !== '00000000-0000-0000-0000-000000000000');
-
-                if (realDrivers.length > 0) {
-                    selectedDriver = realDrivers[Math.floor(Math.random() * realDrivers.length)];
-                    console.log("Found REAL driver:", selectedDriver.name);
-                    break;
-                }
-            }
+        if (familiarCandidates.length > 0) {
+            familiarCandidates.sort((a: any, b: any) => a._distance - b._distance);
+            selectedDriver = familiarCandidates[0];
+            console.log("Tier 1: Familiarity Match - Dispatching to", selectedDriver.id);
+        } else {
+            candidateDrivers.sort((a: any, b: any) => a._distance - b._distance);
+            selectedDriver = candidateDrivers[0];
+            console.log("Tier 2: Proximity Match - Dispatching to", selectedDriver.id);
         }
 
-        // 4. Fallback: The System Bot (Teleportation)
-        if (!selectedDriver) {
-            console.warn("No real drivers found. Activating SYSTEM BOT.");
+        // Create Time-Limited Ride Offer (15 seconds)
+        const expiresAt = new Date(Date.now() + 15 * 1000).toISOString();
+        const { error: insertError } = await supabaseAdmin
+            .from("ride_offers")
+            .insert({
+                ride_id: ride.id,
+                driver_id: selectedDriver.id,
+                status: "pending",
+                distance_meters: Math.round(selectedDriver._distance),
+                expires_at: expiresAt
+            });
 
-            // Teleport Bot to ~300m away so it shows up on map nicely
-            // simple math: adds ~0.003 degrees (~300m)
-            const botLat = ride.pickup_lat + 0.003;
-            const botLng = ride.pickup_lng + 0.003;
-
-            const botData = {
-                id: '00000000-0000-0000-0000-000000000000',
-                name: 'G-Taxi Bot 🤖',
-                vehicle_model: 'Cyber Taxi',
-                plate_number: 'TEST-AI',
-                rating: 5.0,
-                phone_number: '+1 868 000 0000',
-                lat: botLat,
-                lng: botLng,
-                heading: Math.random() * 360,
-                status: 'online',
-                is_online: true
-            };
-
-            const { data: botDriver, error: botError } = await supabase
-                .from("drivers")
-                .upsert(botData)
-                .select()
-                .single();
-
-            if (botError || !botDriver) {
-                console.error("Failed to activate bot:", botError);
-                return new Response(
-                    JSON.stringify({ success: false, error: "Failed to create/activate bot driver", data: null }),
-                    { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-                );
-            }
-            selectedDriver = botDriver;
+        if (insertError) {
+            console.error("Failed to create offer:", insertError);
+            return new Response(JSON.stringify({ success: false, error: "Failed to create offer" }), { status: 500, headers: corsHeaders });
         }
 
-        // 5. Assign Driver
-        const { error: assignedError } = await supabase
-            .from("rides")
-            .update({
-                status: "assigned",
-                driver_id: selectedDriver.id
-            })
-            .eq("id", ride_id);
-
-        if (assignedError) {
-            throw assignedError;
-        }
+        // Ensure ride is strictly "searching", pulling it out of the queue if it was stuck
+        await supabaseAdmin.from("rides").update({ status: "searching" }).eq("id", ride_id);
 
         return new Response(
             JSON.stringify({
                 success: true,
-                error: null,
                 data: {
                     ride_id,
-                    status: "assigned",
-                    driver: {
-                        name: selectedDriver.name,
-                        vehicle: selectedDriver.vehicle_model,
-                        plate: selectedDriver.plate_number,
-                        rating: parseFloat(selectedDriver.rating),
-                        phone: selectedDriver.phone_number
-                    },
+                    status: "searching",
+                    message: "Offer sent to driver"
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
 
     } catch (error) {
-        console.error("match_driver error:", error);
-        return new Response(
-            JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Internal error", data: null }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        console.error("Match driver error:", error);
+        return new Response(JSON.stringify({ success: false, error: "Internal error" }), { status: 500, headers: corsHeaders });
     }
 });

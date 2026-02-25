@@ -93,7 +93,7 @@ const RE_BABEL_CODE_FRAME_MARKER_PATTERN = new RegExp(
   'm',
 );
 
-export function hasComponentStack(args: $ReadOnlyArray<mixed>): boolean {
+export function hasComponentStack(args: $ReadOnlyArray<unknown>): boolean {
   for (const arg of args) {
     if (typeof arg === 'string' && isComponentStack(arg)) {
       return true;
@@ -136,7 +136,7 @@ export type ComponentStackType = 'legacy' | 'stack';
 
 const SUBSTITUTION = UTFSequence.BOM + '%s';
 
-export function parseInterpolation(args: $ReadOnlyArray<mixed>): $ReadOnly<{
+export function parseInterpolation(args: $ReadOnlyArray<unknown>): $ReadOnly<{
   category: Category,
   message: Message,
 }> {
@@ -444,7 +444,7 @@ export function parseLogBoxException(
   };
 }
 
-export function withoutANSIColorStyles(message: mixed): mixed {
+export function withoutANSIColorStyles(message: unknown): unknown {
   if (typeof message !== 'string') {
     return message;
   }
@@ -456,14 +456,14 @@ export function withoutANSIColorStyles(message: mixed): mixed {
   );
 }
 
-export function parseLogBoxLog(args: $ReadOnlyArray<mixed>): {
+export function parseLogBoxLog(args: $ReadOnlyArray<unknown>): {
   componentStack: ComponentStack,
   componentStackType: ComponentStackType,
   category: Category,
   message: Message,
 } {
   const message = withoutANSIColorStyles(args[0]);
-  let argsWithoutComponentStack: Array<mixed> = [];
+  let argsWithoutComponentStack: Array<unknown> = [];
   let componentStack: ComponentStack = [];
   let componentStackType = 'legacy';
 
@@ -509,7 +509,7 @@ export function parseLogBoxLog(args: $ReadOnlyArray<mixed>): {
   return {
     ...parseInterpolation(argsWithoutComponentStack),
     componentStack,
-    /* $FlowFixMe[incompatible-return] Natural Inference rollout. See
+    /* $FlowFixMe[incompatible-type] Natural Inference rollout. See
      * https://fburl.com/workplace/6291gfvu */
     componentStackType,
   };
