@@ -6,13 +6,13 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireDriver } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 interface RequestBody {
     ride_id: string;
-    driver_id: string; // In production, extract from Auth.
 }
 
 serve(async (req: Request) => {
@@ -27,24 +27,25 @@ serve(async (req: Request) => {
 
     try {
         const body: RequestBody = await req.json();
-        const { ride_id, driver_id } = body;
+        const { ride_id } = body;
 
-        if (!ride_id || !driver_id) {
+        if (!ride_id) {
             return new Response(
-                JSON.stringify({ success: false, error: "Missing ride_id or driver_id" }),
+                JSON.stringify({ success: false, error: "Missing ride_id" }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { user, driver } = await requireDriver(req, supabaseAdmin);
 
         // 1. ATOMIC OFFER LOCK
         // Verify this driver actually holds a 'pending' offer for this ride.
-        const { data: offer, error: offerError } = await supabase
+        const { data: offer, error: offerError } = await supabaseAdmin
             .from("ride_offers")
             .update({ status: "accepted" })
             .eq("ride_id", ride_id)
-            .eq("driver_id", driver_id)
+            .eq("driver_id", driver.id)
             .eq("status", "pending")
             .select()
             .single();
@@ -60,11 +61,11 @@ serve(async (req: Request) => {
         // 2. ATOMIC RIDE ASSIGNMENT
         // Only update if status is 'searching' or 'requested'.
         // This prevents race conditions where two drivers accept same ride.
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from("rides")
             .update({
                 status: "assigned",
-                driver_id: driver_id,
+                driver_id: driver.id,
                 updated_at: new Date().toISOString()
             })
             .eq("id", ride_id)
@@ -84,11 +85,11 @@ serve(async (req: Request) => {
         }
 
         // 2. Log Event
-        await supabase.from("events").insert({
-            user_id: driver_id, // assuming driver_id is uuid mapping to auth
+        await supabaseAdmin.from("events").insert({
+            user_id: user.id, // using verified user_id
             role: "driver",
             event_type: "ride_accepted",
-            metadata: { ride_id, driver_id }
+            metadata: { ride_id, driver_id: driver.id }
         });
 
         return new Response(
@@ -96,10 +97,12 @@ serve(async (req: Request) => {
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("accept_ride error:", error);
+        if (error instanceof Response) return error;
+
         return new Response(
-            JSON.stringify({ success: false, error: "Internal Error" }),
+            JSON.stringify({ success: false, error: typeof error === "string" ? error : (error?.message || "Internal Error") }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }
