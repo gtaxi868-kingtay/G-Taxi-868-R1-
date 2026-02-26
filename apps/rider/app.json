@@ -1,44 +1,45 @@
 {
-    "expo": {
-        "name": "G Taxi",
-        "slug": "g-taxi",
-        "version": "1.0.0",
-        "orientation": "portrait",
-        "icon": "./assets/logo.png",
-        "userInterfaceStyle": "dark",
-        "splash": {
-            "image": "./assets/splash.png",
-            "resizeMode": "contain",
-            "backgroundColor": "#0a0118"
-        },
-        "plugins": [
-            [
-                "expo-build-properties",
-                {
-                    "ios": {
-                        "useFrameworks": "static"
-                    }
-                }
-            ]
-        ],
-        "ios": {
-            "supportsTablet": false,
-            "bundleIdentifier": "com.yourcompany.glasstaxi",
-            "config": {
-                "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-            }
-        },
-        "android": {
-            "adaptiveIcon": {
-                "foregroundImage": "./assets/adaptive-icon.png",
-                "backgroundColor": "#0a0118"
-            },
-            "package": "com.yourcompany.glasstaxi",
-            "config": {
-                "googleMaps": {
-                    "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-                }
-            }
+  "expo": {
+    "name": "G Taxi",
+    "slug": "g-taxi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0118"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
+      ],
+      "@stripe/stripe-react-native"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.yourcompany.glasstaxi",
+      "config": {
+        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0a0118"
+      },
+      "package": "com.yourcompany.glasstaxi",
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
     }
+  }
 }

@@ -2,6 +2,11 @@
 // Phase 3 Fixes Applied:
 //   Fix 3.2 — Cash ride now explicitly confirms cash payment before completing (no silent continue)
 //   Fix 3.4 — Status gate narrowed from ['assigned','arrived','in_progress'] to ['in_progress'] only
+// Phase 6 Fix 6.3:
+//   Cash commission changed from 15% to 19% (platform keeps 19% of cash fare from driver wallet)
+//   Wallet split changed from 80/20 to 81/19 (81% driver, 19% platform)
+//   Card rides (payment_status = 'captured' via Stripe webhook) are passed through without
+//   a second charge — just mark ride completed.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -138,9 +143,13 @@ serve(async (req: Request) => {
         }
 
         // ── Payment Handling ──────────────────────────────────────────────────
+        // Platform split: 81% driver, 19% platform
+        // PLATFORM_ACCOUNT is the platform wallet UUID in wallet_transactions
+        const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
 
         if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
             // Wallet path: atomic RPC handles balance check, debit, and ledger write.
+            // The RPC (updated in Fix 6.7 migration) uses 81/19 split.
             const { data: success, error: payError } = await supabaseAdmin
                 .rpc("process_wallet_payment", {
                     p_ride_id: ride_id,
@@ -160,8 +169,7 @@ serve(async (req: Request) => {
             }
 
         } else if (ride.payment_method === "cash") {
-            // ── Fix 3.2: Cash ride — block on failure, do not silently continue ──
-
+            // ── Fix 3.2 / Fix 6.3: Cash ride ──────────────────────────────────
             // Step A: Confirm cash was collected by flagging the ride.
             const { error: cashError } = await supabaseAdmin
                 .from("rides")
@@ -181,8 +189,11 @@ serve(async (req: Request) => {
                 );
             }
 
-            // Step B: Deduct 15% platform commission from driver wallet.
-            const commission = Math.round(ride.total_fare_cents * 0.15);
+            // Step B: Deduct 19% platform commission from driver wallet.
+            // Fix 6.3: Changed from 15% to 19%.
+            // The rider paid cash directly to the driver, so the driver owes
+            // the platform its 19% cut — deducted as a negative wallet_transactions entry.
+            const commission = Math.round(ride.total_fare_cents * 0.19);
             const { error: commError } = await supabaseAdmin
                 .from("wallet_transactions")
                 .insert({
@@ -190,7 +201,7 @@ serve(async (req: Request) => {
                     ride_id: ride_id,
                     amount: -commission,
                     transaction_type: "commission_fee",
-                    description: "Platform commission (15%) for cash ride",
+                    description: "Platform commission (19%) for cash ride",
                     status: "completed"
                 });
 
@@ -199,6 +210,39 @@ serve(async (req: Request) => {
                 // but must be logged clearly for reconciliation.
                 console.error("COMMISSION DEDUCTION FAILED — requires manual reconciliation:", commError);
             }
+
+            // Step C: Write platform-side ledger entry for the commission received
+            const { error: ledgerError } = await supabaseAdmin
+                .from("payment_ledger")
+                .insert({
+                    ride_id: ride_id,
+                    user_id: ride.rider_id,
+                    amount: (ride.total_fare_cents / 100.0),
+                    currency: "TTD",
+                    status: "captured",
+                    provider: "cash"
+                });
+
+            if (ledgerError) {
+                console.error("LEDGER INSERT FAILED for cash ride:", ledgerError);
+            }
+
+        } else if (ride.payment_method === "card") {
+            // Card rides: Stripe webhook has already fired and captured the payment.
+            // payment_status should be 'captured' by the time this is called.
+            // Fix 6.3: 81/19 split is enforced in the Stripe webhook handler.
+            // If payment_status is not yet captured, block completion.
+            if (ride.payment_status !== "captured") {
+                return new Response(
+                    JSON.stringify({
+                        success: false,
+                        error: "Card payment has not been captured yet. Please complete payment first.",
+                        data: { payment_status: ride.payment_status }
+                    }),
+                    { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+            // Payment already processed by stripe_webhook — nothing more to do here.
         }
 
         // ── Atomic Ride Status Update ─────────────────────────────────────────

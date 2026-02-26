@@ -4,6 +4,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -99,16 +100,18 @@ function RootNavigator() {
 
 export default function App() {
     return (
-        <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-                <ErrorBoundary>
-                    <NavigationContainer>
-                        <StatusBar style="light" />
-                        <RootNavigator />
-                    </NavigationContainer>
-                </ErrorBoundary>
-            </AuthProvider>
-        </QueryClientProvider>
+        <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}>
+            <QueryClientProvider client={queryClient}>
+                <AuthProvider>
+                    <ErrorBoundary>
+                        <NavigationContainer>
+                            <StatusBar style="light" />
+                            <RootNavigator />
+                        </NavigationContainer>
+                    </ErrorBoundary>
+                </AuthProvider>
+            </QueryClientProvider>
+        </StripeProvider>
     );
 }
 

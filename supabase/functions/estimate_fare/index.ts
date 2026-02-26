@@ -1,18 +1,28 @@
 // Supabase Edge Function: estimate_fare
-// REBUILT - Clean implementation (no auth required - read-only estimate)
+// Phase 6 Fix 6.2 — Updated fare structure (locked business rules)
 //
-// Returns fare estimate based on coordinates and vehicle type.
+// Fare structure (TTD):
+//   Base fare:     16.00
+//   Per kilometre:  1.75
+//   Per minute:     0.95
+//   Minimum fare:  22.00
+//
+// Auth: Not required — read-only fare estimate, no personal data written.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
-// Trinidad pricing (in TTD cents)
+// --- Locked fare structure (TTD cents) ---
+// Base fare:     $16.00 TTD = 1600 cents
+// Per kilometre:  $1.75 TTD =  175 cents
+// Per minute:     $0.95 TTD =   95 cents
+// Minimum fare:  $22.00 TTD = 2200 cents
 const PRICING = {
-    BASE_FARE_CENTS: 1500,
-    PER_KM_CENTS: 150,
-    PER_MIN_CENTS: 120,
-    MIN_FARE_CENTS: 2500,
+    BASE_FARE_CENTS: 1600,
+    PER_KM_CENTS: 175,
+    PER_MIN_CENTS: 95,
+    MIN_FARE_CENTS: 2200,
 };
 
 const VEHICLE_MULTIPLIERS: Record<string, number> = {
@@ -66,7 +76,7 @@ serve(async (req: Request) => {
             }
         }
 
-        // Fallback: Haversine distance
+        // Fallback: Haversine distance (with 1.3x road factor)
         if (distanceMeters === 5000) {
             const R = 6371000;
             const dLat = (dropoff_lat - pickup_lat) * Math.PI / 180;
