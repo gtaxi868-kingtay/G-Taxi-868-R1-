@@ -2,6 +2,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '../../../../shared/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { setAuthToken } from '../services/api';
+import { Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
 // ... imports
 import { UserProfile, UserPreferences } from '../types/profile';
@@ -19,6 +22,57 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// ── Phase 5 Fix 5.4: Push token registration for riders ───────────────────────
+// Same pattern as the driver app, but stores the token in profiles.push_token
+// so the edge function can notify the rider about driver arrival, cancellations, etc.
+async function registerPushToken(userId: string): Promise<void> {
+    if (!Device.isDevice) {
+        console.log('registerPushToken (rider): skipped (not a physical device).');
+        return;
+    }
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+        console.warn('registerPushToken (rider): push notification permission denied.');
+        return;
+    }
+
+    // Android requires a notification channel.
+    if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('ride-updates', {
+            name: 'Ride Updates',
+            importance: Notifications.AndroidImportance.HIGH,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#7C3AED',
+            sound: 'default',
+        });
+    }
+
+    try {
+        const token = (await Notifications.getExpoPushTokenAsync()).data;
+
+        const { error } = await supabase
+            .from('profiles')
+            .update({ push_token: token })
+            .eq('id', userId);
+
+        if (error) {
+            console.error('registerPushToken (rider): failed to save token to profiles table:', error);
+        } else {
+            console.log('registerPushToken (rider): token saved for user', userId);
+        }
+    } catch (err) {
+        console.error('registerPushToken (rider): error obtaining push token:', err);
+    }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
@@ -45,6 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (profileData) setProfile(profileData);
             if (prefData) setPreferences(prefData);
+
+            // Phase 5: Register push token after profile is confirmed to exist.
+            // Fire-and-forget — never blocks profile fetch or ride flow.
+            registerPushToken(userId).catch(err =>
+                console.error('registerPushToken (rider) background error:', err)
+            );
         } catch (e) {
             console.error('Error fetching user data', e);
             // Non-blocking: We don't throw, we just log. Ride flow must continue.
@@ -52,7 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     useEffect(() => {
-        // Get initial session
         // Get initial session with timeout safety
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise((_, reject) =>

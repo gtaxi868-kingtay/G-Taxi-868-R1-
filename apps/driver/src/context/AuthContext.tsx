@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../../../../shared/supabase';
 import { Session, User } from '@supabase/supabase-js';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 
 interface DriverProfile {
     id: string;
@@ -25,6 +27,58 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// ── Phase 5 Fix 5.3: Push token registration ──────────────────────────────────
+// Requests permission, gets the Expo push token, and stores it in the
+// drivers table keyed by the authenticated user's ID.
+async function registerPushToken(userId: string): Promise<void> {
+    if (!Device.isDevice) {
+        // Push notifications do not work on simulators/emulators.
+        console.log('registerPushToken: skipped (not a physical device).');
+        return;
+    }
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+        console.warn('registerPushToken: push notification permission denied.');
+        return;
+    }
+
+    // On Android, a notification channel is required for Expo notifications.
+    if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('ride-offers', {
+            name: 'Ride Offers',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+            sound: 'default',
+        });
+    }
+
+    try {
+        const token = (await Notifications.getExpoPushTokenAsync()).data;
+
+        const { error } = await supabase
+            .from('drivers')
+            .update({ push_token: token })
+            .eq('id', userId);
+
+        if (error) {
+            console.error('registerPushToken: failed to save token to drivers table:', error);
+        } else {
+            console.log('registerPushToken: token saved for driver', userId);
+        }
+    } catch (err) {
+        console.error('registerPushToken: error obtaining push token:', err);
+    }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
@@ -43,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         });
 
-        // Listen for changes on auth state (sing in, sign out, etc.)
+        // Listen for changes on auth state (sign in, sign out, etc.)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
@@ -51,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 fetchDriverProfile(session.user.id);
             } else {
                 setDriver(null);
-                setLoading(false); // Only set loading false if logging out
+                setLoading(false);
             }
         });
 
@@ -68,13 +122,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (error) {
                 console.error('Error fetching driver profile:', error);
-                // If 406/No rows, it means user is authenticated but not a driver
                 if (error.code === 'PGRST116') {
                     Alert.alert('Access Denied', 'You are not registered as a driver.');
                     await supabase.auth.signOut();
                 }
             } else {
                 setDriver(data as DriverProfile);
+                // Phase 5: Register push token after confirming the driver profile exists.
+                // Fire-and-forget — token registration must never block the login flow.
+                registerPushToken(userId).catch(err =>
+                    console.error('registerPushToken background error:', err)
+                );
             }
         } catch (e) {
             console.error('Exception fetching driver:', e);

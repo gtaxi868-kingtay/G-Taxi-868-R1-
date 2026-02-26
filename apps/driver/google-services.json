@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "981047346046",
+    "project_id": "g-taxi-868-46007",
+    "storage_bucket": "g-taxi-868-46007.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981047346046:android:562e43d58e163bd39e692f",
+        "android_client_info": {
+          "package_name": "g_taxi_868.gtaxi.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9g2wY_wRM19Ojw75kiceqLANXkHM6FtI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

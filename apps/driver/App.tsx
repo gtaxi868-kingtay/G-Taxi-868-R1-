@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +11,98 @@ import { EarningsScreen } from './src/screens/EarningsScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
 import { ScheduledRidesScreen } from './src/screens/ScheduledRidesScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ActivityIndicator, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as BackgroundFetch from 'expo-background-fetch';
+import * as TaskManager from 'expo-task-manager';
+import { supabase } from '../../shared/supabase';
+
+// ── Phase 5 Fix 5.7: Background retry task for offline ride completions ────────
+// When the driver loses connectivity at the moment of completion, the complete_ride
+// call is queued in AsyncStorage under 'pending_completions'. This background task
+// retries all queued completions every 30 seconds, even when the app is backgrounded.
+const RETRY_TASK = 'OFFLINE_COMPLETION_RETRY';
+const COMPLETE_RIDE_URL = `${process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''}/functions/v1/complete_ride`;
+
+TaskManager.defineTask(RETRY_TASK, async () => {
+    try {
+        const pending = await AsyncStorage.getItem('pending_completions');
+        if (!pending) return BackgroundFetch.BackgroundFetchResult.NoData;
+
+        const completions: Array<{ ride_id: string; driver_lat: number; driver_lng: number }> = JSON.parse(pending);
+        if (completions.length === 0) return BackgroundFetch.BackgroundFetchResult.NoData;
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            // Not authenticated — can't retry, leave pending items for later.
+            return BackgroundFetch.BackgroundFetchResult.Failed;
+        }
+
+        const remaining: typeof completions = [];
+
+        for (const item of completions) {
+            try {
+                const res = await fetch(COMPLETE_RIDE_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify(item),
+                });
+
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.success) {
+                        console.log(`[RETRY_TASK] Ride ${item.ride_id} completed successfully on retry.`);
+                        // Successfully completed — do not add back to remaining.
+                    } else {
+                        // Server rejected (e.g. ride already completed) — discard.
+                        console.warn(`[RETRY_TASK] Ride ${item.ride_id} rejected by server:`, json.error);
+                    }
+                } else {
+                    // Network or server error — keep for next retry.
+                    console.warn(`[RETRY_TASK] HTTP ${res.status} for ride ${item.ride_id} — requeueing.`);
+                    remaining.push(item);
+                }
+            } catch (err) {
+                // Network error — requeue.
+                console.warn(`[RETRY_TASK] Network error for ride ${item.ride_id} — requeueing:`, err);
+                remaining.push(item);
+            }
+        }
+
+        await AsyncStorage.setItem('pending_completions', JSON.stringify(remaining));
+
+        return remaining.length < completions.length
+            ? BackgroundFetch.BackgroundFetchResult.NewData
+            : BackgroundFetch.BackgroundFetchResult.NoData;
+
+    } catch (err) {
+        console.error('[RETRY_TASK] Unexpected error:', err);
+        return BackgroundFetch.BackgroundFetchResult.Failed;
+    }
+});
+
+// ── Register the background task on app startup ───────────────────────────────
+async function registerBackgroundRetryTask() {
+    try {
+        const isRegistered = await TaskManager.isTaskRegisteredAsync(RETRY_TASK);
+        if (!isRegistered) {
+            await BackgroundFetch.registerTaskAsync(RETRY_TASK, {
+                minimumInterval: 30,      // seconds — OS may delay beyond this
+                stopOnTerminate: false,   // continue after app swipe-close on Android
+                startOnBoot: true,        // restart after device reboot
+            });
+            console.log('[BackgroundFetch] Registered OFFLINE_COMPLETION_RETRY task.');
+        }
+    } catch (err) {
+        // BackgroundFetch is not available on all platforms (e.g. web builds)
+        console.warn('[BackgroundFetch] Could not register retry task:', err);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const Stack = createNativeStackNavigator();
 
@@ -21,10 +113,6 @@ function AuthNavigator() {
         </Stack.Navigator>
     );
 }
-
-import { useEffect, useState } from 'react';
-import { supabase } from '../../shared/supabase'; // We need supabase import
-import { ActivityIndicator, View } from 'react-native';
 
 function AppNavigator() {
     const { user } = useAuth();
@@ -96,6 +184,11 @@ function RootNavigator() {
 }
 
 export default function App() {
+    useEffect(() => {
+        // Register the offline completion retry task as early as possible.
+        registerBackgroundRetryTask();
+    }, []);
+
     return (
         <AuthProvider>
             <NavigationContainer>

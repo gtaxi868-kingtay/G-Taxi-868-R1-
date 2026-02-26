@@ -1,11 +1,13 @@
 // Supabase Edge Function: match_driver
 // HARDENED - Secure auth via supabase.auth.getUser()
 // FIXED: Direct driver query instead of RPC
+// Phase 5: Sends push notification to matched driver via FCM HTTP v1 API
 //
 // Matches a driver to a ride request.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendPushNotification } from "../_shared/push.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -199,6 +201,24 @@ serve(async (req: Request) => {
 
         // Ensure ride is strictly "searching", pulling it out of the queue if it was stuck
         await supabaseAdmin.from("rides").update({ status: "searching" }).eq("id", ride_id);
+
+        // ── Phase 5 Fix 5.6: Push notification to the matched driver ─────────
+        // Fire-and-forget — push failure must never block the offer creation.
+        // The driver's app also listens via Realtime subscription as a fallback.
+        if (selectedDriver.push_token) {
+            sendPushNotification(
+                selectedDriver.push_token,
+                '🚖 New Ride Request',
+                'A rider is waiting nearby. Tap to view the offer.',
+                {
+                    type: 'NEW_RIDE_OFFER',
+                    ride_id: ride.id,
+                    pickup: ride.pickup_address || '',
+                }
+            ).catch(err => console.error("Push notification failed (non-fatal):", err));
+        } else {
+            console.log(`Driver ${selectedDriver.id} has no push_token — skipping push, relying on Realtime.`);
+        }
 
         return new Response(
             JSON.stringify({
