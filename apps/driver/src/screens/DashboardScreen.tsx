@@ -10,7 +10,6 @@ import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Card } from '../design-system/primitives';
 import { supabase } from '../../../../shared/supabase';
 import { Sidebar } from '../components/Sidebar';
-import { Sidebar } from '../components/Sidebar';
 
 const DARK_MAP_STYLE = [
     { elementType: "geometry", stylers: [{ color: tokens.colors.background.base }] },
@@ -35,9 +34,6 @@ export function DashboardScreen({ navigation }: any) {
     const { location } = useLocationTracking();
     const { offer, clearOffer } = useRideOfferSubscription(driver?.id);
     const isOnline = driver?.is_online;
-
-    // Phase 9: Global Navigation
-    const [sidebarVisible, setSidebarVisible] = useState(false);
 
     // Phase 9: Global Navigation
     const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -195,24 +191,22 @@ export function DashboardScreen({ navigation }: any) {
                             <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary}>{todayTrips}</Txt>
                         </View>
                     </Surface>
-                </Surface>
+                </View>
+
+            </SafeAreaView>
+
+            {/* Sidebar Overlay */}
+            <Sidebar
+                visible={sidebarVisible}
+                onClose={() => setSidebarVisible(false)}
+                user={{
+                    name: driver?.name || 'Driver',
+                    rating: 5.0,
+                    photo_url: undefined,
+                }}
+                navigation={navigation}
+            />
         </View>
-
-            </SafeAreaView >
-
-        {/* Sidebar Overlay */ }
-        < Sidebar
-    visible = { sidebarVisible }
-    onClose = {() => setSidebarVisible(false)
-}
-user = {{
-    name: driver?.name || 'Driver',
-        rating: 5.0, // Wired later
-            photo_url: undefined
-}}
-navigation = { navigation }
-    />
-        </View >
     );
 }
 
