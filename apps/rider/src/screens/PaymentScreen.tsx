@@ -145,13 +145,16 @@ export function PaymentScreen({ navigation, route }: any) {
 
             // Step 4: Payment confirmed by Stripe — stripe_webhook will capture
             // and write ledger + wallet entries server-side.
+            // UI-A4: Use goBack() not navigate('ActiveRide') — navigate requires
+            // all required params (destination, fare, driver, rideId) which we
+            // don't have here. goBack() returns to the calling ActiveRideScreen.
             Alert.alert(
                 'Payment Successful 🎉',
                 'Your card payment has been processed. The driver will be notified.',
                 [
                     {
                         text: 'OK',
-                        onPress: () => navigation.navigate('ActiveRide'),
+                        onPress: () => navigation.goBack(),
                     },
                 ]
             );

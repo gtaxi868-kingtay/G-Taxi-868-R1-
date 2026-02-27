@@ -8,12 +8,13 @@ import {
     SafeAreaView,
     Platform,
     ScrollView,
-    TouchableOpacity, // Added for Tip Buttons
+    TouchableOpacity,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FareEstimate } from '../types/ride';
-import { formatCurrency, processTip } from '../services/api'; // Keeping utility
+import { formatCurrency, processTip } from '../services/api';
+import { supabase } from '../../../../shared/supabase';
 import { tokens } from '../design-system/tokens';
 import { Txt, Card, Btn, Surface } from '../design-system/primitives';
 
@@ -35,7 +36,8 @@ interface RatingScreenProps {
             driver: Driver;
             fare: FareEstimate;
             rideId: string;
-            paymentMethod?: 'cash' | 'card';
+            // UI-A5: Added 'wallet' to the type union to match all payment paths
+            paymentMethod?: 'cash' | 'wallet' | 'card';
         };
     };
 }
@@ -72,8 +74,7 @@ export function RatingScreen({ navigation, route }: RatingScreenProps) {
             const res = await processTip(rideId, tipCents);
             if (!res.success) {
                 console.warn('[Rating] Tip failed:', res.error);
-                // We don't block the flow, just log it. 
-                // Maybe show alert? For UX flow we proceed.
+                // We don't block the flow, just log it.
             } else {
                 console.log('[Rating] Tip Success');
             }
@@ -89,25 +90,102 @@ export function RatingScreen({ navigation, route }: RatingScreenProps) {
         }, 1500);
     };
 
-    const handleViewReceipt = () => {
+    // ── UI-A5: View Receipt — fetch full ride object then navigate ──────────────
+    //
+    // The old implementation passed hardcoded stub values ('Pickup', 'Dropoff').
+    // Now we fetch the real ride row from Supabase so ReceiptScreen has accurate
+    // addresses, distance, duration, and the server-authoritative total_fare_cents.
+    //
+    // Fields fetched match exactly what ReceiptScreen's interface expects:
+    //   id, created_at, pickup_address, dropoff_address, total_fare_cents,
+    //   distance_meters, duration_seconds, payment_method,
+    //   + driver join for driver_name, vehicle_model, plate_number.
+    const handleViewReceipt = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        navigation.navigate('Receipt', {
-            ride: {
-                id: rideId,
-                fare: {
-                    amount: fare.total_fare_cents / 100,
-                    currency: 'TTD',
+
+        // Fetch the full ride object — if anything fails fall back to local data
+        try {
+            const { data: rideData, error } = await supabase
+                .from('rides')
+                .select(`
+                    id,
+                    created_at,
+                    pickup_address,
+                    dropoff_address,
+                    total_fare_cents,
+                    distance_meters,
+                    duration_seconds,
+                    payment_method,
+                    drivers (
+                        profiles (
+                            full_name
+                        ),
+                        vehicle_model,
+                        plate_number
+                    )
+                `)
+                .eq('id', rideId)
+                .single();
+
+            if (error || !rideData) {
+                console.warn('[Rating] Failed to fetch ride for receipt, using local data:', error);
+                // Fall back to what we already know
+                navigation.navigate('Receipt', {
+                    ride: {
+                        id: rideId,
+                        created_at: new Date().toISOString(),
+                        pickup_address: 'Pickup',
+                        dropoff_address: 'Dropoff',
+                        total_fare_cents: fare.total_fare_cents,
+                        payment_method: paymentMethod,
+                        driver_name: driver.name,
+                        vehicle_model: driver.vehicle,
+                        plate_number: driver.plate,
+                    },
+                });
+                return;
+            }
+
+            // Extract nested driver info safely
+            const driverRow = Array.isArray(rideData.drivers)
+                ? rideData.drivers[0]
+                : rideData.drivers;
+            const profileRow = driverRow && (
+                Array.isArray(driverRow.profiles) ? driverRow.profiles[0] : driverRow.profiles
+            );
+
+            navigation.navigate('Receipt', {
+                ride: {
+                    id: rideData.id,
+                    created_at: rideData.created_at,
+                    pickup_address: rideData.pickup_address,
+                    dropoff_address: rideData.dropoff_address,
+                    total_fare_cents: rideData.total_fare_cents ?? fare.total_fare_cents,
+                    distance_meters: rideData.distance_meters,
+                    duration_seconds: rideData.duration_seconds,
+                    payment_method: (rideData.payment_method as 'cash' | 'wallet' | 'card') ?? paymentMethod,
+                    driver_name: profileRow?.full_name ?? driver.name,
+                    vehicle_model: driverRow?.vehicle_model ?? driver.vehicle,
+                    plate_number: driverRow?.plate_number ?? driver.plate,
                 },
-                pickup_address: 'Pickup',
-                dropoff_address: 'Dropoff',
-                driver_name: driver.name,
-                vehicle: driver.vehicle,
-                plate: driver.plate,
-                payment_method: paymentMethod,
-                created_at: new Date().toISOString(),
-                tip: selectedTip,
-            },
-        });
+            });
+        } catch (err) {
+            console.error('[Rating] Unexpected error fetching ride:', err);
+            // Safe fallback
+            navigation.navigate('Receipt', {
+                ride: {
+                    id: rideId,
+                    created_at: new Date().toISOString(),
+                    pickup_address: 'Pickup',
+                    dropoff_address: 'Dropoff',
+                    total_fare_cents: fare.total_fare_cents,
+                    payment_method: paymentMethod,
+                    driver_name: driver.name,
+                    vehicle_model: driver.vehicle,
+                    plate_number: driver.plate,
+                },
+            });
+        }
     };
 
     if (submitted) {
@@ -165,7 +243,9 @@ export function RatingScreen({ navigation, route }: RatingScreenProps) {
                             {formatCurrency(fare.total_fare_cents)}
                         </Txt>
                         <Txt variant="bodyReg" color={tokens.colors.status.success} style={{ marginTop: 4 }}>
-                            Payment: {paymentMethod === 'cash' ? 'Cash' : 'Card'} ✓
+                            Payment:{' '}
+                            {paymentMethod === 'cash' ? 'Cash' :
+                                paymentMethod === 'wallet' ? 'Wallet' : 'Card'} ✓
                         </Txt>
                     </Surface>
 
@@ -211,7 +291,7 @@ export function RatingScreen({ navigation, route }: RatingScreenProps) {
                         </View>
                     </Card>
 
-                    {/* 6. Tip Selector (NEW) */}
+                    {/* 6. Tip Selector */}
                     <View style={styles.tipContainer}>
                         <Txt variant="bodyBold" style={{ marginBottom: 12 }}>Add a Tip</Txt>
                         <View style={styles.tipRow}>
@@ -238,7 +318,7 @@ export function RatingScreen({ navigation, route }: RatingScreenProps) {
                         </View>
                     </View>
 
-                    {/* 7. Buttons - Pushed to bottom of scrollview */}
+                    {/* 7. Buttons */}
                     <View style={styles.buttonRow}>
                         <View style={{ flex: 1 }}>
                             <Btn
@@ -273,7 +353,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: tokens.layout.spacing.lg,
         paddingTop: 40,
-        paddingBottom: 20, // Bottom padding for buttons
+        paddingBottom: 20,
     },
     orbWrapper: {
         marginBottom: 24,
@@ -324,7 +404,6 @@ const styles = StyleSheet.create({
         flex: 1,
         borderRadius: 22,
     },
-    // NEW TIP STYLES
     tipContainer: {
         width: '100%',
         marginBottom: 32,
@@ -351,7 +430,7 @@ const styles = StyleSheet.create({
     buttonRow: {
         flexDirection: 'row',
         width: '100%',
-        marginTop: 'auto', // Pushes to bottom of flex container (ScrollView content)
+        marginTop: 'auto',
     },
     thankYouContainer: {
         flex: 1,

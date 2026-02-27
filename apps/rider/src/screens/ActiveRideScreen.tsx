@@ -53,7 +53,9 @@ interface ActiveRideScreenProps {
             fare: any;
             driver: Driver;
             rideId?: string;
-            paymentMethod?: 'cash' | 'card';
+            // UI-A3: Added 'wallet' to the type union.
+            // All three methods must be handled in the completion handler.
+            paymentMethod?: 'cash' | 'wallet' | 'card';
         };
     };
 }
@@ -64,7 +66,7 @@ const CAR_ASSETS = {
 };
 
 export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
-    const { destination, fare, driver, rideId } = route.params;
+    const { destination, fare, driver, rideId, paymentMethod = 'cash' } = route.params;
     const [eta, setEta] = useState(fare.duration_min || 5);
     const mapRef = useRef<MapView>(null);
     const { rideUpdate } = useRideSubscription(rideId || null);
@@ -79,21 +81,64 @@ export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
 
     useEffect(() => {
         if (rideUpdate?.status === 'completed') {
-            navigation.replace('Rating', { driver, fare, rideId });
+            handleRideCompleted();
         }
     }, [rideUpdate]);
+
+    // ── UI-A3: Payment-aware completion routing ────────────────────────────────
+    //
+    // card   → Navigate to PaymentScreen so the rider can confirm card charge
+    //          via Stripe PaymentSheet before leaving the ride context.
+    //          After payment (or goBack()), RatingScreen follows.
+    //
+    // wallet → Wallet deduction happened server-side automatically (via
+    //          process_wallet_payment RPC called by complete_ride edge function).
+    //          Go straight to Rating.
+    //
+    // cash   → Rider pays driver directly. No in-app transaction needed.
+    //          Go straight to Rating.
+    const handleRideCompleted = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+        if (paymentMethod === 'card') {
+            // Navigate to PaymentScreen with all context needed to charge the card.
+            // PaymentScreen will call goBack() on success, returning here briefly,
+            // then RatingScreen must be navigated to next. We use navigate (not replace)
+            // so the stack allows goBack() to work, then we push Rating after payment.
+            navigation.navigate('Payment', {
+                ride_id: rideId,
+                payment_method: 'card',
+                fare_cents: rideUpdate?.total_fare_cents ?? fare.total_fare_cents,
+            });
+        } else {
+            // cash and wallet both go direct to Rating
+            navigation.replace('Rating', {
+                driver,
+                fare: {
+                    ...fare,
+                    // If the server sent back an updated fare embed it
+                    total_fare_cents: rideUpdate?.total_fare_cents ?? fare.total_fare_cents,
+                },
+                rideId,
+                paymentMethod,
+            });
+        }
+    };
 
     useEffect(() => {
         if (driverLocation) {
             const { lat, lng } = driverLocation;
             if (mapRef.current) {
-                mapRef.current.fitToCoordinates([
-                    { latitude: lat, longitude: lng },
-                    { latitude: destination.latitude, longitude: destination.longitude }
-                ], {
-                    edgePadding: { top: 100, right: 50, bottom: height * 0.4, left: 50 },
-                    animated: true
-                });
+                mapRef.current.fitToCoordinates(
+                    [
+                        { latitude: lat, longitude: lng },
+                        { latitude: destination.latitude, longitude: destination.longitude },
+                    ],
+                    {
+                        edgePadding: { top: 100, right: 50, bottom: height * 0.4, left: 50 },
+                        animated: true,
+                    }
+                );
             }
         }
 

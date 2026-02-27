@@ -7,6 +7,16 @@ import { formatCurrency } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
+// ─── Locked fare structure (TTD cents) ───────────────────────────────────────
+// These must exactly match estimate_fare/index.ts and complete_ride/index.ts.
+// Base fare:     $16.00 TTD = 1600 cents
+// Per kilometre:  $1.75 TTD =  175 cents/km
+// Per minute:     $0.95 TTD =   95 cents/min
+// Minimum fare:  $22.00 TTD = 2200 cents
+const BASE_FARE_CENTS = 1600;
+const PER_KM_CENTS = 175;
+const PER_MIN_CENTS = 95;
+
 interface ReceiptScreenProps {
     navigation: any;
     route: {
@@ -19,7 +29,7 @@ interface ReceiptScreenProps {
                 total_fare_cents?: number;
                 distance_meters?: number;
                 duration_seconds?: number;
-                payment_method?: 'cash' | 'card';
+                payment_method?: 'cash' | 'wallet' | 'card';
                 driver_name?: string;
                 vehicle_model?: string;
                 plate_number?: string;
@@ -42,10 +52,36 @@ export function ReceiptScreen({ navigation, route }: ReceiptScreenProps) {
 
     const distance = ride.distance_meters ? (ride.distance_meters / 1000).toFixed(1) : '?';
     const duration = ride.duration_seconds ? Math.round(ride.duration_seconds / 60) : '?';
-    const baseFare = 1500; // $15.00 TT base
-    const distanceFare = ride.distance_meters ? Math.round((ride.distance_meters / 1000) * 300) : 0; // $3/km
-    const timeFare = ride.duration_seconds ? Math.round((ride.duration_seconds / 60) * 50) : 0; // $0.50/min
-    const totalFare = ride.total_fare_cents || (baseFare + distanceFare + timeFare);
+
+    // ── Fare breakdown using locked fare structure ──────────────────────────────
+    // These match the edge function pricing exactly.
+    const baseFare = BASE_FARE_CENTS;
+    const distanceFare = ride.distance_meters
+        ? Math.round((ride.distance_meters / 1000) * PER_KM_CENTS)
+        : 0;
+    const timeFare = ride.duration_seconds
+        ? Math.round((ride.duration_seconds / 60) * PER_MIN_CENTS)
+        : 0;
+
+    // If the server gave us total_fare_cents, always prefer it over the
+    // client-side recalculation (handles vehicle multipliers, etc.).
+    const totalFare = ride.total_fare_cents || Math.max(
+        BASE_FARE_CENTS,
+        baseFare + distanceFare + timeFare
+    );
+
+    // ── Payment method display helpers ─────────────────────────────────────────
+    const paymentIcon =
+        ride.payment_method === 'card' ? '💳' :
+            ride.payment_method === 'wallet' ? '👛' : '💵';
+
+    const paymentLabel =
+        ride.payment_method === 'card' ? 'Card Payment' :
+            ride.payment_method === 'wallet' ? 'Wallet Payment' : 'Cash Payment';
+
+    const paymentSubtitle =
+        ride.payment_method === 'card' ? 'Charged to card' :
+            ride.payment_method === 'wallet' ? 'Deducted from G-Taxi Wallet' : 'Paid to driver';
 
     const handleShare = async () => {
         try {
@@ -109,7 +145,7 @@ export function ReceiptScreen({ navigation, route }: ReceiptScreenProps) {
                         </Card>
                     </View>
 
-                    {/* Fare Breakdown */}
+                    {/* Fare Breakdown — locked pricing */}
                     <Card style={styles.card} padding="lg">
                         <Txt variant="headingM" weight="bold" style={{ marginBottom: 16 }}>Fare Breakdown</Txt>
 
@@ -134,14 +170,14 @@ export function ReceiptScreen({ navigation, route }: ReceiptScreenProps) {
                         </View>
                     </Card>
 
-                    {/* Payment Method */}
+                    {/* Payment Method — cash | wallet | card */}
                     <Card style={styles.card} padding="md">
                         <View style={styles.paymentRow}>
-                            <Txt style={{ fontSize: 24 }}>{ride.payment_method === 'card' ? '💳' : '💵'}</Txt>
+                            <Txt style={{ fontSize: 24 }}>{paymentIcon}</Txt>
                             <View style={{ marginLeft: 12 }}>
-                                <Txt variant="bodyBold">{ride.payment_method === 'card' ? 'Card Payment' : 'Cash Payment'}</Txt>
+                                <Txt variant="bodyBold">{paymentLabel}</Txt>
                                 <Txt variant="caption" color={tokens.colors.text.secondary}>
-                                    {ride.payment_method === 'card' ? 'Charged to card' : 'Paid to driver'}
+                                    {paymentSubtitle}
                                 </Txt>
                             </View>
                         </View>

@@ -51,7 +51,9 @@ interface SearchingDriverScreenProps {
             destination: LocationType;
             fare: FareEstimate;
             rideId?: string;
-            paymentMethod?: 'cash' | 'card';
+            // UI-A2: Added 'wallet' to the type union — all three payment methods
+            // must flow through this screen to ActiveRideScreen without being dropped.
+            paymentMethod?: 'cash' | 'wallet' | 'card';
             pickup?: LocationType;
         };
     };
@@ -176,6 +178,8 @@ export function SearchingDriverScreen({ navigation, route }: SearchingDriverScre
 
     const handleDriverAssigned = async (driverId: string) => {
         const driverDetails = await fetchDriverDetails(driverId);
+        // UI-A2: paymentMethod (now typed 'cash' | 'wallet' | 'card') is forwarded
+        // unchanged to ActiveRideScreen so the completion handler knows what to do.
         navigation.replace('ActiveRide', {
             destination,
             fare,
