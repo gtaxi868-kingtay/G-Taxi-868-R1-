@@ -73,9 +73,9 @@ export function DashboardScreen({ navigation }: any) {
                 .then(({ data }) => {
                     if (data) {
                         setTodayTrips(data.length);
-                        // Driver keeps 85% of total fare (15% platform commission)
+                        // Driver keeps 81% of total fare (19% platform commission) — locked rule
                         const totalCents = data.reduce((acc, r) => acc + (r.total_fare_cents || 0), 0);
-                        setTodayEarnings((totalCents * 0.85) / 100);
+                        setTodayEarnings((totalCents * 0.81) / 100);
                     }
                 });
         }

@@ -93,29 +93,43 @@ function App() {
       console.error('fetchAdminData (users) error:', err.message);
     }
 
+    // ── UI-B4: Flags fetch via adminFetch ─────────────────────────────────────
+    //
+    // Primary path: adminFetch('admin_get_flags') — routes through the edge
+    // function so auth + role checks are enforced server-side.
+    //
+    // Fallback path: direct REST API call using the session anon token.
+    // This is used ONLY if admin_get_flags does not exist as an edge function,
+    // because flags are read-only data and the system_feature_flags table has
+    // an RLS policy that allows authenticated admin reads.
+    // The toggle actions (writes) still go through admin_toggle_flag.
     try {
-      // admin_get_flags is not a separate function — flags are part of admin_get_users
-      // so we fetch them directly via the anon client reading a public-ish table.
-      // The service role gate is enforced by admin_toggle_flag on writes.
-      // We do a lightweight flags fetch here using the session-scoped anon client.
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const data = await adminFetch('admin_get_flags');
+      setFlags(Array.isArray(data) ? data : (data?.flags || []));
+    } catch (primaryErr: any) {
+      // admin_get_flags edge function not yet deployed — fall back to direct REST.
+      // Remove this fallback once admin_get_flags is deployed.
+      console.warn('admin_get_flags not available, falling back to direct REST fetch:', primaryErr.message);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/system_feature_flags?select=id,is_active&order=id`,
-        {
-          headers: {
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${session.access_token}`,
-          },
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/system_feature_flags?select=id,is_active&order=id`,
+          {
+            headers: {
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          }
+        );
+        if (res.ok) {
+          const flagData = await res.json();
+          setFlags(flagData || []);
         }
-      );
-      if (res.ok) {
-        const flagData = await res.json();
-        setFlags(flagData || []);
+      } catch (fallbackErr: any) {
+        console.error('fetchAdminData (flags) fallback error:', fallbackErr.message);
       }
-    } catch (err: any) {
-      console.error('fetchAdminData (flags) error:', err.message);
     }
   };
 
@@ -422,8 +436,8 @@ function App() {
                       <button
                         onClick={() => toggleDriverAuthorization(user)}
                         className={`text-xs px-3 py-1.5 rounded transition font-bold border ${user.is_driver
-                            ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                            : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 shadow-sm'
+                          ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
+                          : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 shadow-sm'
                           }`}
                       >
                         {user.is_driver ? 'REVOKE ACCESS' : 'AUTHORIZE'}

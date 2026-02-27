@@ -8,6 +8,10 @@ import { useLocationTracking } from '../hooks/useLocationTracking';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Btn } from '../design-system/primitives';
 
+// ── Locked commission rule ─────────────────────────────────────────────────
+// Driver keeps 81% of total fare. 19% is platform commission.
+const DRIVER_SHARE = 0.81;
+
 type TripState = 'driving_to_pickup' | 'arrived' | 'in_progress';
 
 const DARK_MAP_STYLE = [
@@ -28,6 +32,12 @@ const DARK_MAP_STYLE = [
     { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
 ];
 
+function paymentLabel(method: string | null): string {
+    if (method === 'card') return '💳 Card';
+    if (method === 'wallet') return '👛 Wallet';
+    return '💵 Cash';
+}
+
 export function ActiveTripScreen({ navigation, route }: any) {
     const { rideId } = route.params;
     const { location } = useLocationTracking();
@@ -41,6 +51,38 @@ export function ActiveTripScreen({ navigation, route }: any) {
             if (error) Alert.alert('Error', 'Could not load ride data');
         });
     }, [rideId]);
+
+    // ── UI-B3: Earnings summary before navigating to Dashboard ──────────────
+    //
+    // When the driver taps COMPLETE RIDE:
+    //   1. Call updateRideStatus('completed') — same as before.
+    //   2. Show an Alert with:
+    //      - Net earning (81% of total_fare_cents, or the locked minimum if not available)
+    //      - Payment method
+    //      - Pickup → Dropoff addresses
+    //   3. On OK → navigation.replace('Dashboard')
+    //
+    // This is a simple, non-blocking informational alert before stack replacement.
+    const showEarningsSummary = (ride: any) => {
+        const fareCents = ride?.total_fare_cents ?? 0;
+        const earned = Math.round(fareCents * DRIVER_SHARE);
+        const earnedStr = `$${(earned / 100).toFixed(2)} TTD`;
+        const payment = paymentLabel(ride?.payment_method ?? null);
+        const pickup = ride?.pickup_address || 'Pickup';
+        const dropoff = ride?.dropoff_address || 'Dropoff';
+
+        Alert.alert(
+            '✅ Ride Completed!',
+            `You earned: ${earnedStr}\nPayment: ${payment}\n\nFrom: ${pickup}\nTo: ${dropoff}`,
+            [
+                {
+                    text: 'View Dashboard',
+                    onPress: () => navigation.replace('Dashboard'),
+                },
+            ],
+            { cancelable: false }
+        );
+    };
 
     const handleAction = async () => {
         setLoading(true);
@@ -58,18 +100,23 @@ export function ActiveTripScreen({ navigation, route }: any) {
                 try {
                     await updateRideStatus(rideId, 'completed', driverLat, driverLng);
                 } catch (apiError: any) {
-                    // PHASE 8: Dead-Zone Offline Caching
+                    // Dead-Zone Offline Caching — preserve completion for background retry
                     const msg = apiError.message || '';
                     if (msg.includes('Network') || msg.includes('fetch')) {
                         await AsyncStorage.setItem(`pending_completion_${rideId}`, JSON.stringify({
                             rideId, driverLat, driverLng, timestamp: new Date().toISOString()
                         }));
                         Alert.alert('Offline Mode', 'Completion saved locally. It will upload when service returns.');
+                        setLoading(false);
+                        return;
                     } else {
                         throw apiError;
                     }
                 }
-                navigation.replace('Dashboard');
+                // UI-B3: Show earnings summary before going to Dashboard.
+                // rideData may have stale total_fare_cents if the server calculated
+                // the final fare on completion — use what we have as best estimate.
+                showEarningsSummary(rideData);
             }
         } catch (e: any) {
             Alert.alert('Error', e.message || 'Failed to update status');
