@@ -11,6 +11,7 @@
 
 import Stripe from "https://esm.sh/stripe@13";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -55,6 +56,15 @@ Deno.serve(async (req: Request) => {
             );
         }
 
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const rateCheck = await checkRateLimit(supabaseAdmin, user.id, "create_payment_intent");
+        if (!rateCheck.allowed) {
+            return new Response(
+                JSON.stringify({ success: false, error: rateCheck.error }),
+                { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // ── Parse Request ─────────────────────────────────────────────────────
         const { ride_id } = await req.json();
 
@@ -68,7 +78,6 @@ Deno.serve(async (req: Request) => {
         // ── Ride Ownership Check ──────────────────────────────────────────────
         // Fetch ride and verify it belongs to the authenticated user.
         // The .eq('rider_id', user.id) clause is the ownership assertion.
-        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         const { data: ride, error: rideError } = await supabaseAdmin
             .from("rides")

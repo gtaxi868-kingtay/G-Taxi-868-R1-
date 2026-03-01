@@ -5,6 +5,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -13,10 +14,10 @@ const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
 
 // Trinidad pricing (in TTD cents)
 const PRICING = {
-    BASE_FARE_CENTS: 1500,
-    PER_KM_CENTS: 170,
-    PER_MIN_CENTS: 120,
-    MIN_FARE_CENTS: 2500,
+    BASE_FARE_CENTS: 1600,
+    PER_KM_CENTS: 175,
+    PER_MIN_CENTS: 95,
+    MIN_FARE_CENTS: 2200,
 };
 
 const VEHICLE_MULTIPLIERS: Record<string, number> = {
@@ -77,6 +78,15 @@ serve(async (req: Request) => {
         }
 
         const rider_id = user.id; // STRICT usage of verified ID
+
+        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const rateCheck = await checkRateLimit(adminClient, rider_id, "create_ride");
+        if (!rateCheck.allowed) {
+            return new Response(
+                JSON.stringify({ success: false, error: rateCheck.error }),
+                { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
 
         // 3. Parse Request Body
         let body;

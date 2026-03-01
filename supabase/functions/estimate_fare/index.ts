@@ -10,7 +10,12 @@
 // Auth: Not required — read-only fare estimate, no personal data written.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
 // --- Locked fare structure (TTD cents) ---
@@ -42,6 +47,22 @@ serve(async (req: Request) => {
     }
 
     try {
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) {
+            return new Response(JSON.stringify({ success: false, error: "Missing authorization header", data: null }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: authHeader } } });
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+        if (authError || !user) {
+            return new Response(JSON.stringify({ success: false, error: "Invalid or expired token", data: null }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const rateCheck = await checkRateLimit(adminClient, user.id, "estimate_fare");
+        if (!rateCheck.allowed) {
+            return new Response(JSON.stringify({ success: false, error: rateCheck.error, data: null }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
         const {
             pickup_lat,
             pickup_lng,
