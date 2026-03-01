@@ -18,6 +18,7 @@
 
 import Stripe from "https://esm.sh/stripe@13";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { captureException } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -48,8 +49,9 @@ Deno.serve(async (req: Request) => {
     let event: Stripe.Event;
     try {
         event = stripe.webhooks.constructEvent(rawBody, sig, STRIPE_WEBHOOK_SECRET);
-    } catch (err) {
-        console.error("stripe_webhook: Signature verification failed:", err);
+    } catch (error: any) {
+        console.error("stripe_webhook error:", error);
+        await captureException(error, { function: 'stripe_webhook' });
         return new Response("Webhook signature verification failed", { status: 400 });
     }
 

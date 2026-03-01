@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
+import { captureException } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -284,7 +285,8 @@ serve(async (req: Request) => {
         );
 
     } catch (error: any) {
-        console.error("Unexpected error:", error);
+        console.error("create_ride error:", error);
+        await captureException(error, { function: 'create_ride' });
         return new Response(
             JSON.stringify({ success: false, error: "Internal server error: " + error.message, data: null }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

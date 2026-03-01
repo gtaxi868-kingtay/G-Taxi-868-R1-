@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import * as Sentry from '@sentry/react-native';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -183,7 +184,15 @@ function RootNavigator() {
     return user ? <AppNavigator /> : <AuthNavigator />;
 }
 
-export default function App() {
+Sentry.init({
+    dsn: 'https://fd1b20b3e7e9a18f89380de9537867ff@o4510426117767168.ingest.us.sentry.io/4510969904300032',
+    environment: __DEV__ ? 'development' : 'production',
+    tracesSampleRate: __DEV__ ? 0.0 : 0.2,
+    enableNative: true,
+    debug: __DEV__,
+});
+
+function App() {
     useEffect(() => {
         // Register the offline completion retry task as early as possible.
         registerBackgroundRetryTask();
@@ -198,3 +207,5 @@ export default function App() {
         </AuthProvider>
     );
 }
+
+export default Sentry.wrap(App);

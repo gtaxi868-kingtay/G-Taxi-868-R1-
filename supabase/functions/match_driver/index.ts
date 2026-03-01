@@ -8,6 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
+import { captureException } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -232,8 +233,9 @@ serve(async (req: Request) => {
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
 
-    } catch (error) {
-        console.error("Match driver error:", error);
+    } catch (error: any) {
+        console.error("match_driver error:", error);
+        await captureException(error, { function: 'match_driver' });
         return new Response(JSON.stringify({ success: false, error: "Internal error" }), { status: 500, headers: corsHeaders });
     }
 });

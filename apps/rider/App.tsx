@@ -5,6 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StripeProvider } from '@stripe/stripe-react-native';
+import * as Sentry from '@sentry/react-native';
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -98,7 +99,15 @@ function RootNavigator() {
     return user ? <RideProvider><AppNavigator /></RideProvider> : <AuthNavigator />;
 }
 
-export default function App() {
+Sentry.init({
+    dsn: 'https://afd7d5ee7d0738270ee71a61c7890b01@o4510426117767168.ingest.us.sentry.io/4510969876447232',
+    environment: __DEV__ ? 'development' : 'production',
+    tracesSampleRate: __DEV__ ? 0.0 : 0.2,
+    enableNative: true,
+    debug: __DEV__,
+});
+
+function App() {
     return (
         <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}>
             <QueryClientProvider client={queryClient}>
@@ -124,4 +133,4 @@ const styles = StyleSheet.create({
     },
 });
 
-// registerRootComponent is called in index.js
+export default Sentry.wrap(App);
