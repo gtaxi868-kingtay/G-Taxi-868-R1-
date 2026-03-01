@@ -1,236 +1,134 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, TouchableOpacity } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { tokens } from '../design-system/tokens';
-import { Txt, Surface } from '../design-system/primitives';
-import { useAuth } from '../context/AuthContext';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, Linking } from 'react-native';
 import { supabase } from '../../../../shared/supabase';
-
-interface WalletTx {
-    id: string;
-    amount: number;
-    transaction_type: string;
-    description: string;
-    created_at: string;
-    status: string;
-}
+import { useAuth } from '../context/AuthContext';
+import { tokens } from '../design-system/tokens';
+import { Txt, Surface, Card } from '../design-system/primitives';
 
 export function WalletScreen({ navigation }: any) {
     const { driver } = useAuth();
-    const [balanceCents, setBalanceCents] = useState<number | null>(null);
-    const [transactions, setTransactions] = useState<WalletTx[]>([]);
+    const [balance, setBalance] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!driver?.id) return;
-
-        const fetchData = async () => {
-            // 1. Fetch live balance
-            const { data: balData } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
-            if (balData !== null) setBalanceCents(Math.round(Number(balData)));
-
-            // 2. Fetch transaction history
-            const { data: txData } = await supabase
-                .from('wallet_transactions')
-                .select('*')
-                .eq('user_id', driver.id)
-                .order('created_at', { ascending: false })
-                .limit(50);
-
-            if (txData) setTransactions(txData);
-            setLoading(false);
-        };
-
-        fetchData();
+        if (driver?.id) {
+            supabase.rpc('get_wallet_balance', { p_user_id: driver.id })
+                .then(({ data, error }) => {
+                    if (!error && data !== null) {
+                        setBalance(data / 100);
+                    } else {
+                        setBalance(0);
+                    }
+                    setLoading(false);
+                });
+        }
     }, [driver?.id]);
 
-    const renderItem = ({ item }: { item: WalletTx }) => {
-        const isCredit = item.amount > 0;
-        const amountDisplay = (Math.abs(item.amount) / 100).toFixed(2);
+    const isOwed = balance !== null && balance < 0;
+    const isGood = balance !== null && balance >= 0;
 
-        // Define icons and colors based on transaction type
-        let icon = '💸';
-        let color = isCredit ? tokens.colors.status.success : tokens.colors.text.primary;
-
-        if (item.transaction_type === 'topup' || item.transaction_type === 'driver_payout') icon = '🏦';
-        if (item.transaction_type === 'ride_payment' && !isCredit) {
-            icon = '📉'; // Commission deduction
-            color = tokens.colors.status.warning;
-        }
-
-        return (
-            <Surface style={styles.txRow} intensity={20}>
-                <View style={styles.txIconBox}>
-                    <Txt variant="headingM">{icon}</Txt>
-                </View>
-                <View style={styles.txDetails}>
-                    <Txt variant="bodyBold" color={tokens.colors.text.primary}>{item.description}</Txt>
-                    <Txt variant="caption" color={tokens.colors.text.tertiary}>
-                        {new Date(item.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                    </Txt>
-                </View>
-                <View style={styles.txAmount}>
-                    <Txt variant="headingM" weight="bold" color={color}>
-                        {isCredit ? '+' : '-'}${amountDisplay}
-                    </Txt>
-                    <Txt variant="small" color={item.status === 'completed' ? tokens.colors.status.success : tokens.colors.text.tertiary} style={{ textTransform: 'uppercase', marginTop: 2 }}>
-                        {item.status}
-                    </Txt>
-                </View>
-            </Surface>
-        );
+    const handleDeposit = () => {
+        Linking.openURL('https://wa.me/18685550100?text=I need to settle my G-Taxi commission balance.');
     };
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar style="light" />
+            <ScrollView contentContainerStyle={styles.scroll}>
 
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Surface style={styles.backSurface} intensity={40}>
-                        <Txt variant="bodyBold" color={tokens.colors.text.primary}>← Back</Txt>
-                    </Surface>
+                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                    <Txt variant="bodyBold" color={tokens.colors.primary.purple}>← Back</Txt>
                 </TouchableOpacity>
-                <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary}>Wallet</Txt>
-                <View style={{ width: 60 }} />
-            </View>
 
-            {/* Main Balance Card */}
-            <View style={styles.balanceContainer}>
-                <Surface style={styles.balanceCard} intensity={40}>
-                    <Txt variant="bodyBold" color={tokens.colors.text.secondary} style={{ marginBottom: 4 }}>
-                        CURRENT BALANCE (TTD)
-                    </Txt>
-                    {balanceCents === null ? (
-                        <ActivityIndicator color={tokens.colors.primary.purple} style={{ marginTop: 12 }} />
-                    ) : (
-                        <Txt variant="displayXL" weight="bold" color={balanceCents < 0 ? tokens.colors.status.error : tokens.colors.status.success}>
-                            ${(balanceCents / 100).toFixed(2)}
+                <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary} style={styles.title}>
+                    Commission Ledger
+                </Txt>
+
+                {loading ? (
+                    <ActivityIndicator color={tokens.colors.primary.purple} style={{ marginTop: 40 }} />
+                ) : (
+                    <>
+                        <Card padding="xl" elevation="level3" radius="xl" style={styles.heroCard}>
+                            <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>CURRENT BALANCE</Txt>
+                            <Txt
+                                variant="displayXL"
+                                weight="bold"
+                                color={isOwed ? tokens.colors.status.error : tokens.colors.primary.cyan}
+                                style={{ marginVertical: 8 }}
+                            >
+                                ${Math.abs(balance || 0).toFixed(2)}
+                            </Txt>
+                            <Txt variant="bodyBold" color={tokens.colors.text.primary}>
+                                {isOwed ? 'You owe the platform (19% cuts)' : 'All clear.'}
+                            </Txt>
+
+                            {isOwed && balance <= -600 && (
+                                <View style={styles.lockWarning}>
+                                    <Txt variant="caption" weight="bold" color={tokens.colors.background.base}>
+                                        ⚠️ ACCOUNT RESTRICTED — CAP REACHED
+                                    </Txt>
+                                </View>
+                            )}
+                        </Card>
+
+                        <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary} style={styles.sectionTitle}>
+                            How It Works
                         </Txt>
-                    )}
-                    {balanceCents !== null && balanceCents <= -60000 && (
-                        <View style={styles.warningBadge}>
-                            <Txt variant="caption" weight="bold" color="#000">SYSTEM LOCKOUT CAP REACHED</Txt>
-                        </View>
-                    )}
-                </Surface>
-            </View>
 
-            {/* Ledger List */}
-            <View style={styles.ledgerHeader}>
-                <Txt variant="bodyBold" color={tokens.colors.text.secondary}>Recent Transactions</Txt>
-            </View>
+                        <Surface intensity={30} style={styles.infoBox}>
+                            <View style={styles.infoRow}>
+                                <Txt style={{ fontSize: 24, marginRight: 16 }}>💵</Txt>
+                                <View style={{ flex: 1 }}>
+                                    <Txt variant="bodyBold" color={tokens.colors.text.primary}>Cash Trips</Txt>
+                                    <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>
+                                        You keep all the cash. We deduct our 19% fee from this ledger balance.
+                                    </Txt>
+                                </View>
+                            </View>
+                            <View style={styles.divider} />
+                            <View style={styles.infoRow}>
+                                <Txt style={{ fontSize: 24, marginRight: 16 }}>💳</Txt>
+                                <View style={{ flex: 1 }}>
+                                    <Txt variant="bodyBold" color={tokens.colors.text.primary}>Card Trips</Txt>
+                                    <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>
+                                        We collect the payment. Your 81% share is ADDED to this ledger balance.
+                                    </Txt>
+                                </View>
+                            </View>
+                            <View style={styles.divider} />
+                            <View style={styles.infoRow}>
+                                <Txt style={{ fontSize: 24, marginRight: 16 }}>🔒</Txt>
+                                <View style={{ flex: 1 }}>
+                                    <Txt variant="bodyBold" color={tokens.colors.text.primary}>The $600 Cap</Txt>
+                                    <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>
+                                        If your balance reaches -$600, you cannot accept new rides until you settle via bank transfer.
+                                    </Txt>
+                                </View>
+                            </View>
+                        </Surface>
 
-            {loading ? (
-                <View style={styles.loader}>
-                    <ActivityIndicator size="large" color={tokens.colors.primary.purple} />
-                </View>
-            ) : (
-                <FlatList
-                    data={transactions}
-                    keyExtractor={t => t.id}
-                    renderItem={renderItem}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <Txt variant="bodyReg" color={tokens.colors.text.tertiary}>No transactions found.</Txt>
-                        </View>
-                    }
-                />
-            )}
+                        <TouchableOpacity style={styles.depositBtn} onPress={handleDeposit}>
+                            <Txt variant="bodyBold" weight="bold" color={tokens.colors.background.base}>
+                                Settle Balance via Transfer
+                            </Txt>
+                        </TouchableOpacity>
+
+                    </>
+                )}
+            </ScrollView>
         </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: tokens.colors.background.base,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-    },
-    backBtn: {
-        shadowColor: tokens.colors.primary.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    backSurface: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
-    },
-    balanceContainer: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-    },
-    balanceCard: {
-        padding: 32,
-        borderRadius: 24,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
-    },
-    warningBadge: {
-        backgroundColor: tokens.colors.status.warning,
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
-        marginTop: 12,
-    },
-    ledgerHeader: {
-        paddingHorizontal: 24,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-    },
-    listContent: {
-        padding: 20,
-        gap: 12,
-    },
-    txRow: {
-        flexDirection: 'row',
-        padding: 16,
-        borderRadius: 16,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.03)',
-    },
-    txIconBox: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    txDetails: {
-        flex: 1,
-        marginLeft: 16,
-        gap: 4,
-    },
-    txAmount: {
-        alignItems: 'flex-end',
-    },
-    loader: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emptyState: {
-        padding: 40,
-        alignItems: 'center',
-    }
+    container: { flex: 1, backgroundColor: tokens.colors.background.base },
+    scroll: { padding: 20 },
+    backBtn: { marginBottom: 16 },
+    title: { marginBottom: 24 },
+    heroCard: { alignItems: 'center', marginBottom: 32, borderWidth: 1, borderColor: tokens.colors.border.subtle },
+    lockWarning: { marginTop: 16, backgroundColor: tokens.colors.status.error, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+    sectionTitle: { marginBottom: 16 },
+    infoBox: { padding: 0, borderRadius: 16, borderWidth: 1, borderColor: tokens.colors.border.subtle, overflow: 'hidden' },
+    infoRow: { flexDirection: 'row', alignItems: 'center', padding: 20 },
+    divider: { height: 1, backgroundColor: tokens.colors.border.subtle, marginHorizontal: 20 },
+    depositBtn: { marginTop: 32, backgroundColor: tokens.colors.primary.purple, paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
 });

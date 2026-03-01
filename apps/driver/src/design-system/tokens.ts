@@ -1,7 +1,7 @@
 export const tokens = {
     colors: {
         background: {
-            base: '#05050A', // Deep Matte Black (Checklist #2)
+            base: '#05050A', // Deep Matte Black (Premium iOS 18 look)
             ambient: '#0A0A12', // Slightly lighter for subtle separation
             surface: 'rgba(20, 20, 30, 0.6)', // Satin Glass Fill
         },
@@ -12,9 +12,8 @@ export const tokens = {
             shadow: 'rgba(0, 0, 0, 0.4)', // Deep diffused shadow
         },
         primary: {
-            purple: '#9F55FF', // Tuned for "Quiet Confidence", slightly desaturated
+            purple: '#9F55FF', // Tuned for "Quiet Confidence"
             cyan: '#00E0FF',
-            // Gradient used ONLY for active/focus states
             gradient: ['#9F55FF', '#00E0FF'] as const,
         },
         text: {
@@ -38,10 +37,10 @@ export const tokens = {
             system: 'System',
         },
         sizes: {
-            displayXL: 56, // Reduced slightly for "Calm" (Checklist #1)
+            displayXL: 56, // Reduced slightly for "Calm" readability
             headingL: 32,
             headingM: 22,
-            bodyBold: 17,
+            bodyBold: 17, // Standard Apple Human Interface
             bodyReg: 15,
             caption: 13,
             small: 11,
@@ -79,7 +78,6 @@ export const tokens = {
         }
     },
     elevation: {
-        // "Depth Rules" (Checklist #3)
         level1: { // Base / Flat
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
@@ -101,7 +99,7 @@ export const tokens = {
             shadowRadius: 24,
             elevation: 16,
         },
-        glow: { // RARE usage only (Checklist #1)
+        glow: { // RARE usage only
             shadowColor: '#9F55FF',
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.4,
@@ -115,12 +113,11 @@ export const tokens = {
             elevation: 0,
         }
     },
-    // New: Standardized Marker Definitions
     markers: {
         car: {
-            width: 120, // 2x increase (was 60)
-            height: 70, // 2x increase (was 35)
-            emojiSize: 64, // scaled up
+            width: 120, // Crisp Retina scale
+            height: 70,
+            emojiSize: 64,
         },
         animation: {
             duration: 2000, // Standard glide duration

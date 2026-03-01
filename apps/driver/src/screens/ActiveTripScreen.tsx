@@ -1,18 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, SafeAreaView, ActivityIndicator, Alert, Linking, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, Alert, Linking, Platform } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
-import { updateRideStatus, getRide } from '../services/api';
+import { supabase } from '../../../../shared/supabase';
 import { useLocationTracking } from '../hooks/useLocationTracking';
+import { updateRideStatus } from '../services/api';
 import { tokens } from '../design-system/tokens';
-import { Txt, Surface, Btn } from '../design-system/primitives';
+import { Txt, Surface, Card } from '../design-system/primitives';
 
-// ── Locked commission rule ─────────────────────────────────────────────────
-// Driver keeps 81% of total fare. 19% is platform commission.
-const DRIVER_SHARE = 0.81;
+// Helper for parsing polyline string to coordinate array
+function decodePolyline(encoded: string) {
+    if (!encoded) return [];
+    let poly = [];
+    let index = 0, len = encoded.length;
+    let lat = 0, lng = 0;
 
-type TripState = 'driving_to_pickup' | 'arrived' | 'in_progress';
+    while (index < len) {
+        let b, shift = 0, result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+
+        shift = 0;
+        result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+
+        poly.push({ latitude: (lat / 1e5), longitude: (lng / 1e5) });
+    }
+    return poly;
+}
 
 const DARK_MAP_STYLE = [
     { elementType: "geometry", stylers: [{ color: tokens.colors.background.base }] },
@@ -32,227 +57,221 @@ const DARK_MAP_STYLE = [
     { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
 ];
 
-function paymentLabel(method: string | null): string {
-    if (method === 'card') return '💳 Card';
-    if (method === 'wallet') return '👛 Wallet';
-    return '💵 Cash';
-}
+const DRIVER_SHARE = 0.81;
 
-export function ActiveTripScreen({ navigation, route }: any) {
+export function ActiveTripScreen({ route, navigation }: any) {
     const { rideId } = route.params;
-    const { location } = useLocationTracking();
-    const [status, setStatus] = useState<TripState>('driving_to_pickup');
-    const [loading, setLoading] = useState(false);
-    const [rideData, setRideData] = useState<any>(null);
+    const { location } = useLocationTracking(rideId);
+    const [ride, setRide] = useState<any>(null);
+    const [rider, setRider] = useState<any>(null);
+    const [routeCoords, setRouteCoords] = useState<any[]>([]);
 
     useEffect(() => {
-        getRide(rideId).then(({ data, error }) => {
-            if (data) setRideData(data);
-            if (error) Alert.alert('Error', 'Could not load ride data');
-        });
+        supabase
+            .from('rides')
+            .select('*, rider:rider_id(id, raw_user_meta_data)')
+            .eq('id', rideId)
+            .single()
+            .then(({ data }) => {
+                if (data) {
+                    setRide(data);
+                    setRider(data.rider);
+                    if (data.route_geometry) {
+                        setRouteCoords(decodePolyline(data.route_geometry));
+                    }
+                }
+            });
+
+        const sub = supabase.channel(`ride_${rideId}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` }, (payload) => {
+                setRide(payload.new);
+                if (payload.new.status === 'completed' || payload.new.status === 'closed') {
+                    // Payment summary logic below
+                }
+            })
+            .subscribe();
+
+        return () => { sub.unsubscribe(); };
     }, [rideId]);
 
-    // ── UI-B3: Earnings summary before navigating to Dashboard ──────────────
-    //
-    // When the driver taps COMPLETE RIDE:
-    //   1. Call updateRideStatus('completed') — same as before.
-    //   2. Show an Alert with:
-    //      - Net earning (81% of total_fare_cents, or the locked minimum if not available)
-    //      - Payment method
-    //      - Pickup → Dropoff addresses
-    //   3. On OK → navigation.replace('Dashboard')
-    //
-    // This is a simple, non-blocking informational alert before stack replacement.
-    const showEarningsSummary = (ride: any) => {
-        const fareCents = ride?.total_fare_cents ?? 0;
-        const earned = Math.round(fareCents * DRIVER_SHARE);
-        const earnedStr = `$${(earned / 100).toFixed(2)} TTD`;
-        const payment = paymentLabel(ride?.payment_method ?? null);
-        const pickup = ride?.pickup_address || 'Pickup';
-        const dropoff = ride?.dropoff_address || 'Dropoff';
+    const handleStatusChange = async (newStatus: string) => {
+        const { error } = await updateRideStatus(rideId, newStatus);
+        if (!error) setRide({ ...ride, status: newStatus });
+    };
 
+    const handleComplete = async () => {
         Alert.alert(
-            '✅ Ride Completed!',
-            `You earned: ${earnedStr}\nPayment: ${payment}\n\nFrom: ${pickup}\nTo: ${dropoff}`,
+            "Complete Trip",
+            "Are you sure you want to end this trip?",
             [
+                { text: "Cancel", style: "cancel" },
                 {
-                    text: 'View Dashboard',
-                    onPress: () => navigation.replace('Dashboard'),
-                },
-            ],
-            { cancelable: false }
+                    text: "Complete",
+                    style: "default",
+                    onPress: async () => {
+                        const { error } = await updateRideStatus(rideId, 'completed');
+                        if (error) {
+                            Alert.alert("Error", "Could not complete trip. Try again.");
+                        } else {
+                            setRide({ ...ride, status: 'completed' });
+                        }
+                    }
+                }
+            ]
         );
     };
 
-    const handleAction = async () => {
-        setLoading(true);
-        try {
-            const driverLat = location?.coords.latitude;
-            const driverLng = location?.coords.longitude;
-
-            if (status === 'driving_to_pickup') {
-                await updateRideStatus(rideId, 'arrived', driverLat, driverLng);
-                setStatus('arrived');
-            } else if (status === 'arrived') {
-                await updateRideStatus(rideId, 'in_progress', driverLat, driverLng);
-                setStatus('in_progress');
-            } else if (status === 'in_progress') {
-                try {
-                    await updateRideStatus(rideId, 'completed', driverLat, driverLng);
-                } catch (apiError: any) {
-                    // Dead-Zone Offline Caching — preserve completion for background retry
-                    const msg = apiError.message || '';
-                    if (msg.includes('Network') || msg.includes('fetch')) {
-                        await AsyncStorage.setItem(`pending_completion_${rideId}`, JSON.stringify({
-                            rideId, driverLat, driverLng, timestamp: new Date().toISOString()
-                        }));
-                        Alert.alert('Offline Mode', 'Completion saved locally. It will upload when service returns.');
-                        setLoading(false);
-                        return;
-                    } else {
-                        throw apiError;
-                    }
-                }
-                // UI-B3: Show earnings summary before going to Dashboard.
-                // rideData may have stale total_fare_cents if the server calculated
-                // the final fare on completion — use what we have as best estimate.
-                showEarningsSummary(rideData);
-            }
-        } catch (e: any) {
-            Alert.alert('Error', e.message || 'Failed to update status');
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const openNavigation = () => {
-        if (!targetCoordinate) return;
-        const { latitude, longitude } = targetCoordinate;
-        const wazeUrl = `waze://?ll=${latitude},${longitude}&navigate=yes`;
-        const googleUrl = `google.navigation:q=${latitude},${longitude}`;
-        const appleUrl = `maps://?daddr=${latitude},${longitude}`;
-
-        Linking.canOpenURL(wazeUrl).then(supported => {
-            if (supported) {
-                Linking.openURL(wazeUrl);
-            } else {
-                Linking.openURL(Platform.OS === 'ios' ? appleUrl : googleUrl);
-            }
-        }).catch(() => {
-            Linking.openURL(Platform.OS === 'ios' ? appleUrl : googleUrl);
+        if (!ride) return;
+        const dest = ride.status === 'assigned' ? `${ride.pickup_lat},${ride.pickup_lng}` : `${ride.dropoff_lat},${ride.dropoff_lng}`;
+        const url = Platform.select({
+            ios: `maps://app?daddr=${dest}`,
+            android: `google.navigation:q=${dest}`,
         });
+        if (url) Linking.openURL(url);
     };
 
-    const getButtonText = () => {
-        if (loading) return 'Updating...';
-        switch (status) {
-            case 'driving_to_pickup': return 'ARRIVED AT PICKUP';
-            case 'arrived': return 'START RIDE';
-            case 'in_progress': return 'COMPLETE RIDE';
-        }
-    };
+    const currentLat = location?.coords.latitude || ride?.pickup_lat || 0;
+    const currentLng = location?.coords.longitude || ride?.pickup_lng || 0;
 
-    const targetCoordinate = (() => {
-        if (!rideData) return null;
-        if (status === 'driving_to_pickup' || status === 'arrived') {
-            return { latitude: rideData.pickup_lat, longitude: rideData.pickup_lng };
-        }
-        return { latitude: rideData.dropoff_lat, longitude: rideData.dropoff_lng };
-    })();
+    // Render Completion Summary
+    if (ride?.status === 'completed' || ride?.status === 'closed') {
+        const fare = ride.total_fare_cents ? ride.total_fare_cents / 100 : 0;
+        const earnings = (fare * DRIVER_SHARE).toFixed(2);
 
-    const driverCoord = location ? { latitude: location.coords.latitude, longitude: location.coords.longitude } : null;
-
-    if (!rideData) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={tokens.colors.primary.cyan} />
+            <View style={[styles.container, { justifyContent: 'center', padding: 24 }]}>
+                <Card padding="xl" elevation="level3" radius="xl" style={{ alignItems: 'center', width: '100%' }}>
+                    <View style={styles.successIcon}>
+                        <Txt variant="headingL">✅</Txt>
+                    </View>
+                    <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary} style={{ marginBottom: 8 }}>
+                        Trip Completed
+                    </Txt>
+                    <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={{ marginBottom: 32 }}>
+                        Great job! You made it safely.
+                    </Txt>
+
+                    <View style={styles.summaryBox}>
+                        <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>YOUR EARNINGS</Txt>
+                        <Txt variant="displayXL" weight="bold" color={tokens.colors.status.success} style={{ marginVertical: 8 }}>
+                            ${earnings}
+                        </Txt>
+                        <Txt variant="bodyReg" color={tokens.colors.text.tertiary}>
+                            Paid via {ride.payment_method === 'card' ? 'Card' : ride.payment_method === 'wallet' ? 'Wallet' : 'Cash'}
+                        </Txt>
+
+                        {ride.payment_method === 'cash' && (
+                            <View style={styles.cashNotice}>
+                                <Txt variant="bodyBold" color={tokens.colors.background.base}>Collect ${fare.toFixed(2)} Cash</Txt>
+                            </View>
+                        )}
+                    </View>
+
+                    <TouchableOpacity
+                        style={[styles.btn, { backgroundColor: tokens.colors.primary.purple, width: '100%', marginTop: 24 }]}
+                        onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] })}
+                    >
+                        <Txt variant="bodyBold" color={tokens.colors.text.primary}>Back to Map</Txt>
+                    </TouchableOpacity>
+                </Card>
             </View>
         );
     }
 
+    // Active Trip Render
     return (
         <View style={styles.container}>
-            <StatusBar style="light" />
-
             <MapView
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
                 customMapStyle={DARK_MAP_STYLE}
-                region={{
-                    latitude: driverCoord?.latitude || rideData.pickup_lat,
-                    longitude: driverCoord?.longitude || rideData.pickup_lng,
-                    latitudeDelta: 0.04,
-                    longitudeDelta: 0.04,
+                initialRegion={{
+                    latitude: currentLat,
+                    longitude: currentLng,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
                 }}
+                showsUserLocation={false}
             >
-                {/* Target Pin */}
-                {targetCoordinate && (
-                    <Marker coordinate={targetCoordinate}>
-                        <View style={[styles.targetPin, { backgroundColor: status === 'in_progress' ? tokens.colors.status.error : tokens.colors.status.success }]} />
-                    </Marker>
-                )}
+                <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
+                    <View style={styles.carMarker}>
+                        <Txt style={{ fontSize: 24 }}>🚘</Txt>
+                    </View>
+                </Marker>
 
-                {/* Driver Pin */}
-                {driverCoord && (
-                    <Marker coordinate={driverCoord}>
-                        <View style={styles.driverPin}>
-                            <View style={[styles.driverDot, { backgroundColor: tokens.colors.primary.cyan }]} />
+                {ride && (
+                    <Marker coordinate={{
+                        latitude: ride.status === 'assigned' ? ride.pickup_lat : ride.dropoff_lat,
+                        longitude: ride.status === 'assigned' ? ride.pickup_lng : ride.dropoff_lng
+                    }}>
+                        <View style={styles.destMarker}>
+                            <Txt style={{ fontSize: 20 }}>📍</Txt>
                         </View>
                     </Marker>
                 )}
 
-                {/* Straight line route */}
-                {driverCoord && targetCoordinate && (
-                    <Polyline
-                        coordinates={[driverCoord, targetCoordinate]}
-                        strokeWidth={4}
-                        strokeColor={tokens.colors.primary.purple}
-                    />
+                {routeCoords.length > 0 && (
+                    <Polyline coordinates={routeCoords} strokeColor={tokens.colors.primary.cyan} strokeWidth={4} lineCap="round" />
                 )}
             </MapView>
 
-            <SafeAreaView style={styles.safeContainer} pointerEvents="box-none">
+            <SafeAreaView style={styles.safeArea} pointerEvents="box-none">
 
-                <View style={styles.header}>
-                    <Surface style={styles.headerPill} intensity={40}>
-                        <Txt variant="bodyBold" color={tokens.colors.text.primary} style={{ letterSpacing: 1 }}>
-                            {status.replace(/_/g, ' ').toUpperCase()}
+                {/* Top Floating Nav */}
+                <Surface intensity={60} style={styles.topNav}>
+                    <View style={{ flex: 1, marginRight: 16 }}>
+                        <Txt variant="caption" weight="bold" color={tokens.colors.primary.cyan} style={{ marginBottom: 4 }}>
+                            {ride?.status === 'assigned' ? 'NAVIGATE TO PICKUP' : 'NAVIGATE TO DROPOFF'}
                         </Txt>
-                    </Surface>
-                </View>
+                        <Txt variant="bodyBold" color={tokens.colors.text.primary} numberOfLines={1}>
+                            {ride?.status === 'assigned' ? ride?.pickup_address : ride?.dropoff_address}
+                        </Txt>
+                    </View>
+                    <TouchableOpacity style={styles.navBtn} onPress={openNavigation}>
+                        <Txt style={{ fontSize: 20 }}>↗️</Txt>
+                    </TouchableOpacity>
+                </Surface>
 
-                <View style={styles.footer} pointerEvents="box-none">
-                    <Surface style={styles.bottomCard} intensity={40}>
-                        <View style={styles.tripInfo}>
-                            <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary} style={{ marginBottom: 4 }}>
-                                {status === 'in_progress' ? 'DROPOFF' : 'PICKUP'}
-                            </Txt>
-                            <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary} numberOfLines={2}>
-                                {status === 'in_progress' ? rideData.dropoff_address : rideData.pickup_address}
-                            </Txt>
+                {/* Bottom Drawer */}
+                <Card style={styles.bottomCard} padding="lg" elevation="level3">
+                    <View style={styles.riderInfo}>
+                        <View style={styles.riderAvatar}>
+                            <Txt variant="headingM">{rider?.raw_user_meta_data?.name?.charAt(0) || 'R'}</Txt>
                         </View>
+                        <View style={{ flex: 1 }}>
+                            <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary}>{rider?.raw_user_meta_data?.name || 'Rider'}</Txt>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                <Txt variant="bodyReg" color={tokens.colors.text.secondary}>⭐ 5.0</Txt>
+                                <View style={styles.dot} />
+                                <Txt variant="bodyReg" color={tokens.colors.text.secondary}>
+                                    {ride?.payment_method === 'cash' ? '💵 Cash' : ride?.payment_method === 'wallet' ? '👛 Wallet' : '💳 Card'}
+                                </Txt>
+                            </View>
+                        </View>
+                        <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${rider?.raw_user_meta_data?.phone}`)}>
+                            <Txt style={{ fontSize: 20 }}>📞</Txt>
+                        </TouchableOpacity>
+                    </View>
 
-                        <Btn
-                            title="NAVIGATE (WAZE/MAPS)"
-                            onPress={openNavigation}
-                            disabled={loading || !targetCoordinate}
-                            fullWidth
-                            variant="glass"
-                            style={{ marginBottom: 12 }}
-                        />
-
-                        <Btn
-                            title={getButtonText()}
-                            onPress={handleAction}
-                            disabled={loading}
-                            fullWidth
-                            variant={status === 'in_progress' ? 'glass' : 'primary'}
-                            style={{
-                                backgroundColor: status === 'in_progress' ? tokens.colors.status.error : tokens.colors.primary.purple
-                            }}
-                        />
-                    </Surface>
-                </View>
+                    <View style={styles.actionContainer}>
+                        {ride?.status === 'assigned' && (
+                            <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: tokens.colors.primary.cyan }]} onPress={() => handleStatusChange('arrived')}>
+                                <Txt variant="bodyBold" weight="bold" color={tokens.colors.background.base}>I've Arrived</Txt>
+                            </TouchableOpacity>
+                        )}
+                        {ride?.status === 'arrived' && (
+                            <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: tokens.colors.status.success }]} onPress={() => handleStatusChange('in_progress')}>
+                                <Txt variant="bodyBold" weight="bold" color={tokens.colors.background.base}>Start Trip</Txt>
+                            </TouchableOpacity>
+                        )}
+                        {ride?.status === 'in_progress' && (
+                            <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: tokens.colors.status.error }]} onPress={handleComplete}>
+                                <Txt variant="bodyBold" weight="bold" color={tokens.colors.text.primary}>Complete Trip</Txt>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </Card>
 
             </SafeAreaView>
         </View>
@@ -261,21 +280,20 @@ export function ActiveTripScreen({ navigation, route }: any) {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: tokens.colors.background.base },
-    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: tokens.colors.background.base },
-    safeContainer: { flex: 1, justifyContent: 'space-between' },
-    header: { padding: 24, alignItems: 'center' },
-    headerPill: {
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-    },
-    footer: { padding: 24 },
-    bottomCard: {
-        borderRadius: 24,
-        padding: 24,
-    },
-    tripInfo: { marginBottom: 24 },
-    targetPin: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: tokens.colors.text.primary },
-    driverPin: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
-    driverDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: tokens.colors.text.primary },
+    safeArea: { flex: 1, justifyContent: 'space-between', padding: 20 },
+    carMarker: { width: 48, height: 48, backgroundColor: tokens.colors.background.ambient, borderRadius: 24, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: tokens.colors.primary.cyan, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 8, elevation: 5 },
+    destMarker: { width: 40, height: 40, backgroundColor: tokens.colors.background.base, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: tokens.colors.text.secondary },
+    topNav: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 24, marginTop: 10, borderWidth: 1, borderColor: tokens.colors.border.subtle },
+    navBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
+    bottomCard: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, marginHorizontal: -20, marginBottom: -20, paddingTop: 24 },
+    riderInfo: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 24 },
+    riderAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+    callBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
+    dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: tokens.colors.text.tertiary },
+    actionContainer: { paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 20 : 0 },
+    mainActionBtn: { paddingVertical: 18, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    successIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(50, 215, 75, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+    summaryBox: { width: '100%', alignItems: 'center', paddingVertical: 24, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, borderWidth: 1, borderColor: tokens.colors.border.subtle },
+    cashNotice: { marginTop: 16, backgroundColor: tokens.colors.status.warning, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20 },
+    btn: { paddingVertical: 16, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
 });

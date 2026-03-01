@@ -35,10 +35,8 @@ export function DashboardScreen({ navigation }: any) {
     const { offer, clearOffer } = useRideOfferSubscription(driver?.id);
     const isOnline = driver?.is_online;
 
-    // Phase 9: Global Navigation
     const [sidebarVisible, setSidebarVisible] = useState(false);
 
-    // Use RideOfferSubscription instead of ActiveRideListener for Phase 4 cascade
     useEffect(() => {
         if (offer && isOnline) {
             navigation.navigate('TripRequest', { offer });
@@ -49,7 +47,6 @@ export function DashboardScreen({ navigation }: any) {
     const currentLat = location?.coords.latitude || DEFAULT_LOCATION.latitude;
     const currentLng = location?.coords.longitude || DEFAULT_LOCATION.longitude;
 
-    // PHASE 8: $600 TTD Cap Lockout & Today's Stats
     const [balanceCents, setBalanceCents] = useState<number | null>(null);
     const [todayTrips, setTodayTrips] = useState(0);
     const [todayEarnings, setTodayEarnings] = useState(0);
@@ -60,7 +57,6 @@ export function DashboardScreen({ navigation }: any) {
                 setBalanceCents(Math.round(Number(data) || 0));
             });
 
-            // Eradicate Vibe Code: Fetch Real Daily Stats
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
 
@@ -73,7 +69,6 @@ export function DashboardScreen({ navigation }: any) {
                 .then(({ data }) => {
                     if (data) {
                         setTodayTrips(data.length);
-                        // Driver keeps 81% of total fare (19% platform commission) — locked rule
                         const totalCents = data.reduce((acc, r) => acc + (r.total_fare_cents || 0), 0);
                         setTodayEarnings((totalCents * 0.81) / 100);
                     }
@@ -87,7 +82,6 @@ export function DashboardScreen({ navigation }: any) {
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            {/* Background MapView */}
             <MapView
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
@@ -102,21 +96,18 @@ export function DashboardScreen({ navigation }: any) {
                 showsMyLocationButton={false}
                 pitchEnabled={false}
             >
-                {/* Custom Driver Marker */}
                 {isOnline && location && (
                     <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
                         <View style={styles.markerContainer}>
-                            <View style={[styles.markerPulse, { backgroundColor: tokens.colors.primary.purple + '40' }]} />
-                            <View style={[styles.markerCore, { backgroundColor: tokens.colors.primary.purple, borderColor: tokens.colors.background.ambient }]} />
+                            <View style={[styles.markerPulse, { backgroundColor: tokens.colors.primary.cyan + '40' }]} />
+                            <View style={[styles.markerCore, { backgroundColor: tokens.colors.primary.cyan, borderColor: tokens.colors.background.ambient }]} />
                         </View>
                     </Marker>
                 )}
             </MapView>
 
-            {/* Overlays */}
             <SafeAreaView style={styles.safeContainer} pointerEvents="box-none">
 
-                {/* PHASE 8: LOCKOUT OVERLAY */}
                 {isLockedOut && (
                     <View style={[StyleSheet.absoluteFill, styles.lockoutOverlay]} pointerEvents="auto">
                         <Surface intensity={80} style={styles.lockoutContent}>
@@ -124,12 +115,11 @@ export function DashboardScreen({ navigation }: any) {
                                 SYSTEM LOCKOUT
                             </Txt>
                             <Txt variant="bodyReg" color={tokens.colors.text.primary} style={{ marginBottom: 8, lineHeight: 22, textAlign: 'center' }}>
-                                Your commission balance is below the -600 TTD line.
+                                Your commission balance is below the -$600 TTD line.
                             </Txt>
                             <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginBottom: 32, textAlign: 'center' }}>
                                 You are blocked from receiving new rides until the backend balance is manually settled.
                             </Txt>
-
                             <TouchableOpacity
                                 style={styles.bankTransferBtn}
                                 onPress={() => Linking.openURL('https://wa.me/18685550100?text=I am locked out due to the commission cap. I would like to settle via Bank Transfer.')}
@@ -140,25 +130,15 @@ export function DashboardScreen({ navigation }: any) {
                     </View>
                 )}
 
-                {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => setSidebarVisible(true)} style={styles.menuBtn}>
                         <Surface style={styles.menuSurface} intensity={40}>
                             <Txt variant="headingM" color={tokens.colors.text.primary}>☰</Txt>
                         </Surface>
                     </TouchableOpacity>
-                    <View style={{ flex: 1 }} />
-                    <TouchableOpacity onPress={signOut} style={styles.signOutBtn}>
-                        <Surface style={styles.signOutSurface} intensity={40}>
-                            <Txt variant="bodyBold" color={tokens.colors.status.error}>Sign Out</Txt>
-                        </Surface>
-                    </TouchableOpacity>
                 </View>
 
-                {/* Bottom Content */}
                 <View style={styles.content} pointerEvents="box-none">
-
-                    {/* Big GO Button overlaid on map */}
                     <TouchableOpacity
                         style={[
                             styles.goButton,
@@ -166,20 +146,20 @@ export function DashboardScreen({ navigation }: any) {
                         ]}
                         onPress={toggleOnline}
                     >
-                        <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary} style={{ letterSpacing: 1 }}>
-                            {isOnline ? 'STOP' : 'GO'}
-                        </Txt>
+                        <View style={styles.goButtonInner}>
+                            <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary} style={{ letterSpacing: 1 }}>
+                                {isOnline ? 'STOP' : 'GO'}
+                            </Txt>
+                        </View>
                     </TouchableOpacity>
 
-                    {/* Scanning Text */}
                     {isOnline && (
                         <Surface style={styles.scanningContainer} intensity={60}>
-                            <ActivityIndicator color={tokens.colors.primary.purple} size="small" />
+                            <ActivityIndicator color={tokens.colors.primary.cyan} size="small" />
                             <Txt variant="bodyBold" color={tokens.colors.text.primary}>Searching for trips...</Txt>
                         </Surface>
                     )}
 
-                    {/* Today's Stats */}
                     <Surface style={styles.statsContainer} intensity={40}>
                         <View style={styles.statBox}>
                             <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>EARNINGS</Txt>
@@ -192,10 +172,8 @@ export function DashboardScreen({ navigation }: any) {
                         </View>
                     </Surface>
                 </View>
-
             </SafeAreaView>
 
-            {/* Sidebar Overlay */}
             <Sidebar
                 visible={sidebarVisible}
                 onClose={() => setSidebarVisible(false)}
@@ -211,145 +189,31 @@ export function DashboardScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: tokens.colors.background.base,
-    },
-    safeContainer: {
-        flex: 1,
-        justifyContent: 'space-between',
-    },
-    lockoutOverlay: {
-        zIndex: 9999,
-        backgroundColor: 'rgba(0,0,0,0.85)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-    },
-    lockoutContent: {
-        padding: 32,
-        borderRadius: 24,
-        alignItems: 'center',
-        width: '100%',
-    },
-    bankTransferBtn: {
-        backgroundColor: tokens.colors.primary.purple,
-        paddingHorizontal: 24,
-        paddingVertical: 16,
-        borderRadius: 30,
-        width: '100%',
-        alignItems: 'center',
-    },
-    header: {
-        padding: 24,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    menuBtn: {
-        shadowColor: tokens.colors.primary.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    menuSurface: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
-    },
-    headerPill: {
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minWidth: 120,
-    },
-    signOutBtn: {
-        overflow: 'hidden',
-        borderRadius: 20,
-    },
-    signOutSurface: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 20,
-    },
-    content: {
-        padding: 24,
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-    },
+    container: { flex: 1, backgroundColor: tokens.colors.background.base },
+    safeContainer: { flex: 1, justifyContent: 'space-between' },
+    lockoutOverlay: { zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+    lockoutContent: { padding: 32, borderRadius: 24, alignItems: 'center', width: '100%' },
+    bankTransferBtn: { backgroundColor: tokens.colors.primary.purple, paddingHorizontal: 24, paddingVertical: 16, borderRadius: 30, width: '100%', alignItems: 'center' },
+    header: { padding: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    menuBtn: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+    menuSurface: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: tokens.colors.border.subtle },
+    content: { padding: 24, justifyContent: 'flex-end', alignItems: 'center' },
     goButton: {
-        width: 140,
-        height: 140,
-        borderRadius: 70,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 32,
-        borderWidth: 4,
-        borderColor: 'rgba(255, 255, 255, 0.15)',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
-        elevation: 10,
+        width: 140, height: 140, borderRadius: 70, justifyContent: 'center', alignItems: 'center', marginBottom: 32,
+        borderWidth: 4, borderColor: 'rgba(255, 255, 255, 0.1)', shadowColor: "#000", shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.6, shadowRadius: 16, elevation: 12
     },
-    goOnline: {
-        backgroundColor: tokens.colors.primary.cyan,
+    goButtonInner: {
+        width: 120, height: 120, borderRadius: 60, justifyContent: 'center', alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.05)',
     },
-    goOffline: {
-        backgroundColor: tokens.colors.status.error,
-    },
-    statsContainer: {
-        flexDirection: 'row',
-        width: '100%',
-        padding: 20,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    statBox: {
-        flex: 1,
-        alignItems: 'center',
-        gap: 4,
-    },
-    statDivider: {
-        width: 1,
-        height: '100%',
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        marginHorizontal: 16,
-    },
-    scanningContainer: {
-        flexDirection: 'row',
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 24,
-        gap: 12,
-    },
-    markerContainer: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    markerCore: {
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        borderWidth: 3,
-    },
-    markerPulse: {
-        position: 'absolute',
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-    }
+    goOnline: { backgroundColor: tokens.colors.primary.cyan },
+    goOffline: { backgroundColor: tokens.colors.status.error },
+    statsContainer: { flexDirection: 'row', width: '100%', padding: 20, borderRadius: 24, alignItems: 'center', justifyContent: 'space-between', marginTop: 10, borderWidth: 1, borderColor: tokens.colors.border.subtle },
+    statBox: { flex: 1, alignItems: 'center', gap: 4 },
+    statDivider: { width: 1, height: '100%', backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 16 },
+    scanningContainer: { flexDirection: 'row', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginBottom: 16, gap: 12, borderWidth: 1, borderColor: tokens.colors.primary.cyan },
+    markerContainer: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    markerCore: { width: 18, height: 18, borderRadius: 9, borderWidth: 3 },
+    markerPulse: { position: 'absolute', width: 40, height: 40, borderRadius: 20 }
 });

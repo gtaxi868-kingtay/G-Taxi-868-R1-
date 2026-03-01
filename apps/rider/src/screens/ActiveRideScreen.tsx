@@ -1,27 +1,46 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    View,
-    StyleSheet,
-    Animated,
-    Image,
-    SafeAreaView,
-    Platform,
-    TouchableOpacity,
-    Dimensions,
-    Linking,
-    Alert,
-    Share,
-} from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, Alert, Linking, Platform } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import { useRideSubscription, useDriverLocationSubscription } from '../services/realtime';
+import { supabase } from '../../../../shared/supabase';
+import { updateRideStatus } from '../services/api';
+import { useRideSubscription } from '../services/realtime';
+import { useLocationTracking } from '../hooks/useLocationTracking';
+import { DEFAULT_LOCATION } from '../../../../shared/env';
 import { tokens } from '../design-system/tokens';
-import { Txt, Surface } from '../design-system/primitives';
+import { Txt, Surface, Card } from '../design-system/primitives';
 
-const { width, height } = Dimensions.get('window');
+// Helper for parsing polyline string to coordinate array
+function decodePolyline(encoded: string) {
+    if (!encoded) return [];
+    let poly = [];
+    let index = 0, len = encoded.length;
+    let lat = 0, lng = 0;
 
-// --- DARK MAP STYLE (Premium) ---
+    while (index < len) {
+        let b, shift = 0, result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+
+        shift = 0;
+        result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+
+        poly.push({ latitude: (lat / 1e5), longitude: (lng / 1e5) });
+    }
+    return poly;
+}
+
 const DARK_MAP_STYLE = [
     { elementType: "geometry", stylers: [{ color: tokens.colors.background.base }] },
     { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
@@ -30,321 +49,212 @@ const DARK_MAP_STYLE = [
     { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
     { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
     { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
     { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+    { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+    { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
     { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
     { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+    { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+    { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
 ];
 
-interface Driver {
-    id: string;
-    name: string;
-    vehicle: string;
-    plate: string;
-    rating: number;
-    phone?: string;
-    photo_url?: string;
-}
+export function ActiveRideScreen({ route, navigation }: any) {
+    const { rideId, paymentMethod } = route.params;
+    const { location: riderLocation } = useLocationTracking(rideId);
+    const [ride, setRide] = useState<any>(null);
+    const [driver, setDriver] = useState<any>(null);
+    const [driverLocation, setDriverLocation] = useState<any>(null);
+    const [routeCoords, setRouteCoords] = useState<any[]>([]);
 
-interface ActiveRideScreenProps {
-    navigation: any;
-    route: {
-        params: {
-            destination: any;
-            fare: any;
-            driver: Driver;
-            rideId?: string;
-            // UI-A3: Added 'wallet' to the type union.
-            // All three methods must be handled in the completion handler.
-            paymentMethod?: 'cash' | 'wallet' | 'card';
-        };
-    };
-}
-
-const CAR_ASSETS = {
-    standard: require('../../assets/images/car_gtaxi_standard_v7.png'),
-    suv: require('../../assets/images/car_gtaxi_suv_v9.png'),
-};
-
-export function ActiveRideScreen({ navigation, route }: ActiveRideScreenProps) {
-    const { destination, fare, driver, rideId, paymentMethod = 'cash' } = route.params;
-    const [eta, setEta] = useState(fare.duration_min || 5);
-    const mapRef = useRef<MapView>(null);
-    const { rideUpdate } = useRideSubscription(rideId || null);
-    const driverLocation = useDriverLocationSubscription(driver.id);
-
-    const carSource = driver.vehicle.toLowerCase().includes('suv') || driver.vehicle.toLowerCase().includes('xl')
-        ? CAR_ASSETS.suv
-        : CAR_ASSETS.standard;
-
-    // Background animation
-    const floatAnim = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        if (rideUpdate?.status === 'completed') {
-            handleRideCompleted();
-        }
-    }, [rideUpdate]);
-
-    // ── UI-A3: Payment-aware completion routing ────────────────────────────────
-    //
-    // card   → Navigate to PaymentScreen so the rider can confirm card charge
-    //          via Stripe PaymentSheet before leaving the ride context.
-    //          After payment (or goBack()), RatingScreen follows.
-    //
-    // wallet → Wallet deduction happened server-side automatically (via
-    //          process_wallet_payment RPC called by complete_ride edge function).
-    //          Go straight to Rating.
-    //
-    // cash   → Rider pays driver directly. No in-app transaction needed.
-    //          Go straight to Rating.
-    const handleRideCompleted = () => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        if (paymentMethod === 'card') {
-            // Navigate to PaymentScreen with all context needed to charge the card.
-            // PaymentScreen will call goBack() on success, returning here briefly,
-            // then RatingScreen must be navigated to next. We use navigate (not replace)
-            // so the stack allows goBack() to work, then we push Rating after payment.
-            navigation.navigate('Payment', {
-                ride_id: rideId,
-                payment_method: 'card',
-                fare_cents: rideUpdate?.total_fare_cents ?? fare.total_fare_cents,
-            });
-        } else {
-            // cash and wallet both go direct to Rating
-            navigation.replace('Rating', {
-                driver,
-                fare: {
-                    ...fare,
-                    // If the server sent back an updated fare embed it
-                    total_fare_cents: rideUpdate?.total_fare_cents ?? fare.total_fare_cents,
-                },
-                rideId,
-                paymentMethod,
-            });
-        }
-    };
-
-    useEffect(() => {
-        if (driverLocation) {
-            const { lat, lng } = driverLocation;
-            if (mapRef.current) {
-                mapRef.current.fitToCoordinates(
-                    [
-                        { latitude: lat, longitude: lng },
-                        { latitude: destination.latitude, longitude: destination.longitude },
-                    ],
-                    {
-                        edgePadding: { top: 100, right: 50, bottom: height * 0.4, left: 50 },
-                        animated: true,
-                    }
-                );
+    useRideSubscription(rideId, (updatedRide) => {
+        setRide((prev: any) => ({ ...prev, ...updatedRide }));
+        if (updatedRide.status === 'completed' || updatedRide.status === 'closed') {
+            const pm = paymentMethod || updatedRide.payment_method || 'cash';
+            if (pm === 'card') {
+                navigation.replace('Payment', { rideId });
+            } else {
+                navigation.replace('Rating', { rideId });
             }
         }
-
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(floatAnim, { toValue: 1, duration: 8000, useNativeDriver: true }),
-                Animated.timing(floatAnim, { toValue: 0, duration: 8000, useNativeDriver: true }),
-            ])
-        ).start();
-    }, [driverLocation]);
-
-    const floatTranslate = floatAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 30],
     });
 
-    const handleCall = () => {
-        const phoneNumber = driver.phone || '999';
-        Linking.openURL(`tel:${phoneNumber}`).catch(() => Alert.alert('Error', 'Could not open dialer.'));
+    useEffect(() => {
+        let sub: any;
+        const fetchInitialData = async () => {
+            const { data } = await supabase
+                .from('rides')
+                .select(`
+          *,
+          driver:driver_id(
+            id,
+            raw_user_meta_data,
+            car_make,
+            car_model,
+            car_color,
+            license_plate,
+            rating,
+            lat,
+            lng
+          )
+        `)
+                .eq('id', rideId)
+                .single();
+
+            if (data) {
+                setRide(data);
+                setDriver(data.driver);
+                setDriverLocation({ latitude: data.driver?.lat, longitude: data.driver?.lng });
+                if (data.route_geometry) {
+                    setRouteCoords(decodePolyline(data.route_geometry));
+                }
+
+                sub = supabase.channel(`driver_loc_${data.driver?.id}`)
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${data.driver?.id}` }, (payload) => {
+                        setDriverLocation({ latitude: payload.new.lat, longitude: payload.new.lng });
+                    })
+                    .subscribe();
+            }
+        };
+        fetchInitialData();
+        return () => { if (sub) sub.unsubscribe(); };
+    }, [rideId]);
+
+    const handleCancel = () => {
+        Alert.alert(
+            "Cancel Ride",
+            "Are you sure you want to cancel this ride? A fee may apply.",
+            [
+                { text: "No", style: "cancel" },
+                {
+                    text: "Yes, Cancel",
+                    style: "destructive",
+                    onPress: async () => {
+                        const { error } = await updateRideStatus(rideId, 'canceled');
+                        if (!error) navigation.navigate('Home');
+                    }
+                }
+            ]
+        );
     };
 
-    const handleMessage = () => {
-        const phoneNumber = driver.phone || '';
-        if (phoneNumber) Linking.openURL(`sms:${phoneNumber}`);
-        else Alert.alert('Error', 'Contact unavailable.');
+    const getStatusText = () => {
+        switch (ride?.status) {
+            case 'assigned': return 'Driver is on the way';
+            case 'arrived': return 'Driver has arrived';
+            case 'in_progress': return 'Heading to destination';
+            default: return 'Active Ride';
+        }
     };
+
+    const currentLat = riderLocation?.coords.latitude || DEFAULT_LOCATION.latitude;
+    const currentLng = riderLocation?.coords.longitude || DEFAULT_LOCATION.longitude;
 
     return (
         <View style={styles.container}>
-            {/* Map Background */}
             <MapView
-                ref={mapRef}
                 style={StyleSheet.absoluteFillObject}
-                customMapStyle={DARK_MAP_STYLE}
                 provider={PROVIDER_DEFAULT}
+                customMapStyle={DARK_MAP_STYLE}
                 initialRegion={{
-                    latitude: destination.latitude,
-                    longitude: destination.longitude,
+                    latitude: currentLat,
+                    longitude: currentLng,
                     latitudeDelta: 0.05,
                     longitudeDelta: 0.05,
                 }}
-                showsUserLocation
-                userInterfaceStyle="dark"
             >
-                {driverLocation && (
-                    <Polyline
-                        coordinates={[
-                            { latitude: driverLocation.lat, longitude: driverLocation.lng },
-                            { latitude: destination.latitude, longitude: destination.longitude }
-                        ]}
-                        strokeWidth={4}
-                        strokeColor="#276EF1"
-                    />
-                )}
-                {driverLocation && (
-                    <Marker coordinate={{ latitude: driverLocation.lat, longitude: driverLocation.lng }} anchor={{ x: 0.5, y: 0.5 }}>
-                        <Image source={carSource} style={styles.carMarker} resizeMode="contain" />
+                <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
+                    <View style={styles.riderMarker}>
+                        <View style={styles.riderMarkerCore} />
+                    </View>
+                </Marker>
+
+                {driverLocation?.latitude && driverLocation?.longitude && (
+                    <Marker coordinate={driverLocation}>
+                        <View style={styles.carMarker}>
+                            <Txt style={{ fontSize: 24 }}>🚘</Txt>
+                        </View>
                     </Marker>
                 )}
-                <Marker coordinate={destination}>
-                    <View style={styles.destSquare} />
-                </Marker>
+
+                {ride && (
+                    <Marker coordinate={{ latitude: ride.dropoff_lat, longitude: ride.dropoff_lng }}>
+                        <View style={styles.destMarker}>
+                            <Txt style={{ fontSize: 20 }}>📍</Txt>
+                        </View>
+                    </Marker>
+                )}
+
+                {routeCoords.length > 0 && (
+                    <Polyline coordinates={routeCoords} strokeColor={tokens.colors.primary.purple} strokeWidth={4} lineCap="round" />
+                )}
             </MapView>
 
+            <SafeAreaView style={styles.safeArea} pointerEvents="box-none">
 
-
-            {/* Header: ETA Badge */}
-            <SafeAreaView style={styles.header}>
-                <View style={styles.etaBadge}>
-                    <Txt variant="headingL" weight="heavy" color="#FFF">{eta}</Txt>
-                    <Txt variant="bodyBold" style={{ marginLeft: 4 }} color="#FFF">min</Txt>
-                </View>
-            </SafeAreaView>
-
-            {/* Hybrid Glass Card */}
-            <View style={[styles.bottomCard, { paddingBottom: 30 }]}>
-                <Surface style={styles.glassSheet} intensity={40}>
-                    <View style={styles.sheetHeader}>
-                        <View>
-                            <Txt variant="headingL" weight="bold">{driver.name}</Txt>
-                            <Txt variant="bodyBold" color="#FFD700">★ {driver.rating.toFixed(1)}</Txt>
-                        </View>
-                        <View style={styles.photoContainer}>
-                            {driver.photo_url ? (
-                                <Image source={{ uri: driver.photo_url }} style={styles.photo} />
-                            ) : (
-                                <View style={[styles.photo, { backgroundColor: '#333' }]} />
-                            )}
-                        </View>
-                    </View>
-
-                    <View style={styles.carInfo}>
-                        <View style={styles.plate}>
-                            <Txt variant="bodyBold" style={{ color: 'black' }}>{driver.plate}</Txt>
-                        </View>
-                        <Txt variant="bodyReg" color="rgba(255,255,255,0.6)" style={{ marginLeft: 12 }}>{driver.vehicle}</Txt>
-                    </View>
-
-                    <View style={styles.actions}>
-                        <TouchableOpacity style={styles.actionBtn} onPress={handleCall}>
-                            <Txt variant="bodyBold" center>Call</Txt>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.actionBtn, styles.secondaryAction]} onPress={handleMessage}>
-                            <Txt variant="bodyBold" center>Message</Txt>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.actionBtn, styles.shareAction]} onPress={() => {
-                            Share.share({
-                                message: `I'm on a G-Taxi ride with ${driver.name} (${driver.plate}). Heading to ${destination.address || 'my destination'}. Track me!`,
-                            });
-                        }}>
-                            <Txt variant="bodyBold" center>Share Trip</Txt>
-                        </TouchableOpacity>
-                    </View>
+                {/* Status Bubble */}
+                <Surface intensity={60} style={styles.statusBubble}>
+                    <Txt variant="bodyBold" weight="bold" color={tokens.colors.text.primary}>{getStatusText()}</Txt>
+                    {ride?.status === 'assigned' && <Txt variant="caption" color={tokens.colors.primary.purple}>5 min away</Txt>}
                 </Surface>
-            </View>
+
+                {/* Bottom Drawer */}
+                <Card style={styles.bottomCard} padding="lg" elevation="level3">
+
+                    <View style={styles.driverInfoRow}>
+                        <View style={styles.driverAvatar}>
+                            <Txt variant="headingM">{driver?.raw_user_meta_data?.name?.charAt(0) || 'D'}</Txt>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary}>
+                                {driver?.raw_user_meta_data?.name || 'Your Driver'}
+                            </Txt>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <Txt variant="bodyReg" color={tokens.colors.text.secondary}>⭐ {driver?.rating ? driver.rating.toFixed(1) : '5.0'}</Txt>
+                                <View style={styles.dot} />
+                                <Txt variant="bodyReg" color={tokens.colors.text.secondary}>{driver?.license_plate || 'ABC 1234'}</Txt>
+                            </View>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                            <Txt variant="bodyBold" color={tokens.colors.text.primary}>{driver?.car_make || 'Toyota'}</Txt>
+                            <Txt variant="caption" color={tokens.colors.text.secondary}>{driver?.car_model || 'Aqua'} • {driver?.car_color || 'White'}</Txt>
+                        </View>
+                    </View>
+
+                    <View style={styles.actionContainer}>
+                        <TouchableOpacity
+                            style={[styles.btn, { flex: 1, backgroundColor: tokens.colors.primary.cyan }]}
+                            onPress={() => driver?.raw_user_meta_data?.phone && Linking.openURL(`tel:${driver.raw_user_meta_data.phone}`)}
+                        >
+                            <Txt variant="bodyBold" color={tokens.colors.background.base}>Call Driver</Txt>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.btn, { width: 56, backgroundColor: 'rgba(255, 69, 58, 0.1)' }]}
+                            onPress={handleCancel}
+                        >
+                            <Txt style={{ fontSize: 20 }}>✕</Txt>
+                        </TouchableOpacity>
+                    </View>
+                </Card>
+
+            </SafeAreaView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
-    carMarker: {
-        width: tokens.markers.car.width,
-        height: tokens.markers.car.height,
-    },
-    destSquare: {
-        width: 12,
-        height: 12,
-        backgroundColor: '#000',
-        borderWidth: 2,
-        borderColor: '#FFF',
-    },
-    header: {
-        position: 'absolute',
-        top: 20,
-        left: 20,
-        zIndex: 10,
-    },
-    etaBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#276EF1',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
-    bottomCard: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        paddingHorizontal: 16,
-    },
-    glassSheet: {
-        backgroundColor: 'rgba(10, 10, 21, 0.9)',
-        borderRadius: 24,
-        padding: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-    },
-    sheetHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    photoContainer: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        overflow: 'hidden',
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    photo: {
-        flex: 1,
-    },
-    carInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    plate: {
-        backgroundColor: '#FDB813',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-    },
-    actions: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    actionBtn: {
-        flex: 1,
-        backgroundColor: '#276EF1',
-        height: 52,
-        borderRadius: 12,
-        justifyContent: 'center',
-    },
-    secondaryAction: {
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    shareAction: {
-        backgroundColor: tokens.colors.primary.purple,
-    },
+    container: { flex: 1, backgroundColor: tokens.colors.background.base },
+    safeArea: { flex: 1, justifyContent: 'space-between', padding: 20 },
+    statusBubble: { alignSelf: 'center', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 30, alignItems: 'center', marginTop: 10, borderWidth: 1, borderColor: tokens.colors.border.subtle },
+    riderMarker: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(159, 85, 255, 0.3)', justifyContent: 'center', alignItems: 'center' },
+    riderMarkerCore: { width: 12, height: 12, borderRadius: 6, backgroundColor: tokens.colors.primary.purple, borderWidth: 2, borderColor: tokens.colors.background.base },
+    carMarker: { width: 48, height: 48, backgroundColor: tokens.colors.background.ambient, borderRadius: 24, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: tokens.colors.primary.cyan, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 8, elevation: 5 },
+    destMarker: { width: 40, height: 40, backgroundColor: tokens.colors.background.base, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: tokens.colors.text.secondary },
+    bottomCard: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, marginHorizontal: -20, marginBottom: -20, paddingTop: 24 },
+    driverInfoRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 24 },
+    driverAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+    dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: tokens.colors.text.tertiary },
+    actionContainer: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 20 : 0 },
+    btn: { paddingVertical: 16, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
 });
