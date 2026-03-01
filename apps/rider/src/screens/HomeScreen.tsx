@@ -6,22 +6,19 @@ import {
     Image,
     Animated,
     Dimensions,
-    Platform,
-    Pressable,
-    Easing,
     Alert
 } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, AnimatedRegion, UrlTile } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DEFAULT_LOCATION, ENV } from '../../../../shared/env';
 import { tokens } from '../design-system/tokens';
 import { useAuth } from '../context/AuthContext';
-import { Surface, Card, Txt } from '../design-system/primitives';
+import { Surface, Txt } from '../design-system/primitives';
 import { SavedPlaceModal } from '../components/SavedPlaceModal';
 import { RecentRidesModal } from '../components/RecentRidesModal';
-import { getOnlineDrivers, getSavedPlaces, savePlace, getRecentRides } from '../services/api';
-import { Driver, SavedPlace, Location as RideLocation } from '../types/ride';
+import { getSavedPlaces, savePlace, getRecentRides } from '../services/api';
+import { SavedPlace, Location as RideLocation } from '../types/ride';
 import { Sidebar } from '../components/Sidebar';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { supabase } from '../../../../shared/supabase';
@@ -31,7 +28,6 @@ const CAR_ASSET_STANDARD = require('../../assets/images/car_gtaxi_standard_v7.pn
 
 export function HomeScreen({ navigation }: any) {
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
-    const [drivers, setDrivers] = useState<Driver[]>([]);
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
@@ -63,21 +59,19 @@ export function HomeScreen({ navigation }: any) {
                     const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
                     setLocation(current);
                 }
-                const onlineDrivers = await getOnlineDrivers();
-                setDrivers(onlineDrivers);
             } catch (error) {
                 console.log('Location error:', error);
             }
         })();
         fetchPlaces();
 
-        // Phase 8: Fetch System feature flags safely
-        supabase.from('system_feature_flags').select('module_name, is_enabled').then(({ data }) => {
+        // Phase 8: Fetch System feature flags safely with correct schema
+        supabase.from('system_feature_flags').select('id, is_active').then(({ data }) => {
             if (data) {
                 const flags = { grocery: false, laundry: false };
                 data.forEach(flag => {
-                    if (flag.module_name === 'grocery') flags.grocery = flag.is_enabled;
-                    if (flag.module_name === 'laundry') flags.laundry = flag.is_enabled;
+                    if (flag.id === 'grocery_module') flags.grocery = flag.is_active;
+                    if (flag.id === 'laundry_module') flags.laundry = flag.is_active;
                 });
                 setFeatureFlags(flags);
             }
@@ -100,15 +94,12 @@ export function HomeScreen({ navigation }: any) {
             ])
         ).start();
 
-
     }, []);
-
-
 
     // --- REAL-TIME DRIVERS (from database) ---
     const currentLat = location?.coords.latitude || DEFAULT_LOCATION.latitude;
     const currentLng = location?.coords.longitude || DEFAULT_LOCATION.longitude;
-    const { drivers: realtimeDrivers, loading: driversLoading } = useNearbyDrivers(currentLat, currentLng);
+    const { drivers: realtimeDrivers } = useNearbyDrivers(currentLat, currentLng);
 
     const handleQuickAction = async (label: string) => {
         if (label === 'Home' || label === 'Work') {
@@ -191,8 +182,6 @@ export function HomeScreen({ navigation }: any) {
                     </Marker.Animated>
                 ))}
             </MapView>
-
-
 
             {/* Gradient Overlay for Depth */}
             <LinearGradient

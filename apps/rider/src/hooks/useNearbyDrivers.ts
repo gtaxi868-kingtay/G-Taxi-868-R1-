@@ -8,21 +8,14 @@ import { supabase } from '../../../../shared/supabase';
 // Animated wrapper for driver positions
 interface AnimatedDriver {
     id: string;
-    name: string;
-    vehicle_type: string;
-    vehicle_model: string;
-    rating: number;
     lat: Animated.Value;
     lng: Animated.Value;
     heading: number;
+    is_online?: boolean;
 }
 
 interface DriverFromDB {
     id: string;
-    name: string;
-    vehicle_type: string;
-    vehicle_model: string;
-    rating: number;
     lat: number;
     lng: number;
     heading: number;
@@ -61,13 +54,10 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
     // Convert DB driver to animated driver
     const createAnimatedDriver = (dbDriver: DriverFromDB): AnimatedDriver => ({
         id: dbDriver.id,
-        name: dbDriver.name,
-        vehicle_type: dbDriver.vehicle_type || 'standard',
-        vehicle_model: dbDriver.vehicle_model,
-        rating: dbDriver.rating,
         lat: new Animated.Value(dbDriver.lat),
         lng: new Animated.Value(dbDriver.lng),
         heading: dbDriver.heading || 0,
+        is_online: dbDriver.is_online,
     });
 
     useEffect(() => {
@@ -77,11 +67,10 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
             try {
                 setLoading(true);
 
-                // Fetch online drivers
+                // Fetch online drivers via security definer view (avoids RLS block on drivers table)
                 const { data, error: fetchError } = await supabase
-                    .from('drivers')
-                    .select('id, name, vehicle_type, vehicle_model, rating, lat, lng, heading')
-                    .eq('is_online', true)
+                    .from('drivers_map_view')
+                    .select('id, lat, lng, heading, is_online')
                     .not('lat', 'is', null)
                     .not('lng', 'is', null);
 
@@ -110,10 +99,18 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
                     {
                         event: 'UPDATE',
                         schema: 'public',
-                        table: 'drivers',
+                        table: 'drivers', // Must remain 'drivers' because Realtime doesn't fire on views
                     },
                     (payload) => {
-                        const updatedDriver = payload.new as DriverFromDB;
+                        const payloadData = payload.new;
+                        // Map the payload to only the fields we care about
+                        const updatedDriver: DriverFromDB = {
+                            id: payloadData.id,
+                            lat: payloadData.lat,
+                            lng: payloadData.lng,
+                            heading: payloadData.heading,
+                            is_online: payloadData.is_online
+                        };
                         const existing = animatedDriversRef.current.get(updatedDriver.id);
 
                         if (existing && updatedDriver.lat && updatedDriver.lng) {
@@ -124,6 +121,8 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
                                 updatedDriver.lng,
                                 updatedDriver.heading || 0
                             );
+                            existing.is_online = updatedDriver.is_online;
+
                         } else if (!existing && updatedDriver.is_online && updatedDriver.lat) {
                             // New driver came online - add them
                             const newAnimated = createAnimatedDriver(updatedDriver);
