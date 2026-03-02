@@ -12,9 +12,9 @@ export const tokens = {
             shadow: 'rgba(0, 0, 0, 0.4)', // Deep diffused shadow
         },
         primary: {
-            purple: '#9F55FF', // Tuned for "Quiet Confidence"
-            cyan: '#00E0FF',
-            gradient: ['#9F55FF', '#00E0FF'] as const,
+            purple: '#00C896', // emerald — earning, active, online
+            cyan: '#FFB800', // gold — money, rewards, earnings
+            gradient: ['#00C896', '#FFB800'] as const,
         },
         text: {
             primary: '#FFFFFF',
@@ -29,7 +29,7 @@ export const tokens = {
         },
         border: {
             subtle: 'rgba(255, 255, 255, 0.08)',
-            active: '#9F55FF',
+            active: '#00C896',
         }
     },
     typography: {
@@ -100,7 +100,7 @@ export const tokens = {
             elevation: 16,
         },
         glow: { // RARE usage only
-            shadowColor: '#9F55FF',
+            shadowColor: '#00C896',
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.4,
             shadowRadius: 12,

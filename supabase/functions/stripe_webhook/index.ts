@@ -25,6 +25,10 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
 const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
 
+if (!STRIPE_WEBHOOK_SECRET) {
+    throw new Error("Missing STRIPE_WEBHOOK_SECRET environment variable");
+}
+
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
     apiVersion: "2023-10-16",
     httpClient: Stripe.createFetchHttpClient(),

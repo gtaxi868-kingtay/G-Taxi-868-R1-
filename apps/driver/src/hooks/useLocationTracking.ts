@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 import { updateDriverLocation } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Alert } from 'react-native';
 
 const MAX_JUMP_METERS = 100;
 const MIN_TIME_DIFF_MS = 3000;
@@ -18,18 +17,23 @@ export function useLocationTracking() {
         let subscriber: Location.LocationSubscription | null = null;
 
         const startTracking = async () => {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                setErrorMsg('Permission to access location was denied');
+            const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
+            if (fgStatus !== 'granted') {
+                setErrorMsg('Foreground location permission denied');
                 return;
             }
 
-            // Start watching
+            const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+            if (bgStatus !== 'granted') {
+                console.warn('Background location permission denied');
+            }
+
+            // Start watching with high frequency and precision for navigation
             subscriber = await Location.watchPositionAsync(
                 {
-                    accuracy: Location.Accuracy.High,
-                    timeInterval: 5000, // Update every 5 seconds
-                    distanceInterval: 10, // Or every 10 meters
+                    accuracy: Location.Accuracy.BestForNavigation,
+                    timeInterval: 3000, // Update every 3 seconds
+                    distanceInterval: 5, // Or every 5 meters
                 },
                 handleLocationUpdate
             );

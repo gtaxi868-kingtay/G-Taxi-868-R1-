@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "G Taxi",
-    "slug": "g-taxi",
+    "name": "G Taxi Rider",
+    "slug": "g-taxi-rider",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0a0118"
+      "backgroundColor": "#05050A"
     },
     "plugins": [
       [
@@ -20,25 +20,47 @@
           }
         }
       ],
-      "@stripe/stripe-react-native"
+      "@stripe/stripe-react-native",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow G-Taxi to use your location to find nearby drivers."
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.yourcompany.glasstaxi",
+      "bundleIdentifier": "com.gtaxi.rider",
       "config": {
         "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "fetch",
+          "remote-notification"
+        ]
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0a0118"
+        "backgroundColor": "#05050A"
       },
-      "package": "com.yourcompany.glasstaxi",
+      "package": "com.gtaxi.rider",
       "config": {
         "googleMaps": {
           "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
         }
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4166f28b-b159-4592-88f1-88fbc6cff417"
       }
     }
   }

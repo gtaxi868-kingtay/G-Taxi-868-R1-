@@ -6,12 +6,16 @@ import { tokens } from '../design-system/tokens';
 import { Txt, Surface } from '../design-system/primitives';
 
 export function SignupScreen({ navigation }: any) {
-    const { signUp } = useAuth();
+    const { signUp, verifyPhoneOTP } = useAuth();
     const insets = useSafeAreaInsets();
 
     const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
+
+    // OTP State
+    const [awaitingOtp, setAwaitingOtp] = useState(false);
+    const [otp, setOtp] = useState('');
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -27,11 +31,14 @@ export function SignupScreen({ navigation }: any) {
         setLoading(true);
         setErrorMsg('');
         try {
-            const { error } = await signUp(formData.email, formData.password, formData.name);
+            // signUp now includes phone per Phase 5 adjustments.
+            // If Supabase is configured to require phone verification, it will send an OTP.
+            const { error } = await signUp(formData.email, formData.password, formData.name, formData.phone);
             if (error) setErrorMsg(error.message);
             else {
-                Alert.alert("Success", "Account created successfully. Please log in.");
-                navigation.navigate('Login');
+                // If phone confirmation is enabled on Supabase, show OTP screen
+                Alert.alert("Code Sent", `An SMS code has been sent to ${formData.phone}`);
+                setAwaitingOtp(true);
             }
         } catch (err: any) {
             setErrorMsg(err.message || 'An error occurred.');
@@ -39,6 +46,24 @@ export function SignupScreen({ navigation }: any) {
             setLoading(false);
         }
     };
+
+    const handleVerifyOtp = async () => {
+        if (!otp) {
+            setErrorMsg('Please enter the 6-digit code.');
+            return;
+        }
+        setLoading(true);
+        setErrorMsg('');
+        try {
+            await verifyPhoneOTP(formData.phone, otp);
+            Alert.alert("Success", "Account verified successfully.");
+            // Session is set in AuthContext, navigation will be handled by App.tsx router
+        } catch (err: any) {
+            setErrorMsg(err.message || 'Invalid code.');
+        } finally {
+            setLoading(false);
+        }
+    }
 
     return (
         <View style={styles.container}>
@@ -48,13 +73,23 @@ export function SignupScreen({ navigation }: any) {
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
                 <Animated.ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20, opacity: fadeAnim }]}>
 
-                    <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                    <TouchableOpacity style={styles.backBtn} onPress={() => {
+                        if (awaitingOtp) {
+                            setAwaitingOtp(false);
+                        } else {
+                            navigation.goBack();
+                        }
+                    }}>
                         <Txt variant="bodyBold" color={tokens.colors.primary.cyan}>← Back</Txt>
                     </TouchableOpacity>
 
                     <View style={styles.header}>
-                        <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary}>Create Account</Txt>
-                        <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={{ marginTop: 8 }}>Join G-Taxi and ride premium.</Txt>
+                        <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary}>
+                            {awaitingOtp ? "Verify Phone" : "Create Account"}
+                        </Txt>
+                        <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={{ marginTop: 8 }}>
+                            {awaitingOtp ? `Enter the code sent to ${formData.phone}` : "Join G-Taxi and ride premium."}
+                        </Txt>
                     </View>
 
                     <Surface intensity={40} style={styles.formCard}>
@@ -64,57 +99,74 @@ export function SignupScreen({ navigation }: any) {
                             </View>
                         ) : null}
 
-                        <View style={styles.inputContainer}>
-                            <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>FULL NAME</Txt>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="John Doe"
-                                placeholderTextColor={tokens.colors.text.tertiary}
-                                value={formData.name}
-                                onChangeText={v => setFormData({ ...formData, name: v })}
-                            />
-                        </View>
+                        {!awaitingOtp ? (
+                            <>
+                                <View style={styles.inputContainer}>
+                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>FULL NAME</Txt>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="John Doe"
+                                        placeholderTextColor={tokens.colors.text.tertiary}
+                                        value={formData.name}
+                                        onChangeText={v => setFormData({ ...formData, name: v })}
+                                    />
+                                </View>
 
-                        <View style={styles.inputContainer}>
-                            <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PHONE NUMBER</Txt>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="18685551234"
-                                placeholderTextColor={tokens.colors.text.tertiary}
-                                value={formData.phone}
-                                onChangeText={v => setFormData({ ...formData, phone: v })}
-                                keyboardType="phone-pad"
-                            />
-                        </View>
+                                <View style={styles.inputContainer}>
+                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PHONE NUMBER</Txt>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="+18685551234"
+                                        placeholderTextColor={tokens.colors.text.tertiary}
+                                        value={formData.phone}
+                                        onChangeText={v => setFormData({ ...formData, phone: v })}
+                                        keyboardType="phone-pad"
+                                    />
+                                </View>
 
-                        <View style={styles.inputContainer}>
-                            <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>EMAIL ADDRESS</Txt>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="name@example.com"
-                                placeholderTextColor={tokens.colors.text.tertiary}
-                                value={formData.email}
-                                onChangeText={v => setFormData({ ...formData, email: v })}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                            />
-                        </View>
+                                <View style={styles.inputContainer}>
+                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>EMAIL ADDRESS</Txt>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="name@example.com"
+                                        placeholderTextColor={tokens.colors.text.tertiary}
+                                        value={formData.email}
+                                        onChangeText={v => setFormData({ ...formData, email: v })}
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
+                                    />
+                                </View>
 
-                        <View style={styles.inputContainer}>
-                            <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PASSWORD</Txt>
-                            <TextInput
-                                style={[styles.input, { borderBottomWidth: 0 }]}
-                                placeholder="••••••••"
-                                placeholderTextColor={tokens.colors.text.tertiary}
-                                value={formData.password}
-                                onChangeText={v => setFormData({ ...formData, password: v })}
-                                secureTextEntry
-                            />
-                        </View>
+                                <View style={styles.inputContainer}>
+                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PASSWORD</Txt>
+                                    <TextInput
+                                        style={[styles.input, { borderBottomWidth: 0 }]}
+                                        placeholder="••••••••"
+                                        placeholderTextColor={tokens.colors.text.tertiary}
+                                        value={formData.password}
+                                        onChangeText={v => setFormData({ ...formData, password: v })}
+                                        secureTextEntry
+                                    />
+                                </View>
+                            </>
+                        ) : (
+                            <View style={styles.inputContainer}>
+                                <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>6-DIGIT CODE</Txt>
+                                <TextInput
+                                    style={[styles.input, { borderBottomWidth: 0 }]}
+                                    placeholder="123456"
+                                    placeholderTextColor={tokens.colors.text.tertiary}
+                                    value={otp}
+                                    onChangeText={setOtp}
+                                    keyboardType="number-pad"
+                                    maxLength={6}
+                                />
+                            </View>
+                        )}
                     </Surface>
 
-                    <TouchableOpacity style={styles.primaryBtn} onPress={handleSignup} disabled={loading}>
-                        {loading ? <ActivityIndicator color="#000" /> : <Txt variant="headingM" weight="bold" color={tokens.colors.background.base}>Sign Up</Txt>}
+                    <TouchableOpacity style={styles.primaryBtn} onPress={awaitingOtp ? handleVerifyOtp : handleSignup} disabled={loading}>
+                        {loading ? <ActivityIndicator color="#000" /> : <Txt variant="headingM" weight="bold" color={tokens.colors.background.base}>{awaitingOtp ? "Verify" : "Sign Up"}</Txt>}
                     </TouchableOpacity>
 
                 </Animated.ScrollView>
@@ -130,7 +182,7 @@ const styles = StyleSheet.create({
     orb2: { bottom: '10%', left: -150, backgroundColor: tokens.colors.primary.purple },
     keyboardView: { flex: 1 },
     content: { paddingHorizontal: 24, justifyContent: 'center' },
-    backBtn: { marginBottom: 24 },
+    backBtn: { marginBottom: 24, alignSelf: 'flex-start' },
     header: { marginBottom: 32 },
     formCard: { borderRadius: 24, borderWidth: 1, borderColor: tokens.colors.border.subtle, marginBottom: 32, overflow: 'hidden' },
     errorBox: { padding: 16, backgroundColor: 'rgba(255, 69, 58, 0.1)', borderBottomWidth: 1, borderBottomColor: tokens.colors.border.subtle },

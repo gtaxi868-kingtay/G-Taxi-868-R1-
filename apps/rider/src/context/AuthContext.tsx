@@ -5,6 +5,7 @@ import { setAuthToken } from '../services/api';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 
 // ... imports
 import { UserProfile, UserPreferences } from '../types/profile';
@@ -15,10 +16,12 @@ interface AuthContextType {
     profile: UserProfile | null;           // NEW
     preferences: UserPreferences | null;   // NEW
     loading: boolean;
-    signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+    signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ error: Error | null }>;
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;   // Allow manual refresh
+    sendPhoneOTP: (phone: string) => Promise<void>;
+    verifyPhoneOTP: (phone: string, token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,7 +60,8 @@ async function registerPushToken(userId: string): Promise<void> {
     }
 
     try {
-        const token = (await Notifications.getExpoPushTokenAsync()).data;
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 
         const { error } = await supabase
             .from('profiles')
@@ -159,13 +163,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     // ... signUp, signIn ...
-    const signUp = async (email: string, password: string, fullName: string) => {
+    const signUp = async (email: string, password: string, fullName: string, phone: string) => {
         const { error } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: {
                     full_name: fullName,
+                    phone: phone, // Save phone to Auth metadata (mirrored to profiles)
                 }
             }
         });
@@ -185,8 +190,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (user) await fetchUserData(user.id);
     };
 
+    const sendPhoneOTP = async (phone: string) => {
+        const { error } = await supabase.auth.signInWithOtp({ phone });
+        if (error) throw error;
+    };
+
+    const verifyPhoneOTP = async (phone: string, token: string) => {
+        const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+        if (error) throw error;
+        if (data.session) {
+            setSession(data.session);
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, session, profile, preferences, loading, signUp, signIn, signOut, refreshProfile }}>
+        <AuthContext.Provider value={{ user, session, profile, preferences, loading, signUp, signIn, signOut, refreshProfile, sendPhoneOTP, verifyPhoneOTP }}>
             {children}
         </AuthContext.Provider>
     );

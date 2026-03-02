@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import { supabase } from '../../shared/supabase';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 // ── Phase 5 Fix 5.7: Background retry task for offline ride completions ────────
 // When the driver loses connectivity at the moment of completion, the complete_ride
@@ -199,12 +200,14 @@ function App() {
     }, []);
 
     return (
-        <AuthProvider>
-            <NavigationContainer>
-                <StatusBar style="dark" />
-                <RootNavigator />
-            </NavigationContainer>
-        </AuthProvider>
+        <ErrorBoundary>
+            <AuthProvider>
+                <NavigationContainer>
+                    <StatusBar style="dark" />
+                    <RootNavigator />
+                </NavigationContainer>
+            </AuthProvider>
+        </ErrorBoundary>
     );
 }
 

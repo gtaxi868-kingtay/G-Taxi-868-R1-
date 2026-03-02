@@ -1,19 +1,25 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface } from '../design-system/primitives';
 
 export function LoginScreen({ navigation }: any) {
-    const { signIn } = useAuth();
+    const { signIn, sendPhoneOTP, verifyPhoneOTP } = useAuth();
     const insets = useSafeAreaInsets();
+
+    const [loginMode, setLoginMode] = useState<'email' | 'phone'>('email');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [phone, setPhone] = useState('');
+    const [otp, setOtp] = useState('');
+    const [otpSent, setOtpSent] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
 
-    const handleLogin = async () => {
+    const handleEmailLogin = async () => {
         if (!email || !password) {
             setErrorMsg('Please enter both email and password.');
             return;
@@ -28,6 +34,46 @@ export function LoginScreen({ navigation }: any) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleSendOTP = async () => {
+        if (!phone) {
+            setErrorMsg('Please enter your phone number.');
+            return;
+        }
+        setLoading(true);
+        setErrorMsg('');
+        try {
+            await sendPhoneOTP(phone);
+            setOtpSent(true);
+            Alert.alert('Code Sent', 'Please check your messages for the 6-digit code.');
+        } catch (err: any) {
+            setErrorMsg(err.message || 'Failed to send OTP.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOTP = async () => {
+        if (!otp) {
+            setErrorMsg('Please enter the verification code.');
+            return;
+        }
+        setLoading(true);
+        setErrorMsg('');
+        try {
+            await verifyPhoneOTP(phone, otp);
+        } catch (err: any) {
+            setErrorMsg(err.message || 'Invalid code.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggleMode = () => {
+        setLoginMode(loginMode === 'email' ? 'phone' : 'email');
+        setErrorMsg('');
+        setOtpSent(false);
     };
 
     return (
@@ -55,35 +101,88 @@ export function LoginScreen({ navigation }: any) {
                             </View>
                         ) : null}
 
-                        <View style={styles.inputContainer}>
-                            <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>EMAIL ADDRESS</Txt>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="name@example.com"
-                                placeholderTextColor={tokens.colors.text.tertiary}
-                                value={email}
-                                onChangeText={setEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                            />
-                        </View>
+                        {loginMode === 'email' ? (
+                            <>
+                                <View style={styles.inputContainer}>
+                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>EMAIL ADDRESS</Txt>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="name@example.com"
+                                        placeholderTextColor={tokens.colors.text.tertiary}
+                                        value={email}
+                                        onChangeText={setEmail}
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                    />
+                                </View>
 
-                        <View style={styles.inputContainer}>
-                            <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PASSWORD</Txt>
-                            <TextInput
-                                style={[styles.input, { borderBottomWidth: 0 }]}
-                                placeholder="••••••••"
-                                placeholderTextColor={tokens.colors.text.tertiary}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                            />
-                        </View>
+                                <View style={styles.inputContainer}>
+                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PASSWORD</Txt>
+                                    <TextInput
+                                        style={[styles.input, { borderBottomWidth: 0 }]}
+                                        placeholder="••••••••"
+                                        placeholderTextColor={tokens.colors.text.tertiary}
+                                        value={password}
+                                        onChangeText={setPassword}
+                                        secureTextEntry
+                                    />
+                                </View>
+                            </>
+                        ) : (
+                            <>
+                                {otpSent ? (
+                                    <View style={styles.inputContainer}>
+                                        <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>6-DIGIT CODE</Txt>
+                                        <TextInput
+                                            style={[styles.input, { borderBottomWidth: 0 }]}
+                                            placeholder="123456"
+                                            placeholderTextColor={tokens.colors.text.tertiary}
+                                            value={otp}
+                                            onChangeText={setOtp}
+                                            keyboardType="number-pad"
+                                            maxLength={6}
+                                        />
+                                    </View>
+                                ) : (
+                                    <View style={styles.inputContainer}>
+                                        <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PHONE NUMBER</Txt>
+                                        <TextInput
+                                            style={[styles.input, { borderBottomWidth: 0 }]}
+                                            placeholder="+1 868 555 1234"
+                                            placeholderTextColor={tokens.colors.text.tertiary}
+                                            value={phone}
+                                            onChangeText={setPhone}
+                                            keyboardType="phone-pad"
+                                        />
+                                    </View>
+                                )}
+                            </>
+                        )}
                     </Surface>
 
-                    <TouchableOpacity style={styles.primaryBtn} onPress={handleLogin} disabled={loading}>
-                        {loading ? <ActivityIndicator color="#000" /> : <Txt variant="headingM" weight="bold" color={tokens.colors.background.base}>Log In</Txt>}
+                    <TouchableOpacity
+                        style={styles.primaryBtn}
+                        onPress={
+                            loginMode === 'email'
+                                ? handleEmailLogin
+                                : (otpSent ? handleVerifyOTP : handleSendOTP)
+                        }
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color="#000" />
+                        ) : (
+                            <Txt variant="headingM" weight="bold" color={tokens.colors.background.base}>
+                                {loginMode === 'email' ? 'Log In' : (otpSent ? 'Verify Code' : 'Send Code')}
+                            </Txt>
+                        )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.toggleBtn} onPress={toggleMode}>
+                        <Txt variant="bodyBold" color={tokens.colors.text.secondary}>
+                            {loginMode === 'email' ? 'Use Phone Number instead' : 'Use Email instead'}
+                        </Txt>
                     </TouchableOpacity>
 
                     <View style={styles.footer}>
@@ -113,5 +212,6 @@ const styles = StyleSheet.create({
     label: { marginTop: 16, marginLeft: 20, marginBottom: 4 },
     input: { color: tokens.colors.text.primary, fontSize: 17, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: tokens.colors.border.subtle },
     primaryBtn: { backgroundColor: tokens.colors.primary.cyan, paddingVertical: 18, borderRadius: 16, alignItems: 'center', shadowColor: tokens.colors.primary.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+    toggleBtn: { marginTop: 24, alignItems: 'center' },
     footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 32 },
 });

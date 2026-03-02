@@ -4,6 +4,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 
 interface DriverProfile {
     id: string;
@@ -62,7 +63,8 @@ async function registerPushToken(userId: string): Promise<void> {
     }
 
     try {
-        const token = (await Notifications.getExpoPushTokenAsync()).data;
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 
         const { error } = await supabase
             .from('drivers')
