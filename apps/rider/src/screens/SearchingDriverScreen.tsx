@@ -3,11 +3,12 @@ import { View, StyleSheet, TouchableOpacity, Alert, Animated, Easing } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../../../shared/supabase';
 import { cancelRide } from '../services/api';
+import { fetchDriverDetails } from '../services/realtime';
 import { tokens } from '../design-system/tokens';
 import { Txt, Card } from '../design-system/primitives';
 
 export function SearchingDriverScreen({ route, navigation }: any) {
-    const { rideId, paymentMethod } = route.params;
+    const { rideId, paymentMethod, destination, fare, pickup } = route.params;
     const insets = useSafeAreaInsets();
     const [dots, setDots] = useState('');
     const pulseAnim = new Animated.Value(0);
@@ -36,9 +37,16 @@ export function SearchingDriverScreen({ route, navigation }: any) {
 
         // Realtime sub
         const sub = supabase.channel(`ride_${rideId}_search`)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` }, (payload) => {
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` }, async (payload) => {
                 if (payload.new.status === 'assigned') {
-                    navigation.replace('ActiveRide', { rideId, paymentMethod: paymentMethod || payload.new.payment_method });
+                    const driverData = await fetchDriverDetails(payload.new.driver_id);
+                    navigation.replace('ActiveRide', {
+                        destination,
+                        fare,
+                        driver: driverData,
+                        rideId,
+                        paymentMethod: paymentMethod || payload.new.payment_method
+                    });
                 }
             })
             .subscribe();

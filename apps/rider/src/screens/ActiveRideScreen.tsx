@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, SafeAreaView, TouchableOpacity, Alert, Linking, Platform } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { supabase } from '../../../../shared/supabase';
-import { updateRideStatus } from '../services/api';
+import { cancelRide } from '../services/api';
 import { useRideSubscription } from '../services/realtime';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { DEFAULT_LOCATION } from '../../../../shared/env';
@@ -67,17 +67,31 @@ export function ActiveRideScreen({ route, navigation }: any) {
     const [driverLocation, setDriverLocation] = useState<any>(null);
     const [routeCoords, setRouteCoords] = useState<any[]>([]);
 
-    useRideSubscription(rideId, (updatedRide) => {
-        setRide((prev: any) => ({ ...prev, ...updatedRide }));
-        if (updatedRide.status === 'completed' || updatedRide.status === 'closed') {
-            const pm = paymentMethod || updatedRide.payment_method || 'cash';
-            if (pm === 'card') {
-                navigation.replace('Payment', { rideId });
-            } else {
-                navigation.replace('Rating', { rideId });
+    const { rideUpdate: updatedRide } = useRideSubscription(rideId);
+
+    useEffect(() => {
+        if (updatedRide) {
+            setRide((prev: any) => ({ ...prev, ...updatedRide }));
+            if (updatedRide.status === 'completed' || updatedRide.status === 'closed') {
+                const pm = paymentMethod || updatedRide.payment_method || 'cash';
+                if (pm === 'card') {
+                    navigation.replace('Payment', {
+                        ride_id: rideId,
+                        payment_method: pm,
+                        fare_cents: updatedRide.total_fare_cents || ride?.total_fare_cents
+                    });
+                } else {
+                    // Pass driver and fare from route.params or state
+                    navigation.replace('Rating', {
+                        driver: route.params.driver || driver,
+                        fare: route.params.fare || { total_fare_cents: updatedRide.total_fare_cents || ride?.total_fare_cents },
+                        rideId,
+                        paymentMethod: pm
+                    });
+                }
             }
         }
-    });
+    }, [updatedRide]);
 
     useEffect(() => {
         let sub: any;
@@ -130,7 +144,7 @@ export function ActiveRideScreen({ route, navigation }: any) {
                     text: "Yes, Cancel",
                     style: "destructive",
                     onPress: async () => {
-                        const { error } = await updateRideStatus(rideId, 'canceled');
+                        const { error } = await cancelRide(rideId);
                         if (!error) navigation.navigate('Home');
                     }
                 }

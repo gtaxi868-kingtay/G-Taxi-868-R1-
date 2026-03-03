@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface } from '../design-system/primitives';
 import { Ionicons } from '@expo/vector-icons';
 
-export function TripsScreen() {
+export function TripsScreen({ navigation }: any) {
     const { user } = useAuth();
     const [trips, setTrips] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -55,46 +55,48 @@ export function TripsScreen() {
                             item.status === 'canceled' ? tokens.colors.status.error : tokens.colors.primary.cyan;
 
                         return (
-                            <Surface intensity={30} style={styles.tripCard}>
-                                <View style={styles.tripHeader}>
-                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>
-                                        {date.toLocaleDateString()} at {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </Txt>
-                                    <Txt variant="caption" weight="bold" color={statusColor}>
-                                        {item.status.toUpperCase()}
-                                    </Txt>
-                                </View>
+                            <TouchableOpacity onPress={() => navigation.navigate('Receipt', { ride: item })}>
+                                <Surface intensity={30} style={styles.tripCard}>
+                                    <View style={styles.tripHeader}>
+                                        <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>
+                                            {date.toLocaleDateString()} at {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </Txt>
+                                        <Txt variant="caption" weight="bold" color={statusColor}>
+                                            {item.status.toUpperCase()}
+                                        </Txt>
+                                    </View>
 
-                                <View style={styles.routeContainer}>
-                                    <View style={styles.routeTimeline}>
-                                        <View style={[styles.dot, { backgroundColor: tokens.colors.primary.purple }]} />
-                                        <View style={styles.line} />
-                                        <View style={[styles.dot, { backgroundColor: tokens.colors.primary.cyan }]} />
+                                    <View style={styles.routeContainer}>
+                                        <View style={styles.routeTimeline}>
+                                            <View style={[styles.dot, { backgroundColor: tokens.colors.primary.purple }]} />
+                                            <View style={styles.line} />
+                                            <View style={[styles.dot, { backgroundColor: tokens.colors.primary.cyan }]} />
+                                        </View>
+                                        <View style={styles.routeDetails}>
+                                            <Txt variant="bodyReg" color={tokens.colors.text.primary} numberOfLines={1} style={{ marginBottom: 16 }}>
+                                                {item.pickup_address || 'Pickup'}
+                                            </Txt>
+                                            <Txt variant="bodyReg" color={tokens.colors.text.primary} numberOfLines={1}>
+                                                {item.dropoff_address || 'Dropoff'}
+                                            </Txt>
+                                        </View>
                                     </View>
-                                    <View style={styles.routeDetails}>
-                                        <Txt variant="bodyReg" color={tokens.colors.text.primary} numberOfLines={1} style={{ marginBottom: 16 }}>
-                                            {item.pickup_address || 'Pickup'}
-                                        </Txt>
-                                        <Txt variant="bodyReg" color={tokens.colors.text.primary} numberOfLines={1}>
-                                            {item.dropoff_address || 'Dropoff'}
-                                        </Txt>
-                                    </View>
-                                </View>
 
-                                <View style={styles.tripFooter}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                        <Txt style={{ fontSize: 16 }}>
-                                            {item.payment_method === 'cash' ? '💵' : item.payment_method === 'wallet' ? '👛' : '💳'}
-                                        </Txt>
-                                        <Txt variant="caption" color={tokens.colors.text.secondary}>
-                                            {item.payment_method?.toUpperCase() || 'UNKNOWN'}
+                                    <View style={styles.tripFooter}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                            <Txt style={{ fontSize: 16 }}>
+                                                {item.payment_method === 'cash' ? '💵' : item.payment_method === 'wallet' ? '👛' : '💳'}
+                                            </Txt>
+                                            <Txt variant="caption" color={tokens.colors.text.secondary}>
+                                                {item.payment_method?.toUpperCase() || 'UNKNOWN'}
+                                            </Txt>
+                                        </View>
+                                        <Txt variant="bodyBold" weight="bold" color={tokens.colors.text.primary}>
+                                            ${((item.total_fare_cents || 0) / 100).toFixed(2)}
                                         </Txt>
                                     </View>
-                                    <Txt variant="bodyBold" weight="bold" color={tokens.colors.text.primary}>
-                                        ${((item.total_fare_cents || 0) / 100).toFixed(2)}
-                                    </Txt>
-                                </View>
-                            </Surface>
+                                </Surface>
+                            </TouchableOpacity>
                         );
                     }}
                 />

@@ -138,10 +138,17 @@ export function RideConfirmationScreen({ navigation, route }: RideConfirmationSc
 
             // UBER-LIKE: If driver was assigned synchronously, go directly to ActiveRide
             if (response.data.status === 'assigned' && response.data.driver) {
+                const driverData: any = response.data.driver;
+                const safeDriver = {
+                    ...driverData,
+                    id: driverData.id || '',
+                    phone: driverData.phone || '',
+                    photo_url: driverData.photo_url || ''
+                };
                 navigation.replace('ActiveRide', {
                     destination,
                     fare,
-                    driver: response.data.driver,
+                    driver: safeDriver,
                     rideId: response.data.ride_id,
                     paymentMethod,
                 });

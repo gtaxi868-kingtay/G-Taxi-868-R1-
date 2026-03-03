@@ -1,1 +1,6 @@
 node_modules
+
+apps/rider/.env
+apps/driver/.env
+.env
+*.env

@@ -5,7 +5,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface RideUpdate {
     ride_id: string;
-    status: 'requested' | 'searching' | 'assigned' | 'arrived' | 'in_progress' | 'completed' | 'cancelled';
+    status: 'requested' | 'searching' | 'assigned' | 'arrived' | 'in_progress' | 'completed' | 'cancelled' | 'closed';
     driver_id?: string;
     driver_name?: string;
     driver_vehicle?: string;
@@ -14,6 +14,8 @@ export interface RideUpdate {
     driver_lat?: number;
     driver_lng?: number;
     estimated_arrival_min?: number;
+    payment_method?: string;
+    total_fare_cents?: number;
 }
 
 /**
@@ -55,6 +57,8 @@ export function useRideSubscription(rideId: string | null) {
                                 ride_id: ride.id,
                                 status: ride.status,
                                 driver_id: ride.driver_id,
+                                payment_method: ride.payment_method,
+                                total_fare_cents: ride.total_fare_cents,
                                 // Driver info would come from a join - for now we'll fetch separately
                             });
                         }
@@ -82,7 +86,7 @@ export function useRideSubscription(rideId: string | null) {
                 try {
                     const { data: ride, error: pollError } = await supabase
                         .from('rides')
-                        .select('id, status, driver_id')
+                        .select('id, status, driver_id, payment_method, total_fare_cents')
                         .eq('id', rideId)
                         .single();
 
@@ -100,6 +104,8 @@ export function useRideSubscription(rideId: string | null) {
                                     ride_id: ride.id,
                                     status: ride.status,
                                     driver_id: ride.driver_id,
+                                    payment_method: ride.payment_method,
+                                    total_fare_cents: ride.total_fare_cents,
                                 };
                             }
                             return prev;
@@ -145,22 +151,7 @@ export function useDriverLocationSubscription(driverId: string | null) {
         let pollInterval: NodeJS.Timeout;
 
         const setupSubscription = async () => {
-            // Fetch initial driver location first
-            try {
-                const { data } = await supabase
-                    .from('driver_locations')
-                    .select('lat, lng')
-                    .eq('driver_id', driverId)
-                    .single();
-
-                if (data?.lat && data?.lng) {
-                    setDriverLocation({ lat: data.lat, lng: data.lng });
-                }
-            } catch (err) {
-                console.log('[Driver] Initial fetch failed:', err);
-            }
-
-            // Subscribe to driver's location updates
+            // Synchronously create and subscribe to the channel so cleanup works if unmounted during fetch
             channel = supabase
                 .channel(`driver_location:${driverId}`)
                 .on(
@@ -188,6 +179,21 @@ export function useDriverLocationSubscription(driverId: string | null) {
                         console.log('[Driver Realtime] Timed out - using polling fallback');
                     }
                 });
+
+            // Fetch initial driver location after subscription starts
+            try {
+                const { data } = await supabase
+                    .from('driver_locations')
+                    .select('lat, lng')
+                    .eq('driver_id', driverId)
+                    .single();
+
+                if (data?.lat && data?.lng) {
+                    setDriverLocation({ lat: data.lat, lng: data.lng });
+                }
+            } catch (err) {
+                console.log('[Driver] Initial fetch failed:', err);
+            }
         };
 
         // POLLING FALLBACK - fetches driver location every 2 seconds
