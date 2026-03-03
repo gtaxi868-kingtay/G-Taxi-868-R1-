@@ -148,9 +148,9 @@ export function useDriverLocationSubscription(driverId: string | null) {
             // Fetch initial driver location first
             try {
                 const { data } = await supabase
-                    .from('drivers')
+                    .from('driver_locations')
                     .select('lat, lng')
-                    .eq('id', driverId)
+                    .eq('driver_id', driverId)
                     .single();
 
                 if (data?.lat && data?.lng) {
@@ -168,8 +168,8 @@ export function useDriverLocationSubscription(driverId: string | null) {
                     {
                         event: 'UPDATE',
                         schema: 'public',
-                        table: 'drivers',
-                        filter: `id=eq.${driverId}`,
+                        table: 'driver_locations',
+                        filter: `driver_id=eq.${driverId}`,
                     },
                     (payload) => {
                         const driver = payload.new as any;
@@ -195,9 +195,9 @@ export function useDriverLocationSubscription(driverId: string | null) {
             pollInterval = setInterval(async () => {
                 try {
                     const { data, error } = await supabase
-                        .from('drivers')
+                        .from('driver_locations')
                         .select('lat, lng')
-                        .eq('id', driverId)
+                        .eq('driver_id', driverId)
                         .single();
 
                     if (error) {
@@ -240,8 +240,8 @@ export function useDriverLocationSubscription(driverId: string | null) {
  */
 export async function fetchDriverDetails(driverId: string) {
     const { data, error } = await supabase
-        .from('drivers')
-        .select('id, name, vehicle_model, plate_number, rating')
+        .from('drivers_map_view')
+        .select('id, name, vehicle_model, plate_number, rating, phone_number, photo_url')
         .eq('id', driverId)
         .single();
 
@@ -252,7 +252,10 @@ export async function fetchDriverDetails(driverId: string) {
 
     return {
         name: data.name,
-        vehicle: data.vehicle_model, // We only have vehicle_model in DB currently
+        vehicle: data.vehicle_model,
+        id: data.id,
+        phone: data.phone_number,
+        photo_url: data.photo_url, // We only have vehicle_model in DB currently
         plate: data.plate_number,
         rating: data.rating || 4.8,
     };
