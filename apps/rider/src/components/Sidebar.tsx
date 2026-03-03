@@ -63,14 +63,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
     }, [visible]);
 
     // Simplified render logic to avoid private property access
-    if (!visible) return null; // This kills the exit animation.
-    // To support exit animation, we must render if visible OR if animating. 
-    // For now, simpler: Render always, control pointerEvents.
-    // But since we are inside a parent component that might control mounting, let's just do:
-
-    // Actually, revert to: Render always. The parent controls visibility via prop.
-    // The previous code had: if (!visible && slideAnim._value === -SIDEBAR_WIDTH) return null;
-    // We will just remove that optimization line to be type-safe.
+    if (!visible) return null;
 
     return (
         <View style={[styles.overlay, !visible && { pointerEvents: 'none' }]}>
@@ -117,9 +110,9 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                 onClose();
                                 navigation.navigate('Trips');
                             }} />
-                            <MenuItem icon="💳" label="Payment" onPress={() => {
+                            <MenuItem icon="👛" label="Wallet" onPress={() => {
                                 onClose();
-                                navigation.navigate('Payment');
+                                navigation.navigate('Wallet');
                             }} />
                             <MenuItem icon="🎁" label="Promotions" onPress={() => {
                                 onClose();

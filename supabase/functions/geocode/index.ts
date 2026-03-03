@@ -59,11 +59,20 @@ serve(async (req: Request) => {
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+        // Sanitize query — strip PostgREST-sensitive characters to prevent filter injection
+        const sanitizedQuery = query.replace(/[(),."'\\%;]/g, '').trim();
+        if (!sanitizedQuery || sanitizedQuery.length < 2) {
+            return new Response(
+                JSON.stringify({ success: false, error: "Invalid query characters", data: [] }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // Search local database first
         const { data: localResults, error: dbError } = await supabase
             .from("locations")
             .select("id, name, address, latitude, longitude, category, popularity_score")
-            .or(`name.ilike.%${query}%,address.ilike.%${query}%`)
+            .or(`name.ilike.%${sanitizedQuery}%,address.ilike.%${sanitizedQuery}%`)
             .order("popularity_score", { ascending: false })
             .limit(limit);
 

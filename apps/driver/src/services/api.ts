@@ -37,16 +37,13 @@ export async function getRide(rideId: string) {
     return { data, error };
 }
 
-export async function updateLocation(driverId: string, lat: number, lng: number, heading: number) {
-    // Fire and forget - use Edge Function or direct insert if allowed
-    // Using Edge Function for strict validation/history
+export async function updateDriverLocation(driverId: string, lat: number, lng: number, heading: number) {
+    // Fire and forget — Edge Function validates auth + GPS spoof detection
+    const headers = await getAuthHeaders();
     return fetch(`${FUNCTIONS_URL}/update_driver_location`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}` // Or auth token if we update the function
-        },
-        body: JSON.stringify({ driver_id: driverId, lat, lng, heading })
+        headers,
+        body: JSON.stringify({ lat, lng, heading })
     });
 }
 

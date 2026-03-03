@@ -10,7 +10,7 @@
 // handles the active-ride payment flow (e.g. from ActiveRideScreen confirm).
 // Without params it acts as a standalone method-selection settings screen.
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
     View,
     StyleSheet,
@@ -25,6 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Surface, Txt, Card } from '../design-system/primitives';
 import { tokens } from '../design-system/tokens';
 import { supabase } from '../../../../shared/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -75,6 +76,13 @@ export function PaymentScreen({ navigation, route }: any) {
     const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(initialMethod);
     const [loading, setLoading] = useState(false);
 
+    // Idempotency guard: prevent double-tap race conditions
+    const isProcessingRef = useRef(false);
+    const [userId, setUserId] = React.useState<string>("");
+    React.useEffect(() => {
+        supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? ""));
+    }, []);
+
     const insets = useSafeAreaInsets();
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
@@ -85,13 +93,19 @@ export function PaymentScreen({ navigation, route }: any) {
             return;
         }
 
+        // Double-tap guard using ref (survives React state batching)
+        if (isProcessingRef.current) return;
+        isProcessingRef.current = true;
         setLoading(true);
+
+        // Generate a unique idempotency key for this payment attempt
+        const idempotencyKey = `pi_${rideId}_${userId}`;
 
         try {
             // Step 1: Create PaymentIntent on server — server verifies ride ownership
             const { data, error: fnError } = await supabase.functions.invoke(
                 'create_payment_intent',
-                { body: { ride_id: rideId } }
+                { body: { ride_id: rideId, idempotency_key: idempotencyKey } }
             );
 
             if (fnError || !data?.clientSecret) {
@@ -99,7 +113,6 @@ export function PaymentScreen({ navigation, route }: any) {
                     'Payment Setup Failed',
                     fnError?.message ?? 'Could not initialise payment. Please try again.'
                 );
-                setLoading(false);
                 return;
             }
 
@@ -125,7 +138,6 @@ export function PaymentScreen({ navigation, route }: any) {
 
             if (initError) {
                 Alert.alert('Payment Error', initError.message);
-                setLoading(false);
                 return;
             }
 
@@ -135,19 +147,14 @@ export function PaymentScreen({ navigation, route }: any) {
             if (presentError) {
                 if (presentError.code === 'Canceled') {
                     // User dismissed — not an error, just let them pick again
-                    setLoading(false);
                     return;
                 }
                 Alert.alert('Payment Failed', presentError.message);
-                setLoading(false);
                 return;
             }
 
             // Step 4: Payment confirmed by Stripe — stripe_webhook will capture
             // and write ledger + wallet entries server-side.
-            // UI-A4: Use goBack() not navigate('ActiveRide') — navigate requires
-            // all required params (destination, fare, driver, rideId) which we
-            // don't have here. goBack() returns to the calling ActiveRideScreen.
             Alert.alert(
                 'Payment Successful 🎉',
                 'Your card payment has been processed. The driver will be notified.',
@@ -163,6 +170,7 @@ export function PaymentScreen({ navigation, route }: any) {
             Alert.alert('Error', err?.message ?? 'An unexpected error occurred.');
         } finally {
             setLoading(false);
+            isProcessingRef.current = false;
         }
     }, [rideId, initPaymentSheet, presentPaymentSheet, navigation]);
 

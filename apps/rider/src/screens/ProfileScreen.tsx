@@ -1,15 +1,31 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, SafeAreaView, Image, Dimensions } from 'react-native';
 import { Surface, Txt, Card } from '../design-system/primitives';
 import { tokens } from '../design-system/tokens';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../../../../shared/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-// BORING PROFILE SCREEN (Identity Only)
 export function ProfileScreen({ navigation }: any) {
     const { user, profile, signOut } = useAuth();
+    const [avgRating, setAvgRating] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!user?.id) return;
+        supabase
+            .from('rides')
+            .select('rating')
+            .eq('rider_id', user.id)
+            .not('rating', 'is', null)
+            .then(({ data }) => {
+                if (data && data.length > 0) {
+                    const avg = data.reduce((s: number, r: any) => s + r.rating, 0) / data.length;
+                    setAvgRating(avg.toFixed(1));
+                }
+            });
+    }, [user?.id]);
 
     // Safe Fallbacks
     const name = profile?.full_name || user?.email?.split('@')[0] || 'Rider';
@@ -52,7 +68,7 @@ export function ProfileScreen({ navigation }: any) {
                             <Txt variant="headingM" weight="bold">{name}</Txt>
                             <Txt variant="bodyReg" color={tokens.colors.text.secondary}>{phone}</Txt>
                             <View style={styles.ratingBadge}>
-                                <Txt variant="small" weight="bold">5.0 ★</Txt>
+                                <Txt variant="small" weight="bold">{avgRating ? `${avgRating} ★` : 'New rider'}</Txt>
                             </View>
                         </View>
                     </View>
@@ -64,7 +80,7 @@ export function ProfileScreen({ navigation }: any) {
                         <TouchableOpacity
                             key={index}
                             style={styles.menuItem}
-                            onPress={() => item.nav !== 'Legal' ? navigation.navigate(item.nav) : null}
+                            onPress={() => navigation.navigate(item.nav === 'Legal' ? 'Help' : item.nav)}
                             activeOpacity={0.7}
                         >
                             <View style={styles.menuIconInfo}>

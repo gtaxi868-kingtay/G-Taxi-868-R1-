@@ -116,20 +116,15 @@ serve(async (req: Request) => {
         }
 
         // PHASE 8: The -$600 TTD Lockout Trapdoor
-        // Fetch wallet balances to ensure we don't dispatch to drivers who owe too much commission
+        // Fetch wallet balances via RPC to ensure consistency with all other balance checks
         const candidateIds = candidateDrivers.map((d: any) => d.id);
-        const { data: balances } = await supabaseAdmin
-            .from("wallet_transactions")
-            .select("user_id, amount")
-            .in("user_id", candidateIds)
-            .eq("status", "completed");
-
         const walletMap: Record<string, number> = {};
-        if (balances) {
-            balances.forEach((b: any) => {
-                walletMap[b.user_id] = (walletMap[b.user_id] || 0) + Number(b.amount);
-            });
-        }
+
+        // Fetch balances in parallel for all candidates
+        await Promise.all(candidateIds.map(async (driverId: string) => {
+            const { data: bal } = await supabaseAdmin.rpc("get_wallet_balance", { p_user_id: driverId });
+            walletMap[driverId] = bal || 0;
+        }));
 
         // Lockout drivers with balance <= -60000 cents (-600 TTD)
         candidateDrivers = candidateDrivers.filter((d: any) => {

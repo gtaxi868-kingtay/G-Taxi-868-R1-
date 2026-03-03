@@ -78,8 +78,9 @@ serve(async (req: Request) => {
             );
         }
 
-        let distanceMeters = 5000;
-        let durationSeconds = 600;
+        let distanceMeters = 0;
+        let durationSeconds = 0;
+        let mapboxSuccess = false;
 
         // Try Mapbox for accurate distance
         if (MAPBOX_TOKEN) {
@@ -91,6 +92,7 @@ serve(async (req: Request) => {
                 if (data.routes && data.routes.length > 0) {
                     distanceMeters = Math.round(data.routes[0].distance);
                     durationSeconds = Math.round(data.routes[0].duration);
+                    mapboxSuccess = true;
                 }
             } catch {
                 // Use fallback calculation
@@ -98,7 +100,7 @@ serve(async (req: Request) => {
         }
 
         // Fallback: Haversine distance (with 1.3x road factor)
-        if (distanceMeters === 5000) {
+        if (!mapboxSuccess) {
             const R = 6371000;
             const dLat = (dropoff_lat - pickup_lat) * Math.PI / 180;
             const dLng = (dropoff_lng - pickup_lng) * Math.PI / 180;

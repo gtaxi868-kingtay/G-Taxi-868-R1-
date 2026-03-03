@@ -254,7 +254,7 @@ serve(async (req: Request) => {
             .update({
                 status: "completed",
                 completed_at: new Date().toISOString(),
-            })
+            }, { count: 'exact' })
             .eq("id", ride_id)
             .in("status", ["in_progress"]);   // Fix 3.4: was ['assigned', 'arrived', 'in_progress']
 

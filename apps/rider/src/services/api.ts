@@ -123,23 +123,16 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
     };
 }
 
-// Get headers with anon key only (for public endpoints)
-function getAnonHeaders(): Record<string, string> {
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${ENV.SUPABASE_ANON_KEY}`,
-    };
-}
-
 // ApiResponse is now imported or compatible with shared
 import { fetchWithRetry } from '../../../../shared/retryWrapper';
 
 /**
- * Estimate fare (no auth required)
+ * Estimate fare (uses auth headers for consistency)
  */
 export async function estimateFare(
     params: EstimateFareParams
 ): Promise<ApiResponse<FareEstimate>> {
+    const headers = await getAuthHeaders();
     const response = await fetchWithRetry<{
         estimated_fare_cents: number;
         distance_meters: number;
@@ -150,7 +143,7 @@ export async function estimateFare(
         `${FUNCTIONS_URL}/estimate_fare`,
         {
             method: 'POST',
-            headers: getAnonHeaders(),
+            headers,
             body: JSON.stringify(params),
         }
     );
@@ -347,45 +340,6 @@ export async function expireOffer(
 }
 
 /**
- * DEV/DRIVER: Update location
- */
-export async function updateDriverLocation(
-    driverId: string,
-    lat: number,
-    lng: number,
-    heading: number = 0
-): Promise<ApiResponse<void>> {
-    // For MVP/Sim, we use anon headers, assuming function is open or we are the rider
-    const headers = getAnonHeaders();
-    return fetchWithRetry<void>(
-        `${FUNCTIONS_URL}/update_driver_location`,
-        {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ driver_id: driverId, lat, lng, heading }),
-        }
-    );
-}
-
-/**
- * DEV/DRIVER: Accept Ride
- */
-export async function acceptRide(
-    rideId: string,
-    driverId: string
-): Promise<ApiResponse<any>> {
-    const headers = getAnonHeaders();
-    return fetchWithRetry<any>(
-        `${FUNCTIONS_URL}/accept_ride`,
-        {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ ride_id: rideId, driver_id: driverId }),
-        }
-    );
-}
-
-/**
  * Format cents to TTD currency string
  */
 export function formatCurrency(cents: number): string {
@@ -399,7 +353,7 @@ export function formatCurrency(cents: number): string {
 import { Driver } from '../types/ride';
 export async function getOnlineDrivers(): Promise<Driver[]> {
     const { data, error } = await supabase
-        .from('drivers')
+        .from('drivers_map_view')
         .select('*')
         .eq('is_online', true);
 

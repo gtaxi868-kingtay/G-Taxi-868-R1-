@@ -99,7 +99,7 @@ serve(async (req: Request) => {
 
         // PHASE 8: Failsafes 
         // 1. Rider Penalty ($5 TTD) if canceling on an assigned/arrived driver
-        if (isRider && (ride.status === "assigned" || ride.status === "arrived")) {
+        if (isRider && (ride.status === "assigned" || ride.status === "arrived") && ride.driver_id) {
             await supabaseAdmin.from("wallet_transactions").insert([{
                 user_id: ride.rider_id,
                 ride_id: ride_id,
@@ -108,7 +108,7 @@ serve(async (req: Request) => {
                 description: "Late cancellation fee ($5 TTD)",
                 status: "completed"
             }, {
-                user_id: ride.driver_id, // Target the assigned driver for compensation
+                user_id: ride.driver_id,
                 ride_id: ride_id,
                 amount: 500,
                 transaction_type: "cancellation_fee",

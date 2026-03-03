@@ -127,7 +127,7 @@ export function SettingsScreen({ navigation }: any) {
                                 If you are experiencing issues.
                             </Txt>
                         </View>
-                        <TouchableOpacity style={styles.smallBtn} onPress={() => alert('Cache cleared')}>
+                        <TouchableOpacity style={styles.smallBtn} onPress={() => Alert.alert('Done', 'Cache cleared successfully.')}>
                             <Txt variant="small" weight="bold">Clear</Txt>
                         </TouchableOpacity>
                     </View>

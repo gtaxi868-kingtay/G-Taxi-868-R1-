@@ -22,6 +22,9 @@ interface DriverFromDB {
     is_online?: boolean;
 }
 
+// ~200m debounce threshold in degrees (0.002 ≈ 200m at equator)
+const LOCATION_DEBOUNCE_THRESHOLD = 0.002;
+
 export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: number = 5) {
     const [drivers, setDrivers] = useState<AnimatedDriver[]>([]);
     const [loading, setLoading] = useState(true);
@@ -29,6 +32,9 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
 
     // Keep a map of driver IDs to their Animated values for smooth updates
     const animatedDriversRef = useRef<Map<string, AnimatedDriver>>(new Map());
+
+    // Track the last location that triggered a subscription to debounce
+    const lastSubscribedLocation = useRef<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
 
     // Helper to animate a driver to new position
     const animateDriverToPosition = (driver: AnimatedDriver, newLat: number, newLng: number, heading: number) => {
@@ -61,6 +67,27 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
     });
 
     useEffect(() => {
+        // Null/NaN guard: don't subscribe if location is invalid
+        if (!userLat || !userLng || isNaN(userLat) || isNaN(userLng)) {
+            return;
+        }
+
+        // Debounce: only re-subscribe if location changed by more than ~200m
+        const latDiff = Math.abs(userLat - lastSubscribedLocation.current.lat);
+        const lngDiff = Math.abs(userLng - lastSubscribedLocation.current.lng);
+
+        if (
+            lastSubscribedLocation.current.lat !== 0 &&
+            latDiff < LOCATION_DEBOUNCE_THRESHOLD &&
+            lngDiff < LOCATION_DEBOUNCE_THRESHOLD
+        ) {
+            // Location hasn't changed enough — skip re-subscription
+            return;
+        }
+
+        // Update tracked location
+        lastSubscribedLocation.current = { lat: userLat, lng: userLng };
+
         let channel: any;
 
         const fetchDrivers = async () => {

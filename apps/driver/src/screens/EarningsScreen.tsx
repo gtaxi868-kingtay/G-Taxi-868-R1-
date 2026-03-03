@@ -23,7 +23,12 @@ export function EarningsScreen() {
         const fetchEarnings = async () => {
             const now = new Date();
             const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-            const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay())).toISOString();
+
+            // Use a separate Date object for week start to avoid mutating `now`
+            const weekStart = new Date(now);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+            weekStart.setHours(0, 0, 0, 0);
+            const startOfWeek = weekStart.toISOString();
 
             const { data, error } = await supabase
                 .from('rides')

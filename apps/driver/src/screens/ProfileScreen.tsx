@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface } from '../design-system/primitives';
@@ -69,6 +69,24 @@ export function ProfileScreen({ navigation }: any) {
 
         loadProfileData();
     }, [driver?.id]);
+
+    const handleLogout = () => {
+        Alert.alert(
+            'Log Out',
+            'Are you sure you want to log out?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Log Out',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await signOut();
+                        // AuthContext will handle state change -> navigation reset
+                    },
+                },
+            ]
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -164,6 +182,11 @@ export function ProfileScreen({ navigation }: any) {
                             </View>
                         </View>
                     </Surface>
+
+                    {/* Log Out Button */}
+                    <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
+                        <Txt variant="bodyBold" color={tokens.colors.status.error}>Log Out</Txt>
+                    </TouchableOpacity>
 
                     <View style={{ height: 40 }} />
                 </ScrollView>
@@ -281,5 +304,15 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         borderWidth: 1,
         borderColor: tokens.colors.primary.purple,
-    }
+    },
+    logoutBtn: {
+        marginTop: 32,
+        paddingVertical: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 69, 58, 0.3)',
+        backgroundColor: 'rgba(255, 69, 58, 0.08)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
 });

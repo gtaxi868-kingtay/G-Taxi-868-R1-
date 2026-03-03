@@ -168,6 +168,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!user || !driver) return;
         const newStatus = !driver.is_online;
 
+        // Lockout guard: check balance before allowing driver to go online
+        if (newStatus === true) {
+            const { data: balance } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
+            const LOCKOUT_THRESHOLD_CENTS = -60000; // -$600 TTD
+            if (balance !== null && balance <= LOCKOUT_THRESHOLD_CENTS) {
+                Alert.alert(
+                    'Account Restricted',
+                    'Your commission balance has reached the $600 limit. Please settle your balance before going online.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+        }
+
         // Optimistic update
         setDriver({ ...driver, is_online: newStatus, status: newStatus ? 'online' : 'offline' });
 

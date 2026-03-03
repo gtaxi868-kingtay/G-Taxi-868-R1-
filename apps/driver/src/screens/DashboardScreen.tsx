@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator, Linking, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +28,8 @@ const DARK_MAP_STYLE = [
     { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
     { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
 ];
+
+const LOCKOUT_THRESHOLD_CENTS = -60000; // -$600 TTD
 
 export function DashboardScreen({ navigation }: any) {
     const { driver, toggleOnline, signOut } = useAuth();
@@ -76,7 +78,39 @@ export function DashboardScreen({ navigation }: any) {
         }
     }, [driver?.id]);
 
-    const isLockedOut = balanceCents !== null && balanceCents <= -60000;
+    const isLockedOut = balanceCents !== null && balanceCents <= LOCKOUT_THRESHOLD_CENTS;
+
+    // Server-side lockout guard: re-fetch balance before allowing driver to go online
+    const handleToggleOnline = async () => {
+        if (!driver?.id) return;
+
+        // If driver is already online, allow them to go offline without checking
+        if (isOnline) {
+            toggleOnline();
+            return;
+        }
+
+        // Going ONLINE — server-side balance check
+        try {
+            const { data } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
+            const freshBalance = Math.round(Number(data) || 0);
+            setBalanceCents(freshBalance); // Update UI too
+
+            if (freshBalance <= LOCKOUT_THRESHOLD_CENTS) {
+                Alert.alert(
+                    'Account Locked',
+                    'Your commission balance is below the -$600 TTD limit. You cannot go online until this is settled. Please contact admin.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+
+            toggleOnline();
+        } catch (err) {
+            console.error('[DashboardScreen] Balance check failed:', err);
+            Alert.alert('Error', 'Could not verify your account status. Please try again.');
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -144,7 +178,7 @@ export function DashboardScreen({ navigation }: any) {
                             styles.goButton,
                             isOnline ? styles.goOffline : styles.goOnline
                         ]}
-                        onPress={toggleOnline}
+                        onPress={handleToggleOnline}
                     >
                         <View style={styles.goButtonInner}>
                             <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary} style={{ letterSpacing: 1 }}>

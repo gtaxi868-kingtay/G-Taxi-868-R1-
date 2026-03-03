@@ -8,9 +8,11 @@ import {
     Dimensions,
     Pressable,
     SafeAreaView,
+    Alert,
 } from 'react-native';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface } from '../design-system/primitives';
+import { supabase } from '../../../../shared/supabase';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.75;
@@ -76,6 +78,25 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
         </TouchableOpacity>
     );
 
+    const handleLogout = () => {
+        Alert.alert(
+            'Log Out',
+            'Are you sure you want to log out?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Log Out',
+                    style: 'destructive',
+                    onPress: async () => {
+                        onClose();
+                        await supabase.auth.signOut();
+                        // AuthContext will handle state change -> navigation reset
+                    },
+                },
+            ]
+        );
+    };
+
     return (
         <View style={styles.overlay}>
             <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
@@ -124,11 +145,22 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                         <View style={styles.divider} />
 
                         <View style={styles.navSection}>
-                            {navItem('Messages', '💬')}
-                            {navItem('Settings', '⚙️')}
+                            {navItem('Settings', '⚙️', 'Profile')}
                         </View>
 
                         <View style={{ flex: 1 }} />
+
+                        {/* Logout */}
+                        <View style={styles.navSection}>
+                            <TouchableOpacity
+                                style={styles.navItem}
+                                onPress={handleLogout}
+                                activeOpacity={0.7}
+                            >
+                                <Txt variant="headingM" style={{ width: 32, opacity: 0.8 }}>🚪</Txt>
+                                <Txt variant="headingM" color={tokens.colors.status.error}>Log Out</Txt>
+                            </TouchableOpacity>
+                        </View>
 
                     </SafeAreaView>
                 </Surface>

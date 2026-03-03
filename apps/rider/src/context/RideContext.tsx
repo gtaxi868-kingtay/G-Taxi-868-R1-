@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getActiveRide } from '../services/api';
-import { useRideSubscription } from '../services/realtime';
 import { useAuth } from './AuthContext';
 
 interface ActiveRide {
@@ -85,29 +84,6 @@ export function RideProvider({ children }: { children: ReactNode }) {
             setLoading(false);
         }
     }, [authLoading, session]);
-
-    // REALTIME INTEGRATION (Phase 3 Fix)
-    // Subscribe to the active ride to get status updates (with polling fallback)
-    const { rideUpdate } = useRideSubscription(activeRide?.ride_id || null);
-
-    useEffect(() => {
-        if (rideUpdate && activeRide) {
-            // Only update if something changed
-            if (rideUpdate.status !== activeRide.status || rideUpdate.driver_id !== (activeRide as any).driver_id) {
-                console.log('[RideContext] Realtime update applied:', rideUpdate.status);
-                setActiveRide((prev) => {
-                    if (!prev) return null;
-                    return {
-                        ...prev,
-                        status: rideUpdate.status,
-                        // We might need to fetch full driver details here if assigned
-                        // For now we just sync the ID so other components can react
-                        driver_id: rideUpdate.driver_id,
-                    } as ActiveRide;
-                });
-            }
-        }
-    }, [rideUpdate, activeRide]);
 
     return (
         <RideContext.Provider value={{ activeRide, loading, checkActiveRide, clearActiveRide }}>

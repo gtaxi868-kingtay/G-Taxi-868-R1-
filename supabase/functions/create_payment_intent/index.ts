@@ -7,6 +7,10 @@
 //   - Only client_secret is returned — never the full PaymentIntent object
 //   - STRIPE_SECRET_KEY lives only in Supabase edge function secrets
 //
+// Idempotency:
+//   - Accepts optional idempotency_key from client to prevent duplicate PaymentIntents
+//   - Stores stripe_payment_intent_id on ride row; returns existing PI on re-call
+//
 // Called by the rider app before rendering the Stripe card payment sheet.
 
 import Stripe from "https://esm.sh/stripe@13";
@@ -66,7 +70,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // ── Parse Request ─────────────────────────────────────────────────────
-        const { ride_id } = await req.json();
+        const { ride_id, idempotency_key } = await req.json();
 
         if (!ride_id) {
             return new Response(
@@ -81,7 +85,7 @@ Deno.serve(async (req: Request) => {
 
         const { data: ride, error: rideError } = await supabaseAdmin
             .from("rides")
-            .select("id, fare_amount, total_fare_cents, rider_id, payment_method, payment_status, status")
+            .select("id, fare_amount, total_fare_cents, rider_id, payment_method, payment_status, status, stripe_payment_intent_id")
             .eq("id", ride_id)
             .eq("rider_id", user.id)   // ← ownership: this ride must belong to this user
             .single();
@@ -108,11 +112,32 @@ Deno.serve(async (req: Request) => {
             );
         }
 
-        if (!["searching", "assigned", "arrived", "in_progress"].includes(ride.status)) {
+        if (!["searching", "assigned", "arrived", "in_progress", "completed"].includes(ride.status)) {
             return new Response(
                 JSON.stringify({ error: `Ride in status '${ride.status}' is not payable` }),
                 { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
+        }
+
+        // ── Idempotency: if a PI already exists for this ride, return it ───────
+        if (ride.stripe_payment_intent_id) {
+            try {
+                const existingPI = await stripe.paymentIntents.retrieve(ride.stripe_payment_intent_id);
+
+                // If the PI is still usable (not cancelled/succeeded already captured),
+                // return its client_secret so the client can re-present the sheet
+                if (existingPI && existingPI.client_secret &&
+                    !["canceled", "succeeded"].includes(existingPI.status)) {
+                    return new Response(
+                        JSON.stringify({ clientSecret: existingPI.client_secret }),
+                        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
+                }
+                // If PI is cancelled or already succeeded, fall through to create a new one
+            } catch (retrieveErr) {
+                // PI doesn't exist in Stripe anymore, create a new one
+                console.warn("Could not retrieve existing PI, creating new one:", retrieveErr);
+            }
         }
 
         // ── Determine amount in cents ──────────────────────────────────────────
@@ -129,7 +154,7 @@ Deno.serve(async (req: Request) => {
 
         // ── Create Stripe PaymentIntent ────────────────────────────────────────
         // amount is in the smallest currency unit (cents for TTD).
-        const paymentIntent = await stripe.paymentIntents.create({
+        const createParams: any = {
             amount: amountCents,
             currency: "ttd",
             metadata: {
@@ -137,7 +162,21 @@ Deno.serve(async (req: Request) => {
                 user_id: user.id,
             },
             payment_method_types: ["card"],
-        });
+        };
+
+        // Pass idempotency key to Stripe if provided by client
+        const stripeOptions: any = {};
+        if (idempotency_key) {
+            stripeOptions.idempotencyKey = idempotency_key;
+        }
+
+        const paymentIntent = await stripe.paymentIntents.create(createParams, stripeOptions);
+
+        // ── Store the PI ID on the ride row for idempotency on re-calls ────────
+        await supabaseAdmin
+            .from("rides")
+            .update({ stripe_payment_intent_id: paymentIntent.id })
+            .eq("id", ride.id);
 
         // ── Return ONLY the client_secret ─────────────────────────────────────
         // The client_secret lets the SDK confirm the payment without exposing

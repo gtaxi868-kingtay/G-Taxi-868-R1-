@@ -32,7 +32,7 @@ export async function requireDriver(req: Request, supabaseAdmin: any) {
     const { data: driver, error } = await supabaseAdmin
         .from('drivers')
         .select('id, status, is_online')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .single()
 
     if (error || !driver) {

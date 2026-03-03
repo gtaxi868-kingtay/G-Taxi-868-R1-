@@ -67,6 +67,20 @@ export function RatingScreen({ navigation, route }: RatingScreenProps) {
 
         setSubmitting(true);
 
+        // Save the rating to the rides table
+        if (rideId && selectedRating > 0) {
+            const { error: ratingError } = await supabase
+                .from('rides')
+                .update({ rating: selectedRating })
+                .eq('id', rideId);
+
+            if (ratingError) {
+                console.warn('[Rating] Failed to save rating:', ratingError.message);
+            } else {
+                console.log(`[Rating] Saved ${selectedRating} stars for ride ${rideId}`);
+            }
+        }
+
         // Process Tip if selected
         if (selectedTip > 0 && rideId) {
             const tipCents = selectedTip * 100;
