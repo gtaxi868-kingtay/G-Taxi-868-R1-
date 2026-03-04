@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard, Alert } from 'react-native';
 import { theme } from '../theme';
 import { GlassView } from './GlassView';
 import { GlassButton } from './GlassButton';
@@ -20,11 +20,16 @@ export function SavedPlaceModal({ visible, onClose, onSave, defaultLabel = '' }:
         if (!label || !address) return;
 
         setLoading(true);
-        await onSave(label, address);
-        setLoading(false);
-        onClose();
-        setLabel('');
-        setAddress('');
+        try {
+            await onSave(label, address);
+            onClose();
+            setLabel('');
+            setAddress('');
+        } catch (error) {
+            Alert.alert('Error', 'Could not save this place. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
