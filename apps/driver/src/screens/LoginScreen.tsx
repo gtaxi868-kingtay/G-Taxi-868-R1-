@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { StatusBar } from 'expo-status-bar';
+import { tokens } from '../design-system/tokens';
+import { Txt, Surface } from '../design-system/primitives';
 import { supabase } from '../../../../shared/supabase';
 
 export function LoginScreen() {
@@ -10,6 +12,7 @@ export function LoginScreen() {
     const [loading, setLoading] = useState(false);
     const [registrationActive, setRegistrationActive] = useState(false);
     const { signIn } = useAuth();
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         const fetchFlag = async () => {
@@ -42,121 +45,81 @@ export function LoginScreen() {
 
     return (
         <View style={styles.container}>
-            <StatusBar style="dark" />
-            <View style={styles.content}>
-                <Text style={styles.title}>G-Taxi Driver</Text>
-                <Text style={styles.subtitle}>Partner App</Text>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+                <View style={[styles.content, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }]}>
 
-                <View style={styles.form}>
-                    <Text style={styles.label}>Email</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="driver@gtaxi.com"
-                        value={email}
-                        onChangeText={setEmail}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                    />
+                    <View style={styles.header}>
+                        <Txt variant="displayXL" weight="bold" color={tokens.colors.text.primary} style={{ letterSpacing: -1 }}>
+                            G-Taxi Driver
+                        </Txt>
+                        <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={{ marginTop: 8 }}>
+                            Partner App
+                        </Txt>
+                    </View>
 
-                    <Text style={styles.label}>Password</Text>
-                    <TextInput
-                        style={styles.input}
-                        placeholder="••••••••"
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry
-                    />
+                    <Surface intensity={40} style={styles.formCard}>
+                        <View style={styles.inputContainer}>
+                            <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>EMAIL ADDRESS</Txt>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="driver@gtaxi.com"
+                                placeholderTextColor={tokens.colors.text.tertiary}
+                                value={email}
+                                onChangeText={setEmail}
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                            />
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PASSWORD</Txt>
+                            <TextInput
+                                style={[styles.input, { borderBottomWidth: 0 }]}
+                                placeholder="••••••••"
+                                placeholderTextColor={tokens.colors.text.tertiary}
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry
+                            />
+                        </View>
+                    </Surface>
 
                     <TouchableOpacity
-                        style={[styles.button, loading && styles.buttonDisabled]}
+                        style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
                         onPress={handleLogin}
                         disabled={loading}
                     >
                         {loading ? (
-                            <ActivityIndicator color="#fff" />
+                            <ActivityIndicator color={tokens.colors.background.base} />
                         ) : (
-                            <Text style={styles.buttonText}>Sign In</Text>
+                            <Txt variant="headingM" weight="bold" color={tokens.colors.background.base}>Sign In</Txt>
                         )}
                     </TouchableOpacity>
 
                     {registrationActive && (
                         <TouchableOpacity
-                            style={styles.applyButton}
+                            style={styles.applyBtn}
                             onPress={() => Alert.alert('Apply to Drive', 'Registration workflow coming soon.')}
                         >
-                            <Text style={styles.applyButtonText}>Apply to Drive</Text>
+                            <Txt variant="bodyBold" color={tokens.colors.primary.cyan}>Apply to Drive</Txt>
                         </TouchableOpacity>
                     )}
+
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-        justifyContent: 'center',
-    },
-    content: {
-        padding: 24,
-    },
-    title: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        marginBottom: 8,
-        color: '#1a1a1a',
-    },
-    subtitle: {
-        fontSize: 18,
-        color: '#666',
-        marginBottom: 48,
-    },
-    form: {
-        gap: 16,
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 4,
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 12,
-        padding: 16,
-        fontSize: 16,
-        backgroundColor: '#f9f9f9',
-    },
-    button: {
-        backgroundColor: '#000',
-        padding: 18,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 16,
-    },
-    buttonDisabled: {
-        opacity: 0.7,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    applyButton: {
-        backgroundColor: 'transparent',
-        padding: 18,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 8,
-        borderWidth: 1,
-        borderColor: '#000',
-    },
-    applyButtonText: {
-        color: '#000',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
+    container: { flex: 1, backgroundColor: tokens.colors.background.base },
+    content: { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
+    header: { marginBottom: 40 },
+    formCard: { borderRadius: 24, borderWidth: 1, borderColor: tokens.colors.border.subtle, marginBottom: 24, overflow: 'hidden' },
+    inputContainer: {},
+    label: { marginTop: 16, marginLeft: 20, marginBottom: 4 },
+    input: { color: tokens.colors.text.primary, fontSize: 17, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: tokens.colors.border.subtle },
+    primaryBtn: { backgroundColor: tokens.colors.primary.cyan, paddingVertical: 18, borderRadius: 16, alignItems: 'center', shadowColor: tokens.colors.primary.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+    primaryBtnDisabled: { opacity: 0.7 },
+    applyBtn: { marginTop: 24, alignItems: 'center', paddingVertical: 16, borderRadius: 16, borderWidth: 1, borderColor: tokens.colors.primary.cyan },
 });

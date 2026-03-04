@@ -31,12 +31,9 @@ export function SignupScreen({ navigation }: any) {
         setLoading(true);
         setErrorMsg('');
         try {
-            // signUp now includes phone per Phase 5 adjustments.
-            // If Supabase is configured to require phone verification, it will send an OTP.
             const { error } = await signUp(formData.email, formData.password, formData.name, formData.phone);
             if (error) setErrorMsg(error.message);
             else {
-                // If phone confirmation is enabled on Supabase, show OTP screen
                 Alert.alert("Code Sent", `An SMS code has been sent to ${formData.phone}`);
                 setAwaitingOtp(true);
             }
@@ -57,7 +54,6 @@ export function SignupScreen({ navigation }: any) {
         try {
             await verifyPhoneOTP(formData.phone, otp);
             Alert.alert("Success", "Account verified successfully.");
-            // Session is set in AuthContext, navigation will be handled by App.tsx router
         } catch (err: any) {
             setErrorMsg(err.message || 'Invalid code.');
         } finally {

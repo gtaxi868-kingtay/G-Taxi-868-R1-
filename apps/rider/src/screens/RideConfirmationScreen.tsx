@@ -72,7 +72,7 @@ export function RideConfirmationScreen({ navigation, route }: RideConfirmationSc
     const fetchBalance = async () => {
         const response = await getWalletBalance();
         if (response.success && response.data !== null) {
-            setWalletBalance(response.data);
+            setWalletBalance(response.data / 100);
         }
     };
 

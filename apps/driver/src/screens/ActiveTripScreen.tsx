@@ -7,7 +7,6 @@ import { updateRideStatus } from '../services/api';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Card } from '../design-system/primitives';
 
-// Helper for parsing polyline string to coordinate array
 function decodePolyline(encoded: string) {
     if (!encoded) return [];
     let poly = [];
@@ -16,24 +15,11 @@ function decodePolyline(encoded: string) {
 
     while (index < len) {
         let b, shift = 0, result = 0;
-        do {
-            b = encoded.charCodeAt(index++) - 63;
-            result |= (b & 0x1f) << shift;
-            shift += 5;
-        } while (b >= 0x20);
-        let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
-        lat += dlat;
-
-        shift = 0;
-        result = 0;
-        do {
-            b = encoded.charCodeAt(index++) - 63;
-            result |= (b & 0x1f) << shift;
-            shift += 5;
-        } while (b >= 0x20);
-        let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
-        lng += dlng;
-
+        do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1)); lat += dlat;
+        shift = 0; result = 0;
+        do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1)); lng += dlng;
         poly.push({ latitude: (lat / 1e5), longitude: (lng / 1e5) });
     }
     return poly;
@@ -85,9 +71,6 @@ export function ActiveTripScreen({ route, navigation }: any) {
         const sub = supabase.channel(`ride_${rideId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` }, (payload) => {
                 setRide(payload.new);
-                if (payload.new.status === 'completed' || payload.new.status === 'closed') {
-                    // Payment summary logic below
-                }
             })
             .subscribe();
 
@@ -134,7 +117,6 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const currentLat = location?.coords.latitude || ride?.pickup_lat || 0;
     const currentLng = location?.coords.longitude || ride?.pickup_lng || 0;
 
-    // Render Completion Summary
     if (ride?.status === 'completed' || ride?.status === 'closed') {
         const fare = ride.total_fare_cents ? ride.total_fare_cents / 100 : 0;
         const earnings = (fare * DRIVER_SHARE).toFixed(2);
@@ -179,7 +161,6 @@ export function ActiveTripScreen({ route, navigation }: any) {
         );
     }
 
-    // Active Trip Render
     return (
         <View style={styles.container}>
             <MapView
@@ -218,7 +199,6 @@ export function ActiveTripScreen({ route, navigation }: any) {
 
             <SafeAreaView style={styles.safeArea} pointerEvents="box-none">
 
-                {/* Top Floating Nav */}
                 <Surface intensity={60} style={styles.topNav}>
                     <View style={{ flex: 1, marginRight: 16 }}>
                         <Txt variant="caption" weight="bold" color={tokens.colors.primary.cyan} style={{ marginBottom: 4 }}>
@@ -233,7 +213,6 @@ export function ActiveTripScreen({ route, navigation }: any) {
                     </TouchableOpacity>
                 </Surface>
 
-                {/* Bottom Drawer */}
                 <Card style={styles.bottomCard} padding="lg" elevation="level3">
                     <View style={styles.riderInfo}>
                         <View style={styles.riderAvatar}>

@@ -134,6 +134,7 @@ export function ActiveRideScreen({ route, navigation }: any) {
         return () => { if (sub) sub.unsubscribe(); };
     }, [rideId]);
 
+    const isCancelingRef = React.useRef(false);
     const handleCancel = () => {
         Alert.alert(
             "Cancel Ride",
@@ -144,6 +145,8 @@ export function ActiveRideScreen({ route, navigation }: any) {
                     text: "Yes, Cancel",
                     style: "destructive",
                     onPress: async () => {
+                        if (isCancelingRef.current) return;
+                        isCancelingRef.current = true;
                         const { error } = await cancelRide(rideId);
                         if (!error) navigation.navigate('Home');
                     }

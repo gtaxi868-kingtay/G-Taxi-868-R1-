@@ -58,7 +58,10 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         };
     }, [rideId]);
 
+    const [isCanceling, setIsCanceling] = React.useState(false);
     const handleCancel = async () => {
+        if (isCanceling) return;
+        setIsCanceling(true);
         await cancelRide(rideId);
         navigation.navigate('Home');
     };
@@ -87,7 +90,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                     Broadcasting request to nearby partners. This usually takes 1-2 minutes.
                 </Txt>
 
-                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel}>
+                <TouchableOpacity style={[styles.cancelBtn, isCanceling && { opacity: 0.5 }]} onPress={handleCancel} disabled={isCanceling}>
                     <Txt variant="bodyBold" weight="bold" color={tokens.colors.status.error}>Cancel Request</Txt>
                 </TouchableOpacity>
             </Card>

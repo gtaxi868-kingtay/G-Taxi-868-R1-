@@ -1,17 +1,5 @@
 import React, { useState } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    Modal,
-    TextInput,
-    TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
-    TouchableWithoutFeedback,
-    Keyboard,
-    ActivityIndicator
-} from 'react-native';
+import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import { theme } from '../theme';
 import { GlassView } from './GlassView';
 import { GlassButton } from './GlassButton';
@@ -20,7 +8,7 @@ interface SavedPlaceModalProps {
     visible: boolean;
     onClose: () => void;
     onSave: (label: string, address: string) => Promise<void>;
-    defaultLabel?: string; // 'Home' or 'Work' if pre-selected
+    defaultLabel?: string;
 }
 
 export function SavedPlaceModal({ visible, onClose, onSave, defaultLabel = '' }: SavedPlaceModalProps) {
@@ -35,7 +23,6 @@ export function SavedPlaceModal({ visible, onClose, onSave, defaultLabel = '' }:
         await onSave(label, address);
         setLoading(false);
         onClose();
-        // Reset fields
         setLabel('');
         setAddress('');
     };
@@ -57,7 +44,6 @@ export function SavedPlaceModal({ visible, onClose, onSave, defaultLabel = '' }:
                             <GlassView style={styles.modalContainer} intensity="heavy">
                                 <Text style={styles.title}>Save Place</Text>
 
-                                {/* Label Input */}
                                 <Text style={styles.label}>Label</Text>
                                 <View style={styles.inputContainer}>
                                     <TextInput
@@ -70,7 +56,6 @@ export function SavedPlaceModal({ visible, onClose, onSave, defaultLabel = '' }:
                                     />
                                 </View>
 
-                                {/* Address Input (Simplified for now, later could be Google Places) */}
                                 <Text style={styles.label}>Address</Text>
                                 <View style={styles.inputContainer}>
                                     <TextInput
@@ -106,59 +91,15 @@ export function SavedPlaceModal({ visible, onClose, onSave, defaultLabel = '' }:
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'center',
-        padding: theme.spacing.lg,
-    },
-    keyboardView: {
-        width: '100%',
-    },
-    modalContainer: {
-        borderRadius: theme.borderRadius.xl,
-        padding: theme.spacing.xl,
-    },
-    title: {
-        fontSize: theme.typography.sizes.xl,
-        fontWeight: theme.typography.weights.bold,
-        color: theme.colors.text.primary,
-        marginBottom: theme.spacing.lg,
-        textAlign: 'center',
-    },
-    label: {
-        color: theme.colors.text.secondary,
-        fontSize: theme.typography.sizes.sm,
-        marginBottom: theme.spacing.xs,
-        marginLeft: theme.spacing.xs,
-    },
-    inputContainer: {
-        backgroundColor: theme.colors.glass.backgroundLight,
-        borderRadius: theme.borderRadius.lg,
-        paddingHorizontal: theme.spacing.md,
-        paddingVertical: Platform.OS === 'ios' ? theme.spacing.md : theme.spacing.sm,
-        marginBottom: theme.spacing.lg,
-        borderWidth: 1,
-        borderColor: theme.colors.glass.border,
-    },
-    input: {
-        color: theme.colors.text.primary,
-        fontSize: theme.typography.sizes.md,
-    },
-    buttonRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginTop: theme.spacing.md,
-    },
-    cancelButton: {
-        padding: theme.spacing.md,
-    },
-    cancelText: {
-        color: theme.colors.text.secondary,
-        fontSize: theme.typography.sizes.md,
-    },
-    saveButton: {
-        minWidth: 120,
-    },
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: theme.spacing.lg },
+    keyboardView: { width: '100%' },
+    modalContainer: { borderRadius: theme.borderRadius.xl, padding: theme.spacing.xl },
+    title: { fontSize: theme.typography.sizes.xl, fontWeight: theme.typography.weights.bold, color: theme.colors.text.primary, marginBottom: theme.spacing.lg, textAlign: 'center' },
+    label: { color: theme.colors.text.secondary, fontSize: theme.typography.sizes.sm, marginBottom: theme.spacing.xs, marginLeft: theme.spacing.xs },
+    inputContainer: { backgroundColor: theme.colors.glass.backgroundLight, borderRadius: theme.borderRadius.lg, paddingHorizontal: theme.spacing.md, paddingVertical: Platform.OS === 'ios' ? theme.spacing.md : theme.spacing.sm, marginBottom: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.glass.border },
+    input: { color: theme.colors.text.primary, fontSize: theme.typography.sizes.md },
+    buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.spacing.md },
+    cancelButton: { padding: theme.spacing.md },
+    cancelText: { color: theme.colors.text.secondary, fontSize: theme.typography.sizes.md },
+    saveButton: { minWidth: 120 },
 });

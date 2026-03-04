@@ -50,6 +50,7 @@ export function DashboardScreen({ navigation }: any) {
     const currentLng = location?.coords.longitude || DEFAULT_LOCATION.longitude;
 
     const [balanceCents, setBalanceCents] = useState<number | null>(null);
+    const [isTogglingOnline, setIsTogglingOnline] = useState(false);
     const [todayTrips, setTodayTrips] = useState(0);
     const [todayEarnings, setTodayEarnings] = useState(0);
 
@@ -82,11 +83,14 @@ export function DashboardScreen({ navigation }: any) {
 
     // Server-side lockout guard: re-fetch balance before allowing driver to go online
     const handleToggleOnline = async () => {
-        if (!driver?.id) return;
+        if (isTogglingOnline) return;
+        setIsTogglingOnline(true);
+        if (!driver?.id) { setIsTogglingOnline(false); return; }
 
         // If driver is already online, allow them to go offline without checking
         if (isOnline) {
             toggleOnline();
+            setIsTogglingOnline(false);
             return;
         }
 
@@ -102,6 +106,7 @@ export function DashboardScreen({ navigation }: any) {
                     'Your commission balance is below the -$600 TTD limit. You cannot go online until this is settled. Please contact admin.',
                     [{ text: 'OK' }]
                 );
+                setIsTogglingOnline(false);
                 return;
             }
 
@@ -109,6 +114,8 @@ export function DashboardScreen({ navigation }: any) {
         } catch (err) {
             console.error('[DashboardScreen] Balance check failed:', err);
             Alert.alert('Error', 'Could not verify your account status. Please try again.');
+        } finally {
+            setIsTogglingOnline(false);
         }
     };
 
@@ -179,6 +186,7 @@ export function DashboardScreen({ navigation }: any) {
                             isOnline ? styles.goOffline : styles.goOnline
                         ]}
                         onPress={handleToggleOnline}
+                        disabled={isTogglingOnline}
                     >
                         <View style={styles.goButtonInner}>
                             <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary} style={{ letterSpacing: 1 }}>
