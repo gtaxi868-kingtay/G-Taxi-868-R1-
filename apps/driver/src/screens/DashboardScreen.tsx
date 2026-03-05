@@ -10,6 +10,7 @@ import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Card } from '../design-system/primitives';
 import { supabase } from '../../../../shared/supabase';
 import { Sidebar } from '../components/Sidebar';
+import { Ionicons } from '@expo/vector-icons';
 
 const DARK_MAP_STYLE = [
     { elementType: "geometry", stylers: [{ color: tokens.colors.background.base }] },
@@ -174,7 +175,7 @@ export function DashboardScreen({ navigation }: any) {
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => setSidebarVisible(true)} style={styles.menuBtn}>
                         <Surface style={styles.menuSurface} intensity={40}>
-                            <Txt variant="headingM" color={tokens.colors.text.primary}>☰</Txt>
+                            <Ionicons name="menu" size={26} color={tokens.colors.text.primary} />
                         </Surface>
                     </TouchableOpacity>
                 </View>

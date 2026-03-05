@@ -13,6 +13,7 @@ import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Card } from '../design-system/primitives';
 import { supabase } from '../../../../shared/supabase'; // Import Supabase directly for logout
 import { Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.75;
@@ -92,7 +93,11 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                     {user?.photo_url ? (
                                         <Image source={{ uri: user.photo_url }} style={{ width: 56, height: 56, borderRadius: 28 }} />
                                     ) : (
-                                        <Txt style={{ fontSize: 24 }}>👤</Txt>
+                                        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0, 200, 150, 0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: tokens.colors.primary.purple }}>
+                                            <Txt variant="headingM" weight="bold" color={tokens.colors.primary.purple}>
+                                                {user?.name?.charAt(0)?.toUpperCase() || 'R'}
+                                            </Txt>
+                                        </View>
                                     )}
                                 </View>
                                 <View>
@@ -106,28 +111,28 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
                         {/* 2. Menu Items */}
                         <View style={styles.menuItems}>
-                            <MenuItem icon="🚗" label="Your Trips" onPress={() => {
+                            <MenuItem iconName="car-outline" label="Your Trips" onPress={() => {
                                 onClose();
                                 navigation.navigate('Trips');
                             }} />
-                            <MenuItem icon="👛" label="Wallet" onPress={() => {
+                            <MenuItem iconName="wallet-outline" label="Wallet" onPress={() => {
                                 onClose();
                                 navigation.navigate('Wallet');
                             }} />
-                            <MenuItem icon="🎁" label="Promotions" onPress={() => {
+                            <MenuItem iconName="gift-outline" label="Promotions" onPress={() => {
                                 onClose();
                                 navigation.navigate('Promo');
                             }} />
-                            <MenuItem icon="⚙️" label="Settings" onPress={() => {
+                            <MenuItem iconName="settings-outline" label="Settings" onPress={() => {
                                 onClose();
                                 navigation.navigate('Settings');
                             }} />
-                            <MenuItem icon="❓" label="Help" onPress={() => {
+                            <MenuItem iconName="help-circle-outline" label="Help" onPress={() => {
                                 onClose();
                                 navigation.navigate('Help');
                             }} />
                             {/* LOGOUT BUTTON */}
-                            <MenuItem icon="🚪" label="Log Out" onPress={() => {
+                            <MenuItem iconName="log-out-outline" iconColor={tokens.colors.status.error} label="Log Out" onPress={() => {
                                 Alert.alert(
                                     "Log Out",
                                     "Are you sure you want to log out?",
@@ -167,9 +172,9 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
     );
 }
 
-const MenuItem = ({ icon, label, onPress }: any) => (
+const MenuItem = ({ iconName, iconColor, label, onPress }: any) => (
     <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-        <Txt style={{ fontSize: 24, marginRight: 20 }}>{icon}</Txt>
+        <Ionicons name={iconName} size={22} color={iconColor || tokens.colors.text.secondary} style={{ marginRight: 20 }} />
         <Txt variant="bodyReg" style={{ fontSize: 18 }}>{label}</Txt>
     </TouchableOpacity>
 );

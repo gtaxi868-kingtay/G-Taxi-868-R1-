@@ -4,6 +4,7 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Card } from '../design-system/primitives';
+import { Ionicons } from '@expo/vector-icons';
 
 const DRIVER_SHARE = 0.81;
 
@@ -117,9 +118,11 @@ export function EarningsScreen() {
                         return (
                             <Surface key={trip.id} intensity={40} style={styles.tripItem}>
                                 <View style={styles.tripIcon}>
-                                    <Txt style={{ fontSize: 20 }}>
-                                        {trip.payment_method === 'cash' ? '💵' : trip.payment_method === 'wallet' ? '👛' : '💳'}
-                                    </Txt>
+                                    <Ionicons
+                                        name={trip.payment_method === 'cash' ? 'cash-outline' : trip.payment_method === 'wallet' ? 'wallet-outline' : 'card-outline'}
+                                        size={20}
+                                        color={tokens.colors.text.secondary}
+                                    />
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Txt variant="bodyBold" color={tokens.colors.text.primary} numberOfLines={1}>

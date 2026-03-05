@@ -112,8 +112,10 @@ export function ProfileScreen({ navigation }: any) {
 
                     {/* Identity Card */}
                     <View style={styles.identitySection}>
-                        <View style={styles.avatar}>
-                            <Txt variant="displayXL">👤</Txt>
+                        <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(0, 200, 150, 0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: tokens.colors.primary.purple }}>
+                            <Txt variant="displayXL" weight="bold" color={tokens.colors.primary.purple}>
+                                {profile?.name?.charAt(0)?.toUpperCase() || 'D'}
+                            </Txt>
                         </View>
                         <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary} style={{ marginTop: 16 }}>
                             {profile?.name}

@@ -4,6 +4,7 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Card } from '../design-system/primitives';
+import { Ionicons } from '@expo/vector-icons';
 
 export function WalletScreen({ navigation }: any) {
     const { driver } = useAuth();
@@ -76,7 +77,7 @@ export function WalletScreen({ navigation }: any) {
 
                         <Surface intensity={30} style={styles.infoBox}>
                             <View style={styles.infoRow}>
-                                <Txt style={{ fontSize: 24, marginRight: 16 }}>💵</Txt>
+                                <Ionicons name="cash-outline" size={24} color={tokens.colors.status.success} style={{ marginRight: 16 }} />
                                 <View style={{ flex: 1 }}>
                                     <Txt variant="bodyBold" color={tokens.colors.text.primary}>Cash Trips</Txt>
                                     <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>
@@ -86,7 +87,7 @@ export function WalletScreen({ navigation }: any) {
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.infoRow}>
-                                <Txt style={{ fontSize: 24, marginRight: 16 }}>💳</Txt>
+                                <Ionicons name="card-outline" size={24} color={tokens.colors.primary.purple} style={{ marginRight: 16 }} />
                                 <View style={{ flex: 1 }}>
                                     <Txt variant="bodyBold" color={tokens.colors.text.primary}>Card Trips</Txt>
                                     <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>
@@ -96,7 +97,7 @@ export function WalletScreen({ navigation }: any) {
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.infoRow}>
-                                <Txt style={{ fontSize: 24, marginRight: 16 }}>🔒</Txt>
+                                <Ionicons name="lock-closed-outline" size={24} color={tokens.colors.status.error} style={{ marginRight: 16 }} />
                                 <View style={{ flex: 1 }}>
                                     <Txt variant="bodyBold" color={tokens.colors.text.primary}>The $600 Cap</Txt>
                                     <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>

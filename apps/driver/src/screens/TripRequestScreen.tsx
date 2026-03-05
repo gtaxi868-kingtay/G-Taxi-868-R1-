@@ -6,6 +6,7 @@ import { acceptRide, declineRide } from '../services/api';
 import { supabase } from '../../../../shared/supabase';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Card } from '../design-system/primitives';
+import { Ionicons } from '@expo/vector-icons';
 
 const DRIVER_SHARE = 0.81;
 
@@ -21,10 +22,10 @@ function paymentLabel(method: string | null): string {
     return 'Cash';
 }
 
-function paymentIcon(method: string | null): string {
-    if (method === 'card') return '💳';
-    if (method === 'wallet') return '👛';
-    return '💵';
+function paymentIconName(method: string | null): string {
+    if (method === 'card') return 'card-outline';
+    if (method === 'wallet') return 'wallet-outline';
+    return 'cash-outline';
 }
 
 export function TripRequestScreen({ navigation, route }: any) {
@@ -105,7 +106,7 @@ export function TripRequestScreen({ navigation, route }: any) {
                     ) : (
                         <>
                             <View style={styles.detailRow}>
-                                <Txt style={styles.detailIcon}>📍</Txt>
+                                <Ionicons name="location" size={22} color={tokens.colors.text.secondary} style={styles.detailIcon} />
                                 <View style={{ flex: 1 }}>
                                     <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>PICKUP</Txt>
                                     <Txt variant="bodyBold" color={tokens.colors.text.primary} numberOfLines={2}>
@@ -129,7 +130,7 @@ export function TripRequestScreen({ navigation, route }: any) {
                             {fareDisplay && (
                                 <>
                                     <View style={styles.detailRow}>
-                                        <Txt style={styles.detailIcon}>💰</Txt>
+                                        <Ionicons name="wallet-outline" size={22} color={tokens.colors.text.secondary} style={styles.detailIcon} />
                                         <View>
                                             <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>YOUR EARNINGS (81%)</Txt>
                                             <Txt variant="headingM" weight="bold" color={tokens.colors.status.success}>{fareDisplay}</Txt>
@@ -140,7 +141,7 @@ export function TripRequestScreen({ navigation, route }: any) {
                             )}
 
                             <View style={styles.detailRow}>
-                                <Txt style={styles.detailIcon}>{paymentIcon(rideDetail?.payment_method ?? null)}</Txt>
+                                <Ionicons name={paymentIconName(rideDetail?.payment_method ?? null) as any} size={22} color={tokens.colors.text.secondary} style={styles.detailIcon} />
                                 <View>
                                     <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>PAYMENT</Txt>
                                     <Txt variant="bodyBold" color={tokens.colors.text.primary}>{paymentLabel(rideDetail?.payment_method ?? null)}</Txt>

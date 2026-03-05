@@ -6,6 +6,7 @@ import { useLocationTracking } from '../hooks/useLocationTracking';
 import { updateRideStatus } from '../services/api';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Card } from '../design-system/primitives';
+import { Ionicons } from '@expo/vector-icons';
 
 function decodePolyline(encoded: string) {
     if (!encoded) return [];
@@ -177,7 +178,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
             >
                 <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
                     <View style={styles.carMarker}>
-                        <Txt style={{ fontSize: 24 }}>🚘</Txt>
+                        <Ionicons name="car-sport" size={28} color={tokens.colors.primary.purple} />
                     </View>
                 </Marker>
 
@@ -187,7 +188,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
                         longitude: ride.status === 'assigned' ? ride.pickup_lng : ride.dropoff_lng
                     }}>
                         <View style={styles.destMarker}>
-                            <Txt style={{ fontSize: 20 }}>📍</Txt>
+                            <Ionicons name="location" size={28} color={tokens.colors.primary.purple} />
                         </View>
                     </Marker>
                 )}
@@ -209,7 +210,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
                         </Txt>
                     </View>
                     <TouchableOpacity style={styles.navBtn} onPress={openNavigation}>
-                        <Txt style={{ fontSize: 20 }}>↗️</Txt>
+                        <Ionicons name="navigate-outline" size={22} color={tokens.colors.text.primary} />
                     </TouchableOpacity>
                 </Surface>
 
@@ -223,13 +224,16 @@ export function ActiveTripScreen({ route, navigation }: any) {
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                                 <Txt variant="bodyReg" color={tokens.colors.text.secondary}>⭐ 5.0</Txt>
                                 <View style={styles.dot} />
-                                <Txt variant="bodyReg" color={tokens.colors.text.secondary}>
-                                    {ride?.payment_method === 'cash' ? '💵 Cash' : ride?.payment_method === 'wallet' ? '👛 Wallet' : '💳 Card'}
-                                </Txt>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                    <Ionicons name={ride?.payment_method === 'cash' ? 'cash-outline' : ride?.payment_method === 'wallet' ? 'wallet-outline' : 'card-outline'} size={18} color={tokens.colors.text.secondary} />
+                                    <Txt variant="bodyReg" color={tokens.colors.text.secondary}>
+                                        {ride?.payment_method === 'cash' ? 'Cash' : ride?.payment_method === 'wallet' ? 'Wallet' : 'Card'}
+                                    </Txt>
+                                </View>
                             </View>
                         </View>
                         <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${rider?.raw_user_meta_data?.phone}`)}>
-                            <Txt style={{ fontSize: 20 }}>📞</Txt>
+                            <Ionicons name="call-outline" size={22} color={tokens.colors.text.primary} />
                         </TouchableOpacity>
                     </View>
 

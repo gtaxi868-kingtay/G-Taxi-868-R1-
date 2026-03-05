@@ -13,6 +13,7 @@ import {
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface } from '../design-system/primitives';
 import { supabase } from '../../../../shared/supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.75;
@@ -64,7 +65,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
     if (!visible) return null;
 
-    const navItem = (label: string, icon: string, screen?: string, isWarning: boolean = false) => (
+    const navItem = (label: string, iconName: string, screen?: string, isWarning: boolean = false) => (
         <TouchableOpacity
             style={styles.navItem}
             onPress={() => {
@@ -73,7 +74,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
             }}
             activeOpacity={0.7}
         >
-            <Txt variant="headingM" style={{ width: 32, opacity: 0.8 }}>{icon}</Txt>
+            <Ionicons name={iconName as any} size={22} color={isWarning ? tokens.colors.status.error : tokens.colors.text.secondary} style={{ width: 32 }} />
             <Txt variant="headingM" color={isWarning ? tokens.colors.status.error : tokens.colors.text.primary}>{label}</Txt>
         </TouchableOpacity>
     );
@@ -121,7 +122,9 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                     {user?.photo_url ? (
                                         <Image source={{ uri: user.photo_url }} style={styles.avatarImage} />
                                     ) : (
-                                        <Txt variant="headingM">👤</Txt>
+                                        <Txt variant="headingM" weight="bold" color={tokens.colors.primary.purple}>
+                                            {user?.name?.charAt(0)?.toUpperCase() || 'D'}
+                                        </Txt>
                                     )}
                                 </View>
                                 <View style={styles.userInfo}>
@@ -137,15 +140,15 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
                         {/* Navigation Links */}
                         <View style={styles.navSection}>
-                            {navItem('Wallet', '💰', 'Wallet')}
-                            {navItem('Scheduled', '📅', 'ScheduledRides')}
-                            {navItem('Performance', '📊', 'Profile')}
+                            {navItem('Wallet', 'wallet-outline', 'Wallet')}
+                            {navItem('Scheduled', 'calendar-outline', 'ScheduledRides')}
+                            {navItem('Performance', 'bar-chart-outline', 'Profile')}
                         </View>
 
                         <View style={styles.divider} />
 
                         <View style={styles.navSection}>
-                            {navItem('Settings', '⚙️', 'Profile')}
+                            {navItem('Settings', 'settings-outline', 'Profile')}
                         </View>
 
                         <View style={{ flex: 1 }} />
@@ -157,7 +160,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                 onPress={handleLogout}
                                 activeOpacity={0.7}
                             >
-                                <Txt variant="headingM" style={{ width: 32, opacity: 0.8 }}>🚪</Txt>
+                                <Ionicons name="log-out-outline" size={22} color={tokens.colors.status.error} style={{ width: 32 }} />
                                 <Txt variant="headingM" color={tokens.colors.status.error}>Log Out</Txt>
                             </TouchableOpacity>
                         </View>
