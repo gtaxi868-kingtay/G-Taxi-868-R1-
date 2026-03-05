@@ -84,9 +84,7 @@ export function TripsScreen({ navigation }: any) {
 
                                     <View style={styles.tripFooter}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                            <Txt style={{ fontSize: 16 }}>
-                                                {item.payment_method === 'cash' ? '💵' : item.payment_method === 'wallet' ? '👛' : '💳'}
-                                            </Txt>
+                                            <Ionicons name={item.payment_method === 'cash' ? 'cash-outline' : item.payment_method === 'wallet' ? 'wallet-outline' : 'card-outline'} size={18} color={tokens.colors.text.secondary} />
                                             <Txt variant="caption" color={tokens.colors.text.secondary}>
                                                 {item.payment_method?.toUpperCase() || 'UNKNOWN'}
                                             </Txt>

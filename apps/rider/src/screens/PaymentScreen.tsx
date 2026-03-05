@@ -26,6 +26,7 @@ import { Surface, Txt, Card } from '../design-system/primitives';
 import { tokens } from '../design-system/tokens';
 import { supabase } from '../../../../shared/supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { Ionicons } from '@expo/vector-icons';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,21 +43,21 @@ interface PaymentOption {
 const PAYMENT_OPTIONS: PaymentOption[] = [
     {
         id: 'cash',
-        icon: '💵',
+        icon: 'cash-outline',
         label: 'Cash',
         subtitle: 'Pay your driver directly',
         available: true,
     },
     {
         id: 'wallet',
-        icon: '👛',
+        icon: 'wallet-outline',
         label: 'G-Taxi Wallet',
         subtitle: 'Deducted from your in-app balance',
         available: true,
     },
     {
         id: 'card',
-        icon: '💳',
+        icon: 'card-outline',
         label: 'Debit / Credit Card',
         subtitle: 'Secure payment via Stripe',
         available: true,
@@ -156,7 +157,7 @@ export function PaymentScreen({ navigation, route }: any) {
             // Step 4: Payment confirmed by Stripe — stripe_webhook will capture
             // and write ledger + wallet entries server-side.
             Alert.alert(
-                'Payment Successful 🎉',
+                'Payment Successful',
                 'Your card payment has been processed. The driver will be notified.',
                 [
                     {
@@ -242,7 +243,7 @@ export function PaymentScreen({ navigation, route }: any) {
                             >
                                 <View style={styles.paymentRow}>
                                     <View style={styles.paymentIconContainer}>
-                                        <Txt style={{ fontSize: 28 }}>{option.icon}</Txt>
+                                        <Ionicons name={option.icon as any} size={28} color={tokens.colors.text.primary} />
                                     </View>
                                     <View style={styles.paymentInfo}>
                                         <View style={styles.paymentLabelRow}>
@@ -273,9 +274,9 @@ export function PaymentScreen({ navigation, route }: any) {
                 {/* Card detail — shown when card is selected */}
                 {selectedMethod === 'card' && (
                     <Card padding="md" style={styles.cardInfoSection}>
-                        <InfoRow icon="🔒" text="Secured by Stripe — your card details are never stored on G-Taxi servers" />
-                        <InfoRow icon="💳" text="Visa, Mastercard, and internationally-issued cards accepted" />
-                        <InfoRow icon="🧾" text="A receipt will be sent to your email after payment" />
+                        <InfoRow iconName="lock-closed-outline" text="Secured by Stripe — your card details are never stored on G-Taxi servers" />
+                        <InfoRow iconName="card-outline" text="Visa, Mastercard, and internationally-issued cards accepted" />
+                        <InfoRow iconName="receipt-outline" text="A receipt will be sent to your email after payment" />
                     </Card>
                 )}
 
@@ -286,16 +287,16 @@ export function PaymentScreen({ navigation, route }: any) {
                         <Card padding="md" style={styles.infoCard}>
                             {selectedMethod === 'cash' && (
                                 <>
-                                    <InfoRow icon="🔍" text="Your fare is calculated before you confirm" />
-                                    <InfoRow icon="🚗" text="Pay your driver in cash at the end of the ride" />
-                                    <InfoRow icon="🧾" text="View your receipt after every trip" />
+                                    <InfoRow iconName="search-outline" text="Your fare is calculated before you confirm" />
+                                    <InfoRow iconName="car-outline" text="Pay your driver in cash at the end of the ride" />
+                                    <InfoRow iconName="receipt-outline" text="View your receipt after every trip" />
                                 </>
                             )}
                             {selectedMethod === 'wallet' && (
                                 <>
-                                    <InfoRow icon="👛" text="Your G-Taxi wallet balance is deducted automatically" />
-                                    <InfoRow icon="⚡" text="No cash or card needed — just confirm and go" />
-                                    <InfoRow icon="🧾" text="Full transaction history in your account" />
+                                    <InfoRow iconName="wallet-outline" text="Your G-Taxi wallet balance is deducted automatically" />
+                                    <InfoRow iconName="flash-outline" text="No cash or card needed — just confirm and go" />
+                                    <InfoRow iconName="receipt-outline" text="Full transaction history in your account" />
                                 </>
                             )}
                         </Card>
@@ -305,7 +306,7 @@ export function PaymentScreen({ navigation, route }: any) {
                 {/* Security notice */}
                 <View style={styles.securityNote}>
                     <Txt variant="caption" color={tokens.colors.text.secondary} style={styles.securityText}>
-                        🔐 All payments are encrypted and processed securely
+                        <Ionicons name="lock-closed-outline" size={12} color={tokens.colors.text.secondary} /> All payments are encrypted and processed securely
                     </Txt>
                 </View>
             </ScrollView>
@@ -335,9 +336,9 @@ export function PaymentScreen({ navigation, route }: any) {
 
 // ─── Info Row ─────────────────────────────────────────────────────────────────
 
-const InfoRow = ({ icon, text }: { icon: string; text: string }) => (
+const InfoRow = ({ iconName, text }: { iconName: string; text: string }) => (
     <View style={styles.infoRow}>
-        <Txt style={{ fontSize: 18, marginRight: 12 }}>{icon}</Txt>
+        <Ionicons name={iconName as any} size={18} color={tokens.colors.text.secondary} style={{ marginRight: 12 }} />
         <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={{ flex: 1 }}>{text}</Txt>
     </View>
 );

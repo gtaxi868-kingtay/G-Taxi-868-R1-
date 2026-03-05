@@ -4,6 +4,7 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface, Card } from '../design-system/primitives';
+import { Ionicons } from '@expo/vector-icons';
 
 export function WalletScreen({ navigation }: any) {
     const { user } = useAuth();
@@ -46,13 +47,13 @@ export function WalletScreen({ navigation }: any) {
         );
     };
 
-    const getTransactionIcon = (type: string) => {
+    const getTransactionIconName = (type: string) => {
         switch (type) {
-            case 'topup': return '↑';
-            case 'driver_payout': return '💰';
-            case 'ride_payment': return '🚗';
-            case 'refund': return '↩';
-            default: return '•';
+            case 'topup': return 'arrow-up-outline';
+            case 'driver_payout': return 'cash-outline';
+            case 'ride_payment': return 'car-outline';
+            case 'refund': return 'arrow-undo-outline';
+            default: return 'ellipse';
         }
     };
 
@@ -133,9 +134,7 @@ export function WalletScreen({ navigation }: any) {
                         return (
                             <Surface intensity={40} style={styles.txItem}>
                                 <View style={styles.txIcon}>
-                                    <Txt style={{ fontSize: 20 }}>
-                                        {getTransactionIcon(item.transaction_type)}
-                                    </Txt>
+                                    <Ionicons name={getTransactionIconName(item.transaction_type) as any} size={20} color={tokens.colors.text.secondary} />
                                 </View>
                                 <View style={{ flex: 1, paddingRight: 8 }}>
                                     <Txt variant="bodyBold" color={tokens.colors.text.primary} numberOfLines={1}>

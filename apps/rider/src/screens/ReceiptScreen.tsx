@@ -4,6 +4,7 @@ import { Surface, Txt, Card, Btn } from '../design-system/primitives';
 import { tokens } from '../design-system/tokens';
 import { LinearGradient } from 'expo-linear-gradient';
 import { formatCurrency } from '../services/api';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -71,9 +72,9 @@ export function ReceiptScreen({ navigation, route }: ReceiptScreenProps) {
     );
 
     // ── Payment method display helpers ─────────────────────────────────────────
-    const paymentIcon =
-        ride.payment_method === 'card' ? '💳' :
-            ride.payment_method === 'wallet' ? '👛' : '💵';
+    const paymentIcon = (
+        <Ionicons name={ride?.payment_method === 'card' ? 'card-outline' : ride?.payment_method === 'wallet' ? 'wallet-outline' : 'cash-outline'} size={22} color={tokens.colors.text.secondary} />
+    );
 
     const paymentLabel =
         ride.payment_method === 'card' ? 'Card Payment' :
@@ -173,7 +174,7 @@ export function ReceiptScreen({ navigation, route }: ReceiptScreenProps) {
                     {/* Payment Method — cash | wallet | card */}
                     <Card style={styles.card} padding="md">
                         <View style={styles.paymentRow}>
-                            <Txt style={{ fontSize: 24 }}>{paymentIcon}</Txt>
+                            {paymentIcon}
                             <View style={{ marginLeft: 12 }}>
                                 <Txt variant="bodyBold">{paymentLabel}</Txt>
                                 <Txt variant="caption" color={tokens.colors.text.secondary}>
@@ -188,7 +189,11 @@ export function ReceiptScreen({ navigation, route }: ReceiptScreenProps) {
                         <Card style={styles.card} padding="md">
                             <View style={styles.driverRow}>
                                 <View style={styles.driverAvatar}>
-                                    <Txt style={{ fontSize: 24 }}>👤</Txt>
+                                    <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0,200,150,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: tokens.colors.primary.purple }}>
+                                        <Txt variant="headingM" weight="bold" color={tokens.colors.primary.purple}>
+                                            {ride.driver_name?.charAt(0)?.toUpperCase() || 'D'}
+                                        </Txt>
+                                    </View>
                                 </View>
                                 <View style={{ marginLeft: 12 }}>
                                     <Txt variant="bodyBold">{ride.driver_name}</Txt>

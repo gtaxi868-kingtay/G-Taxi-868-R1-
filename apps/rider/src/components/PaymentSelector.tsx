@@ -9,6 +9,7 @@ import {
 import { GlassView } from './GlassView';
 import { tokens } from '../design-system/tokens';
 import { Txt, Surface } from '../design-system/primitives';
+import { Ionicons } from '@expo/vector-icons';
 
 export type PaymentMethod = 'cash' | 'card' | 'wallet';
 
@@ -25,7 +26,7 @@ const G_COIN_LOGO = require('../../assets/images/g_coin_logo.png');
 export function PaymentSelector({ selected, onSelect, walletBalance, requiredAmount }: PaymentSelectorProps) {
 
     const OPTIONS: { id: PaymentMethod; icon?: string; image?: any; label: string; disabled?: boolean }[] = [
-        { id: 'cash', icon: '💵', label: 'Cash' },
+        { id: 'cash', icon: 'cash-outline', label: 'Cash' },
         {
             id: 'wallet',
             image: G_COIN_LOGO,
@@ -36,7 +37,7 @@ export function PaymentSelector({ selected, onSelect, walletBalance, requiredAmo
                 ? walletBalance < requiredAmount
                 : false
         }, // Branding Update
-        { id: 'card', icon: '💳', label: 'Card' },
+        { id: 'card', icon: 'card-outline', label: 'Card' },
     ];
 
     const handlePress = (option: typeof OPTIONS[0]) => {
@@ -73,7 +74,7 @@ export function PaymentSelector({ selected, onSelect, walletBalance, requiredAmo
                                     resizeMode="contain"
                                 />
                             ) : (
-                                <Txt style={{ fontSize: 20, marginBottom: 4 }}>{opt.icon}</Txt>
+                                <Ionicons name={opt.icon as any} size={20} color={isSelected ? tokens.colors.text.primary : tokens.colors.text.secondary} style={{ marginBottom: 4 }} />
                             )}
                             <Txt
                                 variant="bodyBold"

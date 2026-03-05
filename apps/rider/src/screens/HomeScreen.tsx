@@ -22,6 +22,7 @@ import { SavedPlace, Location as RideLocation } from '../types/ride';
 import { Sidebar } from '../components/Sidebar';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { supabase } from '../../../../shared/supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 const CAR_ASSET_STANDARD = require('../../assets/images/car_gtaxi_standard_v7.png');
@@ -122,7 +123,7 @@ export function HomeScreen({ navigation }: any) {
     const handleSavePlace = async (label: string, address: string) => {
         const mockLat = (location?.coords.latitude || DEFAULT_LOCATION.latitude) + (Math.random() - 0.5) * 0.01;
         const mockLng = (location?.coords.longitude || DEFAULT_LOCATION.longitude) + (Math.random() - 0.5) * 0.01;
-        await savePlace({ label, address, lat: mockLat, lng: mockLng, icon: label === 'Home' ? '🏠' : '💼' });
+        await savePlace({ label, address, lat: mockLat, lng: mockLng, icon: label === 'Home' ? 'home-outline' : 'briefcase-outline' });
         await fetchPlaces();
     };
 
@@ -220,20 +221,20 @@ export function HomeScreen({ navigation }: any) {
                     {/* PHASE 8: Dynamic Service Tiles based on Feature Flags */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
                         <TouchableOpacity style={styles.serviceTile}>
-                            <Txt variant="headingM">🚗</Txt>
+                            <Ionicons name="car-outline" size={22} color={tokens.colors.text.secondary} />
                             <Txt variant="caption" weight="bold" color={tokens.colors.text.primary} style={{ marginTop: 4 }}>Rides</Txt>
                         </TouchableOpacity>
 
                         {featureFlags.grocery && (
                             <TouchableOpacity style={styles.serviceTile} onPress={() => Alert.alert('Coming Soon', 'Grocery delivery is rolling out in your area soon.')}>
-                                <Txt variant="headingM">🛒</Txt>
+                                <Ionicons name="cart-outline" size={22} color={tokens.colors.text.secondary} />
                                 <Txt variant="caption" weight="bold" color={tokens.colors.text.primary} style={{ marginTop: 4 }}>Grocery</Txt>
                             </TouchableOpacity>
                         )}
 
                         {featureFlags.laundry && (
                             <TouchableOpacity style={styles.serviceTile} onPress={() => Alert.alert('Coming Soon', 'Laundry pickup is rolling out in your area soon.')}>
-                                <Txt variant="headingM">🧺</Txt>
+                                <Ionicons name="shirt-outline" size={22} color={tokens.colors.text.secondary} />
                                 <Txt variant="caption" weight="bold" color={tokens.colors.text.primary} style={{ marginTop: 4 }}>Laundry</Txt>
                             </TouchableOpacity>
                         )}
@@ -263,21 +264,21 @@ export function HomeScreen({ navigation }: any) {
                     <View style={styles.quickPlacesIntegrated}>
                         <TouchableOpacity style={styles.placePillHybrid} onPress={() => handleQuickAction('Home')}>
                             <Surface style={styles.pillIconGlass} intensity={20}>
-                                <Txt>🏠</Txt>
+                                <Ionicons name="home-outline" size={16} color={tokens.colors.text.primary} />
                             </Surface>
                             <Txt variant="bodyBold" style={{ marginLeft: 8 }}>Home</Txt>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.placePillHybrid} onPress={() => handleQuickAction('Work')}>
                             <Surface style={styles.pillIconGlass} intensity={20}>
-                                <Txt>💼</Txt>
+                                <Ionicons name="briefcase-outline" size={16} color={tokens.colors.text.primary} />
                             </Surface>
                             <Txt variant="bodyBold" style={{ marginLeft: 8 }}>Work</Txt>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={styles.recentPillHybrid} onPress={() => handleQuickAction('Recent')}>
                             <Surface style={styles.pillIconGlass} intensity={20}>
-                                <Txt>🕐</Txt>
+                                <Ionicons name="time-outline" size={16} color={tokens.colors.text.primary} />
                             </Surface>
                         </TouchableOpacity>
                     </View>

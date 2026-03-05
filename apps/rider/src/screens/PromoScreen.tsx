@@ -6,6 +6,7 @@ import { tokens } from '../design-system/tokens';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export function PromoScreen({ navigation }: any) {
     const [code, setCode] = useState('');
@@ -49,7 +50,7 @@ export function PromoScreen({ navigation }: any) {
 
             setAppliedPromos(prev => [...prev, data]);
             setCode('');
-            Alert.alert('Success! 🎉', `Promo code applied: ${data.discount_percent ? data.discount_percent + '% off' : '$' + (data.discount_flat_cents / 100).toFixed(2) + ' off'} your next ride!`);
+            Alert.alert('Success!', `Promo code applied: ${data.discount_percent ? data.discount_percent + '% off' : '$' + (data.discount_flat_cents / 100).toFixed(2) + ' off'} your next ride!`);
         } catch (e: any) {
             Alert.alert('Error', e.message || 'Something went wrong');
         } finally {
@@ -111,7 +112,7 @@ export function PromoScreen({ navigation }: any) {
                             <Card key={promo.id || index} padding="md" style={styles.promoCard}>
                                 <View style={styles.promoRow}>
                                     <View style={styles.promoBadge}>
-                                        <Txt variant="headingM">🎁</Txt>
+                                        <Ionicons name="gift-outline" size={28} color={tokens.colors.primary.purple} />
                                     </View>
                                     <View style={styles.promoInfo}>
                                         <Txt variant="bodyBold">{promo.code}</Txt>
@@ -131,7 +132,7 @@ export function PromoScreen({ navigation }: any) {
 
                 {appliedPromos.length === 0 && (
                     <View style={styles.emptyState}>
-                        <Txt style={{ fontSize: 48, marginBottom: 16 }}>🎟️</Txt>
+                        <Ionicons name="ticket-outline" size={48} color={tokens.colors.text.tertiary} style={{ marginBottom: 16 }} />
                         <Txt variant="headingM" center>No promotions yet</Txt>
                         <Txt variant="bodyReg" color={tokens.colors.text.secondary} center style={{ marginTop: 8 }}>
                             Enter a promo code above to get discounts on your rides.

@@ -5,6 +5,7 @@ import { tokens } from '../design-system/tokens';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../../../../shared/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
@@ -34,10 +35,10 @@ export function ProfileScreen({ navigation }: any) {
 
     // Boring Actions
     const menuItems = [
-        { label: 'Saved Places', icon: '📍', nav: 'SavedPlaces' },
-        { label: 'Edit Profile', icon: '✏️', nav: 'EditProfile' },
-        { label: 'Settings', icon: '⚙️', nav: 'Settings' },
-        { label: 'Support & Legal', icon: '⚖️', nav: 'Legal' },
+        { label: 'Saved Places', icon: 'location-outline', nav: 'SavedPlaces' },
+        { label: 'Edit Profile', icon: 'create-outline', nav: 'EditProfile' },
+        { label: 'Settings', icon: 'settings-outline', nav: 'Settings' },
+        { label: 'Support & Legal', icon: 'scale-outline', nav: 'Legal' },
     ];
 
     return (
@@ -61,8 +62,10 @@ export function ProfileScreen({ navigation }: any) {
                 {/* 1. IDENTITY CARD (The "Boring" Anchor) */}
                 <View style={styles.section}>
                     <View style={styles.identityRow}>
-                        <View style={styles.avatar}>
-                            <Txt style={{ fontSize: 32 }}>👤</Txt>
+                        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0,200,150,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: tokens.colors.primary.purple }}>
+                            <Txt variant="headingM" weight="bold" color={tokens.colors.primary.purple}>
+                                {user?.name?.charAt(0)?.toUpperCase() || 'R'}
+                            </Txt>
                         </View>
                         <View style={{ marginLeft: 16 }}>
                             <Txt variant="headingM" weight="bold">{name}</Txt>
@@ -84,7 +87,7 @@ export function ProfileScreen({ navigation }: any) {
                             activeOpacity={0.7}
                         >
                             <View style={styles.menuIconInfo}>
-                                <Txt style={{ fontSize: 20 }}>{item.icon}</Txt>
+                                <Ionicons name={item.icon as any} size={22} color={tokens.colors.text.secondary} />
                                 <Txt variant="bodyReg" style={{ marginLeft: 16 }}>{item.label}</Txt>
                             </View>
                             <Txt variant="bodyReg" color={tokens.colors.text.tertiary}>›</Txt>

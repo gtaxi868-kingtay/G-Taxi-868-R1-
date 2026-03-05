@@ -107,7 +107,11 @@ export function EditProfileScreen({ navigation }: any) {
                                 ) : avatarUrl ? (
                                     <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
                                 ) : (
-                                    <Txt style={{ fontSize: 40 }}>👤</Txt>
+                                    <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0,200,150,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: tokens.colors.primary.purple }}>
+                                        <Txt variant="headingM" weight="bold" color={tokens.colors.primary.purple}>
+                                            {user?.name?.charAt(0)?.toUpperCase() || 'R'}
+                                        </Txt>
+                                    </View>
                                 )}
                             </View>
                             <Txt variant="caption" color={tokens.colors.primary.purple} style={{ marginTop: 12 }}>
