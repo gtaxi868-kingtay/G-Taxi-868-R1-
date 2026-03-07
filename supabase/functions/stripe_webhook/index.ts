@@ -82,6 +82,60 @@ Deno.serve(async (req: Request) => {
 
     if (event.type === "payment_intent.succeeded") {
         const pi = event.data.object as Stripe.PaymentIntent;
+
+        const eventType = pi.metadata?.type;
+
+        if (eventType === 'wallet_topup') {
+            // Handle wallet top-up
+            const userId = pi.metadata?.user_id;
+            if (!userId) {
+                return new Response("Missing user_id in wallet_topup metadata", { status: 400 });
+            }
+
+            const topupAmountCents = pi.amount;
+
+            // Write ledger entry
+            const { error: ledgerError } = await supabaseAdmin
+                .from('payment_ledger')
+                .insert({
+                    ride_id: null,
+                    user_id: userId,
+                    amount: topupAmountCents / 100.0,
+                    currency: pi.currency.toUpperCase(),
+                    status: 'captured',
+                    provider: 'stripe',
+                    provider_ref: pi.id,
+                    stripe_event_id: event.id,
+                });
+
+            if (ledgerError) {
+                console.error('stripe_webhook: wallet topup ledger failed:', ledgerError);
+                return new Response('Ledger insert failed', { status: 500 });
+            }
+
+            // Credit rider wallet
+            const { error: walletError } = await supabaseAdmin
+                .from('wallet_transactions')
+                .insert({
+                    user_id: userId,
+                    ride_id: null,
+                    amount: topupAmountCents,
+                    transaction_type: 'topup',
+                    description: `Wallet top-up via card — $${(topupAmountCents / 100).toFixed(2)} TTD`,
+                    status: 'completed',
+                });
+
+            if (walletError) {
+                console.error('stripe_webhook: wallet credit failed:', walletError);
+                return new Response('Wallet credit failed', { status: 500 });
+            }
+
+            return new Response(JSON.stringify({ status: 'wallet_topup_processed' }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            });
+        }
+
         const rideId = pi.metadata?.ride_id;
         const userId = pi.metadata?.user_id;
 

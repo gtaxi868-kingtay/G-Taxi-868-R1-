@@ -41,10 +41,7 @@ export function WalletScreen({ navigation }: any) {
     }, [user?.id]);
 
     const handleTopUp = (amount: number) => {
-        Alert.alert(
-            "Coming Soon",
-            "Wallet top-up will be available at launch via bank transfer or authorized agents."
-        );
+        navigation.navigate('WalletTopUp');
     };
 
     const getTransactionIconName = (type: string) => {
