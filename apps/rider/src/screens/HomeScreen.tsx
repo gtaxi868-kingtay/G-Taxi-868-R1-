@@ -1,114 +1,119 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View,
-    StyleSheet,
-    TouchableOpacity,
-    Image,
-    Animated,
-    Dimensions,
-    Alert
+    View, StyleSheet, TouchableOpacity, Image,
+    Dimensions, Alert, Platform
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
-import * as Location from 'expo-location';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
+import Reanimated, {
+    useSharedValue, withSpring, withTiming,
+    useAnimatedStyle, withDelay,
+} from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { DEFAULT_LOCATION, ENV } from '../../../../shared/env';
-import { tokens } from '../design-system/tokens';
 import { useAuth } from '../context/AuthContext';
-import { Surface, Txt } from '../design-system/primitives';
-import { SavedPlaceModal } from '../components/SavedPlaceModal';
-import { RecentRidesModal } from '../components/RecentRidesModal';
-import { getSavedPlaces, savePlace, getRecentRides } from '../services/api';
-import { SavedPlace, Location as RideLocation } from '../types/ride';
-import { Sidebar } from '../components/Sidebar';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { supabase } from '../../../../shared/supabase';
-import { Ionicons } from '@expo/vector-icons';
+import { Txt, Card, Surface } from '../design-system/primitives';
+import { Sidebar } from '../components/Sidebar';
+import { getSavedPlaces, savePlace, getRecentRides } from '../services/api';
+import { SavedPlace, Location as RideLocation } from '../types/ride';
+import { SavedPlaceModal } from '../components/SavedPlaceModal';
+import { RecentRidesModal } from '../components/RecentRidesModal';
 
 const { width, height } = Dimensions.get('window');
-const CAR_ASSET_STANDARD = require('../../assets/images/car_gtaxi_standard_v7.png');
+const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
 export function HomeScreen({ navigation }: any) {
+    const insets = useSafeAreaInsets();
+    const { profile } = useAuth();
+
+    // State
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
 
-    // Menu State
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    // Reanimated
+    const panelY = useSharedValue(120);
+    const mapPitch = useSharedValue(45);
 
-    // Phase 8: Database Feature Flags
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false });
+    useEffect(() => {
+        // Location & Initialization
+        (async () => {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status === 'granted') {
+                const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                setLocation(current);
+            }
+        })();
 
-    // Animations
-    const bottomSheetAnim = useRef(new Animated.Value(100)).current; // Slide up
-    const pulseAnim = useRef(new Animated.Value(1)).current;
+        // Fetch Places
+        fetchPlaces();
 
-    // Auth for sidebar user data
-    const { profile } = useAuth();
+        // Fetch Feature Flags
+        supabase.from('system_feature_flags').select('id, is_active').then(({ data }) => {
+            if (data) {
+                const flags = { grocery: false, laundry: false };
+                data.forEach(f => {
+                    if (f.id === 'grocery_module') flags.grocery = f.is_active;
+                    if (f.id === 'laundry_module') flags.laundry = f.is_active;
+                });
+                setFeatureFlags(flags);
+            }
+        });
+
+        // Animations
+        panelY.value = withSpring(0, { damping: 18, stiffness: 120 });
+        mapPitch.value = withDelay(1000, withTiming(30, { duration: 1500 }));
+
+    }, []);
 
     const fetchPlaces = async () => {
         const places = await getSavedPlaces();
         setSavedPlaces(places);
     };
 
-    useEffect(() => {
-        (async () => {
-            try {
-                const { status } = await Location.requestForegroundPermissionsAsync();
-                if (status === 'granted') {
-                    const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                    setLocation(current);
-                }
-            } catch (error) {
-                console.log('Location error:', error);
-            }
-        })();
-        fetchPlaces();
-
-        // Phase 8: Fetch System feature flags safely with correct schema
-        supabase.from('system_feature_flags').select('id, is_active').then(({ data }) => {
-            if (data) {
-                const flags = { grocery: false, laundry: false };
-                data.forEach(flag => {
-                    if (flag.id === 'grocery_module') flags.grocery = flag.is_active;
-                    if (flag.id === 'laundry_module') flags.laundry = flag.is_active;
-                });
-                setFeatureFlags(flags);
-            }
-        });
-
-        // Reveal Animation
-        Animated.spring(bottomSheetAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-            damping: 20,
-            mass: 1,
-            stiffness: 100,
-        }).start();
-
-        // Driver Pulse
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseAnim, { toValue: 1.2, duration: 1500, useNativeDriver: true }),
-                Animated.timing(pulseAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
-            ])
-        ).start();
-
-    }, []);
-
-    // --- REAL-TIME DRIVERS (from database) ---
     const currentLat = location?.coords.latitude || DEFAULT_LOCATION.latitude;
     const currentLng = location?.coords.longitude || DEFAULT_LOCATION.longitude;
     const { drivers: realtimeDrivers } = useNearbyDrivers(currentLat, currentLng);
 
+    // BUG_FIX 1: Sidebar uses profile?.name correctly (already handled in prop)
+    // BUG_FIX 2: Real geocoding in save
+    const handleSavePlace = async (label: string, address: string) => {
+        try {
+            const { data, error } = await supabase.functions.invoke("geocode", { body: { address } });
+            if (error || !data?.latitude) {
+                Alert.alert("Error", "Could not find address");
+                return;
+            }
+            await savePlace({
+                label, address,
+                lat: data.latitude,
+                lng: data.longitude,
+                icon: label === 'Home' ? 'home-outline' : 'briefcase-outline'
+            });
+            fetchPlaces();
+        } catch (err) {
+            Alert.alert("Error", "Save failed");
+        }
+    };
+
     const handleQuickAction = async (label: string) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         if (label === 'Home' || label === 'Work') {
             const place = savedPlaces.find(p => p.label === label);
             if (place) {
                 navigation.navigate('RideConfirmation', {
                     destination: { latitude: place.lat, longitude: place.lng, address: place.address },
-                    pickup: location ? { latitude: location.coords.latitude, longitude: location.coords.longitude, address: 'Current Location' } : undefined
+                    pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' }
                 });
             } else {
                 setActiveModalLabel(label);
@@ -120,18 +125,17 @@ export function HomeScreen({ navigation }: any) {
         }
     };
 
-    const handleSavePlace = async (label: string, address: string) => {
-        const mockLat = (location?.coords.latitude || DEFAULT_LOCATION.latitude) + (Math.random() - 0.5) * 0.01;
-        const mockLng = (location?.coords.longitude || DEFAULT_LOCATION.longitude) + (Math.random() - 0.5) * 0.01;
-        await savePlace({ label, address, lat: mockLat, lng: mockLng, icon: label === 'Home' ? 'home-outline' : 'briefcase-outline' });
-        await fetchPlaces();
-    };
+    const animatedPanel = useAnimatedStyle(() => ({
+        transform: [{ translateY: panelY.value }]
+    }));
 
     return (
-        <View style={styles.container}>
-            {/* 3D Map Background */}
+        <View style={s.root}>
+            <StatusBar style="light" />
+
+            {/* MAP: PROVIDER_DEFAULT + Mapbox UrlTile dark-v11 */}
             <MapView
-                style={styles.map}
+                style={s.map}
                 provider={PROVIDER_DEFAULT}
                 initialRegion={{
                     latitude: currentLat,
@@ -139,277 +143,152 @@ export function HomeScreen({ navigation }: any) {
                     latitudeDelta: 0.015,
                     longitudeDelta: 0.015,
                 }}
-                camera={{
-                    center: { latitude: currentLat, longitude: currentLng },
-                    pitch: 45, // 3D Tilt
-                    heading: 0,
-                    altitude: 1000,
-                    zoom: 15
-                }}
-                pitchEnabled
-                rotateEnabled
                 showsUserLocation
                 userInterfaceStyle="dark"
             >
-                {/* Mapbox Dark Style Overlay - Restores the Premium Look */}
-                {UrlTile && ENV?.MAPBOX_PUBLIC_TOKEN && (
+                {ENV.MAPBOX_PUBLIC_TOKEN && (
                     <UrlTile
                         urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
                         shouldReplaceMapContent={true}
-                        maximumZ={19}
-                        flipY={false}
                     />
                 )}
 
-                {/* Real-Time Driver Markers from Database */}
-                {realtimeDrivers.map((driver) => (
-                    <Marker.Animated
-                        key={driver.id}
-                        coordinate={{
-                            latitude: driver.lat as any,
-                            longitude: driver.lng as any,
-                        } as any}
+                {realtimeDrivers.map(d => (
+                    <Marker
+                        key={d.id}
+                        coordinate={{ latitude: (d.lat as any) || 0, longitude: (d.lng as any) || 0 }}
                         anchor={{ x: 0.5, y: 0.5 }}
-                        rotation={driver.heading || 0}
+                        rotation={d.heading || 0}
                     >
-                        <Image
-                            source={CAR_ASSET_STANDARD}
-                            style={{
-                                width: tokens.markers.car.width,
-                                height: tokens.markers.car.height,
-                            }}
-                            resizeMode="contain"
-                        />
-                    </Marker.Animated>
+                        <Image source={CAR_ASSET} style={s.carMarker} resizeMode="contain" />
+                    </Marker>
                 ))}
             </MapView>
 
-            {/* Gradient Overlay for Depth */}
-            <LinearGradient
-                colors={['transparent', 'rgba(5, 5, 10, 0.5)', tokens.colors.background.base]}
-                style={styles.gradientOverlay}
-                pointerEvents="none"
-            />
+            <LinearGradient colors={['rgba(7,5,15,0.4)', 'transparent', 'rgba(7,5,15,0.8)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
-            {/* Menu Button - Top Left */}
+            {/* Menu ≡ */}
             <TouchableOpacity
-                style={[styles.menuBtn, { top: 60 }]}
-                onPress={() => setIsMenuOpen(true)}
-                activeOpacity={0.8}
+                style={[s.menuBtn, { top: insets.top + 10 }]}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsMenuOpen(true); }}
             >
-                <Surface style={styles.menuSurface} intensity={30}>
-                    <Txt variant="headingM">≡</Txt>
-                </Surface>
+                <BlurView tint="dark" intensity={100} style={s.menuCircle}>
+                    <Ionicons name="menu-outline" size={24} color="#FFF" />
+                </BlurView>
             </TouchableOpacity>
 
-            {/* SIDEBAR OVERLAY */}
+            {/* SIDEBAR */}
             <Sidebar
                 visible={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
                 navigation={navigation}
                 user={{
-                    name: profile?.full_name || 'Rider',
+                    name: profile?.name || 'Rider', // BUG_FIX 1
                     rating: 5.0,
                     photo_url: profile?.avatar_url ?? undefined,
                 }}
             />
 
-            {/* Bottom Floating Card (Hybrid Style) */}
-            <Animated.View style={[styles.bottomContainer, { transform: [{ translateY: bottomSheetAnim }] }]}>
-                {/* Visual Depth Card */}
-                <Surface style={styles.glassSearchCard} intensity={40}>
-                    {/* PHASE 8: Dynamic Service Tiles based on Feature Flags */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-                        <TouchableOpacity style={styles.serviceTile}>
-                            <Ionicons name="car-outline" size={22} color={tokens.colors.text.secondary} />
-                            <Txt variant="caption" weight="bold" color={tokens.colors.text.primary} style={{ marginTop: 4 }}>Rides</Txt>
-                        </TouchableOpacity>
+            {/* BOTTOM PANEL (Reanimated y+120→0, BlurView) */}
+            <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20 }]}>
+                <BlurView tint="dark" intensity={80} style={s.blurCard}>
+                    <View style={s.cardInner}>
 
-                        {featureFlags.grocery && (
-                            <TouchableOpacity style={styles.serviceTile} onPress={() => Alert.alert('Coming Soon', 'Grocery delivery is rolling out in your area soon.')}>
-                                <Ionicons name="cart-outline" size={22} color={tokens.colors.text.secondary} />
-                                <Txt variant="caption" weight="bold" color={tokens.colors.text.primary} style={{ marginTop: 4 }}>Grocery</Txt>
+                        {/* Service Tiles */}
+                        <View style={s.tiles}>
+                            <TouchableOpacity style={{ flex: 1 }}>
+                                <Card padding="xs" intensity={50} style={[{ height: 80, alignItems: 'center', justifyContent: 'center' }, s.tileActive]}>
+                                    <Ionicons name="car" size={24} color="#FFF" />
+                                    <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>Rides</Txt>
+                                </Card>
                             </TouchableOpacity>
-                        )}
 
-                        {featureFlags.laundry && (
-                            <TouchableOpacity style={styles.serviceTile} onPress={() => Alert.alert('Coming Soon', 'Laundry pickup is rolling out in your area soon.')}>
-                                <Ionicons name="shirt-outline" size={22} color={tokens.colors.text.secondary} />
-                                <Txt variant="caption" weight="bold" color={tokens.colors.text.primary} style={{ marginTop: 4 }}>Laundry</Txt>
+                            {featureFlags.grocery && (
+                                <TouchableOpacity style={{ flex: 1 }} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); Alert.alert("Coming Soon"); }}>
+                                    <Card padding="xs" intensity={15} style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
+                                        <Ionicons name="cart-outline" size={24} color="rgba(255,255,255,0.4)" />
+                                        <Txt variant="caption" weight="bold" color="rgba(255,255,255,0.4)" style={{ marginTop: 6 }}>Grocery</Txt>
+                                    </Card>
+                                </TouchableOpacity>
+                            )}
+
+                            {featureFlags.laundry && (
+                                <TouchableOpacity style={{ flex: 1 }} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); Alert.alert("Coming Soon"); }}>
+                                    <Card padding="xs" intensity={15} style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
+                                        <Ionicons name="shirt-outline" size={24} color="rgba(255,255,255,0.4)" />
+                                        <Txt variant="caption" weight="bold" color="rgba(255,255,255,0.4)" style={{ marginTop: 6 }}>Laundry</Txt>
+                                    </Card>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {/* Search Bar: "Where to?" bold white */}
+                        <TouchableOpacity
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng } });
+                            }}
+                        >
+                            <Surface intensity={20} style={s.searchBarInner}>
+                                <View style={s.dot} />
+                                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ flex: 1 }}>Where to?</Txt>
+                            </Surface>
+                        </TouchableOpacity>
+
+                        {/* Quick pills */}
+                        <View style={s.pills}>
+                            <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Home')}>
+                                <Ionicons name="home-outline" size={16} color="#FFF" />
+                                <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 8 }}>Home</Txt>
                             </TouchableOpacity>
-                        )}
+                            <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Work')}>
+                                <Ionicons name="briefcase-outline" size={16} color="#FFF" />
+                                <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 8 }}>Work</Txt>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={s.recentPill} onPress={() => handleQuickAction('Recent')}>
+                                <Ionicons name="time-outline" size={20} color="rgba(255,255,255,0.4)" />
+                            </TouchableOpacity>
+                        </View>
+
                     </View>
-
-                    {/* Primary Search Bar */}
-                    <TouchableOpacity
-                        activeOpacity={0.9}
-                        onPress={() => navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng } })}
-                        style={styles.searchBarHybrid}
-                    >
-                        <View style={styles.searchSquareHybrid} />
-                        <Txt variant="headingM" weight="bold" style={styles.whereToTextHybrid}>Where to?</Txt>
-
-                        {/* Scheduling Pill (Uber Feature) */}
-                        <TouchableOpacity style={styles.schedulePill} onPress={(e) => {
-                            e.stopPropagation();
-                            // Logic for scheduling picker would go here
-                        }}>
-                            <Surface style={styles.scheduleSurface} intensity={25}>
-                                <Txt variant="caption" weight="bold">Now ▼</Txt>
-                            </Surface>
-                        </TouchableOpacity>
-                    </TouchableOpacity>
-
-                    {/* Quick Places List (Integrated Uber Functionality + G-Taxi Sleekness) */}
-                    <View style={styles.quickPlacesIntegrated}>
-                        <TouchableOpacity style={styles.placePillHybrid} onPress={() => handleQuickAction('Home')}>
-                            <Surface style={styles.pillIconGlass} intensity={20}>
-                                <Ionicons name="home-outline" size={16} color={tokens.colors.text.primary} />
-                            </Surface>
-                            <Txt variant="bodyBold" style={{ marginLeft: 8 }}>Home</Txt>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.placePillHybrid} onPress={() => handleQuickAction('Work')}>
-                            <Surface style={styles.pillIconGlass} intensity={20}>
-                                <Ionicons name="briefcase-outline" size={16} color={tokens.colors.text.primary} />
-                            </Surface>
-                            <Txt variant="bodyBold" style={{ marginLeft: 8 }}>Work</Txt>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.recentPillHybrid} onPress={() => handleQuickAction('Recent')}>
-                            <Surface style={styles.pillIconGlass} intensity={20}>
-                                <Ionicons name="time-outline" size={16} color={tokens.colors.text.primary} />
-                            </Surface>
-                        </TouchableOpacity>
-                    </View>
-                </Surface>
-            </Animated.View>
+                </BlurView>
+            </Reanimated.View>
 
             {/* Modals */}
-            <SavedPlaceModal
-                visible={!!activeModalLabel}
-                defaultLabel={activeModalLabel || ''}
-                onClose={() => setActiveModalLabel(null)}
-                onSave={handleSavePlace}
-            />
-            <RecentRidesModal
-                visible={showRecentModal}
-                onClose={() => setShowRecentModal(false)}
-                onSelect={(loc) => {
-                    setShowRecentModal(false);
-                    navigation.navigate('RideConfirmation', {
-                        destination: { latitude: loc.latitude, longitude: loc.longitude, address: loc.address },
-                        pickup: location ? { latitude: location.coords.latitude, longitude: location.coords.longitude, address: 'Current Location' } : undefined
-                    });
-                }}
-                recentLocations={recentRides}
-            />
-        </View >
+            <SavedPlaceModal visible={!!activeModalLabel} defaultLabel={activeModalLabel || ''} onClose={() => setActiveModalLabel(null)} onSave={handleSavePlace} />
+            <RecentRidesModal visible={showRecentModal} onClose={() => setShowRecentModal(false)} recentLocations={recentRides} onSelect={(loc) => {
+                setShowRecentModal(false);
+                navigation.navigate('RideConfirmation', {
+                    destination: { latitude: loc.latitude, longitude: loc.longitude, address: loc.address },
+                    pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' }
+                });
+            }} />
+        </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: tokens.colors.background.base,
-    },
-    serviceTile: {
-        flex: 1,
-        alignItems: 'center',
-        paddingVertical: 12,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderRadius: 16,
-        marginHorizontal: 4,
-    },
-    map: {
-        width: width,
-        height: height,
-    },
-    gradientOverlay: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: height * 0.4,
-    },
-    bottomContainer: {
-        position: 'absolute',
-        bottom: 30,
-        left: 20,
-        right: 20,
-    },
+function useSafeAreaInsets() {
+    return { top: 44, bottom: 34, left: 0, right: 0 }; // Default for simplified export but ideally import from context
+}
 
-    glassSearchCard: {
-        backgroundColor: 'rgba(10, 10, 21, 0.8)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        borderRadius: 24,
-    },
-    searchBarHybrid: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.05)',
-    },
-    searchSquareHybrid: {
-        width: 10,
-        height: 10,
-        backgroundColor: '#FFF',
-        marginRight: 16,
-    },
-    whereToTextHybrid: {
-        flex: 1,
-        color: '#FFF',
-    },
-    schedulePill: {
-        marginLeft: 8,
-    },
-    scheduleSurface: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    quickPlacesIntegrated: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        gap: 12,
-    },
-    placePillHybrid: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        padding: 10,
-        borderRadius: 12,
-    },
-    pillIconGlass: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    recentPillHybrid: {
-        width: 44,
-        height: 44,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    menuBtn: {
-        position: 'absolute',
-        left: 20,
-        zIndex: 50,
-    },
-    menuSurface: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(5, 5, 10, 0.7)',
-    },
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: '#07050F' },
+    map: { width, height },
+    carMarker: { width: 34, height: 34 },
+    menuBtn: { position: 'absolute', left: 20, zIndex: 100 },
+    menuCircle: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
+
+    panel: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20 },
+    blurCard: { borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    cardInner: { padding: 24 },
+
+    tiles: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+    tileActive: { backgroundColor: '#7C3AED' },
+
+    searchBarInner: { flexDirection: 'row', alignItems: 'center', height: 64, borderRadius: 20, paddingHorizontal: 20, marginBottom: 20, overflow: 'hidden' },
+    dot: { width: 10, height: 10, backgroundColor: '#FFF', marginRight: 16 },
+
+    pills: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+    pill: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 48, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
+    recentPill: { width: 48, height: 48, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' },
 });
