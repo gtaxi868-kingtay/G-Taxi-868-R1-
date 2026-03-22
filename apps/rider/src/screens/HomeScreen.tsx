@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
     useSharedValue, withSpring, withTiming,
     useAnimatedStyle, withDelay,
@@ -265,10 +266,6 @@ export function HomeScreen({ navigation }: any) {
             }} />
         </View>
     );
-}
-
-function useSafeAreaInsets() {
-    return { top: 44, bottom: 34, left: 0, right: 0 }; // Default for simplified export but ideally import from context
 }
 
 const s = StyleSheet.create({
