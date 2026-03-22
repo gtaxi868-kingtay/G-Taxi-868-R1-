@@ -1,126 +1,124 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import {
+    View, StyleSheet, TouchableOpacity, TextInput,
+    ActivityIndicator, Alert, Dimensions, ScrollView
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { tokens } from '../design-system/tokens';
-import { Txt, Surface } from '../design-system/primitives';
-import { Ionicons } from '@expo/vector-icons';
+import { Txt } from '../design-system/primitives';
 import { ENV } from '../../../../shared/env';
+
+const { width } = Dimensions.get('window');
+
+// ── Rider Design Tokens ──────────────────────────────────────────────────────
+const R = {
+    bg: '#07050F',
+    surface: '#110E22',
+    border: 'rgba(255,255,255,0.08)',
+    purple: '#7C3AED',
+    purpleLight: '#A78BFA',
+    gold: '#F59E0B',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.4)',
+};
 
 export function WalletTopUpScreen({ navigation }: any) {
     const { user } = useAuth();
+    const insets = useSafeAreaInsets();
+    const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+    const stripe = isExpoGo ? null : useStripe();
+
     const [balance, setBalance] = useState<number | null>(null);
     const [selectedAmount, setSelectedAmount] = useState<number>(100);
     const [customAmount, setCustomAmount] = useState<string>('');
-    const [isLoading, setIsLoading] = useState(false);
-
-    const { initPaymentSheet, presentPaymentSheet } = useStripe();
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (user?.id) {
             supabase.rpc('get_wallet_balance', { p_user_id: user.id })
                 .then(({ data, error }) => {
-                    if (!error && data !== null) {
-                        setBalance(data / 100);
-                    } else {
-                        setBalance(0);
-                    }
+                    if (!error && data !== null) setBalance(data / 100);
+                    else setBalance(0);
                 });
         }
     }, [user?.id]);
 
-    const handleAmountSelect = (amount: number) => {
+    const handleAmountSelect = (amt: number) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setCustomAmount('');
-        setSelectedAmount(amount);
-    };
-
-    const handleCustomAmountChange = (text: string) => {
-        setCustomAmount(text);
-        setSelectedAmount(0);
+        setSelectedAmount(amt);
     };
 
     const handleAddFunds = async () => {
-        const finalAmount = customAmount ? parseFloat(customAmount) : selectedAmount;
-
-        if (isNaN(finalAmount) || finalAmount < 20) {
-            Alert.alert('Invalid Amount', 'Minimum top-up amount is $20 TTD.');
+        const amt = customAmount ? parseFloat(customAmount) : selectedAmount;
+        if (isNaN(amt) || amt < 10) {
+            Alert.alert('Invalid Amount', 'Minimum top-up is $10 TTD.');
             return;
         }
 
-        if (finalAmount > 1000) {
-            Alert.alert('Invalid Amount', 'Maximum top-up amount is $1000 TTD.');
+        setLoading(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        if (isExpoGo || !stripe) {
+            Alert.alert('Expo Go Limitation', 'Native Stripe is not available in Expo Go. Please use a development build for card payments.');
+            setLoading(false);
             return;
         }
-
-        setIsLoading(true);
 
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
+            if (!token) throw new Error('No session');
 
-            if (!token) throw new Error('No valid session found. Please log in again.');
-
-            const functionsUrl = `${ENV.SUPABASE_URL || 'https://vtdihpaxmwwkymwttjro.supabase.co'}/functions/v1/create_wallet_topup`;
-
+            const functionsUrl = `${ENV.SUPABASE_URL}/functions/v1/create_wallet_topup`;
             const response = await fetch(functionsUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ amount_ttd: finalAmount })
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ amount_ttd: amt })
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to create payment intent');
-            }
-
             const { clientSecret } = await response.json();
+            if (!clientSecret) throw new Error('Setup failed');
 
-            if (!clientSecret) {
-                throw new Error('No client secret returned');
-            }
-
-            const { error: initError } = await initPaymentSheet({
+            const { error: initError } = await stripe.initPaymentSheet({
                 paymentIntentClientSecret: clientSecret,
                 merchantDisplayName: 'G-Taxi',
                 style: 'alwaysDark',
                 appearance: {
                     colors: {
-                        primary: tokens.colors.primary.purple,
-                        background: '#0a0118',
-                        componentBackground: '#1a0a28',
-                        componentText: '#FFFFFF',
-                        primaryText: '#FFFFFF',
-                        secondaryText: '#A0A0B0',
-                        placeholderText: '#606070',
-                        icon: '#FFFFFF',
-                        error: '#FF4D4D',
+                        primary: R.purple,
+                        background: R.bg,
+                        componentBackground: R.surface,
+                        componentText: '#FFF',
+                        primaryText: '#FFF',
+                        secondaryText: R.muted,
+                        placeholderText: 'rgba(255,255,255,0.2)',
+                        icon: '#FFF',
+                        error: '#EF4444',
                     },
                 },
             });
 
-            if (initError) {
-                throw new Error(initError.message);
-            }
+            if (initError) throw new Error(initError.message);
 
-            const { error: presentError } = await presentPaymentSheet();
-
-            if (presentError) {
-                if (presentError.code !== 'Canceled') {
-                    throw new Error(presentError.message);
-                }
-            } else {
-                Alert.alert('Success', `$${finalAmount} TTD added to your wallet!`);
+            const { error: presentError } = await stripe.presentPaymentSheet();
+            if (!presentError) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Success', `$${amt} TTD added to your wallet!`);
                 navigation.goBack();
             }
-
         } catch (error: any) {
-            Alert.alert('Payment Failed', error.message || 'An unexpected error occurred.');
+            Alert.alert('Error', error.message);
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
     };
 
@@ -128,191 +126,92 @@ export function WalletTopUpScreen({ navigation }: any) {
     const displayAmount = customAmount ? parseFloat(customAmount) || 0 : selectedAmount;
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* HEADER ROW */}
-            <View style={styles.headerRow}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="arrow-back" size={24} color={tokens.colors.primary.purple} />
+        <View style={s.root}>
+            <StatusBar style="light" />
+
+            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                    <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="bold" style={styles.headerTitle}>Add Funds</Txt>
-                <View style={{ width: 40 }} />
-            </View>
+                <Txt variant="headingM" weight="heavy" color="#FFF">Add Funds</Txt>
+                <View style={{ width: 44 }} />
+            </BlurView>
 
-            <View style={styles.content}>
-                {/* BALANCE DISPLAY */}
-                <Surface intensity={30} style={styles.balanceCard}>
-                    <Txt variant="caption" color={tokens.colors.text.secondary}>Current Balance</Txt>
-                    <Txt variant="headingL" weight="bold" color={tokens.colors.status.success}>
-                        ${balance !== null ? balance.toFixed(2) : '...'} TTD
+            <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
+
+                <View style={s.balanceCard}>
+                    <LinearGradient colors={['rgba(124,58,237,0.15)', 'transparent']} style={StyleSheet.absoluteFill} />
+                    <Txt variant="caption" weight="heavy" color={R.muted}>CURRENT BALANCE</Txt>
+                    <Txt variant="headingL" weight="heavy" color={R.purpleLight}>
+                        ${balance !== null ? balance.toFixed(2) : '0.00'}
                     </Txt>
-                </Surface>
+                </View>
 
-                {/* AMOUNT SELECTION */}
-                <View style={styles.section}>
-                    <Txt variant="bodyBold" style={styles.sectionLabel}>Select Amount</Txt>
-                    <View style={styles.grid}>
-                        {amounts.map(amt => {
-                            const isSelected = selectedAmount === amt && customAmount === '';
-                            return (
-                                <TouchableOpacity
-                                    key={amt}
-                                    onPress={() => handleAmountSelect(amt)}
-                                    style={styles.gridBtnWrapper}
-                                >
-                                    <Surface
-                                        intensity={isSelected ? 60 : 20}
-                                        style={[
-                                            styles.amountBtn,
-                                            isSelected && styles.amountBtnSelected
-                                        ]}
-                                    >
-                                        <Txt variant="headingM" weight="bold" color={isSelected ? tokens.colors.primary.purple : tokens.colors.text.primary}>
-                                            ${amt}
-                                        </Txt>
-                                        <Txt variant="caption" color={tokens.colors.text.secondary}>TTD</Txt>
-                                    </Surface>
-                                </TouchableOpacity>
-                            )
-                        })}
-                    </View>
+                <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 20 }}>Select Amount</Txt>
+                <View style={s.grid}>
+                    {amounts.map(amt => {
+                        const isActive = selectedAmount === amt && !customAmount;
+                        return (
+                            <TouchableOpacity
+                                key={amt}
+                                style={[s.amountCard, isActive && s.amountCardActive]}
+                                onPress={() => handleAmountSelect(amt)}
+                            >
+                                <Txt variant="headingM" weight="heavy" color={isActive ? "#FFF" : R.muted}>${amt}</Txt>
+                                <Txt variant="caption" weight="heavy" color={isActive ? R.purpleLight : R.muted}>TTD</Txt>
+                                {isActive && <LinearGradient colors={['rgba(124,58,237,0.2)', 'transparent']} style={StyleSheet.absoluteFill} />}
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+
+                <View style={s.customWrap}>
+                    <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>CUSTOM AMOUNT</Txt>
                     <TextInput
-                        style={styles.customAmountInput}
-                        placeholder="Or enter custom amount"
-                        placeholderTextColor={tokens.colors.text.tertiary}
+                        style={s.input}
+                        placeholder="Enter amount"
+                        placeholderTextColor="rgba(255,255,255,0.2)"
                         keyboardType="numeric"
                         value={customAmount}
-                        onChangeText={handleCustomAmountChange}
+                        onChangeText={setCustomAmount}
                     />
                 </View>
 
-                {/* CARD PAYMENT SECTION */}
-                <View style={styles.section}>
-                    <Txt variant="bodyBold" style={styles.sectionLabel}>Pay with Card</Txt>
-                    <Surface intensity={20} style={styles.infoCard}>
-                        <Ionicons name="card-outline" size={20} color={tokens.colors.text.secondary} style={styles.infoIcon} />
-                        <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={styles.infoText}>
-                            Powered by Stripe. Your card information is secure.
-                        </Txt>
-                    </Surface>
+                <View style={s.securityNotice}>
+                    <Ionicons name="lock-closed-outline" size={16} color={R.muted} />
+                    <Txt variant="small" weight="heavy" color={R.muted} style={{ marginLeft: 8 }}>Secured by Stripe</Txt>
                 </View>
-            </View>
 
-            {/* ADD FUNDS BUTTON */}
-            <View style={styles.footer}>
-                <TouchableOpacity
-                    style={[styles.payBtn, isLoading && styles.payBtnDisabled]}
-                    onPress={handleAddFunds}
-                    disabled={isLoading || displayAmount === 0}
-                >
-                    {isLoading ? (
-                        <ActivityIndicator color={tokens.colors.background.base} />
-                    ) : (
-                        <Txt variant="bodyBold" color={tokens.colors.background.base}>
-                            {displayAmount > 0 ? `Add $${displayAmount} TTD` : 'Enter Amount'}
-                        </Txt>
-                    )}
+                <TouchableOpacity style={s.payBtn} onPress={handleAddFunds} disabled={loading || displayAmount <= 0}>
+                    <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                        {loading ? <ActivityIndicator color="#FFF" /> : (
+                            <Txt variant="bodyBold" color="#FFF">Add ${displayAmount} TTD</Txt>
+                        )}
+                    </LinearGradient>
                 </TouchableOpacity>
-            </View>
-        </SafeAreaView>
+
+            </ScrollView>
+        </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: tokens.colors.background.base,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-    },
-    backBtn: {
-        width: 40,
-        alignItems: 'flex-start',
-    },
-    headerTitle: {
-        flex: 1,
-        textAlign: 'center',
-    },
-    content: {
-        flex: 1,
-        paddingHorizontal: 20,
-    },
-    balanceCard: {
-        padding: 24,
-        alignItems: 'center',
-        borderRadius: 16,
-        marginBottom: 32,
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
-    },
-    section: {
-        marginBottom: 32,
-    },
-    sectionLabel: {
-        marginBottom: 16,
-    },
-    grid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginHorizontal: -6,
-        marginBottom: 16,
-    },
-    gridBtnWrapper: {
-        width: '50%',
-        padding: 6,
-    },
-    amountBtn: {
-        paddingVertical: 20,
-        alignItems: 'center',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
-    },
-    amountBtnSelected: {
-        borderColor: tokens.colors.primary.purple,
-        backgroundColor: 'rgba(0,200,150,0.1)',
-    },
-    customAmountInput: {
-        backgroundColor: tokens.colors.background.ambient,
-        color: tokens.colors.text.primary,
-        fontFamily: ['Inter-SemiBold', 'System'].join(','),
-        fontSize: 16,
-        borderRadius: 12,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
-    },
-    infoCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
-    },
-    infoIcon: {
-        marginRight: 12,
-    },
-    infoText: {
-        flex: 1,
-    },
-    footer: {
-        paddingHorizontal: 20,
-        paddingBottom: 24,
-        paddingTop: 16,
-    },
-    payBtn: {
-        backgroundColor: tokens.colors.status.success,
-        paddingVertical: 16,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    payBtnDisabled: {
-        opacity: 0.6,
-    },
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: R.bg },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border },
+    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+
+    scroll: { padding: 24 },
+    balanceCard: { backgroundColor: R.surface, padding: 32, borderRadius: 32, alignItems: 'center', marginBottom: 40, borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
+
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
+    amountCard: { width: (width - 48 - 12) / 2, height: 100, backgroundColor: R.surface, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
+    amountCardActive: { borderColor: R.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
+
+    customWrap: { gap: 8 },
+    label: { marginLeft: 16 },
+    input: { height: 60, backgroundColor: R.surface, borderRadius: 30, paddingHorizontal: 24, color: '#FFF', fontSize: 18, borderWidth: 1, borderColor: R.border },
+
+    securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 40 },
+    payBtn: { height: 60, borderRadius: 30, overflow: 'hidden' },
+    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

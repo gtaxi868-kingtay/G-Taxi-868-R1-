@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G-Taxi Logo Preview</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            background-color: #07050F;
+            color: white;
+        }
+
+        .split {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .rider-bg {
+            background: linear-gradient(180deg, #1A0D40 0%, #07050F 100%);
+        }
+
+        .driver-bg {
+            background-color: #07050F;
+        }
+        .driver-glow {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 60%;
+            background: radial-gradient(ellipse at top, rgba(124, 58, 237, 0.25) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+
+        /* Rider Logo Styles */
+        .rider-branding {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: pulse-ring 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .logo-circle {
+            width: 80px;
+            height: 80px;
+            border-radius: 40px;
+            background-color: #7C3AED;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 35px rgba(124, 58, 237, 0.6);
+            margin-bottom: 20px;
+        }
+
+        .logo-g {
+            font-size: 56px;
+            font-weight: 800;
+            color: #FFFFFF;
+            line-height: 1;
+        }
+
+        .rider-wordmark {
+            font-size: 42px;
+            font-weight: 800;
+            color: #A78BFA;
+            letter-spacing: -2px;
+            margin: 0;
+        }
+
+        .rider-tagline {
+            font-size: 12px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 3px;
+            margin-top: 8px;
+        }
+
+        /* Driver Logo Styles */
+        .driver-branding {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .driver-wordmark {
+            font-size: 48px;
+            font-weight: 800;
+            color: #7C3AED;
+            letter-spacing: -2px;
+            margin: 0;
+        }
+
+        .driver-tagline {
+            font-size: 15px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.45);
+            letter-spacing: 2px;
+            margin-top: 4px;
+        }
+
+        /* Labels for the demo */
+        .demo-label {
+            position: absolute;
+            top: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.3);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="split rider-bg">
+        <div class="demo-label">Rider App (Pulsing Avatar)</div>
+        <div class="rider-branding">
+            <div class="logo-circle">
+                <div class="logo-g">G</div>
+            </div>
+            <h1 class="rider-wordmark">G-Taxi</h1>
+            <div class="rider-tagline">PREMIUM RIDER EXPERIENCE</div>
+        </div>
+    </div>
+
+    <div class="split driver-bg">
+        <div class="driver-glow"></div>
+        <div class="demo-label">Driver App (Clean Wordmark)</div>
+        <div class="driver-branding">
+            <h1 class="driver-wordmark">G-TAXI</h1>
+            <div class="driver-tagline">DRIVER PORTAL</div>
+        </div>
+    </div>
+
+</body>
+</html>

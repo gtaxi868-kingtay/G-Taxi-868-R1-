@@ -16,7 +16,7 @@ interface AuthContextType {
     profile: UserProfile | null;           // NEW
     preferences: UserPreferences | null;   // NEW
     loading: boolean;
-    signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ error: Error | null }>;
+    signUp: (email: string, password: string, fullName: string, phone: string) => Promise<{ data: any; error: Error | null }>;
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<void>;
     refreshProfile: () => Promise<void>;   // Allow manual refresh
@@ -164,17 +164,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // ... signUp, signIn ...
     const signUp = async (email: string, password: string, fullName: string, phone: string) => {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: {
                     full_name: fullName,
-                    phone: phone, // Save phone to Auth metadata (mirrored to profiles)
+                    phone: phone,
                 }
             }
         });
-        return { error: error as Error | null };
+        return { data, error: error as Error | null };
     };
 
     const signIn = async (email: string, password: string) => {

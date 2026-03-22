@@ -72,11 +72,22 @@ serve(async (req: Request) => {
 
         // Security: Allow rider OR assigned driver to cancel
         const isRider = ride.rider_id === userId;
-        const isDriver = ride.driver_id === userId;
+
+        let isDriver = false;
+        if (ride.driver_id) {
+            // Need to get the driver's user_id from the drivers table
+            const { data: driverData } = await supabaseAdmin
+                .from("drivers")
+                .select("user_id")
+                .eq("id", ride.driver_id)
+                .single();
+
+            isDriver = driverData?.user_id === userId;
+        }
 
         if (!isRider && !isDriver) {
             return new Response(
-                JSON.stringify({ success: false, error: "Not authorized", data: null }),
+                JSON.stringify({ success: false, error: "Not authorized to cancel this ride", data: null }),
                 { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
@@ -124,13 +135,15 @@ serve(async (req: Request) => {
         }
 
         // 4. UPDATE RIDE STATUS (Atomic)
-        const { error: updateError, count } = await supabaseAdmin
+        const { data: updatedRide, error: updateError } = await supabaseAdmin
             .from("rides")
             .update(updatePayload)
             .eq("id", ride_id)
-            .in("status", cancellableStatuses); // ATOMIC GUARD
+            .in("status", cancellableStatuses)
+            .select()
+            .single();
 
-        if (updateError || count === 0) {
+        if (updateError || !updatedRide) {
             console.error("Update error or no rows matching:", updateError);
             return new Response(
                 JSON.stringify({ success: false, error: "Failed to cancel ride: already in progress or completed", data: null }),

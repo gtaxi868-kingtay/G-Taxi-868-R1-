@@ -1,181 +1,178 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
+import {
+    View, StyleSheet, TouchableOpacity, SafeAreaView,
+    FlatList, ActivityIndicator, Dimensions
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
+import Reanimated, {
+    useSharedValue, useAnimatedProps, withTiming,
+    useDerivedValue
+} from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { tokens } from '../design-system/tokens';
-import { Txt, Surface, Card } from '../design-system/primitives';
-import { Ionicons } from '@expo/vector-icons';
+import { Txt } from '../design-system/primitives';
+
+const { width } = Dimensions.get('window');
+
+// ── Rider Design Tokens ──────────────────────────────────────────────────────
+const R = {
+    bg: '#07050F',
+    surface: '#110E22',
+    surfaceHigh: '#1A1530',
+    border: 'rgba(255,255,255,0.08)',
+    purple: '#7C3AED',
+    purpleLight: '#A78BFA',
+    gold: '#F59E0B',
+    green: '#10B981',
+    red: '#EF4444',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.4)',
+};
 
 export function WalletScreen({ navigation }: any) {
     const { user } = useAuth();
-    const [balance, setBalance] = useState<number | null>(null);
+    const insets = useSafeAreaInsets();
+
+    const [balance, setBalance] = useState(0);
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (user?.id) {
-            // Fetch balance
-            supabase.rpc('get_wallet_balance', { p_user_id: user.id })
-                .then(({ data, error }) => {
-                    if (!error && data !== null) {
-                        setBalance(data / 100); // Amount stored in cents
-                    } else {
-                        setBalance(0);
-                    }
-                });
+    const animatedBalance = useSharedValue(0);
 
-            // Fetch transactions
-            supabase
-                .from('wallet_transactions')
-                .select('id, amount, transaction_type, description, created_at, status')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(10)
-                .then(({ data, error }) => {
-                    if (data && !error) setTransactions(data);
-                    setLoading(false);
-                });
-        } else {
-            setLoading(false);
-        }
+    useEffect(() => {
+        if (user?.id) fetchWalletData();
     }, [user?.id]);
 
-    const handleTopUp = (amount: number) => {
-        navigation.navigate('WalletTopUp');
-    };
+    const fetchWalletData = async () => {
+        setLoading(true);
+        try {
+            // BUG_FIX: Ensure wallet_balance is fetched correctly
+            const { data: balData } = await supabase.rpc('get_wallet_balance', { p_user_id: user?.id });
+            const realBal = (balData || 0) / 100;
+            setBalance(realBal);
+            animatedBalance.value = withTiming(realBal, { duration: 1500 });
 
-    const getTransactionIconName = (type: string) => {
-        switch (type) {
-            case 'topup': return 'arrow-up-outline';
-            case 'driver_payout': return 'cash-outline';
-            case 'ride_payment': return 'car-outline';
-            case 'refund': return 'arrow-undo-outline';
-            default: return 'ellipse';
+            const { data: txData } = await supabase
+                .from('wallet_transactions')
+                .select('*')
+                .eq('user_id', user?.id)
+                .order('created_at', { ascending: false })
+                .limit(20);
+
+            if (txData) setTransactions(txData);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const isOwed = balance !== null && balance < 0;
+    const renderTransaction = ({ item }: { item: any }) => {
+        const isPositive = item.amount > 0;
+        const date = new Date(item.created_at);
+
+        return (
+            <BlurView tint="dark" intensity={40} style={s.txCard}>
+                <View style={[s.txIcon, { backgroundColor: isPositive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)' }]}>
+                    <Ionicons
+                        name={isPositive ? "arrow-down" : "arrow-up"}
+                        size={18}
+                        color={isPositive ? R.green : R.red}
+                    />
+                </View>
+                <View style={{ flex: 1, marginLeft: 16 }}>
+                    <Txt variant="bodyBold" color="#FFF" numberOfLines={1}>{item.description || 'Transaction'}</Txt>
+                    <Txt variant="small" color={R.muted}>{date.toLocaleDateString()} · {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Txt>
+                </View>
+                <Txt variant="bodyBold" color={isPositive ? R.green : R.white}>
+                    {isPositive ? '+' : '-'}${Math.abs(item.amount / 100).toFixed(2)}
+                </Txt>
+            </BlurView>
+        );
+    };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.headerRow}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                    <Txt variant="bodyBold" color={tokens.colors.primary.purple}>← Back</Txt>
+        <View style={s.root}>
+            <StatusBar style="light" />
+
+            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                    <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary}>
-                    G-Taxi Wallet
-                </Txt>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Wallet</Txt>
             </View>
 
-            {loading ? (
-                <ActivityIndicator color={tokens.colors.primary.purple} style={{ marginTop: 40 }} />
-            ) : (
-                <FlatList
-                    data={transactions}
-                    keyExtractor={item => item.id}
-                    contentContainerStyle={styles.scroll}
-                    ListHeaderComponent={
-                        <>
-                            {/* Balance Card */}
-                            <Card padding="xl" elevation="level3" radius="xl" style={styles.heroCard}>
-                                <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>AVAILABLE BALANCE</Txt>
-                                <Txt
-                                    variant="displayXL"
-                                    weight="bold"
-                                    color={isOwed ? tokens.colors.status.error : tokens.colors.primary.purple}
-                                    style={{ marginVertical: 8 }}
-                                >
-                                    ${Math.abs(balance || 0).toFixed(2)} TTD
-                                </Txt>
-                            </Card>
-
-                            {/* Top Up Section */}
-                            <View style={styles.sectionHeader}>
-                                <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary}>
-                                    Add Funds
-                                </Txt>
+            <FlatList
+                data={transactions}
+                keyExtractor={item => item.id}
+                renderItem={renderTransaction}
+                contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}
+                ListHeaderComponent={
+                    <>
+                        {/* Hero Card: LinearGradient purple */}
+                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.hero}>
+                            <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)">TOTAL BALANCE</Txt>
+                            <View style={s.balanceRow}>
+                                <Txt variant="headingL" weight="heavy" color="#FFF" style={{ fontSize: 48 }}>${balance.toFixed(2)}</Txt>
+                                <Txt variant="bodyBold" color="rgba(255,255,255,0.6)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
                             </View>
-                            <View style={styles.topUpGrid}>
-                                {[20, 50, 100, 200].map(amount => (
-                                    <TouchableOpacity
-                                        key={amount}
-                                        style={styles.topUpBtn}
-                                        onPress={() => handleTopUp(amount)}
-                                    >
-                                        <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary}>
-                                            ${amount}
-                                        </Txt>
-                                        <Txt variant="caption" color={tokens.colors.text.secondary}>TTD</Txt>
-                                    </TouchableOpacity>
-                                ))}
+                            <View style={s.gCoinBadge}>
+                                <Ionicons name="flash" size={12} color={R.gold} />
+                                <Txt variant="caption" weight="heavy" color={R.gold} style={{ marginLeft: 4 }}>G-COIN ACTIVE</Txt>
                             </View>
+                        </LinearGradient>
 
-                            <View style={[styles.sectionHeader, { marginTop: 32 }]}>
-                                <Txt variant="headingM" weight="bold" color={tokens.colors.text.primary}>
-                                    Recent Transactions
-                                </Txt>
-                            </View>
-                        </>
-                    }
-                    ListEmptyComponent={
-                        <Surface intensity={30} style={styles.emptyState}>
-                            <Txt variant="bodyReg" color={tokens.colors.text.secondary}>No transactions yet.</Txt>
-                        </Surface>
-                    }
-                    renderItem={({ item }) => {
-                        const date = new Date(item.created_at);
-                        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        const amountFormatted = (Math.abs(item.amount) / 100).toFixed(2);
-                        const isPositive = item.amount >= 0;
+                        {/* Quick Actions */}
+                        <View style={s.actions}>
+                            <TouchableOpacity style={s.actionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('WalletTopUp'); }}>
+                                <View style={s.actionIcon}><Ionicons name="add" size={24} color="#FFF" /></View>
+                                <Txt variant="caption" weight="bold" color="#FFF">ADD FUNDS</Txt>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={s.actionBtn} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
+                                <View style={s.actionIcon}><Ionicons name="swap-horizontal" size={22} color="#FFF" /></View>
+                                <Txt variant="caption" weight="bold" color="#FFF">TRANSFER</Txt>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={s.actionBtn} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
+                                <View style={s.actionIcon}><Ionicons name="list" size={22} color="#FFF" /></View>
+                                <Txt variant="caption" weight="bold" color="#FFF">HISTORY</Txt>
+                            </TouchableOpacity>
+                        </View>
 
-                        return (
-                            <Surface intensity={40} style={styles.txItem}>
-                                <View style={styles.txIcon}>
-                                    <Ionicons name={getTransactionIconName(item.transaction_type) as any} size={20} color={tokens.colors.text.secondary} />
-                                </View>
-                                <View style={{ flex: 1, paddingRight: 8 }}>
-                                    <Txt variant="bodyBold" color={tokens.colors.text.primary} numberOfLines={1}>
-                                        {item.description || item.transaction_type}
-                                    </Txt>
-                                    <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>
-                                        {date.toLocaleDateString()} • {timeStr}
-                                    </Txt>
-                                </View>
-                                <Txt
-                                    variant="bodyBold"
-                                    weight="bold"
-                                    color={isPositive ? tokens.colors.status.success : tokens.colors.status.error}
-                                >
-                                    {isPositive ? '+' : '-'}${amountFormatted}
-                                </Txt>
-                            </Surface>
-                        );
-                    }}
-                />
-            )}
-        </SafeAreaView>
+                        <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>Recent Activity</Txt>
+                    </>
+                }
+                ListEmptyComponent={
+                    (!loading && transactions.length === 0) ? (
+                        <View style={s.empty}>
+                            <Txt variant="bodyReg" color={R.muted}>No transactions yet</Txt>
+                        </View>
+                    ) : null
+                }
+            />
+        </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: tokens.colors.background.base },
-    headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16 },
-    backBtn: { position: 'absolute', left: 20, zIndex: 10, paddingVertical: 16 },
-    scroll: { padding: 20 },
-    heroCard: { alignItems: 'center', marginBottom: 32, borderWidth: 1, borderColor: tokens.colors.border.subtle },
-    sectionHeader: { marginBottom: 16 },
-    topUpGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    topUpBtn: {
-        flex: 1,
-        minWidth: '45%',
-        backgroundColor: tokens.colors.background.ambient,
-        paddingVertical: 18,
-        borderRadius: 16,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
-    },
-    emptyState: { padding: 32, alignItems: 'center', borderRadius: 16, borderWidth: 1, borderColor: tokens.colors.border.subtle, borderStyle: 'dashed' },
-    txItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: tokens.colors.border.subtle },
-    txIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: R.bg },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 20 },
+    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+
+    hero: { borderRadius: 32, padding: 32, marginBottom: 32, shadowColor: R.purple, shadowRadius: 20, shadowOpacity: 0.4 },
+    balanceRow: { flexDirection: 'row', alignItems: 'baseline', marginVertical: 8 },
+    gCoinBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignSelf: 'flex-start' },
+
+    actions: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 40 },
+    actionBtn: { alignItems: 'center', flex: 1 },
+    actionIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 12, borderWidth: 1, borderColor: R.border },
+
+    txCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 12, borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
+    txIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+
+    empty: { marginTop: 40, alignItems: 'center' },
 });

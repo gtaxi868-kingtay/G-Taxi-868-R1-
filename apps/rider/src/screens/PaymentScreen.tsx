@@ -1,490 +1,215 @@
-// PaymentScreen.tsx
-// Phase 6 Fix 6.6 — Full card payment via Stripe alongside cash and wallet options.
-//
-// Payment methods:
-//   cash   — rider pays driver in cash; no in-app transaction at booking time
-//   wallet — deducted from rider wallet balance via process_wallet_payment RPC
-//   card   — Stripe PaymentSheet flow; calls create_payment_intent edge function
-//
-// When ride_id and payment_method are passed via route params, the screen
-// handles the active-ride payment flow (e.g. from ActiveRideScreen confirm).
-// Without params it acts as a standalone method-selection settings screen.
-
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
-    View,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView,
-    Alert,
-    ActivityIndicator,
+    View, StyleSheet, TouchableOpacity, ScrollView,
+    Alert, ActivityIndicator, Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Surface, Txt, Card } from '../design-system/primitives';
-import { tokens } from '../design-system/tokens';
-import { supabase } from '../../../../shared/supabase';
-import { v4 as uuidv4 } from 'uuid';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../../../shared/supabase';
+import { Txt } from '../design-system/primitives';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const { width } = Dimensions.get('window');
+
+// ── Rider Design Tokens ──────────────────────────────────────────────────────
+const R = {
+    bg: '#07050F',
+    surface: '#110E22',
+    border: 'rgba(255,255,255,0.08)',
+    purple: '#7C3AED',
+    purpleLight: '#A78BFA',
+    gold: '#F59E0B',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.4)',
+};
 
 type PaymentMethod = 'cash' | 'wallet' | 'card';
 
-interface PaymentOption {
-    id: PaymentMethod;
-    icon: string;
-    label: string;
-    subtitle: string;
-    available: boolean;
-}
-
-const PAYMENT_OPTIONS: PaymentOption[] = [
-    {
-        id: 'cash',
-        icon: 'cash-outline',
-        label: 'Cash',
-        subtitle: 'Pay your driver directly',
-        available: true,
-    },
-    {
-        id: 'wallet',
-        icon: 'wallet-outline',
-        label: 'G-Taxi Wallet',
-        subtitle: 'Deducted from your in-app balance',
-        available: true,
-    },
-    {
-        id: 'card',
-        icon: 'card-outline',
-        label: 'Debit / Credit Card',
-        subtitle: 'Secure payment via Stripe',
-        available: true,
-    },
+const OPTIONS = [
+    { id: 'cash', label: 'Cash', icon: 'cash-outline', subtitle: 'Pay directly' },
+    { id: 'wallet', label: 'Wallet', icon: 'wallet-outline', subtitle: 'Auto-deduct' },
+    { id: 'card', label: 'Card', icon: 'card-outline', subtitle: 'Secure Stripe' },
 ];
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export function PaymentScreen({ navigation, route }: any) {
-    // route.params may supply: { ride_id, payment_method, fare_cents }
-    // When present, this screen is in "active payment" mode — the Pay button
-    // charges the card for the given ride_id.
-    const rideId: string | undefined = route?.params?.ride_id;
-    const initialMethod: PaymentMethod = route?.params?.payment_method ?? 'cash';
-    const fareCents: number | undefined = route?.params?.fare_cents;
+    const rideId = route?.params?.ride_id;
+    const initialMethod = route?.params?.payment_method ?? 'cash';
+    const fareCents = route?.params?.fare_cents;
+    const insets = useSafeAreaInsets();
+    const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+    const stripe = isExpoGo ? null : useStripe();
 
-    const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(initialMethod);
+    const [selected, setSelected] = useState<PaymentMethod>(initialMethod);
     const [loading, setLoading] = useState(false);
-
-    // Idempotency guard: prevent double-tap race conditions
+    const [userId, setUserId] = useState('');
     const isProcessingRef = useRef(false);
-    const [userId, setUserId] = React.useState<string>("");
-    React.useEffect(() => {
+
+    useEffect(() => {
         supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? ""));
     }, []);
 
-    const insets = useSafeAreaInsets();
-    const { initPaymentSheet, presentPaymentSheet } = useStripe();
-
-    // ── Card payment flow ──────────────────────────────────────────────────────
     const handleCardPayment = useCallback(async () => {
-        if (!rideId) {
-            Alert.alert('Error', 'No ride is associated with this payment.');
-            return;
-        }
-
-        // Double-tap guard using ref (survives React state batching)
+        if (!rideId) return;
         if (isProcessingRef.current) return;
         isProcessingRef.current = true;
         setLoading(true);
-
-        // Generate a unique idempotency key for this payment attempt
-        const idempotencyKey = `pi_${rideId}_${userId}`;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            // Step 1: Create PaymentIntent on server — server verifies ride ownership
+            const idempotencyKey = `pi_${rideId}_${userId}`;
+            if (isExpoGo || !stripe) {
+                Alert.alert('Expo Go Limitation', 'Native Stripe is not available in Expo Go. Please use a development build for card payments.');
+                return;
+            }
+
             const { data, error: fnError } = await supabase.functions.invoke(
                 'create_payment_intent',
                 { body: { ride_id: rideId, idempotency_key: idempotencyKey } }
             );
 
             if (fnError || !data?.clientSecret) {
-                Alert.alert(
-                    'Payment Setup Failed',
-                    fnError?.message ?? 'Could not initialise payment. Please try again.'
-                );
+                Alert.alert('Setup Failed', fnError?.message || 'Could not initialize payment.');
                 return;
             }
 
-            // Step 2: Initialise Stripe PaymentSheet with the client secret
-            const { error: initError } = await initPaymentSheet({
+            const { error: initError } = await stripe.initPaymentSheet({
                 paymentIntentClientSecret: data.clientSecret,
                 merchantDisplayName: 'G-Taxi 868',
                 style: 'alwaysDark',
                 appearance: {
                     colors: {
-                        primary: tokens.colors.primary.purple,
-                        background: '#0a0118',
-                        componentBackground: '#1a0a28',
-                        componentText: '#FFFFFF',
-                        primaryText: '#FFFFFF',
-                        secondaryText: '#A0A0B0',
-                        placeholderText: '#606070',
-                        icon: '#FFFFFF',
-                        error: '#FF4D4D',
+                        primary: R.purple,
+                        background: R.bg,
+                        componentBackground: R.surface,
+                        componentText: '#FFF',
+                        primaryText: '#FFF',
+                        secondaryText: R.muted,
+                        placeholderText: 'rgba(255,255,255,0.2)',
+                        icon: '#FFF',
+                        error: '#EF4444',
                     },
                 },
             });
 
-            if (initError) {
-                Alert.alert('Payment Error', initError.message);
-                return;
-            }
+            if (initError) { Alert.alert('Error', initError.message); return; }
 
-            // Step 3: Present the Stripe payment sheet to the user
-            const { error: presentError } = await presentPaymentSheet();
-
-            if (presentError) {
-                if (presentError.code === 'Canceled') {
-                    // User dismissed — not an error, just let them pick again
-                    return;
-                }
+            const { error: presentError } = await stripe.presentPaymentSheet();
+            if (presentError && presentError.code !== 'Canceled') {
                 Alert.alert('Payment Failed', presentError.message);
                 return;
             }
 
-            // Step 4: Payment confirmed by Stripe — stripe_webhook will capture
-            // and write ledger + wallet entries server-side.
-            Alert.alert(
-                'Payment Successful',
-                'Your card payment has been processed. The driver will be notified.',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => navigation.goBack(),
-                    },
-                ]
-            );
+            if (!presentError) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert('Success', 'Card payment processed.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+            }
         } catch (err: any) {
-            console.error('handleCardPayment error:', err);
-            Alert.alert('Error', err?.message ?? 'An unexpected error occurred.');
+            Alert.alert('Error', err.message);
         } finally {
             setLoading(false);
             isProcessingRef.current = false;
         }
-    }, [rideId, initPaymentSheet, presentPaymentSheet, navigation]);
+    }, [rideId, userId, stripe, navigation, isExpoGo]);
 
-    // ── Confirm selection / trigger payment ────────────────────────────────────
-    const handleConfirm = useCallback(async () => {
-        if (selectedMethod === 'card') {
+    const handleConfirm = async () => {
+        if (selected === 'card') {
             await handleCardPayment();
         } else {
-            // cash / wallet: navigate back and let ride confirmation handle it
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             navigation.goBack();
         }
-    }, [selectedMethod, handleCardPayment, navigation]);
+    };
 
-    // ─── Render ───────────────────────────────────────────────────────────────
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={[tokens.colors.background.base, '#0A0A14']}
-                style={StyleSheet.absoluteFill}
-            />
+        <View style={s.root}>
+            <StatusBar style="light" />
 
-            {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Txt variant="headingL">←</Txt>
+            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                    <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="bold">Payment</Txt>
-                <View style={{ width: 40 }} />
-            </View>
+                <Txt variant="headingM" weight="heavy" color="#FFF">Payment</Txt>
+                <View style={{ width: 44 }} />
+            </BlurView>
 
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* Fare display (active-ride mode only) */}
-                {typeof fareCents === 'number' && (
-                    <Card padding="md" style={styles.fareCard}>
-                        <View style={styles.fareRow}>
-                            <Txt variant="bodyReg" color={tokens.colors.text.secondary}>Fare</Txt>
-                            <Txt variant="headingM" weight="bold">
-                                ${(fareCents / 100).toFixed(2)} TTD
-                            </Txt>
-                        </View>
-                    </Card>
+            <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
+
+                {fareCents && (
+                    <View style={s.fareDisplay}>
+                        <Txt variant="caption" weight="heavy" color={R.muted}>AMOUNT DUE</Txt>
+                        <Txt variant="headingL" weight="heavy" color="#FFF">${(fareCents / 100).toFixed(2)}</Txt>
+                    </View>
                 )}
 
-                {/* Section Header */}
-                <Txt variant="bodyBold" style={styles.sectionLabel}>Payment Methods</Txt>
+                <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 20 }}>Select Method</Txt>
 
-                {/* Payment Options */}
-                {PAYMENT_OPTIONS.map((option) => {
-                    const isSelected = selectedMethod === option.id;
+                {OPTIONS.map(opt => {
+                    const isActive = selected === opt.id;
                     return (
                         <TouchableOpacity
-                            key={option.id}
-                            activeOpacity={option.available ? 0.7 : 1}
-                            onPress={() => {
-                                if (option.available) setSelectedMethod(option.id);
-                            }}
+                            key={opt.id}
+                            style={[s.methodCard, isActive && s.methodCardActive]}
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelected(opt.id as any); }}
                         >
-                            <Card
-                                padding="md"
-                                style={[
-                                    styles.paymentCard,
-                                    isSelected && styles.paymentCardSelected,
-                                    !option.available && styles.paymentCardDisabled,
-                                ]}
-                            >
-                                <View style={styles.paymentRow}>
-                                    <View style={styles.paymentIconContainer}>
-                                        <Ionicons name={option.icon as any} size={28} color={tokens.colors.text.primary} />
-                                    </View>
-                                    <View style={styles.paymentInfo}>
-                                        <View style={styles.paymentLabelRow}>
-                                            <Txt variant="bodyBold">{option.label}</Txt>
-                                            {!option.available && (
-                                                <View style={styles.comingSoonBadge}>
-                                                    <Txt variant="small" color={tokens.colors.primary.cyan}>Soon</Txt>
-                                                </View>
-                                            )}
-                                        </View>
-                                        <Txt variant="caption" color={tokens.colors.text.secondary}>
-                                            {option.subtitle}
-                                        </Txt>
-                                    </View>
-                                    {/* Selection Indicator */}
-                                    <View style={[
-                                        styles.radioOuter,
-                                        isSelected && styles.radioOuterSelected,
-                                    ]}>
-                                        {isSelected && <View style={styles.radioInner} />}
-                                    </View>
-                                </View>
-                            </Card>
+                            <View style={s.iconWrap}>
+                                <Ionicons name={opt.icon as any} size={24} color={isActive ? "#FFF" : R.muted} />
+                            </View>
+                            <View style={{ flex: 1, marginLeft: 16 }}>
+                                <Txt variant="bodyBold" color={isActive ? "#FFF" : R.muted}>{opt.label}</Txt>
+                                <Txt variant="small" color={isActive ? R.purpleLight : R.muted}>{opt.subtitle}</Txt>
+                            </View>
+                            <View style={[s.radio, isActive && s.radioActive]}>
+                                {isActive && <View style={s.radioDot} />}
+                            </View>
+                            {isActive && <LinearGradient colors={['rgba(124,58,237,0.1)', 'transparent']} style={StyleSheet.absoluteFill} />}
                         </TouchableOpacity>
                     );
                 })}
 
-                {/* Card detail — shown when card is selected */}
-                {selectedMethod === 'card' && (
-                    <Card padding="md" style={styles.cardInfoSection}>
-                        <InfoRow iconName="lock-closed-outline" text="Secured by Stripe — your card details are never stored on G-Taxi servers" />
-                        <InfoRow iconName="card-outline" text="Visa, Mastercard, and internationally-issued cards accepted" />
-                        <InfoRow iconName="receipt-outline" text="A receipt will be sent to your email after payment" />
-                    </Card>
-                )}
-
-                {/* How It Works */}
-                {selectedMethod !== 'card' && (
-                    <View style={styles.infoSection}>
-                        <Txt variant="bodyBold" style={styles.sectionLabel}>How It Works</Txt>
-                        <Card padding="md" style={styles.infoCard}>
-                            {selectedMethod === 'cash' && (
-                                <>
-                                    <InfoRow iconName="search-outline" text="Your fare is calculated before you confirm" />
-                                    <InfoRow iconName="car-outline" text="Pay your driver in cash at the end of the ride" />
-                                    <InfoRow iconName="receipt-outline" text="View your receipt after every trip" />
-                                </>
-                            )}
-                            {selectedMethod === 'wallet' && (
-                                <>
-                                    <InfoRow iconName="wallet-outline" text="Your G-Taxi wallet balance is deducted automatically" />
-                                    <InfoRow iconName="flash-outline" text="No cash or card needed — just confirm and go" />
-                                    <InfoRow iconName="receipt-outline" text="Full transaction history in your account" />
-                                </>
-                            )}
-                        </Card>
-                    </View>
-                )}
-
-                {/* Security notice */}
-                <View style={styles.securityNote}>
-                    <Txt variant="caption" color={tokens.colors.text.secondary} style={styles.securityText}>
-                        <Ionicons name="lock-closed-outline" size={12} color={tokens.colors.text.secondary} /> All payments are encrypted and processed securely
-                    </Txt>
+                <View style={s.securityNotice}>
+                    <Ionicons name="shield-checkmark-outline" size={16} color={R.muted} />
+                    <Txt variant="small" color={R.muted} style={{ marginLeft: 8 }}>Secure encrypted payments</Txt>
                 </View>
-            </ScrollView>
 
-            {/* Confirm / Pay Button */}
-            {rideId && (
-                <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-                    <TouchableOpacity
-                        style={[styles.confirmBtn, loading && styles.confirmBtnDisabled]}
-                        activeOpacity={0.8}
-                        onPress={handleConfirm}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#FFFFFF" />
-                        ) : (
-                            <Txt variant="bodyBold" style={styles.confirmBtnText}>
-                                {selectedMethod === 'card' ? 'Pay with Card' : 'Confirm Payment Method'}
-                            </Txt>
-                        )}
+                {rideId && (
+                    <TouchableOpacity style={s.payBtn} onPress={handleConfirm} disabled={loading}>
+                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                            {loading ? <ActivityIndicator color="#FFF" /> : (
+                                <Txt variant="bodyBold" color="#FFF">
+                                    {selected === 'card' ? 'Pay with Card' : 'Confirm Method'}
+                                </Txt>
+                            )}
+                        </LinearGradient>
                     </TouchableOpacity>
-                </View>
-            )}
+                )}
+
+            </ScrollView>
         </View>
     );
 }
 
-// ─── Info Row ─────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: R.bg },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border },
+    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
 
-const InfoRow = ({ iconName, text }: { iconName: string; text: string }) => (
-    <View style={styles.infoRow}>
-        <Ionicons name={iconName as any} size={18} color={tokens.colors.text.secondary} style={{ marginRight: 12 }} />
-        <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={{ flex: 1 }}>{text}</Txt>
-    </View>
-);
+    scroll: { padding: 24 },
+    fareDisplay: { alignItems: 'center', marginBottom: 40, backgroundColor: R.surface, padding: 32, borderRadius: 32, borderWidth: 1, borderColor: R.border },
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+    methodCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 24, backgroundColor: R.surface, marginBottom: 12, borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
+    methodCardActive: { borderColor: R.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
+    iconWrap: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' },
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: tokens.colors.background.base,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    scrollView: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingHorizontal: 20,
-        paddingBottom: 40,
-    },
-    fareCard: {
-        marginBottom: 20,
-        backgroundColor: 'rgba(138, 43, 226, 0.12)',
-        borderColor: 'rgba(138, 43, 226, 0.3)',
-        borderWidth: 1,
-    },
-    fareRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    sectionLabel: {
-        marginBottom: 12,
-        marginTop: 8,
-    },
-    paymentCard: {
-        marginBottom: 12,
-        borderColor: 'rgba(255,255,255,0.06)',
-    },
-    paymentCardSelected: {
-        borderColor: tokens.colors.primary.purple,
-        borderWidth: 1.5,
-    },
-    paymentCardDisabled: {
-        opacity: 0.5,
-    },
-    paymentRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    paymentIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 16,
-    },
-    paymentInfo: {
-        flex: 1,
-    },
-    paymentLabelRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    comingSoonBadge: {
-        backgroundColor: 'rgba(0, 255, 255, 0.1)',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 10,
-    },
-    radioOuter: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    radioOuterSelected: {
-        borderColor: tokens.colors.primary.purple,
-    },
-    radioInner: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: tokens.colors.primary.purple,
-    },
-    cardInfoSection: {
-        marginTop: 8,
-        marginBottom: 12,
-        gap: 14,
-        backgroundColor: 'rgba(138, 43, 226, 0.06)',
-        borderColor: 'rgba(138, 43, 226, 0.15)',
-        borderWidth: 1,
-    },
-    infoSection: {
-        marginTop: 24,
-    },
-    infoCard: {
-        gap: 16,
-    },
-    infoRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-    },
-    securityNote: {
-        marginTop: 24,
-        alignItems: 'center',
-    },
-    securityText: {
-        textAlign: 'center',
-    },
-    footer: {
-        paddingHorizontal: 20,
-        paddingTop: 12,
-        backgroundColor: 'rgba(10, 1, 24, 0.95)',
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.06)',
-    },
-    confirmBtn: {
-        backgroundColor: tokens.colors.primary.purple,
-        borderRadius: 14,
-        paddingVertical: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    confirmBtnDisabled: {
-        opacity: 0.6,
-    },
-    confirmBtnText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-    },
+    radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: R.muted, alignItems: 'center', justifyContent: 'center' },
+    radioActive: { borderColor: R.purpleLight },
+    radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: R.purpleLight },
+
+    securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24 },
+    payBtn: { height: 60, borderRadius: 30, overflow: 'hidden', marginTop: 40 },
+    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

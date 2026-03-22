@@ -17,6 +17,7 @@ interface RequestBody {
     lng: number;
     heading?: number;
     speed?: number;
+    sos?: boolean; // SOS Trigger
 }
 
 // Calculate distance in meters using Haversine formula
@@ -74,7 +75,7 @@ serve(async (req: Request) => {
             );
         }
 
-        const { lat, lng, heading = 0, speed = 0 } = body;
+        const { lat, lng, heading = 0, speed = 0, sos = false } = body;
 
         if (lat === undefined || lng === undefined) {
             return new Response(
@@ -142,6 +143,48 @@ serve(async (req: Request) => {
             if (timeDeltaSeconds < 3 && distanceMeters < 50) {
                 // Normal GPS jitter. Permitted to continue down to insert/update untouched.
             }
+
+            // --- SAFETY: SOS & DETOUR DETECTION ---
+            if (sos) {
+                console.warn(`[SAFETY] SOS TRIGGERED for driver ${driver_id}`);
+                await adminClient.from("ride_events").insert({
+                    event_type: "emergency_sos",
+                    actor_type: "driver",
+                    actor_id: driver_id,
+                    metadata: { lat, lng, timestamp: now.toISOString() }
+                });
+                // Note: Twilio Hook would go here to text the Next of Kin
+            }
+
+            // DETOUR DETECTION
+            // Fetch active ride to check destination drift
+            const { data: activeRide } = await adminClient
+                .from("rides")
+                .select("id, status, destination_lat, destination_lng")
+                .eq("driver_id", driver_id)
+                .in("status", ["in_progress"])
+                .maybeSingle();
+
+            if (activeRide && activeRide.destination_lat) {
+                const distToDest = haversine(lat, lng, activeRide.destination_lat, activeRide.destination_lng);
+                const lastDistToDest = haversine(lastRecord.lat, lastRecord.lng, activeRide.destination_lat, activeRide.destination_lng);
+
+                // If moving AWAY from destination by more than 500m in one update sequence 
+                // OR if very far from destination while 'in_progress'
+                if (distToDest > lastDistToDest + 500) {
+                    await adminClient.from("ride_events").insert({
+                        ride_id: activeRide.id,
+                        event_type: "safety_detour_detected",
+                        actor_type: "system",
+                        metadata: {
+                            current_dist: Math.round(distToDest),
+                            prev_dist: Math.round(lastDistToDest),
+                            lat, lng
+                        }
+                    });
+                }
+            }
+            // --- END SAFETY ---
         }
 
         // --- END SPOOF DETECTION ---

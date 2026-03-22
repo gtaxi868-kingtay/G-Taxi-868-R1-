@@ -1,189 +1,221 @@
-import React, { useState, useRef } from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+    View, StyleSheet, TextInput, TouchableOpacity,
+    KeyboardAvoidingView, Platform, ActivityIndicator,
+    Dimensions, ScrollView, Alert
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
+import Reanimated, {
+    useSharedValue, useAnimatedStyle, withTiming,
+    FadeIn, FadeOut, Layout
+} from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
-import { tokens } from '../design-system/tokens';
-import { Txt, Surface } from '../design-system/primitives';
+import { supabase } from '../../../../shared/supabase';
+import { Txt } from '../design-system/primitives';
+import { Ionicons } from '@expo/vector-icons';
+
+const { width, height } = Dimensions.get('window');
+
+// ── Rider Design Tokens ──────────────────────────────────────────────────────
+const R = {
+    bg: '#07050F',
+    surface: '#110E22',
+    border: 'rgba(255,255,255,0.08)',
+    purple: '#7C3AED',
+    purpleLight: '#A78BFA',
+    gold: '#F59E0B',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.4)',
+};
 
 export function SignupScreen({ navigation }: any) {
     const { signUp, verifyPhoneOTP } = useAuth();
     const insets = useSafeAreaInsets();
 
-    const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '' });
+    const [step, setStep] = useState(1); // 1: Info, 2: OTP
     const [loading, setLoading] = useState(false);
-    const [errorMsg, setErrorMsg] = useState('');
+    const [error, setError] = useState('');
 
-    // OTP State
-    const [awaitingOtp, setAwaitingOtp] = useState(false);
+    const [formData, setFormData] = useState({
+        name: '', email: '', phone: '', password: '',
+        emergencyName: '', emergencyPhone: ''
+    });
     const [otp, setOtp] = useState('');
 
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-
-    React.useEffect(() => {
-        Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-    }, []);
-
-    const handleSignup = async () => {
+    const handleNext = async () => {
         if (!formData.name || !formData.email || !formData.phone || !formData.password) {
-            setErrorMsg('All fields are required.');
+            setError('Please fill all required fields');
             return;
         }
         setLoading(true);
-        setErrorMsg('');
+        setError('');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
         try {
-            const { error } = await signUp(formData.email, formData.password, formData.name, formData.phone);
-            if (error) setErrorMsg(error.message);
-            else {
-                Alert.alert("Code Sent", `An SMS code has been sent to ${formData.phone}`);
-                setAwaitingOtp(true);
+            const { data: authData, error: signUpError } = await signUp(
+                formData.email, formData.password, formData.name, formData.phone
+            );
+
+            if (signUpError) {
+                setError(signUpError.message);
+                return;
             }
+
+            if (authData?.user) {
+                // BUG_FIX: Ensure profiles insert includes full_name
+                const { error: profileError } = await supabase.from('profiles').upsert({
+                    id: authData.user.id,
+                    full_name: formData.name.trim(), // Correct mapping
+                    phone_number: formData.phone.trim(),
+                    emergency_contact_name: formData.emergencyName.trim() || 'N/A',
+                    emergency_contact_phone: formData.emergencyPhone.trim() || 'N/A',
+                    updated_at: new Date().toISOString()
+                });
+                if (profileError) console.error("Profile update failed:", profileError);
+            }
+
+            setStep(2);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (err: any) {
-            setErrorMsg(err.message || 'An error occurred.');
+            if (err?.message?.includes("already registered as a rider") ||
+                err?.message?.includes("already registered as a driver")) {
+                Alert.alert(
+                    "Phone Already Registered",
+                    "This phone number is already linked to a G-Taxi account. " +
+                    "Each phone number can only be used for one account."
+                );
+            } else {
+                setError(err.message || 'Signup failed');
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    const handleVerifyOtp = async () => {
-        if (!otp) {
-            setErrorMsg('Please enter the 6-digit code.');
-            return;
-        }
+    const handleVerify = async () => {
+        if (!otp) return;
         setLoading(true);
-        setErrorMsg('');
+        setError('');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
         try {
             await verifyPhoneOTP(formData.phone, otp);
-            Alert.alert("Success", "Account verified successfully.");
+            Alert.alert("Welcome!", "Your account has been verified. Welcome to G-Taxi.");
         } catch (err: any) {
-            setErrorMsg(err.message || 'Invalid code.');
+            setError(err.message || 'Verification failed');
         } finally {
             setLoading(false);
         }
-    }
+    };
 
     return (
-        <View style={styles.container}>
-            <View style={[styles.orb, styles.orb1]} />
-            <View style={[styles.orb, styles.orb2]} />
+        <View style={s.root}>
+            <StatusBar style="light" />
 
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
-                <Animated.ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20, opacity: fadeAnim }]}>
+            {/* Background: Standard LinearGradient */}
+            <LinearGradient
+                colors={['#0D1A40', R.bg]}
+                style={StyleSheet.absoluteFill}
+                start={{ x: 1, y: 0.5 }}
+                end={{ x: 0, y: 0.5 }}
+            />
 
-                    <TouchableOpacity style={styles.backBtn} onPress={() => {
-                        if (awaitingOtp) {
-                            setAwaitingOtp(false);
-                        } else {
-                            navigation.goBack();
-                        }
-                    }}>
-                        <Txt variant="bodyBold" color={tokens.colors.primary.cyan}>← Back</Txt>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.container}>
+                <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}>
+
+                    <TouchableOpacity style={s.backBtn} onPress={() => step === 2 ? setStep(1) : navigation.goBack()}>
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
 
-                    <View style={styles.header}>
-                        <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary}>
-                            {awaitingOtp ? "Verify Phone" : "Create Account"}
-                        </Txt>
-                        <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={{ marginTop: 8 }}>
-                            {awaitingOtp ? `Enter the code sent to ${formData.phone}` : "Join G-Taxi and ride premium."}
-                        </Txt>
+                    <View style={s.header}>
+                        <Txt variant="displayXL" weight="heavy" color="#FFF">Join Us</Txt>
+                        <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 8 }}>Experience the future of mobility</Txt>
                     </View>
 
-                    <Surface intensity={40} style={styles.formCard}>
-                        {errorMsg ? (
-                            <View style={styles.errorBox}>
-                                <Txt variant="caption" color={tokens.colors.status.error}>{errorMsg}</Txt>
+                    {step === 1 ? (
+                        <Reanimated.View entering={FadeIn} exiting={FadeOut} layout={Layout} style={s.form}>
+                            {error ? <Txt variant="small" color="#EF4444" style={s.error}>{error}</Txt> : null}
+
+                            <Input label="FULL NAME" placeholder="John Doe" value={formData.name} onChange={(v: string) => setFormData({ ...formData, name: v })} />
+                            <Input label="EMAIL" placeholder="john@example.com" value={formData.email} onChange={(v: string) => setFormData({ ...formData, email: v })} />
+                            <Input label="PHONE" placeholder="+1 868 000 0000" value={formData.phone} onChange={(v: string) => setFormData({ ...formData, phone: v })} keyboardType="phone-pad" />
+                            <Input label="PASSWORD" placeholder="••••••••" value={formData.password} onChange={(v: string) => setFormData({ ...formData, password: v })} secure />
+
+                            <View style={s.emergency}>
+                                <Txt variant="caption" weight="heavy" color={R.muted} style={{ marginBottom: 16 }}>EMERGENCY CONTACT (OPTIONAL)</Txt>
+                                <Input label="CONTACT NAME" placeholder="Name" value={formData.emergencyName} onChange={(v: string) => setFormData({ ...formData, emergencyName: v })} />
+                                <Input label="CONTACT PHONE" placeholder="+1 868..." value={formData.emergencyPhone} onChange={(v: string) => setFormData({ ...formData, emergencyPhone: v })} keyboardType="phone-pad" />
                             </View>
-                        ) : null}
 
-                        {!awaitingOtp ? (
-                            <>
-                                <View style={styles.inputContainer}>
-                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>FULL NAME</Txt>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="John Doe"
-                                        placeholderTextColor={tokens.colors.text.tertiary}
-                                        value={formData.name}
-                                        onChangeText={v => setFormData({ ...formData, name: v })}
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PHONE NUMBER</Txt>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="+18685551234"
-                                        placeholderTextColor={tokens.colors.text.tertiary}
-                                        value={formData.phone}
-                                        onChangeText={v => setFormData({ ...formData, phone: v })}
-                                        keyboardType="phone-pad"
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>EMAIL ADDRESS</Txt>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="name@example.com"
-                                        placeholderTextColor={tokens.colors.text.tertiary}
-                                        value={formData.email}
-                                        onChangeText={v => setFormData({ ...formData, email: v })}
-                                        keyboardType="email-address"
-                                        autoCapitalize="none"
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>PASSWORD</Txt>
-                                    <TextInput
-                                        style={[styles.input, { borderBottomWidth: 0 }]}
-                                        placeholder="••••••••"
-                                        placeholderTextColor={tokens.colors.text.tertiary}
-                                        value={formData.password}
-                                        onChangeText={v => setFormData({ ...formData, password: v })}
-                                        secureTextEntry
-                                    />
-                                </View>
-                            </>
-                        ) : (
-                            <View style={styles.inputContainer}>
-                                <Txt variant="caption" weight="bold" color={tokens.colors.text.tertiary} style={styles.label}>6-DIGIT CODE</Txt>
-                                <TextInput
-                                    style={[styles.input, { borderBottomWidth: 0 }]}
-                                    placeholder="123456"
-                                    placeholderTextColor={tokens.colors.text.tertiary}
-                                    value={otp}
-                                    onChangeText={setOtp}
-                                    keyboardType="number-pad"
-                                    maxLength={6}
-                                />
+                            <TouchableOpacity style={s.btn} onPress={handleNext} disabled={loading}>
+                                <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                                    {loading ? <ActivityIndicator color="#FFF" /> : <Txt variant="bodyBold" color="#FFF">Continue</Txt>}
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </Reanimated.View>
+                    ) : (
+                        <Reanimated.View entering={FadeIn} exiting={FadeOut} layout={Layout} style={s.form}>
+                            <View style={s.otpHeader}>
+                                <Ionicons name="chatbubble-ellipses-outline" size={48} color={R.purpleLight} />
+                                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginTop: 24 }}>Enter OTP</Txt>
+                                <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 8, textAlign: 'center' }}>We sent a 6-digit code to {formData.phone}</Txt>
                             </View>
-                        )}
-                    </Surface>
 
-                    <TouchableOpacity style={styles.primaryBtn} onPress={awaitingOtp ? handleVerifyOtp : handleSignup} disabled={loading}>
-                        {loading ? <ActivityIndicator color="#000" /> : <Txt variant="headingM" weight="bold" color={tokens.colors.background.base}>{awaitingOtp ? "Verify" : "Sign Up"}</Txt>}
-                    </TouchableOpacity>
+                            <Input label="VERIFICATION CODE" placeholder="123456" value={otp} onChange={(v: string) => setOtp(v)} keyboardType="number-pad" />
 
-                </Animated.ScrollView>
+                            <TouchableOpacity style={s.btn} onPress={handleVerify} disabled={loading}>
+                                <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                                    {loading ? <ActivityIndicator color="#FFF" /> : <Txt variant="bodyBold" color="#FFF">Verify Account</Txt>}
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </Reanimated.View>
+                    )}
+
+                </ScrollView>
             </KeyboardAvoidingView>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: tokens.colors.background.base },
-    orb: { position: 'absolute', width: 300, height: 300, borderRadius: 150, opacity: 0.15 },
-    orb1: { top: -100, right: -100, backgroundColor: tokens.colors.primary.cyan },
-    orb2: { bottom: '10%', left: -150, backgroundColor: tokens.colors.primary.purple },
-    keyboardView: { flex: 1 },
-    content: { paddingHorizontal: 24, justifyContent: 'center' },
-    backBtn: { marginBottom: 24, alignSelf: 'flex-start' },
-    header: { marginBottom: 32 },
-    formCard: { borderRadius: 24, borderWidth: 1, borderColor: tokens.colors.border.subtle, marginBottom: 32, overflow: 'hidden' },
-    errorBox: { padding: 16, backgroundColor: 'rgba(255, 69, 58, 0.1)', borderBottomWidth: 1, borderBottomColor: tokens.colors.border.subtle },
-    inputContainer: {},
-    label: { marginTop: 16, marginLeft: 20, marginBottom: 4 },
-    input: { color: tokens.colors.text.primary, fontSize: 17, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: tokens.colors.border.subtle },
-    primaryBtn: { backgroundColor: tokens.colors.primary.cyan, paddingVertical: 18, borderRadius: 16, alignItems: 'center', shadowColor: tokens.colors.primary.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+function Input({ label, placeholder, value, onChange, secure, keyboardType }: any) {
+    return (
+        <View style={s.inputContainer}>
+            <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>{label}</Txt>
+            <TextInput
+                style={s.input}
+                placeholder={placeholder}
+                placeholderTextColor="rgba(255,255,255,0.2)"
+                value={value}
+                onChangeText={onChange}
+                secureTextEntry={secure}
+                keyboardType={keyboardType}
+                autoCapitalize="none"
+            />
+        </View>
+    );
+}
+
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: R.bg },
+    container: { flex: 1 },
+    scroll: { paddingHorizontal: 32 },
+    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+
+    header: { marginBottom: 40 },
+    form: { gap: 20 },
+    error: { textAlign: 'center' },
+
+    inputContainer: { gap: 8 },
+    label: { marginLeft: 4 },
+    input: { height: 56, backgroundColor: R.surface, borderRadius: 16, paddingHorizontal: 20, color: '#FFF', fontSize: 16, borderWidth: 1, borderColor: R.border },
+
+    emergency: { marginTop: 10, padding: 20, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 24, borderWidth: 1, borderColor: R.border },
+
+    btn: { height: 60, borderRadius: 30, overflow: 'hidden', marginTop: 20 },
+    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+    otpHeader: { alignItems: 'center', marginVertical: 40 },
 });

@@ -1,6 +1,7 @@
 import { supabase } from '../../../../shared/supabase';
 import { ENV } from '../../../../shared/env';
 import { fetchWithRetry } from '../../../../shared/retryWrapper';
+import { OutboxService } from '../../../../shared/OutboxService';
 
 const FUNCTIONS_URL = `${ENV.SUPABASE_URL}/functions/v1`;
 
@@ -53,22 +54,29 @@ export async function updateRideStatus(
     driverLat?: number,
     driverLng?: number
 ) {
-    if (status === 'completed') {
-        return supabase.functions.invoke('complete_ride', {
-            body: {
-                ride_id: rideId,
-                driver_lat: driverLat,
-                driver_lng: driverLng
-            }
+    const payload = {
+        ride_id: rideId,
+        status: status,
+        driver_lat: driverLat,
+        driver_lng: driverLng
+    };
+
+    const functionName = status === 'completed' ? 'complete_ride' : 'update_ride_status';
+
+    // 1. Attempt immediate sync
+    const { data, error } = await supabase.functions.invoke(functionName, {
+        body: payload
+    });
+
+    // 2. If it fails, enqueue in Outbox for background persistence
+    if (error) {
+        console.warn(`[API] Immediate sync failed for ${status}. Enqueueing in Outbox...`);
+        await OutboxService.getInstance().enqueue({
+            type: 'FUNCTION_INVOKE',
+            name: functionName,
+            payload: payload
         });
     }
 
-    return supabase.functions.invoke('update_ride_status', {
-        body: {
-            ride_id: rideId,
-            status: status,
-            driver_lat: driverLat,
-            driver_lng: driverLng
-        }
-    });
+    return { data, error };
 }

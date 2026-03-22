@@ -158,7 +158,7 @@ export function WalletScreen({ navigation }: any) {
         : 'rgba(16,185,129,0.25)';
     const heroStatusColor = isOwed ? C.red : C.green;
     const heroStatusLabel = isOwed
-        ? `You owe the platform  ${(Math.abs(balance || 0) * 0.19 / (0.81 || 1)).toFixed(0)} TTD (19% cut)`
+        ? `You owe the platform TTD ${(Math.abs(balance || 0) * 0.19 / 0.81).toFixed(0)} (19% cut)`
         : 'Balance all clear ✓';
 
     return (

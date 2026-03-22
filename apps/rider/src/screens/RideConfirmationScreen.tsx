@@ -1,352 +1,402 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    View,
-    StyleSheet,
-    TouchableOpacity,
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    Dimensions,
+    View, StyleSheet, TouchableOpacity, ActivityIndicator,
+    Alert, ScrollView, Dimensions, Platform
 } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
-import { Location as LocationType, FareEstimate } from '../types/ride';
-import { estimateFare, createRide, formatCurrency, getWalletBalance } from '../services/api';
-import { DEFAULT_LOCATION } from '../../../../shared/env';
-import { tokens } from '../design-system/tokens';
-import { Txt, Card, Btn, Surface } from '../design-system/primitives';
-import { VehicleSelection, VehicleType } from '../components/VehicleSelection';
-import { PaymentSelector, PaymentMethod } from '../components/PaymentSelector';
+import { Ionicons } from '@expo/vector-icons';
+import { ENV } from '../../../../shared/env';
+import { estimateFare, createRide, getWalletBalance } from '../services/api';
+import { supabase } from '../../../../shared/supabase';
+import { Txt, Card, Surface } from '../design-system/primitives';
 
-const { width } = Dimensions.get('window');
-
-// Reusing the Dark Map Style (could actally be centralized in config or tokens)
-const DARK_MAP_STYLE = [
-    { elementType: "geometry", stylers: [{ color: tokens.colors.background.base }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
-];
-
-interface RideConfirmationScreenProps {
-    navigation: any;
-    route: {
-        params: {
-            destination: LocationType;
-            pickup?: LocationType;
-        };
-    };
+interface StopSuggestion {
+    place_name: string;
+    place_address: string;
+    lat: number;
+    lng: number;
+    stop_type: string;
+    emoji: string;
+    estimated_wait_minutes: number;
+    is_preferred: boolean;
 }
 
-type LoadingState = 'loading' | 'success' | 'error';
+const { width, height } = Dimensions.get('window');
 
-export function RideConfirmationScreen({ navigation, route }: RideConfirmationScreenProps) {
+// ── Rider Design Tokens ──────────────────────────────────────────────────────
+const R = {
+    bg: '#07050F',
+    surface: '#110E22',
+    border: 'rgba(255,255,255,0.1)',
+    purple: '#7C3AED',
+    purpleLight: '#A78BFA',
+    gold: '#F59E0B',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.4)',
+};
+
+const VEHICLES = [
+    { type: 'Standard', multiplier: 1.0, icon: 'car-outline', desc: 'Affordable, everyday rides' },
+    { type: 'XL', multiplier: 1.5, icon: 'bus-outline', desc: '6 seats, extra room' },
+    { type: 'Premium', multiplier: 2.2, icon: 'star-outline', desc: 'Luxury high-end vehicles' },
+] as const;
+
+type VehicleType = (typeof VEHICLES)[number]['type'];
+
+export function RideConfirmationScreen({ navigation, route }: any) {
     const { destination, pickup } = route.params;
     const insets = useSafeAreaInsets();
     const mapRef = useRef<MapView>(null);
 
-    const pickupLocation = pickup || {
-        latitude: DEFAULT_LOCATION.latitude,
-        longitude: DEFAULT_LOCATION.longitude,
-        address: 'Current Location',
-    };
-
-    const [loadingState, setLoadingState] = useState<LoadingState>('loading');
-    const [fare, setFare] = useState<FareEstimate | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [fare, setFare] = useState<any>(null);
+    const [selectedType, setSelectedType] = useState<VehicleType>('Standard');
+    const [multiplier, setMultiplier] = useState(1.0);
     const [confirming, setConfirming] = useState(false);
-    const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('Standard');
-    const [priceMultiplier, setPriceMultiplier] = useState(1.0);
-    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
-    const [walletBalance, setWalletBalance] = useState<number | undefined>(undefined);
+    const [walletBalance, setWalletBalance] = useState<number>(0);
+
+    const [stopSuggestions, setStopSuggestions] = useState<StopSuggestion[]>([]);
+    const [selectedStops, setSelectedStops] = useState<StopSuggestion[]>([]);
+    const [stopsLoading, setStopsLoading] = useState(false);
+
+    const pickupLoc = pickup || { latitude: 10.66, longitude: -61.51, address: 'Current Location' };
 
     useEffect(() => {
-        fetchFare();
-        fetchBalance();
+        fetchData();
     }, []);
 
-    const fetchBalance = async () => {
-        const response = await getWalletBalance();
-        if (response.success && response.data !== null) {
-            setWalletBalance(response.data / 100);
-        }
-    };
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const [fareRes, balanceRes] = await Promise.all([
+                estimateFare({
+                    pickup_lat: pickupLoc.latitude,
+                    pickup_lng: pickupLoc.longitude,
+                    dropoff_lat: destination.latitude,
+                    dropoff_lng: destination.longitude,
+                }),
+                getWalletBalance()
+            ]);
 
-    const fetchFare = async () => {
-        setLoadingState('loading');
-        setError(null);
-        const response = await estimateFare({
-            pickup_lat: pickupLocation.latitude,
-            pickup_lng: pickupLocation.longitude,
-            dropoff_lat: destination.latitude,
-            dropoff_lng: destination.longitude,
-        });
+            if (fareRes.success) setFare(fareRes.data);
+            if (balanceRes.success) setWalletBalance(balanceRes.data || 0);
 
-        if (response.success && response.data) {
-            setFare(response.data);
-            setLoadingState('success');
-            // Fit map to markers
+            // Fetch stop suggestions
+            const { data: stopsRes } = await supabase.functions.invoke("suggest_stops", {
+                body: {
+                    pickup_lat: pickupLoc.latitude,
+                    pickup_lng: pickupLoc.longitude,
+                    dropoff_lat: destination.latitude,
+                    dropoff_lng: destination.longitude,
+                }
+            });
+            if (stopsRes?.success && stopsRes.data?.suggestions) {
+                setStopSuggestions(stopsRes.data.suggestions);
+            }
+
             setTimeout(() => {
-                mapRef.current?.fitToCoordinates([
-                    { latitude: pickupLocation.latitude, longitude: pickupLocation.longitude },
-                    { latitude: destination.latitude, longitude: destination.longitude },
-                ], {
-                    edgePadding: { top: 100, right: 50, bottom: 200, left: 50 },
+                mapRef.current?.fitToCoordinates([pickupLoc, destination], {
+                    edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
                     animated: true,
                 });
             }, 500);
-        } else {
-            setError(response.error || 'Failed to get estimate');
-            setLoadingState('error');
+        } catch (err) {
+            Alert.alert("Error", "Could not load ride details");
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleConfirmRide = async () => {
-        if (!fare) return;
-
-        // Wallet Balance Check
-        if (paymentMethod === 'wallet' && walletBalance !== undefined) {
-            const cost = (fare.total_fare_cents * priceMultiplier) / 100;
-            if (walletBalance < cost) {
-                Alert.alert('Insufficient Funds', 'Please top up your G-Coin wallet or select another payment method.');
-                return;
-            }
-        }
-
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setConfirming(true);
-
-        const response = await createRide({
-            pickup_lat: pickupLocation.latitude,
-            pickup_lng: pickupLocation.longitude,
-            pickup_address: pickupLocation.address || 'Current Location',
-            dropoff_lat: destination.latitude,
-            dropoff_lng: destination.longitude,
-            dropoff_address: destination.address || 'Unknown',
-            vehicle_type: selectedVehicle,
-            payment_method: paymentMethod,
-        });
-
-        setConfirming(false);
-
-        if (response.success && response.data) {
-            console.log('[RideConfirmation] Response:', response.data.status, response.data.driver ? 'Driver assigned!' : 'No driver yet');
-
-            // UBER-LIKE: If driver was assigned synchronously, go directly to ActiveRide
-            if (response.data.status === 'assigned' && response.data.driver) {
-                const driverData: any = response.data.driver;
-                const safeDriver = {
-                    ...driverData,
-                    id: driverData.id || '',
-                    phone: driverData.phone || '',
-                    photo_url: driverData.photo_url || ''
-                };
-                navigation.replace('ActiveRide', {
-                    destination,
-                    fare,
-                    driver: safeDriver,
-                    rideId: response.data.ride_id,
-                    paymentMethod,
-                });
+    const toggleStop = (stop: StopSuggestion) => {
+        setSelectedStops(prev => {
+            const isSelected = prev.some(s => s.place_name === stop.place_name);
+            if (isSelected) {
+                return prev.filter(s => s.place_name !== stop.place_name);
             } else {
-                // No driver available yet - go to searching screen with polling fallback
-                navigation.navigate('SearchingDriver', {
-                    rideId: response.data.ride_id,
+                return [...prev, stop];
+            }
+        });
+    };
+
+    const handleConfirm = async () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        setConfirming(true);
+        try {
+            const res = await createRide({
+                pickup_lat: pickupLoc.latitude,
+                pickup_lng: pickupLoc.longitude,
+                pickup_address: pickupLoc.address,
+                dropoff_lat: destination.latitude,
+                dropoff_lng: destination.longitude,
+                dropoff_address: destination.address,
+                vehicle_type: selectedType,
+                payment_method: 'cash', // Default for now
+                stops: selectedStops.map((s, i) => ({
+                    stop_order: i + 1,
+                    place_name: s.place_name,
+                    place_address: s.place_address,
+                    lat: s.lat,
+                    lng: s.lng,
+                    stop_type: s.stop_type,
+                    estimated_wait_minutes: s.estimated_wait_minutes,
+                })),
+            });
+
+            if (res.success && res.data) {
+                navigation.replace('SearchingDriver', {
+                    rideId: res.data.ride_id,
                     destination,
-                    fare,
-                    pickup: pickupLocation,
-                    paymentMethod
+                    fare: { ...fare, total_fare_cents: displayFareCents },
+                    pickup: pickupLoc
                 });
             }
-        } else {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            Alert.alert('Error', response.error || 'Failed to create ride');
+        } catch (err) {
+            Alert.alert("Error", "Failed to book ride");
+        } finally {
+            setConfirming(false);
         }
     };
+
+    // Calculate stop fees for real-time fare update
+    const STOP_CONVENIENCE_FEE_TTD = 5.00;
+    const WAIT_RATE_PER_MIN = 0.855; // $0.95 * 0.90
+
+    const stopsAddedCents = selectedStops.reduce((total, stop) => {
+        const waitFee = stop.estimated_wait_minutes * WAIT_RATE_PER_MIN * 100;
+        const convFee = STOP_CONVENIENCE_FEE_TTD * 100;
+        return total + waitFee + convFee;
+    }, 0);
+
+    const baseFareCents = fare ? fare.total_fare_cents * multiplier : 0;
+    const displayFareCents = baseFareCents + stopsAddedCents;
+    const finalFare = fare ? (displayFareCents / 100).toFixed(2) : '--';
 
     return (
-        <View style={styles.container}>
-            {/* 1. Map Layer */}
-            <MapView
-                ref={mapRef}
-                style={StyleSheet.absoluteFillObject}
-                customMapStyle={DARK_MAP_STYLE}
-                provider={PROVIDER_DEFAULT}
-                initialRegion={{
-                    latitude: pickupLocation.latitude,
-                    longitude: pickupLocation.longitude,
-                    latitudeDelta: 0.05,
-                    longitudeDelta: 0.05,
-                }}
-            >
-                <Marker coordinate={pickupLocation}>
-                    <View style={styles.uberMarkerDot} />
-                </Marker>
-                <Marker coordinate={destination}>
-                    <View style={styles.uberMarkerSquare} />
-                </Marker>
-            </MapView>
+        <View style={s.root}>
+            <StatusBar style="light" />
 
-            {/* Header Overlay */}
-            <View style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtnUber}>
-                    <Txt style={{ fontSize: 24, color: '#FFF' }}>←</Txt>
+            {/* Layout: Map at top 40% height */}
+            <View style={{ height: height * 0.4 }}>
+                <MapView
+                    ref={mapRef}
+                    style={StyleSheet.absoluteFillObject}
+                    provider={PROVIDER_DEFAULT}
+                    userInterfaceStyle="dark"
+                >
+                    {ENV.MAPBOX_PUBLIC_TOKEN && (
+                        <UrlTile
+                            urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
+                            shouldReplaceMapContent={true}
+                        />
+                    )}
+                    <Marker coordinate={pickupLoc}><View style={s.dot} /></Marker>
+                    <Marker coordinate={destination}><View style={s.square} /></Marker>
+                </MapView>
+
+                <TouchableOpacity
+                    style={[s.backBtn, { top: insets.top + 10 }]}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
             </View>
 
-            {/* Bottom Sheet (Uber Style) */}
-            <View style={styles.bottomSheetUber}>
-                <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 20 }} showsVerticalScrollIndicator={false}>
-                    <View style={styles.sheetHandleUber} />
+            {/* Bottom 60% is a large BlurView white-tint glass panel */}
+            <BlurView tint="dark" intensity={90} style={s.panel}>
+                <View style={s.handle} />
 
-                    {loadingState === 'loading' && (
-                        <View style={{ padding: 40, alignItems: 'center' }}>
-                            <ActivityIndicator color="#276EF1" />
-                            <Txt style={{ marginTop: 16 }}>Finding the best ride...</Txt>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
+
+                    {/* Route display: Pickup (circle) and Destination (square) rows */}
+                    <View style={s.routeBox}>
+                        <View style={s.routeRow}>
+                            <View style={[s.dotSmall, { backgroundColor: R.purple }]} />
+                            <Txt variant="bodyBold" color="#FFF" numberOfLines={1} style={{ flex: 1, marginLeft: 12 }}>
+                                {pickupLoc.address}
+                            </Txt>
                         </View>
-                    )}
-
-                    {loadingState === 'error' && (
-                        <View style={{ padding: 20, alignItems: 'center' }}>
-                            <Txt color={tokens.colors.status.error}>{error}</Txt>
-                            <Btn title="Retry" onPress={fetchFare} variant="primary" style={{ marginTop: 10 }} />
+                        <View style={s.line} />
+                        <View style={s.routeRow}>
+                            <View style={[s.squareSmall, { backgroundColor: R.gold }]} />
+                            <Txt variant="bodyBold" color="#FFF" numberOfLines={1} style={{ flex: 1, marginLeft: 12 }}>
+                                {destination.address}
+                            </Txt>
                         </View>
-                    )}
+                    </View>
 
+                    {/* BUG_FIX: Fix fare units — distance_meters / 1000 and duration_seconds / 60 */}
                     {fare && (
-                        <>
-                            {/* Route Stats */}
-                            <View style={styles.statsRow}>
-                                <View style={styles.statGroup}>
-                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>TIME</Txt>
-                                    <Txt variant="headingL" weight="heavy">{fare.duration_min} min</Txt>
-                                </View>
-                                <View style={styles.statDivider} />
-                                <View style={styles.statGroup}>
-                                    <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>DISTANCE</Txt>
-                                    <Txt variant="headingL" weight="heavy">{fare.distance_km} km</Txt>
-                                </View>
+                        <View style={s.statsRow}>
+                            <Txt variant="small" color={R.muted}>
+                                {(fare.distance_meters / 1000).toFixed(1)} km · {Math.round(fare.duration_seconds / 60)} mins
+                            </Txt>
+                        </View>
+                    )}
+
+                    {/* Vehicle selection: Horizontal ScrollView of cards */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.vehicleScroll} contentContainerStyle={{ paddingRight: 20 }}>
+                        {VEHICLES.map(v => (
+                            <TouchableOpacity
+                                key={v.type}
+                                style={[s.vehicleCard, selectedType === v.type && s.vehicleCardActive]}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.type); setMultiplier(v.multiplier); }}
+                            >
+                                <Ionicons name={v.icon as any} size={28} color={selectedType === v.type ? "#FFF" : R.muted} />
+                                <Txt variant="bodyBold" color={selectedType === v.type ? "#FFF" : R.white} style={{ marginTop: 8 }}>{v.type}</Txt>
+                                <Txt variant="small" color={selectedType === v.type ? "rgba(255,255,255,0.7)" : R.muted} style={{ marginTop: 2 }}>{v.multiplier}x</Txt>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+
+                    {/* STOPS SECTION - Fix 3 */}
+                    {stopSuggestions.length > 0 && (
+                        <View style={s.stopsSection}>
+                            <View style={s.stopsSectionHeader}>
+                                <Txt variant="caption" weight="bold" color={R.purpleLight}
+                                    style={{ letterSpacing: 0.8 }}>
+                                    STOPS ALONG YOUR ROUTE
+                                </Txt>
+                                <Txt variant="small" color={R.muted}>
+                                    {selectedStops.length > 0
+                                        ? `${selectedStops.length} selected`
+                                        : "Add stops to your trip"}
+                                </Txt>
                             </View>
 
-                            <View style={styles.dividerUber} />
+                            {stopSuggestions.map((stop, index) => {
+                                const isSelected = selectedStops.some(
+                                    s => s.place_name === stop.place_name
+                                );
+                                const addedCost = (
+                                    stop.estimated_wait_minutes * WAIT_RATE_PER_MIN +
+                                    STOP_CONVENIENCE_FEE_TTD
+                                ).toFixed(2);
 
-                            {/* Vehicle Selection */}
-                            <VehicleSelection
-                                basePrice={fare.total_fare_cents}
-                                selectedType={selectedVehicle}
-                                onSelect={(t, m) => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    setSelectedVehicle(t);
-                                    setPriceMultiplier(m);
-                                }}
-                            />
-
-                            {/* Payment Method Selector */}
-                            <PaymentSelector
-                                selected={paymentMethod}
-                                onSelect={setPaymentMethod}
-                                walletBalance={walletBalance}
-                                requiredAmount={fare ? (fare.total_fare_cents * priceMultiplier) / 100 : undefined}
-                            />
-
-                            <View style={{ height: 24 }} />
-
-                            <Btn
-                                title={confirming ? "Requesting..." : `Confirm ${selectedVehicle}`}
-                                onPress={handleConfirmRide}
-                                disabled={confirming}
-                                fullWidth
-                                variant="primary"
-                            />
-                        </>
+                                return (
+                                    <TouchableOpacity
+                                        key={index}
+                                        onPress={() => toggleStop(stop)}
+                                        activeOpacity={0.75}
+                                        style={{ marginBottom: 10 }}
+                                    >
+                                        <Card
+                                            intensity={isSelected ? 40 : 15}
+                                            style={[
+                                                { flexDirection: 'row', alignItems: 'center' },
+                                                isSelected && { borderColor: R.purple, borderWidth: 1 }
+                                            ]}
+                                        >
+                                            <View style={s.stopIconWrap}>
+                                                <Txt variant="bodyReg" style={{ fontSize: 20 }}>
+                                                    {stop.emoji}
+                                                </Txt>
+                                            </View>
+                                            <View style={{ flex: 1, marginLeft: 12 }}>
+                                                <Txt variant="bodyBold" color={R.white}>
+                                                    {stop.place_name}
+                                                </Txt>
+                                                <Txt variant="small" color={R.muted} style={{ marginTop: 2 }}>
+                                                    {stop.stop_type} · ~{stop.estimated_wait_minutes} min wait
+                                                </Txt>
+                                            </View>
+                                            <Txt variant="bodyBold"
+                                                color={isSelected ? R.gold : R.muted}>
+                                                +${addedCost}
+                                            </Txt>
+                                        </Card>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </View>
                     )}
+
+                    <View style={s.fareSection}>
+                        <Txt variant="headingL" weight="heavy" color={R.gold}>${finalFare}</Txt>
+                        <Txt variant="small" color={R.muted}>Estimated total</Txt>
+                    </View>
+
+                    {/* Confirm button: Large gradient button at bottom */}
+                    <TouchableOpacity
+                        style={[s.confirmBtn, confirming && { opacity: 0.7 }]}
+                        onPress={handleConfirm}
+                        disabled={confirming}
+                    >
+                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                            {confirming ? <ActivityIndicator color="#FFF" /> : (
+                                <Txt variant="headingM" weight="bold" color="#FFF">
+                                    Confirm {selectedType}{selectedStops.length > 0 ? ` + ${selectedStops.length} Stop${selectedStops.length > 1 ? "s" : ""}` : ""}
+                                </Txt>
+                            )}
+                        </LinearGradient>
+                    </TouchableOpacity>
+
                 </ScrollView>
-            </View>
+            </BlurView>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#000',
-    },
-    header: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        paddingHorizontal: 20,
-        zIndex: 10,
-    },
-    backBtnUber: {
-        marginTop: 10,
-        width: 44,
-        height: 44,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        borderRadius: 22,
-    },
-    uberMarkerDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: '#FFF',
-        borderWidth: 2,
-        borderColor: '#000',
-    },
-    uberMarkerSquare: {
-        width: 12,
-        height: 12,
-        backgroundColor: '#000',
-        borderWidth: 2,
-        borderColor: '#FFF',
-    },
-    bottomSheetUber: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: '#05050A',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-    },
-    sheetHandleUber: {
-        width: 40,
-        height: 4,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 2,
-        alignSelf: 'center',
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: R.bg },
+    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+    dot: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFF', borderWidth: 3, borderColor: R.purple },
+    square: { width: 14, height: 14, backgroundColor: '#FFF', borderWidth: 3, borderColor: R.gold },
+
+    panel: { flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', paddingHorizontal: 24, paddingVertical: 12 },
+    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'center', marginBottom: 20 },
+
+    routeBox: { marginBottom: 16 },
+    routeRow: { flexDirection: 'row', alignItems: 'center', height: 40 },
+    dotSmall: { width: 8, height: 8, borderRadius: 4 },
+    squareSmall: { width: 8, height: 8 },
+    line: { width: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.1)', marginLeft: 3.5 },
+
+    statsRow: { marginBottom: 24 },
+
+    vehicleScroll: { marginHorizontal: -24, paddingLeft: 24, marginBottom: 32 },
+    vehicleCard: { width: 110, height: 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, marginRight: 12, padding: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: R.border },
+    vehicleCardActive: { backgroundColor: R.purple, borderColor: R.purpleLight },
+
+    fareSection: { alignItems: 'center', marginBottom: 24 },
+    confirmBtn: { height: 64, borderRadius: 32, overflow: 'hidden' },
+    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+    stopsSection: {
         marginBottom: 20,
     },
-    statsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 10,
-        marginBottom: 20,
+    stopsSectionHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 10,
     },
-    statGroup: {
-        flex: 1,
-        alignItems: 'center',
+    stopCard: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderWidth: 1.5,
+        borderColor: R.border,
+        borderRadius: 16,
+        padding: 14,
+        marginBottom: 10,
     },
-    statDivider: {
-        width: 1,
-        height: 30,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+    stopCardSelected: {
+        borderColor: R.purple,
+        backgroundColor: 'rgba(124, 58, 237, 0.1)',
     },
-    dividerUber: {
-        height: 1,
+    stopIconWrap: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
         backgroundColor: 'rgba(255,255,255,0.05)',
-        marginBottom: 20,
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
     },
 });

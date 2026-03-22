@@ -93,7 +93,7 @@ function VehicleCard({ vehicle, selected, onPress }: VehicleCardProps) {
         borderColor: 'rgba(255,255,255,0.05)'
     };
 
-    const glowStyle = selected ? tokens.elevation.glowM : {};
+    const glowStyle = selected ? tokens.elevation.glow : {};
 
     return (
         <TouchableOpacity

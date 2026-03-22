@@ -27,8 +27,8 @@ export interface Ride {
 }
 
 export interface FareEstimate {
-    distance_km: number;
-    duration_min: number;
+    distance_meters: number;
+    duration_seconds: number;
     total_fare_cents: number;
     route_polyline?: string;
 }

@@ -93,8 +93,14 @@ serve(async (req: Request) => {
         }
 
         // ── Authorization ─────────────────────────────────────────────────────
+        const { data: driverRecord } = await supabaseAdmin
+            .from('drivers')
+            .select('id')
+            .eq('user_id', userId)
+            .maybeSingle();
+
         const isRider = ride.rider_id === userId;
-        const isDriver = ride.driver_id === userId;
+        const isDriver = driverRecord ? ride.driver_id === driverRecord.id : false;
 
         if (!isRider && !isDriver) {
             return new Response(

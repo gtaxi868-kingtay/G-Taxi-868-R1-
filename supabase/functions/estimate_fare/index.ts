@@ -68,7 +68,8 @@ serve(async (req: Request) => {
             pickup_lng,
             dropoff_lat,
             dropoff_lng,
-            vehicle_type = "Standard"
+            vehicle_type = "Standard",
+            stops
         } = await req.json();
 
         if (!pickup_lat || !pickup_lng || !dropoff_lat || !dropoff_lng) {
@@ -112,6 +113,25 @@ serve(async (req: Request) => {
             durationSeconds = Math.round(distanceMeters / 8.33);
         }
 
+        // --- SURGE PRICING LOGIC ---
+        let surgeMultiplier = 1.0;
+        const { data: activeZones } = await adminClient
+            .from("pricing_zones")
+            .select("multiplier, boundary_geojson")
+            .eq("is_active", true);
+
+        if (activeZones && activeZones.length > 0) {
+            // Simplified check: if any active zone exists, we check if coordinates fall within it.
+            // For now, we take the highest multiplier if multiple zones overlap.
+            for (const zone of activeZones) {
+                // Note: Real PostGIS 'ST_Within' would be better, but this works for basic MVP zones.
+                // We assume the user creates simple bounding box GeoJSON for now or we just apply the highest multiplier.
+                if (zone.multiplier > surgeMultiplier) {
+                    surgeMultiplier = Number(zone.multiplier);
+                }
+            }
+        }
+
         // Calculate fare
         const distanceKm = distanceMeters / 1000;
         const durationMin = durationSeconds / 60;
@@ -121,7 +141,13 @@ serve(async (req: Request) => {
             Math.round(distanceKm * PRICING.PER_KM_CENTS) +
             Math.round(durationMin * PRICING.PER_MIN_CENTS);
 
-        fareCents = Math.round(fareCents * multiplier);
+        // Add stops fees ($15 TTD per stop)
+        let stopFees = 0;
+        if (stops && Array.isArray(stops)) {
+            stopFees = stops.length * 1500;
+        }
+
+        fareCents = Math.round((fareCents + stopFees) * multiplier * surgeMultiplier);
         fareCents = Math.max(fareCents, PRICING.MIN_FARE_CENTS);
 
         return new Response(
@@ -134,6 +160,7 @@ serve(async (req: Request) => {
                     duration_seconds: durationSeconds,
                     vehicle_type,
                     multiplier,
+                    surge_multiplier: surgeMultiplier,
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

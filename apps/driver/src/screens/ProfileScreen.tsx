@@ -1,320 +1,277 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+    View, StyleSheet, TouchableOpacity, ScrollView,
+    ActivityIndicator, Alert, TextInput, Dimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { tokens } from '../design-system/tokens';
-import { Txt, Surface } from '../design-system/primitives';
+import * as Haptics from 'expo-haptics';
+import Reanimated, {
+    useSharedValue, withSpring, withTiming,
+    useAnimatedStyle,
+} from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../../../../shared/supabase';
+import { Txt } from '../design-system/primitives';
 
-interface DriverProfile {
-    name: string;
-    vehicle_model: string;
-    plate_number: string;
-    vehicle_type: string;
-    lifetime_trips: number;
-    lifetime_earnings: number;
-    cancellation_count: number;
+const { width } = Dimensions.get('window');
+
+// ── Driver-only tokens ────────────────────────────────────────────────────────
+const C = {
+    bg: '#07050F',
+    surface: '#110E22',
+    surfaceHigh: '#1A1530',
+    border: 'rgba(139,92,246,0.15)',
+    purple: '#7C3AED',
+    purpleLight: '#A78BFA',
+    purpleDim: 'rgba(124,58,237,0.18)',
+    gold: '#F59E0B',
+    green: '#10B981',
+    red: '#EF4444',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.45)',
+};
+
+interface ProfileStats {
+    trips_today: number;
+    total_trips: number;
+    member_since: string;
 }
 
 export function ProfileScreen({ navigation }: any) {
-    const { driver, signOut } = useAuth();
-    const [profile, setProfile] = useState<DriverProfile | null>(null);
+    const insets = useSafeAreaInsets();
+    const { driver, user, signOut } = useAuth();
+
+    const [stats, setStats] = useState<ProfileStats>({ trips_today: 0, total_trips: 0, member_since: '...' });
     const [loading, setLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editModel, setEditModel] = useState('');
+    const [editPlate, setEditPlate] = useState('');
+    const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        if (!driver?.id) return;
+    const loadProfileData = useCallback(async () => {
+        if (!driver?.id || !user?.id) return;
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-        const loadProfileData = async () => {
-            try {
-                // 1. Fetch Vehicle Data from drivers table
-                const { data: driverData } = await supabase
-                    .from('drivers')
-                    .select('name, vehicle_model, plate_number, vehicle_type')
-                    .eq('id', driver.id)
-                    .single();
+            const [
+                { data: driverData },
+                { data: tripsTodayData },
+                { data: totalTripsData },
+                { data: userData }
+            ] = await Promise.all([
+                supabase.from('drivers').select('*').eq('user_id', user.id).single(),
+                supabase.from('rides').select('id', { count: 'exact' }).eq('driver_id', driver.id).eq('status', 'completed').gte('created_at', today.toISOString()),
+                supabase.from('rides').select('id', { count: 'exact' }).eq('driver_id', driver.id).eq('status', 'completed'),
+                supabase.from('profiles').select('created_at').eq('id', user.id).single()
+            ]);
 
-                // 2. Fetch Lifetime metrics from rides table
-                const { data: ridesData } = await supabase
-                    .from('rides')
-                    .select('total_fare_cents')
-                    .eq('driver_id', driver.id)
-                    .eq('status', 'completed');
+            setStats({
+                trips_today: tripsTodayData?.length || 0,
+                total_trips: totalTripsData?.length || 0,
+                member_since: userData?.created_at ? new Date(userData.created_at).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '...'
+            });
 
-                // 3. Fetch Cancellation count from profiles
-                const { data: profileData } = await supabase
-                    .from('profiles')
-                    .select('cancellation_count')
-                    .eq('id', driver.id)
-                    .single();
+            setEditModel(driverData?.vehicle_model || driver.vehicle_model || '');
+            setEditPlate(driverData?.plate_number || driver.plate_number || '');
+        } catch (err) {
+            console.error("Error loading profile:", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [driver?.id, user?.id]);
 
-                const totalTrips = ridesData ? ridesData.length : 0;
-                // Driver keeps 85%
-                const totalEarningsCents = ridesData ? ridesData.reduce((acc, r) => acc + (r.total_fare_cents || 0), 0) * 0.85 : 0;
-
-                setProfile({
-                    name: driverData?.name || driver.name || 'Driver',
-                    vehicle_model: driverData?.vehicle_model || 'Unknown Model',
-                    plate_number: driverData?.plate_number || 'UNKNOWN',
-                    vehicle_type: driverData?.vehicle_type || 'STANDARD',
-                    lifetime_trips: totalTrips,
-                    lifetime_earnings: totalEarningsCents / 100,
-                    cancellation_count: profileData?.cancellation_count || 0
-                });
-            } catch (err) {
-                console.error("Error loading profile:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadProfileData();
-    }, [driver?.id]);
+    useEffect(() => { loadProfileData(); }, [loadProfileData]);
 
     const handleLogout = () => {
-        Alert.alert(
-            'Log Out',
-            'Are you sure you want to log out?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Log Out',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await signOut();
-                        // AuthContext will handle state change -> navigation reset
-                    },
-                },
-            ]
-        );
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        Alert.alert('Log Out', 'Are you sure you want to log out?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Log Out', style: 'destructive', onPress: async () => { await signOut(); } }
+        ]);
     };
 
+    const handleSave = async () => {
+        if (!editModel.trim() || !editPlate.trim()) return;
+        setSaving(true);
+        const { error } = await supabase.from('drivers').update({ vehicle_model: editModel, plate_number: editPlate }).eq('user_id', user?.id);
+        setSaving(false);
+        if (!error) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setIsEditing(false);
+        }
+    };
+
+    if (loading) return <View style={[s.root, s.center]}><ActivityIndicator color={C.purple} /></View>;
+
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={s.root}>
             <StatusBar style="light" />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Surface style={styles.backSurface} intensity={40}>
-                        <Txt variant="bodyBold" color={tokens.colors.text.primary}>← Back</Txt>
-                    </Surface>
+            {/* HEADER: [← back] | ["Profile" centered] | [spacer] */}
+            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 8 }]}>
+                <TouchableOpacity
+                    style={s.headerBtn}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }}
+                >
+                    <Ionicons name="chevron-back" size={22} color={C.white} />
                 </TouchableOpacity>
-                <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary}>Profile</Txt>
-                <View style={{ width: 60 }} />
-            </View>
+                <Txt variant="headingM" weight="bold" color={C.white}>Profile</Txt>
+                <View style={s.headerBtn} pointerEvents="none" />
+            </BlurView>
 
-            {loading ? (
-                <View style={styles.loader}>
-                    <ActivityIndicator size="large" color={tokens.colors.primary.purple} />
-                </View>
-            ) : (
-                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-                    {/* Identity Card */}
-                    <View style={styles.identitySection}>
-                        <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(0, 200, 150, 0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: tokens.colors.primary.purple }}>
-                            <Txt variant="displayXL" weight="bold" color={tokens.colors.primary.purple}>
-                                {profile?.name?.charAt(0)?.toUpperCase() || 'D'}
-                            </Txt>
-                        </View>
-                        <Txt variant="headingL" weight="bold" color={tokens.colors.text.primary} style={{ marginTop: 16 }}>
-                            {profile?.name}
+            <ScrollView contentContainerStyle={{ paddingTop: insets.top + 80, paddingHorizontal: 20 }}>
+                {/* AVATAR: 80x80 circle, purple gradient bg, driver name initial large white */}
+                <View style={s.identity}>
+                    <LinearGradient colors={[C.purple, '#4C1D95']} style={s.avatar}>
+                        <Txt variant="headingL" weight="bold" color={C.white}>
+                            {driver?.name?.charAt(0).toUpperCase()}
                         </Txt>
-                        <View style={styles.ratingBadge}>
-                            <Txt variant="bodyBold" weight="bold" color={tokens.colors.background.base}>★ 5.00</Txt>
-                        </View>
-                    </View>
+                    </LinearGradient>
 
-                    {/* Operational Metrics */}
-                    <View style={styles.metricsGrid}>
-                        <Surface style={styles.metricCard} intensity={20}>
-                            <Txt variant="headingL" weight="bold" color={tokens.colors.primary.cyan}>
-                                {profile?.lifetime_trips}
-                            </Txt>
-                            <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>
-                                LIFETIME TRIPS
-                            </Txt>
-                        </Surface>
-
-                        <Surface style={styles.metricCard} intensity={20}>
-                            <Txt variant="headingL" weight="bold" color={tokens.colors.primary.purple}>
-                                ${profile?.lifetime_earnings.toFixed(2)}
-                            </Txt>
-                            <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>
-                                TOTAL EARNED
-                            </Txt>
-                        </Surface>
-                    </View>
-
-                    <Surface style={[styles.metricCard, { marginTop: 16 }]} intensity={20}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                            <Txt variant="bodyBold" color={tokens.colors.text.primary}>Cancellation Rate</Txt>
-                            <Txt variant="headingM" weight="bold" color={profile && profile.cancellation_count > 5 ? tokens.colors.status.error : tokens.colors.status.success}>
-                                {profile?.cancellation_count} Faults
-                            </Txt>
-                        </View>
-                    </Surface>
-
-                    {/* Vehicle Details */}
-                    <Txt variant="bodyBold" color={tokens.colors.text.secondary} style={styles.sectionTitle}>
-                        REGISTERED VEHICLE
+                    {/* NAME: bold 24px below avatar | vehicle_model + plate_number caption below */}
+                    <Txt variant="headingL" weight="bold" color={C.white} style={{ marginTop: 16, fontSize: 24 }}>
+                        {driver?.name}
+                    </Txt>
+                    <Txt variant="bodyReg" color={C.muted} style={{ marginTop: 4 }}>
+                        {driver?.vehicle_model} · {driver?.plate_number}
                     </Txt>
 
-                    <Surface style={styles.vehicleCard} intensity={25}>
-                        <View style={styles.vehicleRow}>
-                            <Txt variant="caption" color={tokens.colors.text.tertiary}>MODEL</Txt>
-                            <Txt variant="bodyBold" color={tokens.colors.text.primary}>{profile?.vehicle_model}</Txt>
-                        </View>
-                        <View style={styles.divider} />
-                        <View style={styles.vehicleRow}>
-                            <Txt variant="caption" color={tokens.colors.text.tertiary}>LICENSE PLATE</Txt>
-                            <View style={styles.plateBadge}>
-                                <Txt variant="headingM" weight="heavy" color="#000" style={{ letterSpacing: 2 }}>
-                                    {profile?.plate_number}
-                                </Txt>
-                            </View>
-                        </View>
-                        <View style={styles.divider} />
-                        <View style={styles.vehicleRow}>
-                            <Txt variant="caption" color={tokens.colors.text.tertiary}>CLASS</Txt>
-                            <View style={styles.classBadge}>
-                                <Txt variant="caption" weight="heavy" color={tokens.colors.primary.purple}>
-                                    {profile?.vehicle_type.toUpperCase()}
-                                </Txt>
-                            </View>
-                        </View>
-                    </Surface>
+                    {/* RATING: ⭐ + rating.toFixed(1) centered */}
+                    <View style={s.ratingBadge}>
+                        <Ionicons name="star" size={14} color={C.bg} />
+                        <Txt variant="bodyBold" color={C.bg} style={{ marginLeft: 4 }}>
+                            {(driver?.rating || 5.0).toFixed(1)}
+                        </Txt>
+                    </View>
+                </View>
 
-                    {/* Log Out Button */}
-                    <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-                        <Txt variant="bodyBold" color={tokens.colors.status.error}>Log Out</Txt>
+                {/* STATS ROW: trips today | total trips | member since date */}
+                <View style={s.statsRow}>
+                    <View style={s.statItem}>
+                        <Txt variant="headingM" weight="bold" color={C.white}>{stats.trips_today}</Txt>
+                        <Txt variant="caption" color={C.muted}>TRIPS TODAY</Txt>
+                    </View>
+                    <View style={s.statDivider} />
+                    <View style={s.statItem}>
+                        <Txt variant="headingM" weight="bold" color={C.white}>{stats.total_trips}</Txt>
+                        <Txt variant="caption" color={C.muted}>TOTAL TRIPS</Txt>
+                    </View>
+                    <View style={s.statDivider} />
+                    <View style={s.statItem}>
+                        <Txt variant="bodyBold" weight="bold" color={C.white}>{stats.member_since}</Txt>
+                        <Txt variant="caption" color={C.muted}>MEMBER SINCE</Txt>
+                    </View>
+                </View>
+
+                <View style={s.mainDivider} />
+
+                {/* KYC STATUS SECTION */}
+                <View style={s.kycCard}>
+                    <View style={s.rowIcon}>
+                        <Ionicons
+                            name={driver?.verified_status === 'approved' ? "shield-checkmark" : "shield-outline"}
+                            size={20}
+                            color={driver?.verified_status === 'approved' ? C.green : C.gold}
+                        />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 16 }}>
+                        <Txt variant="bodyBold" color={C.white}>Account Verification</Txt>
+                        <Txt variant="caption" color={driver?.verified_status === 'approved' ? C.green : C.muted}>
+                            {driver?.verified_status === 'approved' ? 'Profile Verified' :
+                                driver?.verified_status === 'pending' ? 'Review in progress' :
+                                    'Documents required'}
+                        </Txt>
+                    </View>
+                    <TouchableOpacity
+                        style={s.verifyBtn}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            Alert.alert("KYC Upload", "Document upload requires expo-image-picker. This will be enabled in the next update.");
+                        }}
+                    >
+                        <Txt variant="small" color={C.white}>Manage</Txt>
                     </TouchableOpacity>
+                </View>
 
-                    <View style={{ height: 40 }} />
-                </ScrollView>
-            )}
-        </SafeAreaView>
+                <View style={s.mainDivider} />
+
+                {/* EDIT PROFILE ROW with chevron → */}
+                <TouchableOpacity
+                    style={s.menuRow}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setIsEditing(!isEditing);
+                    }}
+                >
+                    <View style={s.rowIcon}>
+                        <Ionicons name="create-outline" size={20} color={C.purpleLight} />
+                    </View>
+                    <Txt variant="bodyBold" color={C.white} style={{ flex: 1, marginLeft: 16 }}>Edit Vehicle Details</Txt>
+                    <Ionicons name="chevron-forward" size={20} color={C.muted} />
+                </TouchableOpacity>
+
+                {isEditing && (
+                    <BlurView tint="dark" intensity={40} style={s.editCard}>
+                        <TextInput
+                            style={s.input}
+                            value={editModel}
+                            onChangeText={setEditModel}
+                            placeholder="Vehicle Model"
+                            placeholderTextColor={C.muted}
+                        />
+                        <TextInput
+                            style={[s.input, { marginTop: 12 }]}
+                            value={editPlate}
+                            onChangeText={t => setEditPlate(t.toUpperCase())}
+                            placeholder="License Plate"
+                            placeholderTextColor={C.muted}
+                        />
+                        <TouchableOpacity style={s.saveBtn} onPress={handleSave} disabled={saving}>
+                            {saving ? <ActivityIndicator color={C.white} /> : <Txt variant="bodyBold" color={C.white}>Update Vehicle</Txt>}
+                        </TouchableOpacity>
+                    </BlurView>
+                )}
+
+                <View style={s.mainDivider} />
+
+                {/* SIGN OUT BUTTON — red ghost at bottom */}
+                <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+                    <Txt variant="bodyBold" color={C.red}>Sign Out</Txt>
+                </TouchableOpacity>
+
+                <View style={{ height: insets.bottom + 40 }} />
+            </ScrollView>
+        </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: tokens.colors.background.base,
-    },
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1, borderColor: C.border,
     },
-    backBtn: {
-        shadowColor: tokens.colors.primary.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 8,
-    },
-    backSurface: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
-    },
-    loader: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    scrollContent: {
-        padding: 24,
-    },
-    identitySection: {
-        alignItems: 'center',
-        marginBottom: 32,
-    },
-    avatar: {
-        width: 96,
-        height: 96,
-        borderRadius: 48,
-        backgroundColor: tokens.colors.background.surface,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: tokens.colors.border.subtle,
-    },
-    ratingBadge: {
-        backgroundColor: tokens.colors.primary.cyan,
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderRadius: 20,
-        marginTop: 12,
-        shadowColor: tokens.colors.primary.cyan,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    metricsGrid: {
-        flexDirection: 'row',
-        gap: 16,
-    },
-    metricCard: {
-        flex: 1,
-        padding: 24,
-        borderRadius: 20,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-    },
-    sectionTitle: {
-        marginTop: 32,
-        marginBottom: 16,
-        letterSpacing: 1,
-    },
-    vehicleCard: {
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
-        paddingVertical: 8,
-    },
-    vehicleRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    plateBadge: {
-        backgroundColor: tokens.colors.status.warning,
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 8,
-    },
-    classBadge: {
-        backgroundColor: 'rgba(159, 85, 255, 0.15)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: tokens.colors.primary.purple,
-    },
-    logoutBtn: {
-        marginTop: 32,
-        paddingVertical: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 69, 58, 0.3)',
-        backgroundColor: 'rgba(255, 69, 58, 0.08)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+    headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+    identity: { alignItems: 'center', paddingVertical: 20 },
+    avatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', elevation: 10, shadowColor: C.purple, shadowRadius: 10, shadowOpacity: 0.3 },
+    ratingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.gold, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginTop: 14 },
+    statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 24, paddingHorizontal: 10 },
+    statItem: { alignItems: 'center', flex: 1 },
+    statDivider: { width: 1, height: 24, backgroundColor: 'rgba(255,255,255,0.1)' },
+    mainDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 8 },
+    menuRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 20 },
+    rowIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.purpleDim, alignItems: 'center', justifyContent: 'center' },
+    editCard: { padding: 20, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', marginBottom: 20 },
+    input: { height: 50, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 16, color: '#FFF' },
+    saveBtn: { height: 50, backgroundColor: C.purple, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+    kycCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 4 },
+    verifyBtn: { backgroundColor: C.surfaceHigh, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: C.border },
+    logoutBtn: { marginTop: 40, alignItems: 'center', paddingVertical: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)', backgroundColor: 'rgba(239,68,68,0.05)' },
 });

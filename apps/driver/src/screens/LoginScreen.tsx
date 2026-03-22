@@ -13,7 +13,7 @@ import Reanimated, {
     useAnimatedStyle,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 import { RegisterScreen } from './RegisterScreen';

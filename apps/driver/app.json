@@ -36,14 +36,23 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
-      ]
+        "FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyC2IzqWf_DUeWChHY8ZvJZMn419ZyiXGpI"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@sentry/react-native",
       [
         "expo-location",
         {
@@ -56,8 +65,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "4166f28b-b159-4592-88f1-88fbc6cff417"
+        "projectId": "773a954e-ad5e-44ed-8b1f-6d0eba9254cf"
       }
-    }
+    },
+    "owner": "king263tay"
   }
 }

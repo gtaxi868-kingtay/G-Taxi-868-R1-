@@ -67,116 +67,43 @@ serve(async (req: Request) => {
         const { data: previousOffers } = await supabaseAdmin.from("ride_offers").select("driver_id").eq("ride_id", ride_id);
         const excludedDriverIds = previousOffers?.map((o: any) => o.driver_id) || [];
 
-        // 2. TIER 1 FAMILIARITY: Query rider's past 5-star drivers
-        const { data: familiarRides } = await supabaseAdmin
-            .from("rides")
-            .select("driver_id")
-            .eq("rider_id", ride.rider_id)
-            .eq("rating", 5)
-            .not("driver_id", "is", null);
+        // NEW: Atomic, race-safe driver selection (Fix 1)
+        const { data: claimedDrivers, error: claimError } = await supabaseAdmin
+            .rpc("claim_available_driver", {
+                p_pickup_lat: ride.pickup_lat,
+                p_pickup_lng: ride.pickup_lng,
+                p_vehicle_type: ride.vehicle_type || "Any",
+                p_max_distance_km: 15
+            });
 
-        const familiarDriverIds = familiarRides?.map((r: any) => r.driver_id) || [];
-        const validFamiliarIds = [...new Set(familiarDriverIds)].filter(id => !excludedDriverIds.includes(id));
+        if (claimError || !claimedDrivers || claimedDrivers.length === 0) {
+            console.log("No drivers available/claimed via RPC. Moving to waiting_queue.");
+            await supabaseAdmin
+                .from("rides")
+                .update({ status: "waiting_queue" })
+                .eq("id", ride_id);
+            return new Response(
+                JSON.stringify({ success: false, error: "No drivers available", data: null }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
 
-        // 3. Find available live drivers
-        const { data: availableDrivers, error: driverError } = await supabaseAdmin
+        const selectedDriverSummary = claimedDrivers[0];
+        // The RPC returns driver_id, driver_name, etc. but we need push_token for later.
+        // We'll fetch the full record for the selected driver to get push_token.
+        const { data: selectedDriver } = await supabaseAdmin
             .from("drivers")
             .select("*")
-            .or("status.eq.available,status.eq.online,is_online.eq.true");
+            .eq("id", selectedDriverSummary.driver_id)
+            .single();
 
-        // PHASE 5: Cold Start Queueing
-        if (driverError || !availableDrivers || availableDrivers.length === 0) {
-            console.log("Phase 5 Queueing: No drivers online. Moving to waiting_queue.");
-            await supabaseAdmin.from("rides").update({ status: "waiting_queue" }).eq("id", ride_id);
-
-            // Trigger Admin Alert Webhook (Slack / Discord / Push)
-            const webhookUrl = Deno.env.get("ADMIN_WEBHOOK_URL");
-            if (webhookUrl) {
-                // Fire and forget - don't block the rider response
-                fetch(webhookUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        event: "ride_queued",
-                        ride_id,
-                        message: "URGENT: A rider is in the queue but no drivers are online! Go online now.",
-                        timestamp: new Date().toISOString()
-                    })
-                }).catch(e => console.error("Webhook failed:", e));
-            }
-
-            return new Response(JSON.stringify({ success: true, data: { status: "waiting_queue", message: "Queued" } }), { headers: corsHeaders });
+        if (!selectedDriver) {
+            console.error("Critical: Driver claimed via RPC but record not found:", selectedDriverSummary.driver_id);
+            return new Response(JSON.stringify({ success: false, error: "Internal error" }), { status: 500, headers: corsHeaders });
         }
 
-        // Exclude drivers who already declined or timed out
-        let candidateDrivers = availableDrivers.filter((d: any) => !excludedDriverIds.includes(d.id));
-
-        if (candidateDrivers.length === 0) {
-            return new Response(JSON.stringify({ success: false, error: "NO_DRIVERS" }), { status: 404, headers: corsHeaders });
-        }
-
-        // PHASE 8: The -$600 TTD Lockout Trapdoor
-        // Fetch wallet balances via RPC to ensure consistency with all other balance checks
-        const candidateIds = candidateDrivers.map((d: any) => d.id);
-        const walletMap: Record<string, number> = {};
-
-        // Fetch balances in parallel for all candidates
-        await Promise.all(candidateIds.map(async (driverId: string) => {
-            const { data: bal } = await supabaseAdmin.rpc("get_wallet_balance", { p_user_id: driverId });
-            walletMap[driverId] = bal || 0;
-        }));
-
-        // Lockout drivers with balance <= -60000 cents (-600 TTD)
-        candidateDrivers = candidateDrivers.filter((d: any) => {
-            const bal = walletMap[d.id] || 0;
-            if (bal <= -60000) {
-                console.log(`Driver ${d.id} locked out due to debt: ${bal} cents`);
-                return false;
-            }
-            return true;
-        });
-
-        if (candidateDrivers.length === 0) {
-            return new Response(JSON.stringify({ success: false, error: "NO_DRIVERS" }), { status: 404, headers: corsHeaders });
-        }
-
-        // Haversine distance calculator
-        function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-            const R = 6371e3;
-            const f1 = lat1 * Math.PI / 180;
-            const f2 = lat2 * Math.PI / 180;
-            const df = (lat2 - lat1) * Math.PI / 180;
-            const dl = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(df / 2) * Math.sin(df / 2) + Math.cos(f1) * Math.cos(f2) * Math.sin(dl / 2) * Math.sin(dl / 2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        }
-
-        candidateDrivers = candidateDrivers.map((d: any) => {
-            const lat = d.lat || d.current_lat || d.latitude || 0;
-            const lng = d.lng || d.current_lng || d.longitude || 0;
-            return { ...d, _distance: getDistanceMeters(ride.pickup_lat, ride.pickup_lng, lat, lng) };
-        });
-
-        // Drop candidates > 15km away
-        candidateDrivers = candidateDrivers.filter((d: any) => d._distance < 15000);
-
-        if (candidateDrivers.length === 0) {
-            return new Response(JSON.stringify({ success: false, error: "NO_DRIVERS_NEARBY" }), { status: 404, headers: corsHeaders });
-        }
-
-        // Sort Tiers
-        const familiarCandidates = candidateDrivers.filter((d: any) => validFamiliarIds.includes(d.id));
-        let selectedDriver = null;
-
-        if (familiarCandidates.length > 0) {
-            familiarCandidates.sort((a: any, b: any) => a._distance - b._distance);
-            selectedDriver = familiarCandidates[0];
-            console.log("Tier 1: Familiarity Match - Dispatching to", selectedDriver.id);
-        } else {
-            candidateDrivers.sort((a: any, b: any) => a._distance - b._distance);
-            selectedDriver = candidateDrivers[0];
-            console.log("Tier 2: Proximity Match - Dispatching to", selectedDriver.id);
-        }
+        // Append distance for the offer insertion below
+        selectedDriver._distance = selectedDriverSummary.distance_km * 1000;
 
         // Create Time-Limited Ride Offer (15 seconds)
         const expiresAt = new Date(Date.now() + 15 * 1000).toISOString();

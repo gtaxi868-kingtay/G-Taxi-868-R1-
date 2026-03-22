@@ -111,10 +111,11 @@ serve(async (req: Request) => {
             vehicle_type = "Standard",
             // payment_method = "cash", // Removed default to respect body
             payment_method, // use body value
-            scheduled_for
+            scheduled_for,
+            stops = [] // New: stops array (Fix 3)
         } = body;
 
-        log("INFO", "Request from verified user", { requestId, rider_id, vehicle_type, payment_method });
+        log("INFO", "Request from verified user", { requestId, rider_id, vehicle_type, payment_method, stops_count: stops.length });
 
         if (!pickup_lat || !pickup_lng || !dropoff_lat || !dropoff_lng) {
             log("ERROR", "Missing coordinates", { requestId, rider_id });
@@ -187,6 +188,20 @@ serve(async (req: Request) => {
             Math.round(durationMin * PRICING.PER_MIN_CENTS);
 
         fareCents = Math.round(fareCents * multiplier);
+
+        // Add Multi-Stop Fees (Fix 3)
+        const STOP_CONVENIENCE_FEE_CENTS = 500; // $5.00 TTD
+        const WAIT_RATE_PER_MIN_CENTS = 85.5; // $0.855 TTD
+
+        let stopsFeeCents = 0;
+        if (stops && stops.length > 0) {
+            stopsFeeCents = stops.reduce((total: number, stop: any) => {
+                const waitFee = Math.round((stop.estimated_wait_minutes || 10) * WAIT_RATE_PER_MIN_CENTS);
+                return total + STOP_CONVENIENCE_FEE_CENTS + waitFee;
+            }, 0);
+        }
+
+        fareCents += stopsFeeCents;
         fareCents = Math.max(fareCents, PRICING.MIN_FARE_CENTS);
 
         // 6.5. PHASE 8: RIDER DEBT LOCK & Payment Reserve Check
@@ -261,6 +276,30 @@ serve(async (req: Request) => {
                 JSON.stringify({ success: false, error: "Failed to create ride: " + insertError.message, data: null }),
                 { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
+        }
+
+        // 8. Insert Ride Stops (Fix 3)
+        if (stops && stops.length > 0) {
+            const stopsData = stops.map((s: any, i: number) => ({
+                ride_id: newRide.id,
+                stop_order: i + 1,
+                place_name: s.place_name,
+                place_address: s.place_address,
+                lat: s.lat,
+                lng: s.lng,
+                stop_type: s.stop_type,
+                estimated_wait_minutes: s.estimated_wait_minutes || 10,
+                status: 'pending'
+            }));
+
+            const { error: stopsError } = await adminClient
+                .from("ride_stops")
+                .insert(stopsData);
+
+            if (stopsError) {
+                console.error("Failed to insert stops (non-fatal for ride creation):", stopsError);
+                // We logic this as non-fatal but record it.
+            }
         }
 
         console.log("Ride created:", newRide.id);

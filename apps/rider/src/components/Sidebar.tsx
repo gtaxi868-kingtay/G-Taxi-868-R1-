@@ -1,22 +1,29 @@
 import React, { useEffect, useRef } from 'react';
 import {
-    Image,
-    View,
-    StyleSheet,
-    TouchableOpacity,
-    Animated,
-    Dimensions,
-    Pressable,
-    SafeAreaView,
+    Image, View, StyleSheet, TouchableOpacity,
+    Animated, Dimensions, Pressable, Alert
 } from 'react-native';
-import { tokens } from '../design-system/tokens';
-import { Txt, Surface, Card } from '../design-system/primitives';
-import { supabase } from '../../../../shared/supabase'; // Import Supabase directly for logout
-import { Alert } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../../../shared/supabase';
+import { Txt } from '../design-system/primitives';
 
 const { width, height } = Dimensions.get('window');
-const SIDEBAR_WIDTH = width * 0.75;
+const SIDEBAR_WIDTH = width * 0.8;
+
+// ── Rider Design Tokens ──────────────────────────────────────────────────────
+const R = {
+    bg: '#07050F',
+    surface: '#110E22',
+    border: 'rgba(255,255,255,0.08)',
+    purple: '#7C3AED',
+    purpleLight: '#A78BFA',
+    gold: '#F59E0B',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.4)',
+};
 
 interface SidebarProps {
     visible: boolean;
@@ -35,216 +42,125 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
     useEffect(() => {
         if (visible) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             Animated.parallel([
-                Animated.timing(slideAnim, {
-                    toValue: 0,
-                    duration: 300,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(fadeAnim, {
-                    toValue: 1,
-                    duration: 300,
-                    useNativeDriver: true,
-                }),
+                Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
+                Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
             ]).start();
         } else {
             Animated.parallel([
-                Animated.timing(slideAnim, {
-                    toValue: -SIDEBAR_WIDTH,
-                    duration: 250,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(fadeAnim, {
-                    toValue: 0,
-                    duration: 250,
-                    useNativeDriver: true,
-                }),
+                Animated.timing(slideAnim, { toValue: -SIDEBAR_WIDTH, duration: 250, useNativeDriver: true }),
+                Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
             ]).start();
         }
     }, [visible]);
 
-    // Simplified render logic to avoid private property access
     if (!visible) return null;
 
+    const navigateTo = (screen: string) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onClose();
+        navigation.navigate(screen);
+    };
+
+    const handleLogout = () => {
+        Alert.alert("Log Out", "Are you sure you want to log out?", [
+            { text: "Cancel", style: "cancel" },
+            {
+                text: "Log Out",
+                style: "destructive",
+                onPress: async () => {
+                    await supabase.auth.signOut();
+                    onClose();
+                }
+            }
+        ]);
+    };
+
     return (
-        <View style={[styles.overlay, !visible && { pointerEvents: 'none' }]}>
-            {/* Backdrop */}
-            <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]}>
+        <View style={s.overlay}>
+            <Animated.View style={[s.backdrop, { opacity: fadeAnim }]}>
                 <Pressable style={{ flex: 1 }} onPress={onClose} />
             </Animated.View>
 
-            {/* Sidebar Panel */}
-            <Animated.View style={[styles.panel, { transform: [{ translateX: slideAnim }] }]}>
-                <Surface style={{ flex: 1, overflow: 'hidden' }} intensity={10} noBorder>
-                    <SafeAreaView style={{ flex: 1 }}>
+            <Animated.View style={[s.panel, { transform: [{ translateX: slideAnim }] }]}>
+                <BlurView tint="dark" intensity={100} style={s.blur}>
 
-                        {/* 1. Header: Profile */}
-                        <TouchableOpacity
-                            style={styles.header}
-                            onPress={() => {
-                                onClose();
-                                navigation.navigate('Profile');
-                            }}
-                            activeOpacity={0.8}
-                        >
-                            <View style={styles.avatarRow}>
-                                <View style={styles.avatarContainer}>
-                                    <View style={styles.avatarPlaceholder} />
-                                    {user?.photo_url ? (
-                                        <Image source={{ uri: user.photo_url }} style={{ width: 56, height: 56, borderRadius: 28 }} />
-                                    ) : (
-                                        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0, 200, 150, 0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: tokens.colors.primary.purple }}>
-                                            <Txt variant="headingM" weight="bold" color={tokens.colors.primary.purple}>
-                                                {user?.name?.charAt(0)?.toUpperCase() || 'R'}
-                                            </Txt>
-                                        </View>
-                                    )}
-                                </View>
-                                <View>
-                                    <Txt variant="headingM" weight="bold">{user?.name || 'Rider'}</Txt>
-                                    <View style={styles.ratingPill}>
-                                        <Txt variant="caption" color={tokens.colors.text.primary}>{user?.rating?.toFixed(1) || '5.0'} ★</Txt>
-                                    </View>
-                                </View>
+                    {/* Profile Header */}
+                    <TouchableOpacity style={s.header} onPress={() => navigateTo('Profile')}>
+                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.avatarBorder}>
+                            <View style={s.avatarInner}>
+                                {user?.photo_url ? (
+                                    <Image source={{ uri: user.photo_url }} style={s.image} />
+                                ) : (
+                                    <Txt variant="headingM" weight="heavy" color="#FFF">{user?.name?.charAt(0) || 'R'}</Txt>
+                                )}
                             </View>
+                        </LinearGradient>
+                        <View style={s.userInfo}>
+                            <Txt variant="headingM" weight="heavy" color="#FFF">{user?.name || 'Rider'}</Txt>
+                            <View style={s.rating}>
+                                <Ionicons name="star" size={12} color={R.gold} />
+                                <Txt variant="caption" weight="heavy" color={R.gold} style={{ marginLeft: 4 }}>
+                                    {user?.rating?.toFixed(1) || '5.0'}
+                                </Txt>
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Navigation Menu */}
+                    <View style={s.menu}>
+                        <MenuItem icon="car" label="Your Trips" onPress={() => navigateTo('Trips')} />
+                        <MenuItem icon="wallet" label="Wallet" onPress={() => navigateTo('Wallet')} />
+                        <MenuItem icon="gift" label="Promotions" onPress={() => navigateTo('Promo')} />
+                        <MenuItem icon="bookmark" label="Saved Places" onPress={() => navigateTo('SavedPlaces')} />
+                        <MenuItem icon="settings" label="Settings" onPress={() => navigateTo('Settings')} />
+                        <MenuItem icon="help-circle" label="Help" onPress={() => navigateTo('Help')} />
+                    </View>
+
+                    <View style={s.footer}>
+                        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
+                            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                            <Txt variant="bodyBold" color="#EF4444" style={{ marginLeft: 12 }}>Log Out</Txt>
                         </TouchableOpacity>
 
-                        {/* 2. Menu Items */}
-                        <View style={styles.menuItems}>
-                            <MenuItem iconName="car-outline" label="Your Trips" onPress={() => {
-                                onClose();
-                                navigation.navigate('Trips');
-                            }} />
-                            <MenuItem iconName="wallet-outline" label="Wallet" onPress={() => {
-                                onClose();
-                                navigation.navigate('Wallet');
-                            }} />
-                            <MenuItem iconName="gift-outline" label="Promotions" onPress={() => {
-                                onClose();
-                                navigation.navigate('Promo');
-                            }} />
-                            <MenuItem iconName="settings-outline" label="Settings" onPress={() => {
-                                onClose();
-                                navigation.navigate('Settings');
-                            }} />
-                            <MenuItem iconName="help-circle-outline" label="Help" onPress={() => {
-                                onClose();
-                                navigation.navigate('Help');
-                            }} />
-                            {/* LOGOUT BUTTON */}
-                            <MenuItem iconName="log-out-outline" iconColor={tokens.colors.status.error} label="Log Out" onPress={() => {
-                                Alert.alert(
-                                    "Log Out",
-                                    "Are you sure you want to log out?",
-                                    [
-                                        { text: "Cancel", style: "cancel" },
-                                        {
-                                            text: "Log Out",
-                                            style: "destructive",
-                                            onPress: async () => {
-                                                await supabase.auth.signOut();
-                                                onClose(); // Close sidebar
-                                                // AuthContext will handle state change -> navigation reset
-                                            }
-                                        }
-                                    ]
-                                );
-                            }} />
-                        </View>
+                        <Txt variant="small" color={R.muted} style={{ marginTop: 24, textAlign: 'center' }}>
+                            G-Taxi • v2.4.0 Nano Banana
+                        </Txt>
+                    </View>
 
-                        {/* 3. Footer */}
-                        <View style={styles.footer}>
-                            <Card padding="md" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                                <Txt variant="bodyBold">Do more with your account</Txt>
-                                <Txt variant="caption" color={tokens.colors.text.secondary} style={{ marginTop: 4 }}>
-                                    Make money driving ➡️
-                                </Txt>
-                            </Card>
-                            <Txt variant="caption" color={tokens.colors.primary.purple} style={{ marginTop: 20 }}>
-                                G Taxi v1.0 • Dark Mode
-                            </Txt>
-                        </View>
-
-                    </SafeAreaView>
-                </Surface>
+                </BlurView>
             </Animated.View>
         </View>
     );
 }
 
-const MenuItem = ({ iconName, iconColor, label, onPress }: any) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-        <Ionicons name={iconName} size={22} color={iconColor || tokens.colors.text.secondary} style={{ marginRight: 20 }} />
-        <Txt variant="bodyReg" style={{ fontSize: 18 }}>{label}</Txt>
+const MenuItem = ({ icon, label, onPress }: any) => (
+    <TouchableOpacity style={s.menuItem} onPress={onPress}>
+        <View style={s.menuIcon}>
+            <Ionicons name={icon as any} size={22} color={R.purpleLight} />
+        </View>
+        <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 16 }}>{label}</Txt>
     </TouchableOpacity>
 );
 
-const styles = StyleSheet.create({
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 1000,
-    },
-    backdrop: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-    },
-    panel: {
-        width: SIDEBAR_WIDTH,
-        height: '100%',
-        backgroundColor: tokens.colors.background.base, // Fallback
-        shadowColor: '#000',
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-    },
-    header: {
-        padding: 24,
-        paddingTop: 40,
-        backgroundColor: '#000',
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.1)',
-        marginBottom: 20,
-    },
-    avatarRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    avatarContainer: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#222',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)'
-    },
-    avatarPlaceholder: {
-        ...StyleSheet.absoluteFillObject,
-        borderRadius: 30,
-        backgroundColor: tokens.colors.primary.purple,
-        opacity: 0.1,
-    },
-    ratingPill: {
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        alignSelf: 'flex-start',
-        marginTop: 4,
-    },
-    menuItems: {
-        paddingHorizontal: 24,
-        flex: 1,
-    },
-    menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 16,
-    },
-    footer: {
-        padding: 24,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.05)',
-    },
+const s = StyleSheet.create({
+    overlay: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
+    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+    panel: { width: SIDEBAR_WIDTH, height: '100%', backgroundColor: 'transparent' },
+    blur: { flex: 1, paddingHorizontal: 20 },
+
+    header: { flexDirection: 'row', alignItems: 'center', marginTop: 80, marginBottom: 40, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, borderWidth: 1, borderColor: R.border },
+    avatarBorder: { width: 62, height: 62, borderRadius: 31, padding: 2, alignItems: 'center', justifyContent: 'center' },
+    avatarInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    image: { width: '100%', height: '100%' },
+    userInfo: { marginLeft: 16 },
+    rating: { flexDirection: 'row', alignItems: 'center', marginTop: 4, backgroundColor: 'rgba(245,158,11,0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, alignSelf: 'flex-start' },
+
+    menu: { flex: 1, gap: 4 },
+    menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16 },
+    menuIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(124,58,237,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+
+    footer: { paddingVertical: 32, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
+    logoutBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: 'rgba(239,68,68,0.05)' },
 });

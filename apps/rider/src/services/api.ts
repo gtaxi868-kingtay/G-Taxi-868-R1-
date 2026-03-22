@@ -18,8 +18,8 @@ interface EstimateFareParams {
 }
 
 interface FareEstimate {
-    distance_km: number;
-    duration_min: number;
+    distance_meters: number;
+    duration_seconds: number;
     total_fare_cents: number;
     route_polyline: string;
 }
@@ -33,6 +33,15 @@ interface CreateRideParams {
     dropoff_address: string;
     vehicle_type?: 'Standard' | 'XL' | 'Premium';
     payment_method?: 'cash' | 'card' | 'wallet';
+    stops?: Array<{
+        stop_order: number;
+        place_name: string;
+        place_address: string;
+        lat: number;
+        lng: number;
+        stop_type: string;
+        estimated_wait_minutes: number;
+    }>;
 }
 
 interface CreateRideResponse {
@@ -154,8 +163,8 @@ export async function estimateFare(
             success: true,
             error: null,
             data: {
-                distance_km: parseFloat((response.data.distance_meters / 1000).toFixed(1)),
-                duration_min: parseFloat((response.data.duration_seconds / 60).toFixed(1)),
+                distance_meters: response.data.distance_meters,
+                duration_seconds: response.data.duration_seconds,
                 total_fare_cents: response.data.estimated_fare_cents,
                 route_polyline: '', // Not returned by estimate_fare
             }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminFetch } from './lib/supabase';
-import { ShieldAlert, AlertTriangle, Car, CheckCircle2, XCircle, Search, Settings, Wallet, Users } from 'lucide-react';
+import { ShieldAlert, AlertTriangle, Car, CheckCircle2, XCircle, Search, Settings, Wallet, Users, Map as MapIcon } from 'lucide-react';
 import Login from './pages/Login';
+import { DriverMap } from './components/DriverMap';
 
 interface Ride {
   id: string;
@@ -243,9 +244,17 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto p-8">
+        {/* LIVE MAP */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2 mb-4">
+            <MapIcon className="w-5 h-5 text-indigo-500" /> Fleet Geolocation
+          </h2>
+          <DriverMap />
+        </div>
+
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
-            <Car className="w-5 h-5" /> Live Ride Monitor
+            <Car className="w-5 h-5 text-indigo-500" /> Live Ride Monitor
           </h2>
           <button
             onClick={fetchRides}
