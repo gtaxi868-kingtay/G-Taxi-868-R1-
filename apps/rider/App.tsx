@@ -1,15 +1,19 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import * as Sentry from '@sentry/react-native';
+import { ENV } from '../../shared/env';
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { RideProvider } from './src/context/RideContext';
+import { OutboxService } from '../../shared/OutboxService';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 // Auth Screens
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -34,6 +38,7 @@ import { SavedPlacesScreen } from './src/screens/SavedPlacesScreen';
 import { PromoScreen } from './src/screens/PromoScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
 import { WalletTopUpScreen } from './src/screens/WalletTopUpScreen';
+import { ChatScreen } from './src/screens/ChatScreen';
 
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -41,6 +46,8 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
 const queryClient = new QueryClient();
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 // Auth screens (for logged-out users)
 function AuthNavigator() {
@@ -87,6 +94,7 @@ function AppNavigator() {
                 <AppStack.Screen name="Help" component={HelpScreen} />
                 <AppStack.Screen name="Receipt" component={ReceiptScreen} />
                 <AppStack.Screen name="Promo" component={PromoScreen} />
+                <AppStack.Screen name="Chat" component={ChatScreen} />
             </AppStack.Navigator>
         </>
     );
@@ -103,17 +111,33 @@ function RootNavigator() {
     return user ? <RideProvider><AppNavigator /></RideProvider> : <AuthNavigator />;
 }
 
-Sentry.init({
-    dsn: 'https://afd7d5ee7d0738270ee71a61c7890b01@o4510426117767168.ingest.us.sentry.io/4510969876447232',
-    environment: __DEV__ ? 'development' : 'production',
-    tracesSampleRate: __DEV__ ? 0.0 : 0.2,
-    enableNative: true,
-    debug: __DEV__,
-});
+if (!isExpoGo) {
+    Sentry.init({
+        dsn: 'https://afd7d5ee7d0738270ee71a61c7890b01@o4510426117767168.ingest.us.sentry.io/4510969876447232',
+        environment: __DEV__ ? 'development' : 'production',
+        tracesSampleRate: __DEV__ ? 0.0 : 0.2,
+        enableNative: true,
+        debug: __DEV__,
+        replaysSessionSampleRate: 1.0,
+        replaysOnErrorSampleRate: 1.0,
+        integrations: [
+            Sentry.mobileReplayIntegration({
+                maskAllText: true,
+                maskAllImages: true,
+                maskAllVectors: true,
+            }),
+        ],
+    });
+}
 
 function App() {
-    return (
-        <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}>
+    React.useEffect(() => {
+        // Phase 16: Start syncing all pending outbox actions (requests, cancellations, etc)
+        OutboxService.getInstance().processQueue();
+    }, []);
+
+    const content = (
+        <SafeAreaProvider>
             <QueryClientProvider client={queryClient}>
                 <AuthProvider>
                     <ErrorBoundary>
@@ -124,6 +148,14 @@ function App() {
                     </ErrorBoundary>
                 </AuthProvider>
             </QueryClientProvider>
+        </SafeAreaProvider>
+    );
+
+    if (isExpoGo) return content;
+
+    return (
+        <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ENV.STRIPE_PUBLISHABLE_KEY}>
+            {content}
         </StripeProvider>
     );
 }
@@ -137,4 +169,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default Sentry.wrap(App);
+export default isExpoGo ? App : Sentry.wrap(App);

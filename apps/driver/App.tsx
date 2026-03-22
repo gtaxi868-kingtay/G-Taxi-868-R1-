@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Sentry from '@sentry/react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { RegisterScreen } from './src/screens/RegisterScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { TripRequestScreen } from './src/screens/TripRequestScreen';
 import { ActiveTripScreen } from './src/screens/ActiveTripScreen';
@@ -12,19 +15,23 @@ import { EarningsScreen } from './src/screens/EarningsScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
 import { ScheduledRidesScreen } from './src/screens/ScheduledRidesScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { PendingApprovalScreen } from './src/screens/PendingApprovalScreen';
+import { ChatScreen } from './src/screens/ChatScreen';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import { supabase } from '../../shared/supabase';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { ENV } from '../../shared/env';
+import { OutboxService } from '../../shared/OutboxService';
 
 // ── Phase 5 Fix 5.7: Background retry task for offline ride completions ────────
 // When the driver loses connectivity at the moment of completion, the complete_ride
 // call is queued in AsyncStorage under 'pending_completions'. This background task
 // retries all queued completions every 30 seconds, even when the app is backgrounded.
 const RETRY_TASK = 'OFFLINE_COMPLETION_RETRY';
-const COMPLETE_RIDE_URL = `${process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''}/functions/v1/complete_ride`;
+const COMPLETE_RIDE_URL = `${ENV.SUPABASE_URL}/functions/v1/complete_ride`;
 
 TaskManager.defineTask(RETRY_TASK, async () => {
     try {
@@ -108,10 +115,13 @@ async function registerBackgroundRetryTask() {
 
 const Stack = createNativeStackNavigator();
 
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
 function AuthNavigator() {
     return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator id="AuthStack" screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
         </Stack.Navigator>
     );
 }
@@ -129,10 +139,26 @@ function AppNavigator() {
             }
 
             try {
+                const { data: driverRecord } = await supabase
+                    .from('drivers')
+                    .select('id, status')
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (!driverRecord) {
+                    setInitialRoute('Dashboard'); // Ideally auth handles if they aren't even registered
+                    return;
+                }
+
+                if (driverRecord.status === 'pending') {
+                    setInitialRoute('PendingApproval');
+                    return;
+                }
+
                 const { data } = await supabase
                     .from('rides')
                     .select('id')
-                    .eq('driver_id', user.id)
+                    .eq('driver_id', driverRecord.id)
                     .in('status', ['assigned', 'arrived', 'in_progress'])
                     .maybeSingle();
 
@@ -143,7 +169,7 @@ function AppNavigator() {
                     setInitialRoute('Dashboard');
                 }
             } catch (err) {
-                console.warn('Silent failure on boot check:', err);
+                console.warn('Boot check failed:', err);
                 setInitialRoute('Dashboard');
             }
         }
@@ -159,8 +185,9 @@ function AppNavigator() {
     }
 
     return (
-        <Stack.Navigator initialRouteName={initialRoute as any} screenOptions={{ headerShown: false }}>
+        <Stack.Navigator id="AppStack" initialRouteName={initialRoute as any} screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="PendingApproval" component={PendingApprovalScreen} />
             <Stack.Screen name="TripRequest" component={TripRequestScreen} />
             <Stack.Screen
                 name="ActiveTrip"
@@ -171,6 +198,7 @@ function AppNavigator() {
             <Stack.Screen name="Wallet" component={WalletScreen} />
             <Stack.Screen name="ScheduledRides" component={ScheduledRidesScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Chat" component={ChatScreen} />
         </Stack.Navigator>
     );
 }
@@ -185,30 +213,37 @@ function RootNavigator() {
     return user ? <AppNavigator /> : <AuthNavigator />;
 }
 
-Sentry.init({
-    dsn: 'https://fd1b20b3e7e9a18f89380de9537867ff@o4510426117767168.ingest.us.sentry.io/4510969904300032',
-    environment: __DEV__ ? 'development' : 'production',
-    tracesSampleRate: __DEV__ ? 0.0 : 0.2,
-    enableNative: true,
-    debug: __DEV__,
-});
+if (!isExpoGo) {
+    Sentry.init({
+        dsn: 'https://fd1b20b3e7e9a18f89380de9537867ff@o4510426117767168.ingest.us.sentry.io/4510969904300032',
+        environment: __DEV__ ? 'development' : 'production',
+        tracesSampleRate: __DEV__ ? 0.0 : 0.2,
+        enableNative: true,
+        debug: __DEV__,
+    });
+}
 
 function App() {
     useEffect(() => {
         // Register the offline completion retry task as early as possible.
         registerBackgroundRetryTask();
+
+        // Phase 16: Start syncing all pending outbox actions (arrived, in_progress, etc)
+        OutboxService.getInstance().processQueue();
     }, []);
 
     return (
-        <ErrorBoundary>
-            <AuthProvider>
-                <NavigationContainer>
-                    <StatusBar style="dark" />
-                    <RootNavigator />
-                </NavigationContainer>
-            </AuthProvider>
-        </ErrorBoundary>
+        <SafeAreaProvider>
+            <ErrorBoundary>
+                <AuthProvider>
+                    <NavigationContainer>
+                        <StatusBar style="dark" />
+                        <RootNavigator />
+                    </NavigationContainer>
+                </AuthProvider>
+            </ErrorBoundary>
+        </SafeAreaProvider>
     );
 }
 
-export default Sentry.wrap(App);
+export default isExpoGo ? App : Sentry.wrap(App);
