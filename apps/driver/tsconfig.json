@@ -1,7 +1,15 @@
 {
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true
   },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "../../shared/**/*.ts"
+  ],
   "extends": "expo/tsconfig.base"
 }

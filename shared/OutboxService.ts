@@ -59,29 +59,39 @@ export class OutboxService {
 
         console.log(`[Outbox] Processing ${queue.length} pending actions...`);
 
-        const remainingActions: OutboxAction[] = [];
+        let failIndex = -1;
 
-        for (const action of queue) {
+        for (let i = 0; i < queue.length; i++) {
+            const action = queue[i];
             try {
                 const success = await this.executeAction(action);
                 if (!success) {
+                    console.warn(`[Outbox] Action ${action.id} (${action.name}) failed. Stopping queue.`);
                     action.retries++;
-                    remainingActions.push(action);
+                    failIndex = i;
+                    break; // STOP: Maintain strict order
                 }
             } catch (error) {
-                console.error(`[Outbox] Action ${action.id} failed:`, error);
+                console.error(`[Outbox] Action ${action.id} error:`, error);
                 action.retries++;
-                remainingActions.push(action);
+                failIndex = i;
+                break; // STOP: Maintain strict order
             }
         }
 
-        await this.saveQueue(remainingActions);
-        this.isSyncing = false;
+        if (failIndex === -1) {
+            // All succeeded
+            await this.saveQueue([]);
+        } else {
+            // Keep failed action and all subsequent actions in the queue
+            const remaining = queue.slice(failIndex);
+            await this.saveQueue(remaining);
 
-        // If there were failures, schedule another attempt in 5 seconds
-        if (remainingActions.length > 0) {
-            setTimeout(() => this.processQueue(), 5000);
+            // Schedule retry
+            setTimeout(() => this.processQueue(), 10000);
         }
+
+        this.isSyncing = false;
     }
 
     private async executeAction(action: OutboxAction): Promise<boolean> {

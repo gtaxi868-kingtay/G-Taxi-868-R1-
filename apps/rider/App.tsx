@@ -5,8 +5,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { StripeProvider } from '@stripe/stripe-react-native';
-import * as Sentry from '@sentry/react-native';
 import { ENV } from '../../shared/env';
 
 // Context
@@ -48,6 +46,37 @@ const AppStack = createNativeStackNavigator();
 const queryClient = new QueryClient();
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+// Safe dynamic providers
+let StripeProvider: any = ({ children }: any) => <>{children}</>;
+let Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
+
+if (!isExpoGo) {
+    try {
+        Sentry = require('@sentry/react-native');
+        const { StripeProvider: StripeProv } = require('@stripe/stripe-react-native');
+        StripeProvider = StripeProv;
+
+        Sentry.init({
+            dsn: 'https://afd7d5ee7d0738270ee71a61c7890b01@o4510426117767168.ingest.us.sentry.io/4510969876447232',
+            environment: __DEV__ ? 'development' : 'production',
+            tracesSampleRate: __DEV__ ? 0.0 : 0.2,
+            enableNative: true,
+            debug: __DEV__,
+            replaysSessionSampleRate: 1.0,
+            replaysOnErrorSampleRate: 1.0,
+            integrations: [
+                Sentry.mobileReplayIntegration({
+                    maskAllText: true,
+                    maskAllImages: true,
+                    maskAllVectors: true,
+                }),
+            ],
+        });
+    } catch (e) {
+        console.warn('Sentry/Stripe failed to load in non-expo-go env', e);
+    }
+}
 
 // Auth screens (for logged-out users)
 function AuthNavigator() {
@@ -111,28 +140,8 @@ function RootNavigator() {
     return user ? <RideProvider><AppNavigator /></RideProvider> : <AuthNavigator />;
 }
 
-if (!isExpoGo) {
-    Sentry.init({
-        dsn: 'https://afd7d5ee7d0738270ee71a61c7890b01@o4510426117767168.ingest.us.sentry.io/4510969876447232',
-        environment: __DEV__ ? 'development' : 'production',
-        tracesSampleRate: __DEV__ ? 0.0 : 0.2,
-        enableNative: true,
-        debug: __DEV__,
-        replaysSessionSampleRate: 1.0,
-        replaysOnErrorSampleRate: 1.0,
-        integrations: [
-            Sentry.mobileReplayIntegration({
-                maskAllText: true,
-                maskAllImages: true,
-                maskAllVectors: true,
-            }),
-        ],
-    });
-}
-
 function App() {
     React.useEffect(() => {
-        // Phase 16: Start syncing all pending outbox actions (requests, cancellations, etc)
         OutboxService.getInstance().processQueue();
     }, []);
 

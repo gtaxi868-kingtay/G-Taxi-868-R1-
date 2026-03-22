@@ -3,7 +3,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Sentry from '@sentry/react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -27,9 +26,6 @@ import { ENV } from '../../shared/env';
 import { OutboxService } from '../../shared/OutboxService';
 
 // ── Phase 5 Fix 5.7: Background retry task for offline ride completions ────────
-// When the driver loses connectivity at the moment of completion, the complete_ride
-// call is queued in AsyncStorage under 'pending_completions'. This background task
-// retries all queued completions every 30 seconds, even when the app is backgrounded.
 const RETRY_TASK = 'OFFLINE_COMPLETION_RETRY';
 const COMPLETE_RIDE_URL = `${ENV.SUPABASE_URL}/functions/v1/complete_ride`;
 
@@ -42,10 +38,7 @@ TaskManager.defineTask(RETRY_TASK, async () => {
         if (completions.length === 0) return BackgroundFetch.BackgroundFetchResult.NoData;
 
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-            // Not authenticated — can't retry, leave pending items for later.
-            return BackgroundFetch.BackgroundFetchResult.Failed;
-        }
+        if (!session) return BackgroundFetch.BackgroundFetchResult.Failed;
 
         const remaining: typeof completions = [];
 
@@ -64,19 +57,11 @@ TaskManager.defineTask(RETRY_TASK, async () => {
                     const json = await res.json();
                     if (json.success) {
                         console.log(`[RETRY_TASK] Ride ${item.ride_id} completed successfully on retry.`);
-                        // Successfully completed — do not add back to remaining.
-                    } else {
-                        // Server rejected (e.g. ride already completed) — discard.
-                        console.warn(`[RETRY_TASK] Ride ${item.ride_id} rejected by server:`, json.error);
                     }
                 } else {
-                    // Network or server error — keep for next retry.
-                    console.warn(`[RETRY_TASK] HTTP ${res.status} for ride ${item.ride_id} — requeueing.`);
                     remaining.push(item);
                 }
             } catch (err) {
-                // Network error — requeue.
-                console.warn(`[RETRY_TASK] Network error for ride ${item.ride_id} — requeueing:`, err);
                 remaining.push(item);
             }
         }
@@ -93,29 +78,42 @@ TaskManager.defineTask(RETRY_TASK, async () => {
     }
 });
 
-// ── Register the background task on app startup ───────────────────────────────
 async function registerBackgroundRetryTask() {
     try {
         const isRegistered = await TaskManager.isTaskRegisteredAsync(RETRY_TASK);
         if (!isRegistered) {
             await BackgroundFetch.registerTaskAsync(RETRY_TASK, {
-                minimumInterval: 30,      // seconds — OS may delay beyond this
-                stopOnTerminate: false,   // continue after app swipe-close on Android
-                startOnBoot: true,        // restart after device reboot
+                minimumInterval: 30,
+                stopOnTerminate: false,
+                startOnBoot: true,
             });
             console.log('[BackgroundFetch] Registered OFFLINE_COMPLETION_RETRY task.');
         }
     } catch (err) {
-        // BackgroundFetch is not available on all platforms (e.g. web builds)
         console.warn('[BackgroundFetch] Could not register retry task:', err);
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 const Stack = createNativeStackNavigator();
-
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+// Safe dynamic providers
+let Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
+
+if (!isExpoGo) {
+    try {
+        Sentry = require('@sentry/react-native');
+        Sentry.init({
+            dsn: 'https://fd1b20b3e7e9a18f89380de9537867ff@o4510426117767168.ingest.us.sentry.io/4510969904300032',
+            environment: __DEV__ ? 'development' : 'production',
+            tracesSampleRate: __DEV__ ? 0.0 : 0.2,
+            enableNative: true,
+            debug: __DEV__,
+        });
+    } catch (e) {
+        console.warn('Sentry failed to load in non-expo-go env', e);
+    }
+}
 
 function AuthNavigator() {
     return (
@@ -146,7 +144,7 @@ function AppNavigator() {
                     .single();
 
                 if (!driverRecord) {
-                    setInitialRoute('Dashboard'); // Ideally auth handles if they aren't even registered
+                    setInitialRoute('Dashboard');
                     return;
                 }
 
@@ -205,30 +203,13 @@ function AppNavigator() {
 
 function RootNavigator() {
     const { user, loading } = useAuth();
-
-    if (loading) {
-        return null; // Or Splash
-    }
-
+    if (loading) return null;
     return user ? <AppNavigator /> : <AuthNavigator />;
-}
-
-if (!isExpoGo) {
-    Sentry.init({
-        dsn: 'https://fd1b20b3e7e9a18f89380de9537867ff@o4510426117767168.ingest.us.sentry.io/4510969904300032',
-        environment: __DEV__ ? 'development' : 'production',
-        tracesSampleRate: __DEV__ ? 0.0 : 0.2,
-        enableNative: true,
-        debug: __DEV__,
-    });
 }
 
 function App() {
     useEffect(() => {
-        // Register the offline completion retry task as early as possible.
         registerBackgroundRetryTask();
-
-        // Phase 16: Start syncing all pending outbox actions (arrived, in_progress, etc)
         OutboxService.getInstance().processQueue();
     }, []);
 

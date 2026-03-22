@@ -92,12 +92,16 @@ export function ActiveRideScreen({ route, navigation }: any) {
             setDriver(data.driver);
             setDriverLocation({ latitude: data.driver?.lat, longitude: data.driver?.lng });
 
-            // Subscribe to driver location
-            supabase.channel(`driver_loc_${data.driver?.id}`)
+            // Subscribe to driver location (with cleanup)
+            const channel = supabase.channel(`driver_loc_${data.driver?.id}`)
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${data.driver?.id}` }, (payload) => {
                     setDriverLocation({ latitude: payload.new.lat, longitude: payload.new.lng });
                 })
                 .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
     };
 

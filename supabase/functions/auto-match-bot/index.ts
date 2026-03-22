@@ -75,7 +75,8 @@ serve(async (req) => {
                 status: "assigned",
                 updated_at: new Date().toISOString(),
             })
-            .eq("id", ride_id);
+            .eq("id", ride_id)
+            .in("status", ["requested", "searching", "waiting_queue"]);
 
         if (updateError) {
             return new Response(
