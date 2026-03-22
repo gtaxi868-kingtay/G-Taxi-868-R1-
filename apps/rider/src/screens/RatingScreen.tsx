@@ -1,454 +1,200 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    View,
-    StyleSheet,
-    Animated,
-    Dimensions,
-    Image,
-    SafeAreaView,
-    Platform,
-    ScrollView,
-    TouchableOpacity,
+    View, StyleSheet, TouchableOpacity, TextInput,
+    ScrollView, Dimensions, ActivityIndicator
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FareEstimate } from '../types/ride';
-import { formatCurrency, processTip } from '../services/api';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
-import { tokens } from '../design-system/tokens';
-import { Txt, Card, Btn, Surface } from '../design-system/primitives';
+import { processTip, formatCurrency } from '../services/api';
+import { Txt } from '../design-system/primitives';
 
-// Assets
-const CHECKMARK_ASSET = require('../../assets/images/checkmark_orb.png');
+const { width } = Dimensions.get('window');
 
-interface Driver {
-    name: string;
-    vehicle: string;
-    plate: string;
-    rating: number;
-    photo_url?: string;
-}
+// ── Rider Design Tokens ──────────────────────────────────────────────────────
+const R = {
+    bg: '#07050F',
+    surface: '#110E22',
+    border: 'rgba(255,255,255,0.08)',
+    purple: '#7C3AED',
+    purpleLight: '#A78BFA',
+    gold: '#F59E0B',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.4)',
+};
 
-interface RatingScreenProps {
-    navigation: any;
-    route: {
-        params: {
-            driver: Driver;
-            fare: FareEstimate;
-            rideId: string;
-            // UI-A5: Added 'wallet' to the type union to match all payment paths
-            paymentMethod?: 'cash' | 'wallet' | 'card';
-        };
-    };
-}
-
-export function RatingScreen({ navigation, route }: RatingScreenProps) {
-    const { driver, fare, rideId, paymentMethod = 'cash' } = route.params;
-    const [selectedRating, setSelectedRating] = useState(5);
-    const [selectedTip, setSelectedTip] = useState(0); // 0, 1, 3, 5
-    const [submitting, setSubmitting] = useState(false);
-    const [submitted, setSubmitted] = useState(false);
+export function RatingScreen({ navigation, route }: any) {
+    const { driver, fare, rideId, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
 
-    const checkmarkScale = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        Animated.spring(checkmarkScale, {
-            toValue: 1,
-            friction: 6,
-            tension: 40,
-            useNativeDriver: true,
-        }).start();
-    }, []);
+    const [rating, setRating] = useState(5);
+    const [comment, setComment] = useState('');
+    const [selectedTip, setSelectedTip] = useState(0);
+    const [submitting, setSubmitting] = useState(false);
 
     const handleSubmit = async () => {
         if (submitting) return;
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
         setSubmitting(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-        // Save the rating to the rides table
-        if (rideId && selectedRating > 0) {
-            const { error: ratingError } = await supabase
-                .from('rides')
-                .update({ rating: selectedRating })
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+
+            // WIRING_RULE: Save to ratings table AND update rides
+            const ratingPromise = supabase.from('ratings').insert({
+                ride_id: rideId,
+                driver_id: driver.id,
+                rider_id: user?.id,
+                rating,
+                comment,
+            });
+
+            const rideUpdatePromise = supabase.from('rides')
+                .update({ rating })
                 .eq('id', rideId);
 
-            if (ratingError) {
-                console.warn('[Rating] Failed to save rating:', ratingError.message);
-            } else {
-                console.log(`[Rating] Saved ${selectedRating} stars for ride ${rideId}`);
-            }
-        }
+            const tipPromise = selectedTip > 0 ? processTip(rideId, selectedTip * 100) : Promise.resolve({ success: true });
 
-        // Process Tip if selected
-        if (selectedTip > 0 && rideId) {
-            const tipCents = selectedTip * 100;
-            console.log(`[Rating] Processing Tip: $${selectedTip} for Ride ${rideId}`);
-            const res = await processTip(rideId, tipCents);
-            if (!res.success) {
-                console.warn('[Rating] Tip failed:', res.error);
-                // We don't block the flow, just log it.
-            } else {
-                console.log('[Rating] Tip Success');
-            }
-        }
+            await Promise.all([ratingPromise, rideUpdatePromise, tipPromise]);
 
-        setSubmitted(true);
-        setTimeout(() => {
-            // Reset stack to Home to ensure clean state
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }],
-            });
-        }, 1500);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
-    // ── UI-A5: View Receipt — fetch full ride object then navigate ──────────────
-    //
-    // The old implementation passed hardcoded stub values ('Pickup', 'Dropoff').
-    // Now we fetch the real ride row from Supabase so ReceiptScreen has accurate
-    // addresses, distance, duration, and the server-authoritative total_fare_cents.
-    //
-    // Fields fetched match exactly what ReceiptScreen's interface expects:
-    //   id, created_at, pickup_address, dropoff_address, total_fare_cents,
-    //   distance_meters, duration_seconds, payment_method,
-    //   + driver join for driver_name, vehicle_model, plate_number.
     const handleViewReceipt = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-        // Fetch the full ride object — if anything fails fall back to local data
-        try {
-            const { data: rideData, error } = await supabase
-                .from('rides')
-                .select(`
-                    id,
-                    created_at,
-                    pickup_address,
-                    dropoff_address,
-                    total_fare_cents,
-                    distance_meters,
-                    duration_seconds,
-                    payment_method,
-                    drivers (
-                        profiles (
-                            full_name
-                        ),
-                        vehicle_model,
-                        plate_number
-                    )
-                `)
-                .eq('id', rideId)
-                .single();
-
-            if (error || !rideData) {
-                console.warn('[Rating] Failed to fetch ride for receipt, using local data:', error);
-                // Fall back to what we already know
-                navigation.navigate('Receipt', {
-                    ride: {
-                        id: rideId,
-                        created_at: new Date().toISOString(),
-                        pickup_address: 'Pickup',
-                        dropoff_address: 'Dropoff',
-                        total_fare_cents: fare.total_fare_cents,
-                        payment_method: paymentMethod,
-                        driver_name: driver.name,
-                        vehicle_model: driver.vehicle,
-                        plate_number: driver.plate,
-                    },
-                });
-                return;
+        // Fetch the real ride record so the receipt shows live addresses + distances
+        const { data: rideData } = await supabase
+            .from('rides')
+            .select('pickup_address, dropoff_address, distance_meters, duration_seconds, created_at')
+            .eq('id', rideId)
+            .single();
+        navigation.navigate('Receipt', {
+            ride: {
+                id: rideId,
+                created_at: rideData?.created_at || new Date().toISOString(),
+                pickup_address: rideData?.pickup_address || 'Pickup',
+                dropoff_address: rideData?.dropoff_address || 'Dropoff',
+                distance_meters: rideData?.distance_meters || 0,
+                duration_seconds: rideData?.duration_seconds || 0,
+                total_fare_cents: fare.total_fare_cents,
+                payment_method: paymentMethod || 'cash',
+                driver_name: driver.name,
+                vehicle_model: driver.vehicle_model || driver.vehicle,
+                plate_number: driver.plate_number || driver.plate,
             }
-
-            // Extract nested driver info safely
-            const driverRow = Array.isArray(rideData.drivers)
-                ? rideData.drivers[0]
-                : rideData.drivers;
-            const profileRow = driverRow && (
-                Array.isArray(driverRow.profiles) ? driverRow.profiles[0] : driverRow.profiles
-            );
-
-            navigation.navigate('Receipt', {
-                ride: {
-                    id: rideData.id,
-                    created_at: rideData.created_at,
-                    pickup_address: rideData.pickup_address,
-                    dropoff_address: rideData.dropoff_address,
-                    total_fare_cents: rideData.total_fare_cents ?? fare.total_fare_cents,
-                    distance_meters: rideData.distance_meters,
-                    duration_seconds: rideData.duration_seconds,
-                    payment_method: (rideData.payment_method as 'cash' | 'wallet' | 'card') ?? paymentMethod,
-                    driver_name: profileRow?.full_name ?? driver.name,
-                    vehicle_model: driverRow?.vehicle_model ?? driver.vehicle,
-                    plate_number: driverRow?.plate_number ?? driver.plate,
-                },
-            });
-        } catch (err) {
-            console.error('[Rating] Unexpected error fetching ride:', err);
-            // Safe fallback
-            navigation.navigate('Receipt', {
-                ride: {
-                    id: rideId,
-                    created_at: new Date().toISOString(),
-                    pickup_address: 'Pickup',
-                    dropoff_address: 'Dropoff',
-                    total_fare_cents: fare.total_fare_cents,
-                    payment_method: paymentMethod,
-                    driver_name: driver.name,
-                    vehicle_model: driver.vehicle,
-                    plate_number: driver.plate,
-                },
-            });
-        }
+        });
     };
 
-    if (submitted) {
-        return (
-            <View style={styles.container}>
-                <View style={[styles.thankYouContainer, { paddingTop: insets.top }]}>
-                    <Animated.View style={{ transform: [{ scale: checkmarkScale }], alignItems: 'center', justifyContent: 'center' }}>
-                        {/* Glow Behind */}
-                        <View style={{
-                            position: 'absolute',
-                            width: 100,
-                            height: 100,
-                            borderRadius: 50,
-                            backgroundColor: tokens.colors.primary.purple,
-                            opacity: 0.5,
-                            shadowColor: tokens.colors.primary.purple,
-                            shadowOpacity: 1,
-                            shadowRadius: 30,
-                        }} />
-                        <Image source={CHECKMARK_ASSET} style={{ width: 120, height: 120 }} resizeMode="contain" />
-                    </Animated.View>
-                    <View style={{ height: 24 }} />
-                    <Txt variant="headingL" center>Thank you!</Txt>
-                    <Txt variant="bodyReg" color={tokens.colors.text.secondary} center>Your ride is complete</Txt>
-                </View>
-            </View>
-        );
-    }
-
     return (
-        <View style={styles.container}>
-            <SafeAreaView style={styles.safeArea}>
-                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={s.root}>
+            <StatusBar style="light" />
 
-                    {/* 1. Checkmark Orb Asset with True Glow */}
-                    <View style={styles.orbWrapper}>
-                        {/* Glow Layer - multiple rings for softness */}
-                        <View style={[styles.orbGlowRing, { width: 120, height: 120, opacity: 0.2 }]} />
-                        <View style={[styles.orbGlowRing, { width: 140, height: 140, opacity: 0.1 }]} />
-                        <View style={[styles.orbGlowRing, { width: 160, height: 160, opacity: 0.05 }]} />
+            <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}>
 
-                        <Animated.View style={{ transform: [{ scale: checkmarkScale }] }}>
-                            <Image source={CHECKMARK_ASSET} style={{ width: 140, height: 140, zIndex: 10 }} resizeMode="contain" />
-                        </Animated.View>
+                {/* Hero: Driver name + "Rate your ride" */}
+                <View style={s.hero}>
+                    <View style={s.avatar}>
+                        <Txt variant="headingM" color="#FFF">{driver?.name?.charAt(0)}</Txt>
                     </View>
+                    <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginTop: 20 }}>{driver?.name}</Txt>
+                    <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 4 }}>How was your ride?</Txt>
+                </View>
 
-                    {/* 2. Text Content */}
-                    <Txt variant="headingL" center style={{ marginBottom: tokens.layout.spacing.xl }}>
-                        Ride Complete
-                    </Txt>
+                {/* Star Rating: 5 stars (Gold when active) */}
+                <View style={s.starsRow}>
+                    {[1, 2, 3, 4, 5].map(sVal => (
+                        <TouchableOpacity
+                            key={sVal}
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setRating(sVal); }}
+                        >
+                            <Ionicons
+                                name={sVal <= rating ? "star" : "star-outline"}
+                                size={44}
+                                color={sVal <= rating ? R.gold : R.muted}
+                                style={s.star}
+                            />
+                        </TouchableOpacity>
+                    ))}
+                </View>
 
-                    {/* 3. Fare Card */}
-                    <Surface style={styles.fareCard} intensity={30}>
-                        <Txt variant="headingL" weight="bold">
-                            {formatCurrency(fare.total_fare_cents)}
-                        </Txt>
-                        <Txt variant="bodyReg" color={tokens.colors.status.success} style={{ marginTop: 4 }}>
-                            Payment:{' '}
-                            {paymentMethod === 'cash' ? 'Cash' :
-                                paymentMethod === 'wallet' ? 'Wallet' : 'Card'} ✓
-                        </Txt>
-                    </Surface>
+                {/* Input: Multiline TextInput, dark surface */}
+                <View style={s.inputBox}>
+                    <TextInput
+                        style={s.textInput}
+                        placeholder="Tell us more about your experience (optional)"
+                        placeholderTextColor={R.muted}
+                        multiline
+                        numberOfLines={4}
+                        value={comment}
+                        onChangeText={setComment}
+                    />
+                </View>
 
-                    {/* 4. Star Rating */}
-                    <View style={styles.starsRow}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                            <Animated.Text
-                                key={star}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    setSelectedRating(star);
-                                }}
-                                style={[
-                                    styles.star,
-                                    {
-                                        color: star <= selectedRating ? '#FFFFFF' : 'rgba(255,255,255,0.2)',
-                                        textShadowColor: star <= selectedRating ? 'rgba(255,255,255,0.5)' : 'transparent',
-                                        textShadowRadius: 10,
-                                    }
-                                ]}
+                {/* Tip Selector */}
+                <View style={s.tipSection}>
+                    <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>Add a Tip</Txt>
+                    <View style={s.tipRow}>
+                        {[1, 3, 5].map(amt => (
+                            <TouchableOpacity
+                                key={amt}
+                                style={[s.tipBtn, selectedTip === amt && s.tipBtnActive]}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedTip(selectedTip === amt ? 0 : amt); }}
                             >
-                                ★
-                            </Animated.Text>
+                                <Txt variant="bodyBold" color={selectedTip === amt ? "#FFF" : R.white}>${amt}</Txt>
+                            </TouchableOpacity>
                         ))}
                     </View>
+                </View>
 
-                    {/* 5. Driver Info */}
-                    <Card padding="md" radius="l" style={styles.driverCard}>
-                        <View style={styles.driverRow}>
-                            <View style={styles.avatarRing}>
-                                {driver.photo_url ? (
-                                    <Image source={{ uri: driver.photo_url }} style={styles.avatar} />
-                                ) : (
-                                    <View style={[styles.avatar, { backgroundColor: '#333' }]} />
-                                )}
-                            </View>
-                            <View style={{ marginLeft: 12 }}>
-                                <Txt variant="bodyBold">{driver.name}</Txt>
-                                <Txt variant="caption" color={tokens.colors.text.secondary}>
-                                    {driver.vehicle} • {driver.plate}
-                                </Txt>
-                            </View>
-                        </View>
-                    </Card>
+                <View style={{ flex: 1 }} />
 
-                    {/* 6. Tip Selector */}
-                    <View style={styles.tipContainer}>
-                        <Txt variant="bodyBold" style={{ marginBottom: 12 }}>Add a Tip</Txt>
-                        <View style={styles.tipRow}>
-                            {[0, 1, 3, 5].map((amt) => {
-                                const isSelected = selectedTip === amt;
-                                return (
-                                    <TouchableOpacity
-                                        key={amt}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            setSelectedTip(amt);
-                                        }}
-                                        style={[
-                                            styles.tipBtn,
-                                            isSelected && styles.tipBtnSelected
-                                        ]}
-                                    >
-                                        <Txt variant="bodyBold" color={isSelected ? 'white' : tokens.colors.text.secondary}>
-                                            {amt === 0 ? 'No Tip' : `$${amt}`}
-                                        </Txt>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    </View>
+                {/* Submit button: Large purple gradient button */}
+                <TouchableOpacity style={s.submitBtn} onPress={handleSubmit} disabled={submitting}>
+                    <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                        {submitting ? <ActivityIndicator color="#FFF" /> : (
+                            <Txt variant="headingM" weight="bold" color="#FFF">Submit Review</Txt>
+                        )}
+                    </LinearGradient>
+                </TouchableOpacity>
 
-                    {/* 7. Buttons */}
-                    <View style={styles.buttonRow}>
-                        <View style={{ flex: 1 }}>
-                            <Btn
-                                title={submitting ? "Processing..." : "Submit Review"}
-                                variant="primary"
-                                onPress={handleSubmit}
-                                disabled={submitting}
-                            />
-                        </View>
-                        <View style={{ width: 16 }} />
-                        <View style={{ flex: 1 }}>
-                            <Btn title="View Receipt" variant="glass" onPress={handleViewReceipt} disabled={submitting} />
-                        </View>
-                    </View>
+                <TouchableOpacity style={s.receiptBtn} onPress={handleViewReceipt}>
+                    <Txt variant="bodyBold" color={R.muted}>View Receipt</Txt>
+                </TouchableOpacity>
 
-                </ScrollView>
-            </SafeAreaView>
+            </ScrollView>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: tokens.colors.background.base,
-    },
-    safeArea: {
-        flex: 1,
-    },
-    scrollContent: {
-        flexGrow: 1,
-        alignItems: 'center',
-        paddingHorizontal: tokens.layout.spacing.lg,
-        paddingTop: 40,
-        paddingBottom: 20,
-    },
-    orbWrapper: {
-        marginBottom: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 160,
-        height: 160,
-    },
-    orbGlowRing: {
-        position: 'absolute',
-        borderRadius: 999,
-        backgroundColor: tokens.colors.primary.purple,
-    },
-    fareCard: {
-        width: '100%',
-        paddingVertical: 24,
-        alignItems: 'center',
-        borderRadius: tokens.layout.radius.xl,
-        marginBottom: 32,
-    },
-    starsRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 32,
-    },
-    star: {
-        fontSize: 40,
-    },
-    driverCard: {
-        width: '100%',
-        marginBottom: 24,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    driverRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    avatarRing: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        padding: 2,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
-    },
-    avatar: {
-        flex: 1,
-        borderRadius: 22,
-    },
-    tipContainer: {
-        width: '100%',
-        marginBottom: 32,
-    },
-    tipRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        gap: 8,
-    },
-    tipBtn: {
-        flex: 1,
-        height: 48,
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.02)',
-    },
-    tipBtnSelected: {
-        borderColor: tokens.colors.primary.purple,
-        backgroundColor: tokens.colors.primary.purple,
-    },
-    buttonRow: {
-        flexDirection: 'row',
-        width: '100%',
-        marginTop: 'auto',
-    },
-    thankYouContainer: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: R.bg },
+    scroll: { flexGrow: 1, paddingHorizontal: 24 },
+
+    hero: { alignItems: 'center', marginBottom: 40 },
+    avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center', shadowColor: R.purple, shadowRadius: 20, shadowOpacity: 0.4 },
+
+    starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginBottom: 40 },
+    star: { shadowColor: R.gold, shadowRadius: 10, shadowOpacity: 0.3 },
+
+    inputBox: { height: 120, backgroundColor: R.surface, borderRadius: 20, padding: 16, marginBottom: 32, borderWidth: 1, borderColor: R.border },
+    textInput: { flex: 1, color: '#FFF', fontSize: 16, textAlignVertical: 'top' },
+
+    tipSection: { marginBottom: 40 },
+    tipRow: { flexDirection: 'row', gap: 12 },
+    tipBtn: { flex: 1, height: 50, borderRadius: 25, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: R.border },
+    tipBtnActive: { backgroundColor: R.purple, borderColor: R.purpleLight },
+
+    submitBtn: { height: 64, borderRadius: 32, overflow: 'hidden', marginTop: 20 },
+    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    receiptBtn: { alignSelf: 'center', marginTop: 20, padding: 10 },
 });

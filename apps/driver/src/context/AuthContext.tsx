@@ -12,8 +12,11 @@ interface DriverProfile {
     phone_number: string;
     vehicle_model: string;
     plate_number: string;
-    status: 'online' | 'offline' | 'busy';
+    status: 'online' | 'offline' | 'busy' | 'pending';
     is_online: boolean;
+    rating?: number;
+    push_token?: string | null;
+    verified_status?: 'unverified' | 'pending' | 'approved' | 'rejected';
 }
 
 interface AuthContextType {
@@ -24,6 +27,7 @@ interface AuthContextType {
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<void>;
     toggleOnline: () => Promise<void>;
+    refreshPushToken: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,7 +73,7 @@ async function registerPushToken(userId: string): Promise<void> {
         const { error } = await supabase
             .from('drivers')
             .update({ push_token: token })
-            .eq('id', userId);
+            .eq('user_id', userId);
 
         if (error) {
             console.error('registerPushToken: failed to save token to drivers table:', error);
@@ -119,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const { data, error } = await supabase
                 .from('drivers')
                 .select('*')
-                .eq('id', userId)
+                .eq('user_id', userId)
                 .single();
 
             if (error) {
@@ -156,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = async () => {
         // Go offline before signing out
         if (driver?.is_online) {
-            await supabase.from('drivers').update({ is_online: false, status: 'offline' }).eq('id', user?.id);
+            await supabase.from('drivers').update({ is_online: false, status: 'offline' }).eq('user_id', user?.id);
         }
         await supabase.auth.signOut();
         setDriver(null);
@@ -192,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 status: newStatus ? 'online' : 'offline',
                 updated_at: new Date().toISOString()
             })
-            .eq('id', user.id);
+            .eq('user_id', user.id);
 
         if (error) {
             Alert.alert('Error', 'Failed to update status');
@@ -201,8 +205,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const refreshPushToken = async () => {
+        if (user) await registerPushToken(user.id);
+    };
+
     return (
-        <AuthContext.Provider value={{ user, session, driver, loading, signIn, signOut, toggleOnline }}>
+        <AuthContext.Provider value={{ user, session, driver, loading, signIn, signOut, toggleOnline, refreshPushToken }}>
             {children}
         </AuthContext.Provider>
     );

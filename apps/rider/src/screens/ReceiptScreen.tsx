@@ -1,305 +1,158 @@
 import React from 'react';
-import { View, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Share, Dimensions } from 'react-native';
-import { Surface, Txt, Card, Btn } from '../design-system/primitives';
-import { tokens } from '../design-system/tokens';
-import { LinearGradient } from 'expo-linear-gradient';
-import { formatCurrency } from '../services/api';
+import {
+    View, StyleSheet, TouchableOpacity, ScrollView,
+    Dimensions, Platform
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { Txt } from '../design-system/primitives';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-// ─── Locked fare structure (TTD cents) ───────────────────────────────────────
-// These must exactly match estimate_fare/index.ts and complete_ride/index.ts.
-// Base fare:     $16.00 TTD = 1600 cents
-// Per kilometre:  $1.75 TTD =  175 cents/km
-// Per minute:     $0.95 TTD =   95 cents/min
-// Minimum fare:  $22.00 TTD = 2200 cents
-const BASE_FARE_CENTS = 1600;
-const PER_KM_CENTS = 175;
-const PER_MIN_CENTS = 95;
+// ── Rider Design Tokens ──────────────────────────────────────────────────────
+const R = {
+    bg: '#07050F',
+    surface: '#110E22',
+    border: 'rgba(255,255,255,0.08)',
+    purple: '#7C3AED',
+    purpleLight: '#A78BFA',
+    gold: '#F59E0B',
+    green: '#10B981',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.4)',
+};
 
-interface ReceiptScreenProps {
-    navigation: any;
-    route: {
-        params: {
-            ride: {
-                id: string;
-                created_at: string;
-                pickup_address?: string;
-                dropoff_address?: string;
-                total_fare_cents?: number;
-                distance_meters?: number;
-                duration_seconds?: number;
-                payment_method?: 'cash' | 'wallet' | 'card';
-                driver_name?: string;
-                vehicle_model?: string;
-                plate_number?: string;
-            };
-        };
-    };
-}
-
-export function ReceiptScreen({ navigation, route }: ReceiptScreenProps) {
+export function ReceiptScreen({ navigation, route }: any) {
     const { ride } = route.params;
+    const insets = useSafeAreaInsets();
 
-    const date = new Date(ride.created_at).toLocaleDateString('en-GB', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    const date = new Date(ride.created_at);
+    const dateStr = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-    const distance = ride.distance_meters ? (ride.distance_meters / 1000).toFixed(1) : '?';
-    const duration = ride.duration_seconds ? Math.round(ride.duration_seconds / 60) : '?';
+    const totalFare = ((ride.total_fare_cents || 0) / 100).toFixed(2);
+    const distanceKm = ride.distance_meters ? (ride.distance_meters / 1000).toFixed(1) : '—';
+    const durationMin = ride.duration_seconds ? Math.round(ride.duration_seconds / 60) : '—';
 
-    // ── Fare breakdown using locked fare structure ──────────────────────────────
-    // These match the edge function pricing exactly.
-    const baseFare = BASE_FARE_CENTS;
-    const distanceFare = ride.distance_meters
-        ? Math.round((ride.distance_meters / 1000) * PER_KM_CENTS)
-        : 0;
-    const timeFare = ride.duration_seconds
-        ? Math.round((ride.duration_seconds / 60) * PER_MIN_CENTS)
-        : 0;
-
-    // If the server gave us total_fare_cents, always prefer it over the
-    // client-side recalculation (handles vehicle multipliers, etc.).
-    const totalFare = ride.total_fare_cents || Math.max(
-        BASE_FARE_CENTS,
-        baseFare + distanceFare + timeFare
-    );
-
-    // ── Payment method display helpers ─────────────────────────────────────────
-    const paymentIcon = (
-        <Ionicons name={ride?.payment_method === 'card' ? 'card-outline' : ride?.payment_method === 'wallet' ? 'wallet-outline' : 'cash-outline'} size={22} color={tokens.colors.text.secondary} />
-    );
-
-    const paymentLabel =
-        ride.payment_method === 'card' ? 'Card Payment' :
-            ride.payment_method === 'wallet' ? 'Wallet Payment' : 'Cash Payment';
-
-    const paymentSubtitle =
-        ride.payment_method === 'card' ? 'Charged to card' :
-            ride.payment_method === 'wallet' ? 'Deducted from G-Taxi Wallet' : 'Paid to driver';
-
-    const handleShare = async () => {
-        try {
-            await Share.share({
-                message: `G-Taxi Receipt\n\nTrip: ${ride.pickup_address || 'Pickup'} → ${ride.dropoff_address || 'Destination'}\nDate: ${date}\nFare: ${formatCurrency(totalFare)}\n\nThanks for riding with G-Taxi!`,
-            });
-        } catch (error) {
-            console.log('Share error:', error);
-        }
+    const handleDone = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     };
 
     return (
-        <View style={styles.container}>
-            <LinearGradient
-                colors={[tokens.colors.background.base, '#1A1A24']}
-                style={StyleSheet.absoluteFill}
-            />
+        <View style={s.root}>
+            <StatusBar style="light" />
 
-            <SafeAreaView style={{ flex: 1 }}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Surface style={styles.backSurf} intensity={20}>
-                            <Txt variant="headingM">←</Txt>
-                        </Surface>
-                    </TouchableOpacity>
-                    <Txt variant="headingL" weight="bold">Trip Receipt</Txt>
+            <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}>
+
+                {/* Header Row: [← back circle] */}
+                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                    <Ionicons name="close" size={24} color="#FFF" />
+                </TouchableOpacity>
+
+                {/* Central Card with Dashed Divider */}
+                <View style={s.receiptWrapper}>
+                    <View style={s.card}>
+
+                        {/* Header: Blue checkmark + "Paid" */}
+                        <View style={s.statusHeader}>
+                            <View style={s.checkCircle}>
+                                <Ionicons name="checkmark" size={32} color="#FFF" />
+                            </View>
+                            <Txt variant="headingM" weight="heavy" color={R.green} style={{ marginTop: 16 }}>PAID</Txt>
+                            <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 4 }}>{dateStr} · {timeStr}</Txt>
+                        </View>
+
+                        <View style={s.dashDivider} />
+
+                        {/* Stats Row */}
+                        <View style={s.statsRow}>
+                            <View style={s.stat}>
+                                <Txt variant="headingM" weight="bold" color="#FFF">{distanceKm}</Txt>
+                                <Txt variant="small" color={R.muted}>KILOMETERS</Txt>
+                            </View>
+                            <View style={s.statVerticalLine} />
+                            <View style={s.stat}>
+                                <Txt variant="headingM" weight="bold" color="#FFF">{durationMin}</Txt>
+                                <Txt variant="small" color={R.muted}>MINUTES</Txt>
+                            </View>
+                        </View>
+
+                        <View style={s.dashDivider} />
+
+                        {/* Breakdown: Base fare, Tip, Total */}
+                        <View style={s.breakdown}>
+                            <View style={s.row}>
+                                <Txt variant="bodyReg" color={R.muted}>Fare</Txt>
+                                <Txt variant="bodyBold" color="#FFF">${totalFare}</Txt>
+                            </View>
+                            <View style={s.row}>
+                                <Txt variant="bodyReg" color={R.muted}>Tip</Txt>
+                                <Txt variant="bodyBold" color="#FFF">$0.00</Txt>
+                            </View>
+                            <View style={[s.row, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' }]}>
+                                <Txt variant="headingM" weight="heavy" color="#FFF">Total</Txt>
+                                <Txt variant="headingM" weight="heavy" color={R.gold}>${totalFare}</Txt>
+                            </View>
+                        </View>
+
+                        <View style={s.dashDivider} />
+
+                        {/* Address Summary */}
+                        <View style={s.addresses}>
+                            <View style={s.addrRow}>
+                                <View style={[s.marker, { backgroundColor: R.purple }]} />
+                                <Txt variant="small" color={R.muted} numberOfLines={1} style={{ flex: 1, marginLeft: 12 }}>{ride.pickup_address}</Txt>
+                            </View>
+                            <View style={s.addrRow}>
+                                <View style={[s.marker, { backgroundColor: R.gold }]} />
+                                <Txt variant="small" color={R.muted} numberOfLines={1} style={{ flex: 1, marginLeft: 12 }}>{ride.dropoff_address}</Txt>
+                            </View>
+                        </View>
+
+                        <View style={s.footer}>
+                            <Txt variant="small" color={R.muted} style={{ textAlign: 'center' }}>Thanks for riding with G-Taxi</Txt>
+                        </View>
+
+                    </View>
                 </View>
 
-                <ScrollView contentContainerStyle={styles.content}>
-                    {/* Date */}
-                    <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={{ marginBottom: 24 }}>
-                        {date}
-                    </Txt>
+                <TouchableOpacity style={s.doneBtn} onPress={handleDone}>
+                    <Txt variant="bodyBold" color={R.purpleLight}>Back to Home</Txt>
+                </TouchableOpacity>
 
-                    {/* Route Card */}
-                    <Card style={styles.card} padding="lg">
-                        <View style={styles.routeRow}>
-                            <View style={styles.routeIcons}>
-                                <View style={[styles.dot, { backgroundColor: tokens.colors.primary.purple }]} />
-                                <View style={styles.line} />
-                                <View style={[styles.dot, { backgroundColor: tokens.colors.primary.cyan }]} />
-                            </View>
-                            <View style={styles.routeText}>
-                                <Txt variant="bodyBold" numberOfLines={1}>{ride.pickup_address || 'Pickup Location'}</Txt>
-                                <View style={{ height: 24 }} />
-                                <Txt variant="bodyBold" numberOfLines={1}>{ride.dropoff_address || 'Destination'}</Txt>
-                            </View>
-                        </View>
-                    </Card>
-
-                    {/* Trip Stats */}
-                    <View style={styles.statsRow}>
-                        <Card style={styles.statCard} padding="md">
-                            <Txt variant="headingL" weight="bold">{distance}</Txt>
-                            <Txt variant="caption" color={tokens.colors.text.secondary}>km</Txt>
-                        </Card>
-                        <Card style={styles.statCard} padding="md">
-                            <Txt variant="headingL" weight="bold">{duration}</Txt>
-                            <Txt variant="caption" color={tokens.colors.text.secondary}>min</Txt>
-                        </Card>
-                    </View>
-
-                    {/* Fare Breakdown — locked pricing */}
-                    <Card style={styles.card} padding="lg">
-                        <Txt variant="headingM" weight="bold" style={{ marginBottom: 16 }}>Fare Breakdown</Txt>
-
-                        <View style={styles.fareRow}>
-                            <Txt variant="bodyReg" color={tokens.colors.text.secondary}>Base Fare</Txt>
-                            <Txt variant="bodyBold">{formatCurrency(baseFare)}</Txt>
-                        </View>
-                        <View style={styles.fareRow}>
-                            <Txt variant="bodyReg" color={tokens.colors.text.secondary}>Distance ({distance} km)</Txt>
-                            <Txt variant="bodyBold">{formatCurrency(distanceFare)}</Txt>
-                        </View>
-                        <View style={styles.fareRow}>
-                            <Txt variant="bodyReg" color={tokens.colors.text.secondary}>Time ({duration} min)</Txt>
-                            <Txt variant="bodyBold">{formatCurrency(timeFare)}</Txt>
-                        </View>
-
-                        <View style={[styles.fareRow, styles.totalRow]}>
-                            <Txt variant="headingM" weight="bold">Total</Txt>
-                            <Txt variant="headingM" weight="bold" color={tokens.colors.primary.purple}>
-                                {formatCurrency(totalFare)}
-                            </Txt>
-                        </View>
-                    </Card>
-
-                    {/* Payment Method — cash | wallet | card */}
-                    <Card style={styles.card} padding="md">
-                        <View style={styles.paymentRow}>
-                            {paymentIcon}
-                            <View style={{ marginLeft: 12 }}>
-                                <Txt variant="bodyBold">{paymentLabel}</Txt>
-                                <Txt variant="caption" color={tokens.colors.text.secondary}>
-                                    {paymentSubtitle}
-                                </Txt>
-                            </View>
-                        </View>
-                    </Card>
-
-                    {/* Driver Info (if available) */}
-                    {ride.driver_name && (
-                        <Card style={styles.card} padding="md">
-                            <View style={styles.driverRow}>
-                                <View style={styles.driverAvatar}>
-                                    <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0,200,150,0.15)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: tokens.colors.primary.purple }}>
-                                        <Txt variant="headingM" weight="bold" color={tokens.colors.primary.purple}>
-                                            {ride.driver_name?.charAt(0)?.toUpperCase() || 'D'}
-                                        </Txt>
-                                    </View>
-                                </View>
-                                <View style={{ marginLeft: 12 }}>
-                                    <Txt variant="bodyBold">{ride.driver_name}</Txt>
-                                    <Txt variant="caption" color={tokens.colors.text.secondary}>
-                                        {ride.vehicle_model} • {ride.plate_number}
-                                    </Txt>
-                                </View>
-                            </View>
-                        </Card>
-                    )}
-
-                    {/* Share Button */}
-                    <Btn
-                        title="Share Receipt"
-                        variant="glass"
-                        onPress={handleShare}
-                        style={{ marginTop: 24 }}
-                    />
-                </ScrollView>
-            </SafeAreaView>
+            </ScrollView>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: tokens.colors.background.base,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-    },
-    backBtn: {
-        marginRight: 16,
-    },
-    backSurf: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    content: {
-        padding: 20,
-    },
-    card: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        marginBottom: 16,
-    },
-    routeRow: {
-        flexDirection: 'row',
-    },
-    routeIcons: {
-        alignItems: 'center',
-        marginRight: 16,
-    },
-    dot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-    },
-    line: {
-        width: 2,
-        height: 24,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-    },
-    routeText: {
-        flex: 1,
-    },
-    statsRow: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 16,
-    },
-    statCard: {
-        flex: 1,
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.03)',
-    },
-    fareRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    },
-    totalRow: {
-        marginTop: 16,
-        paddingTop: 16,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
-    },
-    paymentRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    driverRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    driverAvatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: R.bg },
+    scroll: { flexGrow: 1, paddingHorizontal: 24 },
+    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+
+    receiptWrapper: { flex: 1, justifyContent: 'center' },
+    card: { backgroundColor: R.surface, borderRadius: 32, padding: 32, borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
+
+    statusHeader: { alignItems: 'center', marginBottom: 32 },
+    checkCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: R.green, alignItems: 'center', justifyContent: 'center', shadowColor: R.green, shadowRadius: 15, shadowOpacity: 0.3 },
+
+    dashDivider: { height: 1.5, width: '120%', marginLeft: '-10%', borderStyle: 'dotted', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginVertical: 24 },
+
+    statsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
+    stat: { alignItems: 'center' },
+    statVerticalLine: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.1)' },
+
+    breakdown: { gap: 12 },
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+
+    addresses: { gap: 12 },
+    addrRow: { flexDirection: 'row', alignItems: 'center' },
+    marker: { width: 8, height: 8, borderRadius: 4 },
+
+    footer: { marginTop: 32 },
+    doneBtn: { alignSelf: 'center', marginTop: 40, padding: 10 },
 });
