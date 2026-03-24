@@ -151,6 +151,17 @@ serve(async (req: Request) => {
             );
         }
 
+        // AI LAYER: Log ride_cancelled event
+        await supabaseAdmin.from("user_events").insert({
+            user_id: userId,
+            event_type: "ride_cancelled",
+            payload: { 
+                ride_id, 
+                reason: updatePayload.cancellation_reason,
+                was_rider: isRider
+            }
+        });
+
         return new Response(
             JSON.stringify({
                 success: true,

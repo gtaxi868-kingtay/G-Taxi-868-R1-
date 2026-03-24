@@ -209,9 +209,23 @@ export function ProfileScreen({ navigation }: any) {
                     }}
                 >
                     <View style={s.rowIcon}>
-                        <Ionicons name="create-outline" size={20} color={C.purpleLight} />
+                        <Ionicons name="car-outline" size={20} color={C.purpleLight} />
                     </View>
                     <Txt variant="bodyBold" color={C.white} style={{ flex: 1, marginLeft: 16 }}>Edit Vehicle Details</Txt>
+                    <Ionicons name="chevron-forward" size={20} color={C.muted} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={s.menuRow}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate('StrategySettings');
+                    }}
+                >
+                    <View style={s.rowIcon}>
+                        <Ionicons name="rocket-outline" size={20} color={C.gold} />
+                    </View>
+                    <Txt variant="bodyBold" color={C.white} style={{ flex: 1, marginLeft: 16 }}>AI Business Strategy</Txt>
                     <Ionicons name="chevron-forward" size={20} color={C.muted} />
                 </TouchableOpacity>
 
@@ -227,7 +241,7 @@ export function ProfileScreen({ navigation }: any) {
                         <TextInput
                             style={[s.input, { marginTop: 12 }]}
                             value={editPlate}
-                            onChangeText={t => setEditPlate(t.toUpperCase())}
+                            onChangeText={(t: string) => setEditPlate(t.toUpperCase())}
                             placeholder="License Plate"
                             placeholderTextColor={C.muted}
                         />

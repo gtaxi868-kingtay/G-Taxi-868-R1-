@@ -94,24 +94,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .eq('id', userId)
                 .single();
 
-            // 2. Fetch Preferences
-            const { data: prefData } = await supabase
-                .from('user_preferences')
-                .select('*')
-                .eq('user_id', userId)
-                .single();
-
             if (profileData) setProfile(profileData);
-            if (prefData) setPreferences(prefData);
+
+            // 2. Fetch Preferences — safe, table may not always exist
+            try {
+                const { data: prefData } = await supabase
+                    .from('user_preferences')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .single();
+                if (prefData) setPreferences(prefData);
+            } catch (_prefErr) {
+                // Non-critical: preferences are optional
+            }
 
             // Phase 5: Register push token after profile is confirmed to exist.
-            // Fire-and-forget — never blocks profile fetch or ride flow.
             registerPushToken(userId).catch(err =>
                 console.error('registerPushToken (rider) background error:', err)
             );
         } catch (e) {
             console.error('Error fetching user data', e);
-            // Non-blocking: We don't throw, we just log. Ride flow must continue.
         }
     };
 

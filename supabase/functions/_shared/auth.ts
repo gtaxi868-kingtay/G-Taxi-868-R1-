@@ -1,10 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 export async function requireAuth(req: Request) {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
         throw new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-            status: 401, headers: { 'Content-Type': 'application/json' }
+            status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }
 
@@ -19,7 +25,7 @@ export async function requireAuth(req: Request) {
 
     if (error || !user) {
         throw new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-            status: 401, headers: { 'Content-Type': 'application/json' }
+            status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }
 
@@ -37,7 +43,7 @@ export async function requireDriver(req: Request, supabaseAdmin: any) {
 
     if (error || !driver) {
         throw new Response(JSON.stringify({ error: 'Not a registered driver' }), {
-            status: 403, headers: { 'Content-Type': 'application/json' }
+            status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }
 
@@ -47,8 +53,6 @@ export async function requireDriver(req: Request, supabaseAdmin: any) {
 export async function requireAdmin(req: Request) {
     const user = await requireAuth(req)
 
-    // Use the service role key to read the profiles table server-side.
-    // This bypasses RLS and ensures the role check cannot be spoofed.
     const supabaseAdmin = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -62,7 +66,7 @@ export async function requireAdmin(req: Request) {
 
     if (error || profile?.role !== 'admin') {
         throw new Response(JSON.stringify({ error: 'Forbidden: admin role required' }), {
-            status: 403, headers: { 'Content-Type': 'application/json' }
+            status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }
 

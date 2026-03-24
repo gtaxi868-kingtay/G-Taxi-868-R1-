@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { ShieldAlert } from 'lucide-react';
+import { Shield, Lock, Mail, Activity, Database, Radio } from 'lucide-react';
 
 interface LoginProps {
     onLoginSuccess: () => void;
@@ -28,60 +28,92 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-                <ShieldAlert className="mx-auto h-12 w-12 text-indigo-600" />
-                <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">
-                    G-Taxi Operations
-                </h2>
-                <p className="mt-2 text-center text-sm text-slate-600">Admin Sign In</p>
-            </div>
+        <div className="admin-login-page">
+            {/* Background Glows (Inspired by Energy Drink ref) */}
+            <div style={{ position: 'absolute', top: '10%', left: '10%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(167, 139, 250, 0.1) 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 1 }} />
+            <div style={{ position: 'absolute', bottom: '10%', right: '10%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(125, 211, 252, 0.08) 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 1 }} />
 
-            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-slate-200">
-                    <form className="space-y-6" onSubmit={handleLogin}>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Email</label>
-                            <div className="mt-1">
-                                <input
-                                    type="email"
-                                    required
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                    className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                />
-                            </div>
+            <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                
+                {/* Branding Section */}
+                <div style={{ marginBottom: '3rem', textAlign: 'center' }}>
+                    <div style={{ display: 'inline-block', position: 'relative' }}>
+                        <img 
+                            src="/logo.png" 
+                            alt="G-Taxi Logo" 
+                            style={{ height: '90px', width: 'auto' }}
+                            className="animate-pulse-slow"
+                        />
+                    </div>
+                    <div style={{ marginTop: '2rem' }}>
+                        <h1 className="neon-text-purple font-orbitron" style={{ fontSize: '2.25rem', fontWeight: 900, letterSpacing: '0.05em', margin: 0, opacity: 0.9 }}>
+                            G-TAXI<span style={{ color: 'white' }}> 868</span>
+                        </h1>
+                        <div className="hud-label-small" style={{ marginTop: '8px', opacity: 0.4 }}>Administrative Command & Control</div>
+                    </div>
+                </div>
+
+                {/* Main Login Card */}
+                <div className="admin-login-card">
+                    <div style={{ width: '100%', textAlign: 'center', marginBottom: '2.5rem' }}>
+                        <div className="hud-label-small" style={{ color: 'var(--elegant-purple)', opacity: 0.6 }}>Verification Required</div>
+                        <div style={{ height: '1px', width: '3rem', background: 'linear-gradient(90deg, transparent, var(--elegant-purple), transparent)', margin: '8px auto' }} />
+                    </div>
+
+                    <form onSubmit={handleLogin} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <div className="admin-input-group">
+                            <label className="admin-input-label">Operator Identification</label>
+                            <input
+                                type="email"
+                                required
+                                placeholder="operator@gtaxi868.com"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                className="admin-input"
+                            />
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700">Password</label>
-                            <div className="mt-1">
-                                <input
-                                    type="password"
-                                    required
-                                    value={password}
-                                    onChange={e => setPassword(e.target.value)}
-                                    className="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                                />
-                            </div>
+                        <div className="admin-input-group">
+                            <label className="admin-input-label">Security Access Key</label>
+                            <input
+                                type="password"
+                                required
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                className="admin-input"
+                            />
                         </div>
 
                         {error && (
-                            <div className="text-red-600 text-sm bg-red-50 p-3 rounded">{error}</div>
+                            <div style={{ width: '100%', maxWidth: '320px', margin: '1rem 0', padding: '1rem', borderRadius: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', textAlign: 'center' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 800, color: '#f87171' }}>{error}</span>
+                            </div>
                         )}
 
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                            >
-                                {loading ? 'Signing in...' : 'Sign in'}
-                            </button>
-                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="admin-btn-tactical"
+                        >
+                            {loading ? 'Authorizing...' : 'login'}
+                        </button>
                     </form>
+
+                    <div style={{ marginTop: '2.5rem', display: 'flex', gap: '2rem', opacity: 0.2 }}>
+                        <Database size={14} color="#7DD3FC" />
+                        <Radio size={14} color="#A78BFA" />
+                        <Activity size={14} color="#7DD3FC" />
+                    </div>
+                </div>
+
+                {/* Subtle HUD Footer */}
+                <div style={{ marginTop: '3rem', opacity: 0.15 }}>
+                    <div className="hud-label-small" style={{ letterSpacing: '0.8em' }}>Terminal Secure // Relay 868</div>
                 </div>
             </div>
         </div>
     );
+
+
 }

@@ -37,6 +37,7 @@ import { PromoScreen } from './src/screens/PromoScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
 import { WalletTopUpScreen } from './src/screens/WalletTopUpScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
+import { AISettingsScreen } from './src/screens/AISettingsScreen';
 
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -124,6 +125,7 @@ function AppNavigator() {
                 <AppStack.Screen name="Receipt" component={ReceiptScreen} />
                 <AppStack.Screen name="Promo" component={PromoScreen} />
                 <AppStack.Screen name="Chat" component={ChatScreen} />
+                <AppStack.Screen name="AISettings" component={AISettingsScreen} />
             </AppStack.Navigator>
         </>
     );

@@ -52,13 +52,15 @@ export async function updateRideStatus(
     rideId: string,
     status: 'arrived' | 'in_progress' | 'completed',
     driverLat?: number,
-    driverLng?: number
+    driverLng?: number,
+    pin?: string
 ) {
     const payload = {
         ride_id: rideId,
         status: status,
         driver_lat: driverLat,
-        driver_lng: driverLng
+        driver_lng: driverLng,
+        pin: pin
     };
 
     const functionName = status === 'completed' ? 'complete_ride' : 'update_ride_status';

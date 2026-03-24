@@ -266,6 +266,7 @@ serve(async (req: Request) => {
                 route_polyline: routePolyline,
                 vehicle_type,
                 payment_method,
+                ride_pin: Math.floor(1000 + Math.random() * 9000).toString(),
             })
             .select()
             .single();
@@ -298,9 +299,27 @@ serve(async (req: Request) => {
 
             if (stopsError) {
                 console.error("Failed to insert stops (non-fatal for ride creation):", stopsError);
-                // We logic this as non-fatal but record it.
             }
+
+            // AI LAYER: Log stops_added event
+            await adminClient.from("user_events").insert({
+                user_id: rider_id,
+                event_type: "stops_added",
+                payload: { ride_id: newRide.id, count: stops.length, stops: stops.map((s: any) => s.stop_type) }
+            });
         }
+
+        // AI LAYER: Log ride_request event
+        await adminClient.from("user_events").insert({
+            user_id: rider_id,
+            event_type: "ride_request",
+            payload: { 
+                ride_id: newRide.id, 
+                vehicle_type, 
+                fare_cents: fareCents,
+                has_stops: stops.length > 0
+            }
+        });
 
         console.log("Ride created:", newRide.id);
 

@@ -140,7 +140,7 @@ export function useRideSubscription(rideId: string | null) {
  * ALSO includes polling fallback for when Realtime times out
  */
 export function useDriverLocationSubscription(driverId: string | null) {
-    const [driverLocation, setDriverLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
     useEffect(() => {
         if (!driverId) {
@@ -159,16 +159,16 @@ export function useDriverLocationSubscription(driverId: string | null) {
                     {
                         event: 'UPDATE',
                         schema: 'public',
-                        table: 'driver_locations',
-                        filter: `driver_id=eq.${driverId}`,
+                        table: 'drivers',
+                        filter: `id=eq.${driverId}`,
                     },
                     (payload) => {
                         const driver = payload.new as any;
                         console.log('[Realtime] Driver location update:', driver.lat, driver.lng);
                         if (driver.lat !== undefined && driver.lng !== undefined) {
                             setDriverLocation({
-                                lat: driver.lat,
-                                lng: driver.lng,
+                                latitude: driver.lat,
+                                longitude: driver.lng,
                             });
                         }
                     }
@@ -189,7 +189,7 @@ export function useDriverLocationSubscription(driverId: string | null) {
                     .single();
 
                 if (data?.lat && data?.lng) {
-                    setDriverLocation({ lat: data.lat, lng: data.lng });
+                    setDriverLocation({ latitude: data.lat, longitude: data.lng });
                 }
             } catch (err) {
                 console.log('[Driver] Initial fetch failed:', err);
@@ -213,8 +213,8 @@ export function useDriverLocationSubscription(driverId: string | null) {
                     if (data?.lat && data?.lng) {
                         setDriverLocation(prev => {
                             // Only update if position changed
-                            if (prev?.lat !== data.lat || prev?.lng !== data.lng) {
-                                return { lat: data.lat, lng: data.lng };
+                            if (prev?.latitude !== data.lat || prev?.longitude !== data.lng) {
+                                return { latitude: data.lat, longitude: data.lng };
                             }
                             return prev;
                         });
@@ -243,17 +243,27 @@ export function useDriverLocationSubscription(driverId: string | null) {
 
 /**
  * Fetch driver details when a driver is assigned
+ * Uses the `drivers` table directly (not a view) for reliability
  */
 export async function fetchDriverDetails(driverId: string) {
     const { data, error } = await supabase
-        .from('drivers_map_view')
+        .from('drivers')
         .select('id, name, vehicle_model, plate_number, rating, phone_number, photo_url')
         .eq('id', driverId)
         .single();
 
-    if (error) {
+    if (error || !data) {
         console.error('Error fetching driver:', error);
-        return null;
+        // Return a safe fallback instead of null to prevent downstream crashes
+        return {
+            name: 'Driver',
+            vehicle: 'Vehicle',
+            id: driverId,
+            phone: '',
+            photo_url: undefined,
+            plate: '---',
+            rating: 4.8,
+        };
     }
 
     return {
@@ -261,7 +271,7 @@ export async function fetchDriverDetails(driverId: string) {
         vehicle: data.vehicle_model,
         id: data.id,
         phone: data.phone_number,
-        photo_url: data.photo_url, // We only have vehicle_model in DB currently
+        photo_url: data.photo_url,
         plate: data.plate_number,
         rating: data.rating || 4.8,
     };

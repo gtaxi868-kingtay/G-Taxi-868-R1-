@@ -57,7 +57,7 @@ serve(async (req: Request) => {
 
     const userId = user.id;
 
-    const { ride_id, status, driver_lat, driver_lng } = await req.json();
+    const { ride_id, status, driver_lat, driver_lng, pin } = await req.json();
 
     if (!ride_id || !status) {
       return new Response(
@@ -118,6 +118,23 @@ serve(async (req: Request) => {
             error: `Too far from pickup. You are ${Math.round(distMeters)}m away (max 120m).`,
             data: { distance: distMeters }
           }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // --- PIN VERIFICATION ---
+    if (status === 'in_progress') {
+      if (!pin) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Rider PIN required to start trip", data: null }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (ride.ride_pin !== pin) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid PIN. Please ask the rider for their 4-digit code.", data: null }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

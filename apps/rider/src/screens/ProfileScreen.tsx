@@ -73,6 +73,7 @@ export function ProfileScreen({ navigation }: any) {
 
     const menuItems = [
         { label: 'Edit Profile', icon: 'person-outline', nav: 'EditProfile' },
+        { label: 'AI Assistant & Safety', icon: 'sparkles-outline', nav: 'AISettings' },
         { label: 'Payment Methods', icon: 'card-outline', nav: 'Wallet' },
         { label: 'Saved Places', icon: 'location-outline', nav: 'DestinationSearch', params: { mode: 'save' } },
         { label: 'Promos', icon: 'gift-outline', nav: 'Promo' },

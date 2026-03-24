@@ -39,50 +39,53 @@ function App() {
   const [view, setView] = useState<'checking' | 'login' | 'dashboard'>('checking');
 
   const [rides, setRides] = useState<Ride[]>([]);
-  const [loading, setLoading] = useState(true);
   const [flags, setFlags] = useState<Flag[]>([]);
   const [lockedDrivers, setLockedDrivers] = useState<LockedDriver[]>([]);
   const [allUsers, setAllUsers] = useState<UserRow[]>([]);
 
-  // Run the role check on mount, and again after a successful login.
-  // Note: the actual admin role verification lives server-side inside requireAdmin.
-  // Here we just check for a valid session to decide which view to show.
   const runAuthCheck = async () => {
     setView('checking');
     const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      setView('login');
-      return;
-    }
-
-    // Attempt a lightweight call to an admin edge function.
-    // If the user is not admin, the function returns 403 and adminFetch throws.
-    // This is the definitive role check — not a client-side profile read.
+    if (!session) { setView('login'); return; }
+    
     try {
+      // Proactively check if we are truly an admin
       await adminFetch('admin_get_rides');
       setView('dashboard');
-    } catch {
-      // Not an admin (403) or session invalid — sign out and show login.
-      await supabase.auth.signOut();
-      setView('login');
+    } catch (err: any) {
+      console.error('Auth Check Failed:', err);
+      // Only sign out if it's a definitive authorization failure (401/403)
+      // Otherwise, stay in dashboard mode but show empty/error state
+      if (err.message?.includes('HTTP_401') || err.message?.includes('HTTP_403')) {
+        await supabase.auth.signOut();
+        setView('login');
+      } else {
+        // Fallback: Default to dashboard if it's just a data-loading error (e.g. 500, 404)
+        setView('dashboard');
+      }
     }
   };
 
-  useEffect(() => {
-    runAuthCheck();
-  }, []);
+  useEffect(() => { 
+    runAuthCheck(); 
 
-  // ─── Data Fetchers (all go through edge functions) ─────────────────────────
+    // Listen for auth state changes (login/logout) to update view immediately
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setView('login');
+      } else if (view === 'login') {
+        runAuthCheck();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const fetchRides = async () => {
     try {
       const { data } = await adminFetch('admin_get_rides');
       setRides(data || []);
-    } catch (err: any) {
-      console.error('fetchRides error:', err.message);
-    }
-    setLoading(false);
+    } catch (err: any) { console.error('fetchRides error:', err.message); }
   };
 
   const fetchAdminData = async () => {
@@ -90,385 +93,327 @@ function App() {
       const { users, lockedDrivers: locked } = await adminFetch('admin_get_users');
       setAllUsers(users || []);
       setLockedDrivers(locked || []);
-    } catch (err: any) {
-      console.error('fetchAdminData (users) error:', err.message);
-    }
+    } catch (err: any) { console.error('fetchAdminData error:', err.message); }
 
-    // ── UI-B4: Flags fetch via adminFetch ─────────────────────────────────────
-    //
-    // Primary path: adminFetch('admin_get_flags') — routes through the edge
-    // function so auth + role checks are enforced server-side.
-    //
-    // Fallback path: direct REST API call using the session anon token.
-    // This is used ONLY if admin_get_flags does not exist as an edge function,
-    // because flags are read-only data and the system_feature_flags table has
-    // an RLS policy that allows authenticated admin reads.
-    // The toggle actions (writes) still go through admin_toggle_flag.
     try {
       const data = await adminFetch('admin_get_flags');
       setFlags(Array.isArray(data) ? data : (data?.flags || []));
     } catch (primaryErr: any) {
-      // admin_get_flags edge function not yet deployed — fall back to direct REST.
-      // Remove this fallback once admin_get_flags is deployed.
-      console.warn('admin_get_flags not available, falling back to direct REST fetch:', primaryErr.message);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/system_feature_flags?select=id,is_active&order=id`,
-          {
-            headers: {
-              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-          }
-        );
-        if (res.ok) {
-          const flagData = await res.json();
-          setFlags(flagData || []);
-        }
-      } catch (fallbackErr: any) {
-        console.error('fetchAdminData (flags) fallback error:', fallbackErr.message);
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/system_feature_flags?select=id,is_active&order=id`, {
+        headers: { 'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY, 'Authorization': `Bearer ${session.access_token}` }
+      });
+      if (res.ok) { setFlags(await res.json() || []); }
     }
   };
 
   useEffect(() => {
     if (view !== 'dashboard') return;
-
     fetchRides();
     fetchAdminData();
-
-    // Realtime — still uses the anon Supabase client (anon key is fine for subscriptions).
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'rides' },
-        () => { fetchRides(); }
-      )
-      .subscribe();
-
+    const channel = supabase.channel('schema-db-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, () => { fetchRides(); }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [view]);
 
-  // ─── Actions ───────────────────────────────────────────────────────────────
-
   const handleForceCancel = async (rideId: string) => {
-    if (!window.confirm('Are you sure you want to FORCE CANCEL this ride?')) return;
-
-    try {
-      await adminFetch('admin_cancel_ride', { ride_id: rideId });
-      await fetchRides();
-    } catch (err: any) {
-      alert('Failed to cancel: ' + err.message);
-    }
+    if (!window.confirm('FORCE CANCEL this ride?')) return;
+    try { await adminFetch('admin_cancel_ride', { ride_id: rideId }); fetchRides(); } catch (err: any) { alert(err.message); }
   };
 
   const toggleFlag = async (id: string, current: boolean) => {
-    try {
-      await adminFetch('admin_toggle_flag', { id, is_active: current });
-      await fetchAdminData();
-    } catch (err: any) {
-      alert('Failed to toggle flag: ' + err.message);
-    }
+    try { await adminFetch('admin_toggle_flag', { id, is_active: current }); fetchAdminData(); } catch (err: any) { alert(err.message); }
   };
 
   const settleDriverDebt = async (user_id: string, currentBalanceCents: number) => {
-    if (!window.confirm("Confirm receiving Bank Transfer/Cash to clear this driver's debt?")) return;
-
-    const creditAmount = Math.abs(currentBalanceCents);
-
-    try {
-      await adminFetch('admin_settle_debt', { user_id, amount_cents: creditAmount });
-      alert('Driver Unlocked.');
-      await fetchAdminData();
-    } catch (err: any) {
-      alert('Failed to settle: ' + err.message);
-    }
+    if (!window.confirm("Confirm debt settlement?")) return;
+    try { await adminFetch('admin_settle_debt', { user_id, amount_cents: Math.abs(currentBalanceCents) }); alert('Driver Unlocked.'); fetchAdminData(); } catch (err: any) { alert(err.message); }
   };
 
   const toggleDriverAuthorization = async (user: UserRow) => {
-    if (user.is_driver) {
-      if (!window.confirm(`Revoke driver access for ${user.name}? They will be logged out and lose app access.`)) return;
-      try {
-        await adminFetch('admin_toggle_driver', { user_id: user.id, action: 'revoke' });
-      } catch (err: any) {
-        alert('Failed to revoke: ' + err.message);
-      }
-    } else {
-      if (!window.confirm(`Authorize ${user.name} as a Driver?`)) return;
-      try {
-        await adminFetch('admin_toggle_driver', { user_id: user.id, action: 'authorize', name: user.name });
-      } catch (err: any) {
-        alert('Failed to authorize: ' + err.message);
-      }
+    const action = user.is_driver ? 'revoke' : 'authorize';
+    if (!window.confirm(`${action.toUpperCase()} access for ${user.name}?`)) return;
+    try { await adminFetch('admin_toggle_driver', { user_id: user.id, action, name: user.name }); fetchAdminData(); } catch (err: any) { alert(err.message); }
+  };
+
+  if (view === 'checking') return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0c]">
+      <div className="w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(0,242,255,0.4)]" />
+    </div>
+  );
+
+  if (view === 'login') return <Login onLoginSuccess={runAuthCheck} />;
+
+  // RESILIENT STYLE OBJECTS
+  const styles = {
+    header: {
+        background: 'rgba(10, 10, 12, 0.8)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid rgba(0, 242, 255, 0.1)',
+        position: 'sticky' as const,
+        top: 0,
+        zIndex: 50,
+        padding: '1rem 2rem'
+    },
+    neonText: {
+        fontFamily: "'Orbitron', sans-serif",
+        color: '#00f2ff',
+        textShadow: '0 0 10px rgba(0, 242, 255, 0.3)',
+        letterSpacing: '-0.05em',
+        fontWeight: 900
+    },
+    glassCard: {
+        background: 'rgba(255, 255, 255, 0.03)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255, 255, 255, 0.05)',
+        borderRadius: '1rem',
+        padding: '1.5rem',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+    },
+    tag: {
+        fontSize: '10px',
+        fontWeight: 'bold',
+        textTransform: 'uppercase' as const,
+        tracking: '0.2em',
+        padding: '0.25rem 0.75rem',
+        borderRadius: '999px',
+        border: '1px solid rgba(0, 242, 255, 0.2)',
+        background: 'rgba(0, 242, 255, 0.1)',
+        color: '#00f2ff'
     }
-    await fetchAdminData();
   };
 
-  const isStuck = (ride: Ride) => {
-    if (ride.status !== 'searching' && ride.status !== 'requested') return false;
-    const minutesOld = (new Date().getTime() - new Date(ride.created_at).getTime()) / 60000;
-    return minutesOld > 15;
-  };
-
-  // ─── View gates ────────────────────────────────────────────────────────────
-
-  if (view === 'checking') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
-  if (view === 'login') {
-    return <Login onLoginSuccess={runAuthCheck} />;
-  }
-
-  // view === 'dashboard'
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="bg-slate-900 text-white p-6 shadow-md flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ShieldAlert className="w-8 h-8 text-indigo-400" />
-          <h1 className="text-2xl font-bold tracking-tight">G-Taxi Operations</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-sm font-semibold border border-indigo-500/30">
-            Admin Access
-          </span>
+    <div style={{ minHeight: '100vh', backgroundColor: '#0a0a0c', color: '#f8fafc', paddingBottom: '5rem' }}>
+      <header style={styles.header}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <img 
+                src="/logo.png" 
+                alt="Logo" 
+                style={{ height: '40px', width: 'auto', filter: 'drop-shadow(0 0 8px rgba(0, 242, 255, 0.5))' }} 
+            />
+            <h1 style={styles.neonText}>
+              G-TAXI<span style={{ color: '#fff' }}> 868</span>
+            </h1>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+             <div style={styles.tag}>Secure Link 1.0.4</div>
+             <button 
+                onClick={() => supabase.auth.signOut().then(() => setView('login'))} 
+                className="hover:text-white transition-colors"
+                style={{ fontSize: '10px', fontWeight: 'bold', color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer' }}
+             >
+               TERMINATE SESSION
+             </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-8">
-        {/* LIVE MAP */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2 mb-4">
-            <MapIcon className="w-5 h-5 text-indigo-500" /> Fleet Geolocation
-          </h2>
-          <DriverMap />
-        </div>
-
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
-            <Car className="w-5 h-5 text-indigo-500" /> Live Ride Monitor
-          </h2>
-          <button
-            onClick={fetchRides}
-            className="text-sm bg-white border border-slate-300 px-4 py-2 rounded-md shadow-sm hover:bg-slate-50 transition"
-          >
-            Refresh
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center p-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <main style={{ maxWidth: '80rem', margin: '0 auto', padding: '2.5rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+        {/* GEOLOCATION HUB */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0 0.5rem' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00f2ff', boxShadow: '0 0 8px #00f2ff' }} />
+            <h2 style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Live Geolocation Relay</h2>
           </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-sm font-medium text-slate-500">
-                  <th className="p-4">Time</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Pickup</th>
-                  <th className="p-4">Dropoff</th>
-                  <th className="p-4">Fare</th>
-                  <th className="p-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rides.map(ride => {
-                  const stuck = isStuck(ride);
-                  return (
-                    <tr key={ride.id} className={`transition hover:bg-slate-50 ${stuck ? 'bg-red-50/50' : ''}`}>
-                      <td className="p-4 text-sm whitespace-nowrap">
-                        {new Date(ride.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          <div style={{ ...styles.glassCard, padding: '0.5rem', overflow: 'hidden' }}>
+            <DriverMap />
+          </div>
+        </section>
+
+        {/* DATA MONITOR */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+          
+          {/* RIDE STREAM */}
+          <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.5rem' }}>
+              <h2 style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Main Ride Stream</h2>
+              <button 
+                onClick={fetchRides} 
+                style={{ fontSize: '10px', fontWeight: 'bold', color: '#00f2ff', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.1em' }}
+              >REFRESH_RELAY</button>
+            </div>
+            
+            <div style={{ ...styles.glassCard, padding: 0, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                      <th style={{ padding: '1rem', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>Timestamp</th>
+                      <th style={{ padding: '1rem', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>Status</th>
+                      <th style={{ padding: '1rem', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>Route</th>
+                      <th style={{ padding: '1rem', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>Fare</th>
+                      <th style={{ padding: '1rem', textAlign: 'right', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>Ops</th>
+                    </tr>
+                  </thead>
+                  <tbody style={{ backgroundColor: 'transparent' }}>
+                    {rides.map(ride => {
+                      const color = 
+                        ride.status === 'completed' ? '#4ade80' :
+                        ride.status === 'cancelled' ? '#f87171' :
+                        ride.status === 'in_progress' ? '#22d3ee' : '#fbbf24';
+                      
+                      return (
+                        <tr key={ride.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background-color 0.2s' }}>
+                          <td style={{ padding: '1rem', fontSize: '11px', fontWeight: 500, color: 'rgba(255,255,255,0.4)', fontFamily: "'Orbitron', sans-serif" }}>
+                            {new Date(ride.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </td>
+                          <td style={{ padding: '1rem' }}>
+                            <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', border: `1px solid ${color}33`, padding: '0.125rem 0.5rem', borderRadius: '4px', color: color, backgroundColor: `${color}0D` }}>
+                              {ride.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '1rem' }}>
+                            <div style={{ maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>{ride.pickup_address}</div>
+                            <div style={{ maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontStyle: 'italic', marginTop: '0.125rem' }}>to {ride.dropoff_address}</div>
+                          </td>
+                          <td style={{ padding: '1rem', fontSize: '11px', fontWeight: 'bold', color: '#fff' }}>${(ride.total_fare_cents / 100).toFixed(2)}</td>
+                          <td style={{ padding: '1rem', textAlign: 'right' }}>
+                             {!['completed', 'cancelled'].includes(ride.status) && (
+                               <button 
+                                onClick={() => handleForceCancel(ride.id)} 
+                                style={{ fontSize: '9px', fontWeight: 900, color: 'rgba(239,68,68,0.6)', border: '1px solid rgba(239,68,68,0.2)', padding: '0.25rem 0.5rem', borderRadius: '4px', cursor: 'pointer', background: 'none' }}
+                               >ABORT</button>
+                             )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* SIDEBAR TACTICAL PANEL */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            {/* FEATURE FLAGS */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h2 style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', padding: '0 0.5rem' }}>Tactical Flags</h2>
+              <div style={{ ...styles.glassCard, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {flags.map(flag => (
+                  <div key={flag.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'between' }}>
+                    <div>
+                      <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{flag.id.replace(/_/g, ' ')}</p>
+                      <p style={{ fontSize: '9px', color: flag.is_active ? '#00f2ff' : 'rgba(255,255,255,0.2)', marginTop: '0.125rem' }}>{flag.is_active ? 'ENABLED' : 'OFFLINE'}</p>
+                    </div>
+                    <button 
+                      onClick={() => toggleFlag(flag.id, flag.is_active)}
+                      style={{ 
+                        marginLeft: 'auto',
+                        width: '2.5rem', 
+                        height: '1.25rem', 
+                        borderRadius: '999px', 
+                        position: 'relative', 
+                        transition: 'all 0.2s', 
+                        cursor: 'pointer',
+                        border: flag.is_active ? '1px solid #00f2ff' : '1px solid rgba(255,255,255,0.1)',
+                        backgroundColor: flag.is_active ? 'rgba(0, 242, 255, 0.1)' : 'rgba(255,255,255,0.05)',
+                        boxShadow: flag.is_active ? '0 0 10px rgba(0, 242, 255, 0.2)' : 'none'
+                      }}
+                    >
+                      <div style={{ 
+                        position: 'absolute', 
+                        top: '2px', 
+                        width: '0.875rem', 
+                        height: '0.875rem', 
+                        borderRadius: '50%', 
+                        transition: 'all 0.2s', 
+                        backgroundColor: flag.is_active ? '#00f2ff' : 'rgba(255,255,255,0.2)',
+                        left: flag.is_active ? 'calc(100% - 1.125rem)' : '4px'
+                      }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* DEBT MONITOR */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h2 style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', padding: '0 0.5rem' }}>Debt Watch</h2>
+              <div style={{ ...styles.glassCard, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {lockedDrivers.map(drv => (
+                  <div key={drv.user_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'between', padding: '0.75rem', borderRadius: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
+                    <div>
+                      <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#fff' }}>{drv.name}</p>
+                      <p style={{ fontSize: '10px', color: '#f87171', fontWeight: 900, marginTop: '0.125rem', fontFamily: "'Orbitron', sans-serif" }}>${(Math.abs(drv.balance) / 100).toFixed(2)}</p>
+                    </div>
+                    <button 
+                        onClick={() => settleDriverDebt(drv.user_id, drv.balance)} 
+                        style={{ marginLeft: 'auto', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '9px', fontWeight: 900, padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer', color: '#fff' }}
+                    >SETTLE</button>
+                  </div>
+                ))}
+                {lockedDrivers.length === 0 && <p style={{ textAlign: 'center', padding: '1rem 0', fontSize: '10px', fontWeight: 'bold', color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase', letterSpacing: '0.2em' }}>Clear Perimeter</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* PERSONNEL LOGISTICS (USERS) */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0 0.5rem' }}>
+            <h2 style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Personnel Logistics</h2>
+          </div>
+          <div style={{ ...styles.glassCard, padding: 0, overflow: 'hidden' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                    <th style={{ padding: '1rem', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>Name</th>
+                    <th style={{ padding: '1rem', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>Contact</th>
+                    <th style={{ padding: '1rem', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>Role</th>
+                    <th style={{ padding: '1rem', textAlign: 'right', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>Perms</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allUsers.map(user => (
+                    <tr key={user.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#fff' }}>{user.name}</div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace' }}>ID: {user.id.split('-')[0]}...</div>
                       </td>
-                      <td className="p-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border
-                          ${ride.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
-                            ride.status === 'cancelled' ? 'bg-slate-100 text-slate-600 border-slate-200' :
-                              ride.status === 'in_progress' || ride.status === 'arrived' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                                stuck ? 'bg-red-100 text-red-700 border-red-200' :
-                                  'bg-yellow-100 text-yellow-700 border-yellow-200'
-                          }
-                        `}>
-                          {ride.status === 'completed' && <CheckCircle2 className="w-3 h-3" />}
-                          {ride.status === 'cancelled' && <XCircle className="w-3 h-3" />}
-                          {ride.status === 'searching' && <Search className="w-3 h-3" />}
-                          {stuck && <AlertTriangle className="w-3 h-3" />}
-                          {ride.status.toUpperCase()}
+                      <td style={{ padding: '1rem', fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{user.email}</td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', border: user.is_driver ? '1px solid #00f2ff' : '1px solid rgba(255,255,255,0.1)', padding: '0.125rem 0.5rem', borderRadius: '4px', color: user.is_driver ? '#00f2ff' : 'rgba(255,255,255,0.3)', backgroundColor: user.is_driver ? 'rgba(0, 242, 255, 0.05)' : 'transparent' }}>
+                          {user.is_driver ? 'AUTHORIZED_DRIVER' : 'BASE_USER'}
                         </span>
-                        {stuck && <p className="text-[10px] text-red-500 mt-1 font-semibold">STUCK</p>}
                       </td>
-                      <td className="p-4 text-sm text-slate-600 max-w-[200px] truncate" title={ride.pickup_address}>
-                        {ride.pickup_address}
-                      </td>
-                      <td className="p-4 text-sm text-slate-600 max-w-[200px] truncate" title={ride.dropoff_address}>
-                        {ride.dropoff_address}
-                      </td>
-                      <td className="p-4 text-sm font-medium">
-                        ${(ride.total_fare_cents / 100).toFixed(2)}
-                      </td>
-                      <td className="p-4 text-right">
-                        {!['completed', 'cancelled'].includes(ride.status) && (
-                          <button
-                            onClick={() => handleForceCancel(ride.id)}
-                            className="text-xs bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded border border-red-100 transition font-medium"
-                          >
-                            FORCE CANCEL
-                          </button>
-                        )}
+                      <td style={{ padding: '1rem', textAlign: 'right' }}>
+                         <button 
+                           onClick={() => toggleDriverAuthorization(user)}
+                           style={{ fontSize: '9px', fontWeight: 900, paddingLeft: '0.75rem', paddingRight: '0.75rem', paddingTop: '0.25rem', paddingBottom: '0.25rem', borderRadius: '4px', cursor: 'pointer', background: 'none', border: user.is_driver ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(0, 242, 255, 0.3)', color: user.is_driver ? '#f87171' : '#00f2ff' }}
+                         >
+                           {user.is_driver ? 'REVOKE' : 'AUTHORIZE'}
+                         </button>
                       </td>
                     </tr>
-                  );
-                })}
-                {rides.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-500">
-                      No rides found in the system.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* ADMIN PANELS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
-          {/* System Feature Flags */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2 mb-4">
-              <Settings className="w-5 h-5 text-indigo-500" />
-              System Feature Flags
-            </h3>
-            <p className="text-sm text-slate-500 mb-6">Hot-Toggle Rider App components without App Store updates.</p>
-            <div className="space-y-4">
-              {flags.map(flag => (
-                <div key={flag.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
-                  <div>
-                    <p className="font-medium text-slate-800 capitalize">{flag.id.replace(/_/g, ' ')}</p>
-                    <p className="text-xs text-slate-500">Currently {flag.is_active ? 'Active' : 'Hidden'} in Rider App</p>
-                  </div>
-                  <button
-                    onClick={() => toggleFlag(flag.id, flag.is_active)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${flag.is_active ? 'bg-indigo-600' : 'bg-slate-200'}`}
-                  >
-                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${flag.is_active ? 'translate-x-5' : 'translate-x-0'}`} />
-                  </button>
-                </div>
-              ))}
-              {flags.length === 0 && <p className="text-sm text-slate-500 italic">No feature flags found in DB.</p>}
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-
-          {/* Locked Drivers / Settlements */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2 mb-4">
-              <Wallet className="w-5 h-5 text-red-500" />
-              Locked Drivers (Debt &gt; $600 TTD)
-            </h3>
-            <p className="text-sm text-slate-500 mb-6">Drivers listed here are blocked from receiving dispatches.</p>
-            <div className="space-y-4">
-              {lockedDrivers.map(drv => (
-                <div key={drv.user_id} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-100">
-                  <div>
-                    <p className="font-medium text-slate-800 flex items-center gap-2">
-                      <Users className="w-4 h-4 text-slate-500" />
-                      {drv.name}
-                    </p>
-                    <p className="text-xs font-bold text-red-600 mt-1">
-                      Owes: ${(Math.abs(drv.balance) / 100).toFixed(2)} TTD
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => settleDriverDebt(drv.user_id, drv.balance)}
-                    className="text-xs bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-3 py-2 rounded-md font-medium transition"
-                  >
-                    Settle to $0
-                  </button>
-                </div>
-              ))}
-              {lockedDrivers.length === 0 && (
-                <div className="p-8 text-center bg-green-50 rounded-lg border border-green-100">
-                  <CheckCircle2 className="w-8 h-8 text-green-500 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-green-800">No locked drivers.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* DRIVER WAITLIST MANAGEMENT */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mt-8">
-          <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-indigo-500" />
-            Driver Waitlist Management
-          </h3>
-          <p className="text-sm text-slate-500 mb-6">
-            Authorize registered users to login to the Driver App. Public registration is controlled via the 'driver_registration_active' feature flag above.
-          </p>
-
-          <div className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-100 border-b border-slate-200 text-sm font-medium text-slate-600">
-                  <th className="p-4">Name</th>
-                  <th className="p-4">Email</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {allUsers.map(user => (
-                  <tr key={user.id} className="transition hover:bg-white">
-                    <td className="p-4 text-sm font-medium text-slate-800">{user.name}</td>
-                    <td className="p-4 text-sm text-slate-500">{user.email}</td>
-                    <td className="p-4 text-sm">
-                      {user.is_driver ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200">
-                          Authorized Driver
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-200 text-slate-600 border border-slate-300">
-                          Standard User
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 text-right">
-                      <button
-                        onClick={() => toggleDriverAuthorization(user)}
-                        className={`text-xs px-3 py-1.5 rounded transition font-bold border ${user.is_driver
-                          ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                          : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 shadow-sm'
-                          }`}
-                      >
-                        {user.is_driver ? 'REVOKE ACCESS' : 'AUTHORIZE'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {allUsers.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="p-8 text-center text-slate-500">
-                      No users registered.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+        </section>
       </main>
+
+      {/* FOOTER STATUS BAR */}
+      <footer style={{ position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(10, 10, 12, 0.9)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255, 255, 255, 0.05)', padding: '0.5rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.1em' }}>G-TAXI CORE v1.0.4</div>
+          <div style={{ width: '1px', height: '12px', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ fontSize: '9px', fontWeight: 800, color: '#00f2ff', letterSpacing: '0.1em' }}>SYS_READY</div>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: flags.some(f => f.is_active) ? '#4ade80' : '#f87171' }} />
+            <span style={{ fontSize: '8px', fontWeight: 900, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Subsystems Active</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
+
 
 export default App;

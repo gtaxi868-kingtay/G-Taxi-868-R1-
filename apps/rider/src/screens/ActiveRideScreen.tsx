@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, Alert,
-    Linking, Dimensions, Platform, Image as RNImage
+    Linking, Dimensions, Platform, Image as RNImage, AppState
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +46,9 @@ export function ActiveRideScreen({ route, navigation }: any) {
     const [driverLocation, setDriverLocation] = useState<any>(null);
     const [isSosLoading, setIsSosLoading] = useState(false);
 
+    // FIX: channel must be in a ref accessible by the useEffect cleanup
+    const driverChannelRef = useRef<any>(null);
+
     const { rideUpdate: updatedRide } = useRideSubscription(rideId);
 
     // Reanimated Values
@@ -59,6 +62,22 @@ export function ActiveRideScreen({ route, navigation }: any) {
             withTiming(1.3, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
             -1, true
         );
+
+        // Reconnect driver location channel when app returns from background
+        const appStateSub = AppState.addEventListener('change', (nextState) => {
+            if (nextState === 'active' && driverChannelRef.current) {
+                supabase.removeChannel(driverChannelRef.current);
+                driverChannelRef.current = null;
+                fetchInitialData();
+            }
+        });
+
+        return () => {
+            appStateSub.remove();
+            if (driverChannelRef.current) {
+                supabase.removeChannel(driverChannelRef.current);
+            }
+        };
     }, []);
 
     useEffect(() => {
@@ -92,16 +111,12 @@ export function ActiveRideScreen({ route, navigation }: any) {
             setDriver(data.driver);
             setDriverLocation({ latitude: data.driver?.lat, longitude: data.driver?.lng });
 
-            // Subscribe to driver location (with cleanup)
-            const channel = supabase.channel(`driver_loc_${data.driver?.id}`)
+            // FIX: store channel in ref so cleanup in useEffect can actually reach it
+            driverChannelRef.current = supabase.channel(`driver_loc_${data.driver?.id}`)
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${data.driver?.id}` }, (payload) => {
                     setDriverLocation({ latitude: payload.new.lat, longitude: payload.new.lng });
                 })
                 .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
         }
     };
 
@@ -223,6 +238,12 @@ export function ActiveRideScreen({ route, navigation }: any) {
                             <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 18 }}>{driver?.name || 'Partner'}</Txt>
                             <Txt variant="small" color={R.muted}>{driver?.vehicle_model} · {driver?.plate_number}</Txt>
                         </View>
+                        {ride?.ride_pin && (
+                            <View style={s.pinBadge}>
+                                <Txt variant="caption" color={R.muted} style={{ marginBottom: 2 }}>SECURITY PIN</Txt>
+                                <Txt variant="headingM" color={R.white} weight="heavy">{ride.ride_pin}</Txt>
+                            </View>
+                        )}
                         <TouchableOpacity style={s.sosBtn} onPress={handleSOS}>
                             <Reanimated.View style={[s.sosRing, sosAnim]} />
                             <Txt variant="caption" weight="heavy" color="#FFF">SOS</Txt>
@@ -276,6 +297,7 @@ const s = StyleSheet.create({
 
     driverRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 32 },
     avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center' },
+    pinBadge: { alignItems: 'center', marginRight: 16, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(124,58,237,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(124,58,237,0.2)' },
     sosBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: R.red, alignItems: 'center', justifyContent: 'center' },
     sosRing: { position: 'absolute', width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: R.red, opacity: 0.3 },
 

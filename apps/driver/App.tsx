@@ -16,6 +16,7 @@ import { ScheduledRidesScreen } from './src/screens/ScheduledRidesScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PendingApprovalScreen } from './src/screens/PendingApprovalScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
+import { StrategySettingsScreen } from './src/screens/StrategySettingsScreen';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundFetch from 'expo-background-fetch';
@@ -197,6 +198,7 @@ function AppNavigator() {
             <Stack.Screen name="ScheduledRides" component={ScheduledRidesScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="StrategySettings" component={StrategySettingsScreen} />
         </Stack.Navigator>
     );
 }

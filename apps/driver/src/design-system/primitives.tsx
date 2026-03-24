@@ -13,7 +13,7 @@ interface TxtProps {
     weight?: keyof typeof tokens.typography.weights;
     center?: boolean;
     style?: StyleProp<TextStyle>;
-    children: React.ReactNode;
+    children?: React.ReactNode;
     numberOfLines?: number;
 }
 
@@ -57,7 +57,7 @@ export const Txt = ({
 
 // 2. SURFACE (Glass Base - "Satin")
 interface SurfaceProps {
-    children: React.ReactNode;
+    children?: React.ReactNode;
     style?: StyleProp<ViewStyle>;
     intensity?: number;
     noBorder?: boolean;

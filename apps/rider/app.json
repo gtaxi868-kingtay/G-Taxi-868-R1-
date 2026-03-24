@@ -39,7 +39,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.gtaxi.rider",
       "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "AIzaSyC2IzqWf_DUeWChHY8ZvJZMn419ZyiXGpI"
       },
       "infoPlist": {
         "UIBackgroundModes": [
@@ -57,7 +57,7 @@
       "package": "com.gtaxi.rider",
       "config": {
         "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+          "apiKey": "AIzaSyC2IzqWf_DUeWChHY8ZvJZMn419ZyiXGpI"
         }
       },
       "permissions": [
@@ -69,9 +69,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "dbadc8b8-fbaa-48e9-a220-33a9cb1f53ce"
+        "projectId": "ee5e0064-e219-4070-9643-1b4348eace6f"
       }
     },
-    "owner": "king263tay"
+    "owner": "kingtay868"
   }
 }

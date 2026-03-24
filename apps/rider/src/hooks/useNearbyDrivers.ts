@@ -57,14 +57,24 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
         driver.heading = heading;
     };
 
-    // Convert DB driver to animated driver
-    const createAnimatedDriver = (dbDriver: DriverFromDB): AnimatedDriver => ({
-        id: dbDriver.id,
-        lat: new Animated.Value(dbDriver.lat),
-        lng: new Animated.Value(dbDriver.lng),
-        heading: dbDriver.heading || 0,
-        is_online: dbDriver.is_online,
-    });
+    // Convert DB driver to animated driver (reusing existing values if possible)
+    const getOrCreateAnimatedDriver = (dbDriver: DriverFromDB): AnimatedDriver => {
+        const existing = animatedDriversRef.current.get(dbDriver.id);
+        if (existing) {
+            // Update static fields but keep animated values
+            existing.heading = dbDriver.heading || 0;
+            existing.is_online = dbDriver.is_online;
+            return existing;
+        }
+
+        return {
+            id: dbDriver.id,
+            lat: new Animated.Value(dbDriver.lat),
+            lng: new Animated.Value(dbDriver.lng),
+            heading: dbDriver.heading || 0,
+            is_online: dbDriver.is_online,
+        };
+    };
 
     useEffect(() => {
         // Null/NaN guard: don't subscribe if location is invalid
@@ -105,7 +115,7 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
 
                 // Initialize animated drivers
                 const animatedList: AnimatedDriver[] = (data || []).map((d: DriverFromDB) => {
-                    const animated = createAnimatedDriver(d);
+                    const animated = getOrCreateAnimatedDriver(d);
                     animatedDriversRef.current.set(d.id, animated);
                     return animated;
                 });
@@ -152,7 +162,7 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
 
                         } else if (!existing && updatedDriver.is_online && updatedDriver.lat) {
                             // New driver came online - add them
-                            const newAnimated = createAnimatedDriver(updatedDriver);
+                            const newAnimated = getOrCreateAnimatedDriver(updatedDriver);
                             animatedDriversRef.current.set(updatedDriver.id, newAnimated);
                             setDrivers(prev => [...prev, newAnimated]);
                         }

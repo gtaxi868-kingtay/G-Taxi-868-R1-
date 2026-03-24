@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import {
     View, StyleSheet, TouchableOpacity,
     Alert, Linking, Platform, Dimensions,
+    Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -89,6 +90,8 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const [rider, setRider] = useState<any>(null);
     const [routeCoords, setRouteCoords] = useState<any[]>([]);
     const [isSosLoading, setIsSosLoading] = useState(false);
+    const [pinInput, setPinInput] = useState('');
+    const [showPinModal, setShowPinModal] = useState(false);
 
     // ── Reanimated ────────────────────────────────────────────────────────────
     const cardY = useSharedValue(CARD_HEIGHT);
@@ -149,9 +152,16 @@ export function ActiveTripScreen({ route, navigation }: any) {
     }, [rideId]);
 
     // ── Status updaters ───────────────────────────────────────────────────────
-    const handleStatusChange = async (newStatus: 'arrived' | 'in_progress' | 'completed') => {
-        const { error } = await updateRideStatus(rideId, newStatus);
-        if (!error) setRide((prev: any) => ({ ...prev, status: newStatus }));
+    const handleStatusChange = async (newStatus: 'arrived' | 'in_progress' | 'completed', pin?: string) => {
+        const { error } = await updateRideStatus(rideId, newStatus, location?.coords?.latitude, location?.coords?.longitude, pin);
+        if (!error) {
+            setRide((prev: any) => ({ ...prev, status: newStatus }));
+            return true;
+        } else {
+            const errorMsg = (error as any)?.message || 'Update failed';
+            Alert.alert('Status Update Failed', errorMsg);
+            return false;
+        }
     };
 
     // handleArrived — updates status to arrived
@@ -511,13 +521,13 @@ export function ActiveTripScreen({ route, navigation }: any) {
                         {ride?.status === 'arrived' && (
                             <TouchableOpacity
                                 style={[s.mainBtn, { backgroundColor: C.purple }]}
-                                onPress={async () => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                    await handleStatusChange('in_progress');
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    setShowPinModal(true);
                                 }}
                                 activeOpacity={0.85}
                             >
-                                <Ionicons name="play-outline" size={20} color={C.white} />
+                                <Ionicons name="key-outline" size={20} color={C.white} />
                                 <Txt variant="bodyBold" color={C.white}> Start Trip</Txt>
                             </TouchableOpacity>
                         )}
@@ -535,6 +545,68 @@ export function ActiveTripScreen({ route, navigation }: any) {
                     </View>
                 </LinearGradient>
             </Reanimated.View>
+
+            {/* ── PIN MODAL ────────────────────────────────────────────────── */}
+            <Modal
+                visible={showPinModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowPinModal(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={s.modalOverlay}
+                >
+                    <BlurView tint="dark" intensity={100} style={s.modalContent}>
+                        <Txt variant="headingM" color={C.white} style={{ marginBottom: 12 }}>Enter Rider PIN</Txt>
+                        <Txt variant="bodyReg" color={C.muted} style={{ textAlign: 'center', marginBottom: 24 }}>
+                            Ask the rider for the 4-digit code shown on their screen to start the trip.
+                        </Txt>
+
+                        <TextInput
+                            style={s.pinInput}
+                            placeholder="0000"
+                            placeholderTextColor={C.muted}
+                            keyboardType="number-pad"
+                            maxLength={4}
+                            value={pinInput}
+                            onChangeText={(val: string) => {
+                                setPinInput(val);
+                                if (val.length === 4) {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                }
+                            }}
+                            autoFocus
+                        />
+
+                        <View style={s.modalActions}>
+                            <TouchableOpacity
+                                style={s.modalCancel}
+                                onPress={() => {
+                                    setShowPinModal(false);
+                                    setPinInput('');
+                                }}
+                            >
+                                <Txt variant="bodyBold" color={C.muted}>Cancel</Txt>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[s.modalConfirm, { opacity: pinInput.length === 4 ? 1 : 0.5 }]}
+                                disabled={pinInput.length !== 4}
+                                onPress={async () => {
+                                    const success = await handleStatusChange('in_progress', pinInput);
+                                    if (success) {
+                                        setShowPinModal(false);
+                                        setPinInput('');
+                                    }
+                                }}
+                            >
+                                <Txt variant="bodyBold" color={C.white}>Verify & Start</Txt>
+                            </TouchableOpacity>
+                        </View>
+                    </BlurView>
+                </KeyboardAvoidingView>
+            </Modal>
         </View>
     );
 }
@@ -704,5 +776,58 @@ const s = StyleSheet.create({
         width: '100%', paddingVertical: 16,
         borderRadius: 50, backgroundColor: C.purple,
         alignItems: 'center',
+    },
+
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    modalContent: {
+        width: '100%',
+        borderRadius: 32,
+        padding: 32,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: C.border,
+        overflow: 'hidden',
+    },
+    pinInput: {
+        width: '100%',
+        height: 80,
+        backgroundColor: C.surfaceHigh,
+        borderRadius: 20,
+        textAlign: 'center',
+        fontSize: 40,
+        fontWeight: '800',
+        color: C.purpleLight,
+        letterSpacing: 20,
+        marginBottom: 32,
+        borderWidth: 1,
+        borderColor: C.border,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        gap: 16,
+        width: '100%',
+    },
+    modalCancel: {
+        flex: 1,
+        height: 54,
+        borderRadius: 27,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: C.surfaceHigh,
+    },
+    modalConfirm: {
+        flex: 2,
+        height: 54,
+        borderRadius: 27,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: C.purple,
     },
 });

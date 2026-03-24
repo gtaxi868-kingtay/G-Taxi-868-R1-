@@ -62,12 +62,6 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "773a954e-ad5e-44ed-8b1f-6d0eba9254cf"
-      }
-    },
-    "owner": "king263tay"
+    ]
   }
 }
