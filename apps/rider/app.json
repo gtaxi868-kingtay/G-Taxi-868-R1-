@@ -15,8 +15,12 @@
       [
         "expo-build-properties",
         {
+          "android": {
+            "kotlinVersion": "2.0.21"
+          },
           "ios": {
-            "useFrameworks": "static"
+            "useFrameworks": "static",
+            "deploymentTarget": "15.1"
           }
         }
       ],
@@ -33,6 +37,7 @@
           "locationAlwaysAndWhenInUsePermission": "Allow G-Taxi to use your location to find nearby drivers."
         }
       ],
+      "./plugins/fix-gradle",
       "@sentry/react-native"
     ],
     "ios": {
@@ -46,7 +51,10 @@
           "location",
           "fetch",
           "remote-notification"
-        ]
+        ],
+        "NSLocationWhenInUseUsageDescription": "G-Taxi needs your location to show available drivers and set your pickup point.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "G-Taxi tracks your ride location to ensure security and accurate fare calculation, even when the app is in the background.",
+        "NSLocationAlwaysUsageDescription": "G-Taxi tracks your ride location to ensure security and accurate fare calculation, even when the app is in the background."
       }
     },
     "android": {

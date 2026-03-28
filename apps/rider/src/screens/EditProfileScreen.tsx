@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, TextInput,
     Alert, KeyboardAvoidingView, Platform, Image,
-    ScrollView, ActivityIndicator
+    ScrollView, ActivityIndicator, Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -16,15 +16,19 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../../../../shared/supabase';
 import { decode } from 'base64-arraybuffer';
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+import { tokens } from '../design-system/tokens';
+
+const { width } = Dimensions.get('window');
+
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function EditProfileScreen({ navigation }: any) {
@@ -94,15 +98,12 @@ export function EditProfileScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Txt variant="bodyBold" color={R.muted}>Cancel</Txt>
+            <View style={[s.header, { marginTop: insets.top }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                    <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF">Edit Profile</Txt>
-                <TouchableOpacity onPress={handleSave} disabled={saving} style={s.headerBtn}>
-                    <Txt variant="bodyBold" color={R.purpleLight}>{saving ? '...' : 'Save'}</Txt>
-                </TouchableOpacity>
-            </BlurView>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Edit Profile</Txt>
+            </View>
 
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={s.scroll}>
@@ -122,7 +123,7 @@ export function EditProfileScreen({ navigation }: any) {
                     </TouchableOpacity>
 
                     <View style={s.form}>
-                        <View style={s.inputContainer}>
+                        <View style={s.inputWrapper}>
                             <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>FULL NAME</Txt>
                             <TextInput
                                 style={s.input}
@@ -133,7 +134,7 @@ export function EditProfileScreen({ navigation }: any) {
                             />
                         </View>
 
-                        <View style={s.inputContainer}>
+                        <View style={s.inputWrapper}>
                             <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>PHONE NUMBER</Txt>
                             <TextInput
                                 style={s.input}
@@ -143,8 +144,21 @@ export function EditProfileScreen({ navigation }: any) {
                                 placeholderTextColor="rgba(255,255,255,0.2)"
                                 keyboardType="phone-pad"
                             />
-                            <Txt variant="small" color={R.muted} style={{ marginTop: 8 }}>Used for pickup coordination</Txt>
                         </View>
+
+                        {/* Save Button */}
+                        <TouchableOpacity style={s.saveBtn} onPress={handleSave} disabled={saving}>
+                            <LinearGradient 
+                                colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                                start={{x: 0, y: 0}} 
+                                end={{x: 1, y: 0}}
+                                style={s.btnGradient}
+                            >
+                                {saving ? <ActivityIndicator color="#FFF" /> : (
+                                    <Txt variant="bodyBold" color="#FFF">SAVE CHANGES</Txt>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
                     </View>
 
                 </ScrollView>
@@ -155,18 +169,21 @@ export function EditProfileScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border },
-    headerBtn: { padding: 8, minWidth: 60, alignItems: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 32 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    scroll: { padding: 32, alignItems: 'center' },
+    scroll: { paddingBottom: 48 },
     photoGroup: { alignItems: 'center', marginBottom: 40 },
     avatarBorder: { width: 110, height: 110, borderRadius: 55, padding: 3, alignItems: 'center', justifyContent: 'center' },
     avatarInner: { width: 104, height: 104, borderRadius: 52, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
     image: { width: '100%', height: '100%' },
     overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
 
-    form: { width: '100%', gap: 24 },
-    inputContainer: { gap: 8 },
-    label: { marginLeft: 4 },
-    input: { height: 56, backgroundColor: R.surface, borderRadius: 16, paddingHorizontal: 20, color: '#FFF', fontSize: 16, borderWidth: 1, borderColor: R.border },
+    form: { paddingHorizontal: 20 },
+    inputWrapper: { marginBottom: 24, gap: 10 },
+    label: { marginLeft: 8, opacity: 0.8 },
+    input: { height: 60, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 24, color: '#FFF', fontSize: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+
+    saveBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 32, shadowColor: '#00FFFF', shadowRadius: 15, shadowOpacity: 0.3 },
+    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

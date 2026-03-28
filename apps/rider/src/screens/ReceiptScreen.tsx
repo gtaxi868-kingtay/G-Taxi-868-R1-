@@ -10,19 +10,21 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width, height } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    green: '#10B981',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    green: tokens.colors.status.success,
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function ReceiptScreen({ navigation, route }: any) {
@@ -59,11 +61,11 @@ export function ReceiptScreen({ navigation, route }: any) {
 
                         {/* Header: Blue checkmark + "Paid" */}
                         <View style={s.statusHeader}>
-                            <View style={s.checkCircle}>
+                            <View style={[s.checkCircle, { backgroundColor: tokens.colors.primary.cyan }]}>
                                 <Ionicons name="checkmark" size={32} color="#FFF" />
                             </View>
-                            <Txt variant="headingM" weight="heavy" color={R.green} style={{ marginTop: 16 }}>PAID</Txt>
-                            <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 4 }}>{dateStr} · {timeStr}</Txt>
+                            <Txt variant="headingM" weight="heavy" color={tokens.colors.primary.cyan} style={{ marginTop: 24, letterSpacing: 4 }}>PAID SUCCESS</Txt>
+                            <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 8 }}>{dateStr} · {timeStr}</Txt>
                         </View>
 
                         <View style={s.dashDivider} />
@@ -121,7 +123,7 @@ export function ReceiptScreen({ navigation, route }: any) {
                 </View>
 
                 <TouchableOpacity style={s.doneBtn} onPress={handleDone}>
-                    <Txt variant="bodyBold" color={R.purpleLight}>Back to Home</Txt>
+                    <Txt variant="headingM" weight="heavy" color={tokens.colors.primary.cyan}>BACK TO HOME</Txt>
                 </TouchableOpacity>
 
             </ScrollView>
@@ -131,28 +133,28 @@ export function ReceiptScreen({ navigation, route }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    scroll: { flexGrow: 1, paddingHorizontal: 24 },
-    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+    scroll: { flexGrow: 1, paddingHorizontal: 20 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
 
     receiptWrapper: { flex: 1, justifyContent: 'center' },
-    card: { backgroundColor: R.surface, borderRadius: 32, padding: 32, borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
+    card: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 40, padding: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
 
-    statusHeader: { alignItems: 'center', marginBottom: 32 },
-    checkCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: R.green, alignItems: 'center', justifyContent: 'center', shadowColor: R.green, shadowRadius: 15, shadowOpacity: 0.3 },
+    statusHeader: { alignItems: 'center', marginBottom: 40 },
+    checkCircle: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', shadowColor: tokens.colors.primary.cyan, shadowRadius: 20, shadowOpacity: 0.4 },
 
-    dashDivider: { height: 1.5, width: '120%', marginLeft: '-10%', borderStyle: 'dotted', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginVertical: 24 },
+    dashDivider: { height: 1.5, width: '120%', marginLeft: '-10%', borderStyle: 'dotted', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginVertical: 32 },
 
     statsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
     stat: { alignItems: 'center' },
-    statVerticalLine: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.1)' },
+    statVerticalLine: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.05)' },
 
-    breakdown: { gap: 12 },
+    breakdown: { gap: 16 },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
-    addresses: { gap: 12 },
+    addresses: { gap: 16 },
     addrRow: { flexDirection: 'row', alignItems: 'center' },
-    marker: { width: 8, height: 8, borderRadius: 4 },
+    marker: { width: 10, height: 10, borderRadius: 5 },
 
-    footer: { marginTop: 32 },
-    doneBtn: { alignSelf: 'center', marginTop: 40, padding: 10 },
+    footer: { marginTop: 40 },
+    doneBtn: { alignSelf: 'center', marginTop: 48, padding: 20 },
 });

@@ -111,32 +111,44 @@ serve(async (req: Request) => {
             // STEP 3 - Calculate distance using Haversine
             const distanceMeters = haversine(lastRecord.lat, lastRecord.lng, lat, lng);
 
-            // STEP 4 - Calculate implied speed
-            // km/h = (meters / 1000) / (seconds / 3600)
+            // --- GPS SPOOF DETECTION ---
+
+            // KM/H = (meters / 1000) / (seconds / 3600)
             const impliedSpeedKmh = (distanceMeters / 1000) / (timeDeltaSeconds / 3600);
 
-            // RULE 1 - Teleportation check
-            if (impliedSpeedKmh > 250) {
-                // Log the spoof attempt
-                await adminClient.from("gps_spoof_log").insert({
-                    driver_id,
-                    reported_lat: lat,
-                    reported_lng: lng,
-                    last_known_lat: lastRecord.lat,
-                    last_known_lng: lastRecord.lng,
-                    implied_speed_kmh: impliedSpeedKmh,
-                    time_delta_seconds: timeDeltaSeconds,
-                    distance_meters: distanceMeters,
-                    rejection_reason: "implied_speed_too_high"
-                });
+            // Tighter threshold: 110 km/h is the absolute max highway speed in Trinidad.
+            // Anything faster is a 'Warp' attempt.
+            const MAX_LEGAL_SPEED_KMH = 110; 
 
-                // Increment flag count and potentially auto-suspend
-                await adminClient.rpc("increment_spoof_flag", { p_driver_id: driver_id });
+            // RULE 1 - Teleportation / Warp Check
+            // We ignore updates that are too close in time (< 1s) to avoid division by zero
+            if (timeDeltaSeconds > 1 && impliedSpeedKmh > MAX_LEGAL_SPEED_KMH) {
+                // Special case: if the last update was > 30 mins ago, we allow the 'jump' 
+                // but we mark the driver as 'warped' in the logs just in case.
+                const isStaleUpdate = timeDeltaSeconds > 1800; 
 
-                return new Response(
-                    JSON.stringify({ success: false, error: "Location update rejected: invalid movement detected" }),
-                    { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-                );
+                if (!isStaleUpdate) {
+                    // Log the spoof attempt
+                    await adminClient.from("gps_spoof_log").insert({
+                        driver_id,
+                        reported_lat: lat,
+                        reported_lng: lng,
+                        last_known_lat: lastRecord.lat,
+                        last_known_lng: lastRecord.lng,
+                        implied_speed_kmh: impliedSpeedKmh,
+                        time_delta_seconds: timeDeltaSeconds,
+                        distance_meters: distanceMeters,
+                        rejection_reason: "velocity_threshold_exceeded"
+                    });
+
+                    // Increment flag count
+                    await adminClient.rpc("increment_spoof_flag", { p_driver_id: driver_id });
+
+                    return new Response(
+                        JSON.stringify({ success: false, error: "Movement too fast. Update rejected." }),
+                        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
+                }
             }
 
             // RULE 3 - Stationary jitter allowance

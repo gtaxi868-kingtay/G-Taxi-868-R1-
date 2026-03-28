@@ -11,17 +11,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width, height } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function DestinationSearchScreen({ navigation, route }: any) {
@@ -156,26 +158,25 @@ export function DestinationSearchScreen({ navigation, route }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 16, paddingBottom: 16,
-        borderBottomWidth: 1, borderColor: R.border
-    },
+    header: { paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.02)' },
+    
+    backCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+    
+    inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 16, height: 60, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    input: { flex: 1, height: '100%', color: '#FFF', fontSize: 17, marginLeft: 12 },
+
+    content: { flex: 1, padding: 20 },
+    sectionLabel: { marginBottom: 16, opacity: 0.6, letterSpacing: 1 },
+
+    resultRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 16, borderRadius: 24, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
+    iconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(123, 97, 255, 0.1)', alignItems: 'center', justifyContent: 'center' },
+    resultInfo: { marginLeft: 16, flex: 1 },
+
+    loadingContainer: { marginTop: 40, alignItems: 'center' },
     backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
-
-    inputContainer: {
-        flex: 1, height: 50, backgroundColor: R.surface,
-        borderRadius: 12, marginLeft: 12, flexDirection: 'row',
-        alignItems: 'center', paddingHorizontal: 12,
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
-    },
+    inputContainer: { flex: 1, height: 50, backgroundColor: R.surface, borderRadius: 12, marginLeft: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
     searchIcon: { marginRight: 8 },
-    input: { flex: 1, color: R.white, fontSize: 16 },
-
     list: { paddingBottom: 40 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 12 },
-    resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20 },
-    iconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    resultInfo: { flex: 1, marginLeft: 16 },
     empty: { marginTop: 40, alignItems: 'center' },
 });

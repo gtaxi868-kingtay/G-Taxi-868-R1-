@@ -11,21 +11,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
+import { tokens } from '../design-system/tokens';
 
 const { width } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    green: '#10B981',
-    red: '#EF4444',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    green: tokens.colors.status.success,
+    red: tokens.colors.status.error,
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function TripsScreen({ navigation }: any) {
@@ -64,7 +65,7 @@ export function TripsScreen({ navigation }: any) {
             >
                 <View style={s.cardHeader}>
                     <Txt variant="bodyBold" color={R.white}>{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Txt>
-                    <Txt variant="bodyBold" color={R.white}>${((item.total_fare_cents || 0) / 100).toFixed(2)}</Txt>
+                    <Txt variant="headingM" weight="heavy" color={tokens.colors.primary.cyan}>${((item.total_fare_cents || 0) / 100).toFixed(2)}</Txt>
                 </View>
 
                 <View style={s.route}>
@@ -96,13 +97,12 @@ export function TripsScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            {/* Header: BlurView with "Your Trips" title + Back button */}
-            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
+            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={s.title}>Your Trips</Txt>
-            </BlurView>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={s.title}>Engagement History</Txt>
+            </View>
 
             {loading ? (
                 <View style={s.center}><ActivityIndicator color={R.purple} /></View>
@@ -126,23 +126,23 @@ export function TripsScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border, zIndex: 10 },
-    backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     title: { marginLeft: 16 },
 
-    list: { padding: 20 },
-    card: { backgroundColor: R.surface, borderRadius: 20, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: R.border },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+    list: { paddingHorizontal: 20 },
+    card: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 24, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
 
-    route: { flexDirection: 'row', marginBottom: 20 },
-    routeLineWrap: { width: 20, alignItems: 'center', paddingVertical: 4 },
-    marker: { width: 8, height: 8, borderRadius: 4 },
-    line: { width: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
-    addressWrap: { flex: 1, marginLeft: 12 },
+    route: { flexDirection: 'row', marginBottom: 24 },
+    routeLineWrap: { width: 24, alignItems: 'center', paddingVertical: 4 },
+    marker: { width: 10, height: 10, borderRadius: 5 },
+    line: { width: 2, flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 6 },
+    addressWrap: { flex: 1, marginLeft: 16 },
 
-    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-    statusPill: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
+    statusPill: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 },
 
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    empty: { marginTop: 100, alignItems: 'center' },
+    empty: { marginTop: 100, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 40, borderRadius: 40 },
 });

@@ -9,20 +9,21 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
 import { Txt } from '../design-system/primitives';
+import { tokens } from '../design-system/tokens';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.8;
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 interface SidebarProps {
@@ -125,7 +126,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                         </TouchableOpacity>
 
                         <Txt variant="small" color={R.muted} style={{ marginTop: 24, textAlign: 'center' }}>
-                            G-Taxi • v2.4.0 Nano Banana
+                            G-Taxi • v3.0.0 Vibrant Futurism
                         </Txt>
                     </View>
 

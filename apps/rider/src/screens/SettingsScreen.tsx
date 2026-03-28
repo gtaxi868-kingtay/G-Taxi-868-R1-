@@ -13,18 +13,20 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function SettingsScreen({ navigation }: any) {
@@ -70,13 +72,12 @@ export function SettingsScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
+            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF">Settings</Txt>
-                <View style={{ width: 44 }} />
-            </BlurView>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Settings</Txt>
+            </View>
 
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
 
@@ -157,12 +158,12 @@ function SettingRow({ label, sub, value, onToggle }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border },
-    headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    scroll: { padding: 24 },
-    sectionLabel: { marginLeft: 16, marginBottom: 12, marginTop: 24 },
-    card: { backgroundColor: R.surface, borderRadius: 24, padding: 8, borderWidth: 1, borderColor: R.border },
-    row: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 16 },
+    scroll: { paddingHorizontal: 20 },
+    sectionLabel: { marginLeft: 16, marginBottom: 12, marginTop: 32, letterSpacing: 2 },
+    card: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    row: { flexDirection: 'row', alignItems: 'center', padding: 20 },
+    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 20 },
 });

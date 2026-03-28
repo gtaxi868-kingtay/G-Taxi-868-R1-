@@ -18,14 +18,14 @@ Deno.serve(async (req) => {
     // 1. Fetch all profiles
     const { data: profiles, error: pErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email')
+      .select('id, full_name, email, role')
       .order('created_at', { ascending: false })
 
     if (pErr) throw pErr
 
-    // 2. Fetch driver IDs
-    const { data: drivers } = await supabaseAdmin.from('drivers').select('id')
-    const driverIds = new Set((drivers || []).map(d => d.id))
+    // 2. Fetch driver user_ids
+    const { data: drivers } = await supabaseAdmin.from('drivers').select('user_id')
+    const driverIds = new Set((drivers || []).map(d => d.user_id))
 
     // 3. Fetch balances
     const { data: txs } = await supabaseAdmin.from('wallet_transactions').select('user_id, amount')
@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
       id: p.id,
       name: p.full_name || 'No Name',
       email: p.email || 'No Email',
+      role: p.role || 'rider',
       is_driver: driverIds.has(p.id),
       balance_cents: balances[p.id] || 0,
     }))

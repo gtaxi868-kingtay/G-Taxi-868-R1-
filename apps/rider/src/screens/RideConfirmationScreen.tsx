@@ -26,18 +26,20 @@ interface StopSuggestion {
     is_preferred: boolean;
 }
 
+import { tokens } from '../design-system/tokens';
+
 const { width, height } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.1)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 const VEHICLES = [
@@ -285,14 +287,14 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                         style={{ marginBottom: 10 }}
                                     >
                                         <Card
-                                            intensity={isSelected ? 40 : 15}
+                                            intensity={isSelected ? 60 : 25}
                                             style={[
-                                                { flexDirection: 'row', alignItems: 'center' },
+                                                { flexDirection: 'row', alignItems: 'center', borderRadius: 24 },
                                                 isSelected && { borderColor: R.purple, borderWidth: 1 }
                                             ]}
                                         >
                                             <View style={s.stopIconWrap}>
-                                                <Txt variant="bodyReg" style={{ fontSize: 20 }}>
+                                                <Txt variant="bodyReg" style={{ fontSize: 22 }}>
                                                     {stop.emoji}
                                                 </Txt>
                                             </View>
@@ -343,60 +345,31 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
-    dot: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFF', borderWidth: 3, borderColor: R.purple },
-    square: { width: 14, height: 14, backgroundColor: '#FFF', borderWidth: 3, borderColor: R.gold },
+    backBtn: { position: 'absolute', left: 24, padding: 10, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20, zIndex: 100 },
+    
+    panel: { borderTopLeftRadius: 40, borderTopRightRadius: 40, flex: 1, overflow: 'hidden', padding: 24, backgroundColor: 'rgba(10, 10, 31, 0.95)' },
+    handle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
 
-    panel: { flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', paddingHorizontal: 24, paddingVertical: 12 },
-    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'center', marginBottom: 20 },
+    routeBox: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, padding: 20, marginBottom: 24 },
+    routeRow: { flexDirection: 'row', alignItems: 'center' },
+    line: { width: 2, height: 20, backgroundColor: 'rgba(255,255,255,0.1)', marginLeft: 6, marginVertical: 4 },
+    dotSmall: { width: 12, height: 12, borderRadius: 6 },
+    squareSmall: { width: 12, height: 12, borderRadius: 2 },
+    
+    dot: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFF', borderWidth: 4, borderColor: '#7B61FF' },
+    square: { width: 20, height: 20, borderRadius: 4, backgroundColor: '#FFF', borderWidth: 4, borderColor: '#00FFFF' },
 
-    routeBox: { marginBottom: 16 },
-    routeRow: { flexDirection: 'row', alignItems: 'center', height: 40 },
-    dotSmall: { width: 8, height: 8, borderRadius: 4 },
-    squareSmall: { width: 8, height: 8 },
-    line: { width: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.1)', marginLeft: 3.5 },
-
-    statsRow: { marginBottom: 24 },
-
-    vehicleScroll: { marginHorizontal: -24, paddingLeft: 24, marginBottom: 32 },
-    vehicleCard: { width: 110, height: 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, marginRight: 12, padding: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: R.border },
+    statsRow: { marginBottom: 24, paddingHorizontal: 4 },
+    
+    vehicleScroll: { marginBottom: 32 },
+    vehicleCard: { width: 110, height: 130, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, padding: 16, marginRight: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     vehicleCardActive: { backgroundColor: R.purple, borderColor: R.purpleLight },
 
-    fareSection: { alignItems: 'center', marginBottom: 24 },
-    confirmBtn: { height: 64, borderRadius: 32, overflow: 'hidden' },
-    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    stopsSection: { marginBottom: 32 },
+    stopsSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    stopIconWrap: { width: 54, height: 54, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
 
-    stopsSection: {
-        marginBottom: 20,
-    },
-    stopsSectionHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 10,
-    },
-    stopCard: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderWidth: 1.5,
-        borderColor: R.border,
-        borderRadius: 16,
-        padding: 14,
-        marginBottom: 10,
-    },
-    stopCardSelected: {
-        borderColor: R.purple,
-        backgroundColor: 'rgba(124, 58, 237, 0.1)',
-    },
-    stopIconWrap: {
-        width: 38,
-        height: 38,
-        borderRadius: 10,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-    },
+    fareSection: { alignItems: 'center', marginBottom: 24, justifyContent: 'center', flexShrink: 0 },
+    confirmBtn: { height: 64, borderRadius: 24, overflow: 'hidden' },
+    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

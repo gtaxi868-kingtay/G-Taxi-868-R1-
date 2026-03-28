@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Shield, Lock, Mail, Activity, Database, Radio } from 'lucide-react';
+import { Activity, Database, Radio } from 'lucide-react';
+import { LOGO_B64 } from '../logoUrl';
+
 
 interface LoginProps {
     onLoginSuccess: () => void;
@@ -36,16 +38,22 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 
                 {/* Branding Section */}
-                <div style={{ marginBottom: '3rem', textAlign: 'center' }}>
-                    <div style={{ display: 'inline-block', position: 'relative' }}>
+                <div style={{ marginBottom: '3rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
                         <img 
-                            src="/logo.png" 
+                            src={LOGO_B64} 
                             alt="G-Taxi Logo" 
-                            style={{ height: '90px', width: 'auto' }}
+                            style={{ 
+                                height: '70px', 
+                                minWidth: '70px',
+                                width: 'auto', 
+                                display: 'block',
+                                objectFit: 'contain'
+                            }}
                             className="animate-pulse-slow"
                         />
                     </div>
-                    <div style={{ marginTop: '2rem' }}>
+                    <div>
                         <h1 className="neon-text-purple font-orbitron" style={{ fontSize: '2.25rem', fontWeight: 900, letterSpacing: '0.05em', margin: 0, opacity: 0.9 }}>
                             G-TAXI<span style={{ color: 'white' }}> 868</span>
                         </h1>

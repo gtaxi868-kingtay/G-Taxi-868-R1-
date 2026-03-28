@@ -15,15 +15,23 @@ Deno.serve(async (req) => {
   try {
     const { supabaseAdmin } = await requireAdmin(req)
 
-    const { data: flags, error } = await supabaseAdmin
+    const { data: flags, error: flagsError } = await supabaseAdmin
       .from('system_feature_flags')
       .select('*')
       .order('id')
 
-    if (error) throw error
+    const { data: config, error: configError } = await supabaseAdmin
+      .from('system_config')
+      .select('*')
+
+    if (flagsError || configError) throw flagsError || configError
 
     return new Response(
-      JSON.stringify({ success: true, data: flags }),
+      JSON.stringify({ 
+        success: true, 
+        data: flags,
+        config: config // G-TAXI HARDENING: Fix 12
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

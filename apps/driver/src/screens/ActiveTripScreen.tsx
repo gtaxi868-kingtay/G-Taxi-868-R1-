@@ -92,6 +92,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const [isSosLoading, setIsSosLoading] = useState(false);
     const [pinInput, setPinInput] = useState('');
     const [showPinModal, setShowPinModal] = useState(false);
+    const [waitStats, setWaitStats] = useState({ mins: 0, cents: 0 });
 
     // ── Reanimated ────────────────────────────────────────────────────────────
     const cardY = useSharedValue(CARD_HEIGHT);
@@ -115,7 +116,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
     // ── Update phase track when ride status changes ────────────────────────────
     useEffect(() => {
         if (!ride?.status) return;
-        const idx = getPhaseIndex(ride.status);
+        const idx = getPhaseIndex(ride?.status);
         phaseWidth.value = withSpring(idx / 2, { damping: 16, stiffness: 140 });
         // Fade status bubble text
         statusOp.value = withSequence(
@@ -139,6 +140,19 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 }
             });
 
+        // Live Wait Clock (Fix 5)
+        const timer = setInterval(() => {
+            setRide((currentRide: any) => {
+                if (currentRide?.status === 'arrived' && currentRide?.arrived_at) {
+                    const diffMs = Date.now() - new Date(currentRide.arrived_at).getTime();
+                    const mins = Math.max(0, Math.floor(diffMs / 60000));
+                    const cents = Math.floor((diffMs / 60000) * 90);
+                    setWaitStats({ mins, cents });
+                }
+                return currentRide;
+            });
+        }, 1000);
+
         const sub = supabase.channel(`ride_${rideId}`)
             .on('postgres_changes', {
                 event: 'UPDATE', schema: 'public', table: 'rides',
@@ -148,7 +162,10 @@ export function ActiveTripScreen({ route, navigation }: any) {
             })
             .subscribe();
 
-        return () => { sub.unsubscribe(); };
+        return () => { 
+            sub.unsubscribe();
+            clearInterval(timer);
+        };
     }, [rideId]);
 
     // ── Status updaters ───────────────────────────────────────────────────────
@@ -248,9 +265,9 @@ export function ActiveTripScreen({ route, navigation }: any) {
 
     const openNavigation = () => {
         if (!ride) return;
-        const dest = ride.status === 'assigned'
-            ? `${ride.pickup_lat},${ride.pickup_lng}`
-            : `${ride.dropoff_lat},${ride.dropoff_lng}`;
+        const dest = ride?.status === 'assigned'
+            ? `${ride?.pickup_lat},${ride?.pickup_lng}`
+            : `${ride?.dropoff_lat},${ride?.dropoff_lng}`;
         const url = Platform.select({
             ios: `maps://app?daddr=${dest}`,
             android: `google.navigation:q=${dest}`,
@@ -278,7 +295,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
 
     // ── Completed screen ──────────────────────────────────────────────────────
     if (ride?.status === 'completed' || ride?.status === 'closed') {
-        const fare = ride.total_fare_cents ? ride.total_fare_cents / 100 : 0;
+        const fare = ride?.total_fare_cents ? ride?.total_fare_cents / 100 : 0;
         const earnings = (fare * DRIVER_SHARE).toFixed(2);
 
         return (
@@ -302,9 +319,9 @@ export function ActiveTripScreen({ route, navigation }: any) {
                             ${earnings}
                         </Txt>
                         <Txt variant="bodyReg" color={C.muted}>
-                            {ride.payment_method === 'cash' ? 'Cash' : ride.payment_method === 'wallet' ? 'Wallet' : 'Card'} · TTD
+                            {ride?.payment_method === 'cash' ? 'Cash' : ride?.payment_method === 'wallet' ? 'Wallet' : 'Card'} · TTD
                         </Txt>
-                        {ride.payment_method === 'cash' && (
+                        {ride?.payment_method === 'cash' && (
                             <View style={s.cashBadge}>
                                 <Txt variant="bodyBold" color={C.bg}>Collect ${fare.toFixed(2)} cash</Txt>
                             </View>
@@ -358,8 +375,8 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 {/* Destination marker */}
                 {ride && (
                     <Marker coordinate={{
-                        latitude: ride.status === 'assigned' ? ride.pickup_lat : ride.dropoff_lat,
-                        longitude: ride.status === 'assigned' ? ride.pickup_lng : ride.dropoff_lng,
+                        latitude: ride?.status === 'assigned' ? ride?.pickup_lat : ride?.dropoff_lat,
+                        longitude: ride?.status === 'assigned' ? ride?.pickup_lng : ride?.dropoff_lng,
                     }}>
                         <View style={s.destMarker} />
                     </Marker>
@@ -441,6 +458,19 @@ export function ActiveTripScreen({ route, navigation }: any) {
                             })}
                         </View>
                     </View>
+
+                    {/* --- WAIT CLOCK UI (Fix 5) --- */}
+                    {ride?.status === 'arrived' && (
+                        <View style={s.waitClockRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Ionicons name="time-outline" size={16} color={C.gold} />
+                                <Txt variant="bodyBold" color={C.gold}>WAITING: {waitStats.mins}m</Txt>
+                            </View>
+                            <View style={s.waitFeeBadge}>
+                                <Txt variant="caption" weight="bold" color={C.white}>+${(waitStats.cents / 100).toFixed(2)} FEE</Txt>
+                            </View>
+                        </View>
+                    )}
 
                     {/* ── RIDER INFO ROW ───────────────────────────────────── */}
                     <View style={s.riderRow}>
@@ -758,6 +788,14 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
         marginBottom: 20,
     },
+    waitClockRow: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        backgroundColor: 'rgba(245,158,11,0.05)', borderRadius: 12, padding: 12, marginBottom: 16,
+        borderWidth: 1, borderColor: 'rgba(245,158,11,0.15)',
+    },
+    waitFeeBadge: {
+        backgroundColor: C.gold, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
+    },
     earningsBlock: {
         width: '100%', alignItems: 'center',
         paddingVertical: 24,
@@ -798,13 +836,8 @@ const s = StyleSheet.create({
     pinInput: {
         width: '100%',
         height: 80,
-        backgroundColor: C.surfaceHigh,
-        borderRadius: 20,
-        textAlign: 'center',
-        fontSize: 40,
+        fontSize: 32,
         fontWeight: '800',
-        color: C.purpleLight,
-        letterSpacing: 20,
         marginBottom: 32,
         borderWidth: 1,
         borderColor: C.border,

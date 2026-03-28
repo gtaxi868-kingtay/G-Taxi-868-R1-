@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -28,7 +28,9 @@ import { OutboxService } from '../../shared/OutboxService';
 
 // ── Phase 5 Fix 5.7: Background retry task for offline ride completions ────────
 const RETRY_TASK = 'OFFLINE_COMPLETION_RETRY';
+const LOCATION_TASK = 'LOCATION_TRACKING'; // Fix 2: Background Heartbeat
 const COMPLETE_RIDE_URL = `${ENV.SUPABASE_URL}/functions/v1/complete_ride`;
+const UPDATE_LOCATION_URL = `${ENV.SUPABASE_URL}/functions/v1/update_driver_location`;
 
 TaskManager.defineTask(RETRY_TASK, async () => {
     try {
@@ -76,6 +78,40 @@ TaskManager.defineTask(RETRY_TASK, async () => {
     } catch (err) {
         console.error('[RETRY_TASK] Unexpected error:', err);
         return BackgroundFetch.BackgroundFetchResult.Failed;
+    }
+});
+
+// Fix 2: Surgical Background Location Heartbeat
+TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
+    if (error) {
+        console.error(`[LOCATION_TASK] Error: ${error.message}`);
+        return;
+    }
+    if (data) {
+        const { locations } = data;
+        const location = locations[0];
+        if (location) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return;
+
+                // Sync to backend using raw fetch to avoid supabase-js overhead in bg task
+                await fetch(UPDATE_LOCATION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({
+                        lat: parseFloat(location.coords.latitude.toFixed(6)),
+                        lng: parseFloat(location.coords.longitude.toFixed(6)),
+                        heading: location.coords.heading || 0,
+                    }),
+                });
+            } catch (err) {
+                console.warn('[LOCATION_TASK] Sync failed:', err);
+            }
+        }
     }
 });
 
@@ -130,50 +166,75 @@ function AppNavigator() {
     const [initialRoute, setInitialRoute] = useState<string | null>(null);
     const [activeRideId, setActiveRideId] = useState<string | undefined>();
 
-    useEffect(() => {
-        async function checkActiveRide() {
-            if (!user) {
+    const checkActiveRide = useCallback(async () => {
+        if (!user) {
+            setInitialRoute('Dashboard');
+            return;
+        }
+
+        try {
+            const { data: driverRecord } = await supabase
+                .from('drivers')
+                .select('id, status')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            if (!driverRecord) {
                 setInitialRoute('Dashboard');
                 return;
             }
 
-            try {
-                const { data: driverRecord } = await supabase
-                    .from('drivers')
-                    .select('id, status')
-                    .eq('user_id', user.id)
-                    .single();
+            if (driverRecord.status === 'pending') {
+                setInitialRoute('PendingApproval');
+                return;
+            }
 
-                if (!driverRecord) {
-                    setInitialRoute('Dashboard');
-                    return;
-                }
+            const { data } = await supabase
+                .from('rides')
+                .select('id')
+                .eq('driver_id', driverRecord.id)
+                .in('status', ['assigned', 'arrived', 'in_progress'])
+                .maybeSingle();
 
-                if (driverRecord.status === 'pending') {
-                    setInitialRoute('PendingApproval');
-                    return;
-                }
-
-                const { data } = await supabase
-                    .from('rides')
-                    .select('id')
-                    .eq('driver_id', driverRecord.id)
-                    .in('status', ['assigned', 'arrived', 'in_progress'])
-                    .maybeSingle();
-
-                if (data) {
-                    setActiveRideId(data.id);
-                    setInitialRoute('ActiveTrip');
-                } else {
-                    setInitialRoute('Dashboard');
-                }
-            } catch (err) {
-                console.warn('Boot check failed:', err);
+            if (data) {
+                setActiveRideId(data.id);
+                setInitialRoute('ActiveTrip');
+            } else {
                 setInitialRoute('Dashboard');
             }
+        } catch (err) {
+            console.warn('Boot check failed:', err);
+            setInitialRoute('Dashboard');
         }
-        checkActiveRide();
     }, [user]);
+
+    useEffect(() => {
+        checkActiveRide();
+
+        // Real-time listener for status changes (e.g. Admin Approval)
+        if (user) {
+            const channel = supabase
+                .channel(`driver-status-${user.id}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'drivers',
+                        filter: `user_id=eq.${user.id}`,
+                    },
+                    () => {
+                        console.log('Driver status updated in real-time. Refreshing check...');
+                        checkActiveRide();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
+        }
+    }, [user, checkActiveRide]);
 
     if (!initialRoute) {
         return (

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView,
-    Alert, ActivityIndicator, Dimensions
+    Alert, ActivityIndicator, Dimensions, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -14,18 +14,20 @@ import { supabase } from '../../../../shared/supabase';
 import { Txt } from '../design-system/primitives';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 
+import { tokens } from '../design-system/tokens';
+
 const { width } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 type PaymentMethod = 'cash' | 'wallet' | 'card';
@@ -42,7 +44,8 @@ export function PaymentScreen({ navigation, route }: any) {
     const fareCents = route?.params?.fare_cents;
     const insets = useSafeAreaInsets();
     const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-    const stripe = isExpoGo ? null : useStripe();
+    const isWeb = Platform.OS === 'web';
+    const stripe = (isExpoGo || isWeb) ? null : useStripe();
 
     const [selected, setSelected] = useState<PaymentMethod>(initialMethod);
     const [loading, setLoading] = useState(false);
@@ -129,20 +132,19 @@ export function PaymentScreen({ navigation, route }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
+            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF">Payment</Txt>
-                <View style={{ width: 44 }} />
-            </BlurView>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Payment</Txt>
+            </View>
 
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
 
                 {fareCents && (
                     <View style={s.fareDisplay}>
-                        <Txt variant="caption" weight="heavy" color={R.muted}>AMOUNT DUE</Txt>
-                        <Txt variant="headingL" weight="heavy" color="#FFF">${(fareCents / 100).toFixed(2)}</Txt>
+                        <Txt variant="caption" weight="heavy" color={tokens.colors.primary.cyan} style={{ letterSpacing: 2 }}>AMOUNT DUE</Txt>
+                        <Txt variant="displayXL" weight="heavy" color="#FFF">${(fareCents / 100).toFixed(2)}</Txt>
                     </View>
                 )}
 
@@ -156,17 +158,16 @@ export function PaymentScreen({ navigation, route }: any) {
                             style={[s.methodCard, isActive && s.methodCardActive]}
                             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelected(opt.id as any); }}
                         >
-                            <View style={s.iconWrap}>
+                            <View style={[s.iconWrap, isActive && { backgroundColor: tokens.colors.primary.purple }]}>
                                 <Ionicons name={opt.icon as any} size={24} color={isActive ? "#FFF" : R.muted} />
                             </View>
                             <View style={{ flex: 1, marginLeft: 16 }}>
                                 <Txt variant="bodyBold" color={isActive ? "#FFF" : R.muted}>{opt.label}</Txt>
-                                <Txt variant="small" color={isActive ? R.purpleLight : R.muted}>{opt.subtitle}</Txt>
+                                <Txt variant="small" color={isActive ? tokens.colors.primary.cyan : R.muted}>{opt.subtitle}</Txt>
                             </View>
                             <View style={[s.radio, isActive && s.radioActive]}>
-                                {isActive && <View style={s.radioDot} />}
+                                {isActive && <View style={[s.radioDot, { backgroundColor: tokens.colors.primary.cyan }]} />}
                             </View>
-                            {isActive && <LinearGradient colors={['rgba(124,58,237,0.1)', 'transparent']} style={StyleSheet.absoluteFill} />}
                         </TouchableOpacity>
                     );
                 })}
@@ -178,10 +179,15 @@ export function PaymentScreen({ navigation, route }: any) {
 
                 {rideId && (
                     <TouchableOpacity style={s.payBtn} onPress={handleConfirm} disabled={loading}>
-                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                        <LinearGradient 
+                            colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                            start={{x: 0, y: 0}} 
+                            end={{x: 1, y: 0}}
+                            style={s.btnGradient}
+                        >
                             {loading ? <ActivityIndicator color="#FFF" /> : (
                                 <Txt variant="bodyBold" color="#FFF">
-                                    {selected === 'card' ? 'Pay with Card' : 'Confirm Method'}
+                                    {selected === 'card' ? 'PROCESS ENGAGEMENT' : 'CONFIRM ENGAGEMENT'}
                                 </Txt>
                             )}
                         </LinearGradient>
@@ -195,21 +201,21 @@ export function PaymentScreen({ navigation, route }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border },
-    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    scroll: { padding: 24 },
-    fareDisplay: { alignItems: 'center', marginBottom: 40, backgroundColor: R.surface, padding: 32, borderRadius: 32, borderWidth: 1, borderColor: R.border },
+    scroll: { paddingHorizontal: 20 },
+    fareDisplay: { alignItems: 'center', marginBottom: 40, backgroundColor: 'rgba(255,255,255,0.03)', padding: 40, borderRadius: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
 
-    methodCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 24, backgroundColor: R.surface, marginBottom: 12, borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
-    methodCardActive: { borderColor: R.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
-    iconWrap: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' },
+    methodCard: { flexDirection: 'row', alignItems: 'center', padding: 24, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.03)', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    methodCardActive: { borderColor: tokens.colors.primary.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
+    iconWrap: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: R.muted, alignItems: 'center', justifyContent: 'center' },
-    radioActive: { borderColor: R.purpleLight },
-    radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: R.purpleLight },
+    radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+    radioActive: { borderColor: tokens.colors.primary.cyan },
+    radioDot: { width: 12, height: 12, borderRadius: 6 },
 
-    securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24 },
-    payBtn: { height: 60, borderRadius: 30, overflow: 'hidden', marginTop: 40 },
+    securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 32 },
+    payBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 40 },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

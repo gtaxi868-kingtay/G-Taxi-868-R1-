@@ -13,18 +13,20 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 interface SavedPlace {
@@ -105,13 +107,12 @@ export function SavedPlacesScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
+            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF">Saved Places</Txt>
-                <View style={{ width: 44 }} />
-            </BlurView>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Saved Places</Txt>
+            </View>
 
             {loading ? (
                 <View style={s.center}><ActivityIndicator color={R.purple} /></View>
@@ -130,14 +131,19 @@ export function SavedPlacesScreen({ navigation }: any) {
                 />
             )}
 
-            <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                 <TouchableOpacity
                     style={s.addBtn}
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('DestinationSearch', { mode: 'save' }); }}
                 >
-                    <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                    <LinearGradient 
+                        colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                        start={{x: 0, y: 0}} 
+                        end={{x: 1, y: 0}}
+                        style={s.btnGradient}
+                    >
                         <Ionicons name="add" size={24} color="#FFF" />
-                        <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 8 }}>Add New Place</Txt>
+                        <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 8 }}>ADD NEW PLACE</Txt>
                     </LinearGradient>
                 </TouchableOpacity>
             </View>
@@ -147,19 +153,19 @@ export function SavedPlacesScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border },
-    headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
+    headerBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    list: { padding: 24 },
-    card: { flexDirection: 'row', alignItems: 'center', backgroundColor: R.surface, padding: 16, borderRadius: 24, marginBottom: 12, borderWidth: 1, borderColor: R.border },
-    iconWrap: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' },
+    list: { paddingHorizontal: 20 },
+    card: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 20, borderRadius: 32, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    iconWrap: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     info: { flex: 1, marginLeft: 16 },
-    deleteBtn: { padding: 8 },
+    deleteBtn: { padding: 12 },
 
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    empty: { marginTop: 100, alignItems: 'center' },
+    empty: { marginTop: 100, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 40, borderRadius: 40 },
 
-    footer: { paddingHorizontal: 24, paddingTop: 16 },
-    addBtn: { height: 60, borderRadius: 30, overflow: 'hidden' },
+    footer: { paddingHorizontal: 20, paddingTop: 16 },
+    addBtn: { height: 64, borderRadius: 24, overflow: 'hidden' },
     btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
 });

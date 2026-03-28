@@ -11,18 +11,20 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 const FAQ_ITEMS = [
@@ -64,13 +66,12 @@ export function HelpScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
+            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF">Help Center</Txt>
-                <View style={{ width: 44 }} />
-            </BlurView>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Help Center</Txt>
+            </View>
 
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
 
@@ -106,9 +107,14 @@ export function HelpScreen({ navigation }: any) {
                     <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>Need more help?</Txt>
 
                     <TouchableOpacity style={s.supportBtn} onPress={handleEmail}>
-                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                        <LinearGradient 
+                            colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                            start={{x: 0, y: 0}} 
+                            end={{x: 1, y: 0}}
+                            style={s.btnGradient}
+                        >
                             <Ionicons name="mail" size={20} color="#FFF" style={{ marginRight: 12 }} />
-                            <Txt variant="bodyBold" color="#FFF">Email Support</Txt>
+                            <Txt variant="bodyBold" color="#FFF">EMAIL SUPPORT</Txt>
                         </LinearGradient>
                     </TouchableOpacity>
 
@@ -124,18 +130,18 @@ export function HelpScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border },
-    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    scroll: { padding: 24 },
-    faqCard: { backgroundColor: R.surface, borderRadius: 20, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
-    faqCardActive: { borderColor: R.purple },
+    scroll: { paddingHorizontal: 20 },
+    faqCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    faqCardActive: { borderColor: R.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
     faqHeader: { flexDirection: 'row', alignItems: 'center' },
-    faqIconWrap: { width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(124,58,237,0.1)', alignItems: 'center', justifyContent: 'center' },
+    faqIconWrap: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     faqBody: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
 
     contactSection: { marginTop: 40 },
-    supportBtn: { height: 60, borderRadius: 30, overflow: 'hidden', marginBottom: 16 },
+    supportBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginBottom: 16 },
     btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    callBtn: { height: 60, borderRadius: 30, borderWidth: 1, borderColor: R.border, alignItems: 'center', justifyContent: 'center' },
+    callBtn: { height: 64, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)' },
 });

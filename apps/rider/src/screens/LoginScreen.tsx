@@ -15,17 +15,19 @@ import Reanimated, {
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width, height } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function LoginScreen({ navigation }: any) {
@@ -76,12 +78,12 @@ export function LoginScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            {/* Background: Standard LinearGradient */}
+            {/* Background: Vibrant Gradient DNA */}
             <LinearGradient
-                colors={['#1A0D40', R.bg]}
+                colors={['#1A1A4A', R.bg]} // Slightly more purple-blue top
                 style={StyleSheet.absoluteFill}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
             />
 
             <KeyboardAvoidingView
@@ -129,9 +131,14 @@ export function LoginScreen({ navigation }: any) {
                         </View>
 
                         <TouchableOpacity style={s.loginBtn} onPress={handleLogin} disabled={loading}>
-                            <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                            <LinearGradient 
+                                colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                                start={{x: 0, y: 0}} 
+                                end={{x: 1, y: 0}} // Horizontal brand gradient
+                                style={s.btnGradient}
+                            >
                                 {loading ? <ActivityIndicator color="#FFF" /> : (
-                                    <Txt variant="bodyBold" color="#FFF">Sign In</Txt>
+                                    <Txt variant="bodyBold" color="#FFF" style={{ letterSpacing: 1 }}>INITIALIZE PORTAL</Txt>
                                 )}
                             </LinearGradient>
                         </TouchableOpacity>
@@ -156,19 +163,19 @@ const s = StyleSheet.create({
     container: { flex: 1 },
     content: { flex: 1, paddingHorizontal: 32, justifyContent: 'center' },
 
-    branding: { alignItems: 'center', marginBottom: 60 },
-    logoCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center', shadowColor: R.purple, shadowRadius: 25, shadowOpacity: 0.5, marginBottom: 20 },
-    logoText: { fontSize: 42, letterSpacing: -2 },
-    tagline: { fontSize: 12, letterSpacing: 3, marginTop: 8 },
+    branding: { alignItems: 'center', marginBottom: 50 },
+    logoCircle: { width: 100, height: 100, borderRadius: 32, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center', shadowColor: R.purple, shadowRadius: 30, shadowOpacity: 0.4, marginBottom: 24 },
+    logoText: { fontSize: 48, letterSpacing: -2, color: '#FFF' },
+    tagline: { fontSize: 13, letterSpacing: 4, marginTop: 12, fontWeight: '800' },
 
-    form: { gap: 20 },
+    form: { gap: 24 },
     errorText: { textAlign: 'center', marginBottom: 10 },
-    inputWrapper: { gap: 8 },
-    label: { marginLeft: 4 },
-    input: { height: 56, backgroundColor: R.surface, borderRadius: 16, paddingHorizontal: 20, color: '#FFF', fontSize: 16, borderWidth: 1, borderColor: R.border },
+    inputWrapper: { gap: 10 },
+    label: { marginLeft: 8, opacity: 0.8 },
+    input: { height: 64, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 24, color: '#FFF', fontSize: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
 
-    loginBtn: { height: 56, borderRadius: 28, overflow: 'hidden', marginTop: 10 },
+    loginBtn: { height: 64, borderRadius: 20, overflow: 'hidden', marginTop: 12, shadowColor: '#00FFFF', shadowRadius: 15, shadowOpacity: 0.3 },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-    footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 40 },
+    footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 48 },
 });

@@ -1,27 +1,26 @@
 export const tokens = {
     colors: {
         background: {
-            base: '#05050A', // Deep Matte Black (Checklist #2)
-            ambient: '#0A0A12', // Slightly lighter for subtle separation
-            surface: 'rgba(20, 20, 30, 0.6)', // Satin Glass Fill
+            base: '#0A0A1F', // Vibrant Deep Purple-Black
+            ambient: '#12122A', 
+            surface: 'rgba(255, 255, 255, 0.08)', // Satin Glass
         },
         glass: {
-            fill: 'rgba(20, 20, 30, 0.60)', // Satin feel, not glossy
-            stroke: 'rgba(255, 255, 255, 0.08)', // Very subtle, trustworthy border
-            strokeHighlight: 'rgba(255, 255, 255, 0.15)', // Top-edge light catch
-            shadow: 'rgba(0, 0, 0, 0.4)', // Deep diffused shadow
+            fill: 'rgba(255, 255, 255, 0.05)', 
+            stroke: 'rgba(255, 255, 255, 0.15)', 
+            strokeHighlight: 'rgba(0, 255, 255, 0.3)', // Cyan edge
+            shadow: 'rgba(0, 0, 0, 0.5)', 
         },
         primary: {
-            purple: '#9F55FF', // Tuned for "Quiet Confidence", slightly desaturated
-            cyan: '#00E0FF',
-            // Gradient used ONLY for active/focus states
-            gradient: ['#9F55FF', '#00E0FF'] as const,
+            cyan: '#00FFFF', 
+            purple: '#7B61FF',
+            gradient: ['#7B61FF', '#00FFFF'] as const, // Branding DNA
         },
         text: {
             primary: '#FFFFFF',
-            secondary: 'rgba(255, 255, 255, 0.65)',
-            tertiary: 'rgba(255, 255, 255, 0.40)', // Muted metadata
-            inverse: '#05050A',
+            secondary: '#A1A1C1', // Lavender Gray
+            tertiary: 'rgba(255, 255, 255, 0.40)',
+            inverse: '#0A0A1F',
         },
         status: {
             error: '#FF453A',
@@ -38,13 +37,13 @@ export const tokens = {
             system: 'System',
         },
         sizes: {
-            displayXL: 56, // Reduced slightly for "Calm" (Checklist #1)
-            headingL: 32,
-            headingM: 22,
-            bodyBold: 17,
-            bodyReg: 15,
-            caption: 13,
-            small: 11,
+            displayXL: 64, // Pro Max Heavy
+            headingL: 40,
+            headingM: 24,
+            bodyBold: 18,
+            bodyReg: 16,
+            caption: 14,
+            small: 12,
         },
         weights: {
             regular: '400',

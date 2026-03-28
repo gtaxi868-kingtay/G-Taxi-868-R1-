@@ -14,8 +14,6 @@ export function useLocationTracking() {
     const lastUpdateTimestampRef = useRef<number>(0);
 
     useEffect(() => {
-        let subscriber: Location.LocationSubscription | null = null;
-
         const startTracking = async () => {
             const { status: fgStatus } = await Location.requestForegroundPermissionsAsync();
             if (fgStatus !== 'granted') {
@@ -28,24 +26,44 @@ export function useLocationTracking() {
                 console.warn('Background location permission denied');
             }
 
-            // Start watching with high frequency and precision for navigation
-            subscriber = await Location.watchPositionAsync(
+            // Fix 2: Start persistent background tracking
+            // This stays alive even if the app is backgrounded.
+            await Location.startLocationUpdatesAsync('LOCATION_TRACKING', {
+                accuracy: Location.Accuracy.BestForNavigation,
+                timeInterval: 5000,
+                distanceInterval: 10,
+                foregroundService: {
+                    notificationTitle: "G-TAXI Driver is Live",
+                    notificationBody: "Your location is being shared to receive nearby ride requests.",
+                    notificationColor: "#FFD700",
+                },
+            });
+
+            // Fallback: Also watch in foreground for immediate UI updates
+            const sub = await Location.watchPositionAsync(
                 {
-                    accuracy: Location.Accuracy.BestForNavigation,
-                    timeInterval: 3000, // Update every 3 seconds
-                    distanceInterval: 5, // Or every 5 meters
+                    accuracy: Location.Accuracy.High,
+                    timeInterval: 5000,
+                    distanceInterval: 10,
                 },
                 handleLocationUpdate
             );
+            return sub;
         };
 
+        let fgSubscriber: Location.LocationSubscription | undefined;
+
         if (driver?.is_online) {
-            startTracking();
+            startTracking().then(sub => {
+                if (sub) fgSubscriber = sub;
+            });
         }
 
         return () => {
-            if (subscriber) {
-                subscriber.remove();
+            if (fgSubscriber) fgSubscriber.remove();
+            // We only stop background updates if the user goes offline or logs out
+            if (!driver?.is_online) {
+                Location.stopLocationUpdatesAsync('LOCATION_TRACKING').catch(() => { });
             }
         };
     }, [driver?.is_online]);

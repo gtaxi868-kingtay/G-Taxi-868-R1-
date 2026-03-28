@@ -108,24 +108,58 @@ serve(async (req: Request) => {
             cancellation_reason: reason || (isRider ? "Rider cancelled" : "Driver cancelled"),
         };
 
+        // Helper: Haversine distance
+        function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+            const R = 6371000; // Earth radius in meters
+            const toRadians = (deg: number) => deg * (Math.PI / 180);
+            const dLat = toRadians(lat2 - lat1);
+            const dLng = toRadians(lng2 - lng1);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
         // PHASE 8: Failsafes 
-        // 1. Rider Penalty ($5 TTD) if canceling on an assigned/arrived driver
+        // 1. Smart Rider Penalty ($5 TTD) if canceling when driver is close (<1km) OR arrived
         if (isRider && (ride.status === "assigned" || ride.status === "arrived") && ride.driver_id) {
-            await supabaseAdmin.from("wallet_transactions").insert([{
-                user_id: ride.rider_id,
-                ride_id: ride_id,
-                amount: -500,
-                transaction_type: "cancellation_fee",
-                description: "Late cancellation fee ($5 TTD)",
-                status: "completed"
-            }, {
-                user_id: ride.driver_id,
-                ride_id: ride_id,
-                amount: 500,
-                transaction_type: "cancellation_fee",
-                description: "Compensation for rider cancellation",
-                status: "completed"
-            }]);
+            let shouldCharge = ride.status === "arrived";
+
+            if (!shouldCharge) {
+                // Fetch driver's current location to check proximity
+                const { data: driverLoc } = await supabaseAdmin
+                    .from("drivers")
+                    .select("lat, lng")
+                    .eq("id", ride.driver_id)
+                    .single();
+
+                if (driverLoc && driverLoc.lat && driverLoc.lng) {
+                    const dist = haversine(driverLoc.lat, driverLoc.lng, ride.pickup_lat, ride.pickup_lng);
+                    // 1000 meters = approx 2.2 mins in city traffic
+                    if (dist < 1000) {
+                        shouldCharge = true;
+                    }
+                }
+            }
+
+            if (shouldCharge) {
+                await supabaseAdmin.from("wallet_transactions").insert([{
+                    user_id: userId, // Rider (from auth)
+                    ride_id: ride_id,
+                    amount: -500,
+                    transaction_type: "cancellation_fee",
+                    description: "Nearby cancellation fee ($5 TTD)",
+                    status: "completed"
+                }, {
+                    user_id: ride.driver_id, // Driver
+                    ride_id: ride_id,
+                    amount: 500,
+                    transaction_type: "cancellation_fee",
+                    description: "Compensation for nearby cancellation",
+                    status: "completed"
+                }]);
+            }
         }
 
         // 2. Driver Platform Leakage Trapdoor

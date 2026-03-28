@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, SafeAreaView,
-    ScrollView, Switch, ActivityIndicator, Alert
+    ScrollView, Switch, ActivityIndicator, Alert, Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,17 +10,21 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+import { tokens } from '../design-system/tokens';
+
+const { width } = Dimensions.get('window');
+
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    surfaceHigh: '#1A1530',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    surfaceHigh: 'rgba(255,255,255,0.1)',
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function AISettingsScreen({ navigation }: any) {
@@ -176,18 +179,18 @@ export function AISettingsScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 20 },
-    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     
     scroll: { paddingHorizontal: 20, paddingBottom: 40 },
-    section: { backgroundColor: R.surface, borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: R.border },
-    sectionTitle: { marginBottom: 16, letterSpacing: 1 },
+    section: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 24, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    sectionTitle: { marginBottom: 16, letterSpacing: 2, fontWeight: '800' },
     
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 20 },
     
     paceGrid: { flexDirection: 'row', gap: 12 },
-    paceItem: { flex: 1, height: 70, borderRadius: 16, backgroundColor: R.surfaceHigh, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
+    paceItem: { flex: 1, height: 80, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
     paceItemActive: { backgroundColor: R.purple, borderColor: R.purpleLight },
 
     savingIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 }

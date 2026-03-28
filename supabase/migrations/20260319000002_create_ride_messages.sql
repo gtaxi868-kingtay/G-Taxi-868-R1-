@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.ride_messages (
 ALTER TABLE public.ride_messages ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+DROP POLICY IF EXISTS "Users can view messages for their rides" ON public.ride_messages;
 CREATE POLICY "Users can view messages for their rides" 
 ON public.ride_messages FOR SELECT 
 USING (
@@ -23,6 +24,7 @@ USING (
     )
 );
 
+DROP POLICY IF EXISTS "Users can send messages to their active rides" ON public.ride_messages;
 CREATE POLICY "Users can send messages to their active rides" 
 ON public.ride_messages FOR INSERT 
 WITH CHECK (
@@ -34,4 +36,9 @@ WITH CHECK (
 );
 
 -- Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE ride_messages;
+DO $$
+BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE ride_messages;
+EXCEPTION WHEN duplicate_object THEN
+    NULL;
+END $$;

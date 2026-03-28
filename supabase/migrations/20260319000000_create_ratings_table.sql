@@ -12,11 +12,13 @@ CREATE TABLE IF NOT EXISTS public.ratings (
 -- Enable RLS
 ALTER TABLE public.ratings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own ratings" ON public.ratings;
 CREATE POLICY "Users can view their own ratings"
 ON public.ratings FOR SELECT
 TO authenticated
 USING (auth.uid() = rider_id);
 
+DROP POLICY IF EXISTS "Users can insert their own ratings" ON public.ratings;
 CREATE POLICY "Users can insert their own ratings"
 ON public.ratings FOR INSERT
 TO authenticated

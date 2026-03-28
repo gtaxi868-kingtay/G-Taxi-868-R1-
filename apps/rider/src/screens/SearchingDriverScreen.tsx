@@ -20,17 +20,20 @@ import { cancelRide } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width, height } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    red: '#EF4444',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    red: tokens.colors.status.error,
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function SearchingDriverScreen({ route, navigation }: any) {
@@ -156,11 +159,6 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         }
     };
 
-    const cancelStyle = useAnimatedStyle(() => ({
-        opacity: cancelOpacity.value,
-        transform: [{ translateY: withTiming(cancelOpacity.value === 1 ? 0 : 20) }]
-    }));
-
     return (
         <View style={s.root}>
             <StatusBar style="light" />
@@ -189,55 +187,67 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                 <LinearGradient colors={['rgba(7,5,15,0.6)', 'transparent', 'rgba(7,5,15,0.8)']} style={StyleSheet.absoluteFill} />
             </View>
 
-            {/* Hero Element: Reanimated radar pulse in center */}
-            <View style={s.centerSection}>
-                <Reanimated.View style={[{
-                    width: 200, height: 200,
-                    borderRadius: 100,
-                    borderWidth: 2,
-                    borderColor: R.purpleLight,
-                    opacity: radarOpacity,
-                    position: 'absolute',
-                    transform: [{ scale: radarRadius.value / 40 }]
-                }]} />
+            <Radar animation={radarRadius} opacity={radarOpacity} />
 
-                <View style={s.core}>
-                    <Ionicons name="car" size={32} color="#FFF" />
+            {/* Status Overlay */}
+            <View style={[s.content, { bottom: insets.bottom + 40 }]}>
+                <View style={s.statusCard}>
+                    <Txt variant="displayXL" weight="heavy" color="#FFF" style={{ textAlign: 'center' }}>
+                        Finding your Rider{dots}
+                    </Txt>
+                    <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 12, textAlign: 'center' }}>
+                        Contacting drivers nearby...
+                    </Txt>
                 </View>
-            </View>
 
-            {/* Bottom Panel: Flat glass BlurView */}
-            <View style={[s.bottomPanel, { paddingBottom: insets.bottom + 40 }]}>
-                <BlurView tint="dark" intensity={80} style={s.blurBox}>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={{ textAlign: 'center' }}>
-                        Searching for Driver{dots}
-                    </Txt>
-                    <Txt variant="bodyReg" color={R.muted} style={{ textAlign: 'center', marginTop: 8 }}>
-                        We're finding the nearest driver for you...
-                    </Txt>
-
-                    {/* Cancel button: Red ghost style, delayed 3s */}
-                    <Reanimated.View style={[s.cancelWrap, cancelStyle]}>
-                        <TouchableOpacity style={s.cancelBtn} onPress={() => handleCancel()}>
-                            <Txt variant="bodyBold" color={R.red}>Cancel Request</Txt>
-                        </TouchableOpacity>
-                    </Reanimated.View>
-                </BlurView>
+                <Reanimated.View style={[s.cancelWrap, { opacity: cancelOpacity }]}>
+                    <TouchableOpacity 
+                        style={s.cancelBtn} 
+                        onPress={() => handleCancel()}
+                        disabled={isCanceling}
+                    >
+                        <Txt variant="bodyBold" color={R.red}>Cancel Engagement</Txt>
+                    </TouchableOpacity>
+                </Reanimated.View>
             </View>
 
         </View>
     );
 }
 
+function Radar({ animation, opacity }: any) {
+    const ringStyle = useAnimatedStyle(() => ({
+        width: animation.value,
+        height: animation.value,
+        borderRadius: animation.value / 2,
+        opacity: opacity.value,
+        borderWidth: 2,
+        borderColor: tokens.colors.primary.cyan,
+    }));
+
+    return (
+        <View style={s.radarContainer}>
+            <Reanimated.View style={[s.radarRing, ringStyle]} />
+            <View style={s.radarCore}>
+                <LinearGradient 
+                    colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                    style={StyleSheet.absoluteFill} 
+                />
+                <Ionicons name="radio" size={24} color="#FFF" />
+            </View>
+        </View>
+    );
+}
+
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    centerSection: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    canvas: { width: 300, height: 300 },
-    core: { width: 80, height: 80, borderRadius: 40, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center', shadowColor: R.purple, shadowRadius: 20, shadowOpacity: 0.5, elevation: 10 },
+    radarContainer: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+    radarRing: { position: 'absolute' },
+    radarCore: { width: 64, height: 64, borderRadius: 32, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center', shadowColor: R.purpleLight, shadowRadius: 20, shadowOpacity: 0.6, overflow: 'hidden' },
 
-    bottomPanel: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20 },
-    blurBox: { borderRadius: 32, padding: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    content: { position: 'absolute', left: 24, right: 24, alignItems: 'center' },
+    statusCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 32, width: '100%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
 
-    cancelWrap: { marginTop: 24, width: '100%' },
-    cancelBtn: { height: 54, borderRadius: 27, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(239,68,68,0.05)' },
+    cancelWrap: { marginTop: 40, width: '100%' },
+    cancelBtn: { height: 64, borderRadius: 24, backgroundColor: 'rgba(255,69,58,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,69,58,0.2)' },
 });

@@ -102,7 +102,7 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
                         variant="headingM"
                         style={[styles.taglineText, { color: tokens.colors.primary.purple }]}
                     >
-                        PREMIUM RIDE APP
+                        G-TAXI RIDER
                     </Txt>
                     <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
                         <Animated.View style={[StyleSheet.absoluteFill, { overflow: 'hidden', width: animatedWidth }]}>
@@ -111,7 +111,7 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
                                     variant="headingM"
                                     style={[styles.taglineText, { color: tokens.colors.primary.cyan }]}
                                 >
-                                    PREMIUM RIDE APP
+                                    G-TAXI RIDER
                                 </Txt>
                             </View>
                         </Animated.View>

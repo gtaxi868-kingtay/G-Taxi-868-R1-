@@ -1,6 +1,6 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -47,12 +47,13 @@ const AppStack = createNativeStackNavigator();
 const queryClient = new QueryClient();
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const isWeb = Platform.OS === 'web';
 
 // Safe dynamic providers
 let StripeProvider: any = ({ children }: any) => <>{children}</>;
 let Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
 
-if (!isExpoGo) {
+if (!isExpoGo && !isWeb) {
     try {
         Sentry = require('@sentry/react-native');
         const { StripeProvider: StripeProv } = require('@stripe/stripe-react-native');
@@ -162,7 +163,7 @@ function App() {
         </SafeAreaProvider>
     );
 
-    if (isExpoGo) return content;
+    if (isExpoGo || isWeb) return content;
 
     return (
         <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ENV.STRIPE_PUBLISHABLE_KEY}>
@@ -180,4 +181,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default isExpoGo ? App : Sentry.wrap(App);
+export default (isExpoGo || isWeb) ? App : Sentry.wrap(App);

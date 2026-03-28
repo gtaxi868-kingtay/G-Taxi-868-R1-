@@ -14,19 +14,21 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    surface2: '#16112A',
-    border: 'rgba(124,58,237,0.12)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    surface2: 'rgba(255,255,255,0.03)',
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 interface Message {
@@ -108,7 +110,14 @@ export function ChatScreen({ route, navigation }: any) {
             <View style={[s.msgRow, isSelf ? s.msgSelf : s.msgOther]}>
                 {!isSelf && <View style={s.msgAvatar}><Txt style={{ fontSize: 10, color: '#FFF' }}>DR</Txt></View>}
                 <View style={[s.bubble, isSelf ? s.bubbleSelf : s.bubbleOther]}>
-                    {isSelf && <LinearGradient colors={[R.purple, '#4C1D95']} style={StyleSheet.absoluteFill} />}
+                    {isSelf && (
+                        <LinearGradient 
+                            colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                            start={{x: 0, y: 0}} 
+                            end={{x: 1, y: 0}}
+                            style={StyleSheet.absoluteFill} 
+                        />
+                    )}
                     <Txt variant="bodyReg" color="#FFF">{item.content}</Txt>
                 </View>
             </View>
@@ -120,21 +129,21 @@ export function ChatScreen({ route, navigation }: any) {
             <StatusBar style="light" />
 
             {/* Header */}
-            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
+            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
                 <View style={s.headerTitle}>
                     <Txt variant="bodyBold" color="#FFF">{driver?.name || 'Driver'}</Txt>
                     <View style={s.statusRow}>
-                        <View style={s.statusDot} />
-                        <Txt variant="caption" color={R.muted}>Online</Txt>
+                        <View style={[s.statusDot, { backgroundColor: tokens.colors.primary.cyan }]} />
+                        <Txt variant="caption" color={R.muted}>Active Engagement</Txt>
                     </View>
                 </View>
                 <TouchableOpacity style={s.headerBtn}>
                     <Ionicons name="call" size={20} color="#FFF" />
                 </TouchableOpacity>
-            </BlurView>
+            </View>
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -167,7 +176,7 @@ export function ChatScreen({ route, navigation }: any) {
                 </View>
 
                 {/* Input */}
-                <View style={[s.inputArea, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+                <View style={[s.inputArea, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                     <View style={s.inputWrap}>
                         <TextInput
                             style={s.input}
@@ -178,7 +187,10 @@ export function ChatScreen({ route, navigation }: any) {
                             multiline
                         />
                         <TouchableOpacity style={s.sendBtn} onPress={() => handleSend()}>
-                            <LinearGradient colors={[R.purple, '#4C1D95']} style={s.sendGrad}>
+                            <LinearGradient 
+                                colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                                style={s.sendGrad}
+                            >
                                 <Ionicons name="send" size={18} color="#FFF" />
                             </LinearGradient>
                         </TouchableOpacity>
@@ -191,27 +203,27 @@ export function ChatScreen({ route, navigation }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border },
-    headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 16 },
+    headerBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { flex: 1, marginLeft: 16 },
     statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 6 },
+    statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
 
-    list: { padding: 16, gap: 12 },
-    msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    list: { padding: 24, paddingBottom: 100 },
+    msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 16 },
     msgSelf: { justifyContent: 'flex-end' },
     msgOther: { justifyContent: 'flex-start' },
-    msgAvatar: { width: 24, height: 24, borderRadius: 12, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center' },
-    bubble: { maxWidth: '80%', padding: 12, borderRadius: 20, overflow: 'hidden' },
+    msgAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center' },
+    bubble: { maxWidth: '80%', padding: 16, borderRadius: 24, overflow: 'hidden' },
     bubbleSelf: { borderBottomRightRadius: 4 },
-    bubbleOther: { backgroundColor: R.surface2, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: R.border },
+    bubbleOther: { backgroundColor: 'rgba(255,255,255,0.03)', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
 
-    quickReplies: { paddingVertical: 12 },
-    chip: { backgroundColor: R.surface2, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: R.border },
+    quickReplies: { paddingVertical: 16 },
+    chip: { backgroundColor: 'rgba(255,255,255,0.03)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, marginRight: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
 
-    inputArea: { paddingHorizontal: 16, paddingTop: 8 },
-    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: R.surface2, borderRadius: 30, paddingLeft: 20, paddingRight: 6, paddingVertical: 6, borderWidth: 1, borderColor: R.border },
-    input: { flex: 1, color: '#FFF', fontSize: 16, maxHeight: 100, paddingVertical: 8 },
-    sendBtn: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' },
+    inputArea: { paddingHorizontal: 20, paddingTop: 12 },
+    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, paddingLeft: 24, paddingRight: 8, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    input: { flex: 1, color: '#FFF', fontSize: 16, maxHeight: 120, paddingVertical: 10 },
+    sendBtn: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden' },
     sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

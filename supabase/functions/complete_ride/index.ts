@@ -92,6 +92,15 @@ serve(async (req: Request) => {
             );
         }
 
+        // --- Fix 4.4: Idempotency guard — prevent double payment/processing ---
+        if (ride.status === "completed") {
+            console.log(`Ride ${ride_id} already completed. Returning early.`);
+            return new Response(
+                JSON.stringify({ success: true, error: null, data: { already_completed: true } }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // ── Authorization ─────────────────────────────────────────────────────
         const { data: driverRecord } = await supabaseAdmin
             .from('drivers')
@@ -151,16 +160,13 @@ serve(async (req: Request) => {
 
         // ── Payment Handling ──────────────────────────────────────────────────
         // Platform split: 81% driver, 19% platform
-        // PLATFORM_ACCOUNT is the platform wallet UUID in wallet_transactions
-        const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
+        const effectiveFare = ride.total_fare_cents + (ride.wait_fee_cents || 0);
 
         if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
-            // Wallet path: atomic RPC handles balance check, debit, and ledger write.
-            // The RPC (updated in Fix 6.7 migration) uses 81/19 split.
             const { data: success, error: payError } = await supabaseAdmin
                 .rpc("process_wallet_payment", {
                     p_ride_id: ride_id,
-                    p_amount: ride.total_fare_cents
+                    p_amount: effectiveFare
                 });
 
             if (payError || !success) {
@@ -169,15 +175,13 @@ serve(async (req: Request) => {
                     JSON.stringify({
                         success: false,
                         error: "Payment failed: Insufficient wallet funds",
-                        data: { required: ride.total_fare_cents }
+                        data: { required: effectiveFare }
                     }),
                     { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                 );
             }
 
         } else if (ride.payment_method === "cash") {
-            // ── Fix 3.2 / Fix 6.3: Cash ride ──────────────────────────────────
-            // Step A: Confirm cash was collected by flagging the ride.
             const { error: cashError } = await supabaseAdmin
                 .from("rides")
                 .update({ cash_confirmed: true })
@@ -187,69 +191,41 @@ serve(async (req: Request) => {
             if (cashError) {
                 console.error("Failed to confirm cash payment:", cashError);
                 return new Response(
-                    JSON.stringify({
-                        success: false,
-                        error: "Failed to confirm cash payment",
-                        data: null
-                    }),
+                    JSON.stringify({ success: false, error: "Failed to confirm cash payment", data: null }),
                     { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                 );
             }
 
-            // Step B: Deduct 19% platform commission from driver wallet.
-            // Fix 6.3: Changed from 15% to 19%.
-            // The rider paid cash directly to the driver, so the driver owes
-            // the platform its 19% cut — deducted as a negative wallet_transactions entry.
-            const commission = Math.round(ride.total_fare_cents * 0.19);
-            const { error: commError } = await supabaseAdmin
-                .from("wallet_transactions")
-                .insert({
-                    user_id: ride.driver_id,
-                    ride_id: ride_id,
-                    amount: -commission,
-                    transaction_type: "commission_fee",
-                    description: "Platform commission (19%) for cash ride",
-                    status: "completed"
-                });
+            const commission = Math.round(effectiveFare * 0.19);
+            await supabaseAdmin.from("wallet_transactions").insert({
+                user_id: ride.driver_id,
+                ride_id: ride_id,
+                amount: -commission,
+                transaction_type: "commission_fee",
+                description: `Platform commission (19%) including $${((ride.wait_fee_cents || 0)/100).toFixed(2)} wait fee`,
+                status: "completed"
+            });
 
-            if (commError) {
-                // Commission deduction failure should not block completion
-                // but must be logged clearly for reconciliation.
-                console.error("COMMISSION DEDUCTION FAILED — requires manual reconciliation:", commError);
-            }
-
-            // Step C: Write platform-side ledger entry for the commission received
-            const { error: ledgerError } = await supabaseAdmin
-                .from("payment_ledger")
-                .insert({
-                    ride_id: ride_id,
-                    user_id: ride.rider_id,
-                    amount: (ride.total_fare_cents / 100.0),
-                    currency: "TTD",
-                    status: "captured",
-                    provider: "cash"
-                });
-
-            if (ledgerError) {
-                console.error("LEDGER INSERT FAILED for cash ride:", ledgerError);
-            }
+            await supabaseAdmin.from("payment_ledger").insert({
+                ride_id: ride_id,
+                user_id: ride.rider_id,
+                amount: (effectiveFare / 100.0),
+                currency: "TTD",
+                status: "captured",
+                provider: "cash"
+            });
 
         } else if (ride.payment_method === "card") {
-            // Card rides: Stripe webhook has already fired and captured the payment.
-            // payment_status should be 'captured' by the time this is called.
-            // Fix 6.3: 81/19 split is enforced in the Stripe webhook handler.
-            // If payment_status is not yet captured, block completion.
             if (ride.payment_status !== "captured") {
                 return new Response(
                     JSON.stringify({
                         success: false,
-                        error: "Card payment has not been captured yet. Please complete payment first.",
+                        error: "Card payment has not been captured yet.",
                         data: { payment_status: ride.payment_status }
                     }),
                     { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
                 );
             }
-            // Payment already processed by stripe_webhook — nothing more to do here.
         }
 
         // ── Atomic Ride Status Update ─────────────────────────────────────────

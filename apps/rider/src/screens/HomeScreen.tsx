@@ -15,6 +15,7 @@ import Reanimated, {
     useAnimatedStyle, withDelay,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { DEFAULT_LOCATION, ENV } from '../../../../shared/env';
 import { useAuth } from '../context/AuthContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
@@ -39,10 +40,10 @@ export function HomeScreen({ navigation }: any) {
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false });
+    const [systemStatus, setSystemStatus] = useState<any>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
 
-    // Reanimated
     const panelY = useSharedValue(120);
     const mapPitch = useSharedValue(45);
 
@@ -59,8 +60,9 @@ export function HomeScreen({ navigation }: any) {
         // Fetch Places
         fetchPlaces();
 
-        // Fetch Feature Flags
-        supabase.from('system_feature_flags').select('id, is_active').then(({ data }) => {
+        // Fetch & Subscribe to Feature Flags
+        const fetchFlags = async () => {
+            const { data } = await supabase.from('system_feature_flags').select('id, is_active');
             if (data) {
                 const flags = { grocery: false, laundry: false };
                 data.forEach(f => {
@@ -69,12 +71,41 @@ export function HomeScreen({ navigation }: any) {
                 });
                 setFeatureFlags(flags);
             }
-        });
+        };
+        fetchFlags();
+
+        const flagsChannel = supabase
+            .channel('feature-flags-realtime')
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'system_feature_flags' },
+                () => {
+                    console.log('Feature flags updated. Re-fetching...');
+                    fetchFlags();
+                }
+            )
+            .subscribe();
+
+        // Fetch System Status (Diagnostics)
+        const fetchStatus = async () => {
+            try {
+                const { data, error } = await supabase.functions.invoke('get_system_status');
+                if (!error && data?.success) {
+                    setSystemStatus(data.data);
+                }
+            } catch (err) {
+                console.warn('System status check failed:', err);
+            }
+        };
+        fetchStatus();
 
         // Animations
         panelY.value = withSpring(0, { damping: 18, stiffness: 120 });
         mapPitch.value = withDelay(1000, withTiming(30, { duration: 1500 }));
 
+        return () => {
+            flagsChannel.unsubscribe();
+        };
     }, []);
 
     const fetchPlaces = async () => {
@@ -168,15 +199,21 @@ export function HomeScreen({ navigation }: any) {
 
             <LinearGradient colors={['rgba(7,5,15,0.4)', 'transparent', 'rgba(7,5,15,0.8)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
-            {/* Menu ≡ */}
-            <TouchableOpacity
-                style={[s.menuBtn, { top: insets.top + 10 }]}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsMenuOpen(true); }}
-            >
-                <BlurView tint="dark" intensity={100} style={s.menuCircle}>
-                    <Ionicons name="menu-outline" size={24} color="#FFF" />
-                </BlurView>
-            </TouchableOpacity>
+            {/* Brand Header: G-TAXI Luxury Aesthetic */}
+            <View style={[s.headerLogo, { top: insets.top + 10 }]}>
+                <Txt variant="displayXL" weight="heavy" color="#00FFFF" style={s.logoText}>G-TAXI</Txt>
+                <View style={s.logoAccentBar} />
+            </View>
+
+            {/* System Maintenance Banner (Fix 3) */}
+            {!systemStatus.stripe_ready && (
+                <View style={[s.maintenanceBanner, { top: insets.top + 70 }]}>
+                    <Ionicons name="warning" size={16} color="#FFD700" />
+                    <Txt variant="caption" weight="bold" color="#FFF" style={{ marginLeft: 8 }}>
+                        System Maintenance: Card payments currently unavailable.
+                    </Txt>
+                </View>
+            )}
 
             {/* SIDEBAR */}
             <Sidebar
@@ -195,44 +232,51 @@ export function HomeScreen({ navigation }: any) {
                 <BlurView tint="dark" intensity={80} style={s.blurCard}>
                     <View style={s.cardInner}>
 
-                        {/* Service Tiles */}
+                        {/* Service Tiles: Vibrant Futurism Grid */}
                         <View style={s.tiles}>
                             <TouchableOpacity style={{ flex: 1 }}>
-                                <Card padding="xs" intensity={50} style={[{ height: 80, alignItems: 'center', justifyContent: 'center' }, s.tileActive]}>
-                                    <Ionicons name="car" size={24} color="#FFF" />
-                                    <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>Rides</Txt>
+                                <Card padding="xs" intensity={50} style={[s.serviceTile, s.tileActive]}>
+                                    <LinearGradient 
+                                        colors={['#7B61FF', '#00FFFF']} 
+                                        start={{x: 0, y: 0}} 
+                                        end={{x: 1, y: 1}} 
+                                        style={StyleSheet.absoluteFill} 
+                                    />
+                                    <Ionicons name="car-sport" size={28} color="#FFF" />
+                                    <Txt variant="caption" weight="heavy" color="#FFF" style={{ marginTop: 8 }}>TRANSPORT</Txt>
                                 </Card>
                             </TouchableOpacity>
 
                             {featureFlags.grocery && (
                                 <TouchableOpacity style={{ flex: 1 }} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); Alert.alert("Coming Soon"); }}>
-                                    <Card padding="xs" intensity={15} style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
-                                        <Ionicons name="cart-outline" size={24} color="rgba(255,255,255,0.4)" />
-                                        <Txt variant="caption" weight="bold" color="rgba(255,255,255,0.4)" style={{ marginTop: 6 }}>Grocery</Txt>
+                                    <Card padding="xs" intensity={40} style={s.serviceTile}>
+                                        <Ionicons name="cart" size={24} color="#7B61FF" />
+                                        <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>LOGISTICS</Txt>
                                     </Card>
                                 </TouchableOpacity>
                             )}
 
                             {featureFlags.laundry && (
                                 <TouchableOpacity style={{ flex: 1 }} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); Alert.alert("Coming Soon"); }}>
-                                    <Card padding="xs" intensity={15} style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
-                                        <Ionicons name="shirt-outline" size={24} color="rgba(255,255,255,0.4)" />
-                                        <Txt variant="caption" weight="bold" color="rgba(255,255,255,0.4)" style={{ marginTop: 6 }}>Laundry</Txt>
+                                    <Card padding="xs" intensity={40} style={s.serviceTile}>
+                                        <Ionicons name="flash" size={24} color="#7B61FF" />
+                                        <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>EXPRESS</Txt>
                                     </Card>
                                 </TouchableOpacity>
                             )}
                         </View>
 
-                        {/* Search Bar: "Where to?" bold white */}
+                        {/* Search Bar: HUD Holographic */}
                         <TouchableOpacity
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                 navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng } });
                             }}
                         >
-                            <Surface intensity={20} style={s.searchBarInner}>
-                                <View style={s.dot} />
-                                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ flex: 1 }}>Where to?</Txt>
+                            <Surface intensity={30} style={s.searchBarInner}>
+                                <View style={s.hudSearchIndicator} />
+                                <Txt variant="headingM" weight="heavy" color="#00FFFF" style={{ flex: 1, letterSpacing: 2 }}>INITIALIZE TRIP</Txt>
+                                <Ionicons name="chevron-forward" size={20} color="#00FFFF" />
                             </Surface>
                         </TouchableOpacity>
 
@@ -264,28 +308,99 @@ export function HomeScreen({ navigation }: any) {
                     pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' }
                 });
             }} />
+
+            {/* --- FORCED UPDATE / MAINTENANCE OVERLAYS (Fix 7) --- */}
+            {systemStatus.config?.maintenance_mode === 'true' && (
+                <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
+                    <BlurView tint="dark" intensity={100} style={s.lockBlur}>
+                        <View style={s.hudLockRing} />
+                        <Ionicons name="flash" size={64} color="#00FFFF" />
+                        <Txt variant="headingL" color="#00FFFF" style={{ marginTop: 24, textAlign: 'center', letterSpacing: 4 }}>SYSTEM LOCK</Txt>
+                        <Txt variant="bodyReg" color="rgba(0,255,255,0.6)" style={{ marginTop: 12, textAlign: 'center', paddingHorizontal: 40 }}>
+                            MAINTENANCE PROTOCOL ACTIVE. ENCRYPTED LINK STANDBY.
+                        </Txt>
+                    </BlurView>
+                </View>
+            )}
+
+            {systemStatus.config?.min_version_rider && Constants.expoConfig?.version && (
+                (() => {
+                    const current = Constants.expoConfig.version.split('.').map(Number);
+                    const min = systemStatus.config.min_version_rider.split('.').map(Number);
+                    let needsUpdate = false;
+                    for (let i = 0; i < 3; i++) {
+                        if ((current[i] || 0) < (min[i] || 0)) { needsUpdate = true; break; }
+                        if ((current[i] || 0) > (min[i] || 0)) break;
+                    }
+                    
+                    if (needsUpdate) {
+                        return (
+                            <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
+                                <BlurView tint="dark" intensity={100} style={s.lockBlur}>
+                                    <Ionicons name="cloud-download" size={64} color="#7C3AED" />
+                                    <Txt variant="headingL" color="#FFF" style={{ marginTop: 24, textAlign: 'center' }}>Update Required</Txt>
+                                    <Txt variant="bodyReg" color="rgba(255,255,255,0.6)" style={{ marginTop: 12, textAlign: 'center', paddingHorizontal: 40 }}>
+                                        A critical security update is available. Please update your app to continue using G-TAXI.
+                                    </Txt>
+                                    <TouchableOpacity style={s.updateBtn} onPress={() => Alert.alert("Update", "Please check the App Store or Google Play for the latest version.")}>
+                                        <Txt variant="bodyBold" color="#FFF">Update Now</Txt>
+                                    </TouchableOpacity>
+                                </BlurView>
+                            </View>
+                        );
+                    }
+                    return null;
+                })()
+            )}
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#07050F' },
+    root: { flex: 1, backgroundColor: '#0A0A1F' },
     map: { width, height },
-    carMarker: { width: 34, height: 34 },
-    menuBtn: { position: 'absolute', left: 20, zIndex: 100 },
-    menuCircle: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
+    carMarker: { width: 48, height: 48, shadowColor: '#00FFFF', shadowRadius: 15, shadowOpacity: 1 },
+    
+    headerLogo: { position: 'absolute', right: 24, top: 0, zIndex: 100 },
+    logoText: { fontSize: 32, letterSpacing: -2, textShadowColor: 'rgba(123, 97, 255, 0.5)', textShadowRadius: 15 },
+    logoAccentBar: { width: 60, height: 3, backgroundColor: '#00FFFF', marginTop: -4, borderRadius: 2 },
 
-    panel: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20 },
-    blurCard: { borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    menuBtn: { position: 'absolute', left: 24, zIndex: 100 },
+    menuCircle: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(123, 97, 255, 0.1)', overflow: 'hidden' },
+
+    panel: { position: 'absolute', bottom: 10, left: 10, right: 10 },
+    blurCard: { borderRadius: 40, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.02)' },
     cardInner: { padding: 24 },
 
     tiles: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-    tileActive: { backgroundColor: '#7C3AED' },
+    serviceTile: { height: 100, alignItems: 'center', justifyContent: 'center', borderRadius: 28, overflow: 'hidden' },
+    tileActive: { backgroundColor: '#7B61FF' },
 
-    searchBarInner: { flexDirection: 'row', alignItems: 'center', height: 64, borderRadius: 20, paddingHorizontal: 20, marginBottom: 20, overflow: 'hidden' },
-    dot: { width: 10, height: 10, backgroundColor: '#FFF', marginRight: 16 },
+    searchBarInner: { flexDirection: 'row', alignItems: 'center', height: 72, borderRadius: 24, paddingHorizontal: 24, marginBottom: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' },
+    hudSearchIndicator: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#00FFFF', marginRight: 16 },
 
-    pills: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-    pill: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 48, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' },
-    recentPill: { width: 48, height: 48, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' },
+    pills: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+    pill: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 52, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 20 },
+    recentPill: { width: 52, height: 52, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' },
+
+    maintenanceBanner: {
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        backgroundColor: 'rgba(10, 10, 31, 0.98)',
+        padding: 16,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        zIndex: 100,
+        borderWidth: 1,
+        borderColor: '#00FFFF',
+        shadowColor: '#00FFFF',
+        shadowRadius: 20,
+        shadowOpacity: 0.3
+    },
+    lockOverlay: { zIndex: 9999, justifyContent: 'center', alignItems: 'center' },
+    lockBlur: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    hudLockRing: { position: 'absolute', width: 250, height: 250, borderRadius: 125, borderWidth: 2, borderColor: 'rgba(0,255,255,0.05)' },
+    updateBtn: { marginTop: 32, backgroundColor: '#7B61FF', paddingHorizontal: 40, paddingVertical: 18, borderRadius: 20 },
 });

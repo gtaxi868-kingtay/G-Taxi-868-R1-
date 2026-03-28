@@ -8,6 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
+import { sendSMS } from "../_shared/sms.ts";
 import { captureException } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -63,6 +64,15 @@ serve(async (req: Request) => {
             return new Response(JSON.stringify({ success: false, error: "Ride not found" }), { status: 404, headers: corsHeaders });
         }
 
+        // --- Fix 4.7: Skip rides that have admin override active ---
+        if (ride.admin_override === true) {
+            console.log(`Skipping match for ride ${ride_id} - admin_override is ON.`);
+            return new Response(
+                JSON.stringify({ success: false, error: "Admin override active", data: null }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // 1. Get previously offered drivers (exclusions)
         const { data: previousOffers } = await supabaseAdmin.from("ride_offers").select("driver_id").eq("ride_id", ride_id);
         const excludedDriverIds = previousOffers?.map((o: any) => o.driver_id) || [];
@@ -73,6 +83,7 @@ serve(async (req: Request) => {
                 p_pickup_lat: ride.pickup_lat,
                 p_pickup_lng: ride.pickup_lng,
                 p_vehicle_type: ride.vehicle_type || "Any",
+                p_rider_id: ride.rider_id, // Fix 6: Mutual Blacklist
                 p_max_distance_km: 15
             });
 
@@ -141,6 +152,15 @@ serve(async (req: Request) => {
             ).catch(err => console.error("Push notification failed (non-fatal):", err));
         } else {
             console.log(`Driver ${selectedDriver.id} has no push_token — skipping push, relying on Realtime.`);
+        }
+
+        // --- Fix 9: SMS Fallback for Edge Regions ---
+        if (selectedDriver.phone_number) {
+            const smsMsg = `G-TAXI: New Ride Request at ${ride.pickup_address || 'nearby location'}. Tap to view.`;
+            sendSMS(selectedDriver.phone_number, smsMsg)
+                .catch(err => console.error("SMS Fallback failed (non-fatal):", err));
+        } else {
+            console.log(`Driver ${selectedDriver.id} has no phone_number — skipping SMS fallback.`);
         }
 
         return new Response(

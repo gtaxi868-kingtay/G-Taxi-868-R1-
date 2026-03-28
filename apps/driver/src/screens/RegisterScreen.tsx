@@ -26,9 +26,7 @@ const C = {
     faint: 'rgba(255,255,255,0.06)',
 };
 
-interface Props { onBack: () => void; }
-
-export function RegisterScreen({ onBack }: Props) {
+export function RegisterScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState<1 | 2>(1);
@@ -92,7 +90,7 @@ export function RegisterScreen({ onBack }: Props) {
             Alert.alert(
                 'Application Submitted',
                 'Your application is under review. You will be notified once approved.',
-                [{ text: 'OK', onPress: onBack }]
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
             );
         } catch (err: any) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -133,7 +131,7 @@ export function RegisterScreen({ onBack }: Props) {
 
                     {/* Header: [← back] | ["Become a Driver" centered] | step indicator (1 of 2) */}
                     <View style={s.headerRow}>
-                        <TouchableOpacity style={s.backBtn} onPress={step === 2 ? () => setStep(1) : onBack}>
+                        <TouchableOpacity style={s.backBtn} onPress={step === 2 ? () => setStep(1) : () => navigation.goBack()}>
                             <Ionicons name="chevron-back" size={24} color={C.white} />
                         </TouchableOpacity>
                         <Txt variant="headingM" weight="bold" color={C.white}>Become a Driver</Txt>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, TextInput,
-    ActivityIndicator, Alert, Dimensions, ScrollView
+    ActivityIndicator, Alert, Dimensions, ScrollView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -16,25 +16,28 @@ import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 import { ENV } from '../../../../shared/env';
 
+import { tokens } from '../design-system/tokens';
+
 const { width } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function WalletTopUpScreen({ navigation }: any) {
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-    const stripe = isExpoGo ? null : useStripe();
+    const isWeb = Platform.OS === 'web';
+    const stripe = (isExpoGo || isWeb) ? null : useStripe();
 
     const [balance, setBalance] = useState<number | null>(null);
     const [selectedAmount, setSelectedAmount] = useState<number>(100);
@@ -129,20 +132,22 @@ export function WalletTopUpScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF">Add Funds</Txt>
-                <View style={{ width: 44 }} />
-            </BlurView>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Financial Support</Txt>
+            </View>
 
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
 
                 <View style={s.balanceCard}>
-                    <LinearGradient colors={['rgba(124,58,237,0.15)', 'transparent']} style={StyleSheet.absoluteFill} />
-                    <Txt variant="caption" weight="heavy" color={R.muted}>CURRENT BALANCE</Txt>
-                    <Txt variant="headingL" weight="heavy" color={R.purpleLight}>
+                    <LinearGradient 
+                        colors={['rgba(124,58,237,0.1)', 'transparent']} 
+                        style={StyleSheet.absoluteFill} 
+                    />
+                    <Txt variant="caption" weight="heavy" color={tokens.colors.primary.cyan} style={{ letterSpacing: 2 }}>ESTABLISHED BALANCE</Txt>
+                    <Txt variant="displayXL" weight="heavy" color="#FFF">
                         ${balance !== null ? balance.toFixed(2) : '0.00'}
                     </Txt>
                 </View>
@@ -158,8 +163,13 @@ export function WalletTopUpScreen({ navigation }: any) {
                                 onPress={() => handleAmountSelect(amt)}
                             >
                                 <Txt variant="headingM" weight="heavy" color={isActive ? "#FFF" : R.muted}>${amt}</Txt>
-                                <Txt variant="caption" weight="heavy" color={isActive ? R.purpleLight : R.muted}>TTD</Txt>
-                                {isActive && <LinearGradient colors={['rgba(124,58,237,0.2)', 'transparent']} style={StyleSheet.absoluteFill} />}
+                                <Txt variant="caption" weight="heavy" color={isActive ? tokens.colors.primary.cyan : R.muted}>TTD</Txt>
+                                {isActive && (
+                                    <LinearGradient 
+                                        colors={['rgba(124,58,237,0.2)', 'transparent']} 
+                                        style={StyleSheet.absoluteFill} 
+                                    />
+                                )}
                             </TouchableOpacity>
                         );
                     })}
@@ -183,9 +193,14 @@ export function WalletTopUpScreen({ navigation }: any) {
                 </View>
 
                 <TouchableOpacity style={s.payBtn} onPress={handleAddFunds} disabled={loading || displayAmount <= 0}>
-                    <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
+                    <LinearGradient 
+                        colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                        start={{x: 0, y: 0}} 
+                        end={{x: 1, y: 0}}
+                        style={s.btnGradient}
+                    >
                         {loading ? <ActivityIndicator color="#FFF" /> : (
-                            <Txt variant="bodyBold" color="#FFF">Add ${displayAmount} TTD</Txt>
+                            <Txt variant="bodyBold" color="#FFF">INJECT ${displayAmount} TTD</Txt>
                         )}
                     </LinearGradient>
                 </TouchableOpacity>
@@ -197,21 +212,21 @@ export function WalletTopUpScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: R.border },
-    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
+    headerBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    scroll: { padding: 24 },
-    balanceCard: { backgroundColor: R.surface, padding: 32, borderRadius: 32, alignItems: 'center', marginBottom: 40, borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
+    scroll: { paddingHorizontal: 20 },
+    balanceCard: { backgroundColor: 'rgba(255,255,255,0.03)', padding: 40, borderRadius: 40, alignItems: 'center', marginBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
 
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-    amountCard: { width: (width - 48 - 12) / 2, height: 100, backgroundColor: R.surface, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: R.border, overflow: 'hidden' },
-    amountCardActive: { borderColor: R.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
+    amountCard: { width: (width - 40 - 12) / 2, height: 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    amountCardActive: { borderColor: tokens.colors.primary.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
 
-    customWrap: { gap: 8 },
-    label: { marginLeft: 16 },
-    input: { height: 60, backgroundColor: R.surface, borderRadius: 30, paddingHorizontal: 24, color: '#FFF', fontSize: 18, borderWidth: 1, borderColor: R.border },
+    customWrap: { gap: 12, marginTop: 12 },
+    label: { marginLeft: 16, letterSpacing: 1 },
+    input: { height: 64, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, paddingHorizontal: 24, color: '#FFF', fontSize: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
 
-    securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 40 },
-    payBtn: { height: 60, borderRadius: 30, overflow: 'hidden' },
+    securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 32 },
+    payBtn: { height: 64, borderRadius: 24, overflow: 'hidden' },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

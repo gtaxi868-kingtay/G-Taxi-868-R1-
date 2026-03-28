@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     View, StyleSheet, TouchableOpacity,
     ActivityIndicator, Linking, Alert, Animated,
-    Dimensions, ScrollView, Image,
+    Dimensions, ScrollView, Image, AppState, AppStateStatus, Appearance
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,6 +16,7 @@ import Reanimated, {
     withSequence, useAnimatedStyle, useDerivedValue,
     Easing, interpolate, runOnJS,
 } from 'react-native-reanimated';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { DEFAULT_LOCATION, ENV } from '../../../../shared/env';
@@ -83,6 +85,7 @@ export function DashboardScreen({ navigation }: any) {
     const [todayTrips, setTodayTrips] = useState(0);
     const [todayEarnings, setTodayEarnings] = useState(0);
     const [carLabel, setCarLabel] = useState(false);
+    const [systemStatus, setSystemStatus] = useState<any>({ stripe_ready: true, fcm_ready: true, config: {} });
 
     // ── Reanimated shared values ──────────────────────────────────────────────
     const panelY = useSharedValue(PANEL_HEIGHT);
@@ -130,6 +133,21 @@ export function DashboardScreen({ navigation }: any) {
         earningsVal.value = withTiming(todayEarnings, { duration: 900 });
     }, [todayEarnings]);
 
+    // Fix 3: System Diagnostics
+    useEffect(() => {
+        const fetchStatus = async () => {
+            try {
+                const { data, error } = await supabase.functions.invoke('get_system_status');
+                if (!error && data?.success) {
+                    setSystemStatus(data.data);
+                }
+            } catch (err) {
+                console.warn('System status check failed:', err);
+            }
+        };
+        fetchStatus();
+    }, []);
+
     // ── Online glow ───────────────────────────────────────────────────────────
     useEffect(() => {
         glowRadius.value = withSpring(isOnline ? 80 : 0, { damping: 14, stiffness: 100 });
@@ -165,21 +183,54 @@ export function DashboardScreen({ navigation }: any) {
     const currentLat = location?.coords.latitude || DEFAULT_LOCATION.latitude;
     const currentLng = location?.coords.longitude || DEFAULT_LOCATION.longitude;
 
-    useEffect(() => {
+    // ── Stats fetch function (Harden & Sync) ─────────────────────────────────
+    const fetchBalanceAndStats = useCallback(async () => {
         if (!driver?.id) return;
-        supabase.rpc('get_wallet_balance', { p_user_id: driver.id }).then(({ data }) => {
-            setBalanceCents(Math.round(Number(data) || 0));
-        });
-        const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
-        supabase.from('rides').select('total_fare_cents')
-            .eq('driver_id', driver.id).eq('status', 'completed')
-            .gte('created_at', startOfDay.toISOString())
-            .then(({ data }) => {
-                if (data) {
-                    setTodayTrips(data.length);
-                    setTodayEarnings(data.reduce((a, r) => a + (r.total_fare_cents || 0), 0) * 0.81 / 100);
+        try {
+            const { data: balData } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
+            setBalanceCents(Math.round(Number(balData) || 0));
+
+            const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+            const { data: rideData } = await supabase.from('rides').select('total_fare_cents')
+                .eq('driver_id', driver.id).eq('status', 'completed')
+                .gte('created_at', startOfDay.toISOString());
+
+            if (rideData) {
+                setTodayTrips(rideData.length);
+                setTodayEarnings(rideData.reduce((a, r) => a + (r.total_fare_cents || 0), 0) * 0.81 / 100);
+            }
+        } catch (err) {
+            console.warn('Dashboard stats fetch failed:', err);
+        }
+    }, [driver?.id]);
+
+    useEffect(() => {
+        fetchBalanceAndStats();
+    }, [fetchBalanceAndStats]);
+
+    // Refresh on focus (Fix F)
+    useFocusEffect(
+        useCallback(() => {
+            fetchBalanceAndStats();
+        }, [fetchBalanceAndStats])
+    );
+
+    // ── Reconnection Sync (Fix 4.2) ───────────────────────────────────────────
+    useEffect(() => {
+        const handleAppStateChange = async (nextState: AppStateStatus) => {
+            if (nextState === 'active' && driver?.id) {
+                console.log('App returned to foreground. Syncing state...');
+                // Refetch balance and trip stats
+                try {
+                    const { data } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
+                    setBalanceCents(Math.round(Number(data) || 0));
+                } catch (err) {
+                    console.warn('Foreground balance sync failed:', err);
                 }
-            });
+            }
+        };
+        const sub = AppState.addEventListener('change', handleAppStateChange);
+        return () => sub.remove();
     }, [driver?.id]);
 
     // ── Push token check (DO NOT REMOVE) ──────────────────────────────────────
@@ -309,6 +360,53 @@ export function DashboardScreen({ navigation }: any) {
                 <Ionicons name="logo-whatsapp" size={18} color={C.white} />
                 <Txt variant="bodyBold" color={C.white}> Contact Admin</Txt>
             </TouchableOpacity>
+        </View>
+    );
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ── MAINTENANCE / FORCED UPDATE (Fix 7) ───────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    if (systemStatus.config?.maintenance_mode === 'true') return (
+        <View style={[s.root, s.center]}>
+            <StatusBar style="light" />
+            <BlurView tint="dark" intensity={100} style={StyleSheet.absoluteFill}>
+                <View style={[s.center, { marginTop: height * 0.2 }]}>
+                    <Ionicons name="construct-outline" size={64} color={C.purple} />
+                    <Txt variant="headingL" weight="bold" color={C.white} style={[s.centerTitle, { marginTop: 24 }]}>System Maintenance</Txt>
+                    <Txt variant="bodyReg" color={C.muted} style={s.centerBody}>
+                        G-TAXI is currently undergoing maintenance. Please check back shortly.
+                    </Txt>
+                </View>
+            </BlurView>
+        </View>
+    );
+
+    const isUpdateRequired = (() => {
+        if (!systemStatus.config?.min_version_driver || !Constants.expoConfig?.version) return false;
+        const current = Constants.expoConfig.version.split('.').map(Number);
+        const min = systemStatus.config.min_version_driver.split('.').map(Number);
+        for (let i = 0; i < 3; i++) {
+            if ((current[i] || 0) < (min[i] || 0)) return true;
+            if ((current[i] || 0) > (min[i] || 0)) return false;
+        }
+        return false;
+    })();
+
+    if (isUpdateRequired) return (
+        <View style={[s.root, s.center]}>
+            <StatusBar style="light" />
+            <BlurView tint="dark" intensity={100} style={StyleSheet.absoluteFill}>
+                <View style={[s.center, { marginTop: height * 0.2 }]}>
+                    <Ionicons name="cloud-download-outline" size={64} color={C.purple} />
+                    <Txt variant="headingL" weight="bold" color={C.white} style={[s.centerTitle, { marginTop: 24 }]}>Update Required</Txt>
+                    <Txt variant="bodyReg" color={C.muted} style={s.centerBody}>
+                        A critical security update is required to continue driving.
+                    </Txt>
+                    <TouchableOpacity style={s.solidBtn} onPress={() => Alert.alert("Update", "Please update via the App Store or Google Play.")}>
+                        <Txt variant="bodyBold" color={C.white}>Update Now</Txt>
+                    </TouchableOpacity>
+                </View>
+            </BlurView>
         </View>
     );
 
@@ -483,6 +581,16 @@ export function DashboardScreen({ navigation }: any) {
                                 </TouchableOpacity>
                             )}
 
+                            {/* Fix 3: FCM Server Connectivity Warning */}
+                            {!systemStatus.fcm_ready && (
+                                <View style={[s.pushBanner, { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)' }]}>
+                                    <Ionicons name="alert-circle-outline" size={16} color={C.red} />
+                                    <Txt variant="caption" color={C.red} style={{ flex: 1, marginLeft: 8 }}>
+                                        Push Offline: Server keys missing. Stay in the app to receive requests.
+                                    </Txt>
+                                </View>
+                            )}
+
                             {/* ── Stat cards (BUG_FIX 4 — LinearGradient) ─── */}
                             <View style={s.statsRow}>
                                 {/* Earnings card */}
@@ -618,6 +726,52 @@ export function DashboardScreen({ navigation }: any) {
                 user={{ name: driver?.name || 'Driver', rating: 5.0, photo_url: undefined }}
                 navigation={navigation}
             />
+
+            {/* --- FIX 7 & 12: FORCED UPDATE / MAINTENANCE OVERLAYS --- */}
+            {systemStatus?.config?.maintenance_mode === 'true' && (
+                <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
+                    <BlurView tint="dark" intensity={100} style={s.lockBlur}>
+                        <Ionicons name="construct" size={64} color={C.purple} />
+                        <Txt variant="headingL" color={C.white} style={{ marginTop: 24, textAlign: 'center' }}>Fleet Offline</Txt>
+                        <Txt variant="bodyReg" color={C.muted} style={{ marginTop: 12, textAlign: 'center', paddingHorizontal: 40 }}>
+                            G-TAXI is currently performing mission-critical systems maintenance. Navigation and dispatch are temporarily suspended.
+                        </Txt>
+                    </BlurView>
+                </View>
+            )}
+
+            {systemStatus?.config?.min_version_driver && Constants.expoConfig?.version && (
+                (() => {
+                    const current = Constants.expoConfig.version.split('.').map(Number);
+                    const min = systemStatus.config.min_version_driver.split('.').map(Number);
+                    let needsUpdate = false;
+                    for (let i = 0; i < 3; i++) {
+                        if ((current[i] || 0) < (min[i] || 0)) { needsUpdate = true; break; }
+                        if ((current[i] || 0) > (min[i] || 0)) break;
+                    }
+                    
+                    if (needsUpdate) {
+                        return (
+                            <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
+                                <BlurView tint="dark" intensity={100} style={s.lockBlur}>
+                                    <Ionicons name="cloud-download" size={64} color={C.purple} />
+                                    <Txt variant="headingL" color={C.white} style={{ marginTop: 24, textAlign: 'center' }}>Secure Update Required</Txt>
+                                    <Txt variant="bodyReg" color={C.muted} style={{ marginTop: 12, textAlign: 'center', paddingHorizontal: 40 }}>
+                                        A mandatory security patch (v{systemStatus.config.min_version_driver}) is required to access the G-TAXI Driver Network.
+                                    </Txt>
+                                    <TouchableOpacity 
+                                        style={[s.solidBtn, { backgroundColor: C.purple, marginTop: 32 }]} 
+                                        onPress={() => Alert.alert("Secure Update", "Please download the latest build from the pilot portal.")}
+                                    >
+                                        <Txt variant="bodyBold" color={C.white}>Download Now</Txt>
+                                    </TouchableOpacity>
+                                </BlurView>
+                            </View>
+                        );
+                    }
+                    return null;
+                })()
+            )}
         </View>
     );
 }
@@ -721,4 +875,8 @@ const s = StyleSheet.create({
         width: 40, height: 40, borderRadius: 12,
         justifyContent: 'center', alignItems: 'center',
     },
+
+    // Hardening Overlay
+    lockOverlay: { zIndex: 9999, justifyContent: 'center', alignItems: 'center' },
+    lockBlur: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', padding: 20 },
 });

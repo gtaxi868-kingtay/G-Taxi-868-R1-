@@ -5,6 +5,7 @@ CREATE OR REPLACE FUNCTION claim_available_driver(
   p_pickup_lat double precision,
   p_pickup_lng double precision,
   p_vehicle_type text,
+  p_rider_id uuid, -- Added for blacklist filtering
   p_max_distance_km double precision DEFAULT 15
 )
 RETURNS TABLE (
@@ -18,15 +19,18 @@ DECLARE
   v_driver_id uuid;
 BEGIN
   -- Lock the selected driver row atomically.
-  -- SKIP LOCKED means: if another transaction already locked
-  -- this driver, skip them and find the next available one.
-  -- This eliminates the double-dispatch race condition entirely.
   SELECT d.id INTO v_driver_id
   FROM drivers d
   WHERE d.is_online = true
     AND d.status = 'online'
     AND d.wallet_balance_cents > -60000
     AND (p_vehicle_type = 'Any' OR d.vehicle_type = p_vehicle_type)
+    -- MUTUAL BLACKLIST FILTER (Fix 6)
+    AND NOT EXISTS (
+      SELECT 1 FROM blacklists 
+      WHERE (user_id = p_rider_id AND blocked_user_id = d.id)
+         OR (user_id = d.id AND blocked_user_id = p_rider_id)
+    )
     AND (
       6371 * acos(
         cos(radians(p_pickup_lat)) * cos(radians(d.lat)) *
@@ -42,13 +46,12 @@ BEGIN
     )
   ) ASC
   LIMIT 1
-  FOR UPDATE SKIP LOCKED;  -- THE CRITICAL LINE
+  FOR UPDATE SKIP LOCKED;
 
   IF v_driver_id IS NULL THEN
-    RETURN;  -- No available driver found
+    RETURN;
   END IF;
 
-  -- Return the claimed driver's details
   RETURN QUERY
   SELECT
     d.id,

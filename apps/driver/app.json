@@ -22,7 +22,10 @@
           "location",
           "fetch",
           "remote-notification"
-        ]
+        ],
+        "NSLocationWhenInUseUsageDescription": "GTaxi Driver needs your location to receive ride offers and navigate to riders.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "GTaxi Driver tracks your location in the background to send you nearby ride offers even when the app is minimized.",
+        "NSLocationAlwaysUsageDescription": "GTaxi Driver tracks your location in the background to send you nearby ride offers even when the app is minimized."
       }
     },
     "android": {

@@ -21,20 +21,22 @@ import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width, height } = Dimensions.get('window');
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    red: '#EF4444',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
-    green: '#10B981',
-    gold: '#F59E0B',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    red: tokens.colors.status.error,
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
+    green: tokens.colors.status.success,
+    gold: '#FFD700',
 };
 
 export function ActiveRideScreen({ route, navigation }: any) {
@@ -45,6 +47,7 @@ export function ActiveRideScreen({ route, navigation }: any) {
     const [driver, setDriver] = useState<any>(null);
     const [driverLocation, setDriverLocation] = useState<any>(null);
     const [isSosLoading, setIsSosLoading] = useState(false);
+    const [waitStats, setWaitStats] = useState({ mins: 0, cents: 0 });
 
     // FIX: channel must be in a ref accessible by the useEffect cleanup
     const driverChannelRef = useRef<any>(null);
@@ -72,8 +75,22 @@ export function ActiveRideScreen({ route, navigation }: any) {
             }
         });
 
+        // Live Wait Clock (Fix 5)
+        const timer = setInterval(() => {
+            setRide((currentRide: any) => {
+                if (currentRide?.status === 'arrived' && currentRide?.arrived_at) {
+                    const diffMs = Date.now() - new Date(currentRide.arrived_at).getTime();
+                    const mins = Math.max(0, Math.floor(diffMs / 60000));
+                    const cents = Math.floor((diffMs / 60000) * 90);
+                    setWaitStats({ mins, cents });
+                }
+                return currentRide;
+            });
+        }, 1000);
+
         return () => {
             appStateSub.remove();
+            clearInterval(timer);
             if (driverChannelRef.current) {
                 supabase.removeChannel(driverChannelRef.current);
             }
@@ -123,8 +140,8 @@ export function ActiveRideScreen({ route, navigation }: any) {
     const calculateETA = () => {
         if (!ride || !driverLocation) return null;
 
-        const targetLat = ride.status === 'in_progress' ? ride.dropoff_lat : ride.pickup_lat;
-        const targetLng = ride.status === 'in_progress' ? ride.dropoff_lng : ride.pickup_lng;
+        const targetLat = ride?.status === 'in_progress' ? ride?.dropoff_lat : ride?.pickup_lat;
+        const targetLng = ride?.status === 'in_progress' ? ride?.dropoff_lng : ride?.pickup_lng;
 
         if (!targetLat || !targetLng) return null;
 
@@ -165,11 +182,11 @@ export function ActiveRideScreen({ route, navigation }: any) {
         if (!ride) return "Preparing...";
         const eta = calculateETA();
 
-        if (ride.status === 'assigned') {
+        if (ride?.status === 'assigned') {
             return eta !== null ? `Arriving in ${eta} min` : "Driver is on the way";
         }
-        if (ride.status === 'arrived') return "Driver has arrived";
-        if (ride.status === 'in_progress') {
+        if (ride?.status === 'arrived') return "Driver has arrived";
+        if (ride?.status === 'in_progress') {
             return eta !== null ? `${eta} min to destination` : "Heading to destination";
         }
         return "Active Ride";
@@ -241,7 +258,7 @@ export function ActiveRideScreen({ route, navigation }: any) {
                         {ride?.ride_pin && (
                             <View style={s.pinBadge}>
                                 <Txt variant="caption" color={R.muted} style={{ marginBottom: 2 }}>SECURITY PIN</Txt>
-                                <Txt variant="headingM" color={R.white} weight="heavy">{ride.ride_pin}</Txt>
+                                <Txt variant="headingM" color={R.white} weight="heavy">{ride?.ride_pin}</Txt>
                             </View>
                         )}
                         <TouchableOpacity style={s.sosBtn} onPress={handleSOS}>
@@ -249,6 +266,17 @@ export function ActiveRideScreen({ route, navigation }: any) {
                             <Txt variant="caption" weight="heavy" color="#FFF">SOS</Txt>
                         </TouchableOpacity>
                     </View>
+
+                    {/* --- WAIT CLOCK UI (Fix 5) --- */}
+                    {ride?.status === 'arrived' && (
+                        <View style={s.waitClockRow}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Ionicons name="time" size={16} color={R.gold} />
+                                <Txt variant="bodyBold" color={R.gold}>LATE FEE: ${ (waitStats.cents / 100).toFixed(2) }</Txt>
+                            </View>
+                            <Txt variant="caption" color={R.muted}>{waitStats.mins}m elapsed</Txt>
+                        </View>
+                    )}
 
                     {/* Progress: 3-step track (Pickup → On Trip → Dropoff) */}
                     <View style={s.track}>
@@ -288,7 +316,7 @@ const s = StyleSheet.create({
     destMarker: { width: 12, height: 12, backgroundColor: R.white, borderWidth: 3, borderColor: R.gold },
 
     statusBubble: { position: 'absolute', alignSelf: 'center', zIndex: 100 },
-    statusBlur: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 25, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    statusBlur: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: R.green, marginRight: 10 },
 
     bottomCard: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20 },
@@ -310,4 +338,16 @@ const s = StyleSheet.create({
     actions: { flexDirection: 'row', gap: 12 },
     msgBtn: { width: 54, height: 54, borderRadius: 16, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     callBtn: { flex: 1, height: 54, borderRadius: 16, backgroundColor: R.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    waitClockRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: 'rgba(245,158,11,0.1)',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(245,158,11,0.2)',
+    },
 });

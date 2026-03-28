@@ -36,8 +36,8 @@ serve(async (req: Request) => {
             return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
-        const { data: profile } = await supabaseAdmin.from("profiles").select("is_admin").eq("id", user.id).single();
-        if (!profile || !profile.is_admin) {
+        const { data: profile } = await supabaseAdmin.from("profiles").select("role").eq("id", user.id).single();
+        if (!profile || profile.role !== 'admin') {
             return new Response(JSON.stringify({ error: "Forbidden: Admins only" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
@@ -48,26 +48,27 @@ serve(async (req: Request) => {
         }
 
         if (action === "authorize") {
-            // Get user info to populate driver table if not there
-            const { data: targetProfile, error: targetError } = await supabaseAdmin.from("profiles").select("*").eq("id", user_id).single();
+            // Upsert driver record: Create if missing, set to active and verified
+            const { error: upsertError } = await supabaseAdmin.from("drivers").upsert({
+                id: user_id,
+                status: 'active',      // Verified drivers are marked as active
+                is_verified: true,     // Fix 11: Explicit verification flag
+                is_online: false,
+                vehicle_type: 'standard', 
+                base_fare_cents: 500,     
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
 
-            if (targetError) {
-                return new Response(JSON.stringify({ error: "Target user profile not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-            }
-
-            // Check if driver record already exists
-            const { data: existingDriver } = await supabaseAdmin.from("drivers").select("id").eq("user_id", user_id).maybeSingle();
-
-            if (existingDriver) {
-                // Already a driver, just ensure they are active/offline
-                const { error: updateError } = await supabaseAdmin.from("drivers").update({ status: 'offline' }).eq("user_id", user_id);
-                if (updateError) throw updateError;
-            } else {
-                return new Response(JSON.stringify({ error: "Driver record does not exist. User must register first." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-            }
+            if (upsertError) throw upsertError;
 
         } else if (action === "revoke") {
-            const { error: updateError } = await supabaseAdmin.from("drivers").update({ status: 'suspended', is_online: false }).eq("user_id", user_id);
+            const { error: updateError } = await supabaseAdmin.from("drivers")
+                .update({ 
+                    status: 'suspended', 
+                    is_verified: false, // Fix 11: Remove verification
+                    is_online: false 
+                })
+                .eq("id", user_id);
             if (updateError) throw updateError;
 
             // In a real prod env, we'd also want to invalidate their auth session here using the Admin API

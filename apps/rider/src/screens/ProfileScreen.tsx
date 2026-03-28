@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, SafeAreaView,
     ScrollView, Dimensions, ActivityIndicator
@@ -13,20 +13,22 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../../../../shared/supabase';
 import { Txt } from '../design-system/primitives';
 
+import { tokens } from '../design-system/tokens';
+
 const { width } = Dimensions.get('window');
 
-// ── Rider Design Tokens ──────────────────────────────────────────────────────
+// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: '#07050F',
-    surface: '#110E22',
-    surfaceHigh: '#1A1530',
-    border: 'rgba(255,255,255,0.08)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    gold: '#F59E0B',
-    red: '#EF4444',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.4)',
+    bg: tokens.colors.background.base,
+    surface: tokens.colors.background.surface,
+    surfaceHigh: 'rgba(255,255,255,0.1)',
+    border: tokens.colors.glass.stroke,
+    purple: tokens.colors.primary.purple,
+    purpleLight: tokens.colors.primary.cyan,
+    gold: '#FFD700',
+    red: tokens.colors.status.error,
+    white: tokens.colors.text.primary,
+    muted: tokens.colors.text.secondary,
 };
 
 export function ProfileScreen({ navigation }: any) {
@@ -36,11 +38,7 @@ export function ProfileScreen({ navigation }: any) {
     const [stats, setStats] = useState({ totalTrips: 0, rating: '5.0', memberSince: '' });
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (user?.id) fetchProfileStats();
-    }, [user?.id]);
-
-    const fetchProfileStats = async () => {
+    const fetchProfileStats = useCallback(async () => {
         try {
             const { data: rides } = await supabase
                 .from('rides')
@@ -66,7 +64,11 @@ export function ProfileScreen({ navigation }: any) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user?.id]);
+
+    useEffect(() => {
+        if (user?.id) fetchProfileStats();
+    }, [user?.id, fetchProfileStats]);
 
     // BUG_FIX: Profile Name — use profile.full_name mapping
     const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Rider';
@@ -79,6 +81,14 @@ export function ProfileScreen({ navigation }: any) {
         { label: 'Promos', icon: 'gift-outline', nav: 'Promo' },
         { label: 'Support', icon: 'help-buoy-outline', nav: 'Help' },
     ];
+
+    if (loading) {
+        return (
+            <View style={[s.root, { alignItems: 'center', justifyContent: 'center' }]}>
+                <ActivityIndicator color={R.purple} size="large" />
+            </View>
+        );
+    }
 
     return (
         <View style={s.root}>
@@ -131,9 +141,13 @@ export function ProfileScreen({ navigation }: any) {
                         >
                             <View style={s.menuItemLeft}>
                                 <View style={s.iconWrapper}>
-                                    <Ionicons name={item.icon as any} size={20} color={R.purpleLight} />
+                                    <LinearGradient 
+                                        colors={['rgba(123, 97, 255, 0.2)', 'rgba(0, 255, 255, 0.2)']} 
+                                        style={StyleSheet.absoluteFill} 
+                                    />
+                                    <Ionicons name={item.icon as any} size={20} color="#00FFFF" />
                                 </View>
-                                <Txt variant="bodyReg" color="#FFF" style={{ marginLeft: 16 }}>{item.label}</Txt>
+                                <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 16, fontSize: 17 }}>{item.label}</Txt>
                             </View>
                             <Ionicons name="chevron-forward" size={18} color={R.muted} />
                         </TouchableOpacity>
@@ -154,20 +168,20 @@ export function ProfileScreen({ navigation }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 32 },
-    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 32 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
     hero: { alignItems: 'center', marginBottom: 40 },
-    avatarWrap: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', shadowColor: R.purple, shadowRadius: 15, shadowOpacity: 0.3 },
+    avatarWrap: { width: 100, height: 100, borderRadius: 32, alignItems: 'center', justifyContent: 'center', shadowColor: R.purple, shadowRadius: 20, shadowOpacity: 0.4 },
 
-    grid: { flexDirection: 'row', backgroundColor: R.surface, marginHorizontal: 20, borderRadius: 24, paddingVertical: 20, borderWidth: 1, borderColor: R.border, marginBottom: 32 },
+    grid: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', marginHorizontal: 20, borderRadius: 32, paddingVertical: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginBottom: 32 },
     gridItem: { flex: 1, alignItems: 'center' },
-    gridDivider: { width: 1, height: 24, backgroundColor: 'rgba(255,255,255,0.05)' },
+    gridDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.1)' },
 
-    menu: { marginHorizontal: 20, backgroundColor: R.surface, borderRadius: 24, padding: 8, borderWidth: 1, borderColor: R.border },
-    menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
+    menu: { marginHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 32, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18 },
     menuItemLeft: { flexDirection: 'row', alignItems: 'center' },
-    iconWrapper: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(124,58,237,0.1)', alignItems: 'center', justifyContent: 'center' },
+    iconWrapper: { width: 44, height: 44, borderRadius: 14, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
 
-    logoutBtn: { marginHorizontal: 20, marginTop: 40, height: 56, borderRadius: 28, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)', backgroundColor: 'rgba(239,68,68,0.05)', alignItems: 'center', justifyContent: 'center' },
+    logoutBtn: { marginHorizontal: 20, marginTop: 40, height: 64, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center' },
 });

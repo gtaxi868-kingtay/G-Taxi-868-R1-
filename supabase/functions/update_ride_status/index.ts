@@ -141,15 +141,35 @@ serve(async (req: Request) => {
     }
 
     // ATOMIC RECORD UPDATE
+    const updatePayload: any = {
+      status: status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (status === 'arrived') {
+      updatePayload.arrived_at = new Date().toISOString();
+    }
+
+    if (status === 'in_progress') {
+      // Calculate Wait Fee (Fix 5)
+      if (ride.arrived_at) {
+        const arrivalTime = new Date(ride.arrived_at).getTime();
+        const now = new Date().getTime();
+        const waitMinutes = (now - arrivalTime) / (1000 * 60);
+        
+        if (waitMinutes > 0) {
+          // $0.90 per minute
+          updatePayload.wait_fee_cents = Math.floor(waitMinutes * 90);
+        }
+      }
+    }
+
     // Determine the valid previous state
     const validPreviousStates = status === 'arrived' ? ['assigned'] : ['arrived'];
 
     const { error: updateError, count } = await supabaseAdmin
       .from("rides")
-      .update({
-        status: status,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", ride_id)
       .in("status", validPreviousStates); // ATOMIC GUARD
 

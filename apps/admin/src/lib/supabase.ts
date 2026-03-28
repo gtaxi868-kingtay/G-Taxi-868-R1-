@@ -10,28 +10,25 @@ export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 // Base URL for all admin edge function calls. Stripping trailing slash for robustness.
 export const FUNCTIONS_URL = `${(supabaseUrl || '').replace(/\/$/, '')}/functions/v1`;
 
-// Helper: POST to an admin edge function with the user's JWT.
+// Helper: Invoke an admin edge function with the user's JWT automatically handled by the client.
 export async function adminFetch(
     functionName: string,
     body?: Record<string, unknown>
 ): Promise<any> {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('No active session');
+    if (!session) throw new Error('No active session. Please log in.');
 
-    const res = await fetch(`${FUNCTIONS_URL}/${functionName}`, {
-        method: 'POST',
+    const { data, error } = await supabase.functions.invoke(functionName, {
+        body: body || {},
         headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-            'apikey': supabaseAnonKey || '',
-        },
-        body: body ? JSON.stringify(body) : undefined,
+            'Authorization': `Bearer ${session.access_token}`
+        }
     });
 
-    if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(`HTTP_${res.status}: ${json.error || 'Request failed'}`);
+    if (error) {
+        console.error(`Edge Function Error [${functionName}]:`, error);
+        throw new Error(error.message || 'Request to edge function failed');
     }
 
-    return await res.json();
+    return data;
 }
