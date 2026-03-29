@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 const { width } = Dimensions.get('window');
 
 export function DriverFoundScreen({ navigation, route }: any) {
-    const { rideId, driver } = route.params as {
+    const { rideId, driver, _activeRideParams } = route.params as {
         rideId: string;
         driver: {
             name: string;
@@ -20,7 +20,9 @@ export function DriverFoundScreen({ navigation, route }: any) {
             plate: string;
             rating: number;
         };
+        _activeRideParams?: Record<string, any>;
     };
+
     const insets = useSafeAreaInsets();
     const scaleAnim = useRef(new Animated.Value(0.8)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -35,8 +37,14 @@ export function DriverFoundScreen({ navigation, route }: any) {
 
     const handleTrack = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        navigation.navigate('ActiveRide', { rideId, driver });
+        // Forward full ride params if we have them, otherwise fallback to bare rideId + driver
+        if (_activeRideParams) {
+            navigation.replace('ActiveRide', _activeRideParams);
+        } else {
+            navigation.replace('ActiveRide', { rideId, driver });
+        }
     };
+
 
     return (
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>

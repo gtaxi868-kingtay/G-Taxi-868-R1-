@@ -248,19 +248,31 @@ export function HomeScreen({ navigation }: any) {
                             </TouchableOpacity>
 
                             {featureFlags.grocery && (
-                                <TouchableOpacity style={{ flex: 1 }} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); Alert.alert("Coming Soon"); }}>
+                                <TouchableOpacity
+                                    style={{ flex: 1 }}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        navigation.navigate('GroceryStorefront');
+                                    }}
+                                >
                                     <Card padding="xs" intensity={40} style={s.serviceTile}>
                                         <Ionicons name="cart" size={24} color="#7B61FF" />
-                                        <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>LOGISTICS</Txt>
+                                        <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>GROCERY</Txt>
                                     </Card>
                                 </TouchableOpacity>
                             )}
 
                             {featureFlags.laundry && (
-                                <TouchableOpacity style={{ flex: 1 }} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); Alert.alert("Coming Soon"); }}>
+                                <TouchableOpacity
+                                    style={{ flex: 1 }}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        navigation.navigate('LaundryLanding');
+                                    }}
+                                >
                                     <Card padding="xs" intensity={40} style={s.serviceTile}>
-                                        <Ionicons name="flash" size={24} color="#7B61FF" />
-                                        <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>EXPRESS</Txt>
+                                        <Ionicons name="water" size={24} color="#7B61FF" />
+                                        <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>LAUNDRY</Txt>
                                     </Card>
                                 </TouchableOpacity>
                             )}

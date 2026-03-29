@@ -72,7 +72,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }, 2500);
 
-        // Helper: navigate to ActiveRide with driver details
+        // Helper: navigate to DriverFound confirmation, which then routes to ActiveRide
         const goToActiveRide = async (driverId: string, pmOverride?: string) => {
             try {
                 const { data: driverData, error: driverErr } = await supabase
@@ -83,26 +83,35 @@ export function SearchingDriverScreen({ route, navigation }: any) {
 
                 if (driverErr) throw driverErr;
 
-                navigation.replace("ActiveRide", {
-                    destination,
-                    fare,
-                    driver: {
-                        name: driverData.name,
-                        vehicle: driverData.vehicle_model,
-                        id: driverData.id,
-                        phone: '', // Will be fetched in ActiveRide or via another call
-                        photo_url: undefined,
-                        plate: driverData.plate_number,
-                        rating: driverData.rating || 4.8,
-                    },
+                const driverParams = {
+                    name: driverData.name,
+                    vehicle: driverData.vehicle_model,
+                    id: driverData.id,
+                    plate: driverData.plate_number,
+                    rating: driverData.rating || 4.8,
+                };
+
+                // Navigate to DriverFound confirmation first
+                navigation.replace("DriverFound", {
                     rideId,
-                    pickup,
-                    paymentMethod: pmOverride || (route.params.paymentMethod)
+                    driver: driverParams,
+                    // DriverFoundScreen passes these through to ActiveRide
+                    _activeRideParams: {
+                        destination,
+                        fare,
+                        driver: driverParams,
+                        rideId,
+                        pickup,
+                        paymentMethod: pmOverride || (route.params.paymentMethod),
+                    },
                 });
             } catch (e) {
-                console.warn("goToActiveRide failed:", e);
+                // Fallback: go straight to ActiveRide if DriverFound fails
+                console.warn("goToActiveRide failed, falling back to ActiveRide:", e);
+                navigation.replace("ActiveRide", { destination, fare, rideId, pickup });
             }
         };
+
 
         // Polling/Subscription for Assignment
         const sub = supabase.channel(`ride_${rideId}`)
