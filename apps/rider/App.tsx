@@ -38,6 +38,15 @@ import { WalletScreen } from './src/screens/WalletScreen';
 import { WalletTopUpScreen } from './src/screens/WalletTopUpScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { AISettingsScreen } from './src/screens/AISettingsScreen';
+import { GroceryStorefrontScreen } from './src/screens/GroceryStorefrontScreen';
+import { ProductListingScreen } from './src/screens/ProductListingScreen';
+import { ProductDetailScreen } from './src/screens/ProductDetailScreen';
+import { GroceryCartScreen } from './src/screens/GroceryCartScreen';
+import { VisionScannerScreen } from './src/screens/VisionScannerScreen';
+import { LaundryLandingScreen } from './src/screens/LaundryLandingScreen';
+import { LaundryEstimatorScreen } from './src/screens/LaundryEstimatorScreen';
+import { LaundryOrderStatusScreen } from './src/screens/LaundryOrderStatusScreen';
+import { DriverFoundScreen } from './src/screens/DriverFoundScreen';
 
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -127,6 +136,18 @@ function AppNavigator() {
                 <AppStack.Screen name="Promo" component={PromoScreen} />
                 <AppStack.Screen name="Chat" component={ChatScreen} />
                 <AppStack.Screen name="AISettings" component={AISettingsScreen} />
+                {/* Grocery Vertical */}
+                <AppStack.Screen name="GroceryStorefront" component={GroceryStorefrontScreen} />
+                <AppStack.Screen name="ProductListing" component={ProductListingScreen} />
+                <AppStack.Screen name="ProductDetail" component={ProductDetailScreen} />
+                <AppStack.Screen name="GroceryCart" component={GroceryCartScreen} />
+                <AppStack.Screen name="VisionScanner" component={VisionScannerScreen} />
+                {/* Laundry Vertical */}
+                <AppStack.Screen name="LaundryLanding" component={LaundryLandingScreen} />
+                <AppStack.Screen name="LaundryEstimator" component={LaundryEstimatorScreen} />
+                <AppStack.Screen name="LaundryOrderStatus" component={LaundryOrderStatusScreen} />
+                {/* Driver Found Confirmation */}
+                <AppStack.Screen name="DriverFound" component={DriverFoundScreen} />
             </AppStack.Navigator>
         </>
     );

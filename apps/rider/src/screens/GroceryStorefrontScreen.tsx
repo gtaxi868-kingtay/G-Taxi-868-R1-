@@ -1,0 +1,224 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+    View, Text, FlatList, TouchableOpacity, StyleSheet,
+    ActivityIndicator, Dimensions, ScrollView, RefreshControl,
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { supabase } from '../../../../shared/supabase';
+import { useAuth } from '../context/AuthContext';
+
+const { width } = Dimensions.get('window');
+
+interface Merchant {
+    id: string;
+    name: string;
+    category: string;
+    address: string;
+    is_active: boolean;
+}
+
+const CATEGORY_ICONS: Record<string, string> = {
+    grocery: '🛒',
+    laundry: '🧺',
+    pharmacy: '💊',
+    bakery: '🥐',
+    drinks: '🥤',
+    default: '🏪',
+};
+
+export function GroceryStorefrontScreen({ navigation }: any) {
+    const { user } = useAuth();
+    const insets = useSafeAreaInsets();
+
+    const [merchants, setMerchants] = useState<Merchant[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [categories, setCategories] = useState<string[]>([]);
+
+    const fetchMerchants = useCallback(async () => {
+        try {
+            const { data, error } = await supabase
+                .from('merchants')
+                .select('id, name, category, address, is_active')
+                .eq('is_active', true)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            const list = (data || []) as Merchant[];
+            setMerchants(list);
+
+            // Derive unique categories
+            const cats = Array.from(new Set(list.map(m => m.category)));
+            setCategories(cats);
+        } catch (err) {
+            console.error('[GroceryStorefront] fetch error:', err);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchMerchants(); }, [fetchMerchants]);
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchMerchants();
+    }, [fetchMerchants]);
+
+    const filteredMerchants = selectedCategory === 'all'
+        ? merchants
+        : merchants.filter(m => m.category === selectedCategory);
+
+    const handleMerchantPress = (merchant: Merchant) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        navigation.navigate('ProductListing', { merchant });
+    };
+
+    const renderMerchant = ({ item }: { item: Merchant }) => (
+        <TouchableOpacity
+            style={s.merchantCard}
+            onPress={() => handleMerchantPress(item)}
+            activeOpacity={0.85}
+        >
+            <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
+            <View style={s.merchantIcon}>
+                <Text style={s.iconEmoji}>
+                    {CATEGORY_ICONS[item.category] || CATEGORY_ICONS.default}
+                </Text>
+            </View>
+            <View style={s.merchantInfo}>
+                <Text style={s.merchantName}>{item.name}</Text>
+                <Text style={s.merchantMeta}>
+                    {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                    {item.address ? `  •  ${item.address}` : ''}
+                </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#7B61FF" />
+        </TouchableOpacity>
+    );
+
+    return (
+        <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
+            {/* Header */}
+            <View style={[s.header, { paddingTop: insets.top + 8 }]}>
+                <TouchableOpacity
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
+                    style={s.backBtn}
+                >
+                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                </TouchableOpacity>
+                <Text style={s.headerTitle}>Stores Near You</Text>
+                <View style={{ width: 38 }} />
+            </View>
+
+            {/* Category Filter */}
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={s.catScroll}
+                contentContainerStyle={s.catContent}
+            >
+                {['all', ...categories].map(cat => (
+                    <TouchableOpacity
+                        key={cat}
+                        onPress={() => { setSelectedCategory(cat); Haptics.selectionAsync(); }}
+                        style={[s.catChip, selectedCategory === cat && s.catChipActive]}
+                    >
+                        <Text style={[s.catChipText, selectedCategory === cat && s.catChipTextActive]}>
+                            {cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
+
+            {/* Merchant list */}
+            {loading ? (
+                <View style={s.center}>
+                    <ActivityIndicator size="large" color="#00FFFF" />
+                    <Text style={s.loadingText}>Finding stores...</Text>
+                </View>
+            ) : filteredMerchants.length === 0 ? (
+                <View style={s.center}>
+                    <Text style={s.emptyEmoji}>🏪</Text>
+                    <Text style={s.emptyText}>No stores available right now.</Text>
+                    <Text style={s.emptySubtext}>Pull down to refresh.</Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={filteredMerchants}
+                    keyExtractor={item => item.id}
+                    renderItem={renderMerchant}
+                    contentContainerStyle={s.listContent}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor="#00FFFF"
+                        />
+                    }
+                />
+            )}
+        </LinearGradient>
+    );
+}
+
+const s = StyleSheet.create({
+    container: { flex: 1 },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingBottom: 12,
+    },
+    backBtn: {
+        width: 38, height: 38, borderRadius: 19,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        alignItems: 'center', justifyContent: 'center',
+    },
+    headerTitle: {
+        fontSize: 20, fontWeight: '700', color: '#FFF', letterSpacing: 0.2,
+    },
+    catScroll: { maxHeight: 52 },
+    catContent: { paddingHorizontal: 20, paddingBottom: 8, gap: 10, alignItems: 'center' },
+    catChip: {
+        paddingHorizontal: 18, paddingVertical: 8, borderRadius: 50,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    },
+    catChipActive: {
+        backgroundColor: '#7B61FF',
+        borderColor: '#7B61FF',
+    },
+    catChipText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
+    catChipTextActive: { color: '#FFF', fontWeight: '700' },
+    listContent: { padding: 20, gap: 14 },
+    merchantCard: {
+        flexDirection: 'row', alignItems: 'center',
+        borderRadius: 20, overflow: 'hidden',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+        padding: 16, gap: 14,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+    merchantIcon: {
+        width: 52, height: 52, borderRadius: 16,
+        backgroundColor: 'rgba(123,97,255,0.2)',
+        alignItems: 'center', justifyContent: 'center',
+    },
+    iconEmoji: { fontSize: 26 },
+    merchantInfo: { flex: 1 },
+    merchantName: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    merchantMeta: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 3 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
+    loadingText: { color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 14 },
+    emptyEmoji: { fontSize: 48, marginBottom: 16 },
+    emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+    emptySubtext: { color: 'rgba(255,255,255,0.4)', fontSize: 14, marginTop: 6 },
+});
