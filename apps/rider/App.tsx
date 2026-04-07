@@ -48,8 +48,8 @@ import { LaundryEstimatorScreen } from './src/screens/LaundryEstimatorScreen';
 import { LaundryOrderStatusScreen } from './src/screens/LaundryOrderStatusScreen';
 import { DriverFoundScreen } from './src/screens/DriverFoundScreen';
 import { NfcHandshakeScreen } from './src/screens/NfcHandshakeScreen';
-import { ServiceBookingScreen } from './src/screens/ServiceBookingScreen'; // Phase 8A
-
+import { ServiceBookingScreen } from './src/screens/ServiceBookingScreen';
+import { LegalScreen } from './src/screens/LegalScreen';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
@@ -153,6 +153,7 @@ function AppNavigator() {
                 <AppStack.Screen name="DriverFound" component={DriverFoundScreen} />
                 <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} />
                 <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
+                <AppStack.Screen name="Legal" component={LegalScreen!} />
             </AppStack.Navigator>
         </>
     );

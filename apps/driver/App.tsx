@@ -17,6 +17,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PendingApprovalScreen } from './src/screens/PendingApprovalScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { StrategySettingsScreen } from './src/screens/StrategySettingsScreen';
+import { LegalScreen } from './src/screens/LegalScreen';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as BackgroundFetch from 'expo-background-fetch';
@@ -280,6 +281,7 @@ function AppNavigator() {
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="StrategySettings" component={StrategySettingsScreen} />
+            <Stack.Screen name="Legal" component={LegalScreen} />
         </Stack.Navigator>
     );
 }

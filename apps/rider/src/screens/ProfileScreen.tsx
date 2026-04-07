@@ -72,7 +72,6 @@ export function ProfileScreen({ navigation }: any) {
 
     // BUG_FIX: Profile Name — use profile.full_name mapping
     const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Rider';
-
     const menuItems = [
         { label: 'Edit Profile', icon: 'person-outline', nav: 'EditProfile' },
         { label: 'AI Assistant & Safety', icon: 'sparkles-outline', nav: 'AISettings' },
@@ -80,7 +79,33 @@ export function ProfileScreen({ navigation }: any) {
         { label: 'Saved Places', icon: 'location-outline', nav: 'DestinationSearch', params: { mode: 'save' } },
         { label: 'Promos', icon: 'gift-outline', nav: 'Promo' },
         { label: 'Support', icon: 'help-buoy-outline', nav: 'Help' },
+        { label: 'Legal & Privacy', icon: 'document-text-outline', nav: 'Legal' },
     ];
+
+    const handleDeleteAccount = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        import('react-native').then(({ Alert }) => {
+            Alert.alert(
+                'Delete Account & Data',
+                'This action is irreversible and will purge all your history, wallet, and profile data per GDPR compliance. Are you absolutely sure?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                        text: 'Permanently Delete', 
+                        style: 'destructive',
+                        onPress: async () => {
+                            try {
+                                await supabase.functions.invoke('delete_account');
+                                await signOut();
+                            } catch (e) {
+                                Alert.alert('Error', 'Failed to delete account.');
+                            }
+                        }
+                    }
+                ]
+            );
+        });
+    };
 
     if (loading) {
         return (
@@ -104,9 +129,9 @@ export function ProfileScreen({ navigation }: any) {
                     <Txt variant="headingM" weight="heavy" color={R.white} style={{ marginLeft: 16 }}>Profile</Txt>
                 </View>
 
-                {/* Avatar: 80x80 circle with Blueberry/Lavender gradient */}
+                {/* Avatar: 80x80 circle with gradient */}
                 <View style={s.hero}>
-                    <LinearGradient colors={[tokens.colors.primary.lavender, tokens.colors.primary.blueberry]} style={s.avatarWrap}>
+                    <LinearGradient colors={[tokens.colors.primary.purpleLight, tokens.colors.primary.purple]} style={s.avatarWrap}>
                         <Txt variant="headingL" weight="heavy" color={tokens.colors.text.inverse}>{displayName.charAt(0)}</Txt>
                     </LinearGradient>
                     <Txt variant="bodyBold" color={R.white} style={{ fontSize: 22, marginTop: 16 }}>{displayName}</Txt>
@@ -121,7 +146,7 @@ export function ProfileScreen({ navigation }: any) {
                     </View>
                     <View style={s.gridDivider} />
                     <View style={s.gridItem}>
-                        <Txt variant="bodyBold" color={tokens.colors.primary.blueberry}>⭐ {stats.rating}</Txt>
+                        <Txt variant="bodyBold" color={tokens.colors.primary.purpleLight}>⭐ {stats.rating}</Txt>
                         <Txt variant="caption" color={R.muted}>RATING</Txt>
                     </View>
                     <View style={s.gridDivider} />
@@ -145,7 +170,7 @@ export function ProfileScreen({ navigation }: any) {
                                         colors={['rgba(79, 134, 247, 0.1)', 'rgba(162, 155, 254, 0.1)']} 
                                         style={StyleSheet.absoluteFill} 
                                     />
-                                    <Ionicons name={item.icon as any} size={20} color={tokens.colors.primary.blueberry} />
+                                    <Ionicons name={item.icon as any} size={20} color={tokens.colors.primary.purpleLight} />
                                 </View>
                                 <Txt variant="bodyBold" color={R.white} style={{ marginLeft: 16, fontSize: 17 }}>{item.label}</Txt>
                             </View>
@@ -154,9 +179,14 @@ export function ProfileScreen({ navigation }: any) {
                     ))}
                 </View>
 
-                {/* Logout: Red ghost style */}
+                {/* Logout */}
                 <TouchableOpacity style={s.logoutBtn} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); signOut(); }}>
                     <Txt variant="bodyBold" color={R.red}>Log Out</Txt>
+                </TouchableOpacity>
+
+                {/* GDPR Delete Account */}
+                <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'transparent', backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={handleDeleteAccount}>
+                    <Txt variant="bodyBold" color={R.red}>Delete Account & Data</Txt>
                 </TouchableOpacity>
 
                 <Txt variant="small" color={R.muted} style={{ textAlign: 'center', marginTop: 24 }}>G-Taxi Rider v1.4.2</Txt>

@@ -231,9 +231,41 @@ export function ProfileScreen({ navigation }: any) {
 
                 <View style={s.mainDivider} />
 
+                <TouchableOpacity
+                    style={s.menuRow}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate('Legal');
+                    }}
+                >
+                    <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
+                        <Ionicons name="document-text-outline" size={20} color="#FFF" />
+                    </View>
+                    <Txt variant="bodyBold" weight="heavy" color="#FFF" style={{ flex: 1, marginLeft: 16 }}>LEGAL AGREEMENTS</Txt>
+                    <Ionicons name="chevron-forward" size={20} color={VOICES.driver.textMuted} />
+                </TouchableOpacity>
+
                 <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
-                    <Ionicons name="log-out-outline" size={20} color={SEMANTIC.danger} style={{ marginRight: 8 }} />
-                    <Txt variant="bodyBold" weight="heavy" color={SEMANTIC.danger}>TERMINATE SESSION</Txt>
+                    <Ionicons name="log-out-outline" size={20} color={SEMANTIC.warning} style={{ marginRight: 8 }} />
+                    <Txt variant="bodyBold" weight="heavy" color={SEMANTIC.warning}>TERMINATE SESSION</Txt>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'transparent', backgroundColor: 'rgba(239,68,68,0.1)' }]} onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                    Alert.alert('Erase Platform Data', 'This will purge your operator history and wallet ledger permanently.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'ERASE ALL', style: 'destructive', onPress: async () => {
+                            try {
+                                await supabase.functions.invoke('delete_account');
+                                await signOut();
+                            } catch (e) {
+                                Alert.alert('Error', 'Unable to delete. Contact admin.');
+                            }
+                        }}
+                    ]);
+                }}>
+                    <Ionicons name="trash-outline" size={20} color={SEMANTIC.danger} style={{ marginRight: 8 }} />
+                    <Txt variant="bodyBold" weight="heavy" color={SEMANTIC.danger}>PURGE ACCOUNT & DATA</Txt>
                 </TouchableOpacity>
 
                 <View style={{ height: insets.bottom + 40 }} />
