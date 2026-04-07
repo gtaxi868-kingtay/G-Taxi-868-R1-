@@ -18,23 +18,7 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
-// --- Locked fare structure (TTD cents) ---
-// Base fare:     $16.00 TTD = 1600 cents
-// Per kilometre:  $1.75 TTD =  175 cents
-// Per minute:     $0.95 TTD =   95 cents
-// Minimum fare:  $22.00 TTD = 2200 cents
-const PRICING = {
-    BASE_FARE_CENTS: 1600,
-    PER_KM_CENTS: 175,
-    PER_MIN_CENTS: 95,
-    MIN_FARE_CENTS: 2200,
-};
-
-const VEHICLE_MULTIPLIERS: Record<string, number> = {
-    "Standard": 1.0,
-    "XL": 1.5,
-    "Premium": 2.0,
-};
+import { PRICING, VEHICLE_MULTIPLIERS, calculateFare } from "../_shared/pricing.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -132,23 +116,31 @@ serve(async (req: Request) => {
             }
         }
 
-        // Calculate fare
-        const distanceKm = distanceMeters / 1000;
-        const durationMin = durationSeconds / 60;
-        const multiplier = VEHICLE_MULTIPLIERS[vehicle_type] || 1.0;
-
-        let fareCents = PRICING.BASE_FARE_CENTS +
-            Math.round(distanceKm * PRICING.PER_KM_CENTS) +
-            Math.round(durationMin * PRICING.PER_MIN_CENTS);
-
-        // Add stops fees ($15 TTD per stop)
-        let stopFees = 0;
+        // Add stops fees ($15 TTD per generic/laundry stop, $35 for Grocery, $25 for Pharmacy)
+        let totalStopsFeeCents = 0;
         if (stops && Array.isArray(stops)) {
-            stopFees = stops.length * 1500;
+            for (const stop of stops) {
+                if (stop.stop_type === 'grocery') {
+                    totalStopsFeeCents += 3500; // $35.00 TTD
+                } else if (stop.stop_type === 'pharmacy') {
+                    totalStopsFeeCents += 2500; // $25.00 TTD (Granny's Shield)
+                } else if (stop.stop_type === 'laundry') {
+                    totalStopsFeeCents += 1500; // $15.00 TTD
+                } else {
+                    totalStopsFeeCents += 1500; // $15.00 TTD (Standard stop)
+                }
+            }
         }
 
-        fareCents = Math.round((fareCents + stopFees) * multiplier * surgeMultiplier);
-        fareCents = Math.max(fareCents, PRICING.MIN_FARE_CENTS);
+        // Calculate fare using shared logic
+        const fareCents = calculateFare(
+            distanceMeters, 
+            durationSeconds, 
+            vehicle_type, 
+            surgeMultiplier, 
+            totalStopsFeeCents
+        );
+        const multiplier = VEHICLE_MULTIPLIERS[vehicle_type] || 1.0;
 
         return new Response(
             JSON.stringify({

@@ -14,19 +14,9 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 
-const { width } = Dimensions.get('window');
+import { GlassCard, BRAND, VOICES, SEMANTIC, RADIUS, GRADIENTS } from '../design-system';
 
-// ── Driver Design Tokens ──────────────────────────────────────────────────────
-const C = {
-    bg: '#05050A',
-    surface: 'rgba(20, 20, 30, 0.6)',
-    surface2: 'rgba(30, 30, 45, 0.8)',
-    border: 'rgba(255, 255, 255, 0.08)',
-    green: '#00C896',
-    gold: '#FFB800',
-    white: '#FFFFFF',
-    muted: 'rgba(255, 255, 255, 0.4)',
-};
+const { width } = Dimensions.get('window');
 
 interface Message {
     id: string;
@@ -105,10 +95,13 @@ export function ChatScreen({ route, navigation }: any) {
         const isSelf = item.sender_id === user?.id;
         return (
             <View style={[s.msgRow, isSelf ? s.msgSelf : s.msgOther]}>
-                {!isSelf && <View style={s.msgAvatar}><Txt style={{ fontSize: 10, color: '#FFF' }}>RI</Txt></View>}
+                {!isSelf && (
+                    <View style={s.msgAvatar}>
+                        <Txt weight="heavy" style={{ fontSize: 10, color: BRAND.cyan }}>RI</Txt>
+                    </View>
+                )}
                 <View style={[s.bubble, isSelf ? s.bubbleSelf : s.bubbleOther]}>
-                    {isSelf && <LinearGradient colors={[C.green, '#064E3B']} style={StyleSheet.absoluteFill} />}
-                    <Txt style={s.msgText}>{item.content}</Txt>
+                    <Txt style={[s.msgText, { color: isSelf ? '#0A0718' : '#FFF' }]}>{item.content}</Txt>
                 </View>
             </View>
         );
@@ -118,27 +111,28 @@ export function ChatScreen({ route, navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            {/* Header */}
-            <BlurView tint="dark" intensity={100} style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
-                </TouchableOpacity>
-                <View style={s.headerTitle}>
-                    <Txt variant="bodyBold" color="#FFF">{rider?.name || 'Rider'}</Txt>
-                    <View style={s.statusRow}>
-                        <View style={s.statusDot} />
-                        <Txt variant="caption" color={C.muted}>Active Trip</Txt>
+            <BlurView tint="dark" intensity={90} style={[s.header, { paddingTop: insets.top }]}>
+                <View style={s.headerInner}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                    <View style={s.headerTitle}>
+                        <Txt variant="bodyBold" weight="heavy" color="#FFF">{rider?.name?.toUpperCase() || 'RIDER'}</Txt>
+                        <View style={s.statusRow}>
+                            <View style={s.statusDot} />
+                            <Txt variant="caption" weight="heavy" color={VOICES.driver.textMuted}>LIVE TELEMETRY</Txt>
+                        </View>
                     </View>
+                    <TouchableOpacity style={s.headerBtn}>
+                        <Ionicons name="call" size={20} color={BRAND.cyan} />
+                    </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={s.headerBtn}>
-                    <Ionicons name="call" size={20} color={C.green} />
-                </TouchableOpacity>
             </BlurView>
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={{ flex: 1 }}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+                keyboardVerticalOffset={0}
             >
                 <FlatList
                     ref={flatListRef}
@@ -149,7 +143,6 @@ export function ChatScreen({ route, navigation }: any) {
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
                 />
 
-                {/* Quick Replies */}
                 <View style={s.quickReplies}>
                     <FlatList
                         horizontal
@@ -158,27 +151,26 @@ export function ChatScreen({ route, navigation }: any) {
                         keyExtractor={item => item}
                         renderItem={({ item }) => (
                             <TouchableOpacity style={s.chip} onPress={() => handleSend(item)}>
-                                <Txt variant="small" color="#FFF">{item}</Txt>
+                                <Txt variant="small" weight="heavy" color="#FFF">{item.toUpperCase()}</Txt>
                             </TouchableOpacity>
                         )}
                         contentContainerStyle={{ paddingHorizontal: 16 }}
                     />
                 </View>
 
-                {/* Input Area */}
                 <View style={[s.inputArea, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                     <View style={s.inputWrap}>
                         <TextInput
                             style={s.input}
-                            placeholder="Message rider..."
-                            placeholderTextColor={C.muted}
+                            placeholder="TRANSMIT TO RIDER..."
+                            placeholderTextColor="rgba(255,255,255,0.2)"
                             value={inputText}
                             onChangeText={setInputText}
                             multiline
                         />
                         <TouchableOpacity style={s.sendBtn} onPress={() => handleSend()}>
-                            <LinearGradient colors={[C.green, '#064E3B']} style={s.sendGrad}>
-                                <Ionicons name="send" size={18} color="#FFF" />
+                            <LinearGradient colors={[BRAND.cyan, '#00A881']} style={s.sendGrad}>
+                                <Ionicons name="send" size={18} color="#0A0718" />
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
@@ -189,29 +181,30 @@ export function ChatScreen({ route, navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, borderColor: C.border },
+    root: { flex: 1, backgroundColor: '#0A0718' },
+    header: { zIndex: 20, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    headerInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16 },
     headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { flex: 1, marginLeft: 16 },
     statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.green, marginRight: 6 },
+    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: BRAND.cyan, marginRight: 6 },
 
-    list: { padding: 16, gap: 12 },
-    msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    list: { padding: 16, gap: 16 },
+    msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
     msgSelf: { justifyContent: 'flex-end' },
     msgOther: { justifyContent: 'flex-start' },
-    msgAvatar: { width: 24, height: 24, borderRadius: 12, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
-    bubble: { maxWidth: '80%', padding: 12, borderRadius: 20, overflow: 'hidden' },
-    bubbleSelf: { borderBottomRightRadius: 4 },
-    bubbleOther: { backgroundColor: C.surface2, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: C.border },
-    msgText: { color: '#FFF', fontSize: 15 },
+    msgAvatar: { width: 28, height: 28, borderRadius: 10, backgroundColor: 'rgba(0,255,194,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,255,194,0.1)' },
+    bubble: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20 },
+    bubbleSelf: { backgroundColor: BRAND.cyan, borderBottomRightRadius: 4 },
+    bubbleOther: { backgroundColor: 'rgba(255,255,255,0.03)', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    msgText: { fontSize: 15, fontWeight: '600' },
 
     quickReplies: { paddingVertical: 12 },
-    chip: { backgroundColor: C.surface2, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: C.border },
+    chip: { backgroundColor: 'rgba(255,255,255,0.03)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
 
     inputArea: { paddingHorizontal: 16, paddingTop: 8 },
-    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: C.surface2, borderRadius: 30, paddingLeft: 20, paddingRight: 6, paddingVertical: 6, borderWidth: 1, borderColor: C.border },
-    input: { flex: 1, color: '#FFF', fontSize: 16, maxHeight: 100, paddingVertical: 8 },
+    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 30, paddingLeft: 20, paddingRight: 6, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    input: { flex: 1, color: '#FFF', fontSize: 16, maxHeight: 100, paddingVertical: 8, fontWeight: '600' },
     sendBtn: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' },
     sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

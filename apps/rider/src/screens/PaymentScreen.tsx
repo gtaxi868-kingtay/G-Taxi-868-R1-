@@ -25,7 +25,7 @@ const R = {
     border: tokens.colors.glass.stroke,
     purple: tokens.colors.primary.purple,
     purpleLight: tokens.colors.primary.cyan,
-    gold: '#FFD700',
+    gold: '#F59E0B',
     white: tokens.colors.text.primary,
     muted: tokens.colors.text.secondary,
 };
@@ -82,6 +82,8 @@ export function PaymentScreen({ navigation, route }: any) {
 
             const { error: initError } = await stripe.initPaymentSheet({
                 paymentIntentClientSecret: data.clientSecret,
+                customerId: data.customer,              // NEW: Link to saved cards
+                customerEphemeralKeySecret: data.ephemeralKey, // NEW: Security handshake
                 merchantDisplayName: 'G-Taxi 868',
                 style: 'alwaysDark',
                 appearance: {

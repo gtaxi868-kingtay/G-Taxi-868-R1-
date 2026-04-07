@@ -1,9 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View, StyleSheet, TouchableOpacity,
     Alert, Linking, Platform, Dimensions,
-    Modal, TextInput, KeyboardAvoidingView,
+    Modal, TextInput, KeyboardAvoidingView, ScrollView,
+    ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -18,34 +20,15 @@ import { ENV } from '../../../../shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { updateRideStatus } from '../services/api';
 import { Txt } from '../design-system/primitives';
+import { GlassCard, BRAND, VOICES, RADIUS, SEMANTIC, GRADIENTS, StatusBadge } from '../design-system';
 import { Ionicons } from '@expo/vector-icons';
+import { StopWaitHUD } from '../components/StopWaitHUD';
 
 const { height } = Dimensions.get('window');
-const CARD_HEIGHT = 230;
-
-// ── Design Tokens (driver app only — never import from rider) ─────────────────
-const C = {
-    bg: '#07050F',
-    surface: '#110E22',
-    surfaceHigh: '#1A1530',
-    border: 'rgba(139,92,246,0.15)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    purpleDim: 'rgba(124,58,237,0.18)',
-    gold: '#F59E0B',
-    goldDim: 'rgba(245,158,11,0.12)',
-    green: '#10B981',
-    greenDim: 'rgba(16,185,129,0.12)',
-    red: '#EF4444',
-    redDim: 'rgba(239,68,68,0.12)',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.45)',
-    faint: 'rgba(255,255,255,0.08)',
-};
+const CARD_HEIGHT = 260;
 
 const DRIVER_SHARE = 0.81;
 
-// ── Phase track config ────────────────────────────────────────────────────────
 const PHASES = ['En Route', 'Arrived', 'In Progress'];
 function getPhaseIndex(status: string): number {
     if (status === 'assigned') return 0;
@@ -54,7 +37,6 @@ function getPhaseIndex(status: string): number {
     return 0;
 }
 
-// ── Status bubble text ────────────────────────────────────────────────────────
 function statusText(status: string): string {
     if (status === 'assigned') return 'En route to pickup';
     if (status === 'arrived') return 'Waiting for rider';
@@ -62,7 +44,6 @@ function statusText(status: string): string {
     return '';
 }
 
-// ── decodePolyline (DO NOT TOUCH) ─────────────────────────────────────────────
 function decodePolyline(encoded: string) {
     if (!encoded) return [];
     let poly: { latitude: number; longitude: number }[] = [];
@@ -80,11 +61,10 @@ function decodePolyline(encoded: string) {
     return poly;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
 export function ActiveTripScreen({ route, navigation }: any) {
     const { rideId } = route.params;
     const insets = useSafeAreaInsets();
-    const { location } = useLocationTracking();
+    const { location, signalStatus } = useLocationTracking();
 
     const [ride, setRide] = useState<any>(null);
     const [rider, setRider] = useState<any>(null);
@@ -92,18 +72,19 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const [isSosLoading, setIsSosLoading] = useState(false);
     const [pinInput, setPinInput] = useState('');
     const [showPinModal, setShowPinModal] = useState(false);
-    const [waitStats, setWaitStats] = useState({ mins: 0, cents: 0 });
+    const [pinType, setPinType] = useState<'Rider' | 'Merchant' | 'Delivery'>('Rider');
+    const [orderItems, setOrderItems] = useState<any[]>([]);
+    const [stops, setStops] = useState<any[]>([]);
+    const [isQuietRide, setIsQuietRide] = useState(false);
+    const [hasMerchantPhoto, setHasMerchantPhoto] = useState(false);
 
-    // ── Reanimated ────────────────────────────────────────────────────────────
     const cardY = useSharedValue(CARD_HEIGHT);
-    const phaseWidth = useSharedValue(0);          // 0 → 1 → 2 as thirds of track
+    const phaseWidth = useSharedValue(0);
     const statusOp = useSharedValue(1);
     const sosRing = useSharedValue(0);
 
-    // ── Mount ─────────────────────────────────────────────────────────────────
     useEffect(() => {
         cardY.value = withSpring(0, { damping: 18, stiffness: 160 });
-        // SOS ring pulse — 4s loop
         sosRing.value = withRepeat(
             withSequence(
                 withTiming(1, { duration: 1200, easing: Easing.out(Easing.cubic) }),
@@ -113,229 +94,265 @@ export function ActiveTripScreen({ route, navigation }: any) {
         );
     }, []);
 
-    // ── Update phase track when ride status changes ────────────────────────────
     useEffect(() => {
         if (!ride?.status) return;
         const idx = getPhaseIndex(ride?.status);
         phaseWidth.value = withSpring(idx / 2, { damping: 16, stiffness: 140 });
-        // Fade status bubble text
         statusOp.value = withSequence(
             withTiming(0, { duration: 200 }),
             withTiming(1, { duration: 250 })
         );
     }, [ride?.status]);
 
-    // ── Data fetch + realtime subscription (DO NOT TOUCH) ─────────────────────
     useEffect(() => {
-        supabase
-            .from('rides')
-            .select('*, rider:rider_id(id, raw_user_meta_data, name, phone_number)')
-            .eq('id', rideId)
-            .single()
-            .then(({ data }) => {
-                if (data) {
-                    setRide(data);
-                    setRider(data.rider);
-                    if (data.route_geometry) setRouteCoords(decodePolyline(data.route_geometry));
-                }
-            });
+        const fetchData = async () => {
+            const { data } = await supabase
+                .from('rides')
+                .select('*, rider:rider_id(id, raw_user_meta_data, name, phone_number)')
+                .eq('id', rideId)
+                .single();
+            
+            if (data) {
+                setRide(data);
+                setRider(data.rider);
+                await AsyncStorage.setItem('active_ride_id', rideId); // Phase 11: Ensure BG knows we are active
+                if (data.route_geometry) setRouteCoords(decodePolyline(data.route_geometry));
 
-        // Live Wait Clock (Fix 5)
-        const timer = setInterval(() => {
-            setRide((currentRide: any) => {
-                if (currentRide?.status === 'arrived' && currentRide?.arrived_at) {
-                    const diffMs = Date.now() - new Date(currentRide.arrived_at).getTime();
-                    const mins = Math.max(0, Math.floor(diffMs / 60000));
-                    const cents = Math.floor((diffMs / 60000) * 90);
-                    setWaitStats({ mins, cents });
+                if (data.order_id) {
+                    const { data: items } = await supabase
+                        .from('order_items')
+                        .select('*')
+                        .eq('order_id', data.order_id);
+                    if (items) setOrderItems(items);
+
+                    // Real-Time Trust Layer: Watch for intake photo
+                    const { data: logs } = await supabase.from('merchant_intake_logs').select('photo_urls').eq('order_id', data.order_id).maybeSingle();
+                    if (logs?.photo_urls?.length > 0) setHasMerchantPhoto(true);
+
+                    supabase.channel(`intake_${data.order_id}`)
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'merchant_intake_logs', filter: `order_id=eq.${data.order_id}` }, (p: any) => {
+                            if (p.new.photo_urls?.length > 0) setHasMerchantPhoto(true);
+                        })
+                        .subscribe();
                 }
-                return currentRide;
-            });
-        }, 1000);
+
+                if (data.rider_id) {
+                    const { data: aiPrefs } = await supabase
+                        .from('rider_ai_preferences')
+                        .select('quiet_ride')
+                        .eq('user_id', data.rider_id)
+                        .maybeSingle();
+                    if (aiPrefs?.quiet_ride) setIsQuietRide(true);
+                }
+            }
+        };
+
+        fetchData();
 
         const sub = supabase.channel(`ride_${rideId}`)
-            .on('postgres_changes', {
-                event: 'UPDATE', schema: 'public', table: 'rides',
-                filter: `id=eq.${rideId}`
-            }, (payload) => {
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` }, (payload) => {
                 setRide(payload.new);
+            })
+            .subscribe();
+
+        const fetchStops = async () => {
+            const { data: stopData } = await supabase
+                .from('ride_stops')
+                .select('*')
+                .eq('ride_id', rideId)
+                .order('stop_order', { ascending: true });
+            if (stopData) setStops(stopData);
+        };
+        fetchStops();
+
+        const subStops = supabase.channel(`stops_${rideId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_stops', filter: `ride_id=eq.${rideId}` }, () => {
+                fetchStops();
+            })
+            .subscribe();
+
+        const subEvents = supabase.channel(`ride_events_${rideId}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ride_events', filter: `ride_id=eq.${rideId}` }, (payload) => {
+                if (payload.new.event_type === 'stop_added') {
+                    const stopName = payload.new.metadata?.place_name || 'New Stop';
+                    Alert.alert('NEW STOP ADDED', `Rider added ${stopName} to the route. Rerouting...`);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    
+                    // Logic for real-time Mapbox reroute:
+                    supabase.from('ride_stops')
+                        .select('*')
+                        .eq('ride_id', rideId)
+                        .order('stop_order', { ascending: true })
+                        .then(({ data }) => {
+                            if (data) {
+                                setStops(data);
+                                fetchNewRoute(data);
+                            }
+                        });
+                }
             })
             .subscribe();
 
         return () => { 
             sub.unsubscribe();
-            clearInterval(timer);
+            subStops.unsubscribe();
+            subEvents.unsubscribe();
         };
     }, [rideId]);
 
-    // ── Status updaters ───────────────────────────────────────────────────────
-    const handleStatusChange = async (newStatus: 'arrived' | 'in_progress' | 'completed', pin?: string) => {
-        const { error } = await updateRideStatus(rideId, newStatus, location?.coords?.latitude, location?.coords?.longitude, pin);
+    const fetchNewRoute = async (currentStops: any[]) => {
+        if (!ride || !location) return;
+        const coords = (location as any).coords;
+        const waypoints = currentStops
+            .filter(s => s.status === 'pending')
+            .map(s => `${s.lng},${s.lat}`)
+            .join(';');
+        
+        const dest = `${ride?.dropoff_lng || 0},${ride?.dropoff_lat || 0}`;
+        const points = `${coords.longitude},${coords.latitude};${waypoints ? waypoints + ';' : ''}${dest}`;
+
+        try {
+            const resp = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${points}?geometries=polyline&access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`);
+            const json = await resp.json();
+            if (json.routes && json.routes[0]) {
+                const newCoords = decodePolyline(json.routes[0].geometry);
+                setRouteCoords(newCoords);
+                // Sync to DB so Rider/Admin also see the new path
+                await supabase.from('rides').update({ route_geometry: json.routes[0].geometry }).eq('id', rideId);
+            }
+        } catch (err) {
+            console.error("Reroute fetch failed:", err);
+        }
+    };
+
+    const handleStatusChange = async (newStatus: string, _pin?: string, entStatus?: string) => {
+        const payload: any = { status: newStatus };
+        if (entStatus) payload.entertainment_status = entStatus;
+
+        if (ride?.status === 'arrived' && newStatus === 'in_progress' && ride?.arrived_at) {
+            const diffMs = Date.now() - new Date(ride?.arrived_at).getTime();
+            const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+            // Record specifically for the pickup clock
+            payload.pickup_wait_seconds = totalSeconds;
+        }
+
+        const { error } = await supabase
+            .from('rides')
+            .update(payload)
+            .eq('id', rideId);
+
         if (!error) {
-            setRide((prev: any) => ({ ...prev, status: newStatus }));
+            setRide((prev: any) => ({ ...prev, ...payload }));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             return true;
         } else {
-            const errorMsg = (error as any)?.message || 'Update failed';
-            Alert.alert('Status Update Failed', errorMsg);
+            Alert.alert('Error', error.message);
             return false;
         }
     };
 
-    // handleArrived — updates status to arrived
-    const handleArrived = async () => {
-        await handleStatusChange('arrived');
-    };
+    const handleArrived = async () => { await handleStatusChange('arrived'); };
 
-    // handleComplete — has Alert confirmation, updates to completed
     const handleComplete = async () => {
-        Alert.alert(
-            'Complete Trip',
-            'Are you sure you want to end this trip?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Complete',
-                    style: 'default',
-                    onPress: async () => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                        const lat = location?.coords?.latitude;
-                        const lng = location?.coords?.longitude;
-                        if (!lat || !lng) {
-                            Alert.alert('Location Required', 'Cannot complete trip without GPS signal.');
-                            return;
-                        }
-                        const { error } = await updateRideStatus(rideId, 'completed', lat, lng);
-                        if (error) {
-                            Alert.alert('Error', 'Could not complete trip. Try again.');
-                        } else {
-                            setRide((prev: any) => ({ ...prev, status: 'completed' }));
-                        }
-                    }
+        Alert.alert('Complete Trip', 'End this trip?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Complete', onPress: async () => {
+                const lat = (location as any)?.coords?.latitude;
+                const lng = (location as any)?.coords?.longitude;
+                if (!lat || !lng) {
+                    Alert.alert('GPS Required');
+                    return;
                 }
-            ]
-        );
+                const { error } = await updateRideStatus(rideId, 'completed', lat, lng);
+                if (error) Alert.alert('Error');
+                else {
+                    await AsyncStorage.removeItem('active_ride_id');
+                    setRide((prev: any) => ({ ...prev, status: 'completed' }));
+                }
+            }}
+        ]);
     };
 
-    // handleCancel — Alert confirmation guard (kept exactly)
     const handleCancel = () => {
-        Alert.alert(
-            'Cancel Trip',
-            'Are you sure you want to cancel this trip?',
-            [
-                { text: 'No', style: 'cancel' },
-                {
-                    text: 'Yes, Cancel',
-                    style: 'destructive',
-                    onPress: async () => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                        await supabase.functions.invoke('cancel_ride', { body: { ride_id: rideId } });
-                        navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
-                    }
-                }
-            ]
-        );
+        Alert.alert('Cancel Trip', 'Are you sure?', [
+            { text: 'No', style: 'cancel' },
+            { text: 'Yes', style: 'destructive', onPress: async () => {
+                await AsyncStorage.removeItem('active_ride_id');
+                await supabase.functions.invoke('cancel_ride', { body: { ride_id: rideId } });
+                navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+            }}
+        ]);
     };
 
-    // handleSOS — double Alert guard, trigger_emergency edge function (DO NOT TOUCH)
-    const handleSOS = () => {
-        Alert.alert(
-            'EMERGENCY SOS',
-            'This will immediately text your emergency contact with your live location and flag this ride to Admin Security. Trigger SOS?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'TRIGGER SOS',
-                    style: 'destructive',
-                    onPress: async () => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                        setIsSosLoading(true);
-                        try {
-                            await supabase.functions.invoke('trigger_emergency', { body: { ride_id: rideId } });
-                            Alert.alert('SOS Triggered', 'Security monitoring activated. Emergency contacts notified.');
-                        } catch {
-                            Alert.alert('Alert Failed', 'Unable to trigger network alert. Call 911 directly if in immediate danger.');
-                        } finally {
-                            setIsSosLoading(false);
-                        }
-                    }
-                }
-            ]
-        );
+    const handleSOS = async () => {
+        Alert.alert('EMERGENCY', 'Trigger SOS?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'TRIGGER SOS', style: 'destructive', onPress: async () => {
+                setIsSosLoading(true);
+                try {
+                    await supabase.functions.invoke('trigger_emergency', { body: { ride_id: rideId } });
+                    Alert.alert('SOS Triggered');
+                } catch {
+                    Alert.alert('Failed');
+                } finally { setIsSosLoading(false); }
+            }}
+        ]);
     };
 
     const openNavigation = () => {
         if (!ride) return;
-        const dest = ride?.status === 'assigned'
-            ? `${ride?.pickup_lat},${ride?.pickup_lng}`
-            : `${ride?.dropoff_lat},${ride?.dropoff_lng}`;
-        const url = Platform.select({
-            ios: `maps://app?daddr=${dest}`,
-            android: `google.navigation:q=${dest}`,
-        });
-        if (url) Linking.openURL(url);
+        const dest = ride?.status === 'assigned' ? `${ride?.pickup_lat},${ride?.pickup_lng}` : `${ride?.dropoff_lat},${ride?.dropoff_lng}`;
+        
+        Alert.alert('Navigation', 'Choose your navigation app', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Waze', onPress: () => {
+                Linking.openURL(`waze://?ll=${dest}&navigate=yes`).catch(() => {
+                    Alert.alert('Error', 'Waze is not installed.');
+                });
+            }},
+            { text: 'Google / Apple Maps', onPress: () => {
+                const url = Platform.select({ ios: `maps://app?daddr=${dest}`, android: `google.navigation:q=${dest}` });
+                if (url) Linking.openURL(url);
+            }}
+        ]);
     };
 
-    const currentLat = location?.coords?.latitude || ride?.pickup_lat || 0;
-    const currentLng = location?.coords?.longitude || ride?.pickup_lng || 0;
+    const currentLat = (location as any)?.coords?.latitude || ride?.pickup_lat || 0;
+    const currentLng = (location as any)?.coords?.longitude || ride?.pickup_lng || 0;
 
-    // ── Animated styles ───────────────────────────────────────────────────────
-    const cardStyle = useAnimatedStyle(() => ({
-        transform: [{ translateY: cardY.value }],
-    }));
-    const phaseBarStyle = useAnimatedStyle(() => ({
-        width: `${phaseWidth.value * 100}%` as any,
-    }));
-    const statusBubbleStyle = useAnimatedStyle(() => ({
-        opacity: statusOp.value,
-    }));
+    const cardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: cardY.value }] }));
+    const phaseBarStyle = useAnimatedStyle(() => ({ width: `${phaseWidth.value * 100}%` as any }));
+    const statusBubbleStyle = useAnimatedStyle(() => ({ opacity: statusOp.value }));
     const sosRingStyle = useAnimatedStyle(() => ({
         opacity: interpolate(sosRing.value, [0, 1], [0, 0.7]),
-        transform: [{ scale: interpolate(sosRing.value, [0, 1], [1, 1.8]) }],
+        transform: [{ scale: interpolate(sosRing.value, [0, 1], [1, 1.8]) }]
     }));
 
-    // ── Completed screen ──────────────────────────────────────────────────────
+    if (!ride) {
+        return (
+            <View style={{ flex: 1, backgroundColor: '#0A0718', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                <ActivityIndicator size="large" color={BRAND.cyan} />
+                <Txt variant="bodyReg" weight="regular" color={VOICES.driver.textMuted} style={{ marginTop: 16 }}>Loading your trip...</Txt>
+            </View>
+        );
+    }
+
     if (ride?.status === 'completed' || ride?.status === 'closed') {
         const fare = ride?.total_fare_cents ? ride?.total_fare_cents / 100 : 0;
         const earnings = (fare * DRIVER_SHARE).toFixed(2);
-
         return (
             <View style={[s.root, { justifyContent: 'center', padding: 24 }]}>
-                <LinearGradient colors={['#2D1B69', '#1E1040', '#110E22']} style={s.completedCard}>
+                <LinearGradient colors={['#1A1530', '#0A0718', '#000000']} style={s.completedCard}>
                     <View style={s.successCircle}>
-                        <Ionicons name="checkmark-circle" size={48} color={C.green} />
+                        <Ionicons name="checkmark-circle" size={48} color={SEMANTIC.success} />
                     </View>
-                    <Txt variant="headingL" weight="bold" color={C.white} style={{ marginBottom: 6, textAlign: 'center' }}>
-                        Trip Completed!
-                    </Txt>
-                    <Txt variant="bodyReg" color={C.muted} style={{ marginBottom: 28, textAlign: 'center' }}>
-                        Great job. You made it safely.
-                    </Txt>
-
+                    <Txt variant="headingL" weight="heavy" color="#FFF" style={{ textAlign: 'center' }}>Trip Completed!</Txt>
                     <View style={s.earningsBlock}>
-                        <Txt variant="caption" weight="bold" color={C.gold} style={{ letterSpacing: 1 }}>
-                            YOUR EARNINGS · 81%
-                        </Txt>
-                        <Txt style={{ fontSize: 48, fontWeight: '800', color: C.gold, marginVertical: 4 }}>
-                            ${earnings}
-                        </Txt>
-                        <Txt variant="bodyReg" color={C.muted}>
-                            {ride?.payment_method === 'cash' ? 'Cash' : ride?.payment_method === 'wallet' ? 'Wallet' : 'Card'} · TTD
-                        </Txt>
-                        {ride?.payment_method === 'cash' && (
-                            <View style={s.cashBadge}>
-                                <Txt variant="bodyBold" color={C.bg}>Collect ${fare.toFixed(2)} cash</Txt>
-                            </View>
-                        )}
+                        <Txt variant="caption" weight="heavy" color={BRAND.cyan}>YOUR EARNINGS</Txt>
+                        <Txt weight="heavy" color={BRAND.cyan} style={{ fontSize: 48 }}>TTD ${earnings}</Txt>
                     </View>
-
-                    <TouchableOpacity
-                        style={s.dashBtn}
-                        onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
-                        }}
-                    >
-                        <Txt variant="bodyBold" color={C.white}>Back to Dashboard</Txt>
+                    <TouchableOpacity style={s.dashBtn} onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] })}>
+                        <Txt variant="bodyBold" weight="heavy" color="#0A0718">Back to Dashboard</Txt>
                     </TouchableOpacity>
                 </LinearGradient>
             </View>
@@ -343,295 +360,175 @@ export function ActiveTripScreen({ route, navigation }: any) {
     }
 
     const riderName = rider?.name || rider?.raw_user_meta_data?.name || 'Rider';
-    const riderPhone = rider?.phone_number || rider?.raw_user_meta_data?.phone || '';
 
     return (
         <View style={s.root}>
-            {/* ── MAP ──────────────────────────────────────────────────────── */}
             <MapView
-                style={StyleSheet.absoluteFillObject}
-                provider={PROVIDER_DEFAULT}
-                initialRegion={{
-                    latitude: currentLat, longitude: currentLng,
-                    latitudeDelta: 0.05, longitudeDelta: 0.05,
-                }}
-                showsUserLocation={false}
+                style={StyleSheet.absoluteFillObject} provider={PROVIDER_DEFAULT}
+                initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
             >
-                {/* Mapbox dark tiles — matches DashboardScreen */}
-                <UrlTile
-                    urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
-                    shouldReplaceMapContent={true}
-                    maximumZ={19}
-                    flipY={false}
-                />
-
-                {/* Driver marker */}
+                <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
                 <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
-                    <View style={s.driverMarker}>
-                        <Ionicons name="car-sport" size={22} color={C.purple} />
-                    </View>
+                    <View style={s.driverMarker}><Ionicons name="car-sport" size={22} color={BRAND.cyan} /></View>
                 </Marker>
-
-                {/* Destination marker */}
                 {ride && (
-                    <Marker coordinate={{
-                        latitude: ride?.status === 'assigned' ? ride?.pickup_lat : ride?.dropoff_lat,
-                        longitude: ride?.status === 'assigned' ? ride?.pickup_lng : ride?.dropoff_lng,
-                    }}>
+                    <Marker coordinate={{ latitude: ride?.status === 'assigned' ? ride?.pickup_lat || 0 : ride?.dropoff_lat || 0, longitude: ride?.status === 'assigned' ? ride?.pickup_lng || 0 : ride?.dropoff_lng || 0 }}>
                         <View style={s.destMarker} />
                     </Marker>
                 )}
-
-                {/* Route polyline */}
-                {routeCoords.length > 0 && (
-                    <Polyline
-                        coordinates={routeCoords}
-                        strokeColor={C.purple}
-                        strokeWidth={4}
-                        lineCap="round"
-                    />
-                )}
+                {routeCoords.length > 0 && <Polyline coordinates={routeCoords} strokeColor={BRAND.cyan} strokeWidth={4} />}
             </MapView>
 
-            {/* ── STATUS BUBBLE — top center ───────────────────────────────── */}
             <Reanimated.View style={[s.statusBubble, { top: insets.top + 16 }, statusBubbleStyle]}>
-                <BlurView tint="dark" intensity={70} style={s.statusBlurFill}>
-                    <View style={s.statusDot} />
-                    <Txt variant="bodyBold" color={C.white}>
-                        {statusText(ride?.status || 'assigned')}
+                <StatusBadge 
+                    status={ride?.status === 'assigned' ? 'searching' : 'live'} 
+                    label={statusText(ride?.status || 'assigned').toUpperCase()} 
+                />
+                
+                {/* Signal Health HUD (Phase 11) */}
+                <View style={[s.signalChip, { 
+                    marginTop: 8,
+                    borderColor: signalStatus === 'lock' ? 'rgba(16,185,129,0.3)' : 
+                                    signalStatus === 'dead_reckoning' ? 'rgba(245,158,11,0.4)' : 'rgba(239,68,68,0.3)' 
+                }]}>
+                    <Ionicons 
+                        name={signalStatus === 'lock' ? "radio-outline" : signalStatus === 'dead_reckoning' ? "pulse-outline" : "alert-circle-outline"} 
+                        size={12} 
+                        color={signalStatus === 'lock' ? SEMANTIC.success : signalStatus === 'dead_reckoning' ? SEMANTIC.warning : SEMANTIC.danger} 
+                    />
+                    <Txt variant="caption" weight="heavy" color={signalStatus === 'lock' ? SEMANTIC.success : signalStatus === 'dead_reckoning' ? SEMANTIC.warning : SEMANTIC.danger} style={{ marginLeft: 4, fontSize: 10 }}>
+                        {signalStatus === 'lock' ? 'GPS LOCK' : signalStatus === 'dead_reckoning' ? 'SIGNAL SURVIVAL' : 'NO SIGNAL'}
                     </Txt>
-                </BlurView>
+                </View>
             </Reanimated.View>
 
-            {/* ── SOS BUTTON — top right ───────────────────────────────────── */}
             <View style={[s.sosWrap, { top: insets.top + 12 }]}>
-                {/* Pulse ring */}
                 <Reanimated.View style={[s.sosRing, sosRingStyle]} />
-                <TouchableOpacity
-                    style={s.sosBtn}
-                    onPress={handleSOS}
-                    disabled={isSosLoading}
-                    activeOpacity={0.85}
-                >
-                    <Txt variant="bodyBold" color={C.white} style={{ fontSize: 15, letterSpacing: 1 }}>
-                        {isSosLoading ? '...' : 'SOS'}
-                    </Txt>
+                <TouchableOpacity style={s.sosBtn} onPress={handleSOS}>
+                    <Txt variant="bodyBold" weight="heavy" color="#FFF">SOS</Txt>
                 </TouchableOpacity>
             </View>
 
-            {/* ── CANCEL X — top left nav button ──────────────────────────── */}
-            <TouchableOpacity
-                style={[s.cancelBtn, { top: insets.top + 12, left: 20 }]}
-                onPress={handleCancel}
-                activeOpacity={0.8}
-            >
-                <Ionicons name="close" size={20} color={C.muted} />
+            <TouchableOpacity style={[s.cancelBtn, { top: insets.top + 12, left: 20 }]} onPress={handleCancel}>
+                <Ionicons name="close" size={20} color={VOICES.driver.textMuted} />
             </TouchableOpacity>
 
-            {/* ── BOTTOM CARD ──────────────────────────────────────────────── */}
             <Reanimated.View style={[s.cardOuter, cardStyle]}>
-                <BlurView tint="dark" intensity={80} style={StyleSheet.absoluteFill} />
-                <LinearGradient
-                    colors={['#1A1530', '#110E22', '#0D0B1A']}
-                    style={s.cardInner}
-                >
-                    {/* ── PHASE TRACK ──────────────────────────────────────── */}
+                <GlassCard variant="driver" style={StyleSheet.flatten([s.cardInner, { paddingBottom: insets.bottom + 20 }])}>
                     <View style={s.phaseTrackWrap}>
-                        {/* Background track */}
                         <View style={s.phaseTrackBg} />
-                        {/* Animated purple fill */}
                         <Reanimated.View style={[s.phaseTrackFill, phaseBarStyle]} />
-
-                        {/* Phase labels */}
                         <View style={s.phaseLabels}>
                             {PHASES.map((label, i) => {
-                                const phaseIdx = getPhaseIndex(ride?.status || 'assigned');
-                                const active = i <= phaseIdx;
+                                const active = i <= getPhaseIndex(ride?.status || 'assigned');
                                 return (
                                     <View key={label} style={s.phaseItem}>
-                                        <View style={[s.phaseDot, { backgroundColor: active ? C.purple : C.surfaceHigh, borderColor: active ? C.purple : C.border }]} />
-                                        <Txt variant="small" color={active ? C.purpleLight : C.muted} style={{ marginTop: 5 }}>
-                                            {label}
-                                        </Txt>
+                                        <View style={[s.phaseDot, { backgroundColor: active ? BRAND.cyan : 'rgba(255,255,255,0.05)', borderColor: active ? BRAND.cyan : 'rgba(255,255,255,0.1)' }]} />
+                                        <Txt variant="caption" weight={active ? "heavy" : "regular"} color={active ? BRAND.cyan : VOICES.driver.textMuted} style={{ marginTop: 5 }}>{label.toUpperCase()}</Txt>
                                     </View>
                                 );
                             })}
                         </View>
                     </View>
 
-                    {/* --- WAIT CLOCK UI (Fix 5) --- */}
-                    {ride?.status === 'arrived' && (
-                        <View style={s.waitClockRow}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <Ionicons name="time-outline" size={16} color={C.gold} />
-                                <Txt variant="bodyBold" color={C.gold}>WAITING: {waitStats.mins}m</Txt>
-                            </View>
-                            <View style={s.waitFeeBadge}>
-                                <Txt variant="caption" weight="bold" color={C.white}>+${(waitStats.cents / 100).toFixed(2)} FEE</Txt>
-                            </View>
+                    {ride?.status === 'arrived' && ride?.arrived_at && (
+                        <IsolatedWaitHUD arrivedAt={ride?.arrived_at} type="PICKUP" />
+                    )}
+
+                    {stops.length > 0 && stops.map((stop) => (
+                        (stop.status === 'arrived' || stop.status === 'completed') && (
+                            <StopWaitHUD key={stop.id} stopId={stop.id} isActive={stop.status === 'arrived'} />
+                        )
+                    ))}
+
+                    {orderItems.length > 0 && (
+                        <View style={s.logisticsHud}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                {orderItems.map((item, idx) => (
+                                    <View key={idx} style={s.itemChip}>
+                                        <Txt variant="caption" weight="heavy" color="#FFF">{item.product_name} x{item.quantity}</Txt>
+                                    </View>
+                                ))}
+                            </ScrollView>
                         </View>
                     )}
 
-                    {/* ── RIDER INFO ROW ───────────────────────────────────── */}
+                    {isQuietRide && (
+                        <View style={s.quietRideBanner}>
+                            <Ionicons name="volume-mute" size={16} color={BRAND.cyan} />
+                            <Txt variant="caption" weight="heavy" color={BRAND.cyan} style={{ marginLeft: 8 }}>QUIET RIDE PREFERRED</Txt>
+                        </View>
+                    )}
+
+                    {ride?.entertainment_url && ride?.entertainment_status === 'pending' && (
+                        <EntertainmentHUD 
+                            url={ride?.entertainment_url}
+                            onAccept={() => handleStatusChange(ride?.status, undefined, 'accepted')}
+                            onReject={() => handleStatusChange(ride?.status, undefined, 'rejected')}
+                        />
+                    )}
+
                     <View style={s.riderRow}>
                         <View style={s.riderAvatar}>
-                            <Txt variant="headingM" color={C.purpleLight}>
-                                {riderName.charAt(0).toUpperCase()}
-                            </Txt>
+                            <Txt variant="headingM" weight="heavy" color={BRAND.cyan}>{riderName.charAt(0).toUpperCase()}</Txt>
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" weight="bold" color={C.white}>{riderName}</Txt>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                                <Txt variant="small" color={C.muted}>⭐ 5.0</Txt>
-                                <View style={s.midDot} />
-                                <Ionicons
-                                    name={ride?.payment_method === 'cash' ? 'cash-outline' : ride?.payment_method === 'wallet' ? 'wallet-outline' : 'card-outline'}
-                                    size={13} color={C.muted}
-                                />
-                                <Txt variant="small" color={C.muted}>
-                                    {ride?.payment_method === 'cash' ? 'Cash' : ride?.payment_method === 'wallet' ? 'Wallet' : 'Card'}
-                                </Txt>
-                            </View>
+                            <Txt variant="bodyBold" weight="heavy" color="#FFF">{riderName}</Txt>
+                            <Txt variant="caption" weight="regular" color={VOICES.driver.textMuted}>
+                                ⭐ 5.0 · {ride?.payment_method === 'cash' ? 'CASH' : 'CARD'}
+                            </Txt>
                         </View>
-
-                        {/* Message rider */}
-                        <TouchableOpacity
-                            style={s.msgBtn}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                navigation.navigate('Chat', { rideId, rider });
-                            }}
-                            activeOpacity={0.8}
-                        >
-                            <Ionicons name="chatbubble-ellipses-outline" size={20} color={C.white} />
-                        </TouchableOpacity>
-
-                        {/* Call rider */}
-                        <TouchableOpacity
-                            style={s.callBtn}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                Linking.openURL(`tel:${riderPhone}`);
-                            }}
-                            activeOpacity={0.8}
-                        >
-                            <Ionicons name="call-outline" size={20} color={C.white} />
+                        <TouchableOpacity style={s.msgBtn} onPress={() => navigation.navigate('Chat', { rideId, rider })}>
+                            <Ionicons name="chatbubble-outline" size={20} color="#FFF" />
                         </TouchableOpacity>
                     </View>
 
-                    {/* ── ACTION BUTTON ROW ────────────────────────────────── */}
                     <View style={s.actionRow}>
-                        {/* Navigate button */}
-                        <TouchableOpacity
-                            style={s.navBtn}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                openNavigation();
-                            }}
-                            activeOpacity={0.8}
-                        >
-                            <Ionicons name="navigate-outline" size={18} color={C.purpleLight} />
+                        <TouchableOpacity style={s.navBtn} onPress={openNavigation}>
+                            <Ionicons name="navigate-outline" size={20} color={BRAND.cyan} />
                         </TouchableOpacity>
-
-                        {/* Main status action */}
+                        
                         {ride?.status === 'assigned' && (
-                            <TouchableOpacity
-                                style={[s.mainBtn, { backgroundColor: C.green }]}
-                                onPress={async () => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                    await handleArrived();
-                                }}
-                                activeOpacity={0.85}
-                            >
-                                <Ionicons name="checkmark-outline" size={20} color={C.white} />
-                                <Txt variant="bodyBold" color={C.white}> I've Arrived</Txt>
+                            <TouchableOpacity style={[s.mainBtn, { backgroundColor: SEMANTIC.success }]} onPress={handleArrived}>
+                                <Txt variant="bodyBold" weight="heavy" color="#0A0718">I'VE ARRIVED</Txt>
                             </TouchableOpacity>
                         )}
-
                         {ride?.status === 'arrived' && (
-                            <TouchableOpacity
-                                style={[s.mainBtn, { backgroundColor: C.purple }]}
+                            <TouchableOpacity 
+                                style={[s.mainBtn, { backgroundColor: (ride?.order_id && !hasMerchantPhoto) ? 'rgba(255,255,255,0.05)' : BRAND.cyan }]} 
                                 onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    if (ride?.order_id && !hasMerchantPhoto) {
+                                        Alert.alert('PHOTO REQUIRED', 'Merchant must upload intake photo.');
+                                        return;
+                                    }
                                     setShowPinModal(true);
                                 }}
-                                activeOpacity={0.85}
                             >
-                                <Ionicons name="key-outline" size={20} color={C.white} />
-                                <Txt variant="bodyBold" color={C.white}> Start Trip</Txt>
+                                <Txt variant="bodyBold" weight="heavy" color="#0A0718">
+                                    {(ride?.order_id && !hasMerchantPhoto) ? 'AWAITING PHOTO' : 'VERIFY & PICKUP'}
+                                </Txt>
                             </TouchableOpacity>
                         )}
-
                         {ride?.status === 'in_progress' && (
-                            <TouchableOpacity
-                                style={[s.mainBtn, { backgroundColor: C.gold }]}
-                                onPress={handleComplete}
-                                activeOpacity={0.85}
-                            >
-                                <Ionicons name="flag-outline" size={20} color={C.bg} />
-                                <Txt variant="bodyBold" color={C.bg}> Complete Trip</Txt>
+                            <TouchableOpacity style={[s.mainBtn, { backgroundColor: SEMANTIC.warning }]} onPress={handleComplete}>
+                                <Txt variant="bodyBold" weight="heavy" color="#0A0718">COMPLETE TRIP</Txt>
                             </TouchableOpacity>
                         )}
                     </View>
-                </LinearGradient>
+                </GlassCard>
             </Reanimated.View>
 
-            {/* ── PIN MODAL ────────────────────────────────────────────────── */}
-            <Modal
-                visible={showPinModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setShowPinModal(false)}
-            >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={s.modalOverlay}
-                >
+            <Modal visible={showPinModal} transparent animationType="fade">
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
                     <BlurView tint="dark" intensity={100} style={s.modalContent}>
-                        <Txt variant="headingM" color={C.white} style={{ marginBottom: 12 }}>Enter Rider PIN</Txt>
-                        <Txt variant="bodyReg" color={C.muted} style={{ textAlign: 'center', marginBottom: 24 }}>
-                            Ask the rider for the 4-digit code shown on their screen to start the trip.
-                        </Txt>
-
-                        <TextInput
-                            style={s.pinInput}
-                            placeholder="0000"
-                            placeholderTextColor={C.muted}
-                            keyboardType="number-pad"
-                            maxLength={4}
-                            value={pinInput}
-                            onChangeText={(val: string) => {
-                                setPinInput(val);
-                                if (val.length === 4) {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                }
-                            }}
-                            autoFocus
-                        />
-
+                        <Txt variant="headingM" weight="heavy" color="#FFF">ENTER VERIFICATION PIN</Txt>
+                        <TextInput style={s.pinInput} keyboardType="number-pad" maxLength={4} value={pinInput} onChangeText={setPinInput} placeholder="0000" placeholderTextColor="rgba(255,255,255,0.1)" autoFocus />
                         <View style={s.modalActions}>
-                            <TouchableOpacity
-                                style={s.modalCancel}
-                                onPress={() => {
-                                    setShowPinModal(false);
-                                    setPinInput('');
-                                }}
-                            >
-                                <Txt variant="bodyBold" color={C.muted}>Cancel</Txt>
+                            <TouchableOpacity style={s.modalCancel} onPress={() => setShowPinModal(false)}>
+                                <Txt variant="bodyBold" weight="heavy" color={VOICES.driver.textMuted}>CANCEL</Txt>
                             </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[s.modalConfirm, { opacity: pinInput.length === 4 ? 1 : 0.5 }]}
-                                disabled={pinInput.length !== 4}
-                                onPress={async () => {
-                                    const success = await handleStatusChange('in_progress', pinInput);
-                                    if (success) {
-                                        setShowPinModal(false);
-                                        setPinInput('');
-                                    }
-                                }}
-                            >
-                                <Txt variant="bodyBold" color={C.white}>Verify & Start</Txt>
+                            <TouchableOpacity style={s.modalConfirm} onPress={async () => { if (await handleStatusChange('in_progress', pinInput)) setShowPinModal(false); }}>
+                                <Txt variant="bodyBold" weight="heavy" color="#0A0718">VERIFY</Txt>
                             </TouchableOpacity>
                         </View>
                     </BlurView>
@@ -641,226 +538,124 @@ export function ActiveTripScreen({ route, navigation }: any) {
     );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+function IsolatedWaitHUD({ arrivedAt, type = 'PICKUP' }: { arrivedAt: string; type?: 'PICKUP' | 'STOP' }) {
+    const [seconds, setSeconds] = React.useState(0);
+    useEffect(() => {
+        const start = new Date(arrivedAt).getTime();
+        const int = setInterval(() => setSeconds(Math.floor((Date.now() - start) / 1000)), 1000);
+        return () => clearInterval(int);
+    }, [arrivedAt]);
+    
+    const graceLimit = type === 'PICKUP' ? 180 : 0;
+    const isGrace = seconds < graceLimit;
+    const billableSeconds = Math.max(0, seconds - graceLimit);
+    const mins = Math.floor(seconds / 60);
+    const fee = ((billableSeconds / 60) * 90) / 100;
+    
+    return (
+        <View style={s.waitHud}>
+            <View style={s.waitInfo}>
+                <Txt variant="caption" weight="heavy" color={isGrace ? BRAND.cyan : SEMANTIC.warning}>
+                    {type === 'PICKUP' ? (isGrace ? 'ARRIVAL GRACE' : 'PICKUP WAITING') : 'STOP WAITING'}
+                </Txt>
+                <Txt weight="heavy" color="#FFF" style={{ fontSize: 24 }}>
+                    {mins}:{ (seconds % 60).toString().padStart(2, '0') }
+                </Txt>
+            </View>
+            <View style={[s.waitFeeBadge, isGrace && { backgroundColor: 'rgba(0,255,194,0.1)', borderColor: BRAND.cyan, borderWidth: 1 }]}>
+                <Txt variant="caption" weight="heavy" color={isGrace ? BRAND.cyan : '#0A0718'}>
+                    {isGrace ? 'FREE' : `+$${fee.toFixed(2)}`}
+                </Txt>
+            </View>
+        </View>
+    );
+}
+
+function EntertainmentHUD({ url, onAccept, onReject }: { url: string; onAccept: () => void; onReject: () => void }) {
+    const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
+    const isSpotify = url.includes('spotify.com');
+
+    return (
+        <View style={s.entertainmentCard}>
+            <View style={{ flex: 1 }}>
+                <Txt variant="caption" weight="heavy" color={BRAND.cyan} style={{ letterSpacing: 1.5 }}>
+                    🎵 RIDER SUGGESTION
+                </Txt>
+                <Txt variant="bodyBold" weight="heavy" color="#FFF" numberOfLines={1} style={{ marginTop: 4 }}>
+                    {isYoutube ? 'YOUTUBE PLAYLIST' : isSpotify ? 'SPOTIFY MIX' : 'ENTERTAINMENT LINK'}
+                </Txt>
+                <Txt variant="caption" weight="regular" color={VOICES.driver.textMuted} numberOfLines={1}>{url}</Txt>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity style={[s.actionBtnSmall, { backgroundColor: 'rgba(239,68,68,0.1)' }]} onPress={onReject}>
+                    <Ionicons name="close" size={18} color={SEMANTIC.danger} />
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.actionBtnSmall, { backgroundColor: 'rgba(16,185,129,0.1)' }]} onPress={onAccept}>
+                    <Ionicons name="checkmark" size={18} color={SEMANTIC.success} />
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+}
+
+
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
-
-    // Status bubble
-    statusBubble: {
-        position: 'absolute', alignSelf: 'center',
-        borderRadius: 50, overflow: 'hidden',
-        borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)',
-        zIndex: 10,
+    root: { flex: 1, backgroundColor: '#0A0718' },
+    signalChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'center',
+        backgroundColor: 'rgba(5,5,10,0.85)',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+        borderWidth: 1,
     },
-    statusBlurFill: {
+    quietRideBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,255,194,0.1)', borderRadius: 12, padding: 10, marginBottom: 12 },
+    statusBubble: { position: 'absolute', alignSelf: 'center', zIndex: 10, alignItems: 'center' },
+    sosWrap: { position: 'absolute', right: 20, zIndex: 10 },
+    sosRing: { position: 'absolute', width: 60, height: 60, borderRadius: 30, backgroundColor: SEMANTIC.danger },
+    sosBtn: { width: 60, height: 60, borderRadius: 30, backgroundColor: SEMANTIC.danger, alignItems: 'center', justifyContent: 'center' },
+    cancelBtn: { position: 'absolute', width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+    driverMarker: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#0A0718', borderWidth: 2, borderColor: BRAND.cyan, alignItems: 'center', justifyContent: 'center' },
+    destMarker: { width: 12, height: 12, borderRadius: 3, backgroundColor: BRAND.cyan },
+    cardOuter: { position: 'absolute', bottom: 0, left: 0, right: 0, height: CARD_HEIGHT },
+    cardInner: { flex: 1 },
+    phaseTrackWrap: { marginBottom: 16 },
+    phaseTrackBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2 },
+    phaseTrackFill: { position: 'absolute', height: 4, backgroundColor: BRAND.cyan, borderRadius: 2 },
+    phaseLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+    phaseItem: { alignItems: 'center' },
+    phaseDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 2 },
+    riderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+    riderAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,255,194,0.1)', alignItems: 'center', justifyContent: 'center' },
+    msgBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+    actionRow: { flexDirection: 'row', gap: 12 },
+    navBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(0,255,194,0.1)', alignItems: 'center', justifyContent: 'center' },
+    mainBtn: { flex: 1, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
+    completedCard: { borderRadius: 24, padding: 24, alignItems: 'center' },
+    successCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(16,185,129,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+    earningsBlock: { alignItems: 'center', marginVertical: 20 },
+    dashBtn: { width: '100%', height: 56, backgroundColor: BRAND.cyan, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+    waitHud: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(245,158,11,0.05)', padding: 12, borderRadius: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(245,158,11,0.1)' },
+    waitInfo: { flex: 1 },
+    waitFeeBadge: { backgroundColor: SEMANTIC.warning, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+    logisticsHud: { marginBottom: 12 },
+    itemChip: { backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginRight: 8 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 20 },
+    modalContent: { padding: 32, borderRadius: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
+    pinInput: { width: '100%', height: 80, fontSize: 48, textAlign: 'center', color: BRAND.cyan, marginVertical: 24, letterSpacing: 10, fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'sans-serif' },
+    modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
+    modalCancel: { flex: 1, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+    modalConfirm: { flex: 1, height: 56, backgroundColor: BRAND.cyan, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+    entertainmentCard: {
         flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 20, paddingVertical: 10, gap: 8,
+        backgroundColor: 'rgba(0,255,194,0.05)',
+        borderRadius: 16, padding: 14, marginBottom: 14,
+        borderWidth: 1, borderColor: 'rgba(0,255,194,0.1)',
     },
-    statusDot: {
-        width: 7, height: 7, borderRadius: 3.5,
-        backgroundColor: C.green,
-    },
-
-    // SOS
-    sosWrap: {
-        position: 'absolute', right: 20, zIndex: 20,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    sosRing: {
-        position: 'absolute',
-        width: 64, height: 64, borderRadius: 32,
-        backgroundColor: C.red,
-    },
-    sosBtn: {
-        width: 64, height: 64, borderRadius: 32,
-        backgroundColor: C.red,
-        alignItems: 'center', justifyContent: 'center',
-        borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)',
-        shadowColor: C.red, shadowOpacity: 0.6, shadowRadius: 12,
-        elevation: 12,
-    },
-
-    // Cancel
-    cancelBtn: {
-        position: 'absolute', zIndex: 10,
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: 'rgba(7,5,15,0.8)',
-        borderWidth: 1, borderColor: C.border,
-        alignItems: 'center', justifyContent: 'center',
-    },
-
-    // Markers
-    driverMarker: {
+    actionBtnSmall: {
         width: 44, height: 44, borderRadius: 22,
-        backgroundColor: C.surfaceHigh,
-        borderWidth: 2, borderColor: C.purple,
-        justifyContent: 'center', alignItems: 'center',
-    },
-    destMarker: {
-        width: 14, height: 14, borderRadius: 3,
-        backgroundColor: C.white,
-        borderWidth: 2, borderColor: C.bg,
-    },
-
-    // Bottom card
-    cardOuter: {
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        height: CARD_HEIGHT,
-        borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        overflow: 'hidden',
-        borderTopWidth: 1, borderColor: C.border,
-    },
-    cardInner: { flex: 1, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 },
-
-    // Phase track
-    phaseTrackWrap: {
-        marginBottom: 18, height: 48,
-        justifyContent: 'flex-end',
-    },
-    phaseTrackBg: {
-        position: 'absolute', left: 0, right: 0,
-        height: 3, borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        top: 10,
-    },
-    phaseTrackFill: {
-        position: 'absolute', left: 0,
-        height: 3, borderRadius: 2,
-        backgroundColor: C.purple,
-        top: 10,
-    },
-    phaseLabels: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-    },
-    phaseItem: { alignItems: 'center', flex: 1 },
-    phaseDot: {
-        width: 12, height: 12, borderRadius: 6,
-        borderWidth: 2,
-    },
-
-    // Rider row
-    riderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-    riderAvatar: {
-        width: 46, height: 46, borderRadius: 23,
-        backgroundColor: C.purpleDim,
         alignItems: 'center', justifyContent: 'center',
-        borderWidth: 1, borderColor: 'rgba(167,139,250,0.3)',
-    },
-    midDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: C.muted },
-    msgBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: C.surfaceHigh,
-        borderWidth: 1, borderColor: C.border,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    callBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: C.surfaceHigh,
-        borderWidth: 1, borderColor: C.border,
-        alignItems: 'center', justifyContent: 'center',
-    },
-
-    // Actions
-    actionRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-    navBtn: {
-        width: 46, height: 46, borderRadius: 23,
-        backgroundColor: C.surfaceHigh,
-        borderWidth: 1, borderColor: C.border,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    mainBtn: {
-        flex: 1, flexDirection: 'row', gap: 8,
-        alignItems: 'center', justifyContent: 'center',
-        height: 46, borderRadius: 23,
-    },
-
-    // Completed screen
-    completedCard: {
-        borderRadius: 28, padding: 32,
-        alignItems: 'center', width: '100%',
-        borderWidth: 1, borderColor: 'rgba(124,58,237,0.2)',
-    },
-    successCircle: {
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: C.greenDim,
-        alignItems: 'center', justifyContent: 'center',
-        marginBottom: 20,
-    },
-    waitClockRow: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        backgroundColor: 'rgba(245,158,11,0.05)', borderRadius: 12, padding: 12, marginBottom: 16,
-        borderWidth: 1, borderColor: 'rgba(245,158,11,0.15)',
-    },
-    waitFeeBadge: {
-        backgroundColor: C.gold, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
-    },
-    earningsBlock: {
-        width: '100%', alignItems: 'center',
-        paddingVertical: 24,
-        backgroundColor: 'rgba(245,158,11,0.06)',
-        borderRadius: 20,
-        borderWidth: 1, borderColor: 'rgba(245,158,11,0.15)',
-        marginBottom: 24,
-    },
-    cashBadge: {
-        marginTop: 12,
-        backgroundColor: C.gold,
-        paddingHorizontal: 20, paddingVertical: 8,
-        borderRadius: 20,
-    },
-    dashBtn: {
-        width: '100%', paddingVertical: 16,
-        borderRadius: 50, backgroundColor: C.purple,
-        alignItems: 'center',
-    },
-
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-    },
-    modalContent: {
-        width: '100%',
-        borderRadius: 32,
-        padding: 32,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: C.border,
-        overflow: 'hidden',
-    },
-    pinInput: {
-        width: '100%',
-        height: 80,
-        fontSize: 32,
-        fontWeight: '800',
-        marginBottom: 32,
-        borderWidth: 1,
-        borderColor: C.border,
-    },
-    modalActions: {
-        flexDirection: 'row',
-        gap: 16,
-        width: '100%',
-    },
-    modalCancel: {
-        flex: 1,
-        height: 54,
-        borderRadius: 27,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: C.surfaceHigh,
-    },
-    modalConfirm: {
-        flex: 2,
-        height: 54,
-        borderRadius: 27,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: C.purple,
     },
 });

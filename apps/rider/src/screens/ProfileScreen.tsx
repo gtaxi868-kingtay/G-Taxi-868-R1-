@@ -25,7 +25,7 @@ const R = {
     border: tokens.colors.glass.stroke,
     purple: tokens.colors.primary.purple,
     purpleLight: tokens.colors.primary.cyan,
-    gold: '#FFD700',
+    gold: '#F59E0B',
     red: tokens.colors.status.error,
     white: tokens.colors.text.primary,
     muted: tokens.colors.text.secondary,
@@ -92,41 +92,41 @@ export function ProfileScreen({ navigation }: any) {
 
     return (
         <View style={s.root}>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
 
             <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
 
                 {/* Header: [← back circle] */}
                 <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                     <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                        <Ionicons name="chevron-back" size={24} color={R.white} />
                     </TouchableOpacity>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Profile</Txt>
+                    <Txt variant="headingM" weight="heavy" color={R.white} style={{ marginLeft: 16 }}>Profile</Txt>
                 </View>
 
-                {/* Avatar: 80x80 circle with purpleGradient */}
+                {/* Avatar: 80x80 circle with Blueberry/Lavender gradient */}
                 <View style={s.hero}>
-                    <LinearGradient colors={[R.purple, '#4C1D95']} style={s.avatarWrap}>
-                        <Txt variant="headingL" weight="heavy" color="#FFF">{displayName.charAt(0)}</Txt>
+                    <LinearGradient colors={[tokens.colors.primary.lavender, tokens.colors.primary.blueberry]} style={s.avatarWrap}>
+                        <Txt variant="headingL" weight="heavy" color={tokens.colors.text.inverse}>{displayName.charAt(0)}</Txt>
                     </LinearGradient>
-                    <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 22, marginTop: 16 }}>{displayName}</Txt>
+                    <Txt variant="bodyBold" color={R.white} style={{ fontSize: 22, marginTop: 16 }}>{displayName}</Txt>
                     <Txt variant="small" color={R.muted} style={{ marginTop: 4 }}>{user?.email}</Txt>
                 </View>
 
                 {/* Metrics Grid */}
                 <View style={s.grid}>
                     <View style={s.gridItem}>
-                        <Txt variant="bodyBold" color="#FFF">{stats.totalTrips}</Txt>
+                        <Txt variant="bodyBold" color={R.white}>{stats.totalTrips}</Txt>
                         <Txt variant="caption" color={R.muted}>TRIPS</Txt>
                     </View>
                     <View style={s.gridDivider} />
                     <View style={s.gridItem}>
-                        <Txt variant="bodyBold" color={R.gold}>⭐ {stats.rating}</Txt>
+                        <Txt variant="bodyBold" color={tokens.colors.primary.blueberry}>⭐ {stats.rating}</Txt>
                         <Txt variant="caption" color={R.muted}>RATING</Txt>
                     </View>
                     <View style={s.gridDivider} />
                     <View style={s.gridItem}>
-                        <Txt variant="bodyBold" color="#FFF">{stats.memberSince}</Txt>
+                        <Txt variant="bodyBold" color={R.white}>{stats.memberSince}</Txt>
                         <Txt variant="caption" color={R.muted}>SINCE</Txt>
                     </View>
                 </View>
@@ -142,12 +142,12 @@ export function ProfileScreen({ navigation }: any) {
                             <View style={s.menuItemLeft}>
                                 <View style={s.iconWrapper}>
                                     <LinearGradient 
-                                        colors={['rgba(123, 97, 255, 0.2)', 'rgba(0, 255, 255, 0.2)']} 
+                                        colors={['rgba(79, 134, 247, 0.1)', 'rgba(162, 155, 254, 0.1)']} 
                                         style={StyleSheet.absoluteFill} 
                                     />
-                                    <Ionicons name={item.icon as any} size={20} color="#00FFFF" />
+                                    <Ionicons name={item.icon as any} size={20} color={tokens.colors.primary.blueberry} />
                                 </View>
-                                <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 16, fontSize: 17 }}>{item.label}</Txt>
+                                <Txt variant="bodyBold" color={R.white} style={{ marginLeft: 16, fontSize: 17 }}>{item.label}</Txt>
                             </View>
                             <Ionicons name="chevron-forward" size={18} color={R.muted} />
                         </TouchableOpacity>

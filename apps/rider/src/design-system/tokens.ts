@@ -1,35 +1,39 @@
 export const tokens = {
     colors: {
         background: {
-            base: '#0A0A1F', // Vibrant Deep Purple-Black
-            ambient: '#12122A', 
-            surface: 'rgba(255, 255, 255, 0.08)', // Satin Glass
+            base: '#F5F3FF', // Soft Lavender — G-Taxi Blueberry Luxe
+            ambient: '#FFFFFF',
+            surface: 'rgba(255, 255, 255, 0.85)', // High-Gloss White Glass
         },
         glass: {
-            fill: 'rgba(255, 255, 255, 0.05)', 
-            stroke: 'rgba(255, 255, 255, 0.15)', 
-            strokeHighlight: 'rgba(0, 255, 255, 0.3)', // Cyan edge
-            shadow: 'rgba(0, 0, 0, 0.5)', 
+            fill: 'rgba(255, 255, 255, 0.85)',
+            stroke: 'rgba(124, 58, 237, 0.12)', // Brand purple hint
+            strokeHighlight: 'rgba(124, 58, 237, 0.25)',
+            shadow: 'rgba(124, 58, 237, 0.08)',
         },
         primary: {
-            cyan: '#00FFFF', 
-            purple: '#7B61FF',
-            gradient: ['#7B61FF', '#00FFFF'] as const, // Branding DNA
+            // G-Taxi Brand — extracted from logo
+            purple: '#7C3AED',       // Royal Purple — matches BRAND.purple
+            purpleDark: '#5A2DDE',   // matches BRAND.purpleDark
+            purpleLight: '#A78BFA',  // matches BRAND.purpleLight
+            cyan: '#00FFFF',         // Electric Cyan — matches BRAND.cyan
+            cyanSoft: '#00D4AA',     // matches BRAND.cyanSoft
+            gradient: ['#7C3AED', '#00FFFF'] as const, // Diagonal logo split
         },
         text: {
-            primary: '#FFFFFF',
-            secondary: '#A1A1C1', // Lavender Gray
-            tertiary: 'rgba(255, 255, 255, 0.40)',
-            inverse: '#0A0A1F',
+            primary: '#1E1E3F', // Deep Navy — warm, not cold black
+            secondary: 'rgba(30, 30, 63, 0.55)',
+            tertiary: 'rgba(30, 30, 63, 0.35)',
+            inverse: '#FFFFFF',
         },
         status: {
-            error: '#FF453A',
-            success: '#32D74B', // iOS-like confident green
-            warning: '#FFD60A',
+            error: '#EF4444',    // semantic.danger
+            success: '#10B981',  // semantic.success
+            warning: '#F59E0B',  // semantic.warning — Amber Gold (not FFD700)
         },
         border: {
-            subtle: 'rgba(255, 255, 255, 0.08)',
-            active: '#9F55FF',
+            subtle: 'rgba(124, 58, 237, 0.08)',
+            active: '#7C3AED',
         }
     },
     typography: {
@@ -37,13 +41,13 @@ export const tokens = {
             system: 'System',
         },
         sizes: {
-            displayXL: 64, // Pro Max Heavy
-            headingL: 40,
-            headingM: 24,
-            bodyBold: 18,
-            bodyReg: 16,
-            caption: 14,
-            small: 12,
+            displayXL: 48,
+            headingL: 28,
+            headingM: 20,
+            bodyBold: 16,
+            bodyReg: 14,
+            caption: 12,
+            small: 10,
         },
         weights: {
             regular: '400',
@@ -55,17 +59,17 @@ export const tokens = {
         letterSpacing: {
             tight: -0.5,
             normal: 0,
-            wide: 0.2, // Reduced to avoid "Spacey/Gamey" look
+            wide: 1,
         }
     },
     layout: {
         radius: {
-            xs: 4,
+            xs: 8,
             s: 12,
-            m: 16,
-            l: 24, // Standard card radius
-            xl: 32,
-            full: 9999,
+            m: 20,
+            l: 28, // G-Taxi Signature radius
+            xl: 40,
+            full: 999,  // Pill buttons
         },
         spacing: {
             xxs: 4,
@@ -78,33 +82,32 @@ export const tokens = {
         }
     },
     elevation: {
-        // "Depth Rules" (Checklist #3)
-        level1: { // Base / Flat
-            shadowColor: '#000',
+        level1: {
+            shadowColor: '#7C3AED',
             shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
+            shadowOpacity: 0.06,
+            shadowRadius: 8,
             elevation: 2,
         },
-        level2: { // Surface / Cards - Soft, Diffused
-            shadowColor: '#000',
+        level2: {
+            shadowColor: '#7C3AED',
             shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.4,
+            shadowOpacity: 0.10,
             shadowRadius: 16,
             elevation: 8,
         },
-        level3: { // Focus / Floating - Deep, Anchoring
-            shadowColor: '#000',
+        level3: {
+            shadowColor: '#7C3AED',
             shadowOffset: { width: 0, height: 12 },
-            shadowOpacity: 0.6,
+            shadowOpacity: 0.14,
             shadowRadius: 24,
             elevation: 16,
         },
-        glow: { // RARE usage only (Checklist #1)
-            shadowColor: '#9F55FF',
+        glow: {
+            shadowColor: '#7C3AED',
             shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.4,
-            shadowRadius: 12,
+            shadowOpacity: 0.3,
+            shadowRadius: 16,
             elevation: 10,
         },
         none: {
@@ -114,15 +117,14 @@ export const tokens = {
             elevation: 0,
         }
     },
-    // New: Standardized Marker Definitions
     markers: {
         car: {
-            width: 120, // 2x increase (was 60)
-            height: 70, // 2x increase (was 35)
-            emojiSize: 64, // scaled up
+            width: 120,
+            height: 70,
+            emojiSize: 64,
         },
         animation: {
-            duration: 2000, // Standard glide duration
+            duration: 2000,
         }
     }
 } as const;

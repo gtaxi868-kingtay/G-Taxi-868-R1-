@@ -79,6 +79,20 @@ serve(async (req: Request) => {
       });
       // Set to 'Awaiting Rider Approval' logic?
       await supabaseAdmin.from("orders").update({ status: 'awaiting_approval' }).eq("id", order_id);
+
+      // 6. AI INSIGHT: Notify Ecosystem of Fulfillment progress
+      const { data: orderData } = await supabaseAdmin.from("orders").select("rider_id, ride_id").eq("id", order_id).single();
+      if (orderData?.ride_id) {
+         await supabaseAdmin.from("ride_events").insert({
+            ride_id: orderData.ride_id,
+            event_type: 'ai_insight',
+            actor_type: 'ai',
+            metadata: {
+               message: "Merchant has verified all items. Logistics chain is clear. Proceeding to delivery.",
+               priority: 'high'
+            }
+         });
+      }
     }
 
     return new Response(

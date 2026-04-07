@@ -14,29 +14,10 @@ import Reanimated, {
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
+import { GlassCard, BRAND, VOICES, SEMANTIC, RADIUS, GRADIENTS } from '../design-system';
 import { Ionicons } from '@expo/vector-icons';
 
-// ── BUG_FIX 2+3: Driver-only C tokens — NO tokens.* import ───────────────────
-const C = {
-    bg: '#07050F',
-    surface: '#110E22',
-    surfaceHigh: '#1A1530',
-    border: 'rgba(139,92,246,0.15)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    purpleDim: 'rgba(124,58,237,0.18)',
-    gold: '#F59E0B',
-    goldDim: 'rgba(245,158,11,0.12)',
-    green: '#10B981',
-    greenDim: 'rgba(16,185,129,0.12)',
-    red: '#EF4444',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.45)',
-};
-
-// BUG_FIX 1: navigation prop added
-// WIRING_RULE: DO NOT remove fetchEarnings() or DRIVER_SHARE date calculations
-const DRIVER_SHARE = 0.81; // keep exactly
+const DRIVER_SHARE = 0.81;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function paymentIcon(method: string | null): string {
@@ -45,9 +26,9 @@ function paymentIcon(method: string | null): string {
     return 'card-outline';
 }
 function paymentColor(method: string | null): string {
-    if (method === 'cash') return C.green;
-    if (method === 'wallet') return C.purple;
-    return C.gold;
+    if (method === 'cash') return SEMANTIC.success;
+    if (method === 'wallet') return BRAND.cyan;
+    return SEMANTIC.warning;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -60,24 +41,19 @@ export function EarningsScreen({ navigation }: any) {
     const [stats, setStats] = useState({ today: 0, week: 0, month: 0, trips: 0 });
     const [recentTrips, setRecentTrips] = useState<any[]>([]);
 
-    // Reanimated count-up for today's earnings
     const earningsAnim = useSharedValue(0);
     const earningsDisplay = useDerivedValue(() =>
         `$${earningsAnim.value.toFixed(2)}`
     );
 
-    // ── WIRING: fetchEarnings — DO NOT REMOVE OR ALTER DRIVER_SHARE LOGIC ────
     const fetchEarnings = useCallback(async () => {
         if (!driver?.id) return;
         const now = new Date();
-
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-
         const weekStart = new Date(now);
         weekStart.setDate(weekStart.getDate() - weekStart.getDay());
         weekStart.setHours(0, 0, 0, 0);
         const startOfWeek = weekStart.toISOString();
-
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
         const { data, error } = await supabase
@@ -89,7 +65,6 @@ export function EarningsScreen({ navigation }: any) {
 
         if (data && !error) {
             let todayCents = 0, weekCents = 0, monthCents = 0, tripsToday = 0;
-
             data.forEach(trip => {
                 const fare = trip.total_fare_cents || 0;
                 if (trip.created_at >= startOfDay) { todayCents += fare; tripsToday += 1; }
@@ -104,7 +79,6 @@ export function EarningsScreen({ navigation }: any) {
                 month: (monthCents * DRIVER_SHARE) / 100,
                 trips: tripsToday,
             });
-            // Count-up animation: 0 → todayVal over 900ms
             earningsAnim.value = 0;
             earningsAnim.value = withTiming(todayVal, { duration: 900 });
             setRecentTrips(data.slice(0, 20));
@@ -122,109 +96,78 @@ export function EarningsScreen({ navigation }: any) {
         fetchEarnings();
     };
 
-    // ── Loading ───────────────────────────────────────────────────────────────
     if (loading) {
         return (
             <View style={[s.root, s.center]}>
-                <ActivityIndicator color={C.purple} size="large" />
+                <ActivityIndicator color={BRAND.cyan} size="large" />
             </View>
         );
     }
 
-    // ── Render ────────────────────────────────────────────────────────────────
     return (
         <View style={s.root}>
-            {/* ── HEADER — BlurView ────────────────────────────────────────── */}
-            <BlurView tint="dark" intensity={80} style={[s.headerBlur, { paddingTop: insets.top + 8 }]}>
-                <LinearGradient
-                    colors={['rgba(17,14,34,0.95)', 'rgba(7,5,15,0.6)']}
-                    style={s.headerInner}
-                >
-                    {/* Back */}
+            <BlurView tint="dark" intensity={90} style={[s.headerBlur, { paddingTop: insets.top }]}>
+                <View style={s.headerInner}>
                     <TouchableOpacity
                         style={s.backBtn}
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             navigation.goBack();
                         }}
-                        activeOpacity={0.8}
                     >
-                        <Ionicons name="chevron-back" size={22} color={C.white} />
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
-
-                    <Txt variant="headingM" weight="bold" color={C.white}>Earnings</Txt>
-
-                    {/* Spacer — matches back button width for visual centering */}
-                    <View style={s.backBtn} pointerEvents="none" />
-                </LinearGradient>
+                    <Txt variant="headingM" weight="heavy" color="#FFF">Partner Hub</Txt>
+                    <View style={{ width: 44 }} />
+                </View>
             </BlurView>
 
             <ScrollView
-                contentContainerStyle={[s.scroll, { paddingTop: insets.top + 64 }]}
+                contentContainerStyle={[s.scroll, { paddingTop: insets.top + 80 }]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor={C.purple}
-                        colors={[C.purple]}
-                    />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND.cyan} colors={[BRAND.cyan]} />
                 }
             >
-                {/* ── HERO CARD ──────────────────────────────────────────── */}
-                <LinearGradient
-                    colors={['#2D1B69', '#1E1040', '#110E22']}
-                    style={s.heroCard}
-                >
-                    <Txt variant="caption" weight="bold" color={C.purpleLight}
-                        style={{ letterSpacing: 1, marginBottom: 6 }}>
-                        TODAY'S EARNINGS · 81% SHARE
+                <GlassCard variant="driver" style={s.heroCard}>
+                    <Txt variant="caption" weight="heavy" color={BRAND.cyan} style={{ letterSpacing: 1.5, marginBottom: 12 }}>
+                        TODAY'S EARNINGS (81% SHARE)
                     </Txt>
 
-                    {/* Animated count-up number */}
                     <Reanimated.Text style={s.earningsNum}>
                         {earningsDisplay.value}
                     </Reanimated.Text>
-                    <Txt variant="small" color={C.muted} style={{ marginTop: 2 }}>TTD</Txt>
+                    <Txt variant="caption" weight="heavy" color={VOICES.driver.textMuted} style={{ marginTop: 4 }}>TTD TOTAL</Txt>
 
-                    {/* Divider */}
                     <View style={s.heroDivider} />
 
-                    {/* Sub-stats row */}
                     <View style={s.subRow}>
                         <View style={s.subItem}>
-                            <Txt variant="headingM" weight="bold" color={C.white}>{stats.trips}</Txt>
-                            <Txt variant="small" color={C.muted}>Trips Today</Txt>
+                            <Txt variant="headingM" weight="heavy" color="#FFF">{stats.trips}</Txt>
+                            <Txt variant="caption" color={VOICES.driver.textMuted}>TRIPS</Txt>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
-                            <Txt variant="headingM" weight="bold" color={C.white}>
-                                ${stats.week.toFixed(2)}
-                            </Txt>
-                            <Txt variant="small" color={C.muted}>This Week</Txt>
+                            <Txt variant="headingM" weight="heavy" color="#FFF">${stats.week.toFixed(0)}</Txt>
+                            <Txt variant="caption" color={VOICES.driver.textMuted}>WEEK</Txt>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
-                            <Txt variant="headingM" weight="bold" color={C.white}>
-                                ${stats.month.toFixed(2)}
-                            </Txt>
-                            <Txt variant="small" color={C.muted}>This Month</Txt>
+                            <Txt variant="headingM" weight="heavy" color="#FFF">${stats.month.toFixed(0)}</Txt>
+                            <Txt variant="caption" color={VOICES.driver.textMuted}>MONTH</Txt>
                         </View>
                     </View>
-                </LinearGradient>
+                </GlassCard>
 
-                {/* ── SECTION LABEL ─────────────────────────────────────── */}
-                <Txt variant="caption" weight="bold" color={C.muted}
-                    style={[s.sectionLabel, { letterSpacing: 1 }]}>
-                    RECENT ACTIVITY
+                <Txt variant="caption" weight="heavy" color={VOICES.driver.textMuted} style={[s.sectionLabel, { letterSpacing: 2 }]}>
+                    RECENT LOGISTICS ACTIVITY
                 </Txt>
 
-                {/* ── TRIP LIST ─────────────────────────────────────────── */}
                 {recentTrips.length === 0 ? (
                     <View style={s.emptyWrap}>
-                        <Ionicons name="receipt-outline" size={36} color={C.muted} />
-                        <Txt variant="bodyReg" color={C.muted} style={{ marginTop: 12, textAlign: 'center' }}>
-                            No completed trips yet.{'\n'}Pull down to refresh.
+                        <Ionicons name="receipt-outline" size={48} color="rgba(255,255,255,0.1)" />
+                        <Txt variant="bodyReg" color={VOICES.driver.textMuted} style={{ marginTop: 16, textAlign: 'center' }}>
+                            No completed trips recorded in this session.
                         </Txt>
                     </View>
                 ) : (
@@ -240,42 +183,29 @@ export function EarningsScreen({ navigation }: any) {
                                 <TouchableOpacity
                                     key={trip.id}
                                     style={[s.tripRow, isLast && { borderBottomWidth: 0 }]}
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        // display only for now — no navigation
-                                    }}
-                                    activeOpacity={0.75}
+                                    onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
                                 >
-                                    {/* Payment icon badge */}
-                                    <View style={[s.iconBadge, { backgroundColor: `${paymentColor(trip.payment_method)}18` }]}>
-                                        <Ionicons
-                                            name={paymentIcon(trip.payment_method) as any}
-                                            size={18}
-                                            color={paymentColor(trip.payment_method)}
-                                        />
+                                    <View style={[s.iconBadge, { backgroundColor: `${paymentColor(trip.payment_method)}15` }]}>
+                                        <Ionicons name={paymentIcon(trip.payment_method) as any} size={20} color={paymentColor(trip.payment_method)} />
                                     </View>
 
-                                    {/* Destination + timestamp */}
                                     <View style={{ flex: 1 }}>
-                                        <Txt variant="bodyBold" color={C.white} numberOfLines={1}>
-                                            {trip.dropoff_address || 'Completed Trip'}
+                                        <Txt variant="bodyBold" weight="heavy" color="#FFF" numberOfLines={1}>
+                                            {trip.dropoff_address || 'Logistics Completion'}
                                         </Txt>
-                                        <Txt variant="small" color={C.muted} style={{ marginTop: 3 }}>
+                                        <Txt variant="caption" color={VOICES.driver.textMuted} style={{ marginTop: 4 }}>
                                             {dateStr} · {timeStr}
                                         </Txt>
                                     </View>
 
-                                    {/* Earnings */}
-                                    <Txt variant="bodyBold" color={C.green}>
-                                        +${earnings}
-                                    </Txt>
+                                    <Txt variant="bodyBold" weight="heavy" color={SEMANTIC.success}>+$${earnings}</Txt>
                                 </TouchableOpacity>
                             );
                         })}
                     </View>
                 )}
 
-                <View style={{ height: insets.bottom + 24 }} />
+                <View style={{ height: insets.bottom + 40 }} />
             </ScrollView>
         </View>
     );
@@ -283,78 +213,70 @@ export function EarningsScreen({ navigation }: any) {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
+    root: { flex: 1, backgroundColor: '#0A0718' },
     center: { justifyContent: 'center', alignItems: 'center' },
     scroll: { paddingHorizontal: 20 },
 
-    // Header
     headerBlur: {
         position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 20, borderBottomWidth: 1, borderColor: C.border,
+        zIndex: 20, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
     },
     headerInner: {
         flexDirection: 'row', alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20, paddingBottom: 12,
+        paddingHorizontal: 20, paddingBottom: 16,
     },
     backBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.06)',
+        width: 44, height: 44, borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.05)',
         alignItems: 'center', justifyContent: 'center',
     },
 
-    // Hero card
     heroCard: {
-        borderRadius: 24,
         padding: 24,
-        marginBottom: 28,
-        borderWidth: 1,
-        borderColor: 'rgba(124,58,237,0.2)',
+        marginBottom: 32,
         alignItems: 'center',
     },
     earningsNum: {
-        fontSize: 52, fontWeight: '800',
-        color: C.gold, letterSpacing: -1,
+        fontSize: 56, fontWeight: '800',
+        color: BRAND.cyan, letterSpacing: -2,
         marginVertical: 4,
     },
     heroDivider: {
         width: '100%', height: 1,
         backgroundColor: 'rgba(255,255,255,0.08)',
-        marginVertical: 18,
+        marginVertical: 20,
     },
     subRow: {
         flexDirection: 'row', width: '100%',
         alignItems: 'center',
     },
     subItem: { flex: 1, alignItems: 'center', gap: 4 },
-    subSep: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.08)' },
+    subSep: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
 
-    // Section label
-    sectionLabel: { marginBottom: 12 },
+    sectionLabel: { marginBottom: 16 },
 
-    // Trip list
     tripList: {
-        backgroundColor: C.surface,
-        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.02)',
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: C.border,
+        borderColor: 'rgba(255,255,255,0.05)',
         overflow: 'hidden',
     },
     tripRow: {
         flexDirection: 'row', alignItems: 'center',
-        gap: 14, paddingHorizontal: 16, paddingVertical: 14,
+        gap: 16, paddingHorizontal: 16, paddingVertical: 18,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.04)',
+        borderBottomColor: 'rgba(255,255,255,0.05)',
     },
     iconBadge: {
-        width: 40, height: 40, borderRadius: 12,
+        width: 44, height: 44, borderRadius: 14,
         alignItems: 'center', justifyContent: 'center',
     },
 
-    // Empty
     emptyWrap: {
-        paddingVertical: 48, alignItems: 'center',
-        borderWidth: 1, borderColor: C.border,
-        borderRadius: 20, borderStyle: 'dashed',
+        paddingVertical: 64, alignItems: 'center',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 24, borderStyle: 'dotted',
     },
 });

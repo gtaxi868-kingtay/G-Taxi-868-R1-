@@ -185,47 +185,49 @@ export async function estimateFare(
 export async function createRide(
     params: CreateRideParams
 ): Promise<ApiResponse<CreateRideResponse>> {
-    try {
-        console.log('[createRide] Invoking Edge Function with params:', params);
+    let retries = 3;
+    let delay = 1000; // 1s initial delay
 
-        const { data, error } = await supabase.functions.invoke('create_ride', {
-            body: params,
-        });
+    while (retries > 0) {
+        try {
+            console.log(`[createRide] Invoking Edge Function (Attempts left: ${retries})`);
+            const { data, error } = await supabase.functions.invoke('create_ride', {
+                body: params,
+            });
 
-        console.log('[createRide] Raw response - data:', JSON.stringify(data), 'error:', error);
+            if (error) {
+                // Network level or edge function execution failure
+                console.warn(`[createRide] Failure: ${error.message}. Retries left: ${retries - 1}`);
+                throw new Error(error.message); // throw to hit the catch block and retry
+            }
 
-        if (error) {
-            // Try to get more details from the error
-            const errorDetails = {
-                message: error.message,
-                name: error.name,
-                context: (error as any).context,
-            };
-            console.error('[createRide] Edge Function error details:', JSON.stringify(errorDetails));
-            return {
-                success: false,
-                data: null,
-                error: error.message || 'Edge Function failed',
-            };
-        }
+            if (data && !data.success && data.error) {
+                // Logical failure from backend (e.g. debt threshold) - DO NOT RETRY
+                console.error('[createRide] Logical error from backend:', data.error);
+                return data as ApiResponse<CreateRideResponse>;
+            }
 
-        // Check if response contains an error
-        if (data && !data.success && data.error) {
-            console.error('[createRide] Response error:', data.error);
+            console.log('[createRide] Success:', data);
             return data as ApiResponse<CreateRideResponse>;
-        }
 
-        console.log('[createRide] Success:', data);
-        return data as ApiResponse<CreateRideResponse>;
-    } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to create ride';
-        console.error('[createRide] Exception:', message, error);
-        return {
-            success: false,
-            data: null,
-            error: message,
-        };
+        } catch (error) {
+            retries -= 1;
+            if (retries === 0) {
+                const message = error instanceof Error ? error.message : 'Failed to create ride after multiple attempts';
+                console.error('[createRide] Final Exception:', message, error);
+                return {
+                    success: false,
+                    data: null,
+                    error: 'Network connection lost. Please check your signal and try again.',
+                };
+            }
+            // Exponential backoff
+            await new Promise(res => setTimeout(res, delay));
+            delay *= 2;
+        }
     }
+
+    return { success: false, data: null, error: 'Unexpected exit in retry loop' };
 }
 
 /**

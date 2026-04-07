@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, Alert,
-    Dimensions, Platform
+    Dimensions, Platform, BackHandler
 } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,8 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
     useSharedValue, withTiming, withRepeat,
-    useAnimatedStyle, withDelay, Easing
+    useAnimatedStyle, withDelay, Easing,
+    FadeIn,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -42,6 +43,12 @@ export function SearchingDriverScreen({ route, navigation }: any) {
 
     const [dots, setDots] = useState('');
     const [isCanceling, setIsCanceling] = useState(false);
+    const [preferredDriver, setPreferredDriver] = useState<any>(null);
+    const [isPriorityContact, setIsPriorityContact] = useState(false);
+    const [showNegotiation, setShowNegotiation] = useState(false);
+    const [negotiationType, setNegotiationType] = useState<'none' | 'busy'>('none');
+    // FIX 7: Track queue state so rider knows they are waiting, not broken
+    const [isInQueue, setIsInQueue] = useState(false);
 
     // Reanimated Values
     const radarRadius = useSharedValue(0);
@@ -66,6 +73,35 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         const dotInterval = setInterval(() => {
             setDots(prev => prev.length >= 3 ? '' : prev + '.');
         }, 500);
+
+        // CHECK FAVORED DRIVER
+        const checkPreferred = async () => {
+            const { data: pref } = await supabase
+                .from('user_preferred_drivers')
+                .select('driver_id, drivers(name, is_online, rating)')
+                .order('rank', { ascending: true })
+                .limit(1);
+            
+            if (pref && pref.length > 0) {
+                const driver = pref[0].drivers as any;
+                if (driver.is_online) {
+                    setPreferredDriver(driver);
+                    
+                    if (driver.status === 'busy') {
+                        // FAVORED IS BUSY: Trigger Negotiation
+                        setNegotiationType('busy');
+                        setShowNegotiation(true);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    } else {
+                        setIsPriorityContact(true);
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        // Turn off priority after 30s
+                        setTimeout(() => setIsPriorityContact(false), 30000);
+                    }
+                }
+            }
+        };
+        checkPreferred();
 
         // Haptics: Light pulse every 2.5s
         const hapticInterval = setInterval(() => {
@@ -102,7 +138,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                         driver: driverParams,
                         rideId,
                         pickup,
-                        paymentMethod: pmOverride || (route.params.paymentMethod),
+                        paymentMethod: pmOverride || (route.params?.paymentMethod),
                     },
                 });
             } catch (e) {
@@ -116,7 +152,12 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         // Polling/Subscription for Assignment
         const sub = supabase.channel(`ride_${rideId}`)
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` }, async (payload) => {
+                // FIX 7: Detect waiting_queue status and show rider feedback immediately
+                if (payload.new.status === 'waiting_queue') {
+                    setIsInQueue(true);
+                }
                 if (payload.new.status === 'assigned' && payload.new.driver_id) {
+                    setIsInQueue(false);
                     clearInterval(pollTimer);
                     await handleAssignment(payload.new.driver_id);
                 }
@@ -131,18 +172,48 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                 .eq("id", rideId)
                 .single();
 
+            // FIX 7: Surface the queue state to the rider on each poll
+            if (ride?.status === "waiting_queue") {
+                setIsInQueue(true);
+            }
+
             if (ride?.status === "assigned" && ride?.driver_id) {
+                setIsInQueue(false);
                 clearInterval(pollTimer);
                 sub.unsubscribe();
                 await handleAssignment(ride.driver_id);
             }
         }, 3000);
 
+        const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
+            if (isCanceling) return; // Allow navigation if explicitly canceling
+
+            // Prevent default behavior of leaving the screen
+            e.preventDefault();
+
+            Alert.alert(
+                'Cancel Ride?',
+                'Are you sure you want to stop searching for a ride?',
+                [
+                    { text: "Don't Cancel", style: 'cancel', onPress: () => { } },
+                    {
+                        text: 'Cancel Ride',
+                        style: 'destructive',
+                        onPress: () => {
+                            handleCancel();
+                            navigation.dispatch(e.data.action);
+                        },
+                    },
+                ]
+            );
+        });
+
         return () => {
             clearInterval(dotInterval);
             clearInterval(hapticInterval);
             clearInterval(pollTimer);
             sub.unsubscribe();
+            beforeRemoveListener();
         };
     }, []);
 
@@ -177,8 +248,8 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
                 initialRegion={{
-                    latitude: pickup.latitude,
-                    longitude: pickup.longitude,
+                    latitude: pickup?.latitude || 10.66,
+                    longitude: pickup?.longitude || -61.51,
                     latitudeDelta: 0.05,
                     longitudeDelta: 0.05
                 }}
@@ -200,13 +271,42 @@ export function SearchingDriverScreen({ route, navigation }: any) {
 
             {/* Status Overlay */}
             <View style={[s.content, { bottom: insets.bottom + 40 }]}>
+                {isPriorityContact && preferredDriver && (
+                    <Reanimated.View entering={FadeIn} style={s.priorityCard}>
+                        <LinearGradient colors={['rgba(255, 215, 0, 0.1)', 'rgba(0, 255, 255, 0.05)']} style={StyleSheet.absoluteFill} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                            <Ionicons name="star" size={24} color="#F59E0B" />
+                            <View>
+                                <Txt variant="bodyBold" color="#F59E0B">CONTACTING PREFERRED DRIVER</Txt>
+                                <Txt variant="small" color="rgba(255,255,255,0.6)">{preferredDriver?.name} is nearby</Txt>
+                            </View>
+                        </View>
+                    </Reanimated.View>
+                )}
+
                 <View style={s.statusCard}>
-                    <Txt variant="displayXL" weight="heavy" color="#FFF" style={{ textAlign: 'center' }}>
-                        Finding your Rider{dots}
-                    </Txt>
-                    <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 12, textAlign: 'center' }}>
-                        Contacting drivers nearby...
-                    </Txt>
+                    {/* FIX 7: Queue state feedback — never leave the rider guessing */}
+                    {isInQueue ? (
+                        <>
+                            <Txt variant="displayXL" weight="heavy" color="#F59E0B" style={{ textAlign: 'center' }}>
+                                You're in the queue ⏳
+                            </Txt>
+                            <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 12, textAlign: 'center', lineHeight: 22 }}>
+                                No drivers are available near you right now. We'll notify you the moment one becomes free — no need to cancel or restart.
+                            </Txt>
+                        </>
+                    ) : (
+                        <>
+                            <Txt variant="displayXL" weight="heavy" color="#FFF" style={{ textAlign: 'center' }}>
+                                {isPriorityContact ? 'Priority Match' : 'Finding your Rider'}{dots}
+                            </Txt>
+                            <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 12, textAlign: 'center' }}>
+                                {isPriorityContact 
+                                    ? `Securing ${preferredDriver?.name} for your trip...` 
+                                    : 'Contacting drivers nearby...'}
+                            </Txt>
+                        </>
+                    )}
                 </View>
 
                 <Reanimated.View style={[s.cancelWrap, { opacity: cancelOpacity }]}>
@@ -219,6 +319,54 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                     </TouchableOpacity>
                 </Reanimated.View>
             </View>
+
+            {/* AI NEGOTIATION OVERLAY */}
+            {showNegotiation && (
+                <Reanimated.View entering={FadeIn} style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+                    <BlurView intensity={90} tint="dark" style={s.lockBlur}>
+                        <View style={s.negotiationCard}>
+                            <View style={s.aiAvatar}>
+                                <LinearGradient colors={['#7B61FF', '#00FFFF']} style={StyleSheet.absoluteFill} />
+                                <Ionicons name="sparkles" size={24} color="#FFF" />
+                            </View>
+                            
+                            <Txt variant="headingM" color="#FFF" style={{ marginTop: 20, textAlign: 'center' }}>
+                                CONCIERGE UPDATE
+                            </Txt>
+                            
+                            <Txt variant="bodyReg" color="rgba(255,255,255,0.7)" style={{ marginTop: 12, textAlign: 'center', lineHeight: 22 }}>
+                                Your favored driver, <Txt variant="bodyBold" color="#00FFFF">{preferredDriver?.name}</Txt>, is finishing a trip 8 mins away.
+                                {"\n\n"}Would you like to wait for them, or find the nearest driver (2 mins)?
+                            </Txt>
+
+                            <View style={{ width: '100%', gap: 12, marginTop: 32 }}>
+                                <TouchableOpacity 
+                                    style={s.waitBtn} 
+                                    onPress={() => {
+                                        setShowNegotiation(false);
+                                        setIsPriorityContact(true);
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    }}
+                                >
+                                    <Txt variant="bodyBold" color="#000">Wait for {preferredDriver?.name}</Txt>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    style={s.skipBtn} 
+                                    onPress={() => {
+                                        setShowNegotiation(false);
+                                        setPreferredDriver(null);
+                                        setIsPriorityContact(false);
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    }}
+                                >
+                                    <Txt variant="bodyBold" color="#FFF">Find Nearest Driver</Txt>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </BlurView>
+                </Reanimated.View>
+            )}
 
         </View>
     );
@@ -255,8 +403,15 @@ const s = StyleSheet.create({
     radarCore: { width: 64, height: 64, borderRadius: 32, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center', shadowColor: R.purpleLight, shadowRadius: 20, shadowOpacity: 0.6, overflow: 'hidden' },
 
     content: { position: 'absolute', left: 24, right: 24, alignItems: 'center' },
+    priorityCard: { width: '100%', padding: 20, borderRadius: 24, marginBottom: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.3)' },
     statusCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 32, width: '100%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
 
     cancelWrap: { marginTop: 40, width: '100%' },
     cancelBtn: { height: 64, borderRadius: 24, backgroundColor: 'rgba(255,69,58,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,69,58,0.2)' },
+
+    negotiationCard: { width: width * 0.85, padding: 32, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
+    aiAvatar: { width: 56, height: 56, borderRadius: 28, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#00FFFF', shadowRadius: 15, shadowOpacity: 0.5 },
+    waitBtn: { width: '100%', height: 64, borderRadius: 24, backgroundColor: '#00FFFF', alignItems: 'center', justifyContent: 'center' },
+    skipBtn: { width: '100%', height: 64, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    lockBlur: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', padding: 20 },
 });

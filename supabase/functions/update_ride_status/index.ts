@@ -3,6 +3,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendPushNotification } from "../_shared/push.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -138,6 +139,22 @@ serve(async (req: Request) => {
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      // --- MERCHANT TRUST LAYER: PHOTO ENFORCEMENT ---
+      if (ride.order_id) {
+          const { data: log, error: logError } = await supabaseAdmin
+              .from('merchant_intake_logs')
+              .select('photo_urls')
+              .eq('order_id', ride.order_id)
+              .maybeSingle();
+          
+          if (!log || !log.photo_urls || log.photo_urls.length === 0) {
+              return new Response(
+                  JSON.stringify({ success: false, error: "PHOTO_REQUIRED: Merchant photo proof required before pickup.", data: null }),
+                  { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+          }
+      }
     }
 
     // ATOMIC RECORD UPDATE
@@ -150,16 +167,18 @@ serve(async (req: Request) => {
       updatePayload.arrived_at = new Date().toISOString();
     }
 
-    if (status === 'in_progress') {
-      // Calculate Wait Fee (Fix 5)
+    if (status === 'in_progress' || status === 'arrived') {
+      // --- METER SWITCH LOGIC (No Double-Charge) ---
+      // If the car is stationary at a stop, we suppress travel fees and only charge the Wait Clock.
       if (ride.arrived_at) {
         const arrivalTime = new Date(ride.arrived_at).getTime();
         const now = new Date().getTime();
         const waitMinutes = (now - arrivalTime) / (1000 * 60);
         
         if (waitMinutes > 0) {
-          // $0.90 per minute
-          updatePayload.wait_fee_cents = Math.floor(waitMinutes * 90);
+            // $1.00 per minute for logistics stops (Fairer than $1.10)
+            updatePayload.wait_fee_cents = Math.floor(waitMinutes * 100);
+            updatePayload.is_stationary = true; // Signals the frontend to pause the travel meter
         }
       }
     }
@@ -172,6 +191,24 @@ serve(async (req: Request) => {
       .update(updatePayload)
       .eq("id", ride_id)
       .in("status", validPreviousStates); // ATOMIC GUARD
+
+    // ── Push Notification to Rider on Arrival ────────────────────────────
+    if (status === 'arrived' && ride.rider_id) {
+        const { data: riderProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('push_token')
+            .eq('id', ride.rider_id)
+            .single();
+
+        if (riderProfile?.push_token) {
+            sendPushNotification(
+                riderProfile.push_token,
+                '🚖 Driver Arrived',
+                'Your driver has arrived at the pickup location. Please meet them there.',
+                { type: 'DRIVER_ARRIVED', ride_id: ride.id }
+            ).catch(err => console.error("Arrival push failed:", err));
+        }
+    }
 
     if (updateError || count === 0) {
       return new Response(

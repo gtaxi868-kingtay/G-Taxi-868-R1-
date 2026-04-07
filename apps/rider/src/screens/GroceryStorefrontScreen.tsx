@@ -99,7 +99,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     {item.address ? `  •  ${item.address}` : ''}
                 </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#7B61FF" />
+            <Ionicons name="chevron-forward" size={20} color="#7C3AED" />
         </TouchableOpacity>
     );
 
@@ -194,10 +194,10 @@ const s = StyleSheet.create({
         borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
     },
     catChipActive: {
-        backgroundColor: '#7B61FF',
-        borderColor: '#7B61FF',
+        backgroundColor: '#7C3AED',
+        borderColor: '#7C3AED',
     },
-    catChipText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
+    catChipText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '300' },
     catChipTextActive: { color: '#FFF', fontWeight: '700' },
     listContent: { padding: 20, gap: 14 },
     merchantCard: {

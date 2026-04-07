@@ -24,7 +24,7 @@ const R = {
     border: tokens.colors.glass.stroke,
     purple: tokens.colors.primary.purple,
     purpleLight: tokens.colors.primary.cyan,
-    gold: '#FFD700',
+    gold: '#F59E0B',
     white: tokens.colors.text.primary,
     muted: tokens.colors.text.secondary,
 };
@@ -139,7 +139,26 @@ export function AISettingsScreen({ navigation }: any) {
                             trackColor={{ false: R.surfaceHigh, true: R.purple }}
                         />
                     </View>
-                </View>
+
+                    <View style={s.divider} />
+
+                    {/* FIX 4: Predictive Grocery — Coming Soon (not yet live, do not enable) */}
+                    <View style={[s.row, { opacity: 0.45 }]}>
+                        <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Txt variant="bodyBold" color="#FFF">Predictive Grocery Carts</Txt>
+                                <View style={{ backgroundColor: R.gold, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 50 }}>
+                                    <Txt variant="small" color="#000" style={{ fontWeight: '900', fontSize: 8, letterSpacing: 1 }}>SOON</Txt>
+                                </View>
+                            </View>
+                            <Txt variant="small" color={R.muted}>Learning your routines — launches after 30 days of ride data.</Txt>
+                        </View>
+                        <Switch
+                            value={false}
+                            disabled={true}
+                            trackColor={{ false: R.surfaceHigh, true: R.purple }}
+                        />
+                    </View>
 
                 <View style={s.section}>
                     <Txt variant="caption" color={R.muted} style={s.sectionTitle}>TRAVEL PACE</Txt>

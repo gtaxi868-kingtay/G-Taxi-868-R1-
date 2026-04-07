@@ -29,7 +29,7 @@ const R = {
     border: tokens.colors.glass.stroke,
     purple: tokens.colors.primary.purple,
     purpleLight: tokens.colors.primary.cyan,
-    gold: '#FFD700',
+    gold: '#F59E0B',
     green: tokens.colors.status.success,
     red: tokens.colors.status.error,
     white: tokens.colors.text.primary,
@@ -88,7 +88,7 @@ export function WalletScreen({ navigation }: any) {
                     />
                 </View>
                 <View style={{ flex: 1, marginLeft: 16 }}>
-                    <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 16 }}>{item.description || 'Transaction'}</Txt>
+                    <Txt variant="bodyBold" color={R.white} style={{ fontSize: 16 }}>{item.description || 'Transaction'}</Txt>
                     <Txt variant="small" color={R.muted}>{date.toLocaleDateString()} · {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Txt>
                 </View>
                 <Txt variant="bodyBold" color={isPositive ? tokens.colors.primary.cyan : tokens.colors.text.primary}>
@@ -107,13 +107,13 @@ export function WalletScreen({ navigation }: any) {
 
     return (
         <View style={s.root}>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color={R.white} />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Wallet</Txt>
+                <Txt variant="headingM" weight="heavy" color={R.white} style={{ marginLeft: 16 }}>Wallet</Txt>
             </View>
 
             <FlatList
@@ -123,12 +123,12 @@ export function WalletScreen({ navigation }: any) {
                 contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}
                 ListHeaderComponent={
                     <>
-                        {/* Hero Card: LinearGradient purple */}
-                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.hero}>
-                            <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)">TOTAL BALANCE</Txt>
+                        {/* Hero Card: LinearGradient Blueberry Luxe */}
+                        <LinearGradient colors={[tokens.colors.primary.lavender, tokens.colors.primary.blueberry]} style={s.hero}>
+                            <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">TOTAL BALANCE</Txt>
                             <View style={s.balanceRow}>
                                 <Txt variant="headingL" weight="heavy" color="#FFF" style={{ fontSize: 48 }}>${balance.toFixed(2)}</Txt>
-                                <Txt variant="bodyBold" color="rgba(255,255,255,0.6)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
+                                <Txt variant="bodyBold" color="rgba(255,255,255,0.7)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
                             </View>
                             <View style={s.gCoinBadge}>
                                 <Ionicons name="flash" size={12} color={R.gold} />
@@ -158,7 +158,7 @@ export function WalletScreen({ navigation }: any) {
                             </TouchableOpacity>
                         </View>
 
-                        <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>Recent Activity</Txt>
+                        <Txt variant="bodyBold" color={R.white} style={{ marginBottom: 16 }}>Recent Activity</Txt>
                     </>
                 }
                 ListEmptyComponent={

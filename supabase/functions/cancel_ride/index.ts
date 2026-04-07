@@ -5,6 +5,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendPushNotification } from "../_shared/push.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -176,6 +177,43 @@ serve(async (req: Request) => {
             .in("status", cancellableStatuses)
             .select()
             .single();
+
+        // ── Push Notification on Cancellation ───────────────────────────────
+        // Notify the DRIVER if the RIDER cancels
+        if (isRider && ride.driver_id) {
+            const { data: driverProfile } = await supabaseAdmin
+                .from('drivers')
+                .select('push_token')
+                .eq('id', ride.driver_id)
+                .single();
+            
+            if (driverProfile?.push_token) {
+                sendPushNotification(
+                    driverProfile.push_token,
+                    '🛑 Ride Cancelled',
+                    'The rider has cancelled the request. You are now available for new orders.',
+                    { type: 'RIDE_CANCELLED', ride_id: ride.id }
+                ).catch(err => console.error("Driver cancel notification failed:", err));
+            }
+        }
+
+        // Notify the RIDER if the DRIVER cancels
+        if (isDriver && ride.rider_id) {
+            const { data: riderProfile } = await supabaseAdmin
+                .from('profiles')
+                .select('push_token')
+                .eq('id', ride.rider_id)
+                .single();
+
+            if (riderProfile?.push_token) {
+                sendPushNotification(
+                    riderProfile.push_token,
+                    '🛑 Ride Cancelled',
+                    'The driver has cancelled the ride. We are looking for a new driver for you.',
+                    { type: 'RIDE_CANCELLED', ride_id: ride.id }
+                ).catch(err => console.error("Rider cancel notification failed:", err));
+            }
+        }
 
         if (updateError || !updatedRide) {
             console.error("Update error or no rows matching:", updateError);

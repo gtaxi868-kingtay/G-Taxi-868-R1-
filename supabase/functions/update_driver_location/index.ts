@@ -8,6 +8,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireDriver } from "../_shared/auth.ts";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
+import { updateRedisLocation } from "../_shared/redis.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -201,7 +202,16 @@ serve(async (req: Request) => {
 
         // --- END SPOOF DETECTION ---
 
+        // NEW: Update Redis High-Speed Cache (No DB Lock)
+        try {
+            await updateRedisLocation(driver_id, lat, lng, heading);
+        } catch (redisErr) {
+            console.error("Redis update failed, falling back to DB only:", redisErr);
+        }
+
         // A. Insert into history (driver_locations)
+        // Note: In high traffic, we can eventually move this to a background job
+        // or a buffer to further protect Postgres.
         const { error: historyError } = await adminClient
             .from("driver_locations")
             .insert({

@@ -16,25 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 import { Ionicons } from '@expo/vector-icons';
 
-// ── Driver-only tokens — never import rider tokens ────────────────────────────
-const C = {
-    bg: '#07050F',
-    surface: '#110E22',
-    surfaceHigh: '#1A1530',
-    border: 'rgba(139,92,246,0.15)',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    purpleDim: 'rgba(124,58,237,0.18)',
-    gold: '#F59E0B',
-    goldDim: 'rgba(245,158,11,0.12)',
-    green: '#10B981',
-    greenDim: 'rgba(16,185,129,0.12)',
-    red: '#EF4444',
-    redDim: 'rgba(239,68,68,0.12)',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.45)',
-    faint: 'rgba(255,255,255,0.06)',
-};
+import { BRAND, VOICES, SEMANTIC, RADIUS, GRADIENTS } from '../design-system';
 
 // ── "How It Works" info rows config ──────────────────────────────────────────
 const INFO_ROWS = [
@@ -144,19 +126,19 @@ export function WalletScreen({ navigation }: any) {
     if (loading) {
         return (
             <View style={[s.root, s.center]}>
-                <ActivityIndicator color={C.purple} size="large" />
+                <ActivityIndicator color={BRAND.purple} size="large" />
             </View>
         );
     }
 
     // Color scheme based on balance direction
     const heroGradient: readonly [string, string] = isOwed
-        ? ['#3B0A0A', '#1A0505']
-        : ['#0D3320', '#052010'];
+        ? ['#FFFFFF', '#FFECEC']
+        : ['#FFFFFF', '#E8F5E9'];
     const heroBorderColor = isOwed
         ? 'rgba(239,68,68,0.25)'
         : 'rgba(16,185,129,0.25)';
-    const heroStatusColor = isOwed ? C.red : C.green;
+    const heroStatusColor = isOwed ? SEMANTIC.danger : SEMANTIC.success;
     const heroStatusLabel = isOwed
         ? `You owe the platform TTD ${(Math.abs(balance || 0) * 0.19 / 0.81).toFixed(0)} (19% cut)`
         : 'Balance all clear ✓';
@@ -164,9 +146,9 @@ export function WalletScreen({ navigation }: any) {
     return (
         <View style={s.root}>
             {/* ── HEADER — BlurView ─────────────────────────────────────── */}
-            <BlurView tint="dark" intensity={80} style={[s.headerBlur, { paddingTop: insets.top + 8 }]}>
+            <BlurView tint="light" intensity={80} style={[s.headerBlur, { paddingTop: insets.top + 8 }]}>
                 <LinearGradient
-                    colors={['rgba(17,14,34,0.95)', 'rgba(7,5,15,0.6)']}
+                    colors={['rgba(255,255,255,0.95)', 'rgba(245,245,247,0.6)']}
                     style={s.headerInner}
                 >
                     <TouchableOpacity
@@ -177,10 +159,10 @@ export function WalletScreen({ navigation }: any) {
                         }}
                         activeOpacity={0.8}
                     >
-                        <Ionicons name="chevron-back" size={22} color={C.white} />
+                        <Ionicons name="chevron-back" size={22} color={VOICES.driver.text} />
                     </TouchableOpacity>
 
-                    <Txt variant="headingM" weight="bold" color={C.white}>Wallet</Txt>
+                    <Txt variant="headingM" weight="bold" color={VOICES.driver.text}>Wallet</Txt>
 
                     {/* Spacer — same width as back button for visual centering */}
                     <View style={s.backBtn} pointerEvents="none" />
@@ -196,12 +178,12 @@ export function WalletScreen({ navigation }: any) {
                     colors={heroGradient}
                     style={[s.heroCard, { borderColor: heroBorderColor }]}
                 >
-                    <Txt variant="caption" weight="bold" color={C.muted} style={{ letterSpacing: 1, marginBottom: 6 }}>
+                    <Txt variant="caption" weight="bold" color={VOICES.driver.textMuted} style={{ letterSpacing: 1, marginBottom: 6 }}>
                         TTD COMMISSION BALANCE
                     </Txt>
 
                     {/* Animated balance — 48px gold */}
-                    <Reanimated.Text style={[s.balanceNum, { color: C.gold }]}>
+                    <Reanimated.Text style={[s.balanceNum, { color: isOwed ? SEMANTIC.danger : BRAND.purple }]}>
                         {isOwed ? '-' : ''}{balanceDisplay.value}
                     </Reanimated.Text>
 
@@ -212,8 +194,8 @@ export function WalletScreen({ navigation }: any) {
                     {/* Lockout warning */}
                     {isOwed && (balance || 0) <= -600 && (
                         <View style={s.lockBadge}>
-                            <Ionicons name="lock-closed" size={14} color={C.white} />
-                            <Txt variant="caption" weight="bold" color={C.white} style={{ marginLeft: 6 }}>
+                            <Ionicons name="lock-closed" size={14} color={VOICES.driver.text} />
+                            <Txt variant="caption" weight="bold" color={VOICES.driver.text} style={{ marginLeft: 6 }}>
                                 ACCOUNT RESTRICTED — CAP REACHED
                             </Txt>
                         </View>
@@ -226,8 +208,8 @@ export function WalletScreen({ navigation }: any) {
                             onPress={handleDeposit}
                             activeOpacity={0.85}
                         >
-                            <Ionicons name="logo-whatsapp" size={16} color={C.white} />
-                            <Txt variant="bodyBold" color={C.white} style={{ marginLeft: 8 }}>
+                            <Ionicons name="logo-whatsapp" size={16} color={VOICES.driver.text} />
+                            <Txt variant="bodyBold" color={VOICES.driver.text} style={{ marginLeft: 8 }}>
                                 Settle Balance via Transfer
                             </Txt>
                         </TouchableOpacity>
@@ -236,12 +218,12 @@ export function WalletScreen({ navigation }: any) {
                     {/* Payout button */}
                     {isGood && balance > 0 && (
                         <TouchableOpacity
-                            style={[s.settleBtn, { backgroundColor: C.purple }]}
+                            style={[s.settleBtn, { backgroundColor: BRAND.purple }]}
                             onPress={handlePayoutRequest}
                             activeOpacity={0.85}
                         >
-                            <Ionicons name="cash-outline" size={16} color={C.white} />
-                            <Txt variant="bodyBold" color={C.white} style={{ marginLeft: 8 }}>
+                            <Ionicons name="cash-outline" size={16} color={VOICES.driver.text} />
+                            <Txt variant="bodyBold" color={VOICES.driver.text} style={{ marginLeft: 8 }}>
                                 Request Payout
                             </Txt>
                         </TouchableOpacity>
@@ -249,15 +231,15 @@ export function WalletScreen({ navigation }: any) {
                 </LinearGradient>
 
                 {/* ── TRANSACTION HISTORY ───────────────────────────────── */}
-                <Txt variant="caption" weight="bold" color={C.muted}
+                <Txt variant="caption" weight="bold" color={VOICES.driver.textMuted}
                     style={{ letterSpacing: 1, marginBottom: 12 }}>
                     TRANSACTION HISTORY
                 </Txt>
 
                 {transactions.length === 0 ? (
                     <View style={s.emptyWrap}>
-                        <Ionicons name="receipt-outline" size={36} color={C.muted} />
-                        <Txt variant="bodyReg" color={C.muted} style={{ marginTop: 12, textAlign: 'center' }}>
+                        <Ionicons name="receipt-outline" size={36} color={VOICES.driver.textMuted} />
+                        <Txt variant="bodyReg" color={VOICES.driver.textMuted} style={{ marginTop: 12, textAlign: 'center' }}>
                             No transactions yet.
                         </Txt>
                     </View>
@@ -272,8 +254,8 @@ export function WalletScreen({ navigation }: any) {
                             const isLast = idx === transactions.length - 1;
 
                             const txIcon = isCredit ? 'arrow-down-outline' : 'arrow-up-outline';
-                            const txColor = isCredit ? C.green : C.red;
-                            const txBg = isCredit ? C.greenDim : C.redDim;
+                            const txColor = isCredit ? SEMANTIC.success : SEMANTIC.danger;
+                            const txBg = isCredit ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
 
                             return (
                                 <TouchableOpacity
@@ -289,10 +271,10 @@ export function WalletScreen({ navigation }: any) {
 
                                     {/* Description */}
                                     <View style={{ flex: 1 }}>
-                                        <Txt variant="bodyBold" color={C.white} numberOfLines={1}>
+                                        <Txt variant="bodyBold" color={VOICES.driver.text} numberOfLines={1}>
                                             {tx.description || (isCredit ? 'Commission Credit' : 'Commission Debit')}
                                         </Txt>
-                                        <Txt variant="small" color={C.muted} style={{ marginTop: 3 }}>
+                                        <Txt variant="small" color={VOICES.driver.textMuted} style={{ marginTop: 3 }}>
                                             {dateStr} · {timeStr}
                                         </Txt>
                                     </View>
@@ -308,7 +290,7 @@ export function WalletScreen({ navigation }: any) {
                 )}
 
                 {/* ── HOW IT WORKS ──────────────────────────────────────── */}
-                <Txt variant="caption" weight="bold" color={C.muted}
+                <Txt variant="caption" weight="bold" color={VOICES.driver.textMuted}
                     style={{ letterSpacing: 1, marginTop: 28, marginBottom: 12 }}>
                     HOW IT WORKS
                 </Txt>
@@ -321,8 +303,8 @@ export function WalletScreen({ navigation }: any) {
                                     <Ionicons name={row.icon} size={20} color={row.color} />
                                 </View>
                                 <View style={{ flex: 1, gap: 3 }}>
-                                    <Txt variant="bodyBold" color={C.white}>{row.title}</Txt>
-                                    <Txt variant="small" color={C.muted}>{row.body}</Txt>
+                                    <Txt variant="bodyBold" color={VOICES.driver.text}>{row.title}</Txt>
+                                    <Txt variant="small" color={VOICES.driver.textMuted}>{row.body}</Txt>
                                 </View>
                             </View>
                             {i < INFO_ROWS.length - 1 && <View style={s.infoDivider} />}
@@ -338,14 +320,14 @@ export function WalletScreen({ navigation }: any) {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: C.bg },
+    root: { flex: 1, backgroundColor: VOICES.driver.bg },
     center: { justifyContent: 'center', alignItems: 'center' },
     scroll: { paddingHorizontal: 20 },
 
     // Header
     headerBlur: {
         position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 20, borderBottomWidth: 1, borderColor: C.border,
+        zIndex: 20, borderBottomWidth: 1, borderColor: 'rgba(0, 255, 255, 0.15)',
     },
     headerInner: {
         flexDirection: 'row', alignItems: 'center',
@@ -370,7 +352,7 @@ const s = StyleSheet.create({
     },
     lockBadge: {
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: C.red,
+        backgroundColor: SEMANTIC.danger,
         paddingHorizontal: 14, paddingVertical: 7,
         borderRadius: 20, marginTop: 14,
     },
@@ -383,9 +365,9 @@ const s = StyleSheet.create({
 
     // Transactions
     txList: {
-        backgroundColor: C.surface,
+        backgroundColor: 'rgba(26, 21, 48, 0.8)',
         borderRadius: 20, borderWidth: 1,
-        borderColor: C.border, overflow: 'hidden',
+        borderColor: 'rgba(0, 255, 255, 0.15)', overflow: 'hidden',
         marginBottom: 28,
     },
     txRow: {
@@ -402,16 +384,16 @@ const s = StyleSheet.create({
     // Empty
     emptyWrap: {
         paddingVertical: 40, alignItems: 'center',
-        borderWidth: 1, borderColor: C.border,
+        borderWidth: 1, borderColor: 'rgba(0, 255, 255, 0.15)',
         borderRadius: 20, borderStyle: 'dashed',
         marginBottom: 28,
     },
 
     // How it works
     infoCard: {
-        backgroundColor: C.surface,
+        backgroundColor: 'rgba(26, 21, 48, 0.8)',
         borderRadius: 20, borderWidth: 1,
-        borderColor: C.border, overflow: 'hidden',
+        borderColor: 'rgba(0, 255, 255, 0.15)', overflow: 'hidden',
     },
     infoRow: {
         flexDirection: 'row', alignItems: 'flex-start',

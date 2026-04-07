@@ -34,10 +34,10 @@ function getProductIcon(name: string): string {
 }
 
 const NUTRIENT_PILLS = [
-    { label: 'Water', value: '8oz', color: '#00BFFF' },
-    { label: 'Calories', value: '120', color: '#FFD700' },
-    { label: 'Fat', value: '0g', color: '#FF6B6B' },
-    { label: 'Protein', value: '2g', color: '#4ADE80' },
+    { label: 'Water', value: '8oz', color: '#00FFFF' },
+    { label: 'Calories', value: '120', color: '#F59E0B' },
+    { label: 'Fat', value: '0g', color: '#EF4444' },
+    { label: 'Protein', value: '2g', color: '#10B981' },
 ];
 
 export function ProductDetailScreen({ navigation, route }: any) {
@@ -139,8 +139,8 @@ export function ProductDetailScreen({ navigation, route }: any) {
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 16 }]}>
                 <TouchableOpacity style={s.ctaButton} onPress={handleAddToCart} activeOpacity={0.88}>
                     <LinearGradient
-                        colors={['#7B61FF', '#5A2DDE']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        colors={['#7C3AED', '#00FFFF']}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                         style={s.ctaGradient}
                     >
                         <Ionicons name="bag-add-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
@@ -171,8 +171,8 @@ const s = StyleSheet.create({
     heroEmoji: { fontSize: 120, zIndex: 2 },
     glowRing: {
         position: 'absolute', width: 200, height: 200, borderRadius: 100,
-        backgroundColor: 'rgba(123,97,255,0.12)',
-        shadowColor: '#7B61FF', shadowOpacity: 0.4, shadowRadius: 40, elevation: 0,
+        backgroundColor: 'rgba(124,58,237,0.1)',
+        shadowColor: '#7C3AED', shadowOpacity: 0.3, shadowRadius: 40, elevation: 0,
     },
     pillRow: {
         flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 20, paddingHorizontal: 16,
@@ -192,17 +192,17 @@ const s = StyleSheet.create({
     productName: { fontSize: 22, fontWeight: '800', color: '#FFF', marginBottom: 8 },
     productDesc: { fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 20, marginBottom: 16 },
     priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 24 },
-    price: { fontSize: 30, fontWeight: '900', color: '#7B61FF' },
+    price: { fontSize: 30, fontWeight: '900', color: '#7C3AED' },
     perUnit: { fontSize: 13, color: 'rgba(255,255,255,0.4)' },
     qtyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
     qtyLabel: { fontSize: 16, fontWeight: '600', color: '#FFF' },
     qtyControl: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     qtyBtn: {
         width: 36, height: 36, borderRadius: 18,
-        backgroundColor: 'rgba(123,97,255,0.2)',
+        backgroundColor: 'rgba(124,58,237,0.2)',
         alignItems: 'center', justifyContent: 'center',
     },
-    qtyBtnActive: { backgroundColor: '#7B61FF' },
+    qtyBtnActive: { backgroundColor: '#7C3AED' },
     qtyBtnText: { fontSize: 22, color: '#FFF', fontWeight: '700', lineHeight: 26 },
     qtyValue: { fontSize: 22, fontWeight: '800', color: '#FFF', minWidth: 30, textAlign: 'center' },
     totalRow: {

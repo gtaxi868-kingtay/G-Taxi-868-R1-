@@ -10,6 +10,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
 import { sendSMS } from "../_shared/sms.ts";
 import { captureException } from "../_shared/sentry.ts";
+import { redisCommand } from "../_shared/redis.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -77,6 +78,35 @@ serve(async (req: Request) => {
         const { data: previousOffers } = await supabaseAdmin.from("ride_offers").select("driver_id").eq("ride_id", ride_id);
         const excludedDriverIds = previousOffers?.map((o: any) => o.driver_id) || [];
 
+        // NEW: Pull Candidates from REDIS FIRST (The Scaling Fix)
+        let candidateIds: string[] = [];
+        try {
+            // GEORADIUS active_drivers {lng} {lat} 15 km
+            const redisResults = await redisCommand([
+                "GEORADIUS",
+                "active_drivers",
+                ride.pickup_lng.toString(),
+                ride.pickup_lat.toString(),
+                "15",
+                "km",
+                "COUNT", "20" // Only pull top 20 closest to keep SQL scoring fast
+            ]);
+            candidateIds = redisResults || [];
+            
+            // Filter out drivers we already offered the ride to
+            candidateIds = candidateIds.filter(id => !excludedDriverIds.includes(id));
+            
+            console.log(`Redis found ${candidateIds.length} candidates nearby.`);
+        } catch (redisErr) {
+            console.error("Redis candidate fetch failed, falling back to full table search:", redisErr);
+            // We'll leave candidateIds empty to trigger the high-cost DB fallback if needed
+        }
+
+        // 2. If Redis is empty and we had a succesful connection, we skip the DB scan entirely
+        if (candidateIds.length === 0) {
+            console.log("No candidates in range via Redis. Skipping SQL scan.");
+        }
+
         // NEW: Atomic, race-safe driver selection (Fix 1)
         const { data: claimedDrivers, error: claimError } = await supabaseAdmin
             .rpc("claim_available_driver", {
@@ -84,7 +114,8 @@ serve(async (req: Request) => {
                 p_pickup_lng: ride.pickup_lng,
                 p_vehicle_type: ride.vehicle_type || "Any",
                 p_rider_id: ride.rider_id, // Fix 6: Mutual Blacklist
-                p_max_distance_km: 15
+                p_max_distance_km: 15,
+                p_candidate_ids: candidateIds.length > 0 ? candidateIds : null // Pass Redis IDs
             });
 
         if (claimError || !claimedDrivers || claimedDrivers.length === 0) {
@@ -116,6 +147,16 @@ serve(async (req: Request) => {
         // Append distance for the offer insertion below
         selectedDriver._distance = selectedDriverSummary.distance_km * 1000;
 
+        // Calculate Payout based on Commission Tier (Phase 11.5)
+        let commissionRate = 0.22; // Default Standard
+        if (selectedDriver.commission_tier === 'pioneer') {
+            commissionRate = 0.19;
+        }
+        // User Feedback: 17% tier removed to protect margins
+        
+        const totalFare = ride.total_fare_cents || 0;
+        const driverPayout = Math.round(totalFare * (1 - commissionRate));
+
         // Create Time-Limited Ride Offer (15 seconds)
         const expiresAt = new Date(Date.now() + 15 * 1000).toISOString();
         const { error: insertError } = await supabaseAdmin
@@ -125,6 +166,7 @@ serve(async (req: Request) => {
                 driver_id: selectedDriver.id,
                 status: "pending",
                 distance_meters: Math.round(selectedDriver._distance),
+                driver_payout_cents: driverPayout, // Phase 11.5
                 expires_at: expiresAt
             });
 
@@ -148,6 +190,7 @@ serve(async (req: Request) => {
                     type: 'NEW_RIDE_OFFER',
                     ride_id: ride.id,
                     pickup: ride.pickup_address || '',
+                    driver_payout_cents: driverPayout.toString(), // Phase 11.5
                 }
             ).catch(err => console.error("Push notification failed (non-fatal):", err));
         } else {

@@ -189,15 +189,16 @@ serve(async (req: Request) => {
 
         fareCents = Math.round(fareCents * multiplier);
 
-        // Add Multi-Stop Fees (Fix 3)
-        const STOP_CONVENIENCE_FEE_CENTS = 500; // $5.00 TTD
-        const WAIT_RATE_PER_MIN_CENTS = 85.5; // $0.855 TTD
-
+        // Add Multi-Stop Fees (Tiered: $15 standard/laundry, $35 grocery, $25 pharmacy)
         let stopsFeeCents = 0;
         if (stops && stops.length > 0) {
             stopsFeeCents = stops.reduce((total: number, stop: any) => {
-                const waitFee = Math.round((stop.estimated_wait_minutes || 10) * WAIT_RATE_PER_MIN_CENTS);
-                return total + STOP_CONVENIENCE_FEE_CENTS + waitFee;
+                let stopBase = 1500;
+                if (stop.stop_type === 'grocery') stopBase = 3500;
+                if (stop.stop_type === 'pharmacy') stopBase = 2500; // Granny's Shield
+                
+                const waitFee = Math.round((stop.estimated_wait_minutes || 10) * 95); // 95 cents per min (PRICING.PER_MIN_CENTS)
+                return total + stopBase + waitFee;
             }, 0);
         }
 

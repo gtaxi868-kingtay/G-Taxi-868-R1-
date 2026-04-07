@@ -13,7 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { ENV } from '../../../../shared/env';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
 import { supabase } from '../../../../shared/supabase';
-import { Txt, Card, Surface } from '../design-system/primitives';
+import { Txt } from '../design-system/primitives';
+import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '../design-system';
+import { formatTTDDollars } from '../utils/currency';
+
+const { width, height } = Dimensions.get('window');
 
 interface StopSuggestion {
     place_name: string;
@@ -24,28 +28,14 @@ interface StopSuggestion {
     emoji: string;
     estimated_wait_minutes: number;
     is_preferred: boolean;
+    is_network_partner?: boolean; // Phase 8A
+    merchant_id?: string;        // Phase 8A
 }
 
-import { tokens } from '../design-system/tokens';
-
-const { width, height } = Dimensions.get('window');
-
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
-const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
-    gold: '#FFD700',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
-};
-
 const VEHICLES = [
-    { type: 'Standard', multiplier: 1.0, icon: 'car-outline', desc: 'Affordable, everyday rides' },
-    { type: 'XL', multiplier: 1.5, icon: 'bus-outline', desc: '6 seats, extra room' },
-    { type: 'Premium', multiplier: 2.2, icon: 'star-outline', desc: 'Luxury high-end vehicles' },
+    { type: 'Standard', multiplier: 1.0, icon: 'car-outline', desc: 'Daily logistics' },
+    { type: 'XL', multiplier: 1.5, icon: 'bus-outline', desc: 'Group & Bulk' },
+    { type: 'Premium', multiplier: 2.2, icon: 'star-outline', desc: 'Executive Pro' },
 ] as const;
 
 type VehicleType = (typeof VEHICLES)[number]['type'];
@@ -64,7 +54,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
     const [stopSuggestions, setStopSuggestions] = useState<StopSuggestion[]>([]);
     const [selectedStops, setSelectedStops] = useState<StopSuggestion[]>([]);
-    const [stopsLoading, setStopsLoading] = useState(false);
+    const [bookForFamily, setBookForFamily] = useState(false);
 
     const pickupLoc = pickup || { latitude: 10.66, longitude: -61.51, address: 'Current Location' };
 
@@ -88,7 +78,6 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             if (fareRes.success) setFare(fareRes.data);
             if (balanceRes.success) setWalletBalance(balanceRes.data || 0);
 
-            // Fetch stop suggestions
             const { data: stopsRes } = await supabase.functions.invoke("suggest_stops", {
                 body: {
                     pickup_lat: pickupLoc.latitude,
@@ -103,7 +92,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
             setTimeout(() => {
                 mapRef.current?.fitToCoordinates([pickupLoc, destination], {
-                    edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+                    edgePadding: { top: 80, right: 80, bottom: 80, left: 80 },
                     animated: true,
                 });
             }, 500);
@@ -120,8 +109,19 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             if (isSelected) {
                 return prev.filter(s => s.place_name !== stop.place_name);
             } else {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 return [...prev, stop];
             }
+        });
+    };
+
+    const handleBookService = (stop: StopSuggestion) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        navigation.navigate('ServiceBooking', {
+            merchantId: stop.merchant_id,
+            merchantName: stop.place_name,
+            pickup: pickupLoc,
+            destination: { latitude: stop.lat, longitude: stop.lng, address: stop.place_address }
         });
     };
 
@@ -137,7 +137,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 dropoff_lng: destination.longitude,
                 dropoff_address: destination.address,
                 vehicle_type: selectedType,
-                payment_method: 'cash', // Default for now
+                payment_method: 'cash',
                 stops: selectedStops.map((s, i) => ({
                     stop_order: i + 1,
                     place_name: s.place_name,
@@ -164,9 +164,8 @@ export function RideConfirmationScreen({ navigation, route }: any) {
         }
     };
 
-    // Calculate stop fees for real-time fare update
     const STOP_CONVENIENCE_FEE_TTD = 5.00;
-    const WAIT_RATE_PER_MIN = 0.855; // $0.95 * 0.90
+    const WAIT_RATE_PER_MIN = 0.855;
 
     const stopsAddedCents = selectedStops.reduce((total, stop) => {
         const waitFee = stop.estimated_wait_minutes * WAIT_RATE_PER_MIN * 100;
@@ -180,196 +179,195 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
     return (
         <View style={s.root}>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
 
-            {/* Layout: Map at top 40% height */}
-            <View style={{ height: height * 0.4 }}>
+            <View style={{ height: height * 0.35 }}>
                 <MapView
                     ref={mapRef}
                     style={StyleSheet.absoluteFillObject}
                     provider={PROVIDER_DEFAULT}
-                    userInterfaceStyle="dark"
+                    userInterfaceStyle="light"
                 >
                     {ENV.MAPBOX_PUBLIC_TOKEN && (
                         <UrlTile
-                            urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
+                            urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
                             shouldReplaceMapContent={true}
                         />
                     )}
-                    <Marker coordinate={pickupLoc}><View style={s.dot} /></Marker>
-                    <Marker coordinate={destination}><View style={s.square} /></Marker>
+                    <Marker coordinate={pickupLoc}><View style={s.markerPickup} /></Marker>
+                    <Marker coordinate={destination}><View style={s.markerDropoff} /></Marker>
                 </MapView>
 
                 <TouchableOpacity
                     style={[s.backBtn, { top: insets.top + 10 }]}
                     onPress={() => navigation.goBack()}
                 >
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="arrow-back" size={24} color={VOICES.rider.text} />
                 </TouchableOpacity>
             </View>
 
-            {/* Bottom 60% is a large BlurView white-tint glass panel */}
-            <BlurView tint="dark" intensity={90} style={s.panel}>
-                <View style={s.handle} />
-
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}>
-
-                    {/* Route display: Pickup (circle) and Destination (square) rows */}
-                    <View style={s.routeBox}>
-                        <View style={s.routeRow}>
-                            <View style={[s.dotSmall, { backgroundColor: R.purple }]} />
-                            <Txt variant="bodyBold" color="#FFF" numberOfLines={1} style={{ flex: 1, marginLeft: 12 }}>
-                                {pickupLoc.address}
-                            </Txt>
+            <View style={s.bottomContainer}>
+                <GlassCard variant="rider" style={s.panel}>
+                    <View style={s.handle} />
+                    
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+                        <View style={s.routeBox}>
+                            <View style={s.routeRow}>
+                                <View style={s.routeDot} />
+                                <View style={{ flex: 1, marginLeft: 16 }}>
+                                    <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>PICKUP</Txt>
+                                    <Txt variant="bodyBold" weight="heavy" color={VOICES.rider.text} numberOfLines={1}>
+                                        {pickupLoc?.address || 'Current Location'}
+                                    </Txt>
+                                </View>
+                            </View>
+                            <View style={s.routeLine} />
+                            <View style={s.routeRow}>
+                                <View style={s.routeSquare} />
+                                <View style={{ flex: 1, marginLeft: 16 }}>
+                                    <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>DESTINATION</Txt>
+                                    <Txt variant="bodyBold" weight="heavy" color={VOICES.rider.text} numberOfLines={1}>
+                                        {destination?.address || 'Destination'}
+                                    </Txt>
+                                </View>
+                            </View>
                         </View>
-                        <View style={s.line} />
-                        <View style={s.routeRow}>
-                            <View style={[s.squareSmall, { backgroundColor: R.gold }]} />
-                            <Txt variant="bodyBold" color="#FFF" numberOfLines={1} style={{ flex: 1, marginLeft: 12 }}>
-                                {destination.address}
-                            </Txt>
-                        </View>
-                    </View>
 
-                    {/* BUG_FIX: Fix fare units — distance_meters / 1000 and duration_seconds / 60 */}
-                    {fare && (
-                        <View style={s.statsRow}>
-                            <Txt variant="small" color={R.muted}>
-                                {(fare.distance_meters / 1000).toFixed(1)} km · {Math.round(fare.duration_seconds / 60)} mins
-                            </Txt>
-                        </View>
-                    )}
-
-                    {/* Vehicle selection: Horizontal ScrollView of cards */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.vehicleScroll} contentContainerStyle={{ paddingRight: 20 }}>
-                        {VEHICLES.map(v => (
-                            <TouchableOpacity
-                                key={v.type}
-                                style={[s.vehicleCard, selectedType === v.type && s.vehicleCardActive]}
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.type); setMultiplier(v.multiplier); }}
-                            >
-                                <Ionicons name={v.icon as any} size={28} color={selectedType === v.type ? "#FFF" : R.muted} />
-                                <Txt variant="bodyBold" color={selectedType === v.type ? "#FFF" : R.white} style={{ marginTop: 8 }}>{v.type}</Txt>
-                                <Txt variant="small" color={selectedType === v.type ? "rgba(255,255,255,0.7)" : R.muted} style={{ marginTop: 2 }}>{v.multiplier}x</Txt>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-
-                    {/* STOPS SECTION - Fix 3 */}
-                    {stopSuggestions.length > 0 && (
-                        <View style={s.stopsSection}>
-                            <View style={s.stopsSectionHeader}>
-                                <Txt variant="caption" weight="bold" color={R.purpleLight}
-                                    style={{ letterSpacing: 0.8 }}>
-                                    STOPS ALONG YOUR ROUTE
-                                </Txt>
-                                <Txt variant="small" color={R.muted}>
-                                    {selectedStops.length > 0
-                                        ? `${selectedStops.length} selected`
-                                        : "Add stops to your trip"}
+                        {fare && (
+                            <View style={s.statsRow}>
+                                <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>
+                                    LOGISTICS: {(fare?.distance_meters / 1000).toFixed(1)}KM · {Math.round(fare?.duration_seconds / 60)}MIN EST.
                                 </Txt>
                             </View>
+                        )}
 
-                            {stopSuggestions.map((stop, index) => {
-                                const isSelected = selectedStops.some(
-                                    s => s.place_name === stop.place_name
-                                );
-                                const addedCost = (
-                                    stop.estimated_wait_minutes * WAIT_RATE_PER_MIN +
-                                    STOP_CONVENIENCE_FEE_TTD
-                                ).toFixed(2);
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.vehicleScroll} contentContainerStyle={{ paddingRight: 20 }}>
+                            {VEHICLES.map(v => (
+                                <TouchableOpacity
+                                    key={v.type}
+                                    style={[s.vehicleCard, selectedType === v.type && s.vehicleCardActive]}
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.type); setMultiplier(v.multiplier); }}
+                                >
+                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.type ? "#FFF" : BRAND.purple} />
+                                    <Txt variant="bodyReg" weight="heavy" color={selectedType === v.type ? "#FFF" : VOICES.rider.text} style={{ marginTop: 8 }}>{v.type}</Txt>
+                                    <Txt variant="caption" weight="regular" color={selectedType === v.type ? "rgba(255,255,255,0.7)" : VOICES.rider.textMuted}>{v.multiplier}x</Txt>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
 
-                                return (
-                                    <TouchableOpacity
-                                        key={index}
-                                        onPress={() => toggleStop(stop)}
-                                        activeOpacity={0.75}
-                                        style={{ marginBottom: 10 }}
-                                    >
-                                        <Card
-                                            intensity={isSelected ? 60 : 25}
-                                            style={[
-                                                { flexDirection: 'row', alignItems: 'center', borderRadius: 24 },
-                                                isSelected && { borderColor: R.purple, borderWidth: 1 }
-                                            ]}
+                        {stopSuggestions.length > 0 && (
+                            <View style={s.stopsSection}>
+                                <Txt variant="caption" weight="heavy" color={BRAND.purple} style={{ letterSpacing: 1, marginBottom: 12 }}>
+                                    SUGGESTED LOGISTICS STOPS
+                                </Txt>
+                                {stopSuggestions.map((stop, index) => {
+                                    const isSelected = selectedStops.some(s => s.place_name === stop.place_name);
+                                    return (
+                                        <TouchableOpacity
+                                            key={index}
+                                            onPress={() => toggleStop(stop)}
+                                            style={[s.stopItem, isSelected && s.stopItemActive]}
                                         >
-                                            <View style={s.stopIconWrap}>
-                                                <Txt variant="bodyReg" style={{ fontSize: 22 }}>
-                                                    {stop.emoji}
-                                                </Txt>
+                                            <View style={s.stopEmojiWrap}>
+                                                <Txt style={{ fontSize: 20 }}>{stop.emoji}</Txt>
                                             </View>
                                             <View style={{ flex: 1, marginLeft: 12 }}>
-                                                <Txt variant="bodyBold" color={R.white}>
-                                                    {stop.place_name}
-                                                </Txt>
-                                                <Txt variant="small" color={R.muted} style={{ marginTop: 2 }}>
-                                                    {stop.stop_type} · ~{stop.estimated_wait_minutes} min wait
+                                                <Txt variant="bodyReg" weight="heavy" color={VOICES.rider.text}>{stop.place_name}</Txt>
+                                                <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>
+                                                    {stop.is_network_partner ? 'G-TAXI PARTNER · ' : ''}+{stop.estimated_wait_minutes}m wait
                                                 </Txt>
                                             </View>
-                                            <Txt variant="bodyBold"
-                                                color={isSelected ? R.gold : R.muted}>
-                                                +${addedCost}
-                                            </Txt>
-                                        </Card>
-                                    </TouchableOpacity>
-                                );
-                            })}
+                                            <View style={{ alignItems: 'flex-end' }}>
+                                                {stop.is_network_partner ? (
+                                                    <TouchableOpacity 
+                                                        onPress={() => handleBookService(stop)}
+                                                        style={{ backgroundColor: BRAND.purple + '20', paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.md, marginBottom: 4 }}
+                                                    >
+                                                        <Txt variant="caption" weight="heavy" color={BRAND.purple}>BOOK SERVICE</Txt>
+                                                    </TouchableOpacity>
+                                                ) : (
+                                                    <Txt variant="bodyReg" weight="heavy" color={isSelected ? BRAND.purple : VOICES.rider.textMuted}>
+                                                        +${((stop.estimated_wait_minutes * WAIT_RATE_PER_MIN) + STOP_CONVENIENCE_FEE_TTD).toFixed(2)}
+                                                    </Txt>
+                                                )}
+                                            </View>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        )}
+
+                        <View style={s.fareDisplay}>
+                            <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>TOTAL ESTIMATE</Txt>
+                            <Txt variant="headingL" weight="heavy" color={BRAND.purple}>
+                                {formatTTDDollars(parseFloat(finalFare))}
+                            </Txt>
                         </View>
-                    )}
 
-                    <View style={s.fareSection}>
-                        <Txt variant="headingL" weight="heavy" color={R.gold}>${finalFare}</Txt>
-                        <Txt variant="small" color={R.muted}>Estimated total</Txt>
-                    </View>
+                        <View style={s.identityShield}>
+                            <Ionicons name="shield-checkmark" size={20} color={BRAND.cyan} />
+                            <Txt variant="caption" weight="heavy" color={BRAND.cyan} style={{ marginLeft: 8, letterSpacing: 1 }}>
+                                G-TAXI IDENTITY SHIELD ACTIVE
+                            </Txt>
+                        </View>
 
-                    {/* Confirm button: Large gradient button at bottom */}
-                    <TouchableOpacity
-                        style={[s.confirmBtn, confirming && { opacity: 0.7 }]}
-                        onPress={handleConfirm}
-                        disabled={confirming}
-                    >
-                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
-                            {confirming ? <ActivityIndicator color="#FFF" /> : (
-                                <Txt variant="headingM" weight="bold" color="#FFF">
-                                    Confirm {selectedType}{selectedStops.length > 0 ? ` + ${selectedStops.length} Stop${selectedStops.length > 1 ? "s" : ""}` : ""}
-                                </Txt>
-                            )}
-                        </LinearGradient>
-                    </TouchableOpacity>
-
-                </ScrollView>
-            </BlurView>
+                        <TouchableOpacity
+                            style={[s.confirmBtn, confirming && { opacity: 0.7 }]}
+                            onPress={handleConfirm}
+                            disabled={confirming}
+                        >
+                            <LinearGradient 
+                                colors={[BRAND.purple, BRAND.purpleDark]} 
+                                style={s.btnGradient}
+                                start={GRADIENTS.primaryStart}
+                                end={GRADIENTS.primaryEnd}
+                            >
+                                {confirming ? <ActivityIndicator color="#FFF" /> : (
+                                    <Txt variant="bodyReg" weight="heavy" color="#FFF">
+                                        CONFIRM {selectedType.toUpperCase()}
+                                    </Txt>
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </ScrollView>
+                </GlassCard>
+            </View>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    backBtn: { position: 'absolute', left: 24, padding: 10, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 20, zIndex: 100 },
+    root: { flex: 1, backgroundColor: VOICES.rider.bg },
+    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
     
-    panel: { borderTopLeftRadius: 40, borderTopRightRadius: 40, flex: 1, overflow: 'hidden', padding: 24, backgroundColor: 'rgba(10, 10, 31, 0.95)' },
-    handle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+    markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFF', borderWidth: 3, borderColor: BRAND.purple },
+    markerDropoff: { width: 14, height: 14, borderRadius: 3, backgroundColor: '#FFF', borderWidth: 3, borderColor: SEMANTIC.warning },
 
-    routeBox: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, padding: 20, marginBottom: 24 },
+    bottomContainer: { flex: 1, marginTop: -30 },
+    panel: { flex: 1, borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl, padding: 24, paddingBottom: 0 },
+    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(30,30,63,0.1)', alignSelf: 'center', marginBottom: 24 },
+
+    routeBox: { backgroundColor: 'rgba(124, 58, 237, 0.03)', borderRadius: RADIUS.lg, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.05)' },
     routeRow: { flexDirection: 'row', alignItems: 'center' },
-    line: { width: 2, height: 20, backgroundColor: 'rgba(255,255,255,0.1)', marginLeft: 6, marginVertical: 4 },
-    dotSmall: { width: 12, height: 12, borderRadius: 6 },
-    squareSmall: { width: 12, height: 12, borderRadius: 2 },
-    
-    dot: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFF', borderWidth: 4, borderColor: '#7B61FF' },
-    square: { width: 20, height: 20, borderRadius: 4, backgroundColor: '#FFF', borderWidth: 4, borderColor: '#00FFFF' },
+    routeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND.purple },
+    routeSquare: { width: 8, height: 8, borderRadius: 2, backgroundColor: SEMANTIC.warning },
+    routeLine: { width: 1.5, height: 15, backgroundColor: 'rgba(124, 58, 237, 0.1)', marginLeft: 3.25, marginVertical: 4 },
 
-    statsRow: { marginBottom: 24, paddingHorizontal: 4 },
+    statsRow: { marginBottom: 24, alignItems: 'center' },
     
     vehicleScroll: { marginBottom: 32 },
-    vehicleCard: { width: 110, height: 130, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, padding: 16, marginRight: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    vehicleCardActive: { backgroundColor: R.purple, borderColor: R.purpleLight },
+    vehicleCard: { width: 110, height: 120, backgroundColor: 'rgba(124, 58, 237, 0.05)', borderRadius: RADIUS.lg, padding: 16, marginRight: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.1)' },
+    vehicleCardActive: { backgroundColor: BRAND.purple, borderColor: BRAND.purpleLight },
 
     stopsSection: { marginBottom: 32 },
-    stopsSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    stopIconWrap: { width: 54, height: 54, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+    stopItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: RADIUS.md, backgroundColor: 'rgba(0,0,0,0.02)', marginBottom: 10, borderWidth: 1, borderColor: 'transparent' },
+    stopItemActive: { borderColor: BRAND.purple, backgroundColor: 'rgba(124, 58, 237, 0.05)' },
+    stopEmojiWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
 
-    fareSection: { alignItems: 'center', marginBottom: 24, justifyContent: 'center', flexShrink: 0 },
-    confirmBtn: { height: 64, borderRadius: 24, overflow: 'hidden' },
+    fareDisplay: { alignItems: 'center', marginBottom: 24 },
+    
+    identityShield: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,255,255,0.05)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: RADIUS.pill, marginBottom: 32, alignSelf: 'center' },
+
+    confirmBtn: { height: 60, borderRadius: RADIUS.pill, overflow: 'hidden' },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

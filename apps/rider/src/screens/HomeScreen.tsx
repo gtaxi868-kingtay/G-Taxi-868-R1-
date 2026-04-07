@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity, Image,
+    View, Text, StyleSheet, TouchableOpacity, Image,
     Dimensions, Alert, Platform
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
     useSharedValue, withSpring, withTiming,
     useAnimatedStyle, withDelay,
+    FadeIn, FadeOut,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -20,7 +21,12 @@ import { DEFAULT_LOCATION, ENV } from '../../../../shared/env';
 import { useAuth } from '../context/AuthContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { supabase } from '../../../../shared/supabase';
-import { Txt, Card, Surface } from '../design-system/primitives';
+import { 
+    GlassCard, PrimaryButton, InfoChip, 
+    BRAND, VOICES, RADIUS, Logo,
+    GRADIENTS, SEMANTIC // Added GRADIENTS, SEMANTIC
+} from '../design-system';
+import { Txt, Card } from '../design-system/primitives'; // Added Card
 import { Sidebar } from '../components/Sidebar';
 import { getSavedPlaces, savePlace, getRecentRides } from '../services/api';
 import { SavedPlace, Location as RideLocation } from '../types/ride';
@@ -43,12 +49,29 @@ export function HomeScreen({ navigation }: any) {
     const [systemStatus, setSystemStatus] = useState<any>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
+    const [aiGreeting, setAiGreeting] = useState<string | null>(null);
+    const [isAiThinking, setIsAiThinking] = useState(false);
+    const [proactiveAction, setProactiveAction] = useState<string | null>(null);
 
     const panelY = useSharedValue(120);
     const mapPitch = useSharedValue(45);
 
     useEffect(() => {
-        // Location & Initialization
+        // 0. SECONDARY ACTIVE RIDE GUARD (Fail-safe)
+        const checkActiveRide = async () => {
+            try {
+                const { getActiveRide } = await import('../services/api');
+                const res = await getActiveRide();
+                if (res.success && res.data) {
+                    console.log('HomeScreen: Active ride detected. Redirecting for safety.');
+                    // Navigation will be handled by ActiveRideRestorationHandler at root,
+                    // but we can trigger a manual navigation here as a backup if needed.
+                    // However, to avoid double-reset, we rely on the Root Handler primarily.
+                }
+            } catch (e) {}
+        };
+        checkActiveRide();
+
         (async () => {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status === 'granted') {
@@ -99,12 +122,57 @@ export function HomeScreen({ navigation }: any) {
         };
         fetchStatus();
 
+        // --- 100% READY AI: PERSISTENT BRAIN (Truth Layer) ---
+        const fetchLatestInsight = async () => {
+            if (!profile?.id) return;
+            const { data } = await supabase
+                .from('ride_events')
+                .select('metadata, created_at')
+                .eq('event_type', 'ai_insight')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (data?.metadata?.message) {
+                setAiGreeting(data.metadata.message);
+                if (data.metadata.proactive) {
+                    setProactiveAction(data.metadata.proactive);
+                }
+            } else {
+                // Fallback to Time-of-Day Greeting if no DB events
+                const now = new Date();
+                const hour = now.getHours();
+                const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+                setAiGreeting(`${greeting}, ${profile?.name?.split(' ')[0] || 'Partner'}! Ready to roll?`);
+            }
+        };
+
+        fetchLatestInsight();
+
+        const eventsChannel = supabase
+            .channel('ai-insights-realtime')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'ride_events', filter: `event_type=eq.ai_insight` },
+                (payload: any) => {
+                    if (payload.new?.metadata?.message) {
+                        setAiGreeting(payload.new.metadata.message);
+                        if (payload.new.metadata.proactive) {
+                            setProactiveAction(payload.new.metadata.proactive);
+                        }
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                }
+            )
+            .subscribe();
+
         // Animations
         panelY.value = withSpring(0, { damping: 18, stiffness: 120 });
         mapPitch.value = withDelay(1000, withTiming(30, { duration: 1500 }));
 
         return () => {
             flagsChannel.unsubscribe();
+            eventsChannel.unsubscribe();
         };
     }, []);
 
@@ -135,6 +203,47 @@ export function HomeScreen({ navigation }: any) {
             fetchPlaces();
         } catch (err) {
             Alert.alert("Error", "Save failed");
+        }
+    };
+
+    const handleVoiceComplete = async (text: string) => {
+        if (!profile?.id || !text) return;
+        setIsAiThinking(true);
+        setAiGreeting("ANALYZING COMMAND...");
+
+        try {
+            const { data, error } = await supabase.functions.invoke('handle_voice', {
+                body: { text, rider_id: profile.id }
+            });
+
+            if (data?.success) {
+                setAiGreeting(data.reply);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                if (data.intent === 'book_ride' && data.destination) {
+                    // AUTO-NAVIGATE to ride confirmation
+                    setTimeout(() => {
+                        navigation.navigate('RideConfirmation', {
+                            destination: { 
+                                latitude: data.destination.lat, 
+                                longitude: data.destination.lng, 
+                                address: data.destination.address 
+                            },
+                            pickup: { 
+                                latitude: currentLat, 
+                                longitude: currentLng, 
+                                address: 'Current Location' 
+                            }
+                        });
+                    }, 1500);
+                }
+            } else {
+                setAiGreeting("Sorry, I couldn't process that command.");
+            }
+        } catch (err) {
+            setAiGreeting("Connection failed. Please try again.");
+        } finally {
+            setIsAiThinking(false);
         }
     };
 
@@ -199,16 +308,16 @@ export function HomeScreen({ navigation }: any) {
 
             <LinearGradient colors={['rgba(7,5,15,0.4)', 'transparent', 'rgba(7,5,15,0.8)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
-            {/* Brand Header: G-TAXI Luxury Aesthetic */}
+            {/* Brand Header: Logo pin shape + G-TAXI text */}
             <View style={[s.headerLogo, { top: insets.top + 10 }]}>
-                <Txt variant="displayXL" weight="heavy" color="#00FFFF" style={s.logoText}>G-TAXI</Txt>
-                <View style={s.logoAccentBar} />
+                <Logo size={32} variant="icon" />
+                <Text style={s.logoText}>G-TAXI</Text>
             </View>
 
             {/* System Maintenance Banner (Fix 3) */}
             {!systemStatus.stripe_ready && (
                 <View style={[s.maintenanceBanner, { top: insets.top + 70 }]}>
-                    <Ionicons name="warning" size={16} color="#FFD700" />
+                    <Ionicons name="warning" size={16} color="#F59E0B" />
                     <Txt variant="caption" weight="bold" color="#FFF" style={{ marginLeft: 8 }}>
                         System Maintenance: Card payments currently unavailable.
                     </Txt>
@@ -228,9 +337,69 @@ export function HomeScreen({ navigation }: any) {
             />
 
             {/* BOTTOM PANEL (Reanimated y+120→0, BlurView) */}
+            {/* AI HUD Bubble (Truth Layer) */}
+            {(aiGreeting || isAiThinking) && (
+                <Reanimated.View 
+                    entering={FadeIn}
+                    exiting={FadeOut}
+                    style={[s.aiBubbleContainer, { bottom: 330 }]}
+                >
+                    <BlurView intensity={80} tint="dark" style={s.aiBlur}>
+                        <View style={s.aiAvatar}>
+                            <LinearGradient colors={['#7B61FF', '#00FFFF']} style={StyleSheet.absoluteFill} />
+                            <Ionicons name="sparkles" size={16} color="#FFF" />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                            {isAiThinking ? (
+                                <Txt variant="small" color="rgba(255,255,255,0.4)">AI IS THINKING...</Txt>
+                            ) : (
+                                <Txt variant="bodyReg" color="#FFF">{aiGreeting}</Txt>
+                            )}
+                        </View>
+                        <TouchableOpacity 
+                            style={s.voiceBtn} 
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                // SIMULATION: Use a prompt for the voice command for now
+                                Alert.prompt(
+                                    "AI Voice Command",
+                                    "Speak your destination (e.g. 'Take me home' or 'I need to go to the Gym')",
+                                    [
+                                        { text: "Cancel", style: "cancel" },
+                                        { text: "Send", onPress: (val?: string) => handleVoiceComplete(val || '') }
+                                    ]
+                                );
+                            }}
+                        >
+                            <Ionicons name="mic" size={20} color="#00FFFF" />
+                        </TouchableOpacity>
+                    </BlurView>
+                </Reanimated.View>
+            )}
+
             <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20 }]}>
-                <BlurView tint="dark" intensity={80} style={s.blurCard}>
+                <GlassCard variant="rider" style={s.glassPanel}>
                     <View style={s.cardInner}>
+                        
+                        {/* PROACTIVE AI INSIGHT */}
+                        {proactiveAction && (
+                            <Reanimated.View entering={FadeIn} style={s.proactiveHud}>
+                                <LinearGradient 
+                                    colors={[BRAND.purple, BRAND.purpleDark]} 
+                                    style={s.proactiveGradient} 
+                                    start={GRADIENTS.primaryStart} 
+                                    end={GRADIENTS.primaryEnd}
+                                >
+                                    <View style={s.aiIndicator}>
+                                        <Ionicons name="sparkles" size={14} color={BRAND.cyan} />
+                                    </View>
+                                    <Text style={s.proactiveText}>{proactiveAction}</Text>
+                                    <TouchableOpacity onPress={() => setProactiveAction(null)}>
+                                        <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
+                                    </TouchableOpacity>
+                                </LinearGradient>
+                            </Reanimated.View>
+                        )}
 
                         {/* Service Tiles: Vibrant Futurism Grid */}
                         <View style={s.tiles}>
@@ -247,68 +416,51 @@ export function HomeScreen({ navigation }: any) {
                                 </Card>
                             </TouchableOpacity>
 
-                            {featureFlags.grocery && (
-                                <TouchableOpacity
-                                    style={{ flex: 1 }}
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        navigation.navigate('GroceryStorefront');
-                                    }}
-                                >
-                                    <Card padding="xs" intensity={40} style={s.serviceTile}>
-                                        <Ionicons name="cart" size={24} color="#7B61FF" />
-                                        <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>GROCERY</Txt>
-                                    </Card>
-                                </TouchableOpacity>
-                            )}
-
-                            {featureFlags.laundry && (
-                                <TouchableOpacity
-                                    style={{ flex: 1 }}
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        navigation.navigate('LaundryLanding');
-                                    }}
-                                >
-                                    <Card padding="xs" intensity={40} style={s.serviceTile}>
-                                        <Ionicons name="water" size={24} color="#7B61FF" />
-                                        <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>LAUNDRY</Txt>
-                                    </Card>
-                                </TouchableOpacity>
-                            )}
+                            <TouchableOpacity
+                                style={{ flex: 1 }}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    navigation.navigate('GroceryStorefront', { category: 'service' });
+                                }}
+                            >
+                                <Card padding="xs" intensity={40} style={s.serviceTile}>
+                                    <Ionicons name="cut" size={24} color={BRAND.cyan} />
+                                    <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>BEAUTY</Txt>
+                                </Card>
+                            </TouchableOpacity>
                         </View>
 
-                        {/* Search Bar: HUD Holographic */}
+                        {/* Search Bar: HUD Holographic (Blueberry Luxe style) */}
                         <TouchableOpacity
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                 navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng } });
                             }}
                         >
-                            <Surface intensity={30} style={s.searchBarInner}>
+                            <View style={s.searchBarInner}>
                                 <View style={s.hudSearchIndicator} />
-                                <Txt variant="headingM" weight="heavy" color="#00FFFF" style={{ flex: 1, letterSpacing: 2 }}>INITIALIZE TRIP</Txt>
-                                <Ionicons name="chevron-forward" size={20} color="#00FFFF" />
-                            </Surface>
+                                <Text style={s.searchPlaceholder}>INITIALIZE TRIP</Text>
+                                <Ionicons name="chevron-forward" size={20} color={BRAND.purple} />
+                            </View>
                         </TouchableOpacity>
 
                         {/* Quick pills */}
                         <View style={s.pills}>
                             <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Home')}>
-                                <Ionicons name="home-outline" size={16} color="#FFF" />
-                                <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 8 }}>Home</Txt>
+                                <Ionicons name="home-outline" size={18} color={BRAND.purple} />
+                                <Text style={s.pillLabel}>Home</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Work')}>
-                                <Ionicons name="briefcase-outline" size={16} color="#FFF" />
-                                <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 8 }}>Work</Txt>
+                                <Ionicons name="briefcase-outline" size={18} color={BRAND.purple} />
+                                <Text style={s.pillLabel}>Work</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.recentPill} onPress={() => handleQuickAction('Recent')}>
-                                <Ionicons name="time-outline" size={20} color="rgba(255,255,255,0.4)" />
+                                <Ionicons name="time-outline" size={22} color={BRAND.purpleLight} />
                             </TouchableOpacity>
                         </View>
 
                     </View>
-                </BlurView>
+                </GlassCard>
             </Reanimated.View>
 
             {/* Modals */}
@@ -369,50 +521,101 @@ export function HomeScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0A1F' },
+    root: { flex: 1, backgroundColor: VOICES.rider.bg },
     map: { width, height },
-    carMarker: { width: 48, height: 48, shadowColor: '#00FFFF', shadowRadius: 15, shadowOpacity: 1 },
+    carMarker: { width: 48, height: 48, shadowColor: BRAND.cyan, shadowRadius: 15, shadowOpacity: 1 },
     
-    headerLogo: { position: 'absolute', right: 24, top: 0, zIndex: 100 },
-    logoText: { fontSize: 32, letterSpacing: -2, textShadowColor: 'rgba(123, 97, 255, 0.5)', textShadowRadius: 15 },
-    logoAccentBar: { width: 60, height: 3, backgroundColor: '#00FFFF', marginTop: -4, borderRadius: 2 },
+    headerLogo: { position: 'absolute', left: 24, top: 0, zIndex: 100, flexDirection: 'row', alignItems: 'center' },
+    logoText: { 
+        fontSize: 24, 
+        fontWeight: '900', 
+        color: BRAND.purple, 
+        marginLeft: 10,
+        letterSpacing: -1
+    },
 
-    menuBtn: { position: 'absolute', left: 24, zIndex: 100 },
-    menuCircle: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(123, 97, 255, 0.1)', overflow: 'hidden' },
+    menuBtn: { position: 'absolute', right: 24, zIndex: 100 },
+    menuCircle: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(124, 58, 237, 0.1)', overflow: 'hidden' },
 
     panel: { position: 'absolute', bottom: 10, left: 10, right: 10 },
-    blurCard: { borderRadius: 40, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.02)' },
+    glassPanel: { backgroundColor: 'rgba(255,255,255,0.85)' },
     cardInner: { padding: 24 },
 
     tiles: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-    serviceTile: { height: 100, alignItems: 'center', justifyContent: 'center', borderRadius: 28, overflow: 'hidden' },
-    tileActive: { backgroundColor: '#7B61FF' },
+    serviceTile: { 
+        height: 100, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderRadius: RADIUS.lg, 
+        overflow: 'hidden',
+        backgroundColor: 'rgba(124, 58, 237, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(124, 58, 237, 0.08)'
+    },
+    tileActive: { backgroundColor: BRAND.purple },
+    // FIX 6: Coming Soon badge on dimmed tiles
+    soonBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: SEMANTIC.warning, borderRadius: 50, paddingHorizontal: 5, paddingVertical: 2 },
 
-    searchBarInner: { flexDirection: 'row', alignItems: 'center', height: 72, borderRadius: 24, paddingHorizontal: 24, marginBottom: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' },
-    hudSearchIndicator: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#00FFFF', marginRight: 16 },
+    searchBarInner: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        height: 72, 
+        borderRadius: RADIUS.md, 
+        paddingHorizontal: 24, 
+        marginBottom: 24, 
+        overflow: 'hidden', 
+        backgroundColor: 'rgba(124, 58, 237, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(124, 58, 237, 0.1)'
+    },
+    hudSearchIndicator: { width: 14, height: 14, borderRadius: 7, backgroundColor: BRAND.cyan, marginRight: 16 },
+    searchPlaceholder: { flex: 1, letterSpacing: 2, fontSize: 18, fontWeight: '800', color: BRAND.purple },
 
     pills: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-    pill: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 52, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 20 },
-    recentPill: { width: 52, height: 52, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' },
+    pill: { 
+        flex: 1, 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        height: 52, 
+        backgroundColor: 'rgba(124, 58, 237, 0.05)', 
+        borderRadius: RADIUS.md, 
+        paddingHorizontal: 20 
+    },
+    pillLabel: { marginLeft: 8, fontSize: 16, fontWeight: '600', color: BRAND.purple },
+    recentPill: { 
+        width: 52, 
+        height: 52, 
+        borderRadius: RADIUS.md, 
+        backgroundColor: 'rgba(124, 58, 237, 0.05)', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+    },
 
     maintenanceBanner: {
         position: 'absolute',
         left: 20,
         right: 20,
-        backgroundColor: 'rgba(10, 10, 31, 0.98)',
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
         padding: 16,
-        borderRadius: 20,
+        borderRadius: RADIUS.md,
         flexDirection: 'row',
         alignItems: 'center',
         zIndex: 100,
         borderWidth: 1,
-        borderColor: '#00FFFF',
-        shadowColor: '#00FFFF',
-        shadowRadius: 20,
-        shadowOpacity: 0.3
+        borderColor: BRAND.cyan,
     },
     lockOverlay: { zIndex: 9999, justifyContent: 'center', alignItems: 'center' },
     lockBlur: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', padding: 20 },
-    hudLockRing: { position: 'absolute', width: 250, height: 250, borderRadius: 125, borderWidth: 2, borderColor: 'rgba(0,255,255,0.05)' },
-    updateBtn: { marginTop: 32, backgroundColor: '#7B61FF', paddingHorizontal: 40, paddingVertical: 18, borderRadius: 20 },
+    hudLockRing: { position: 'absolute', width: 250, height: 250, borderRadius: 125, borderWidth: 2, borderColor: 'rgba(124, 58, 237, 0.1)' },
+    updateBtn: { marginTop: 32, backgroundColor: BRAND.purple, paddingHorizontal: 40, paddingVertical: 18, borderRadius: RADIUS.md },
+
+    aiBubbleContainer: { position: 'absolute', left: 20, right: 20, zIndex: 90 },
+    aiBlur: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: RADIUS.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(124, 97, 255, 0.2)' },
+    aiAvatar: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+    voiceBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,255,255,0.1)' },
+
+    proactiveHud: { marginBottom: 16 },
+    proactiveGradient: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)' },
+    proactiveText: { flex: 1, marginLeft: 10, fontSize: 13, fontWeight: '300', color: '#FFF' },
+    aiIndicator: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center' },
 });

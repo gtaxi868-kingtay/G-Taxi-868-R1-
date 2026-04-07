@@ -12,17 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 
-const { width } = Dimensions.get('window');
+import { GlassCard, BRAND, VOICES, SEMANTIC, RADIUS, GRADIENTS } from '../design-system';
 
-// ── Driver-only tokens ────────────────────────────────────────────────────────
-const C = {
-    bg: '#07050F',
-    purple: '#7C3AED',
-    purpleLight: '#A78BFA',
-    red: '#EF4444',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.45)',
-};
+const { width, height } = Dimensions.get('window');
 
 export function PendingApprovalScreen() {
     const { signOut } = useAuth();
@@ -43,7 +35,7 @@ export function PendingApprovalScreen() {
 
     const handleSignOut = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+        Alert.alert('Sign Out', 'Are you sure you want to log out?', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Sign Out',
@@ -57,33 +49,39 @@ export function PendingApprovalScreen() {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            {/* LinearGradient bg: #1A0D40→#07050F */}
-            <LinearGradient colors={['#1A0D40', '#07050F']} style={StyleSheet.absoluteFill} />
+            <LinearGradient colors={['#0A0718', '#0A0718']} style={StyleSheet.absoluteFill} />
+            
+            <LinearGradient
+                colors={['rgba(0, 255, 194, 0.05)', 'transparent']}
+                style={[StyleSheet.absoluteFill, { height: height * 0.4 }]}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+            />
 
             <View style={s.content}>
-
-                {/* Hourglass icon: Ionicons "hourglass-outline" size=64 purpleLight */}
-                {/* Reanimated: icon slowly rotates 0→360 over 4s, withRepeat -1 */}
-                <Reanimated.View style={rotationStyle}>
-                    <Ionicons name="hourglass-outline" size={64} color={C.purpleLight} />
+                <Reanimated.View style={[s.iconBox, rotationStyle]}>
+                    <Ionicons name="hourglass-outline" size={64} color={BRAND.cyan} />
                 </Reanimated.View>
 
-                {/* "Application Under Review" — bold 28px white, centered, marginTop 32 */}
-                <Txt variant="headingL" weight="bold" color={C.white} style={s.title}>
-                    Application Under Review
+                <Txt variant="headingL" weight="heavy" color="#FFF" style={s.title}>
+                    OPERATOR APPROVAL PENDING
                 </Txt>
 
-                {/* Body text — muted, centered, paddingHorizontal 48 */}
-                <Txt variant="bodyReg" color={C.muted} style={s.description}>
-                    Your profile has been submitted. You will be notified once approved.
+                <Txt variant="bodyReg" weight="heavy" color={VOICES.driver.textMuted} style={s.description}>
+                    YOUR PROFILE IS UNDERGOING SYSTEM COMPLIANCE CHECKS. YOU WILL BE NOTIFIED VIA SECURE PUSH ONCE AUTHORIZED.
                 </Txt>
-
+                
+                <View style={s.badge}>
+                    <Txt variant="caption" weight="heavy" color={BRAND.cyan} style={{ letterSpacing: 2 }}>
+                        TELEMETRY CONNECTED
+                    </Txt>
+                </View>
             </View>
 
-            {/* Sign Out button — bottom, red ghost style */}
-            <View style={[s.footer, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={[s.footer, { paddingBottom: insets.bottom + 40 }]}>
                 <TouchableOpacity style={s.logoutBtn} onPress={handleSignOut}>
-                    <Txt variant="bodyBold" color={C.red}>Sign Out</Txt>
+                    <Ionicons name="log-out-outline" size={20} color={SEMANTIC.danger} style={{ marginRight: 8 }} />
+                    <Txt variant="bodyBold" weight="heavy" color={SEMANTIC.danger}>TERMINATE SESSION</Txt>
                 </TouchableOpacity>
             </View>
 
@@ -92,18 +90,27 @@ export function PendingApprovalScreen() {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1 },
-    content: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    title: { textAlign: 'center', marginTop: 32, fontSize: 28 },
-    description: { textAlign: 'center', marginTop: 16, paddingHorizontal: 48, lineHeight: 24 },
-    footer: { paddingHorizontal: 40 },
+    root: { flex: 1, backgroundColor: '#0A0718' },
+    content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
+    iconBox: {
+        width: 120, height: 120, borderRadius: 60,
+        backgroundColor: 'rgba(0, 255, 194, 0.03)',
+        alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: 'rgba(0, 255, 194, 0.1)',
+        shadowColor: BRAND.cyan, shadowRadius: 20, shadowOpacity: 0.1,
+    },
+    title: { textAlign: 'center', marginTop: 40, letterSpacing: -0.5 },
+    description: { textAlign: 'center', marginTop: 20, lineHeight: 22, opacity: 0.8 },
+    badge: { marginTop: 32, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(0, 255, 194, 0.05)', borderWidth: 1, borderColor: 'rgba(0, 255, 194, 0.1)' },
+    footer: { paddingHorizontal: 32 },
     logoutBtn: {
-        height: 54,
+        height: 64,
+        flexDirection: 'row',
         borderWidth: 1,
         borderColor: 'rgba(239,68,68,0.2)',
-        borderRadius: 16,
+        borderRadius: 32,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(239,68,68,0.05)'
+        backgroundColor: 'rgba(239,68,68,0.03)'
     },
 });

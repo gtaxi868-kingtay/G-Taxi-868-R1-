@@ -73,7 +73,7 @@ async function registerPushToken(userId: string): Promise<void> {
         const { error } = await supabase
             .from('drivers')
             .update({ push_token: token })
-            .eq('user_id', userId);
+            .eq('id', userId);
 
         if (error) {
             console.error('registerPushToken: failed to save token to drivers table:', error);

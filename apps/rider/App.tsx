@@ -47,9 +47,12 @@ import { LaundryLandingScreen } from './src/screens/LaundryLandingScreen';
 import { LaundryEstimatorScreen } from './src/screens/LaundryEstimatorScreen';
 import { LaundryOrderStatusScreen } from './src/screens/LaundryOrderStatusScreen';
 import { DriverFoundScreen } from './src/screens/DriverFoundScreen';
+import { NfcHandshakeScreen } from './src/screens/NfcHandshakeScreen';
+import { ServiceBookingScreen } from './src/screens/ServiceBookingScreen'; // Phase 8A
 
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { OfflineBanner } from './src/components/OfflineBanner';
 
 const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
@@ -148,6 +151,8 @@ function AppNavigator() {
                 <AppStack.Screen name="LaundryOrderStatus" component={LaundryOrderStatusScreen} />
                 {/* Driver Found Confirmation */}
                 <AppStack.Screen name="DriverFound" component={DriverFoundScreen} />
+                <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} />
+                <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
             </AppStack.Navigator>
         </>
     );
@@ -174,10 +179,13 @@ function App() {
             <QueryClientProvider client={queryClient}>
                 <AuthProvider>
                     <ErrorBoundary>
-                        <NavigationContainer>
-                            <StatusBar style="light" />
-                            <RootNavigator />
-                        </NavigationContainer>
+                        <View style={{ flex: 1 }}>
+                            <OfflineBanner />
+                            <NavigationContainer>
+                                <StatusBar style="light" />
+                                <RootNavigator />
+                            </NavigationContainer>
+                        </View>
                     </ErrorBoundary>
                 </AuthProvider>
             </QueryClientProvider>

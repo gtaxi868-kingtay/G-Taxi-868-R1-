@@ -28,7 +28,7 @@ const R = {
     border: tokens.colors.glass.stroke,
     purple: tokens.colors.primary.purple,
     purpleLight: tokens.colors.primary.cyan,
-    gold: '#FFD700',
+    gold: '#F59E0B',
     white: tokens.colors.text.primary,
     muted: tokens.colors.text.secondary,
 };
@@ -43,7 +43,8 @@ export function SignupScreen({ navigation }: any) {
 
     const [formData, setFormData] = useState({
         name: '', email: '', phone: '', password: '',
-        emergencyName: '', emergencyPhone: ''
+        emergencyName: '', emergencyPhone: '',
+        aiEnabled: true // Default to enabled for premium experience
     });
     const [otp, setOtp] = useState('');
 
@@ -152,6 +153,25 @@ export function SignupScreen({ navigation }: any) {
                                 <Input label="CONTACT PHONE" placeholder="+1 868..." value={formData.emergencyPhone} onChange={(v: string) => setFormData({ ...formData, emergencyPhone: v })} keyboardType="phone-pad" />
                             </View>
 
+                            <View style={s.aiOptIn}>
+                                <View style={{ flex: 1 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Ionicons name="sparkles" size={16} color={R.purpleLight} />
+                                        <Txt variant="small" weight="heavy" color="#FFF" style={{ marginLeft: 8 }}>AI CONCIERGE</Txt>
+                                    </View>
+                                    <Txt variant="caption" color={R.muted} style={{ marginTop: 4 }}>Allow G-Taxi AI to learn your music and route preferences for a premium experience.</Txt>
+                                </View>
+                                <TouchableOpacity 
+                                    style={[s.toggle, { backgroundColor: formData.aiEnabled ? R.purple : 'rgba(255,255,255,0.1)' }]}
+                                    onPress={() => {
+                                        setFormData({ ...formData, aiEnabled: !formData.aiEnabled });
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    }}
+                                >
+                                    <View style={[s.toggleDot, { marginLeft: formData.aiEnabled ? 22 : 2 }]} />
+                                </TouchableOpacity>
+                            </View>
+
                             <TouchableOpacity style={s.btn} onPress={handleNext} disabled={loading}>
                                 <LinearGradient 
                                     colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
@@ -225,4 +245,12 @@ const s = StyleSheet.create({
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
     otpHeader: { alignItems: 'center', marginVertical: 40 },
+    
+    aiOptIn: { 
+        flexDirection: 'row', alignItems: 'center', padding: 20, 
+        backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginTop: 8 
+    },
+    toggle: { width: 44, height: 24, borderRadius: 12, justifyContent: 'center', padding: 2 },
+    toggleDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFF' },
 });

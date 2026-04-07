@@ -147,7 +147,7 @@ Deno.serve(async (req: Request) => {
         // Fetch ride to get driver_id for the split
         const { data: ride, error: rideError } = await supabaseAdmin
             .from("rides")
-            .select("id, driver_id, rider_id, total_fare_cents")
+            .select("id, driver_id, rider_id, total_fare_cents, drivers:driver_id(commission_tier, custom_commission_rate)")
             .eq("id", rideId)
             .single();
 
@@ -159,8 +159,20 @@ Deno.serve(async (req: Request) => {
         // Amount Stripe confirmed (in cents — pi.amount is already in smallest unit)
         const totalCents = pi.amount;
 
-        // 81/19 split: driver gets 81%, platform keeps 19%
-        const platformFeeCents = Math.round(totalCents * 0.19);
+        // Dynamic Split: pioneer (19%), standard (22%), etc.
+        let commissionRate = 0.22;
+        const driverData = ride.drivers as any;
+        if (driverData) {
+            if (driverData.custom_commission_rate != null) {
+                commissionRate = driverData.custom_commission_rate / 100;
+            } else if (driverData.commission_tier === 'pioneer') {
+                commissionRate = 0.19;
+            } else if (driverData.commission_tier === 'top_earner') {
+                commissionRate = 0.17;
+            }
+        }
+
+        const platformFeeCents = Math.round(totalCents * commissionRate);
         const driverNetCents = totalCents - platformFeeCents;
 
         // ── A: Write canonical ledger entry (rider's payment) ─────────────────
@@ -190,7 +202,7 @@ Deno.serve(async (req: Request) => {
                 ride_id: rideId,
                 amount: driverNetCents,
                 transaction_type: "driver_payout",
-                description: "Card ride earnings (81%)",
+                description: `Card ride earnings (${(100 - commissionRate * 100).toFixed(0)}%)`,
                 status: "completed",
             });
 
@@ -207,7 +219,7 @@ Deno.serve(async (req: Request) => {
                 ride_id: rideId,
                 amount: platformFeeCents,
                 transaction_type: "platform_commission",
-                description: "Platform commission (19%) for card ride",
+                description: `Platform commission (${(commissionRate * 100).toFixed(0)}%) for card ride`,
                 status: "completed",
             });
 

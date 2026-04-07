@@ -21,7 +21,7 @@ const R = {
     border: tokens.colors.glass.stroke,
     purple: tokens.colors.primary.purple,
     purpleLight: tokens.colors.primary.cyan,
-    gold: '#FFD700',
+    gold: '#F59E0B',
     green: tokens.colors.status.success,
     white: tokens.colors.text.primary,
     muted: tokens.colors.text.secondary,
@@ -88,16 +88,42 @@ export function ReceiptScreen({ navigation, route }: any) {
                         {/* Breakdown: Base fare, Tip, Total */}
                         <View style={s.breakdown}>
                             <View style={s.row}>
-                                <Txt variant="bodyReg" color={R.muted}>Fare</Txt>
+                                <Txt variant="bodyReg" color={R.muted}>Base Fare</Txt>
                                 <Txt variant="bodyBold" color="#FFF">${totalFare}</Txt>
                             </View>
+                            
+                            {ride.wait_fare_cents > 0 && (
+                                <View style={s.row}>
+                                    <Txt variant="bodyReg" color={R.gold}>Wait Time Surcharge</Txt>
+                                    <Txt variant="bodyBold" color={R.gold}>+${(ride.wait_fare_cents / 100).toFixed(2)}</Txt>
+                                </View>
+                            )}
+                            
+                            {/* NEW: Split Payment Breakdown (Truth Layer) */}
+                            {ride.wallet_deduction_cents > 0 && (
+                                <View style={s.splitItem}>
+                                    <View style={s.row}>
+                                        <Txt variant="small" color="#00FFFF">Wallet Deduction</Txt>
+                                        <Txt variant="small" color="#00FFFF">-${(ride.wallet_deduction_cents / 100).toFixed(2)}</Txt>
+                                    </View>
+                                </View>
+                            )}
+                            {ride.cash_payment_cents > 0 && (
+                                <View style={s.splitItem}>
+                                    <View style={s.row}>
+                                        <Txt variant="small" color={R.gold}>Cash Paid</Txt>
+                                        <Txt variant="small" color={R.gold}>${(ride.cash_payment_cents / 100).toFixed(2)}</Txt>
+                                    </View>
+                                </View>
+                            )}
+
                             <View style={s.row}>
                                 <Txt variant="bodyReg" color={R.muted}>Tip</Txt>
                                 <Txt variant="bodyBold" color="#FFF">$0.00</Txt>
                             </View>
                             <View style={[s.row, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' }]}>
                                 <Txt variant="headingM" weight="heavy" color="#FFF">Total</Txt>
-                                <Txt variant="headingM" weight="heavy" color={R.gold}>${totalFare}</Txt>
+                                <Txt variant="headingM" weight="heavy" color={R.gold}>${(( (ride.total_fare_cents || 0) + (ride.wait_fare_cents || 0) ) / 100).toFixed(2)}</Txt>
                             </View>
                         </View>
 
@@ -149,6 +175,7 @@ const s = StyleSheet.create({
     statVerticalLine: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.05)' },
 
     breakdown: { gap: 16 },
+    splitItem: { backgroundColor: 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
     addresses: { gap: 16 },

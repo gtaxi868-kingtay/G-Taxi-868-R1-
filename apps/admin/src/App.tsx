@@ -40,10 +40,15 @@ function App() {
   // 'checking' → auth in flight | 'login' → no session / not admin | 'dashboard' → verified admin
   const [view, setView] = useState<'checking' | 'login' | 'dashboard'>('checking');
 
+  // --- TRANSPORTATION STATE ---
   const [rides, setRides] = useState<Ride[]>([]);
   const [flags, setFlags] = useState<Flag[]>([]);
   const [systemConfig, setSystemConfig] = useState<any>(null);
   const [lockedDrivers, setLockedDrivers] = useState<LockedDriver[]>([]);
+  
+  // --- LOGISTICS STATE (Hardened) ---
+  const [orders, setOrders] = useState<any[]>([]);
+  const [intakeLogs, setIntakeLogs] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<UserRow[]>([]);
 
   const runAuthCheck = async () => {
@@ -114,12 +119,30 @@ function App() {
     }
   };
 
+  const fetchLogistics = async () => {
+    try {
+      const { data: orderData } = await supabase
+        .from('orders')
+        .select('*, order_items(*), rider:rider_id(name)')
+        .order('created_at', { ascending: false });
+      setOrders(orderData || []);
+      
+      const { data: logData } = await supabase.from('merchant_intake_logs').select('*');
+      setIntakeLogs(logData || []);
+    } catch (err: any) { console.error('fetchLogistics error:', err.message); }
+  };
+
   useEffect(() => {
     if (view !== 'dashboard') return;
     fetchRides();
     fetchAdminData();
+    fetchLogistics();
     const channel = supabase.channel('schema-db-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, () => { fetchRides(); }).subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const logChannel = supabase.channel('logistics-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => { fetchLogistics(); }).subscribe();
+    return () => { 
+      supabase.removeChannel(channel); 
+      supabase.removeChannel(logChannel);
+    };
   }, [view]);
 
   const handleForceCancel = async (rideId: string) => {
@@ -326,6 +349,45 @@ function App() {
       </header>
 
       <main style={{ maxWidth: '90rem', margin: '0 auto', padding: '3rem 2rem', display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+        
+        {/* LOGISTICS COMMAND (Phase 17 Hardening) */}
+        <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0 0.5rem' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#F59E0B', boxShadow: '0 0 15px #F59E0B' }} />
+            <h2 style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.4em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', fontFamily: "'Orbitron', sans-serif" }}>Logistics & Partner Command</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+            {orders.map(order => {
+              const logs = intakeLogs.filter(l => l.order_id === order.id);
+              return (
+                <div key={order.id} style={styles.glassCard}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <span style={styles.tag}>{order.status}</span>
+                    <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>#{order.id.slice(0,8)}</span>
+                  </div>
+                  <p style={{ fontSize: '14px', fontWeight: 800, marginBottom: '0.5rem' }}>Customer: {order.rider?.name || 'Unknown'}</p>
+                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '1rem' }}>{order.order_items?.length} items in transit</p>
+                  
+                  {/* PHOTO PROOF GALLERY */}
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                    {logs.map(log => log.photo_urls.map((url: string, i: number) => (
+                      <div key={i} style={{ width: '60px', height: '60px', borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <img src={url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Proof" />
+                      </div>
+                    )))}
+                    {logs.length === 0 && <div style={{ fontSize: '10px', color: '#f87171', fontWeight: 900 }}>[ PENDING PHOTO PROOF ]</div>}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button style={{ flex: 1, fontSize: '9px', fontWeight: 900, padding: '0.6rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}>ADJUDICATE</button>
+                    <button style={{ flex: 1, fontSize: '9px', fontWeight: 900, padding: '0.6rem', borderRadius: '0.75rem', border: '1px solid rgba(248, 113, 113, 0.2)', color: '#f87171', cursor: 'pointer' }}>CANCEL</button>
+                  </div>
+                </div>
+              );
+            })}
+            {orders.length === 0 && <p style={{ gridColumn: 'span 3', textAlign: 'center', opacity: 0.1, letterSpacing: '0.5em', padding: '3rem' }}>NO ACTIVE LOGISTICS</p>}
+          </div>
+        </section>
         {/* GEOLOCATION HUB */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0 0.5rem' }}>

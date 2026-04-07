@@ -11,6 +11,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { captureException } from "../_shared/sentry.ts";
+import { sendPushNotification } from "../_shared/push.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -104,7 +105,7 @@ serve(async (req: Request) => {
         // ── Authorization ─────────────────────────────────────────────────────
         const { data: driverRecord } = await supabaseAdmin
             .from('drivers')
-            .select('id')
+            .select('id, commission_tier, custom_commission_rate')
             .eq('user_id', userId)
             .maybeSingle();
 
@@ -160,7 +161,40 @@ serve(async (req: Request) => {
 
         // ── Payment Handling ──────────────────────────────────────────────────
         // Platform split: 81% driver, 19% platform
-        const effectiveFare = ride.total_fare_cents + (ride.wait_fee_cents || 0);
+        // DUAL CLOCK LEDGER:
+        // 1. Pickup Wait: 180s (3-min) grace period. $0.90/min thereafter.
+        const pickupWaitSec = ride.pickup_wait_seconds || 0;
+        const billablePickupSec = Math.max(0, pickupWaitSec - 180);
+        const billablePickupFareCents = Math.floor((billablePickupSec / 60) * 90);
+
+        // 2. Stop Wait: ZERO grace period. $0.90/min per second.
+        const stopWaitSec = ride.stop_wait_seconds || 0;
+        const billableStopFareCents = Math.floor((stopWaitSec / 60) * 90);
+
+        // 3. Gridlock Surcharge: $15 TTD if (Actual Duration - Estimated Duration) > 15 mins
+        let gridlockSurchargeCents = 0;
+        if (ride.duration_seconds && ride.status === 'in_progress') {
+            const startTime = new Date(ride.updated_at).getTime(); // Last status update was 'in_progress'
+            const now = new Date().getTime();
+            const actualDurationSec = (now - startTime) / 1000;
+            const delaySec = actualDurationSec - ride.duration_seconds;
+
+            if (delaySec > 900) { // 15 mins
+                gridlockSurchargeCents = 1500; // $15.00 TTD
+                console.log(`Gridlock detected: Delay of ${Math.round(delaySec/60)} mins. Surcharge applied.`);
+            }
+        }
+
+        const totalWaitFareCents = billablePickupFareCents + billableStopFareCents;
+        const effectiveFare = (ride.total_fare_cents || 0) + totalWaitFareCents + gridlockSurchargeCents;
+
+        let commissionRate = 0.22; // Default Standard
+        if (driverRecord?.custom_commission_rate != null) {
+            commissionRate = driverRecord.custom_commission_rate / 100;
+        } else if (driverRecord?.commission_tier === 'pioneer') {
+            commissionRate = 0.19;
+        }
+        // 17% tier removed to protect margins
 
         if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
             const { data: success, error: payError } = await supabaseAdmin
@@ -196,13 +230,13 @@ serve(async (req: Request) => {
                 );
             }
 
-            const commission = Math.round(effectiveFare * 0.19);
+            const commission = Math.round(effectiveFare * commissionRate);
             await supabaseAdmin.from("wallet_transactions").insert({
                 user_id: ride.driver_id,
                 ride_id: ride_id,
                 amount: -commission,
                 transaction_type: "commission_fee",
-                description: `Platform commission (19%) including $${((ride.wait_fee_cents || 0)/100).toFixed(2)} wait fee`,
+                description: `Platform commission (${(commissionRate * 100).toFixed(0)}%) including $${((totalWaitFareCents + gridlockSurchargeCents)/100).toFixed(2)} extra fees`,
                 status: "completed"
             });
 
@@ -238,7 +272,30 @@ serve(async (req: Request) => {
                 completed_at: new Date().toISOString(),
             }, { count: 'exact' })
             .eq("id", ride_id)
-            .in("status", ["in_progress"]);   // Fix 3.4: was ['assigned', 'arrived', 'in_progress']
+            .in("status", ["in_progress"]);
+
+        // Phase 11.5: Sync the final payout to the ride record for auditing
+        await supabaseAdmin.from("rides").update({ 
+            driver_payout_cents: Math.round(effectiveFare * (1 - commissionRate)) 
+        }).eq("id", ride_id);
+
+        // ── Push Notification to Rider ───────────────────────────────────────
+        if (ride.rider_id) {
+            const { data: riderProfile } = await supabaseAdmin
+                .from('profiles')
+                .select('push_token')
+                .eq('id', ride.rider_id)
+                .single();
+
+            if (riderProfile?.push_token) {
+                sendPushNotification(
+                    riderProfile.push_token,
+                    '🏁 Ride Completed',
+                    `Your ride is finished. Final fare: $${(effectiveFare / 100).toFixed(2)} TTD.`,
+                    { type: 'RIDE_COMPLETED', ride_id: ride.id }
+                ).catch(err => console.error("Rider push failed:", err));
+            }
+        }
 
         if (updateError || count === 0) {
             return new Response(
@@ -255,7 +312,7 @@ serve(async (req: Request) => {
             JSON.stringify({
                 success: true,
                 error: null,
-                data: { ride_id, status: "completed", total_fare_cents: ride.total_fare_cents },
+                data: { ride_id, status: "completed", total_fare_cents: effectiveFare },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

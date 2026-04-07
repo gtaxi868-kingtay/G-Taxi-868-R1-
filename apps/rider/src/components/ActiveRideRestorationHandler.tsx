@@ -46,23 +46,42 @@ export function ActiveRideRestorationHandler() {
                     };
 
                     if (ride.status === 'requested' || ride.status === 'searching') {
-                        navigation.navigate('SearchingDriver', {
-                            destination,
-                            fare,
-                            rideId: ride.ride_id,
+                        console.log('Restoring search state. Resetting navigation stack.');
+                        navigation.reset({
+                            index: 0,
+                            routes: [{
+                                name: 'SearchingDriver',
+                                params: { destination, fare, rideId: ride.ride_id }
+                            }],
                         });
                     } else if (ride.status === 'assigned' || ride.status === 'in_progress' || ride.status === 'arrived') {
                         const driver = ride.driver;
                         if (driver) {
-                            navigation.navigate('ActiveRide', {
-                                destination,
-                                fare,
-                                driver: {
-                                    ...driver,
-                                    vehicle: driver.vehicle,
-                                    plate: driver.plate,
-                                },
-                                rideId: ride.ride_id,
+                            console.log('Restoring active ride state. Resetting navigation stack.');
+                            navigation.reset({
+                                index: 0,
+                                routes: [{
+                                    name: 'ActiveRide',
+                                    params: {
+                                        destination,
+                                        fare,
+                                        driver: {
+                                            ...driver,
+                                            vehicle: driver.vehicle,
+                                            plate: driver.plate,
+                                        },
+                                        rideId: ride.ride_id,
+                                    }
+                                }],
+                            });
+                        } else {
+                            console.warn('Ride is assigned but no driver info found. Falling back to SearchingDriver.');
+                            navigation.reset({
+                                index: 0,
+                                routes: [{
+                                    name: 'SearchingDriver',
+                                    params: { destination, fare, rideId: ride.ride_id }
+                                }],
                             });
                         }
                     }

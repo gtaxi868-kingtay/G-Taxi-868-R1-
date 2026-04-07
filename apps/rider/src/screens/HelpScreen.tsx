@@ -22,7 +22,7 @@ const R = {
     border: tokens.colors.glass.stroke,
     purple: tokens.colors.primary.purple,
     purpleLight: tokens.colors.primary.cyan,
-    gold: '#FFD700',
+    gold: '#F59E0B',
     white: tokens.colors.text.primary,
     muted: tokens.colors.text.secondary,
 };

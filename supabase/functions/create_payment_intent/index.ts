@@ -152,17 +152,41 @@ Deno.serve(async (req: Request) => {
             );
         }
 
+        // ── Fetch Stripe Customer ID ──────────────────────────────────────────
+        const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("stripe_customer_id")
+            .eq("id", user.id)
+            .single();
+
         // ── Create Stripe PaymentIntent ────────────────────────────────────────
         // amount is in the smallest currency unit (cents for TTD).
         const createParams: any = {
             amount: amountCents,
             currency: "ttd",
+            customer: profile?.stripe_customer_id, // Link to the permanent customer
+            setup_future_usage: "off_session",     // Allow saving the card for the next ride
             metadata: {
                 ride_id: ride.id,
                 user_id: user.id,
             },
             payment_method_types: ["card"],
         };
+
+        // ── Ephemeral Key for Customer Session ────────────────────────────────
+        // Required for the mobile SDK to show saved payment methods.
+        let ephemeralKeySecret: string | undefined;
+        if (profile?.stripe_customer_id) {
+            try {
+                const ephemeralKey = await stripe.ephemeralKeys.create(
+                    { customer: profile.stripe_customer_id },
+                    { apiVersion: "2023-10-16" }
+                );
+                ephemeralKeySecret = ephemeralKey.secret;
+            } catch (err) {
+                console.warn("Could not create ephemeral key:", err);
+            }
+        }
 
         // Pass idempotency key to Stripe if provided by client
         const stripeOptions: any = {};
@@ -178,11 +202,14 @@ Deno.serve(async (req: Request) => {
             .update({ stripe_payment_intent_id: paymentIntent.id })
             .eq("id", ride.id);
 
-        // ── Return ONLY the client_secret ─────────────────────────────────────
-        // The client_secret lets the SDK confirm the payment without exposing
-        // any server-side secret. Never return the full PaymentIntent.
+        // ── Return payload for Stripe SDK ─────────────────────────────────────
         return new Response(
-            JSON.stringify({ clientSecret: paymentIntent.client_secret }),
+            JSON.stringify({
+                clientSecret: paymentIntent.client_secret,
+                customer: profile?.stripe_customer_id,
+                ephemeralKey: ephemeralKeySecret,
+                publishableKey: Deno.env.get("STRIPE_PUBLISHABLE_KEY"), // Extra convenience
+            }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
 

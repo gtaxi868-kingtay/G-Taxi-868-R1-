@@ -98,86 +98,57 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
         // Update tracked location
         lastSubscribedLocation.current = { lat: userLat, lng: userLng };
 
-        let channel: any;
+        let pollTimer: any;
 
-        const fetchDrivers = async () => {
+        const fetchNearbyFromRedis = async () => {
             try {
-                setLoading(true);
-
-                // Fetch online drivers via security definer view (avoids RLS block on drivers table)
-                const { data, error: fetchError } = await supabase
-                    .from('drivers_map_view')
-                    .select('id, lat, lng, heading, is_online')
-                    .not('lat', 'is', null)
-                    .not('lng', 'is', null);
+                // Call the new Redis-backed Edge Function
+                const { data, error: fetchError } = await supabase.functions.invoke('get_nearby_drivers', {
+                    body: { lat: userLat, lng: userLng, radius: radiusKm }
+                });
 
                 if (fetchError) throw fetchError;
 
-                // Initialize animated drivers
-                const animatedList: AnimatedDriver[] = (data || []).map((d: DriverFromDB) => {
-                    const animated = getOrCreateAnimatedDriver(d);
-                    animatedDriversRef.current.set(d.id, animated);
-                    return animated;
+                const redisDrivers = data.drivers || [];
+
+                // Update animated drivers
+                const newDriverList: AnimatedDriver[] = redisDrivers.map((d: DriverFromDB) => {
+                    const existing = animatedDriversRef.current.get(d.id);
+                    if (existing) {
+                        animateDriverToPosition(existing, d.lat, d.lng, d.heading || 0);
+                        return existing;
+                    } else {
+                        const newAnimated = getOrCreateAnimatedDriver(d);
+                        animatedDriversRef.current.set(d.id, newAnimated);
+                        return newAnimated;
+                    }
                 });
 
-                setDrivers(animatedList);
+                // Remove drivers that are no longer in the results (offline or too far)
+                const currentIds = new Set(redisDrivers.map((d: any) => d.id));
+                for (const [id, _] of animatedDriversRef.current) {
+                    if (!currentIds.has(id)) {
+                        animatedDriversRef.current.delete(id);
+                    }
+                }
+
+                setDrivers(newDriverList);
                 setLoading(false);
             } catch (err) {
+                console.error("Redis fetch failed:", err);
                 setError(String(err));
                 setLoading(false);
             }
         };
 
-        const subscribeToUpdates = () => {
-            channel = supabase
-                .channel('driver-locations-realtime')
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'UPDATE',
-                        schema: 'public',
-                        table: 'drivers', // Must remain 'drivers' because Realtime doesn't fire on views
-                    },
-                    (payload) => {
-                        const payloadData = payload.new;
-                        // Map the payload to only the fields we care about
-                        const updatedDriver: DriverFromDB = {
-                            id: payloadData.id,
-                            lat: payloadData.lat,
-                            lng: payloadData.lng,
-                            heading: payloadData.heading,
-                            is_online: payloadData.is_online
-                        };
-                        const existing = animatedDriversRef.current.get(updatedDriver.id);
+        // Initial fetch
+        fetchNearbyFromRedis();
 
-                        if (existing && updatedDriver.lat && updatedDriver.lng) {
-                            // Animate existing driver to new position
-                            animateDriverToPosition(
-                                existing,
-                                updatedDriver.lat,
-                                updatedDriver.lng,
-                                updatedDriver.heading || 0
-                            );
-                            existing.is_online = updatedDriver.is_online;
-
-                        } else if (!existing && updatedDriver.is_online && updatedDriver.lat) {
-                            // New driver came online - add them
-                            const newAnimated = getOrCreateAnimatedDriver(updatedDriver);
-                            animatedDriversRef.current.set(updatedDriver.id, newAnimated);
-                            setDrivers(prev => [...prev, newAnimated]);
-                        }
-                    }
-                )
-                .subscribe();
-        };
-
-        fetchDrivers();
-        subscribeToUpdates();
+        // High-frequency poll (Every 3 seconds) — MUCH safer than Postgres Realtime for location
+        pollTimer = setInterval(fetchNearbyFromRedis, 3000);
 
         return () => {
-            if (channel) {
-                supabase.removeChannel(channel);
-            }
+            if (pollTimer) clearInterval(pollTimer);
         };
     }, [userLat, userLng]);
 

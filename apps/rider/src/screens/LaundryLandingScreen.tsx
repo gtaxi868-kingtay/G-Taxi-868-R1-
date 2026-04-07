@@ -8,6 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../../../shared/supabase';
 
 const SERVICES = [
     { id: 'wash_fold', label: 'Wash & Fold', icon: '🫧', baseRate: 500 },
@@ -18,10 +20,46 @@ const SERVICES = [
 export function LaundryLandingScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
     const [selectedService, setSelectedService] = useState(SERVICES[0]);
+    const [isProcessingAI, setIsProcessingAI] = useState(false);
 
     const handleNext = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         navigation.navigate('LaundryEstimator', { service: selectedService });
+    };
+
+    const handleAITakePhoto = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert("Permission Needed", "Camera access is required for AI intake.");
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 0.5,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            setIsProcessingAI(true);
+            try {
+                // Phase 16 Placeholder: Upload to Supabase and call edge function
+                // For now, we simulate the AI processing and pass a dummy generated list
+                setTimeout(() => {
+                    setIsProcessingAI(false);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    navigation.navigate('LaundryEstimator', { 
+                        service: selectedService, 
+                        photoUrl: result.assets[0].uri,
+                        aiList: [{ name: "AI Bundle", qty: 1 }] // Mock list until Edge fn is wired
+                    });
+                }, 2000);
+            } catch (err) {
+                Alert.alert("Error", "Failed to process image.");
+                setIsProcessingAI(false);
+            }
+        }
     };
 
     return (
@@ -86,15 +124,31 @@ export function LaundryLandingScreen({ navigation }: any) {
 
             {/* CTA */}
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 20 }]}>
-                <TouchableOpacity style={s.ctaButton} onPress={handleNext} activeOpacity={0.88}>
-                    <LinearGradient
-                        colors={['#7B61FF', '#5A2DDE']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                        style={s.ctaGradient}
-                    >
-                        <Text style={s.ctaText}>Estimate Price →</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
+                {isProcessingAI ? (
+                    <View style={s.aiLoadingBlock}>
+                        <View style={s.loadingDot} />
+                        <Text style={s.aiLoadingText}>AI IS ANALYZING BUNDLE...</Text>
+                    </View>
+                ) : (
+                    <>
+                        <TouchableOpacity style={s.aiButton} onPress={handleAITakePhoto} activeOpacity={0.88}>
+                            <View style={s.aiIconWrap}>
+                                <Ionicons name="camera" size={20} color="#00FFFF" />
+                            </View>
+                            <Text style={s.aiButtonText}>AI Photo Intake</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={s.ctaButton} onPress={handleNext} activeOpacity={0.88}>
+                            <LinearGradient
+                                colors={['#7C3AED', '#5A2DDE']}
+                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                style={s.ctaGradient}
+                            >
+                                <Text style={s.ctaText}>Estimate Price Manually →</Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </>
+                )}
             </View>
         </LinearGradient>
     );
@@ -123,7 +177,7 @@ const s = StyleSheet.create({
         padding: 18, alignItems: 'center', gap: 8,
         backgroundColor: 'rgba(255,255,255,0.04)',
     },
-    serviceCardActive: { borderColor: '#7B61FF' },
+    serviceCardActive: { borderColor: '#7C3AED' },
     serviceIcon: { fontSize: 36 },
     serviceLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
     serviceLabelActive: { color: '#FFF' },
@@ -147,4 +201,16 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center', paddingVertical: 18,
     },
     ctaText: { fontSize: 17, fontWeight: '800', color: '#FFF' },
+    aiButton: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        paddingVertical: 18, borderRadius: 20,
+        backgroundColor: 'rgba(0,255,255,0.05)',
+        borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)',
+        marginBottom: 12, gap: 10,
+    },
+    aiIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+    aiButtonText: { fontSize: 17, fontWeight: '800', color: '#00FFFF', letterSpacing: 0.5 },
+    aiLoadingBlock: { alignItems: 'center', paddingVertical: 20 },
+    loadingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#00FFFF', marginBottom: 10 },
+    aiLoadingText: { fontSize: 13, fontWeight: '800', color: '#00FFFF', letterSpacing: 1.5 },
 });

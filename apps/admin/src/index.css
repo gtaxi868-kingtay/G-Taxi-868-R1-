@@ -5,14 +5,14 @@
 @tailwind utilities;
 
 :root {
-  --neon-cyan: #00f2ff;
-  --neon-purple: #bc13fe;
-  --neon-gold: #ffcc00;
-  --elegant-purple: #A78BFA;
-  --elegant-blue: #7DD3FC;
-  --glass-bg: rgba(13, 17, 23, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --dark-hud: #07050f;
+  --neon-cyan: #06B6D4; /* Cyan 500 */
+  --neon-purple: #7C3AED; /* Brand Royal Purple */
+  --neon-gold: #F59E0B; /* Semantic Warning */
+  --elegant-purple: #8B5CF6; /* Violet 500 */
+  --elegant-blue: #0EA5E9; /* Sky 500 */
+  --glass-bg: rgba(15, 23, 42, 0.8); /* Slate 900 Glass */
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --dark-hud: #0F172A; /* Slate 900 */
 }
 
 body {

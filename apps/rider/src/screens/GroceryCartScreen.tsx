@@ -146,7 +146,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                                     <Switch
                                         value={deliverToRide}
                                         onValueChange={v => { Haptics.selectionAsync(); setDeliverToRide(v); }}
-                                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#7B61FF' }}
+                                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#7C3AED' }}
                                         thumbColor={deliverToRide ? '#00FFFF' : '#888'}
                                     />
                                 </View>
@@ -180,7 +180,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 16 }]}>
                     <TouchableOpacity style={s.ctaButton} onPress={handleCheckout} disabled={loading} activeOpacity={0.88}>
                         <LinearGradient
-                            colors={['#7B61FF', '#5A2DDE']}
+                            colors={['#7C3AED', '#5A2DDE']}
                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                             style={s.ctaGradient}
                         >
@@ -223,7 +223,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(123,97,255,0.2)',
         alignItems: 'center', justifyContent: 'center',
     },
-    qtyBtnAdd: { backgroundColor: '#7B61FF' },
+    qtyBtnAdd: { backgroundColor: '#7C3AED' },
     qtyBtnText: { fontSize: 18, color: '#FFF', fontWeight: '700', lineHeight: 22 },
     qtyVal: { fontSize: 16, fontWeight: '700', color: '#FFF', minWidth: 20, textAlign: 'center' },
     lineTotal: { fontSize: 14, fontWeight: '700', color: '#00FFFF', minWidth: 60, textAlign: 'right' },

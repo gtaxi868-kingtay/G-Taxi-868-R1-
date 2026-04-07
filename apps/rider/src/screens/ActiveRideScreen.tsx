@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity, Alert,
-    Linking, Dimensions, Platform, Image as RNImage, AppState
+    View, Text, StyleSheet, TouchableOpacity, Alert,
+    Linking, Dimensions, Platform, Image as RNImage, AppState,
+    Modal, TextInput, KeyboardAvoidingView,
+    ActivityIndicator
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,35 +13,54 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
     useSharedValue, withTiming, withRepeat,
-    useAnimatedStyle, Easing
+    useAnimatedStyle, Easing, FadeInUp
 } from 'react-native-reanimated';
-// Skia removed for Expo Go compatibility
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { ENV } from '../../../../shared/env';
 import { supabase } from '../../../../shared/supabase';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
+import { GlassCard, InfoChip, StatusBadge, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '../design-system';
 import { Txt } from '../design-system/primitives';
 
-import { tokens } from '../design-system/tokens';
-
 const { width, height } = Dimensions.get('window');
-const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
-const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
-    red: tokens.colors.status.error,
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
-    green: tokens.colors.status.success,
-    gold: '#FFD700',
+interface DriverMarkerProps {
+    coordinate: { latitude: number; longitude: number };
+    rotation: number;
+}
+
+const DriverMarker = ({ coordinate, rotation }: DriverMarkerProps) => {
+    const pulse = useSharedValue(0);
+    useEffect(() => {
+        pulse.value = withRepeat(
+            withTiming(1, { duration: 1500, easing: Easing.out(Easing.ease) }),
+            -1
+        );
+    }, []);
+
+    const pulseStyle = useAnimatedStyle(() => ({
+        opacity: 1 - pulse.value,
+        transform: [{ scale: 1 + pulse.value * 1.5 }],
+    }));
+
+    return (
+        <Marker coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }} rotation={rotation}>
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+                <Reanimated.View style={[pulseStyle, s.pulseRing]} />
+                <View style={s.markerDot} />
+            </View>
+        </Marker>
+    );
 };
 
-export function ActiveRideScreen({ route, navigation }: any) {
+interface ActiveRideRouteParams {
+    rideId: string;
+    paymentMethod?: string;
+}
+
+export function ActiveRideScreen({ route, navigation }: { route: { params: ActiveRideRouteParams }, navigation: any }) {
     const { rideId, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
 
@@ -47,14 +68,16 @@ export function ActiveRideScreen({ route, navigation }: any) {
     const [driver, setDriver] = useState<any>(null);
     const [driverLocation, setDriverLocation] = useState<any>(null);
     const [isSosLoading, setIsSosLoading] = useState(false);
-    const [waitStats, setWaitStats] = useState({ mins: 0, cents: 0 });
+    const [aiInsight, setAiInsight] = useState<string | null>("I'm monitoring your ride security and wait-time.");
+    const [musicModalVisible, setMusicModalVisible] = useState(false);
+    const [musicUrl, setMusicUrl] = useState('');
+    const [isMusicLoading, setIsMusicLoading] = useState(false);
+    const [location, setLocation] = useState<Location.LocationObject | null>(null);
 
-    // FIX: channel must be in a ref accessible by the useEffect cleanup
     const driverChannelRef = useRef<any>(null);
 
     const { rideUpdate: updatedRide } = useRideSubscription(rideId);
 
-    // Reanimated Values
     const sosPulse = useSharedValue(1);
     const statusOpacity = useSharedValue(0);
 
@@ -66,7 +89,6 @@ export function ActiveRideScreen({ route, navigation }: any) {
             -1, true
         );
 
-        // Reconnect driver location channel when app returns from background
         const appStateSub = AppState.addEventListener('change', (nextState) => {
             if (nextState === 'active' && driverChannelRef.current) {
                 supabase.removeChannel(driverChannelRef.current);
@@ -75,25 +97,59 @@ export function ActiveRideScreen({ route, navigation }: any) {
             }
         });
 
-        // Live Wait Clock (Fix 5)
-        const timer = setInterval(() => {
-            setRide((currentRide: any) => {
-                if (currentRide?.status === 'arrived' && currentRide?.arrived_at) {
-                    const diffMs = Date.now() - new Date(currentRide.arrived_at).getTime();
-                    const mins = Math.max(0, Math.floor(diffMs / 60000));
-                    const cents = Math.floor((diffMs / 60000) * 90);
-                    setWaitStats({ mins, cents });
+        const eventsChannel = supabase
+            .channel(`ride_events_${rideId}`)
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'ride_events', filter: `ride_id=eq.${rideId}` },
+                (payload: any) => {
+                    if (payload.new?.event_type === 'ai_insight') {
+                        setAiInsight(payload.new.metadata?.message || "Analyzing logistics...");
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
                 }
-                return currentRide;
-            });
-        }, 1000);
+            )
+            .subscribe();
+
+        (async () => {
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') return;
+            
+            let loc = await Location.getCurrentPositionAsync({});
+            setLocation(loc);
+
+            const locationSub = await Location.watchPositionAsync(
+                { accuracy: Location.Accuracy.Balanced, distanceInterval: 10 },
+                (newLoc) => setLocation(newLoc)
+            );
+            return () => locationSub.remove();
+        })();
+
+        const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
+            // Allow navigation if the ride is actually finished
+            if (ride?.status === 'completed' || ride?.status === 'closed' || ride?.status === 'cancelled') {
+                return;
+            }
+
+            // Prevent default behavior of leaving the screen
+            e.preventDefault();
+
+            Alert.alert(
+                'Active Ride',
+                'You have an active ride in progress. Please use the SOS button for emergencies or wait for the ride to complete.',
+                [
+                    { text: 'Stay in Ride', style: 'cancel', onPress: () => { } },
+                ]
+            );
+        });
 
         return () => {
             appStateSub.remove();
-            clearInterval(timer);
             if (driverChannelRef.current) {
                 supabase.removeChannel(driverChannelRef.current);
             }
+            eventsChannel.unsubscribe();
+            beforeRemoveListener();
         };
     }, []);
 
@@ -110,6 +166,34 @@ export function ActiveRideScreen({ route, navigation }: any) {
             }
         }
     }, [updatedRide]);
+
+    useEffect(() => {
+        if (ride?.status !== 'in_progress') return;
+
+        const pollAi = async () => {
+            try {
+                const { data, error } = await supabase.functions.invoke('ai_concierge_proactive', {
+                    body: { 
+                        ride_id: rideId, 
+                        lat: location?.coords?.latitude, 
+                        lng: location?.coords?.longitude,
+                        destination_name: ride?.dropoff_address
+                    }
+                });
+                if (data?.suggestion) {
+                    setAiInsight(data.suggestion);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
+            } catch (err) {
+                console.warn("AI Proactive fetch failed:", err);
+            }
+        };
+
+        const interval = setInterval(pollAi, 120000);
+        pollAi();
+        
+        return () => clearInterval(interval);
+    }, [ride?.status, location]);
 
     const fetchInitialData = async () => {
         const { data } = await supabase
@@ -128,7 +212,6 @@ export function ActiveRideScreen({ route, navigation }: any) {
             setDriver(data.driver);
             setDriverLocation({ latitude: data.driver?.lat, longitude: data.driver?.lng });
 
-            // FIX: store channel in ref so cleanup in useEffect can actually reach it
             driverChannelRef.current = supabase.channel(`driver_loc_${data.driver?.id}`)
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${data.driver?.id}` }, (payload) => {
                     setDriverLocation({ latitude: payload.new.lat, longitude: payload.new.lng });
@@ -137,30 +220,35 @@ export function ActiveRideScreen({ route, navigation }: any) {
         }
     };
 
-    const calculateETA = () => {
-        if (!ride || !driverLocation) return null;
+    const handleMusicSuggestion = async () => {
+        if (!musicUrl.includes('spotify.com') && !musicUrl.includes('youtube.com') && !musicUrl.includes('youtu.be')) {
+            Alert.alert("Invalid Link", "Please provide a valid Spotify or YouTube link.");
+            return;
+        }
 
-        const targetLat = ride?.status === 'in_progress' ? ride?.dropoff_lat : ride?.pickup_lat;
-        const targetLng = ride?.status === 'in_progress' ? ride?.dropoff_lng : ride?.pickup_lng;
+        setIsMusicLoading(true);
+        const { error } = await supabase
+            .from('rides')
+            .update({ 
+                entertainment_url: musicUrl,
+                entertainment_status: 'pending' 
+            })
+            .eq('id', rideId);
+        
+        if (!rideId) {
+            Alert.alert("Error", "No active ride session found.");
+            setIsMusicLoading(false);
+            return;
+        }
 
-        if (!targetLat || !targetLng) return null;
-
-        // Haversine distance in meters
-        const R_EARTH = 6371e3;
-        const φ1 = (driverLocation.latitude * Math.PI) / 180;
-        const φ2 = (targetLat * Math.PI) / 180;
-        const Δφ = ((targetLat - driverLocation.latitude) * Math.PI) / 180;
-        const Δλ = ((targetLng - driverLocation.longitude) * Math.PI) / 180;
-
-        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distance = R_EARTH * c;
-
-        // Assume avg speed of 40km/h (666m/min) in T&T traffic
-        const minutes = Math.ceil(distance / 666);
-        return minutes;
+        setIsMusicLoading(false);
+        if (error) {
+            Alert.alert("Error", "Could not send suggestion.");
+        } else {
+            setMusicModalVisible(false);
+            setAiInsight("Music suggestion sent! Waiting for driver approval...");
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
     };
 
     const handleSOS = () => {
@@ -170,26 +258,24 @@ export function ActiveRideScreen({ route, navigation }: any) {
             {
                 text: "TRIGGER", style: "destructive", onPress: async () => {
                     setIsSosLoading(true);
-                    await supabase.functions.invoke('trigger_emergency', { body: { ride_id: rideId } });
-                    Alert.alert("Success", "Security notified.");
+                    if (rideId) {
+                        await supabase.functions.invoke('trigger_emergency', { body: { ride_id: rideId } });
+                        Alert.alert("Success", "Security notified.");
+                    } else {
+                        Alert.alert("Error", "No active ride found to trigger SOS.");
+                    }
                     setIsSosLoading(false);
                 }
             }
         ]);
     };
 
-    const getStatusMessage = () => {
-        if (!ride) return "Preparing...";
-        const eta = calculateETA();
-
-        if (ride?.status === 'assigned') {
-            return eta !== null ? `Arriving in ${eta} min` : "Driver is on the way";
-        }
-        if (ride?.status === 'arrived') return "Driver has arrived";
-        if (ride?.status === 'in_progress') {
-            return eta !== null ? `${eta} min to destination` : "Heading to destination";
-        }
-        return "Active Ride";
+    const getStatusType = () => {
+        if (!ride) return 'searching';
+        if (ride?.status === 'assigned') return 'assigned';
+        if (ride?.status === 'arrived') return 'live';
+        if (ride?.status === 'in_progress') return 'live';
+        return 'searching';
     };
 
     const statusStyle = useAnimatedStyle(() => ({ opacity: statusOpacity.value }));
@@ -197,11 +283,19 @@ export function ActiveRideScreen({ route, navigation }: any) {
 
     const step = ride?.status === 'assigned' || ride?.status === 'arrived' ? 1 : 2;
 
+    if (!ride) {
+        return (
+            <View style={{ flex: 1, backgroundColor: VOICES.rider.bg, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                <ActivityIndicator size="large" color={BRAND.purple} />
+                <Text style={{ marginTop: 16, textAlign: 'center', color: VOICES.rider.textMuted }}>Connecting to your ride...</Text>
+            </View>
+        );
+    }
+
     return (
         <View style={s.root}>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
 
-            {/* Map: Mapbox dark-v11 (full screen) */}
             <MapView
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
@@ -211,20 +305,17 @@ export function ActiveRideScreen({ route, navigation }: any) {
                     latitudeDelta: 0.05,
                     longitudeDelta: 0.05,
                 }}
-                userInterfaceStyle="dark"
+                userInterfaceStyle="light"
             >
                 {ENV.MAPBOX_PUBLIC_TOKEN && (
                     <UrlTile
-                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
+                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
                         shouldReplaceMapContent={true}
                     />
                 )}
 
-                {/* Markers: Rider (circle), Driver (car icon), Destination (square) */}
                 {driverLocation && (
-                    <Marker coordinate={driverLocation} anchor={{ x: 0.5, y: 0.5 }}>
-                        <RNImage source={CAR_ASSET} style={s.carMarker} resizeMode="contain" />
-                    </Marker>
+                    <DriverMarker coordinate={driverLocation} rotation={driver?.heading || 0} />
                 )}
                 <Marker coordinate={{ latitude: ride?.pickup_lat || 0, longitude: ride?.pickup_lng || 0 }}>
                     <View style={s.riderMarker} />
@@ -234,120 +325,250 @@ export function ActiveRideScreen({ route, navigation }: any) {
                 </Marker>
             </MapView>
 
-            {/* Top Overlay: Status bubble (Reanimated) */}
             <Reanimated.View style={[s.statusBubble, statusStyle, { top: insets.top + 10 }]}>
-                <BlurView tint="dark" intensity={100} style={s.statusBlur}>
-                    <View style={s.statusDot} />
-                    <Txt variant="bodyBold" color="#FFF">{getStatusMessage()}</Txt>
-                </BlurView>
+                <StatusBadge status={getStatusType()} label={ride?.status?.toUpperCase()} />
             </Reanimated.View>
 
-            {/* Bottom Card (BlurView) */}
+            {aiInsight && (
+                <Reanimated.View entering={FadeInUp} style={[s.aiInsightHud, { top: insets.top + 72 }]}>
+                    <LinearGradient 
+                        colors={[BRAND.purple, BRAND.purpleDark]} 
+                        style={s.aiInsightGradient} 
+                        start={GRADIENTS.primaryStart} 
+                        end={GRADIENTS.primaryEnd}
+                    >
+                        <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                <Ionicons name="sparkles" size={14} color="#FFF" />
+                                <Text style={s.aiTitle}>G-TAXI AI CONCIERGE</Text>
+                            </View>
+                            <Text style={s.aiMessage}>{aiInsight}</Text>
+                            
+                            {aiInsight.toLowerCase().includes('stop') && (
+                                <TouchableOpacity 
+                                    style={s.aiActionBtn}
+                                    onPress={async () => {
+                                        setAiInsight("Updating trip manifest... Navigation synced.");
+                                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                        
+                                        try {
+                                            const { data, error } = await supabase.rpc('add_mid_ride_stop', {
+                                                p_ride_id: rideId,
+                                                p_place_name: 'ATM Stop',
+                                                p_lat: (ride?.dropoff_lat || 10.66) + 0.002,
+                                                p_lng: (ride?.dropoff_lng || -61.51) + 0.002,
+                                                p_address: 'Dynamic AI Suggested Stop'
+                                            });
+                                            if (error) throw error;
+                                        } catch (err) {
+                                            console.error("Failed to add mid-ride stop:", err);
+                                            setAiInsight("Unable to add stop. Please try again.");
+                                        }
+                                    }}
+                                >
+                                    <Text style={{ fontSize: 12, fontWeight: '800', color: BRAND.cyan }}>ADD TO TRIP</Text>
+                                    <Ionicons name="arrow-forward-circle" size={16} color={BRAND.cyan} style={{ marginLeft: 4 }} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <TouchableOpacity onPress={() => setAiInsight(null)} style={{ padding: 4 }}>
+                            <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
+                        </TouchableOpacity>
+                    </LinearGradient>
+                </Reanimated.View>
+            )}
+
             <View style={[s.bottomCard, { paddingBottom: insets.bottom + 20 }]}>
-                <BlurView tint="dark" intensity={90} style={s.cardBlur}>
+                <GlassCard variant="rider" style={s.cardBlur}>
                     <View style={s.handle} />
 
                     <View style={s.driverRow}>
                         <View style={s.avatar}>
-                            <Txt variant="headingM" color="#FFF">{driver?.name?.charAt(0)}</Txt>
+                            <Text style={s.avatarTxt}>{driver?.name?.charAt(0)}</Text>
                         </View>
                         <View style={{ flex: 1, marginLeft: 16 }}>
-                            <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 18 }}>{driver?.name || 'Partner'}</Txt>
-                            <Txt variant="small" color={R.muted}>{driver?.vehicle_model} · {driver?.plate_number}</Txt>
+                            <Text style={s.driverName}>{driver?.name || 'Partner'}</Text>
+                            <Text style={s.vehicleInfo}>{driver?.vehicle_model} · {driver?.plate_number}</Text>
                         </View>
                         {ride?.ride_pin && (
                             <View style={s.pinBadge}>
-                                <Txt variant="caption" color={R.muted} style={{ marginBottom: 2 }}>SECURITY PIN</Txt>
-                                <Txt variant="headingM" color={R.white} weight="heavy">{ride?.ride_pin}</Txt>
+                                <Text style={s.pinLabel}>RIDE PIN</Text>
+                                <Text style={s.pinValue}>{ride?.ride_pin}</Text>
                             </View>
                         )}
                         <TouchableOpacity style={s.sosBtn} onPress={handleSOS}>
                             <Reanimated.View style={[s.sosRing, sosAnim]} />
-                            <Txt variant="caption" weight="heavy" color="#FFF">SOS</Txt>
+                            <Text style={s.sosLabel}>SOS</Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* --- WAIT CLOCK UI (Fix 5) --- */}
-                    {ride?.status === 'arrived' && (
-                        <View style={s.waitClockRow}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <Ionicons name="time" size={16} color={R.gold} />
-                                <Txt variant="bodyBold" color={R.gold}>LATE FEE: ${ (waitStats.cents / 100).toFixed(2) }</Txt>
-                            </View>
-                            <Txt variant="caption" color={R.muted}>{waitStats.mins}m elapsed</Txt>
-                        </View>
+                    {ride?.status === 'arrived' && ride?.arrived_at && (
+                        <IsolatedWaitClock arrivedAt={ride?.arrived_at} setAiInsight={setAiInsight} />
                     )}
 
-                    {/* Progress: 3-step track (Pickup → On Trip → Dropoff) */}
                     <View style={s.track}>
                         <View style={[s.trackNode, step >= 1 && s.trackNodeActive]}>
-                            <Ionicons name="location" size={12} color={step >= 1 ? "#FFF" : R.muted} />
+                            <Ionicons name="location" size={12} color={step >= 1 ? "#FFF" : VOICES.rider.textMuted} />
                         </View>
                         <View style={[s.trackLine, step >= 2 && s.trackLineActive]} />
                         <View style={[s.trackNode, step >= 2 && s.trackNodeActive]}>
-                            <Ionicons name="car" size={12} color={step >= 2 ? "#FFF" : R.muted} />
+                            <Ionicons name="car" size={12} color={step >= 2 ? "#FFF" : VOICES.rider.textMuted} />
                         </View>
                         <View style={s.trackLine} />
                         <View style={s.trackNode}>
-                            <Ionicons name="flag" size={12} color={R.muted} />
+                            <Ionicons name="flag" size={12} color={VOICES.rider.textMuted} />
                         </View>
                     </View>
 
                     <View style={s.actions}>
                         <TouchableOpacity style={s.msgBtn} onPress={() => navigation.navigate('Chat', { rideId, driver })}>
-                            <Ionicons name="chatbubble-ellipses" size={20} color="#FFF" />
+                            <Ionicons name="chatbubble-ellipses" size={20} color={BRAND.purple} />
                         </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={[s.msgBtn, { marginLeft: 8, borderColor: ride?.entertainment_status === 'accepted' ? SEMANTIC.success : 'transparent' }]} 
+                            onPress={() => setMusicModalVisible(true)}
+                        >
+                            <Ionicons 
+                                name={ride?.entertainment_status === 'accepted' ? "musical-notes" : "musical-note-outline"} 
+                                size={20} 
+                                color={ride?.entertainment_status === 'accepted' ? SEMANTIC.success : BRAND.purple} 
+                            />
+                        </TouchableOpacity>
+
                         <TouchableOpacity style={s.callBtn} onPress={() => driver?.phone_number && Linking.openURL(`tel:${driver.phone_number}`)}>
-                            <Ionicons name="call" size={20} color="#FFF" />
-                            <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 8 }}>Call</Txt>
+                            <Ionicons name="call" size={20} color={BRAND.purple} />
+                            <Text style={s.callLabel}>Voice Call</Text>
                         </TouchableOpacity>
                     </View>
-                </BlurView>
+                </GlassCard>
             </View>
 
+            <Modal visible={musicModalVisible} transparent animationType="slide">
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
+                    <BlurView tint="dark" intensity={100} style={s.modalContent}>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', marginBottom: 12 }}>Music Suggestion</Text>
+                        <Text style={{ fontSize: 14, color: VOICES.rider.textMuted, textAlign: 'center', marginBottom: 24 }}>
+                            Suggest a Spotify or YouTube link for the driver to play.
+                        </Text>
+                        <TextInput 
+                            style={s.musicInput} 
+                            placeholder="https://..." 
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            value={musicUrl}
+                            onChangeText={setMusicUrl}
+                            autoFocus
+                            autoCapitalize="none"
+                        />
+                        <View style={s.modalActions}>
+                            <TouchableOpacity style={s.modalCancel} onPress={() => setMusicModalVisible(false)}>
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: VOICES.rider.textMuted }}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={s.modalConfirm} onPress={handleMusicSuggestion} disabled={isMusicLoading}>
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFF' }}>{isMusicLoading ? 'Sending...' : 'Send'}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </BlurView>
+                </KeyboardAvoidingView>
+            </Modal>
+        </View>
+    );
+}
+
+function IsolatedWaitClock({ arrivedAt, setAiInsight }: { arrivedAt: string, setAiInsight: any }) {
+    const [stats, setStats] = useState({ mins: 0, cents: 0 });
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            const diffMs = Date.now() - new Date(arrivedAt).getTime();
+            const mins = Math.max(0, Math.floor(diffMs / 60000));
+            const cents = Math.floor((diffMs / 60000) * 90);
+            setStats({ mins, cents });
+
+            if (mins === 4 && stats.mins !== 4) {
+                setAiInsight("Wait fee is now active ($0.90/min). Your driver is still waiting.");
+            }
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [arrivedAt, stats.mins]);
+
+    return (
+        <View style={s.waitClockRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="time" size={16} color={SEMANTIC.warning} />
+                <Text style={s.lateFeeValue}>LATE FEE: TTD ${ (stats.cents / 100).toFixed(2) }</Text>
+            </View>
+            <Text style={s.lateFeeLabel}>{stats.mins}m elapsed</Text>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    carMarker: { width: 44, height: 44 },
-    riderMarker: { width: 12, height: 12, borderRadius: 6, backgroundColor: R.white, borderWidth: 3, borderColor: R.purple },
-    destMarker: { width: 12, height: 12, backgroundColor: R.white, borderWidth: 3, borderColor: R.gold },
+    root: { flex: 1, backgroundColor: VOICES.rider.bg },
+    pulseRing: { position: 'absolute', width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,255,255,0.3)' },
+    markerDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: BRAND.cyan, borderWidth: 2, borderColor: '#FFF' },
+    riderMarker: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', borderWidth: 3, borderColor: BRAND.purple },
+    destMarker: { width: 12, height: 12, backgroundColor: '#FFF', borderWidth: 3, borderColor: SEMANTIC.warning },
 
     statusBubble: { position: 'absolute', alignSelf: 'center', zIndex: 100 },
-    statusBlur: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: R.green, marginRight: 10 },
-
+    
     bottomCard: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20 },
-    cardBlur: { borderRadius: 32, padding: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'center', marginBottom: 20 },
+    cardBlur: { padding: 24, backgroundColor: 'rgba(255,255,255,0.85)' },
+    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(30,30,63,0.1)', alignSelf: 'center', marginBottom: 20 },
 
-    driverRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 32 },
-    avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center' },
-    pinBadge: { alignItems: 'center', marginRight: 16, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(124,58,237,0.1)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(124,58,237,0.2)' },
-    sosBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: R.red, alignItems: 'center', justifyContent: 'center' },
-    sosRing: { position: 'absolute', width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: R.red, opacity: 0.3 },
+    driverRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 28 },
+    avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: BRAND.purple, alignItems: 'center', justifyContent: 'center' },
+    avatarTxt: { fontSize: 24, fontWeight: '800', color: '#FFF' },
+    driverName: { fontSize: 20, fontWeight: '800', color: VOICES.rider.text },
+    vehicleInfo: { fontSize: 13, fontWeight: '300', color: VOICES.rider.textMuted },
+    
+    pinBadge: { flex: 1, alignItems: 'center', marginHorizontal: 16, paddingVertical: 8, backgroundColor: 'rgba(0,255,255,0.05)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(0,255,255,0.15)' },
+    pinLabel: { fontSize: 10, fontWeight: '300', color: BRAND.cyanSoft, letterSpacing: 1 },
+    pinValue: { fontSize: 32, fontWeight: '800', color: BRAND.cyan, letterSpacing: 4 },
+    
+    sosBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: SEMANTIC.danger, alignItems: 'center', justifyContent: 'center' },
+    sosLabel: { fontSize: 12, fontWeight: '800', color: '#FFF' },
+    sosRing: { position: 'absolute', width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: SEMANTIC.danger, opacity: 0.3 },
 
     track: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32, paddingHorizontal: 10 },
-    trackNode: { width: 24, height: 24, borderRadius: 12, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    trackNodeActive: { backgroundColor: R.purple, borderColor: R.purpleLight },
-    trackLine: { flex: 1, height: 2, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 4 },
-    trackLineActive: { backgroundColor: R.purple },
+    trackNode: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.1)' },
+    trackNodeActive: { backgroundColor: BRAND.purple, borderColor: BRAND.purpleLight },
+    trackLine: { flex: 1, height: 2, backgroundColor: 'rgba(124, 58, 237, 0.1)', marginHorizontal: 4 },
+    trackLineActive: { backgroundColor: BRAND.purple },
 
     actions: { flexDirection: 'row', gap: 12 },
-    msgBtn: { width: 54, height: 54, borderRadius: 16, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    callBtn: { flex: 1, height: 54, borderRadius: 16, backgroundColor: R.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    msgBtn: { width: 54, height: 54, borderRadius: 16, backgroundColor: 'rgba(124, 58, 237, 0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.1)' },
+    callBtn: { flex: 1, height: 54, borderRadius: 16, backgroundColor: 'rgba(124, 58, 237, 0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.1)' },
+    callLabel: { marginLeft: 8, fontSize: 16, fontWeight: '600', color: BRAND.purple },
+
     waitClockRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: 'rgba(245,158,11,0.1)',
+        backgroundColor: 'rgba(245,158,11,0.05)',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderRadius: 16,
+        borderRadius: RADIUS.md,
         marginBottom: 20,
         borderWidth: 1,
-        borderColor: 'rgba(245,158,11,0.2)',
+        borderColor: 'rgba(245,158,11,0.1)',
     },
+    lateFeeValue: { fontSize: 15, fontWeight: '700', color: SEMANTIC.warning },
+    lateFeeLabel: { fontSize: 12, fontWeight: '300', color: VOICES.rider.textMuted },
+
+    aiInsightHud: { width: width * 0.9, alignSelf: 'center', position: 'absolute', zIndex: 90 },
+    aiInsightGradient: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)' },
+    aiTitle: { marginLeft: 6, fontSize: 10, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
+    aiMessage: { fontSize: 13, fontWeight: '300', color: '#FFF', lineHeight: 18 },
+    aiActionBtn: { 
+        flexDirection: 'row', alignItems: 'center', 
+        backgroundColor: 'rgba(0,255,255,0.1)', borderColor: 'rgba(0,255,255,0.3)', borderWidth: 1,
+        borderRadius: 12, paddingVertical: 6, paddingHorizontal: 12, marginTop: 10, alignSelf: 'flex-start'
+    },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
+    modalContent: { padding: 32, borderRadius: RADIUS.lg, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
+    musicInput: { width: '100%', height: 60, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 16, color: '#FFF', marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
+    modalCancel: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center' },
+    modalConfirm: { flex: 2, height: 50, backgroundColor: BRAND.purple, borderRadius: RADIUS.pill, alignItems: 'center', justifyContent: 'center' },
 });

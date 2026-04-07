@@ -23,6 +23,7 @@ import * as BackgroundFetch from 'expo-background-fetch';
 import * as TaskManager from 'expo-task-manager';
 import { supabase } from '../../shared/supabase';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { OfflineBanner } from './src/components/OfflineBanner';
 import { ENV } from '../../shared/env';
 import { OutboxService } from '../../shared/OutboxService';
 
@@ -81,7 +82,7 @@ TaskManager.defineTask(RETRY_TASK, async () => {
     }
 });
 
-// Fix 2: Surgical Background Location Heartbeat
+// Fix 2: Surgical Background Location Heartbeat (Hardened for Phase 11)
 TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
     if (error) {
         console.error(`[LOCATION_TASK] Error: ${error.message}`);
@@ -95,6 +96,9 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) return;
 
+                // Phase 11: Check for active ride in storage for "High Priority" tagging
+                const activeRideId = await AsyncStorage.getItem('active_ride_id');
+
                 // Sync to backend using raw fetch to avoid supabase-js overhead in bg task
                 await fetch(UPDATE_LOCATION_URL, {
                     method: 'POST',
@@ -106,6 +110,9 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
                         lat: parseFloat(location.coords.latitude.toFixed(6)),
                         lng: parseFloat(location.coords.longitude.toFixed(6)),
                         heading: location.coords.heading || 0,
+                        accuracy: location.coords.accuracy,
+                        active_ride_id: activeRideId || undefined,
+                        is_background: true
                     }),
                 });
             } catch (err) {
@@ -165,6 +172,7 @@ function AppNavigator() {
     const { user } = useAuth();
     const [initialRoute, setInitialRoute] = useState<string | null>(null);
     const [activeRideId, setActiveRideId] = useState<string | undefined>();
+    const [scheduledEnabled, setScheduledEnabled] = useState(false);
 
     const checkActiveRide = useCallback(async () => {
         if (!user) {
@@ -198,18 +206,28 @@ function AppNavigator() {
 
             if (data) {
                 setActiveRideId(data.id);
+                await AsyncStorage.setItem('active_ride_id', data.id);
                 setInitialRoute('ActiveTrip');
             } else {
+                await AsyncStorage.removeItem('active_ride_id');
                 setInitialRoute('Dashboard');
             }
         } catch (err) {
             console.warn('Boot check failed:', err);
+            await AsyncStorage.removeItem('active_ride_id');
             setInitialRoute('Dashboard');
         }
     }, [user]);
 
     useEffect(() => {
         checkActiveRide();
+
+        // Check scheduled rides feature flag
+        supabase.from('system_feature_flags')
+            .select('is_enabled')
+            .eq('flag_name', 'scheduled_rides_enabled')
+            .maybeSingle()
+            .then(({ data }) => setScheduledEnabled(data?.is_enabled ?? false));
 
         // Real-time listener for status changes (e.g. Admin Approval)
         if (user) {
@@ -256,7 +274,9 @@ function AppNavigator() {
             />
             <Stack.Screen name="Earnings" component={EarningsScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />
-            <Stack.Screen name="ScheduledRides" component={ScheduledRidesScreen} />
+            {scheduledEnabled && (
+                <Stack.Screen name="ScheduledRides" component={ScheduledRidesScreen} />
+            )}
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="StrategySettings" component={StrategySettingsScreen} />
@@ -280,10 +300,13 @@ function App() {
         <SafeAreaProvider>
             <ErrorBoundary>
                 <AuthProvider>
-                    <NavigationContainer>
-                        <StatusBar style="dark" />
-                        <RootNavigator />
-                    </NavigationContainer>
+                    <View style={{ flex: 1 }}>
+                        <OfflineBanner />
+                        <NavigationContainer>
+                            <StatusBar style="dark" />
+                            <RootNavigator />
+                        </NavigationContainer>
+                    </View>
                 </AuthProvider>
             </ErrorBoundary>
         </SafeAreaProvider>

@@ -30,16 +30,25 @@ export function VisionScannerScreen({ navigation }: any) {
         ).start();
     }, []);
 
+    const cameraRef = useRef<any>(null);
+
     const handleScan = async () => {
-        if (scanning) return;
+        if (scanning || !cameraRef.current) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setScanning(true);
         setResult(null);
 
         try {
-            // Call AI Edge Function to identify item
+            // 1. Capture image
+            const photo = await cameraRef.current.takePictureAsync({
+                base64: true,
+                quality: 0.5,
+                skipProcessing: true
+            });
+
+            // 2. Call AI Edge Function with REAL image
             const { data, error } = await supabase.functions.invoke('identify_product', {
-                body: { trigger: 'camera_scan' },
+                body: { image: photo.base64, trigger: 'camera_scan' },
             });
 
             if (error) throw error;
@@ -51,10 +60,8 @@ export function VisionScannerScreen({ navigation }: any) {
                 Alert.alert('Not Recognized', 'Could not identify this item. Try again.');
             }
         } catch (err: any) {
-            // Graceful fallback — show a demo result for development
-            console.warn('[VisionScanner] Edge Function not available, using demo fallback:', err.message);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setResult({ id: 'demo', name: 'Blueberry Energy Drink 250ml', price_cents: 1640 });
+            console.error('[VisionScanner] Scan failed:', err.message);
+            Alert.alert('Scanner Error', 'The Vision AI is currently busy. Please try again in a moment.');
         } finally {
             setScanning(false);
         }
@@ -136,7 +143,7 @@ export function VisionScannerScreen({ navigation }: any) {
                     activeOpacity={0.85}
                 >
                     <LinearGradient
-                        colors={scanning ? ['#00FFFF', '#0099CC'] : ['#7B61FF', '#5A2DDE']}
+                        colors={scanning ? ['#00FFFF', '#0099CC'] : ['#7C3AED', '#5A2DDE']}
                         style={s.scanBtnGrad}
                     >
                         <Ionicons name={scanning ? 'scan-outline' : 'camera-outline'} size={28} color="#FFF" />
@@ -218,10 +225,10 @@ const s = StyleSheet.create({
     },
     resultBg: { backgroundColor: 'rgba(0,0,0,0.85)' },
     resultName: { fontSize: 18, fontWeight: '700', color: '#FFF', textAlign: 'center' },
-    resultPrice: { fontSize: 24, fontWeight: '900', color: '#7B61FF' },
+    resultPrice: { fontSize: 24, fontWeight: '900', color: '#7C3AED' },
     resultBtn: {
         marginTop: 10, paddingVertical: 10, paddingHorizontal: 28,
-        borderRadius: 50, backgroundColor: '#7B61FF',
+        borderRadius: 50, backgroundColor: '#7C3AED',
     },
     resultBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
     permCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
@@ -229,7 +236,7 @@ const s = StyleSheet.create({
     permTitle: { fontSize: 20, fontWeight: '700', color: '#FFF', marginBottom: 10 },
     permSub: { fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 21, marginBottom: 30 },
     permBtn: {
-        backgroundColor: '#7B61FF', borderRadius: 20,
+        backgroundColor: '#7C3AED', borderRadius: 20,
         paddingVertical: 14, paddingHorizontal: 32,
     },
     permBtnText: { fontSize: 16, fontWeight: '700', color: '#FFF' },

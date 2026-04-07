@@ -1,0 +1,36 @@
+/* G-Taxi Merchant: Professional Minimalist Design Tokens */
+:root {
+  --primary: #7C3AED;
+  --primary-glow: rgba(124, 58, 237, 0.1);
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --bg-slate: #F8FAFC;
+  --surface: #FFFFFF;
+  --border-subtle: rgba(0, 0, 0, 0.05);
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.merchant-card {
+  background: white;
+  border-radius: 1.5rem;
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.merchant-btn-primary {
+  background: var(--primary);
+  color: white;
+  border-radius: 1rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.merchant-btn-primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.3);
+}

@@ -57,7 +57,7 @@ export function DriverFoundScreen({ navigation, route }: any) {
                     </View>
                     {/* Star rating */}
                     <View style={s.ratingBadge}>
-                        <Ionicons name="star" size={12} color="#FFD700" />
+                        <Ionicons name="star" size={12} color="#F59E0B" />
                         <Text style={s.ratingText}>{driver?.rating?.toFixed(1) ?? '4.8'}</Text>
                     </View>
                 </View>
@@ -79,8 +79,8 @@ export function DriverFoundScreen({ navigation, route }: any) {
                     </View>
                     <View style={s.divider} />
                     <View style={s.infoRow}>
-                        <Ionicons name="time-outline" size={18} color="#4ADE80" />
-                        <Text style={[s.infoText, { color: '#4ADE80' }]}>On the way to you...</Text>
+                        <Ionicons name="time-outline" size={18} color="#10B981" />
+                        <Text style={[s.infoText, { color: '#10B981' }]}>On the way to you...</Text>
                     </View>
                 </View>
 
@@ -92,11 +92,11 @@ export function DriverFoundScreen({ navigation, route }: any) {
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 24 }]}>
                 <TouchableOpacity style={s.ctaButton} onPress={handleTrack} activeOpacity={0.88}>
                     <LinearGradient
-                        colors={['#00FFFF', '#0099CC']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        colors={['#7C3AED', '#00FFFF']}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                         style={s.ctaGradient}
                     >
-                        <Ionicons name="navigate-outline" size={22} color="#0A0A1F" style={{ marginRight: 10 }} />
+                        <Ionicons name="navigate-outline" size={22} color="#FFF" style={{ marginRight: 10 }} />
                         <Text style={s.ctaText}>Track My Ride →</Text>
                     </LinearGradient>
                 </TouchableOpacity>
@@ -127,7 +127,7 @@ const s = StyleSheet.create({
     },
     avatar: {
         width: 120, height: 120, borderRadius: 60,
-        backgroundColor: 'rgba(123,97,255,0.2)',
+        backgroundColor: 'rgba(124,58,237,0.2)',
         borderWidth: 3, borderColor: '#00FFFF',
         alignItems: 'center', justifyContent: 'center',
     },
@@ -136,9 +136,9 @@ const s = StyleSheet.create({
         position: 'absolute', bottom: 0, right: 0,
         flexDirection: 'row', alignItems: 'center', gap: 3,
         backgroundColor: '#1A1A3A', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4,
-        borderWidth: 1, borderColor: 'rgba(255,215,0,0.3)',
+        borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)',
     },
-    ratingText: { fontSize: 12, fontWeight: '700', color: '#FFD700' },
+    ratingText: { fontSize: 12, fontWeight: '700', color: '#F59E0B' },
     matchedTitle: {
         fontSize: 14, fontWeight: '700', color: '#00FFFF',
         letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8,
@@ -162,7 +162,7 @@ const s = StyleSheet.create({
     ctaGradient: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18,
     },
-    ctaText: { fontSize: 18, fontWeight: '900', color: '#0A0A1F' },
+    ctaText: { fontSize: 18, fontWeight: '900', color: '#FFF' },
     cancelBtn: { alignItems: 'center', paddingVertical: 12 },
     cancelText: { fontSize: 14, color: 'rgba(255,255,255,0.35)', fontWeight: '600' },
 });

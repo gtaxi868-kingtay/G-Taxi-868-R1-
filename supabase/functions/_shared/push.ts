@@ -92,6 +92,23 @@ async function getGoogleAccessToken(serviceAccount: {
     return tokenData.access_token as string;
 }
 
+/**
+ * Interface for cleanup - needs supabaseAdmin context.
+ */
+async function invalidateToken(pushToken: string): Promise<void> {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Use a fresh client for background cleanup to avoid passing complex objects
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    console.log(`🧹 Cleaning up invalid push token: ${pushToken.substring(0, 20)}...`);
+    await admin
+        .from('profiles')
+        .update({ push_token: null })
+        .eq('push_token', pushToken);
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -131,7 +148,7 @@ export async function sendPushNotification(
     try {
         accessToken = await getGoogleAccessToken(serviceAccount);
     } catch (err) {
-        console.error('sendPushNotification: Failed to obtain access token:', err);
+        console.error('sendPushNotification: Failed to obtain access token (Check Secret Base64):', err);
         return;
     }
 
@@ -177,6 +194,11 @@ export async function sendPushNotification(
     });
 
     if (!fcmRes.ok) {
-        console.error('FCM HTTP v1 push failed:', await fcmRes.text());
+        const errText = await fcmRes.text();
+        console.error('FCM HTTP v1 push failed:', errText);
+        // If device is no longer registered, clean up the DB
+        if (errText.includes('UNREGISTERED') || errText.includes('INVALID_ARGUMENT')) {
+            await invalidateToken(pushToken).catch(e => console.error("Cleanup failed:", e));
+        }
     }
 }
