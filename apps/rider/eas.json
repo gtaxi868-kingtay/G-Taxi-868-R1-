@@ -18,7 +18,7 @@
       "android": {
         "buildType": "apk"
       },
-      "prebuildCommand": ""
+      "prebuildCommand": "echo skipping prebuild"
     },
     "production": {
       "autoIncrement": true
