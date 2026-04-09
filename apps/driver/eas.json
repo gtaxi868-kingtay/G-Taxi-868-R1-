@@ -17,7 +17,8 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "prebuildCommand": "echo skipping prebuild"
     },
     "production": {
       "autoIncrement": true
