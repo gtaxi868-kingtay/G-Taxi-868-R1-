@@ -1,4 +1,4 @@
-"prebuildCommand": ""{
+{
   "cli": {
     "version": ">= 5.0.0"
   },
@@ -17,8 +17,7 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "prebuildCommand": ""
+      }
     },
     "production": {
       "autoIncrement": true
