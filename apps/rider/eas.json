@@ -1,4 +1,4 @@
-{
+"prebuildCommand": ""{
   "cli": {
     "version": ">= 5.0.0"
   },
@@ -18,7 +18,7 @@
       "android": {
         "buildType": "apk"
       },
-      "prebuildCommand": "echo skipping prebuild"
+      "prebuildCommand": ""
     },
     "production": {
       "autoIncrement": true
