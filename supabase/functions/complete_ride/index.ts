@@ -275,9 +275,20 @@ serve(async (req: Request) => {
             .in("status", ["in_progress"]);
 
         // Phase 11.5: Sync the final payout to the ride record for auditing
+        const driverPayoutCents = Math.round(effectiveFare * (1 - commissionRate));
         await supabaseAdmin.from("rides").update({ 
-            driver_payout_cents: Math.round(effectiveFare * (1 - commissionRate)) 
+            driver_payout_cents: driverPayoutCents
         }).eq("id", ride_id);
+
+        // Phase 17: Financial Monster Loop Ledger Logging
+        await supabaseAdmin.rpc("log_platform_revenue", {
+            p_ride_id: ride_id,
+            p_order_id: ride.order_id || null,
+            p_merchant_id: ride.merchant_id || null,
+            p_gross_cents: effectiveFare,
+            p_payout_cents: driverPayoutCents,
+            p_merchant_earnings_cents: 0 // B2B Kickback logic can be expanded here
+        }).catch(err => console.error("Ledger logging failed:", err));
 
         // ── Push Notification to Rider ───────────────────────────────────────
         if (ride.rider_id) {

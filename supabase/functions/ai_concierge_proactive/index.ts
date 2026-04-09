@@ -39,18 +39,24 @@ serve(async (req) => {
       ).join(", ");
     }
 
-    // 2. Query Gemini for a PROACTIVE suggestion
+    // 2. Traffic Analysis (Mocked for local Trini context)
+    const hour = new Date().getUTCHours() - 4; // AST Time
+    const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
+    const trafficContext = isRushHour ? "EXPECT HEAVY TRAFFIC. Rush hour patterns detected on Highway/Main Road." : "Traffic flowing normally.";
+
+    // 3. Query Gemini for a PROACTIVE suggestion
     const prompt = `
-      You are G-TAXI AI, a premium logistics concierge.
+      You are G-TAXI AI, a premium logistics concierge for Trinidad & Tobago.
       Rider: ${ride.rider?.full_name || 'Guest'}
       Current Journey: Heading to ${destination_name || ride.dropoff_address}.
-      Real-Time Context: ${poiContext}.
+      Traffic State: ${trafficContext}.
+      Real-Time POI Context: ${poiContext}.
       
-      TASK: Suggest ONE proactive stop or service based on the context. 
-      - If a PARTNER merchant is nearby, prioritize them (e.g. "I see a partner Barbershop with a slot open...").
-      - Otherwise, suggest useful utility POIs like ATMs or Groceries.
+      TASK: Suggest ONE proactive move OR explain a delay. 
+      - If traffic is heavy, explain why (e.g. "Peak flow on the Highway..."). 
+      - If a PARTNER merchant is nearby, suggest a STOP.
       - Be brief (15 words max). 
-      - Format response specifically to include the word "STOP".
+      - Format: "AI SIGHT: [Message]".
     `;
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {

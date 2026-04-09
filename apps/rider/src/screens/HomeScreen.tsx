@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
     useSharedValue, withSpring, withTiming,
@@ -52,6 +53,7 @@ export function HomeScreen({ navigation }: any) {
     const [aiGreeting, setAiGreeting] = useState<string | null>(null);
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [proactiveAction, setProactiveAction] = useState<string | null>(null);
+    const [visionLoading, setVisionLoading] = useState(false);
 
     const panelY = useSharedValue(120);
     const mapPitch = useSharedValue(45);
@@ -247,6 +249,64 @@ export function HomeScreen({ navigation }: any) {
         }
     };
 
+    const handleVisionSighting = async () => {
+        try {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert("Permission Required", "Please allow camera access to use AI Sight.");
+                return;
+            }
+
+            const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: false,
+                quality: 0.5,
+                base64: true,
+            });
+
+            if (result.canceled || !result.assets[0].base64) return;
+
+            setVisionLoading(true);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+            const currentPos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            
+            const { data, error } = await supabase.functions.invoke('vision_pickup', {
+                body: { 
+                    image: result.assets[0].base64,
+                    lat: currentPos.coords.latitude,
+                    lng: currentPos.coords.longitude
+                }
+            });
+
+            if (error || !data?.success) {
+                throw new Error(data?.error || "Could not identify location");
+            }
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            
+            // Navigate to RideConfirmation
+            navigation.navigate('RideConfirmation', {
+                destination: { 
+                    latitude: data.refined_lat, 
+                    longitude: data.refined_lng, 
+                    address: data.landmark_name || data.address 
+                },
+                pickup: { 
+                    latitude: currentPos.coords.latitude, 
+                    longitude: currentPos.coords.longitude, 
+                    address: 'Your Location' 
+                }
+            });
+
+        } catch (err: any) {
+            console.error("Vision Error:", err);
+            Alert.alert("AI Sight Failed", err.message || "We couldn't pinpoint your location. Please type your destination.");
+        } finally {
+            setVisionLoading(false);
+        }
+    };
+
     const handleQuickAction = async (label: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         if (label === 'Home' || label === 'Work') {
@@ -306,12 +366,15 @@ export function HomeScreen({ navigation }: any) {
                 ))}
             </MapView>
 
-            <LinearGradient colors={['rgba(7,5,15,0.4)', 'transparent', 'rgba(7,5,15,0.8)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
+            <LinearGradient colors={['rgba(22, 11, 50, 0.9)', 'rgba(47, 26, 92, 0.4)', 'rgba(22, 11, 50, 1)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
 
-            {/* Brand Header: Logo pin shape + G-TAXI text */}
+            {/* Brand Header: Holographic 3D Logo + G-TAXI text */}
             <View style={[s.headerLogo, { top: insets.top + 10 }]}>
-                <Logo size={32} variant="icon" />
-                <Text style={s.logoText}>G-TAXI</Text>
+                <Image source={require('../../assets/images/gtaxi_logo_3d.avif')} style={{ width: 50, height: 50, resizeMode: 'contain' }} />
+                <View style={{ marginLeft: 12 }}>
+                    <Text style={s.logoText}>G-TAXI</Text>
+                    <Text style={s.luxeSubtext}>LUXE MULTIVERSE</Text>
+                </View>
             </View>
 
             {/* System Maintenance Banner (Fix 3) */}
@@ -337,8 +400,9 @@ export function HomeScreen({ navigation }: any) {
             />
 
             {/* BOTTOM PANEL (Reanimated y+120→0, BlurView) */}
+            {/* BOTTOM PANEL (Reanimated y+120→0, BlurView) */}
             {/* AI HUD Bubble (Truth Layer) */}
-            {(aiGreeting || isAiThinking) && (
+            {(aiGreeting || isAiThinking || visionLoading) && (
                 <Reanimated.View 
                     entering={FadeIn}
                     exiting={FadeOut}
@@ -347,35 +411,54 @@ export function HomeScreen({ navigation }: any) {
                     <BlurView intensity={80} tint="dark" style={s.aiBlur}>
                         <View style={s.aiAvatar}>
                             <LinearGradient colors={['#7B61FF', '#00FFFF']} style={StyleSheet.absoluteFill} />
-                            <Ionicons name="sparkles" size={16} color="#FFF" />
+                            <Ionicons name={visionLoading ? "scan" : "sparkles"} size={16} color="#FFF" />
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
-                            {isAiThinking ? (
+                            {visionLoading ? (
+                                <Txt variant="small" color="#00FFFF">ANALYZING YOUR SIGHT...</Txt>
+                            ) : isAiThinking ? (
                                 <Txt variant="small" color="rgba(255,255,255,0.4)">AI IS THINKING...</Txt>
                             ) : (
                                 <Txt variant="bodyReg" color="#FFF">{aiGreeting}</Txt>
                             )}
                         </View>
-                        <TouchableOpacity 
-                            style={s.voiceBtn} 
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                // SIMULATION: Use a prompt for the voice command for now
-                                Alert.prompt(
-                                    "AI Voice Command",
-                                    "Speak your destination (e.g. 'Take me home' or 'I need to go to the Gym')",
-                                    [
-                                        { text: "Cancel", style: "cancel" },
-                                        { text: "Send", onPress: (val?: string) => handleVoiceComplete(val || '') }
-                                    ]
-                                );
-                            }}
-                        >
-                            <Ionicons name="mic" size={20} color="#00FFFF" />
-                        </TouchableOpacity>
+                        {!visionLoading && (
+                            <TouchableOpacity 
+                                style={s.voiceBtn} 
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                    Alert.prompt(
+                                        "AI Voice Command",
+                                        "Speak your destination",
+                                        [
+                                            { text: "Cancel", style: "cancel" },
+                                            { text: "Send", onPress: (val?: string) => handleVoiceComplete(val || '') }
+                                        ]
+                                    );
+                                }}
+                            >
+                                <Ionicons name="mic" size={20} color="#00FFFF" />
+                            </TouchableOpacity>
+                        )}
                     </BlurView>
                 </Reanimated.View>
             )}
+
+            {/* VISION FAB: Holographic Scanner */}
+            <TouchableOpacity 
+                style={[s.visionFab, { bottom: 330 + 74 }]} 
+                onPress={handleVisionSighting}
+                activeOpacity={0.7}
+            >
+                <GlassCard variant="rider" style={s.visionGlass}>
+                    <LinearGradient 
+                        colors={['rgba(0, 255, 255, 0.2)', 'rgba(124, 58, 237, 0.2)']} 
+                        style={StyleSheet.absoluteFill}
+                    />
+                    <Ionicons name="scan-outline" size={28} color="#00FFFF" />
+                    <Txt variant="caption" weight="heavy" color="#00FFFF" style={{ marginLeft: 8 }}>VISION</Txt>
+                </GlassCard>
+            </TouchableOpacity>
 
             <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20 }]}>
                 <GlassCard variant="rider" style={s.glassPanel}>
@@ -404,16 +487,16 @@ export function HomeScreen({ navigation }: any) {
                         {/* Service Tiles: Vibrant Futurism Grid */}
                         <View style={s.tiles}>
                             <TouchableOpacity style={{ flex: 1 }}>
-                                <Card padding="xs" intensity={50} style={[s.serviceTile, s.tileActive]}>
+                                <BlurView intensity={40} tint="dark" style={[s.serviceTile, s.tileActive]}>
                                     <LinearGradient 
-                                        colors={['#7B61FF', '#00FFFF']} 
+                                        colors={['rgba(124, 58, 237, 0.8)', 'rgba(0, 255, 255, 0.8)']} 
                                         start={{x: 0, y: 0}} 
                                         end={{x: 1, y: 1}} 
                                         style={StyleSheet.absoluteFill} 
                                     />
-                                    <Ionicons name="car-sport" size={28} color="#FFF" />
-                                    <Txt variant="caption" weight="heavy" color="#FFF" style={{ marginTop: 8 }}>TRANSPORT</Txt>
-                                </Card>
+                                    <Ionicons name="car-sport" size={32} color="#FFF" style={s.glowIcon} />
+                                    <Txt variant="caption" weight="heavy" color="#FFF" style={{ marginTop: 10, letterSpacing: 1 }}>TRANSPORT</Txt>
+                                </BlurView>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -423,10 +506,10 @@ export function HomeScreen({ navigation }: any) {
                                     navigation.navigate('GroceryStorefront', { category: 'service' });
                                 }}
                             >
-                                <Card padding="xs" intensity={40} style={s.serviceTile}>
-                                    <Ionicons name="cut" size={24} color={BRAND.cyan} />
-                                    <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 6 }}>BEAUTY</Txt>
-                                </Card>
+                                <BlurView intensity={20} tint="dark" style={s.serviceTile}>
+                                    <Ionicons name="cart" size={28} color="#00FFFF" style={s.glowIcon} />
+                                    <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 8, letterSpacing: 1 }}>MARKET</Txt>
+                                </BlurView>
                             </TouchableOpacity>
                         </View>
 
@@ -527,49 +610,64 @@ const s = StyleSheet.create({
     
     headerLogo: { position: 'absolute', left: 24, top: 0, zIndex: 100, flexDirection: 'row', alignItems: 'center' },
     logoText: { 
-        fontSize: 24, 
+        fontSize: 26, 
         fontWeight: '900', 
-        color: BRAND.purple, 
-        marginLeft: 10,
-        letterSpacing: -1
+        color: '#FFFFFF', 
+        letterSpacing: 2,
+        textShadowColor: 'rgba(0, 255, 255, 0.8)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10
+    },
+    luxeSubtext: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#00FFFF',
+        letterSpacing: 4,
+        marginTop: 2
     },
 
     menuBtn: { position: 'absolute', right: 24, zIndex: 100 },
-    menuCircle: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(124, 58, 237, 0.1)', overflow: 'hidden' },
+    menuCircle: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.1)', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
 
     panel: { position: 'absolute', bottom: 10, left: 10, right: 10 },
-    glassPanel: { backgroundColor: 'rgba(255,255,255,0.85)' },
+    glassPanel: { backgroundColor: 'rgba(22, 11, 50, 0.65)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 28, overflow: 'hidden' },
     cardInner: { padding: 24 },
 
     tiles: { flexDirection: 'row', gap: 12, marginBottom: 24 },
     serviceTile: { 
-        height: 100, 
+        height: 110, 
         alignItems: 'center', 
         justifyContent: 'center', 
-        borderRadius: RADIUS.lg, 
+        borderRadius: 24, 
         overflow: 'hidden',
-        backgroundColor: 'rgba(124, 58, 237, 0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(124, 58, 237, 0.08)'
+        borderColor: 'rgba(255, 255, 255, 0.15)'
     },
-    tileActive: { backgroundColor: BRAND.purple },
-    // FIX 6: Coming Soon badge on dimmed tiles
-    soonBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: SEMANTIC.warning, borderRadius: 50, paddingHorizontal: 5, paddingVertical: 2 },
+    glowIcon: {
+        shadowColor: '#00FFFF',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 10
+    },
+    tileActive: { backgroundColor: 'transparent', borderColor: '#00FFFF', borderWidth: 2 },
+    
+    soonBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#F59E0B', borderRadius: 50, paddingHorizontal: 5, paddingVertical: 2 },
 
     searchBarInner: { 
         flexDirection: 'row', 
         alignItems: 'center', 
         height: 72, 
-        borderRadius: RADIUS.md, 
+        borderRadius: 20, 
         paddingHorizontal: 24, 
         marginBottom: 24, 
         overflow: 'hidden', 
-        backgroundColor: 'rgba(124, 58, 237, 0.05)',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
         borderWidth: 1,
-        borderColor: 'rgba(124, 58, 237, 0.1)'
+        borderColor: 'rgba(0, 255, 255, 0.3)'
     },
-    hudSearchIndicator: { width: 14, height: 14, borderRadius: 7, backgroundColor: BRAND.cyan, marginRight: 16 },
-    searchPlaceholder: { flex: 1, letterSpacing: 2, fontSize: 18, fontWeight: '800', color: BRAND.purple },
+    hudSearchIndicator: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#00FFFF', marginRight: 16, shadowColor: '#00FFFF', shadowOpacity: 1, shadowRadius: 8 },
+    searchPlaceholder: { flex: 1, letterSpacing: 2, fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
 
     pills: { flexDirection: 'row', gap: 12, alignItems: 'center' },
     pill: { 
@@ -577,18 +675,22 @@ const s = StyleSheet.create({
         flexDirection: 'row', 
         alignItems: 'center', 
         height: 52, 
-        backgroundColor: 'rgba(124, 58, 237, 0.05)', 
-        borderRadius: RADIUS.md, 
-        paddingHorizontal: 20 
+        backgroundColor: 'rgba(255, 255, 255, 0.08)', 
+        borderRadius: 16, 
+        paddingHorizontal: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)'
     },
-    pillLabel: { marginLeft: 8, fontSize: 16, fontWeight: '600', color: BRAND.purple },
+    pillLabel: { marginLeft: 8, fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
     recentPill: { 
         width: 52, 
         height: 52, 
-        borderRadius: RADIUS.md, 
-        backgroundColor: 'rgba(124, 58, 237, 0.05)', 
+        borderRadius: 16, 
+        backgroundColor: 'rgba(255, 255, 255, 0.08)', 
         alignItems: 'center', 
-        justifyContent: 'center' 
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)'
     },
 
     maintenanceBanner: {
@@ -614,8 +716,11 @@ const s = StyleSheet.create({
     aiAvatar: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     voiceBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,255,255,0.1)' },
 
-    proactiveHud: { marginBottom: 16 },
     proactiveGradient: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)' },
     proactiveText: { flex: 1, marginLeft: 10, fontSize: 13, fontWeight: '300', color: '#FFF' },
     aiIndicator: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center' },
+
+    proactiveHud: { marginBottom: 16 },
+    visionFab: { position: 'absolute', right: 20, zIndex: 100 },
+    visionGlass: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 255, 255, 0.4)' },
 });

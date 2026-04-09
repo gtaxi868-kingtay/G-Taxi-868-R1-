@@ -56,6 +56,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.0.20"
+          }
+        }
+      ],
       "expo-notifications",
       [
         "expo-location",
@@ -65,7 +73,14 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
-      ]
-    ]
+      ],
+      "@sentry/react-native"
+    ],
+    "owner": "gtaxi",
+    "extra": {
+      "eas": {
+        "projectId": "33335543-47a2-4dc4-96ff-baffe6fc5132"
+      }
+    }
   }
 }

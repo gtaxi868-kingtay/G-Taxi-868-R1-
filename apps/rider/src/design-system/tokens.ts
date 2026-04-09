@@ -1,39 +1,38 @@
 export const tokens = {
     colors: {
         background: {
-            base: '#F5F3FF', // Soft Lavender — G-Taxi Blueberry Luxe
-            ambient: '#FFFFFF',
-            surface: 'rgba(255, 255, 255, 0.85)', // High-Gloss White Glass
+            base: '#160B32', // Deep Rich Purple — Blueberry Luxe Base
+            ambient: '#2F1A5C', // Bright Purple Gradient Top
+            surface: 'rgba(255, 255, 255, 0.08)', // Dark Glassmorphism 
         },
         glass: {
-            fill: 'rgba(255, 255, 255, 0.85)',
-            stroke: 'rgba(124, 58, 237, 0.12)', // Brand purple hint
-            strokeHighlight: 'rgba(124, 58, 237, 0.25)',
-            shadow: 'rgba(124, 58, 237, 0.08)',
+            fill: 'rgba(255, 255, 255, 0.10)', // Blueberry Luxe Translucent Card
+            stroke: 'rgba(255, 255, 255, 0.20)', // Sharp Glass edge
+            strokeHighlight: '#00FFFF', // Cyan pop
+            shadow: 'rgba(0, 0, 0, 0.40)', // Heavy shadow for pop
         },
         primary: {
-            // G-Taxi Brand — extracted from logo
-            purple: '#7C3AED',       // Royal Purple — matches BRAND.purple
-            purpleDark: '#5A2DDE',   // matches BRAND.purpleDark
-            purpleLight: '#A78BFA',  // matches BRAND.purpleLight
-            cyan: '#00FFFF',         // Electric Cyan — matches BRAND.cyan
-            cyanSoft: '#00D4AA',     // matches BRAND.cyanSoft
-            gradient: ['#7C3AED', '#00FFFF'] as const, // Diagonal logo split
+            purple: '#7C3AED',
+            purpleDark: '#350085',
+            purpleLight: '#A78BFA',
+            cyan: '#00FFFF',
+            cyanSoft: '#00D4AA',
+            gradient: ['#7C3AED', '#00FFFF'] as const,
         },
         text: {
-            primary: '#1E1E3F', // Deep Navy — warm, not cold black
-            secondary: 'rgba(30, 30, 63, 0.55)',
-            tertiary: 'rgba(30, 30, 63, 0.35)',
-            inverse: '#FFFFFF',
+            primary: '#FFFFFF', // Pure White for Dark Mode
+            secondary: 'rgba(255, 255, 255, 0.65)',
+            tertiary: 'rgba(255, 255, 255, 0.45)',
+            inverse: '#1E1E3F',
         },
         status: {
-            error: '#EF4444',    // semantic.danger
-            success: '#10B981',  // semantic.success
-            warning: '#F59E0B',  // semantic.warning — Amber Gold (not FFD700)
+            error: '#EF4444',
+            success: '#10B981',
+            warning: '#F59E0B',
         },
         border: {
-            subtle: 'rgba(124, 58, 237, 0.08)',
-            active: '#7C3AED',
+            subtle: 'rgba(255, 255, 255, 0.12)',
+            active: '#00FFFF',
         }
     },
     typography: {
@@ -67,9 +66,9 @@ export const tokens = {
             xs: 8,
             s: 12,
             m: 20,
-            l: 28, // G-Taxi Signature radius
+            l: 28, // Heavy smoothing for Luxe Feel
             xl: 40,
-            full: 999,  // Pill buttons
+            full: 999,
         },
         spacing: {
             xxs: 4,
@@ -83,32 +82,32 @@ export const tokens = {
     },
     elevation: {
         level1: {
-            shadowColor: '#7C3AED',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.06,
-            shadowRadius: 8,
-            elevation: 2,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 10,
+            elevation: 4,
         },
         level2: {
-            shadowColor: '#7C3AED',
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.10,
-            shadowRadius: 16,
-            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.4,
+            shadowRadius: 20,
+            elevation: 12,
         },
         level3: {
-            shadowColor: '#7C3AED',
-            shadowOffset: { width: 0, height: 12 },
-            shadowOpacity: 0.14,
-            shadowRadius: 24,
-            elevation: 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 20 },
+            shadowOpacity: 0.5,
+            shadowRadius: 32,
+            elevation: 20,
         },
         glow: {
-            shadowColor: '#7C3AED',
+            shadowColor: '#00FFFF',
             shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.3,
-            shadowRadius: 16,
-            elevation: 10,
+            shadowOpacity: 0.6,
+            shadowRadius: 20,
+            elevation: 16,
         },
         none: {
             shadowColor: 'transparent',
@@ -118,13 +117,7 @@ export const tokens = {
         }
     },
     markers: {
-        car: {
-            width: 120,
-            height: 70,
-            emojiSize: 64,
-        },
-        animation: {
-            duration: 2000,
-        }
+        car: { width: 120, height: 70, emojiSize: 64 },
+        animation: { duration: 2000 }
     }
 } as const;

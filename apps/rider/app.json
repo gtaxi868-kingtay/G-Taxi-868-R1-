@@ -16,7 +16,7 @@
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "2.0.21"
+            "kotlinVersion": "2.0.20"
           },
           "ios": {
             "useFrameworks": "static",
@@ -37,7 +37,6 @@
           "locationAlwaysAndWhenInUsePermission": "Allow G-Taxi to use your location to find nearby drivers."
         }
       ],
-      "./plugins/fix-gradle",
       "@sentry/react-native"
     ],
     "ios": {
@@ -75,11 +74,11 @@
         "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
+    "owner": "gtaxi",
     "extra": {
       "eas": {
-        "projectId": "ee5e0064-e219-4070-9643-1b4348eace6f"
+        "projectId": "f4f49272-bb2c-4a6d-8a35-caff959079dc"
       }
-    },
-    "owner": "kingtay868"
+    }
   }
 }

@@ -72,7 +72,7 @@ if (!isExpoGo && !isWeb) {
         StripeProvider = StripeProv;
 
         Sentry.init({
-            dsn: 'https://afd7d5ee7d0738270ee71a61c7890b01@o4510426117767168.ingest.us.sentry.io/4510969876447232',
+            dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder-dsn@sentry.io/0',
             environment: __DEV__ ? 'development' : 'production',
             tracesSampleRate: __DEV__ ? 0.0 : 0.2,
             enableNative: true,

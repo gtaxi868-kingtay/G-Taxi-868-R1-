@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, StyleSheet, ScrollView, TouchableOpacity,
     ActivityIndicator, Linking, Text, Alert
@@ -15,8 +15,11 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 import { Ionicons } from '@expo/vector-icons';
+import { useStripe } from '@stripe/stripe-react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 import { BRAND, VOICES, SEMANTIC, RADIUS, GRADIENTS } from '../design-system';
+import { ENV } from '../../../../shared/env';
 
 // ── "How It Works" info rows config ──────────────────────────────────────────
 const INFO_ROWS = [
@@ -43,11 +46,13 @@ const INFO_ROWS = [
 // ── Component ─────────────────────────────────────────────────────────────────
 export function WalletScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
-    const { driver } = useAuth();
+    const { driver, user } = useAuth();
 
+    const { initPaymentSheet, presentPaymentSheet } = useStripe();
     const [balance, setBalance] = useState<number | null>(null);
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [processing, setProcessing] = useState(false);
 
     // Reanimated count-up for balance display
     const balanceAnim = useSharedValue(0);
@@ -56,32 +61,30 @@ export function WalletScreen({ navigation }: any) {
     );
 
     // ── Supabase queries (DO NOT REMOVE) ────────────────────────────────────
-    useEffect(() => {
+    const fetchData = useCallback(async () => {
         if (!driver?.id) return;
 
         // Balance via RPC
-        supabase.rpc('get_wallet_balance', { p_user_id: driver.id })
-            .then(({ data, error }) => {
-                const cents = (!error && data !== null) ? data : 0;
-                const dollars = Number(cents) / 100;
-                setBalance(dollars);
-                // Count-up: 0 → |balance| in 900ms
-                balanceAnim.value = 0;
-                balanceAnim.value = withTiming(dollars, { duration: 900 });
-                setLoading(false);
-            });
+        const { data: balanceCents, error: balanceError } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
+        const dollars = (balanceCents || 0) / 100;
+        setBalance(dollars);
+        balanceAnim.value = withTiming(dollars, { duration: 900 });
 
-        // Transaction ledger rows from payment_ledger table
-        supabase
+        // Transaction ledger rows
+        const { data: txs } = await supabase
             .from('payment_ledger')
-            .select('id, created_at, amount_cents, type, description, ride_id')
+            .select('id, created_at, amount, status, provider, description, ride_id')
             .eq('user_id', driver.id)
             .order('created_at', { ascending: false })
-            .limit(30)
-            .then(({ data }) => {
-                if (data) setTransactions(data);
-            });
-    }, [driver?.id]);
+            .limit(30);
+        
+        if (txs) setTransactions(txs);
+        setLoading(false);
+    }, [driver?.id, balanceAnim]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handlePayoutRequest = async () => {
         if (!balance || balance <= 0) return;
@@ -114,9 +117,108 @@ export function WalletScreen({ navigation }: any) {
         );
     };
 
-    const handleDeposit = () => {
+    const handleCardTopUp = async (amountTtd: number) => {
+        try {
+            setProcessing(true);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('No session');
+
+            const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/create_wallet_topup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ amount_ttd: amountTtd }),
+            });
+
+            const { clientSecret, error } = await response.json();
+            if (error) throw new Error(error);
+
+            const { error: initError } = await initPaymentSheet({
+                paymentIntentClientSecret: clientSecret,
+                merchantDisplayName: 'G-Taxi Ltd',
+                defaultBillingDetails: { email: user?.email },
+            });
+
+            if (initError) throw initError;
+
+            const { error: presentError } = await presentPaymentSheet();
+            if (presentError) {
+                if (presentError.code !== 'Canceled') {
+                    Alert.alert('Payment Error', presentError.message);
+                }
+                return;
+            }
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert('Success', 'Wallet topped up successfully!');
+            fetchData();
+        } catch (err: any) {
+            Alert.alert('Error', err.message || 'Payment failed');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleManualDeposit = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.7,
+            });
+
+            if (result.canceled || !result.assets[0]) return;
+
+            setProcessing(true);
+            const asset = result.assets[0];
+            const fileExt = asset.uri.split('.').pop();
+            const fileName = `${driver?.id}/${Date.now()}.${fileExt}`;
+            
+            // Convert to blob
+            const response = await fetch(asset.uri);
+            const blob = await response.blob();
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('receipts')
+                .upload(fileName, blob);
+
+            if (uploadError) throw uploadError;
+
+            // Log the manual deposit
+            const { error: dbError } = await supabase
+                .from('manual_deposits')
+                .insert({
+                    user_id: driver?.id,
+                    amount_cents: 0, // Admin will verify amount
+                    receipt_url: uploadData.path,
+                    status: 'pending'
+                });
+
+            if (dbError) throw dbError;
+
+            Alert.alert('Success', 'Receipt uploaded! Admin will verify and credit your wallet shortly.');
+            fetchData();
+        } catch (err: any) {
+            Alert.alert('Error', err.message || 'Upload failed');
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleSettlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        Linking.openURL('https://wa.me/18685550100?text=I need to settle my G-Taxi commission balance.');
+        Alert.alert(
+            "Settle Balance",
+            "How would you like to top up your wallet?",
+            [
+                { text: "$100 Top Up (Card)", onPress: () => handleCardTopUp(100) },
+                { text: "Upload Bank Receipt", onPress: handleManualDeposit },
+                { text: "Contact Support (WA)", onPress: () => Linking.openURL('https://wa.me/18685550100?text=I need to settle my G-Taxi commission balance.') },
+                { text: "Cancel", style: "cancel" }
+            ]
+        );
     };
 
     const isOwed = balance !== null && balance < 0;
@@ -205,7 +307,7 @@ export function WalletScreen({ navigation }: any) {
                     {isOwed && (
                         <TouchableOpacity
                             style={s.settleBtn}
-                            onPress={handleDeposit}
+                            onPress={handleSettlePress}
                             activeOpacity={0.85}
                         >
                             <Ionicons name="logo-whatsapp" size={16} color={VOICES.driver.text} />

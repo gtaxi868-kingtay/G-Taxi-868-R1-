@@ -27,6 +27,7 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { ENV } from '../../shared/env';
 import { OutboxService } from '../../shared/OutboxService';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 // ── Phase 5 Fix 5.7: Background retry task for offline ride completions ────────
 const RETRY_TASK = 'OFFLINE_COMPLETION_RETRY';
@@ -149,7 +150,7 @@ if (!isExpoGo) {
     try {
         Sentry = require('@sentry/react-native');
         Sentry.init({
-            dsn: 'https://fd1b20b3e7e9a18f89380de9537867ff@o4510426117767168.ingest.us.sentry.io/4510969904300032',
+            dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder-dsn@sentry.io/0',
             environment: __DEV__ ? 'development' : 'production',
             tracesSampleRate: __DEV__ ? 0.0 : 0.2,
             enableNative: true,
@@ -299,19 +300,21 @@ function App() {
     }, []);
 
     return (
-        <SafeAreaProvider>
-            <ErrorBoundary>
-                <AuthProvider>
-                    <View style={{ flex: 1 }}>
-                        <OfflineBanner />
-                        <NavigationContainer>
-                            <StatusBar style="dark" />
-                            <RootNavigator />
-                        </NavigationContainer>
-                    </View>
-                </AuthProvider>
-            </ErrorBoundary>
-        </SafeAreaProvider>
+        <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ENV.STRIPE_PUBLISHABLE_KEY}>
+            <SafeAreaProvider>
+                <ErrorBoundary>
+                    <AuthProvider>
+                        <View style={{ flex: 1 }}>
+                            <OfflineBanner />
+                            <NavigationContainer>
+                                <StatusBar style="dark" />
+                                <RootNavigator />
+                            </NavigationContainer>
+                        </View>
+                    </AuthProvider>
+                </ErrorBoundary>
+            </SafeAreaProvider>
+        </StripeProvider>
     );
 }
 

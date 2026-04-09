@@ -1,0 +1,11 @@
+# Focus EAS on the app directory
+# Ignore standard heavy folders but INCLUDE the android/ folder
+node_modules/
+.expo/
+dist/
+build/
+coverage/
+
+# Ensure native folder is uploaded for custom patching
+!android/
+!ios/

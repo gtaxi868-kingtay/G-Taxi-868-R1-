@@ -105,7 +105,8 @@ serve(async (req: Request) => {
             JSON.stringify({ 
                 success: true, 
                 ride_id: newRide.id,
-                message: `Ride summoned for ${guest_name}. SMS sent.`
+                message: `Ride summoned for ${guest_name}. Share details with guest.`,
+                sms_message: smsMessage
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

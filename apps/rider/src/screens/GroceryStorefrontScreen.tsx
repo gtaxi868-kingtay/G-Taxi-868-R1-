@@ -21,6 +21,14 @@ interface Merchant {
     is_active: boolean;
 }
 
+interface RegularItem {
+    id: string;
+    name: string;
+    count: number;
+    merchant_id: string;
+    merchant_name: string;
+}
+
 const CATEGORY_ICONS: Record<string, string> = {
     grocery: '🛒',
     laundry: '🧺',
@@ -35,6 +43,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
 
     const [merchants, setMerchants] = useState<Merchant[]>([]);
+    const [regularItems, setRegularItems] = useState<RegularItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -56,6 +65,37 @@ export function GroceryStorefrontScreen({ navigation }: any) {
             // Derive unique categories
             const cats = Array.from(new Set(list.map(m => m.category)));
             setCategories(cats);
+
+            // Fetch Regulars (Frequents)
+            if (user?.id) {
+                const { data: orders } = await supabase
+                    .from('order_items')
+                    .select('product_name, product_id, merchant_id, merchants(name)')
+                    .limit(100); // Sample 100 items to find regulars
+
+                if (orders && orders.length > 0) {
+                    const counts: Record<string, any> = {};
+                    orders.forEach((o: any) => {
+                        const key = o.product_name;
+                        if (!counts[key]) {
+                            counts[key] = { 
+                                name: key, 
+                                id: o.product_id, 
+                                merchant_id: o.merchant_id,
+                                merchant_name: o.merchants?.name,
+                                count: 0 
+                            };
+                        }
+                        counts[key].count += 1;
+                    });
+
+                    const sorted = Object.values(counts)
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 8);
+                    
+                    setRegularItems(sorted as RegularItem[]);
+                }
+            }
         } catch (err) {
             console.error('[GroceryStorefront] fetch error:', err);
         } finally {
@@ -136,6 +176,42 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     </TouchableOpacity>
                 ))}
             </ScrollView>
+
+            {/* THE REGULARS: Frictionless Hero */}
+            {regularItems.length > 0 && (
+                <View style={s.regularsContainer}>
+                    <View style={s.sectionHeader}>
+                        <Ionicons name="flash" size={14} color="#00FFFF" />
+                        <Text style={s.sectionTitle}>THE REGULARS</Text>
+                    </View>
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false} 
+                        contentContainerStyle={s.regularsScroll}
+                    >
+                        {regularItems.map((item, idx) => (
+                            <TouchableOpacity 
+                                key={idx} 
+                                style={s.regularCard}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    navigation.navigate('ProductDetail', { 
+                                        productId: item.id, 
+                                        merchantId: item.merchant_id 
+                                    });
+                                }}
+                            >
+                                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                                <View style={s.itemIcon}>
+                                    <Text style={{ fontSize: 20 }}>📦</Text>
+                                </View>
+                                <Text style={s.itemName} numberOfLines={1}>{item.name}</Text>
+                                <Text style={s.itemMerchant} numberOfLines={1}>{item.merchant_name}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
 
             {/* Merchant list */}
             {loading ? (
@@ -221,4 +297,13 @@ const s = StyleSheet.create({
     emptyEmoji: { fontSize: 48, marginBottom: 16 },
     emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
     emptySubtext: { color: 'rgba(255,255,255,0.4)', fontSize: 14, marginTop: 6 },
+
+    regularsContainer: { marginTop: 12, marginBottom: 24 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12, gap: 6 },
+    sectionTitle: { fontSize: 11, fontWeight: '900', color: '#00FFFF', letterSpacing: 2 },
+    regularsScroll: { paddingHorizontal: 20, gap: 12 },
+    regularCard: { width: 140, padding: 16, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.03)' },
+    itemIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(0,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+    itemName: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+    itemMerchant: { fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2, fontWeight: '300' },
 });

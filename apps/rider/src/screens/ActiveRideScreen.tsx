@@ -3,7 +3,7 @@ import {
     View, Text, StyleSheet, TouchableOpacity, Alert,
     Linking, Dimensions, Platform, Image as RNImage, AppState,
     Modal, TextInput, KeyboardAvoidingView,
-    ActivityIndicator
+    ActivityIndicator, Share
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -251,6 +251,39 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
         }
     };
 
+    const handleShareMirror = async () => {
+        try {
+            const mirrorUrl = `${ENV.SUPABASE_URL}/functions/v1/mirror_ride?ride_id=${rideId}`;
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            
+            await Share.share({
+                title: 'G-TAXI Guardian Shield',
+                message: `I'm on a G-TAXI ride with ${driver?.name || 'a driver'}. Monitor my live progress here: ${mirrorUrl}`,
+                url: mirrorUrl
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const toggleSafeEntry = async () => {
+        try {
+            const nextValue = !ride?.safe_entry;
+            const { error } = await supabase
+                .from('rides')
+                .update({ safe_entry: nextValue })
+                .eq('id', rideId);
+            
+            if (!error) {
+                setRide((prev: any) => ({ ...prev, safe_entry: nextValue }));
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setAiInsight(nextValue ? "Safe Entry Mode ACTIVE. Driver is instructed to wait for you." : "Safe Entry Mode disabled.");
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     const handleSOS = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         Alert.alert("SOS EMERGENCY", "Trigger emergency assistance?", [
@@ -434,6 +467,20 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                                 size={20} 
                                 color={ride?.entertainment_status === 'accepted' ? SEMANTIC.success : BRAND.purple} 
                             />
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={[s.msgBtn, { marginLeft: 8, borderColor: BRAND.cyan, backgroundColor: 'rgba(0,255,255,0.05)' }]} 
+                            onPress={handleShareMirror}
+                        >
+                            <Ionicons name="shield-checkmark" size={20} color={BRAND.cyan} />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={[s.msgBtn, { marginLeft: 8, borderColor: ride?.safe_entry ? SEMANTIC.success : 'transparent' }]} 
+                            onPress={toggleSafeEntry}
+                        >
+                            <Ionicons name="home-outline" size={20} color={ride?.safe_entry ? SEMANTIC.success : BRAND.purple} />
                         </TouchableOpacity>
 
                         <TouchableOpacity style={s.callBtn} onPress={() => driver?.phone_number && Linking.openURL(`tel:${driver.phone_number}`)}>

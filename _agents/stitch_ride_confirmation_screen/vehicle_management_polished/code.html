@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&amp;family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js" type="module"></script>
+<script nomodule="" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#33226f",
+                        "on-primary-container": "#ede0ff",
+                        "surface-container-low": "#1c192b",
+                        "error-container": "#93000a",
+                        "surface-bright": "#3b374a",
+                        "on-primary": "#3f008e",
+                        "on-secondary-container": "#007070",
+                        "surface-container": "#211d2f",
+                        "on-tertiary-fixed": "#1e055a",
+                        "surface-variant": "#363245",
+                        "on-error-container": "#ffdad6",
+                        "surface": "#0a0910",
+                        "surface-tint": "#d2bbff",
+                        "on-surface": "#e6dff8",
+                        "surface-container-highest": "#363245",
+                        "on-secondary-fixed": "#002020",
+                        "surface-container-high": "#2b273a",
+                        "secondary": "#ffffff",
+                        "secondary-container": "#00fbfb",
+                        "tertiary-container": "#6a5baa",
+                        "inverse-surface": "#e6dff8",
+                        "inverse-primary": "#732ee4",
+                        "on-surface-variant": "#ccc3d8",
+                        "secondary-fixed-dim": "#00dddd",
+                        "on-tertiary-container": "#eae2ff",
+                        "surface-dim": "#0a0910",
+                        "tertiary": "#cbbeff",
+                        "error": "#ffb4ab",
+                        "primary-container": "#7c3aed",
+                        "on-tertiary-fixed-variant": "#4a3a87",
+                        "tertiary-fixed-dim": "#cbbeff",
+                        "on-background": "#e6dff8",
+                        "primary-fixed-dim": "#d2bbff",
+                        "on-secondary": "#003737",
+                        "on-error": "#690005",
+                        "primary-fixed": "#eaddff",
+                        "on-secondary-fixed-variant": "#004f4f",
+                        "secondary-fixed": "#00fbfb",
+                        "inverse-on-surface": "#322e41",
+                        "outline-variant": "#4a4455",
+                        "primary": "#7c3aed",
+                        "outline": "#958da1",
+                        "tertiary-fixed": "#e7deff",
+                        "on-primary-fixed-variant": "#5a00c6",
+                        "background": "#0a0910",
+                        "on-primary-fixed": "#25005a",
+                        "surface-container-lowest": "#0f0c1d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(30, 27, 46, 0.4);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+        }
+        .diagonal-glow {
+            background: linear-gradient(135deg, #7c3aed 0%, #00fbfb 100%);
+        }
+        .cyan-performance-gradient {
+            background: linear-gradient(to bottom right, rgba(0, 251, 251, 0.1), transparent);
+        }
+        body {
+            min-height: 100dvh;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-secondary-container/30">
+<!-- Top Navigation Shell -->
+<nav class="fixed top-0 w-full z-50 bg-surface/40 backdrop-blur-xl flex justify-between items-center px-6 h-20">
+<div class="flex items-center gap-1">
+<img alt="G-TAXI Logo" class="h-12 w-12 object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0uiXOJxV36NJi2RTp9Ya09DJeMmiErCiNBYVbL6OlOIE0yRdmf81U5P1Usr410KKmxv8aBrvs_F-5BLOE7d_fQeyX-yNlmr756tcN5Rgn7-US2aBvb3F3LXb1B7uW-qAgl3457bYOLJSgsbvLTT690gPumAGPEg2PRdH9DF-fDgJbqUq_KN-u3PdX42in-2o1rFAY9464KHitLA2OBjN9y7Av8ygujfpoYqqr5YdMXdjJCiHBeCfjzQkkyNJGEqnu89Yc5oKAkzu"/>
+<span class="text-xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-violet-300 to-cyan-400 font-headline">G-TAXI</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden md:flex gap-8 px-8">
+<span class="text-violet-300/60 font-manrope font-light text-[10px] uppercase tracking-widest cursor-pointer hover:text-cyan-300 transition-colors">Ride</span>
+<span class="text-cyan-400 font-bold font-manrope text-[10px] uppercase tracking-widest cursor-pointer">Activity</span>
+<span class="text-violet-300/60 font-manrope font-light text-[10px] uppercase tracking-widest cursor-pointer hover:text-cyan-300 transition-colors">Wallet</span>
+</div>
+<div class="h-10 w-10 rounded-full border-2 border-cyan-400/30 overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD62_iaGgt8T7pcUAWEeiAlED_LSUGlTKe5zFVPyYG6J7-WoUkXGhdkqra3BEyYewxXy6csKKToY6OjA7xp10hpjJefMdZv4Gi1_r3rfHYI6keC6i1d8LehspZXv1YCdRseqgqEf6Uf_-gzCxpnr7ahtG4ZQIbBzhuIVVJCeGk-dZlRWi7gKM7Cy0bZqgtv3en5VSbfRZQLiWxmSQSE1QRazxGDSa-YyyYZrdhX3zKhogTyRSnslXahU_pSxRIwVr7T8kM6S-qsGx8"/>
+</div>
+</div>
+</nav>
+<!-- Back Button circular overlay -->
+<div class="fixed top-24 left-6 z-40">
+<button class="w-[44px] h-[44px] rounded-full bg-surface-bright/20 backdrop-blur-md flex items-center justify-center border border-outline-variant/10 hover:bg-surface-bright/40 transition-all">
+<ion-icon class="text-on-surface text-xl" name="chevron-back-outline"></ion-icon>
+</button>
+</div>
+<main class="pt-36 pb-48 px-6 max-w-5xl mx-auto min-h-screen relative overflow-hidden">
+<!-- Background Decorative Pulse -->
+<div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
+<!-- Header Section -->
+<header class="mb-12 relative z-10">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<span class="text-secondary-container font-headline font-light text-sm tracking-[0.2em] uppercase mb-2 block">Performance Portal</span>
+<h1 class="text-4xl md:text-6xl font-headline font-extrabold tracking-tighter text-on-surface">Vehicle Fleet</h1>
+</div>
+<div class="flex gap-4">
+<button class="bg-surface-bright/20 backdrop-blur-md px-6 py-3 rounded-full text-on-surface font-headline font-bold flex items-center gap-2 border border-outline-variant/15 hover:backdrop-blur-xl transition-all">
+<ion-icon class="text-cyan-400 text-xl" name="add-circle-outline"></ion-icon>
+                        Register New
+                    </button>
+</div>
+</div>
+</header>
+<!-- Main Content Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
+<!-- Active Vehicle Hero Card -->
+<section class="lg:col-span-8 group">
+<div class="glass-card rounded-xl p-8 border border-outline-variant/10 overflow-hidden relative min-h-[500px] flex flex-col justify-between">
+<div class="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none" style="mask-image: linear-gradient(to left, black, transparent);">
+<img class="w-full h-full object-cover grayscale brightness-50 contrast-125" data-location="San Francisco" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-MLAO7pCHx9-qQ_uVkx2bVuDREaewLfbP3k_zqAQLAqIvZ6_tvgCBmqIUf5xAkje8v_JeVnsghAT3UIpDlogXZIhTVN-fCaxFA5lWw89Ze2LmUjFy-ok3awOifISBEovtRzx3ZPoigcIZgMRS2gZWmDH3nVHmb7iAkknqL3HpJvRfAUDmEWuyeELBXNtW5Mi2zfjYrg58Lrg3cB9x0NxGBQnFy7yD7jtTCpBS-W5-77ixw5GzzZFZcXj6OhWA0hqZjl6J81Pu86E"/>
+</div>
+<div class="relative">
+<div class="flex justify-between items-start mb-12">
+<div class="bg-secondary-container/10 border border-secondary-container/20 px-4 py-1.5 rounded-full flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span>
+<span class="text-secondary-container font-headline font-bold text-xs tracking-widest uppercase">Active Service</span>
+</div>
+<span class="text-on-surface-variant font-headline font-extrabold text-2xl">ELT-8921</span>
+</div>
+<div class="space-y-2">
+<h2 class="text-5xl md:text-7xl font-headline font-black tracking-tighter text-white">Tesla Model 3</h2>
+<p class="text-on-surface-variant text-lg font-light flex items-center gap-2">
+<ion-icon class="text-secondary-container" name="flash"></ion-icon>
+                                Long Range Dual Motor • Midnight Silver
+                            </p>
+</div>
+</div>
+<!-- Vehicle Smooth Render Image -->
+<div class="relative h-64 mt-8 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-700">
+<img alt="Tesla Model 3" class="max-h-full w-auto object-contain drop-shadow-[0_20px_50px_rgba(0,251,251,0.2)]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvD-uaa10fZfsHal8YHXHy7fHymk5hVUfcFbaTSgKELkwsyM3JzLyzv0eQcxgg_c6l_bgJoQjNYRUyRhBDEehOBGnWi9q0B6J-zAgiWVEDZtZTrpeOjM5mF9bRCLXt01EhBX2LKIwgjoVRnXEU-Rdtc2FmjF6OiAXmXLIPs1kFHEZxccQq0k8j5oiAS_hS2Ml2hpYrQApDQqwDP6ekNnmQPIUFOMQxfOkq5rgtSrRdPu0gexdfpPo0zsFE4QdrpYgwjF4JXOxUZtA"/>
+</div>
+<!-- Quick Info Chips -->
+<div class="flex flex-wrap gap-4 mt-12">
+<div class="bg-surface-container-highest/60 backdrop-blur-md px-5 py-3 rounded-xl border border-outline-variant/10 flex items-center gap-3">
+<ion-icon class="text-secondary-container text-xl" name="calendar-clear"></ion-icon>
+<div>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-light">Next Inspection</p>
+<p class="font-headline font-extrabold text-on-surface">OCT 24, 2024</p>
+</div>
+</div>
+<div class="bg-surface-container-highest/60 backdrop-blur-md px-5 py-3 rounded-xl border border-outline-variant/10 flex items-center gap-3">
+<ion-icon class="text-secondary-container text-xl" name="shield-checkmark"></ion-icon>
+<div>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-light">Insurance</p>
+<p class="font-headline font-extrabold text-on-surface">VERIFIED</p>
+</div>
+</div>
+<div class="bg-surface-container-highest/60 backdrop-blur-md px-5 py-3 rounded-xl border border-outline-variant/10 flex items-center gap-3">
+<ion-icon class="text-secondary-container text-xl" name="speedometer"></ion-icon>
+<div>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-light">Efficiency</p>
+<p class="font-headline font-extrabold text-on-surface">98.2%</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Sidebar Actions & Info -->
+<aside class="lg:col-span-4 space-y-8">
+<!-- Performance Stats Card -->
+<div class="glass-card rounded-xl p-8 border border-outline-variant/10 relative overflow-hidden">
+<div class="cyan-performance-gradient absolute inset-0"></div>
+<div class="relative">
+<h3 class="font-headline font-bold text-lg mb-6 flex items-center gap-2">
+<ion-icon class="text-secondary-container" name="analytics"></ion-icon>
+                            Driver Performance
+                        </h3>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between text-sm mb-2">
+<span class="text-on-surface-variant font-light">Vehicle Reliability</span>
+<span class="text-secondary-container font-extrabold">99%</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full w-[99%] bg-secondary-container shadow-[0_0_10px_rgba(0,251,251,0.5)]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-2">
+<span class="text-on-surface-variant font-light">Cleanliness Rating</span>
+<span class="text-secondary-container font-extrabold">4.9/5</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full w-[94%] bg-secondary-container shadow-[0_0_10px_rgba(0,251,251,0.5)]"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Secondary Actions -->
+<div class="space-y-4">
+<button class="w-full bg-surface-container-high/40 border border-outline-variant/20 hover:bg-surface-container-high text-on-surface font-headline font-bold h-[56px] rounded-[28px] flex items-center justify-center gap-3 transition-all">
+<ion-icon class="text-xl" name="document-text-outline"></ion-icon>
+                        Update Registration
+                    </button>
+</div>
+<!-- Inactive Fleet -->
+<div class="space-y-4">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-light px-2">Inactive Fleet</p>
+<div class="flex items-center justify-between p-4 bg-surface-container-lowest/50 rounded-xl border border-outline-variant/10">
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-surface-container-high rounded-full flex items-center justify-center">
+<ion-icon class="text-on-surface-variant text-2xl" name="car-outline"></ion-icon>
+</div>
+<div>
+<p class="font-headline font-extrabold text-sm uppercase">Toyota Camry Hybrid</p>
+<p class="text-xs text-on-surface-variant font-light">ELT-4420 • Inactive</p>
+</div>
+</div>
+<button class="p-2 text-on-surface-variant hover:text-white transition-colors">
+<ion-icon name="ellipsis-vertical-outline"></ion-icon>
+</button>
+</div>
+</div>
+</aside>
+</div>
+<!-- Documents Alert -->
+<div class="mt-12 p-6 glass-card rounded-xl border-l-4 border-secondary-container flex flex-col md:flex-row items-center justify-between gap-6">
+<div class="flex items-center gap-5">
+<div class="w-12 h-12 bg-secondary-container/20 rounded-full flex items-center justify-center">
+<ion-icon class="text-secondary-container text-2xl" name="warning-outline"></ion-icon>
+</div>
+<div>
+<h4 class="font-headline font-extrabold text-lg">Documents Expiring Soon</h4>
+<p class="text-on-surface-variant text-sm font-light">Your vehicle registration for ELT-8921 expires in 14 days. Please upload new documents.</p>
+</div>
+</div>
+<button class="bg-secondary-container text-on-secondary-container font-headline font-black px-8 h-[48px] rounded-full hover:shadow-[0_0_20px_rgba(0,251,251,0.3)] transition-all whitespace-nowrap">
+                Renew Now
+            </button>
+</div>
+</main>
+<!-- Bottom Navigation Shell (Mobile Only) -->
+<div class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-8 pb-10 pt-4 bg-surface/80 backdrop-blur-2xl rounded-t-[3rem] z-50 shadow-[0_-10px_60px_-10px_rgba(0,0,0,0.5)]">
+<div class="flex flex-col items-center justify-center text-violet-400/50 p-3">
+<ion-icon class="text-2xl" name="car"></ion-icon>
+<span class="font-manrope font-light text-[8px] uppercase tracking-widest mt-1">Ride</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-gradient-to-br from-violet-600 to-cyan-500 text-white rounded-full p-3 shadow-lg shadow-cyan-500/20 active:scale-90 duration-300">
+<ion-icon class="text-2xl" name="time"></ion-icon>
+</div>
+<div class="flex flex-col items-center justify-center text-violet-400/50 p-3">
+<ion-icon class="text-2xl" name="wallet"></ion-icon>
+<span class="font-manrope font-light text-[8px] uppercase tracking-widest mt-1">Wallet</span>
+</div>
+<div class="flex flex-col items-center justify-center text-violet-400/50 p-3">
+<ion-icon class="text-2xl" name="person"></ion-icon>
+<span class="font-manrope font-light text-[8px] uppercase tracking-widest mt-1">Profile</span>
+</div>
+</div>
+<!-- Pinned Primary Action -->
+<div class="fixed bottom-0 left-0 w-full p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-surface via-surface/90 to-transparent z-[60] md:hidden">
+<button class="w-full diagonal-glow text-on-primary-fixed font-headline font-extrabold text-lg h-[56px] rounded-[28px] shadow-[0_20px_40px_-15px_rgba(124,58,237,0.4)] flex items-center justify-center gap-3 active:scale-95 transition-all">
+<ion-icon class="text-2xl" name="swap-horizontal-outline"></ion-icon>
+            Switch Vehicle
+        </button>
+</div>
+</body></html>

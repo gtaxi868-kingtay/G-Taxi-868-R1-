@@ -159,6 +159,7 @@ export function AISettingsScreen({ navigation }: any) {
                             trackColor={{ false: R.surfaceHigh, true: R.purple }}
                         />
                     </View>
+                </View>
 
                 <View style={s.section}>
                     <Txt variant="caption" color={R.muted} style={s.sectionTitle}>TRAVEL PACE</Txt>

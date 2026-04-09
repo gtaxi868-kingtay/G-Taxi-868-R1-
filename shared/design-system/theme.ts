@@ -53,11 +53,11 @@ export const GRADIENTS = {
 
 export const VOICES = {
     rider: {
-        bg: BRAND.lavender,
-        surface: '#FFFFFF',
-        text: '#1E1E3F',
-        textMuted: 'rgba(30,30,63,0.55)',
-        border: 'rgba(124,58,237,0.12)',
+        bg: '#160B32',
+        surface: 'rgba(255,255,255,0.08)',
+        text: '#FFFFFF',
+        textMuted: 'rgba(255,255,255,0.65)',
+        border: 'rgba(255,255,255,0.15)',
     },
     driver: {
         bg: '#0A0718',
