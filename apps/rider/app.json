@@ -41,7 +41,8 @@
         "@sentry/react-native/expo",
         {
           "organization": "gtaxi",
-          "project": "g-taxi-rider"
+          "project": "g-taxi-rider",
+          "disableSourcemapUpload": true
         }
       ]
     ],
