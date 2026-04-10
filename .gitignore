@@ -7,8 +7,11 @@ yarn-debug.*
 yarn-error.*
 
 # [Build Artifacts]
-# ios/
-# android/
+ios/build/
+android/app/build/
+android/build/
+.expo/
+dist/
 *.jks
 *.p8
 *.p12

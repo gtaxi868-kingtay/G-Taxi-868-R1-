@@ -8,6 +8,7 @@ module.exports = function (api) {
                     'shared': '../../shared',
                 },
             }],
+            'react-native-worklets-core/plugin',
             'react-native-reanimated/plugin',
         ],
     };
