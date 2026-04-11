@@ -74,7 +74,14 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "@sentry/react-native"
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "gtaxi",
+          "project": "g-taxi-driver",
+          "disableSourcemapUpload": true
+        }
+      ]
     ],
     "owner": "gtaxi",
     "extra": {
