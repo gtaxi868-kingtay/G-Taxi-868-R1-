@@ -1,4 +1,4 @@
-const { getSentryExpoConfig } = require('@sentry/react-native/expo');
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
