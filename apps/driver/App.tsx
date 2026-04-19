@@ -149,13 +149,14 @@ let Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
 if (!isExpoGo) {
     try {
         Sentry = require('@sentry/react-native');
-        Sentry.init({
-            dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder-dsn@sentry.io/0',
-            environment: __DEV__ ? 'development' : 'production',
-            tracesSampleRate: __DEV__ ? 0.0 : 0.2,
-            enableNative: true,
-            debug: __DEV__,
-        });
+        try {
+            Sentry.init({
+                dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder-dsn@sentry.io/0',
+                enabled: false, // DISABLED until Phase 10
+            });
+        } catch (e) {
+            console.log('Sentry init skipped:', e);
+        }
     } catch (e) {
         console.warn('Sentry failed to load in non-expo-go env', e);
     }

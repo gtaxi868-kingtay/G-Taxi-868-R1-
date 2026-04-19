@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
+import { LoadingOverlay } from '../design-system';
 
 const { width } = Dimensions.get('window');
 
@@ -126,7 +127,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
             onPress={() => handleMerchantPress(item)}
             activeOpacity={0.85}
         >
-            <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
+            <BlurView intensity={30} style={StyleSheet.absoluteFillObject} tint="dark" />
             <View style={s.merchantIcon}>
                 <Text style={s.iconEmoji}>
                     {CATEGORY_ICONS[item.category] || CATEGORY_ICONS.default}
@@ -201,7 +202,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                                     });
                                 }}
                             >
-                                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
                                 <View style={s.itemIcon}>
                                     <Text style={{ fontSize: 20 }}>📦</Text>
                                 </View>
@@ -214,12 +215,9 @@ export function GroceryStorefrontScreen({ navigation }: any) {
             )}
 
             {/* Merchant list */}
-            {loading ? (
-                <View style={s.center}>
-                    <ActivityIndicator size="large" color="#00FFFF" />
-                    <Text style={s.loadingText}>Finding stores...</Text>
-                </View>
-            ) : filteredMerchants.length === 0 ? (
+            {loading && <LoadingOverlay message="SCANNING LOGISTICS..." color="#00FFFF" />}
+            
+            {!loading && filteredMerchants.length === 0 ? (
                 <View style={s.center}>
                     <Text style={s.emptyEmoji}>🏪</Text>
                     <Text style={s.emptyText}>No stores available right now.</Text>

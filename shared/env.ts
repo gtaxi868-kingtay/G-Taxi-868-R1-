@@ -6,7 +6,7 @@ export const ENV = {
     SUPABASE_URL: 'https://ffbbuafgeypvkpcuvdnv.supabase.co',
     SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmYmJ1YWZnZXlwdmtwY3V2ZG52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mzc5ODAsImV4cCI6MjA4NjUxMzk4MH0.0bvE6YskOdVROtbto3RrJA9Vj--9M2hKg76oZkOxia8',
     MAPBOX_PUBLIC_TOKEN: 'pk.eyJ1IjoidGF4aWciLCJhIjoiY21ra2U3MHpxMWRnYzNwcTBubjFvZndoOCJ9.1wZm2poSFz_YsiCPlkEZPw',
-    STRIPE_PUBLISHABLE_KEY: 'pk_test_51O2uA8I2HzP1uK1u...', // Placeholder, should be in .env
+    STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder',
 } as const;
 
 // Trinidad & Tobago default location (Port of Spain)

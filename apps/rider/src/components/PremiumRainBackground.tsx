@@ -11,13 +11,13 @@ export function PremiumRainBackground() {
         <View style={styles.container}>
             <LinearGradient
                 colors={['#07050F', '#110E22', '#1E1040']}
-                style={StyleSheet.absoluteFill}
+                style={StyleSheet.absoluteFillObject}
             />
             {/* Ambient Glows */}
             <View style={[styles.glow, { top: '10%', left: '20%', backgroundColor: 'rgba(124,58,237,0.15)' }]} />
             <View style={[styles.glow, { bottom: '20%', right: '10%', backgroundColor: 'rgba(16,185,129,0.1)' }]} />
 
-            <BlurView tint="dark" intensity={10} style={StyleSheet.absoluteFill} />
+            <BlurView tint="dark" intensity={10} style={StyleSheet.absoluteFillObject} />
         </View>
     );
 }

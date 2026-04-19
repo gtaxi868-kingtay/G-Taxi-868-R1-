@@ -104,7 +104,7 @@ export function ServiceBookingScreen({ navigation, route }: any) {
 
     return (
         <View style={s.root}>
-            <LinearGradient colors={['#0A0A1F', '#12122A']} style={StyleSheet.absoluteFill} />
+            <LinearGradient colors={['#0A0A1F', '#12122A']} style={StyleSheet.absoluteFillObject} />
             
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>

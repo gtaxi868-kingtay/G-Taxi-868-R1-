@@ -28,7 +28,7 @@ export function useLocationTracking() {
     // Dead Reckoning State
     const velocityRef = useRef<{ dx: number, dy: number }>({ dx: 0, dy: 0 }); // Lat/Lng change per second
     const accelRef = useRef<{ x: number, y: number, z: number }>({ x: 0, y: 0, z: 0 });
-    const drIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const drIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // ── Accelerometer Listener ──────────────────────────────────────────────
     useEffect(() => {

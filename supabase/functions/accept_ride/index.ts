@@ -39,6 +39,37 @@ serve(async (req: Request) => {
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
         const { user, driver } = await requireDriver(req, supabaseAdmin);
 
+        // ── EMERGENCY FIX: Driver Capacity Check ─────────────────────────────────
+        // Prevent driver from accepting if they already have an active ride
+        const { data: activeRides, error: activeRidesError } = await supabaseAdmin
+            .from("rides")
+            .select("id, status")
+            .eq("driver_id", driver.id)
+            .in("status", ["assigned", "arrived", "in_progress"]);
+
+        if (activeRidesError) {
+            console.error("Capacity check failed:", activeRidesError);
+            return new Response(
+                JSON.stringify({ success: false, error: "System error checking driver capacity" }),
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        if (activeRides && activeRides.length > 0) {
+            console.error(`Driver ${driver.id} attempted to accept ride ${ride_id} but already has active ride(s):`, activeRides);
+            return new Response(
+                JSON.stringify({ 
+                    success: false, 
+                    error: "You already have an active ride. Complete it before accepting a new one.",
+                    details: {
+                        active_ride_count: activeRides.length,
+                        active_ride_ids: activeRides.map(r => r.id)
+                    }
+                }),
+                { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // 1. ATOMIC OFFER LOCK
         // Verify this driver actually holds a 'pending' offer for this ride.
         const { data: offer, error: offerError } = await supabaseAdmin

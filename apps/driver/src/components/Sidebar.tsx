@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
     Image,
     View,
+    Text,
     StyleSheet,
     TouchableOpacity,
     Animated,
@@ -10,10 +11,17 @@ import {
     SafeAreaView,
     Alert,
 } from 'react-native';
-import { tokens } from '../design-system/tokens';
-import { Txt, Surface } from '../design-system/primitives';
 import { supabase } from '../../../../shared/supabase';
+import { Logo } from '../../../../shared/design-system/components';
 import { Ionicons } from '@expo/vector-icons';
+
+// Blueberry Luxe — Gold Edition (Driver)
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    gold: '#FFD700',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    error: '#EF4444',
+};
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.75;
@@ -74,8 +82,8 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
             }}
             activeOpacity={0.7}
         >
-            <Ionicons name={iconName as any} size={22} color={isWarning ? tokens.colors.status.error : tokens.colors.text.secondary} style={{ width: 32 }} />
-            <Txt variant="headingM" color={isWarning ? tokens.colors.status.error : tokens.colors.text.primary}>{label}</Txt>
+            <Ionicons name={iconName as any} size={22} color={isWarning ? COLORS.error : COLORS.gold} style={{ width: 32 }} />
+            <Text style={{fontSize: 16, fontWeight: '700', color: isWarning ? COLORS.error : '#FFF'}}>{label.toUpperCase()}</Text>
         </TouchableOpacity>
     );
 
@@ -105,7 +113,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
             </Animated.View>
 
             <Animated.View style={[styles.panel, { transform: [{ translateX: slideAnim }] }]}>
-                <Surface style={{ flex: 1, overflow: 'hidden' }} intensity={10} noBorder>
+                <View style={{ flex: 1, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' }}>
                     <SafeAreaView style={{ flex: 1 }}>
                         {/* Profile Header */}
                         <TouchableOpacity
@@ -122,15 +130,15 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                     {user?.photo_url ? (
                                         <Image source={{ uri: user.photo_url }} style={styles.avatarImage} />
                                     ) : (
-                                        <Txt variant="headingM" weight="bold" color={tokens.colors.primary.purple}>
+                                        <Text style={{fontSize: 16, fontWeight: '700', color: COLORS.gold}}>
                                             {user?.name?.charAt(0)?.toUpperCase() || 'D'}
-                                        </Txt>
+                                        </Text>
                                     )}
                                 </View>
                                 <View style={styles.userInfo}>
-                                    <Txt variant="headingM" weight="bold">{user?.name || 'Driver'}</Txt>
+                                    <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>{user?.name || 'Driver'}</Text>
                                     <View style={styles.ratingBadge}>
-                                        <Txt variant="caption" weight="bold">★ {user?.rating?.toFixed(2) || '5.00'}</Txt>
+                                        <Text style={{fontSize: 11, fontWeight: '600', color: '#FFF'}}>★ {user?.rating?.toFixed(2) || '5.00'}</Text>
                                     </View>
                                 </View>
                             </View>
@@ -160,13 +168,20 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                 onPress={handleLogout}
                                 activeOpacity={0.7}
                             >
-                                <Ionicons name="log-out-outline" size={22} color={tokens.colors.status.error} style={{ width: 32 }} />
-                                <Txt variant="headingM" color={tokens.colors.status.error}>Log Out</Txt>
+                                <Ionicons name="log-out-outline" size={22} color={COLORS.error} style={{ width: 32 }} />
+                                <Text style={{fontSize: 16, fontWeight: '700', color: COLORS.error}}>TERMINATE SESSION</Text>
                             </TouchableOpacity>
                         </View>
 
+                        <View style={styles.footerLogo}>
+                            <Logo size={24} variant="full" />
+                            <Text style={{ marginTop: 12, fontSize: 11, fontWeight: '500', color: COLORS.textSecondary }}>
+                                EMPIRE OS • V3.2 PILOT
+                            </Text>
+                        </View>
+
                     </SafeAreaView>
-                </Surface>
+                </View>
             </Animated.View>
         </View>
     );
@@ -188,7 +203,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         width: SIDEBAR_WIDTH,
-        backgroundColor: tokens.colors.background.base,
+        backgroundColor: COLORS.bgPrimary,
         shadowColor: '#000',
         shadowOffset: { width: 4, height: 0 },
         shadowOpacity: 0.5,
@@ -207,7 +222,7 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 28,
-        backgroundColor: tokens.colors.background.surface,
+        backgroundColor: 'rgba(255,255,255,0.05)',
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
@@ -245,5 +260,12 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 16,
         paddingHorizontal: 24,
+    },
+    footerLogo: {
+        alignItems: 'center',
+        paddingVertical: 24,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.05)',
+        opacity: 0.8
     },
 });

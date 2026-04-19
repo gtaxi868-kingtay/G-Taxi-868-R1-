@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>G-Taxi Screen Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ── DESIGN TOKENS (from BRAND, VOICES, RADIUS in actual code) ── */
+  :root {
+    --bg: #0F0D16;
+    --bg-ambient: #1E1B4B;
+    --purple: #7C3AED;
+    --purple-light: #9E6EED;
+    --purple-dark: #5B21B6;
+    --cyan: #00FFFF;
+    --cyan-soft: rgba(0,255,255,0.6);
+    --white: #FFFFFF;
+    --text-muted: rgba(255,255,255,0.4);
+    --text-secondary: rgba(255,255,255,0.6);
+    --warning: #F59E0B;
+    --danger: #EF4444;
+    --success: #10B981;
+    --glass-bg: rgba(22, 11, 50, 0.65);
+    --glass-border: rgba(255,255,255,0.15);
+    --radius-sm: 12px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-pill: 999px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #060408;
+    color: var(--white);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 48px;
+    padding: 48px 24px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 4px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .screens-row {
+    display: flex;
+    gap: 40px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .screen-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .screen-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+  }
+
+  /* ── PHONE SHELL ── */
+  .phone {
+    width: 390px;
+    height: 844px;
+    border-radius: 52px;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04) inset;
+  }
+
+  /* ── NOTCH ── */
+  .notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 34px;
+    background: #000;
+    border-radius: 0 0 20px 20px;
+    z-index: 999;
+  }
+
+  /* ══════════════════════════════════════
+     SCREEN 1 — HOME SCREEN
+  ══════════════════════════════════════ */
+
+  .home-screen {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  /* Map background (dark Mapbox-style) */
+  .home-map {
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse at 30% 40%, rgba(124,58,237,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 60%, rgba(0,255,255,0.05) 0%, transparent 60%),
+      linear-gradient(160deg, #1a1625 0%, #0d1117 50%, #111827 100%);
+  }
+
+  /* Simulated map grid lines */
+  .home-map::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* Road lines on map */
+  .map-roads {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  .road {
+    position: absolute;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+  }
+  .road-h { height: 3px; left: 0; right: 0; }
+  .road-v { width: 3px; top: 0; bottom: 0; }
+  .road-diag {
+    height: 3px;
+    width: 240px;
+    transform-origin: left center;
+  }
+
+  /* Gradient overlay — from code: colors={['#0F0D16', 'rgba(26, 24, 35, 0.4)', '#0F0D16']} */
+  .home-gradient-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(15,13,22,0.85) 0%,
+      rgba(26,24,35,0.25) 35%,
+      rgba(26,24,35,0.25) 65%,
+      rgba(15,13,22,0.90) 100%
+    );
+    pointer-events: none;
+  }
+
+  /* Car marker on map */
+  .car-marker {
+    position: absolute;
+    top: 38%;
+    left: 44%;
+    width: 36px;
+    height: 36px;
+    background: var(--purple);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(0,255,255,0.6);
+    font-size: 18px;
+    z-index: 10;
+  }
+  .car-marker::before {
+    content: '🚗';
+    filter: drop-shadow(0 0 6px cyan);
+  }
+
+  /* 2nd car marker */
+  .car-marker-2 {
+    position: absolute;
+    top: 28%;
+    left: 62%;
+    width: 28px;
+    height: 28px;
+    background: rgba(0,255,255,0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 12px rgba(0,255,255,0.4);
+    font-size: 14px;
+    z-index: 10;
+  }
+  .car-marker-2::before { content: '🚗'; }
+
+  /* ── HEADER LOGO — from code: left: 24, top: insets.top + 15 ── */
+  .home-header {
+    position: absolute;
+    top: 54px;
+    left: 24px;
+    right: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 100;
+  }
+
+  .logo-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-g {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--purple) 0%, var(--cyan) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 900;
+    box-shadow: 0 0 20px rgba(124,58,237,0.5), 0 0 40px rgba(0,255,255,0.2);
+    color: white;
+  }
+
+  .logo-text {
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #fff 0%, var(--cyan) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ── AI CONCIERGE BUBBLE — from code: bottom: 330, BlurView ── */
+  .ai-bubble {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    bottom: 342px;
+    background: rgba(15,13,22,0.85);
+    backdrop-filter: blur(20px);
+    border-radius: 18px;
+    border: 1px solid rgba(124,97,255,0.2);
+    display: flex;
+    align-items: center;
+    padding: 12px 14px;
+    gap: 12px;
+    z-index: 90;
+  }
+
+  .ai-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #7B61FF, #00FFFF);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .ai-text {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--white);
+    line-height: 1.4;
+  }
+
+  .ai-mic-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    color: var(--cyan);
+  }
+
+  /* ── VISION FAB — from code: right: 20, bottom: 330 + 74 ── */
+  .vision-fab {
+    position: absolute;
+    right: 20px;
+    bottom: 416px;
+    background: rgba(15,13,22,0.7);
+    border: 1px solid rgba(0,255,255,0.4);
+    border-radius: 20px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+
+  .vision-fab-icon { font-size: 20px; color: var(--cyan); }
+  .vision-fab-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--cyan); }
+
+  /* ── BOTTOM PANEL — from code: position: absolute, bottom: 10, left: 10, right: 10 ── */
+  .home-panel {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    backdrop-filter: blur(30px);
+    overflow: hidden;
+    z-index: 80;
+  }
+
+  .panel-inner { padding: 24px; }
+
+  /* Service tiles — from code: tiles row, 110px height, gap: 12 */
+  .tiles-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .service-tile {
+    flex: 1;
+    height: 110px;
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .service-tile:hover { transform: scale(1.02); }
+
+  /* Active tile (TRANSPORT) — from code: tileActive with cyan border, gradient bg */
+  .service-tile.active {
+    border: 2px solid var(--cyan);
+    background: transparent;
+    position: relative;
+    overflow: hidden;
+  }
+  .service-tile.active::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(124,58,237,0.8), rgba(0,255,255,0.8));
+  }
+  .service-tile.active > * { position: relative; z-index: 1; }
+
+  .tile-icon { font-size: 28px; filter: drop-shadow(0 0 8px cyan); }
+  .tile-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--white);
+  }
+
+  /* Search bar — from code: height: 72, borderColor: rgba(0,255,255,0.3) */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    height: 72px;
+    border-radius: 20px;
+    padding: 0 24px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(0,255,255,0.3);
+    margin-bottom: 24px;
+    gap: 16px;
+    cursor: pointer;
+  }
+
+  .search-indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--cyan);
+    flex-shrink: 0;
+    box-shadow: 0 0 10px var(--cyan);
+  }
+
+  .search-text {
+    flex: 1;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--white);
+  }
+
+  .search-chevron { color: var(--purple); font-size: 18px; }
+
+  /* Quick pills — from code: height: 52, gap: 12 */
+  .pills-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .pill {
+    flex: 1;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    cursor: pointer;
+  }
+
+  .pill-icon { font-size: 16px; }
+  .pill-label { font-size: 15px; font-weight: 600; color: var(--white); }
+
+  .recent-pill {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ══════════════════════════════════════
+     SCREEN 2 — ACTIVE RIDE SCREEN
+  ══════════════════════════════════════ */
+
+  .ride-screen {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    background: #f8fafc; /* light map — from code: userInterfaceStyle="light" */
+  }
+
+  /* Light map background */
+  .ride-map {
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse at 50% 30%, #e0e7ff 0%, #f1f5f9 60%),
+      linear-gradient(180deg, #e8eaed 0%, #f5f5f5 100%);
+  }
+
+  .ride-map::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  /* Route polyline on map */
+  .route-line {
+    position: absolute;
+    top: 25%;
+    left: 30%;
+    width: 200px;
+    height: 3px;
+    background: var(--purple);
+    border-radius: 4px;
+    transform: rotate(-15deg);
+    box-shadow: 0 0 8px rgba(124,58,237,0.5);
+  }
+
+  /* Pickup dot */
+  .pickup-dot {
+    position: absolute;
+    top: 30%;
+    left: 28%;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid var(--purple);
+    box-shadow: 0 0 0 4px rgba(124,58,237,0.2);
+  }
+
+  /* Destination dot */
+  .dest-dot {
+    position: absolute;
+    top: 20%;
+    right: 28%;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border: 3px solid var(--warning);
+    box-shadow: 0 0 0 4px rgba(245,158,11,0.2);
+  }
+
+  /* Driver marker (pulsing cyan dot) */
+  .driver-dot {
+    position: absolute;
+    top: 31%;
+    left: 42%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .driver-dot-pulse {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(0,255,255,0.3);
+    animation: pulse 1.5s infinite;
+  }
+  .driver-dot-inner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--cyan);
+    border: 2px solid white;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 0 10px var(--cyan);
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+
+  /* ── STATUS BUBBLE — from code: alignSelf: 'center', top: insets.top + 10 ── */
+  .status-bubble {
+    position: absolute;
+    top: 54px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--purple);
+    border-radius: 999px;
+    padding: 8px 20px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cyan);
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .status-text {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: white;
+  }
+
+  /* ── AI INSIGHT HUD — from code: top: insets.top + 72, gradient purple ── */
+  .ai-insight-hud {
+    position: absolute;
+    top: 108px;
+    left: 5%;
+    right: 5%;
+    background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(0,255,255,0.2);
+    padding: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    z-index: 90;
+  }
+
+  .ai-insight-body { flex: 1; }
+  .ai-insight-title {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: white;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ai-insight-msg {
+    font-size: 13px;
+    font-weight: 300;
+    color: white;
+    line-height: 1.4;
+  }
+  .ai-close { font-size: 16px; color: rgba(255,255,255,0.4); cursor: pointer; }
+
+  /* ── BOTTOM CARD — from code: rgba(255,255,255,0.85), padding: 24 ── */
+  .ride-bottom-card {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0 20px 24px;
+  }
+
+  .ride-card {
+    background: rgba(255,255,255,0.92);
+    border-radius: 28px;
+    padding: 24px;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.15);
+  }
+
+  /* Handle */
+  .card-handle {
+    width: 40px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(30,30,63,0.1);
+    margin: 0 auto 20px;
+  }
+
+  /* Driver row — from code: flexDirection: 'row', marginBottom: 28 */
+  .driver-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 0;
+  }
+
+  /* Avatar — from code: width: 56, backgroundColor: BRAND.purple */
+  .driver-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--purple);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 800;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .driver-info {
+    flex: 1;
+    margin-left: 16px;
+  }
+
+  .driver-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1e1e3f;
+  }
+
+  .driver-vehicle {
+    font-size: 13px;
+    font-weight: 300;
+    color: rgba(30,30,63,0.5);
+    margin-top: 2px;
+  }
+
+  /* PIN badge — from code: rgba(0,255,255,0.05) background */
+  .pin-badge {
+    flex: 0.8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(0,255,255,0.05);
+    border: 1px solid rgba(0,255,255,0.15);
+    border-radius: 16px;
+    margin: 0 12px;
+  }
+
+  .pin-label {
+    font-size: 10px;
+    font-weight: 300;
+    color: rgba(0,255,255,0.6);
+    letter-spacing: 1px;
+  }
+
+  .pin-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--cyan);
+    letter-spacing: 4px;
+  }
+
+  /* SOS — from code: width: 56, backgroundColor: SEMANTIC.danger */
+  .sos-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--danger);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 0 0 4px rgba(239,68,68,0.2);
+    flex-shrink: 0;
+    animation: sos-pulse 1s infinite alternate;
+  }
+
+  @keyframes sos-pulse {
+    from { box-shadow: 0 0 0 4px rgba(239,68,68,0.2); }
+    to { box-shadow: 0 0 0 8px rgba(239,68,68,0.05); }
+  }
+
+  /* Trip tracker — from code: 3 nodes + 2 lines */
+  .trip-track {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding: 0 10px;
+  }
+
+  .track-node {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid rgba(124,58,237,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .track-node.active {
+    background: var(--purple);
+    border-color: var(--purple-light);
+    color: white;
+  }
+
+  .track-line {
+    flex: 1;
+    height: 2px;
+    background: rgba(124,58,237,0.1);
+    margin: 0 4px;
+  }
+
+  .track-line.active { background: var(--purple); }
+
+  /* Action buttons */
+  .actions-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .action-btn {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    background: rgba(124,58,237,0.05);
+    border: 1px solid rgba(124,58,237,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .action-btn:hover { background: rgba(124,58,237,0.12); }
+
+  .action-btn.shield {
+    background: rgba(0,255,255,0.05);
+    border-color: var(--cyan);
+  }
+
+  /* Call button — flex: 1 */
+  .call-btn {
+    flex: 1;
+    height: 54px;
+    border-radius: 16px;
+    background: rgba(124,58,237,0.05);
+    border: 1px solid rgba(124,58,237,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--purple);
+    cursor: pointer;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 860px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+</style>
+</head>
+<body>
+
+<h1>G-TAXI · SCREEN PREVIEW · RIDER APP</h1>
+
+<div class="screens-row">
+
+  <!-- ══════════════════ SCREEN 1: HOME SCREEN ══════════════════ -->
+  <div class="screen-wrapper">
+    <div class="screen-label">HOME SCREEN</div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="home-screen">
+
+        <!-- Map base -->
+        <div class="home-map">
+          <!-- Road markers (simulated) -->
+          <div class="road road-h" style="top: 35%; opacity: 0.6;"></div>
+          <div class="road road-h" style="top: 50%; opacity: 0.4;"></div>
+          <div class="road road-h" style="top: 65%; opacity: 0.3;"></div>
+          <div class="road road-v" style="left: 30%; opacity: 0.5;"></div>
+          <div class="road road-v" style="left: 55%; opacity: 0.4;"></div>
+          <div class="road road-v" style="left: 75%; opacity: 0.3;"></div>
+        </div>
+
+        <!-- Gradient overlay (matches code) -->
+        <div class="home-gradient-overlay"></div>
+
+        <!-- Car markers on map -->
+        <div class="car-marker"></div>
+        <div class="car-marker-2"></div>
+
+        <!-- Header with Logo -->
+        <div class="home-header">
+          <div class="logo-badge">
+            <div class="logo-g">G</div>
+            <div class="logo-text">G-TAXI</div>
+          </div>
+        </div>
+
+        <!-- AI Concierge bubble (above panel) -->
+        <div class="ai-bubble">
+          <div class="ai-avatar">✨</div>
+          <div class="ai-text">Good evening, Partner! Ready to roll?</div>
+          <div class="ai-mic-btn">🎤</div>
+        </div>
+
+        <!-- Vision FAB (top-right of ai bubble area) -->
+        <div class="vision-fab">
+          <span class="vision-fab-icon">⊙</span>
+          <span class="vision-fab-label">VISION</span>
+        </div>
+
+        <!-- Bottom Panel (GlassCard variant="rider") -->
+        <div class="home-panel">
+          <div class="panel-inner">
+
+            <!-- Service tiles: TRANSPORT + MARKET -->
+            <div class="tiles-row">
+              <div class="service-tile active">
+                <span class="tile-icon">🚗</span>
+                <span class="tile-label">TRANSPORT</span>
+              </div>
+              <div class="service-tile">
+                <span class="tile-icon" style="color: var(--cyan); font-size: 26px;">🛒</span>
+                <span class="tile-label">MARKET</span>
+              </div>
+            </div>
+
+            <!-- Search bar -->
+            <div class="search-bar">
+              <div class="search-indicator"></div>
+              <div class="search-text">INITIALIZE TRIP</div>
+              <div class="search-chevron">›</div>
+            </div>
+
+            <!-- Quick pills -->
+            <div class="pills-row">
+              <div class="pill">
+                <span class="pill-icon" style="color: var(--purple);">🏠</span>
+                <span class="pill-label">Home</span>
+              </div>
+              <div class="pill">
+                <span class="pill-icon" style="color: var(--purple);">💼</span>
+                <span class="pill-label">Work</span>
+              </div>
+              <div class="recent-pill">🕐</div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ SCREEN 2: ACTIVE RIDE SCREEN ══════════════════ -->
+  <div class="screen-wrapper">
+    <div class="screen-label">ACTIVE RIDE SCREEN</div>
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="ride-screen">
+
+        <!-- Light map (matches userInterfaceStyle="light") -->
+        <div class="ride-map"></div>
+
+        <!-- Route polyline -->
+        <div class="route-line"></div>
+
+        <!-- Pickup dot (white + purple border) -->
+        <div class="pickup-dot"></div>
+
+        <!-- Destination dot (white + warning border) -->
+        <div class="dest-dot"></div>
+
+        <!-- Driver animated dot -->
+        <div class="driver-dot">
+          <div class="driver-dot-pulse"></div>
+          <div class="driver-dot-inner"></div>
+        </div>
+
+        <!-- Status bubble (top center) -->
+        <div class="status-bubble">
+          <div class="status-dot"></div>
+          <span class="status-text">EN ROUTE</span>
+        </div>
+
+        <!-- AI Insight HUD card -->
+        <div class="ai-insight-hud">
+          <div class="ai-insight-body">
+            <div class="ai-insight-title">
+              ✨ G-TAXI AI CONCIERGE
+            </div>
+            <div class="ai-insight-msg">I'm monitoring your ride security and wait-time.</div>
+          </div>
+          <div class="ai-close">✕</div>
+        </div>
+
+        <!-- Bottom drag card (GlassCard variant="rider", rgba(255,255,255,0.85)) -->
+        <div class="ride-bottom-card">
+          <div class="ride-card">
+
+            <!-- Drag handle -->
+            <div class="card-handle"></div>
+
+            <!-- Driver row -->
+            <div class="driver-row">
+              <div class="driver-avatar">M</div>
+              <div class="driver-info">
+                <div class="driver-name">Marcus T.</div>
+                <div class="driver-vehicle">2023 Toyota Aqua · PBQ 4421</div>
+              </div>
+              <div class="pin-badge">
+                <div class="pin-label">RIDE PIN</div>
+                <div class="pin-value" style="font-size:22px; color: #00CCCC;">8472</div>
+              </div>
+              <div class="sos-btn">SOS</div>
+            </div>
+
+            <!-- Trip progress tracker (3 nodes: location → car → flag) -->
+            <div class="trip-track">
+              <div class="track-node active">📍</div>
+              <div class="track-line active"></div>
+              <div class="track-node active">🚗</div>
+              <div class="track-line"></div>
+              <div class="track-node">🏁</div>
+            </div>
+
+            <!-- Action buttons row -->
+            <div class="actions-row">
+              <div class="action-btn" title="Chat">💬</div>
+              <div class="action-btn" title="Music">🎵</div>
+              <div class="action-btn shield" title="Share Safety Mirror">🛡</div>
+              <div class="action-btn" title="Safe Entry">🏠</div>
+              <div class="call-btn">
+                <span>📞</span>
+                <span>Voice Call</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Colour legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background: #7C3AED;"></div>
+    <span>Pulse Purple #7C3AED (Rider Primary)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background: #00FFFF;"></div>
+    <span>Data Stream Cyan #00FFFF (Active/AI)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background: #0F0D16;"></div>
+    <span>Obsidian Depth #0F0D16 (Background)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background: #EF4444;"></div>
+    <span>Danger Red #EF4444 (SOS)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background: #F59E0B;"></div>
+    <span>Amber #F59E0B (Warning/Wait Fee)</span>
+  </div>
+</div>
+
+</body>
+</html>

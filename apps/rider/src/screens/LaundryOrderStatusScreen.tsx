@@ -106,7 +106,7 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
 
             {/* Order summary card */}
             <View style={s.summaryCard}>
-                <BlurView intensity={25} style={StyleSheet.absoluteFill} tint="dark" />
+                <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                 <Text style={s.summaryId}>#{orderId.slice(0, 8).toUpperCase()}</Text>
                 <Text style={s.summaryDetail}>
                     {service?.label}  ·  {weight} lbs  ·  ${((priceCents || 0) / 100).toFixed(2)} TTD
@@ -174,10 +174,10 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
 
             {/* --- NEW: INTAKE APPROVAL MODAL --- */}
             {status === 'awaiting_approval' && intakeLog && (
-                <View style={StyleSheet.absoluteFill}>
+                <View style={StyleSheet.absoluteFillObject}>
                     <BlurView intensity={100} tint="dark" style={s.approvalOverlay}>
                         <View style={s.approvalCard}>
-                            <LinearGradient colors={['rgba(124, 58, 237, 0.2)', 'rgba(0, 255, 255, 0.1)']} style={StyleSheet.absoluteFill} />
+                            <LinearGradient colors={['rgba(124, 58, 237, 0.2)', 'rgba(0, 255, 255, 0.1)']} style={StyleSheet.absoluteFillObject} />
                             <Ionicons name="shield-checkmark" size={44} color="#00FFFF" style={{ alignSelf: 'center', marginBottom: 16 }} />
                             <Txt variant="headingM" color="#FFF" style={{ textAlign: 'center' }}>Verify Your Items</Txt>
                             <Txt variant="bodyReg" color="rgba(255,255,255,0.6)" style={{ textAlign: 'center', marginBottom: 24 }}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity, ActivityIndicator,
+    View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
     Alert, ScrollView, Dimensions, Platform
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
@@ -18,6 +18,28 @@ import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '../design
 import { formatTTDDollars } from '../utils/currency';
 
 const { width, height } = Dimensions.get('window');
+
+// Blueberry Luxe Color System
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    bgSecondary: '#160B32',
+    gradientStart: '#1A0533',
+    gradientEnd: '#0D1B4B',
+    purple: '#7B5CF0',
+    purpleDark: '#5B3FD0',
+    purpleLight: '#9B7CF0',
+    cyan: '#00E5FF',
+    cyanDark: '#0099BB',
+    cyanSoft: 'rgba(0,229,255,0.1)',
+    white: '#FFFFFF',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    textMuted: 'rgba(255,255,255,0.4)',
+    glassBg: 'rgba(255,255,255,0.06)',
+    glassBorder: 'rgba(123,92,240,0.3)',
+    success: '#00FF94',
+    warning: '#F59E0B',
+    error: '#EF4444',
+};
 
 interface StopSuggestion {
     place_name: string;
@@ -202,7 +224,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                     style={[s.backBtn, { top: insets.top + 10 }]}
                     onPress={() => navigation.goBack()}
                 >
-                    <Ionicons name="arrow-back" size={24} color={VOICES.rider.text} />
+                    <Ionicons name="arrow-back" size={24} color={COLORS.white} />
                 </TouchableOpacity>
             </View>
 
@@ -215,29 +237,29 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             <View style={s.routeRow}>
                                 <View style={s.routeDot} />
                                 <View style={{ flex: 1, marginLeft: 16 }}>
-                                    <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>PICKUP</Txt>
-                                    <Txt variant="bodyBold" weight="heavy" color={VOICES.rider.text} numberOfLines={1}>
+                                    <Text style={s.addrLabel}>PICKUP</Text>
+                                    <Text style={s.addrText} numberOfLines={1}>
                                         {pickupLoc?.address || 'Current Location'}
-                                    </Txt>
+                                    </Text>
                                 </View>
                             </View>
                             <View style={s.routeLine} />
                             <View style={s.routeRow}>
                                 <View style={s.routeSquare} />
                                 <View style={{ flex: 1, marginLeft: 16 }}>
-                                    <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>DESTINATION</Txt>
-                                    <Txt variant="bodyBold" weight="heavy" color={VOICES.rider.text} numberOfLines={1}>
+                                    <Text style={s.addrLabel}>DESTINATION</Text>
+                                    <Text style={s.addrText} numberOfLines={1}>
                                         {destination?.address || 'Destination'}
-                                    </Txt>
+                                    </Text>
                                 </View>
                             </View>
                         </View>
 
                         {fare && (
                             <View style={s.statsRow}>
-                                <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>
+                                <Text style={s.logisticsText}>
                                     LOGISTICS: {(fare?.distance_meters / 1000).toFixed(1)}KM · {Math.round(fare?.duration_seconds / 60)}MIN EST.
-                                </Txt>
+                                </Text>
                             </View>
                         )}
 
@@ -248,18 +270,16 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                     style={[s.vehicleCard, selectedType === v.type && s.vehicleCardActive]}
                                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.type); setMultiplier(v.multiplier); }}
                                 >
-                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.type ? "#FFF" : BRAND.purple} />
-                                    <Txt variant="bodyReg" weight="heavy" color={selectedType === v.type ? "#FFF" : VOICES.rider.text} style={{ marginTop: 8 }}>{v.type}</Txt>
-                                    <Txt variant="caption" weight="regular" color={selectedType === v.type ? "rgba(255,255,255,0.7)" : VOICES.rider.textMuted}>{v.multiplier}x</Txt>
+                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.type ? COLORS.white : COLORS.purple} />
+                                    <Text style={[s.vehicleType, { color: selectedType === v.type ? COLORS.white : COLORS.white }]}>{v.type}</Text>
+                                    <Text style={[s.vehicleMultiplier, { color: selectedType === v.type ? 'rgba(255,255,255,0.7)' : COLORS.textMuted }]}>{v.multiplier}x</Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
 
                         {stopSuggestions.length > 0 && (
                             <View style={s.stopsSection}>
-                                <Txt variant="caption" weight="heavy" color={BRAND.purple} style={{ letterSpacing: 1, marginBottom: 12 }}>
-                                    SUGGESTED LOGISTICS STOPS
-                                </Txt>
+                                <Text style={s.sectionTitle}>SUGGESTED LOGISTICS STOPS</Text>
                                 {stopSuggestions.map((stop, index) => {
                                     const isSelected = selectedStops.some(s => s.place_name === stop.place_name);
                                     return (
@@ -269,26 +289,26 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                             style={[s.stopItem, isSelected && s.stopItemActive]}
                                         >
                                             <View style={s.stopEmojiWrap}>
-                                                <Txt style={{ fontSize: 20 }}>{stop.emoji}</Txt>
+                                                <Text style={{ fontSize: 20 }}>{stop.emoji}</Text>
                                             </View>
                                             <View style={{ flex: 1, marginLeft: 12 }}>
-                                                <Txt variant="bodyReg" weight="heavy" color={VOICES.rider.text}>{stop.place_name}</Txt>
-                                                <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>
+                                                <Text style={s.stopName}>{stop.place_name}</Text>
+                                                <Text style={s.stopSubtext}>
                                                     {stop.is_network_partner ? 'G-TAXI PARTNER · ' : ''}+{stop.estimated_wait_minutes}m wait
-                                                </Txt>
+                                                </Text>
                                             </View>
                                             <View style={{ alignItems: 'flex-end' }}>
                                                 {stop.is_network_partner ? (
                                                     <TouchableOpacity 
                                                         onPress={() => handleBookService(stop)}
-                                                        style={{ backgroundColor: BRAND.purple + '20', paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.md, marginBottom: 4 }}
+                                                        style={{ backgroundColor: COLORS.cyanSoft, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 4 }}
                                                     >
-                                                        <Txt variant="caption" weight="heavy" color={BRAND.purple}>BOOK SERVICE</Txt>
+                                                        <Text style={s.bookServiceText}>BOOK SERVICE</Text>
                                                     </TouchableOpacity>
                                                 ) : (
-                                                    <Txt variant="bodyReg" weight="heavy" color={isSelected ? BRAND.purple : VOICES.rider.textMuted}>
+                                                    <Text style={[s.stopPrice, { color: isSelected ? COLORS.cyan : COLORS.textMuted }]}>
                                                         +${((stop.estimated_wait_minutes * WAIT_RATE_PER_MIN) + STOP_CONVENIENCE_FEE_TTD).toFixed(2)}
-                                                    </Txt>
+                                                    </Text>
                                                 )}
                                             </View>
                                         </TouchableOpacity>
@@ -298,17 +318,13 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                         )}
 
                         <View style={s.fareDisplay}>
-                            <Txt variant="caption" weight="regular" color={VOICES.rider.textMuted}>TOTAL ESTIMATE</Txt>
-                            <Txt variant="headingL" weight="heavy" color={BRAND.purple}>
-                                {formatTTDDollars(parseFloat(finalFare))}
-                            </Txt>
+                            <Text style={s.fareLabel}>TOTAL ESTIMATE</Text>
+                            <Text style={s.fareValue}>{formatTTDDollars(parseFloat(finalFare))}</Text>
                         </View>
 
                         <View style={s.identityShield}>
-                            <Ionicons name="shield-checkmark" size={20} color={BRAND.cyan} />
-                            <Txt variant="caption" weight="heavy" color={BRAND.cyan} style={{ marginLeft: 8, letterSpacing: 1 }}>
-                                G-TAXI IDENTITY SHIELD ACTIVE
-                            </Txt>
+                            <Ionicons name="shield-checkmark" size={20} color={COLORS.cyan} />
+                            <Text style={s.identityText}>G-TAXI IDENTITY SHIELD ACTIVE</Text>
                         </View>
 
                         <TouchableOpacity
@@ -317,15 +333,13 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             disabled={confirming}
                         >
                             <LinearGradient 
-                                colors={[BRAND.purple, BRAND.purpleDark]} 
+                                colors={[COLORS.purple, COLORS.cyan]} 
                                 style={s.btnGradient}
-                                start={GRADIENTS.primaryStart}
-                                end={GRADIENTS.primaryEnd}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
                             >
-                                {confirming ? <ActivityIndicator color="#FFF" /> : (
-                                    <Txt variant="bodyReg" weight="heavy" color="#FFF">
-                                        CONFIRM {selectedType.toUpperCase()}
-                                    </Txt>
+                                {confirming ? <ActivityIndicator color={COLORS.white} /> : (
+                                    <Text style={s.confirmBtnText}>CONFIRM {selectedType.toUpperCase()}</Text>
                                 )}
                             </LinearGradient>
                         </TouchableOpacity>
@@ -337,37 +351,50 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: VOICES.rider.bg },
-    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
+    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
     
-    markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFF', borderWidth: 3, borderColor: BRAND.purple },
-    markerDropoff: { width: 14, height: 14, borderRadius: 3, backgroundColor: '#FFF', borderWidth: 3, borderColor: SEMANTIC.warning },
-
     bottomContainer: { flex: 1, marginTop: -30 },
-    panel: { flex: 1, borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl, padding: 24, paddingBottom: 0 },
-    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(30,30,63,0.1)', alignSelf: 'center', marginBottom: 24 },
+    panel: { flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 0, overflow: 'hidden' },
+    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginBottom: 24 },
 
-    routeBox: { backgroundColor: 'rgba(124, 58, 237, 0.03)', borderRadius: RADIUS.lg, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.05)' },
+    routeBox: { backgroundColor: COLORS.glassBg, borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.glassBorder },
     routeRow: { flexDirection: 'row', alignItems: 'center' },
-    routeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND.purple },
-    routeSquare: { width: 8, height: 8, borderRadius: 2, backgroundColor: SEMANTIC.warning },
-    routeLine: { width: 1.5, height: 15, backgroundColor: 'rgba(124, 58, 237, 0.1)', marginLeft: 3.25, marginVertical: 4 },
+    routeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.purple },
+    routeSquare: { width: 8, height: 8, borderRadius: 2, backgroundColor: COLORS.warning },
+    routeLine: { width: 1.5, height: 15, backgroundColor: COLORS.glassBorder, marginLeft: 3.25, marginVertical: 4 },
+    addrLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textMuted, letterSpacing: 1, marginBottom: 4 },
+    addrText: { fontSize: 15, fontWeight: '600', color: COLORS.white },
 
     statsRow: { marginBottom: 24, alignItems: 'center' },
+    logisticsText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, letterSpacing: 0.5 },
     
     vehicleScroll: { marginBottom: 32 },
-    vehicleCard: { width: 110, height: 120, backgroundColor: 'rgba(124, 58, 237, 0.05)', borderRadius: RADIUS.lg, padding: 16, marginRight: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.1)' },
-    vehicleCardActive: { backgroundColor: BRAND.purple, borderColor: BRAND.purpleLight },
+    vehicleCard: { width: 110, height: 120, backgroundColor: COLORS.glassBg, borderRadius: 20, padding: 16, marginRight: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.glassBorder },
+    vehicleCardActive: { backgroundColor: COLORS.purple, borderColor: COLORS.cyan },
+    vehicleType: { marginTop: 8, fontSize: 14, fontWeight: '700' },
+    vehicleMultiplier: { fontSize: 12, fontWeight: '600' },
 
     stopsSection: { marginBottom: 32 },
-    stopItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: RADIUS.md, backgroundColor: 'rgba(0,0,0,0.02)', marginBottom: 10, borderWidth: 1, borderColor: 'transparent' },
-    stopItemActive: { borderColor: BRAND.purple, backgroundColor: 'rgba(124, 58, 237, 0.05)' },
-    stopEmojiWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
+    sectionTitle: { fontSize: 12, fontWeight: '800', color: COLORS.purple, letterSpacing: 1, marginBottom: 12 },
+    stopItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.02)', marginBottom: 10, borderWidth: 1, borderColor: 'transparent' },
+    stopItemActive: { borderColor: COLORS.purple, backgroundColor: 'rgba(123,92,240,0.05)' },
+    stopEmojiWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
+    stopName: { fontSize: 15, fontWeight: '700', color: COLORS.white },
+    stopSubtext: { fontSize: 13, fontWeight: '500', color: COLORS.textMuted },
+    stopPrice: { fontSize: 15, fontWeight: '700' },
+    bookServiceText: { fontSize: 12, fontWeight: '800', color: COLORS.cyan, letterSpacing: 0.5 },
 
     fareDisplay: { alignItems: 'center', marginBottom: 24 },
+    fareLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textMuted, letterSpacing: 1, marginBottom: 4 },
+    fareValue: { fontSize: 36, fontWeight: '900', color: COLORS.purple },
     
-    identityShield: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,255,255,0.05)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: RADIUS.pill, marginBottom: 32, alignSelf: 'center' },
+    identityShield: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.cyanSoft, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 100, marginBottom: 32, alignSelf: 'center' },
+    identityText: { marginLeft: 8, fontSize: 12, fontWeight: '800', color: COLORS.cyan, letterSpacing: 1 },
 
-    confirmBtn: { height: 60, borderRadius: RADIUS.pill, overflow: 'hidden' },
+    confirmBtn: { height: 60, borderRadius: 30, overflow: 'hidden', shadowColor: COLORS.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    confirmBtnText: { fontSize: 16, fontWeight: '900', color: COLORS.white, letterSpacing: 0.5 },
+    markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: COLORS.cyan, borderWidth: 2, borderColor: COLORS.white },
+    markerDropoff: { width: 14, height: 14, borderRadius: 7, backgroundColor: COLORS.purple, borderWidth: 2, borderColor: COLORS.white },
 });

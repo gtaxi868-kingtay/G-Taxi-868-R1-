@@ -4,9 +4,14 @@
 BEGIN;
 
 -- 1. Add verified_status to drivers
-CREATE TYPE public.driver_verified_status AS ENUM (
-    'unverified', 'pending', 'approved', 'rejected'
-);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'driver_verified_status') THEN
+        CREATE TYPE public.driver_verified_status AS ENUM (
+            'unverified', 'pending', 'approved', 'rejected'
+        );
+    END IF;
+END $$;
 
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS verified_status public.driver_verified_status DEFAULT 'unverified';
 
@@ -26,16 +31,35 @@ CREATE TABLE IF NOT EXISTS public.driver_documents (
 -- 3. Security (RLS)
 ALTER TABLE public.driver_documents ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Drivers can view own docs" ON public.driver_documents
-    FOR SELECT USING (driver_id = auth.uid());
-
-CREATE POLICY "Drivers can insert own docs" ON public.driver_documents
-    FOR INSERT WITH CHECK (driver_id = auth.uid());
-
-CREATE POLICY "Admins full access docs" ON public.driver_documents
-    FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.is_admin = true)
-    );
+-- Create policies if they don't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'driver_documents' AND policyname = 'Drivers can view own docs'
+    ) THEN
+        CREATE POLICY "Drivers can view own docs" ON public.driver_documents
+            FOR SELECT USING (driver_id = auth.uid());
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'driver_documents' AND policyname = 'Drivers can insert own docs'
+    ) THEN
+        CREATE POLICY "Drivers can insert own docs" ON public.driver_documents
+            FOR INSERT WITH CHECK (driver_id = auth.uid());
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'driver_documents' AND policyname = 'Admins full access docs'
+    ) THEN
+        CREATE POLICY "Admins full access docs" ON public.driver_documents
+            FOR ALL TO authenticated USING (
+                EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.is_admin = true)
+            );
+    END IF;
+END $$;
 
 -- 4. Storage Policies (Conceptual - assumes bucket 'driver-documents' exists)
 -- Note: These are usually set in the Storage UI or via SQL on the storage schema.

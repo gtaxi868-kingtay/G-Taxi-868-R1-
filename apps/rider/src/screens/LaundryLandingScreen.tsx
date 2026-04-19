@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../../../shared/supabase';
+import { LoadingOverlay } from '../design-system';
 
 const SERVICES = [
     { id: 'wash_fold', label: 'Wash & Fold', icon: '🫧', baseRate: 500 },
@@ -93,11 +94,11 @@ export function LaundryLandingScreen({ navigation }: any) {
                             onPress={() => { setSelectedService(service); Haptics.selectionAsync(); }}
                             activeOpacity={0.85}
                         >
-                            <BlurView intensity={25} style={StyleSheet.absoluteFill} tint="dark" />
+                            <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                             {active && (
                                 <LinearGradient
                                     colors={['rgba(123,97,255,0.2)', 'rgba(0,255,255,0.05)']}
-                                    style={StyleSheet.absoluteFill}
+                                    style={StyleSheet.absoluteFillObject}
                                 />
                             )}
                             <Text style={s.serviceIcon}>{service.icon}</Text>
@@ -124,12 +125,9 @@ export function LaundryLandingScreen({ navigation }: any) {
 
             {/* CTA */}
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 20 }]}>
-                {isProcessingAI ? (
-                    <View style={s.aiLoadingBlock}>
-                        <View style={s.loadingDot} />
-                        <Text style={s.aiLoadingText}>AI IS ANALYZING BUNDLE...</Text>
-                    </View>
-                ) : (
+                {isProcessingAI && <LoadingOverlay message="AI IS ANALYZING BUNDLE..." color="#00FFFF" />}
+                
+                {!isProcessingAI && (
                     <>
                         <TouchableOpacity style={s.aiButton} onPress={handleAITakePhoto} activeOpacity={0.88}>
                             <View style={s.aiIconWrap}>

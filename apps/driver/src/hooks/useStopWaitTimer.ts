@@ -9,7 +9,7 @@ import { supabase } from '../../../../shared/supabase';
 export function useStopWaitTimer(stopId: string | null, isActive: boolean) {
     const [seconds, setSeconds] = useState(0);
     const [feeCents, setFeeCents] = useState(0);
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         if (!stopId || !isActive) {

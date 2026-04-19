@@ -22,20 +22,46 @@ import { DEFAULT_LOCATION, ENV } from '../../../../shared/env';
 import { useAuth } from '../context/AuthContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { supabase } from '../../../../shared/supabase';
-import { 
-    GlassCard, PrimaryButton, InfoChip, 
-    BRAND, VOICES, RADIUS, Logo,
-    GRADIENTS, SEMANTIC // Added GRADIENTS, SEMANTIC
-} from '../design-system';
-import { Txt, Card } from '../design-system/primitives'; // Added Card
 import { Sidebar } from '../components/Sidebar';
-import { getSavedPlaces, savePlace, getRecentRides } from '../services/api';
-import { SavedPlace, Location as RideLocation } from '../types/ride';
-import { SavedPlaceModal } from '../components/SavedPlaceModal';
-import { RecentRidesModal } from '../components/RecentRidesModal';
 
 const { width, height } = Dimensions.get('window');
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
+
+// Blueberry Luxe Color System
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    bgSecondary: '#160B32',
+    gradientStart: '#1A0533',
+    gradientEnd: '#0D1B4B',
+    purple: '#7B5CF0',
+    purpleDark: '#5B3FD0',
+    cyan: '#00E5FF',
+    cyanDark: '#0099BB',
+    white: '#FFFFFF',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    textMuted: 'rgba(255,255,255,0.5)',
+    glassBg: 'rgba(255,255,255,0.06)',
+    glassBorder: 'rgba(123,92,240,0.3)',
+    success: '#00FF94',
+    error: '#FF4D6D',
+};
+
+// Custom Dark Map Style for Blueberry Luxe
+const DARK_MAP_STYLE = [
+    { elementType: 'geometry', stylers: [{ color: '#0d0b1e' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#7B5CF0' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0d0b1e' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1040' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#7B5CF0', weight: 0.5 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00E5FF', lightness: -80 }] },
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] }
+];
+
+import { getSavedPlaces, savePlace, getRecentRides, estimateFare } from '../services/api';
+import { SavedPlace, Location as RideLocation } from '../types/ride';
+import { SavedPlaceModal } from '../components/SavedPlaceModal';
+import { RecentRidesModal } from '../components/RecentRidesModal';
+import { formatTTDDollars } from '../utils/currency';
 
 export function HomeScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
@@ -46,7 +72,7 @@ export function HomeScreen({ navigation }: any) {
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false });
+    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false });
     const [systemStatus, setSystemStatus] = useState<any>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -54,25 +80,32 @@ export function HomeScreen({ navigation }: any) {
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [proactiveAction, setProactiveAction] = useState<string | null>(null);
     const [visionLoading, setVisionLoading] = useState(false);
+    
+    // FIX #1: Fare Estimate - show upfront fare before ride request
+    const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
+    const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
+    const [isEstimatingFare, setIsEstimatingFare] = useState(false);
 
     const panelY = useSharedValue(120);
     const mapPitch = useSharedValue(45);
 
     useEffect(() => {
         // 0. SECONDARY ACTIVE RIDE GUARD (Fail-safe)
-        const checkActiveRide = async () => {
+        const checkActive = async () => {
             try {
-                const { getActiveRide } = await import('../services/api');
-                const res = await getActiveRide();
-                if (res.success && res.data) {
-                    console.log('HomeScreen: Active ride detected. Redirecting for safety.');
-                    // Navigation will be handled by ActiveRideRestorationHandler at root,
-                    // but we can trigger a manual navigation here as a backup if needed.
-                    // However, to avoid double-reset, we rely on the Root Handler primarily.
+                const { data } = await supabase.functions.invoke('get_active_ride');
+                if (data?.success && data?.data?.ride_id) {
+                    console.log('[Phase 3] Active ride detected. Hardening navigation...');
+                    navigation.replace('ActiveRide', { 
+                        rideId: data.data.ride_id,
+                        paymentMethod: data.data.payment_method 
+                    });
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn('[Phase 3] Recovery check suppressed:', e);
+            }
         };
-        checkActiveRide();
+        checkActive();
 
         (async () => {
             const { status } = await Location.requestForegroundPermissionsAsync();
@@ -85,28 +118,41 @@ export function HomeScreen({ navigation }: any) {
         // Fetch Places
         fetchPlaces();
 
-        // Fetch & Subscribe to Feature Flags
-        const fetchFlags = async () => {
-            const { data } = await supabase.from('system_feature_flags').select('id, is_active');
-            if (data) {
-                const flags = { grocery: false, laundry: false };
-                data.forEach(f => {
-                    if (f.id === 'grocery_module') flags.grocery = f.is_active;
-                    if (f.id === 'laundry_module') flags.laundry = f.is_active;
-                });
+        // FIX #3: Fetch enabled verticals from new vertical_settings table
+        const fetchEnabledVerticals = async () => {
+            try {
+                // Get enabled verticals (respects region, subscription, rollout)
+                const { data: verticals, error } = await supabase
+                    .rpc('get_enabled_verticals', {
+                        p_user_id: profile?.id,
+                        p_region: 'POS' // TODO: Detect from GPS or profile
+                    });
+                
+                if (error) throw error;
+                
+                const flags = { 
+                    grocery: verticals?.some((v: any) => v.vertical_name === 'grocery') || false,
+                    laundry: verticals?.some((v: any) => v.vertical_name === 'laundry') || false,
+                    merchant: verticals?.some((v: any) => v.vertical_name === 'merchant_delivery') || false
+                };
                 setFeatureFlags(flags);
+            } catch (err) {
+                console.warn('Failed to fetch verticals:', err);
+                // Fallback: disable all verticals on error
+                setFeatureFlags({ grocery: false, laundry: false, merchant: false });
             }
         };
-        fetchFlags();
+        fetchEnabledVerticals();
 
-        const flagsChannel = supabase
-            .channel('feature-flags-realtime')
+        // Subscribe to vertical settings changes
+        const verticalsChannel = supabase
+            .channel('verticals-realtime')
             .on(
                 'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'system_feature_flags' },
+                { event: '*', schema: 'public', table: 'vertical_settings' },
                 () => {
-                    console.log('Feature flags updated. Re-fetching...');
-                    fetchFlags();
+                    console.log('Vertical settings updated. Re-fetching...');
+                    fetchEnabledVerticals();
                 }
             )
             .subscribe();
@@ -173,7 +219,7 @@ export function HomeScreen({ navigation }: any) {
         mapPitch.value = withDelay(1000, withTiming(30, { duration: 1500 }));
 
         return () => {
-            flagsChannel.unsubscribe();
+            verticalsChannel.unsubscribe();
             eventsChannel.unsubscribe();
         };
     }, []);
@@ -223,7 +269,8 @@ export function HomeScreen({ navigation }: any) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
                 if (data.intent === 'book_ride' && data.destination) {
-                    // AUTO-NAVIGATE to ride confirmation
+                    // FIX #1: Show fare estimate first, then navigate
+                    await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
                     setTimeout(() => {
                         navigation.navigate('RideConfirmation', {
                             destination: { 
@@ -237,7 +284,8 @@ export function HomeScreen({ navigation }: any) {
                                 address: 'Current Location' 
                             }
                         });
-                    }, 1500);
+                        clearFarePreview();
+                    }, 2000); // Slightly longer delay to show estimate
                 }
             } else {
                 setAiGreeting("Sorry, I couldn't process that command.");
@@ -307,15 +355,53 @@ export function HomeScreen({ navigation }: any) {
         }
     };
 
+    // FIX #1: Fetch fare estimate when destination is selected
+    const fetchFareEstimate = async (destLat: number, destLng: number, destAddress: string) => {
+        setSelectedDestinationPreview({ lat: destLat, lng: destLng, address: destAddress });
+        setIsEstimatingFare(true);
+        
+        try {
+            const fareRes = await estimateFare({
+                pickup_lat: currentLat,
+                pickup_lng: currentLng,
+                dropoff_lat: destLat,
+                dropoff_lng: destLng,
+            });
+            
+            if (fareRes.success && fareRes.data) {
+                setEstimatedFare(fareRes.data.total_fare_cents);
+            } else {
+                setEstimatedFare(null);
+            }
+        } catch (err) {
+            console.warn('Fare estimate failed:', err);
+            setEstimatedFare(null);
+        } finally {
+            setIsEstimatingFare(false);
+        }
+    };
+    
+    // FIX #1: Clear fare preview
+    const clearFarePreview = () => {
+        setSelectedDestinationPreview(null);
+        setEstimatedFare(null);
+    };
+
     const handleQuickAction = async (label: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         if (label === 'Home' || label === 'Work') {
             const place = savedPlaces.find(p => p.label === label);
             if (place) {
-                navigation.navigate('RideConfirmation', {
-                    destination: { latitude: place.lat, longitude: place.lng, address: place.address },
-                    pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' }
-                });
+                // FIX #1: Show fare estimate first, then navigate
+                await fetchFareEstimate(place.lat, place.lng, place.address);
+                // Auto-navigate after brief delay to show estimate
+                setTimeout(() => {
+                    navigation.navigate('RideConfirmation', {
+                        destination: { latitude: place.lat, longitude: place.lng, address: place.address },
+                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' }
+                    });
+                    clearFarePreview();
+                }, 1500);
             } else {
                 setActiveModalLabel(label);
             }
@@ -334,10 +420,11 @@ export function HomeScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            {/* MAP: PROVIDER_DEFAULT + Mapbox UrlTile dark-v11 */}
+            {/* MAP: Full screen with Blueberry Luxe dark styling */}
             <MapView
                 style={s.map}
                 provider={PROVIDER_DEFAULT}
+                customMapStyle={DARK_MAP_STYLE}
                 initialRegion={{
                     latitude: currentLat,
                     longitude: currentLng,
@@ -366,24 +453,51 @@ export function HomeScreen({ navigation }: any) {
                 ))}
             </MapView>
 
-            <LinearGradient colors={['rgba(22, 11, 50, 0.9)', 'rgba(47, 26, 92, 0.4)', 'rgba(22, 11, 50, 1)']} style={StyleSheet.absoluteFill} pointerEvents="none" />
-
-            {/* Brand Header: Holographic 3D Logo + G-TAXI text */}
-            <View style={[s.headerLogo, { top: insets.top + 10 }]}>
-                <Image source={require('../../assets/images/gtaxi_logo_3d.avif')} style={{ width: 50, height: 50, resizeMode: 'contain' }} />
-                <View style={{ marginLeft: 12 }}>
-                    <Text style={s.logoText}>G-TAXI</Text>
-                    <Text style={s.luxeSubtext}>LUXE MULTIVERSE</Text>
-                </View>
+            {/* Top Bar: Floating Glass Card */}
+            <View style={[s.topBarContainer, { top: insets.top + 12 }]}>
+                <BlurView intensity={20} tint="dark" style={s.topBarBlur}>
+                    <View style={s.topBar}>
+                        {/* G-Taxi Logo */}
+                        <Image 
+                            source={require('../../assets/logo.png')} 
+                            style={s.topBarLogo}
+                            resizeMode="contain"
+                        />
+                        
+                        {/* Right Side: Notification + Profile */}
+                        <View style={s.topBarRight}>
+                            <TouchableOpacity 
+                                style={s.iconButton}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                            >
+                                <Ionicons name="notifications-outline" size={22} color={COLORS.white} />
+                                <View style={s.notificationBadge} />
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                                style={s.avatarButton}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsMenuOpen(true); }}
+                            >
+                                {profile?.avatar_url ? (
+                                    <Image source={{ uri: profile.avatar_url }} style={s.avatarImage} />
+                                ) : (
+                                    <View style={s.avatarPlaceholder}>
+                                        <Ionicons name="person" size={18} color={COLORS.purple} />
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </BlurView>
             </View>
 
-            {/* System Maintenance Banner (Fix 3) */}
+            {/* System Maintenance Banner */}
             {!systemStatus.stripe_ready && (
-                <View style={[s.maintenanceBanner, { top: insets.top + 70 }]}>
+                <View style={[s.maintenanceBanner, { top: insets.top + 80 }]}>
                     <Ionicons name="warning" size={16} color="#F59E0B" />
-                    <Txt variant="caption" weight="bold" color="#FFF" style={{ marginLeft: 8 }}>
+                    <Text style={s.maintenanceText}>
                         System Maintenance: Card payments currently unavailable.
-                    </Txt>
+                    </Text>
                 </View>
             )}
 
@@ -410,16 +524,16 @@ export function HomeScreen({ navigation }: any) {
                 >
                     <BlurView intensity={80} tint="dark" style={s.aiBlur}>
                         <View style={s.aiAvatar}>
-                            <LinearGradient colors={['#7B61FF', '#00FFFF']} style={StyleSheet.absoluteFill} />
+                            <LinearGradient colors={['#7B61FF', '#00FFFF']} style={StyleSheet.absoluteFillObject} />
                             <Ionicons name={visionLoading ? "scan" : "sparkles"} size={16} color="#FFF" />
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
                             {visionLoading ? (
-                                <Txt variant="small" color="#00FFFF">ANALYZING YOUR SIGHT...</Txt>
+                                <Text style={s.aiCyan}>Analyzing your sight...</Text>
                             ) : isAiThinking ? (
-                                <Txt variant="small" color="rgba(255,255,255,0.4)">AI IS THINKING...</Txt>
+                                <Text style={s.aiThinking}>AI is thinking...</Text>
                             ) : (
-                                <Txt variant="bodyReg" color="#FFF">{aiGreeting}</Txt>
+                                <Text style={s.aiMessage}>{aiGreeting}</Text>
                             )}
                         </View>
                         {!visionLoading && (
@@ -450,31 +564,39 @@ export function HomeScreen({ navigation }: any) {
                 onPress={handleVisionSighting}
                 activeOpacity={0.7}
             >
-                <GlassCard variant="rider" style={s.visionGlass}>
+                <View style={s.visionGlass}>
                     <LinearGradient 
-                        colors={['rgba(0, 255, 255, 0.2)', 'rgba(124, 58, 237, 0.2)']} 
-                        style={StyleSheet.absoluteFill}
+                        colors={['rgba(0, 229, 255, 0.2)', 'rgba(123, 92, 240, 0.2)']} 
+                        style={StyleSheet.absoluteFillObject}
                     />
-                    <Ionicons name="scan-outline" size={28} color="#00FFFF" />
-                    <Txt variant="caption" weight="heavy" color="#00FFFF" style={{ marginLeft: 8 }}>VISION</Txt>
-                </GlassCard>
+                    <Ionicons name="scan-outline" size={28} color={COLORS.cyan} />
+                    <Text style={s.visionText}>VISION</Text>
+                </View>
             </TouchableOpacity>
 
             <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20 }]}>
-                <GlassCard variant="rider" style={s.glassPanel}>
+                <BlurView intensity={20} tint="dark" style={s.glassPanel}>
                     <View style={s.cardInner}>
                         
+                        {/* AI GREETING */}
+                        <View style={s.aiGreetingContainer}>
+                            <Text style={s.aiGreetingText}>
+                                {aiGreeting?.split(',')[0] || 'Good day'},
+                            </Text>
+                            <Text style={s.aiSubGreeting}>Where to?</Text>
+                        </View>
+
                         {/* PROACTIVE AI INSIGHT */}
                         {proactiveAction && (
                             <Reanimated.View entering={FadeIn} style={s.proactiveHud}>
                                 <LinearGradient 
-                                    colors={[BRAND.purple, BRAND.purpleDark]} 
+                                    colors={[COLORS.purple, COLORS.purpleDark]} 
                                     style={s.proactiveGradient} 
-                                    start={GRADIENTS.primaryStart} 
-                                    end={GRADIENTS.primaryEnd}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
                                 >
                                     <View style={s.aiIndicator}>
-                                        <Ionicons name="sparkles" size={14} color={BRAND.cyan} />
+                                        <Ionicons name="sparkles" size={14} color={COLORS.cyan} />
                                     </View>
                                     <Text style={s.proactiveText}>{proactiveAction}</Text>
                                     <TouchableOpacity onPress={() => setProactiveAction(null)}>
@@ -484,88 +606,165 @@ export function HomeScreen({ navigation }: any) {
                             </Reanimated.View>
                         )}
 
-                        {/* Service Tiles: Vibrant Futurism Grid */}
-                        <View style={s.tiles}>
-                            <TouchableOpacity style={{ flex: 1 }}>
-                                <BlurView intensity={40} tint="dark" style={[s.serviceTile, s.tileActive]}>
-                                    <LinearGradient 
-                                        colors={['rgba(124, 58, 237, 0.8)', 'rgba(0, 255, 255, 0.8)']} 
-                                        start={{x: 0, y: 0}} 
-                                        end={{x: 1, y: 1}} 
-                                        style={StyleSheet.absoluteFill} 
-                                    />
-                                    <Ionicons name="car-sport" size={32} color="#FFF" style={s.glowIcon} />
-                                    <Txt variant="caption" weight="heavy" color="#FFF" style={{ marginTop: 10, letterSpacing: 1 }}>TRANSPORT</Txt>
-                                </BlurView>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={{ flex: 1 }}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    navigation.navigate('GroceryStorefront', { category: 'service' });
-                                }}
-                            >
-                                <BlurView intensity={20} tint="dark" style={s.serviceTile}>
-                                    <Ionicons name="cart" size={28} color="#00FFFF" style={s.glowIcon} />
-                                    <Txt variant="caption" weight="bold" color="#FFF" style={{ marginTop: 8, letterSpacing: 1 }}>MARKET</Txt>
-                                </BlurView>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Search Bar: HUD Holographic (Blueberry Luxe style) */}
+                        {/* SEARCH BAR */}
                         <TouchableOpacity
+                            style={s.searchBarContainer}
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                 navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng } });
                             }}
                         >
                             <View style={s.searchBarInner}>
-                                <View style={s.hudSearchIndicator} />
-                                <Text style={s.searchPlaceholder}>INITIALIZE TRIP</Text>
-                                <Ionicons name="chevron-forward" size={20} color={BRAND.purple} />
+                                <Ionicons name="search" size={20} color={COLORS.cyan} style={s.searchIcon} />
+                                <Text style={s.searchPlaceholder}>Where are you going?</Text>
+                                <Ionicons name="chevron-forward" size={20} color={COLORS.purple} style={s.searchChevron} />
                             </View>
                         </TouchableOpacity>
+
+                        {/* SERVICE TILES - 2x2 GRID */}
+                        <View style={s.tilesContainer}>
+                            {/* RIDE - Cyan */}
+                            <TouchableOpacity 
+                                style={s.serviceTile}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                }}
+                            >
+                                <View style={[s.serviceIconContainer, s.serviceIconCyan]}>
+                                    <Ionicons name="car" size={26} color={COLORS.cyan} />
+                                </View>
+                                <Text style={s.serviceLabel}>Ride</Text>
+                            </TouchableOpacity>
+
+                            {/* MARKET - Purple */}
+                            <TouchableOpacity 
+                                style={s.serviceTile}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    if (featureFlags.grocery) {
+                                        navigation.navigate('GroceryStorefront', { category: 'service' });
+                                    }
+                                }}
+                            >
+                                <View style={[s.serviceIconContainer, s.serviceIconPurple]}>
+                                    <Ionicons name="bag" size={26} color={COLORS.purple} />
+                                </View>
+                                <Text style={s.serviceLabel}>Market</Text>
+                            </TouchableOpacity>
+
+                            {/* LAUNDRY - Cyan */}
+                            <TouchableOpacity 
+                                style={s.serviceTile}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    if (featureFlags.laundry) {
+                                        navigation.navigate('LaundryLanding');
+                                    }
+                                }}
+                            >
+                                <View style={[s.serviceIconContainer, s.serviceIconCyan]}>
+                                    <Ionicons name="shirt" size={26} color={COLORS.cyan} />
+                                </View>
+                                <Text style={s.serviceLabel}>Laundry</Text>
+                            </TouchableOpacity>
+
+                            {/* MORE - Purple */}
+                            <TouchableOpacity 
+                                style={s.serviceTile}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                }}
+                            >
+                                <View style={[s.serviceIconContainer, s.serviceIconPurple]}>
+                                    <Ionicons name="grid" size={26} color={COLORS.purple} />
+                                </View>
+                                <Text style={s.serviceLabel}>More</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* FIX #1: Fare Estimate Preview - shows upfront fare before ride request */}
+                        {(selectedDestinationPreview || isEstimatingFare) && (
+                            <Reanimated.View entering={FadeIn} exiting={FadeOut} style={s.farePreviewContainer}>
+                                <BlurView intensity={60} tint="dark" style={s.farePreviewBlur}>
+                                    <View style={s.farePreviewContent}>
+                                        <View style={s.fareIconContainer}>
+                                            <Ionicons name="wallet-outline" size={20} color={COLORS.cyan} />
+                                        </View>
+                                        <View style={s.fareTextContainer}>
+                                            <Text style={s.fareAddress}>
+                                                {selectedDestinationPreview?.address || 'Estimating...'}
+                                            </Text>
+                                            <View style={s.fareRow}>
+                                                {isEstimatingFare ? (
+                                                    <Text style={{ color: COLORS.cyan, fontWeight: '700' }}>Calculating...</Text>
+                                                ) : estimatedFare ? (
+                                                    <>
+                                                        <Text style={s.fareAmount}>
+                                                            {formatTTDDollars(estimatedFare / 100)}
+                                                        </Text>
+                                                        <Text style={s.fareLabel}>
+                                                            estimated
+                                                        </Text>
+                                                    </>
+                                                ) : (
+                                                    <Text style={{ color: COLORS.textMuted }}>Fare unavailable</Text>
+                                                )}
+                                            </View>
+                                        </View>
+                                        {!isEstimatingFare && estimatedFare && (
+                                            <TouchableOpacity onPress={clearFarePreview} style={s.fareCloseBtn}>
+                                                <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </BlurView>
+                            </Reanimated.View>
+                        )}
 
                         {/* Quick pills */}
                         <View style={s.pills}>
                             <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Home')}>
-                                <Ionicons name="home-outline" size={18} color={BRAND.purple} />
+                                <Ionicons name="home-outline" size={18} color={COLORS.purple} />
                                 <Text style={s.pillLabel}>Home</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Work')}>
-                                <Ionicons name="briefcase-outline" size={18} color={BRAND.purple} />
+                                <Ionicons name="briefcase-outline" size={18} color={COLORS.purple} />
                                 <Text style={s.pillLabel}>Work</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.recentPill} onPress={() => handleQuickAction('Recent')}>
-                                <Ionicons name="time-outline" size={22} color={BRAND.purpleLight} />
+                                <Ionicons name="time-outline" size={22} color={COLORS.cyan} />
                             </TouchableOpacity>
                         </View>
 
                     </View>
-                </GlassCard>
+                </BlurView>
             </Reanimated.View>
 
             {/* Modals */}
             <SavedPlaceModal visible={!!activeModalLabel} defaultLabel={activeModalLabel || ''} onClose={() => setActiveModalLabel(null)} onSave={handleSavePlace} />
-            <RecentRidesModal visible={showRecentModal} onClose={() => setShowRecentModal(false)} recentLocations={recentRides} onSelect={(loc) => {
+            <RecentRidesModal visible={showRecentModal} onClose={() => setShowRecentModal(false)} recentLocations={recentRides} onSelect={async (loc) => {
                 setShowRecentModal(false);
-                navigation.navigate('RideConfirmation', {
-                    destination: { latitude: loc.latitude, longitude: loc.longitude, address: loc.address },
-                    pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' }
-                });
+                // FIX #1: Show fare estimate first, then navigate
+                await fetchFareEstimate(loc.latitude, loc.longitude, loc.address || 'Selected Location');
+                setTimeout(() => {
+                    navigation.navigate('RideConfirmation', {
+                        destination: { latitude: loc.latitude, longitude: loc.longitude, address: loc.address },
+                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' }
+                    });
+                    clearFarePreview();
+                }, 1500);
             }} />
 
-            {/* --- FORCED UPDATE / MAINTENANCE OVERLAYS (Fix 7) --- */}
+            {/* --- FORCED UPDATE / MAINTENANCE OVERLAYS --- */}
             {systemStatus.config?.maintenance_mode === 'true' && (
                 <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
                     <BlurView tint="dark" intensity={100} style={s.lockBlur}>
                         <View style={s.hudLockRing} />
-                        <Ionicons name="flash" size={64} color="#00FFFF" />
-                        <Txt variant="headingL" color="#00FFFF" style={{ marginTop: 24, textAlign: 'center', letterSpacing: 4 }}>SYSTEM LOCK</Txt>
-                        <Txt variant="bodyReg" color="rgba(0,255,255,0.6)" style={{ marginTop: 12, textAlign: 'center', paddingHorizontal: 40 }}>
+                        <Ionicons name="flash" size={64} color={COLORS.cyan} />
+                        <Text style={s.lockTitle}>SYSTEM LOCK</Text>
+                        <Text style={s.lockSubtitle}>
                             MAINTENANCE PROTOCOL ACTIVE. ENCRYPTED LINK STANDBY.
-                        </Txt>
+                        </Text>
                     </BlurView>
                 </View>
             )}
@@ -584,13 +783,13 @@ export function HomeScreen({ navigation }: any) {
                         return (
                             <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
                                 <BlurView tint="dark" intensity={100} style={s.lockBlur}>
-                                    <Ionicons name="cloud-download" size={64} color="#7C3AED" />
-                                    <Txt variant="headingL" color="#FFF" style={{ marginTop: 24, textAlign: 'center' }}>Update Required</Txt>
-                                    <Txt variant="bodyReg" color="rgba(255,255,255,0.6)" style={{ marginTop: 12, textAlign: 'center', paddingHorizontal: 40 }}>
+                                    <Ionicons name="cloud-download" size={64} color={COLORS.purple} />
+                                    <Text style={[s.lockTitle, { color: COLORS.white }]}>Update Required</Text>
+                                    <Text style={s.lockSubtitle}>
                                         A critical security update is available. Please update your app to continue using G-TAXI.
-                                    </Txt>
+                                    </Text>
                                     <TouchableOpacity style={s.updateBtn} onPress={() => Alert.alert("Update", "Please check the App Store or Google Play for the latest version.")}>
-                                        <Txt variant="bodyBold" color="#FFF">Update Now</Txt>
+                                        <Text style={s.updateBtnText}>Update Now</Text>
                                     </TouchableOpacity>
                                 </BlurView>
                             </View>
@@ -604,123 +803,460 @@ export function HomeScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: VOICES.rider.bg },
+    // Root & Map
+    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
     map: { width, height },
-    carMarker: { width: 48, height: 48, shadowColor: BRAND.cyan, shadowRadius: 15, shadowOpacity: 1 },
     
-    headerLogo: { position: 'absolute', left: 24, top: 0, zIndex: 100, flexDirection: 'row', alignItems: 'center' },
-    logoText: { 
-        fontSize: 26, 
-        fontWeight: '900', 
-        color: '#FFFFFF', 
-        letterSpacing: 2,
-        textShadowColor: 'rgba(0, 255, 255, 0.8)',
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 10
-    },
-    luxeSubtext: {
-        fontSize: 10,
-        fontWeight: '800',
-        color: '#00FFFF',
-        letterSpacing: 4,
-        marginTop: 2
-    },
-
-    menuBtn: { position: 'absolute', right: 24, zIndex: 100 },
-    menuCircle: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.1)', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-
-    panel: { position: 'absolute', bottom: 10, left: 10, right: 10 },
-    glassPanel: { backgroundColor: 'rgba(22, 11, 50, 0.65)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 28, overflow: 'hidden' },
-    cardInner: { padding: 24 },
-
-    tiles: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-    serviceTile: { 
-        height: 110, 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        borderRadius: 24, 
-        overflow: 'hidden',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.15)'
-    },
-    glowIcon: {
-        shadowColor: '#00FFFF',
-        shadowOffset: { width: 0, height: 0 },
+    // Car Marker with Cyan Glow
+    carMarker: { 
+        width: 44, 
+        height: 44, 
+        shadowColor: COLORS.cyan, 
+        shadowRadius: 12, 
         shadowOpacity: 0.8,
-        shadowRadius: 10
+        shadowOffset: { width: 0, height: 0 },
     },
-    tileActive: { backgroundColor: 'transparent', borderColor: '#00FFFF', borderWidth: 2 },
-    
-    soonBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#F59E0B', borderRadius: 50, paddingHorizontal: 5, paddingVertical: 2 },
 
-    searchBarInner: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        height: 72, 
-        borderRadius: 20, 
-        paddingHorizontal: 24, 
-        marginBottom: 24, 
-        overflow: 'hidden', 
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        borderWidth: 1,
-        borderColor: 'rgba(0, 255, 255, 0.3)'
+    // Top Bar - Floating Glass Card
+    topBarContainer: {
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        zIndex: 100,
     },
-    hudSearchIndicator: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#00FFFF', marginRight: 16, shadowColor: '#00FFFF', shadowOpacity: 1, shadowRadius: 8 },
-    searchPlaceholder: { flex: 1, letterSpacing: 2, fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
-
-    pills: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-    pill: { 
-        flex: 1, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        height: 52, 
-        backgroundColor: 'rgba(255, 255, 255, 0.08)', 
-        borderRadius: 16, 
-        paddingHorizontal: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)'
+    topBarBlur: {
+        borderRadius: 20,
+        overflow: 'hidden',
     },
-    pillLabel: { marginLeft: 8, fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
-    recentPill: { 
-        width: 52, 
-        height: 52, 
-        borderRadius: 16, 
-        backgroundColor: 'rgba(255, 255, 255, 0.08)', 
-        alignItems: 'center', 
+    topBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: 'rgba(22, 11, 50, 0.7)',
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+    },
+    topBarLogo: {
+        width: 48,
+        height: 48,
+    },
+    topBarRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)'
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    notificationBadge: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: COLORS.cyan,
+    },
+    avatarButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+    },
+    avatarPlaceholder: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: 'rgba(123,92,240,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
+    // Maintenance Banner
     maintenanceBanner: {
         position: 'absolute',
         left: 20,
         right: 20,
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
-        padding: 16,
-        borderRadius: RADIUS.md,
+        backgroundColor: 'rgba(255, 243, 205, 0.95)',
+        padding: 12,
+        borderRadius: 14,
         flexDirection: 'row',
         alignItems: 'center',
-        zIndex: 100,
-        borderWidth: 1,
-        borderColor: BRAND.cyan,
+        zIndex: 90,
     },
-    lockOverlay: { zIndex: 9999, justifyContent: 'center', alignItems: 'center' },
-    lockBlur: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', padding: 20 },
-    hudLockRing: { position: 'absolute', width: 250, height: 250, borderRadius: 125, borderWidth: 2, borderColor: 'rgba(124, 58, 237, 0.1)' },
-    updateBtn: { marginTop: 32, backgroundColor: BRAND.purple, paddingHorizontal: 40, paddingVertical: 18, borderRadius: RADIUS.md },
+    maintenanceText: {
+        marginLeft: 8,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#856404',
+    },
 
-    aiBubbleContainer: { position: 'absolute', left: 20, right: 20, zIndex: 90 },
-    aiBlur: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: RADIUS.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(124, 97, 255, 0.2)' },
-    aiAvatar: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-    voiceBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,255,255,0.1)' },
+    // Bottom Panel
+    panel: { 
+        position: 'absolute', 
+        bottom: 10, 
+        left: 10, 
+        right: 10,
+        maxHeight: height * 0.6,
+    },
+    glassPanel: { 
+        backgroundColor: COLORS.glassBg, 
+        borderWidth: 1, 
+        borderColor: COLORS.glassBorder, 
+        borderRadius: 24, 
+        overflow: 'hidden',
+        shadowColor: COLORS.purple,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    cardInner: { padding: 20 },
 
-    proactiveGradient: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)' },
-    proactiveText: { flex: 1, marginLeft: 10, fontSize: 13, fontWeight: '300', color: '#FFF' },
-    aiIndicator: { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center' },
+    // AI Greeting
+    aiGreetingContainer: {
+        marginBottom: 20,
+    },
+    aiGreetingText: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: COLORS.white,
+        letterSpacing: -0.5,
+    },
+    aiSubGreeting: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: COLORS.textSecondary,
+        marginTop: 4,
+    },
 
-    proactiveHud: { marginBottom: 16 },
-    visionFab: { position: 'absolute', right: 20, zIndex: 100 },
-    visionGlass: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0, 255, 255, 0.4)' },
+    // Search Bar
+    searchBarContainer: {
+        marginBottom: 20,
+    },
+    searchBarInner: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        height: 58, 
+        borderRadius: 16, 
+        paddingHorizontal: 18,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    searchIcon: {
+        marginRight: 12,
+    },
+    searchPlaceholder: { 
+        flex: 1, 
+        fontSize: 16, 
+        fontWeight: '500', 
+        color: COLORS.cyan,
+    },
+    searchChevron: {
+        marginLeft: 8,
+    },
+
+    // Service Tiles - 2x2 Grid
+    tilesContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        marginBottom: 20,
+    },
+    serviceTile: { 
+        width: (width - 72) / 2,
+        height: 100, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderRadius: 20, 
+        overflow: 'hidden',
+        backgroundColor: COLORS.glassBg,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+    },
+    serviceTileActive: {
+        borderColor: COLORS.cyan,
+        backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    },
+    serviceIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    serviceIconCyan: {
+        backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    },
+    serviceIconPurple: {
+        backgroundColor: 'rgba(123, 92, 240, 0.15)',
+    },
+    serviceLabel: {
+        fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
+        color: COLORS.textMuted,
+    },
+
+    // Fare Preview
+    farePreviewContainer: { 
+        marginBottom: 16, 
+        borderRadius: 16, 
+        overflow: 'hidden' 
+    },
+    farePreviewBlur: { 
+        borderRadius: 16, 
+        overflow: 'hidden', 
+        backgroundColor: 'rgba(0, 229, 255, 0.08)', 
+        borderWidth: 1, 
+        borderColor: 'rgba(0, 229, 255, 0.3)' 
+    },
+    farePreviewContent: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        padding: 14 
+    },
+    fareIconContainer: { 
+        width: 40, 
+        height: 40, 
+        borderRadius: 20, 
+        backgroundColor: 'rgba(0, 229, 255, 0.15)', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        marginRight: 12 
+    },
+    fareTextContainer: { flex: 1 },
+    fareAddress: {
+        fontSize: 13,
+        color: COLORS.textMuted,
+    },
+    fareRow: { 
+        flexDirection: 'row', 
+        alignItems: 'baseline', 
+        marginTop: 2 
+    },
+    fareAmount: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: COLORS.white,
+    },
+    fareLabel: {
+        fontSize: 13,
+        color: COLORS.textSecondary,
+        marginLeft: 6,
+    },
+    fareCloseBtn: { padding: 4 },
+
+    // Quick Pills
+    pills: { 
+        flexDirection: 'row', 
+        gap: 10, 
+        alignItems: 'center' 
+    },
+    pill: { 
+        flex: 1, 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        height: 48, 
+        backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+        borderRadius: 14, 
+        paddingHorizontal: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+    pillLabel: { 
+        marginLeft: 8, 
+        fontSize: 14, 
+        fontWeight: '600', 
+        color: COLORS.white 
+    },
+    recentPill: { 
+        width: 48, 
+        height: 48, 
+        borderRadius: 14, 
+        backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+
+    // AI Bubble
+    aiBubbleContainer: { 
+        position: 'absolute', 
+        left: 20, 
+        right: 20, 
+        zIndex: 90,
+        bottom: 340,
+    },
+    aiBlur: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        padding: 14, 
+        borderRadius: 20, 
+        overflow: 'hidden', 
+        backgroundColor: 'rgba(22, 11, 50, 0.85)',
+        borderWidth: 1, 
+        borderColor: COLORS.glassBorder,
+    },
+    aiAvatar: { 
+        width: 36, 
+        height: 36, 
+        borderRadius: 18, 
+        overflow: 'hidden', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        backgroundColor: 'rgba(123, 92, 240, 0.3)',
+    },
+    aiMessage: {
+        flex: 1,
+        marginLeft: 12,
+        fontSize: 14,
+        fontWeight: '500',
+        color: COLORS.white,
+    },
+    aiThinking: {
+        color: COLORS.textMuted,
+    },
+    aiCyan: {
+        color: COLORS.cyan,
+    },
+    voiceBtn: { 
+        width: 40, 
+        height: 40, 
+        borderRadius: 20, 
+        backgroundColor: 'rgba(0,229,255,0.1)', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderWidth: 1, 
+        borderColor: 'rgba(0,229,255,0.3)',
+        marginLeft: 8,
+    },
+
+    // Proactive HUD
+    proactiveHud: { 
+        marginBottom: 16 
+    },
+    proactiveGradient: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        padding: 14, 
+        borderRadius: 16, 
+        borderWidth: 1, 
+        borderColor: 'rgba(123,92,240,0.3)',
+        backgroundColor: 'rgba(123,92,240,0.15)',
+    },
+    proactiveText: { 
+        flex: 1, 
+        marginLeft: 10, 
+        fontSize: 13, 
+        fontWeight: '500', 
+        color: COLORS.white 
+    },
+    aiIndicator: { 
+        width: 28, 
+        height: 28, 
+        borderRadius: 14, 
+        backgroundColor: 'rgba(0,0,0,0.2)', 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+    },
+
+    // Vision FAB
+    visionFab: { 
+        position: 'absolute', 
+        right: 20, 
+        zIndex: 100,
+        bottom: 340,
+    },
+    visionGlass: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        paddingHorizontal: 16, 
+        paddingVertical: 12, 
+        borderRadius: 20, 
+        borderWidth: 1, 
+        borderColor: 'rgba(0, 229, 255, 0.4)',
+        backgroundColor: 'rgba(22, 11, 50, 0.8)',
+    },
+    visionText: {
+        marginLeft: 8,
+        fontSize: 13,
+        fontWeight: '700',
+        color: COLORS.cyan,
+        letterSpacing: 0.5,
+    },
+
+    // Lock Overlays
+    lockOverlay: { 
+        zIndex: 9999, 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        ...StyleSheet.absoluteFillObject,
+    },
+    lockBlur: { 
+        ...StyleSheet.absoluteFillObject, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        padding: 20,
+        backgroundColor: 'rgba(13, 11, 30, 0.95)',
+    },
+    hudLockRing: { 
+        position: 'absolute', 
+        width: 250, 
+        height: 250, 
+        borderRadius: 125, 
+        borderWidth: 2, 
+        borderColor: 'rgba(123, 92, 240, 0.2)' 
+    },
+    lockTitle: {
+        fontSize: 28,
+        fontWeight: '800',
+        color: COLORS.cyan,
+        marginTop: 24,
+        textAlign: 'center',
+        letterSpacing: 2,
+    },
+    lockSubtitle: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        marginTop: 12,
+        textAlign: 'center',
+        paddingHorizontal: 40,
+        lineHeight: 20,
+    },
+    updateBtn: { 
+        marginTop: 32, 
+        backgroundColor: COLORS.purple, 
+        paddingHorizontal: 40, 
+        paddingVertical: 16, 
+        borderRadius: 16,
+    },
+    updateBtnText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: COLORS.white,
+    },
 });

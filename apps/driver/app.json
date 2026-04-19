@@ -48,7 +48,7 @@
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyC2IzqWf_DUeWChHY8ZvJZMn419ZyiXGpI"
+          "apiKey": "AIzaSyA9g2wY_wRM19Ojw75kiceqLANXkHM6FtI"
         }
       }
     },
@@ -73,15 +73,6 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
-      ],
-      [
-        "@sentry/react-native/expo",
-        {
-          "organization": "gtaxi",
-          "project": "g-taxi-driver",
-          "disableSourcemapUpload": true
-        }
-      ]
     ],
     "owner": "gtaxi",
     "extra": {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, SafeAreaView,
-    FlatList, ActivityIndicator, Dimensions
+    FlatList, ActivityIndicator, Dimensions, RefreshControl, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -17,7 +17,7 @@ import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '../design-system/primitives';
 
-import { tokens } from '../design-system/tokens';
+import { tokens, THEME } from '../design-system/tokens';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +43,7 @@ export function WalletScreen({ navigation }: any) {
     const [balance, setBalance] = useState(0);
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     const animatedBalance = useSharedValue(0);
 
@@ -69,9 +70,16 @@ export function WalletScreen({ navigation }: any) {
             if (txData) setTransactions(txData);
         } catch (err) {
             console.error(err);
+            Alert.alert("Sync Issue", "Could not securely fetch your wallet balance. Pull down to refresh.");
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchWalletData();
     };
 
     const renderTransaction = ({ item }: { item: any }) => {
@@ -91,7 +99,7 @@ export function WalletScreen({ navigation }: any) {
                     <Txt variant="bodyBold" color={R.white} style={{ fontSize: 16 }}>{item.description || 'Transaction'}</Txt>
                     <Txt variant="small" color={R.muted}>{date.toLocaleDateString()} · {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Txt>
                 </View>
-                <Txt variant="bodyBold" color={isPositive ? tokens.colors.primary.cyan : tokens.colors.text.primary}>
+                <Txt variant="bodyBold" color={isPositive ? tokens.colors.glass.strokeHighlight : tokens.colors.text.primary}>
                     {isPositive ? '+' : '-'}${Math.abs(item.amount / 100).toFixed(2)}
                 </Txt>
             </View>
@@ -100,20 +108,20 @@ export function WalletScreen({ navigation }: any) {
     if (loading) {
         return (
             <View style={[s.root, { alignItems: 'center', justifyContent: 'center' }]}>
-                <ActivityIndicator color={R.purple} size="large" />
+                <ActivityIndicator color={tokens.colors.primary.purple} size="large" />
             </View>
         );
     }
 
     return (
         <View style={s.root}>
-            <StatusBar style="dark" />
+            <StatusBar style="light" />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color={R.white} />
+                    <Ionicons name="chevron-back" size={24} color={tokens.colors.text.primary} />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color={R.white} style={{ marginLeft: 16 }}>Wallet</Txt>
+                <Txt variant="headingM" weight="heavy" color={tokens.colors.text.primary} style={{ marginLeft: 16 }}>Luxe Wallet</Txt>
             </View>
 
             <FlatList
@@ -121,18 +129,21 @@ export function WalletScreen({ navigation }: any) {
                 keyExtractor={item => item.id}
                 renderItem={renderTransaction}
                 contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.colors.primary.purple} colors={[tokens.colors.primary.purple]} />
+                }
                 ListHeaderComponent={
                     <>
                         {/* Hero Card: LinearGradient Blueberry Luxe */}
-                        <LinearGradient colors={[tokens.colors.primary.lavender, tokens.colors.primary.blueberry]} style={s.hero}>
-                            <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">TOTAL BALANCE</Txt>
+                        <LinearGradient colors={[tokens.colors.primary.purple, '#7C3AED']} style={s.hero}>
+                            <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">AVAILABLE FUNDS</Txt>
                             <View style={s.balanceRow}>
                                 <Txt variant="headingL" weight="heavy" color="#FFF" style={{ fontSize: 48 }}>${balance.toFixed(2)}</Txt>
                                 <Txt variant="bodyBold" color="rgba(255,255,255,0.7)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
                             </View>
                             <View style={s.gCoinBadge}>
-                                <Ionicons name="flash" size={12} color={R.gold} />
-                                <Txt variant="caption" weight="heavy" color={R.gold} style={{ marginLeft: 4 }}>G-COIN ACTIVE</Txt>
+                                <Ionicons name="flash" size={12} color="#F59E0B" />
+                                <Txt variant="caption" weight="heavy" color="#F59E0B" style={{ marginLeft: 4 }}>G-COIN ACTIVE</Txt>
                             </View>
                         </LinearGradient>
 
@@ -142,7 +153,7 @@ export function WalletScreen({ navigation }: any) {
                                 <View style={s.actionIcon}>
                                     <LinearGradient 
                                         colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
-                                        style={StyleSheet.absoluteFill} 
+                                        style={StyleSheet.absoluteFillObject} 
                                     />
                                     <Ionicons name="add" size={24} color="#FFF" />
                                 </View>
@@ -158,7 +169,7 @@ export function WalletScreen({ navigation }: any) {
                             </TouchableOpacity>
                         </View>
 
-                        <Txt variant="bodyBold" color={R.white} style={{ marginBottom: 16 }}>Recent Activity</Txt>
+                        <Txt variant="bodyBold" color={tokens.colors.text.primary} style={{ marginBottom: 16 }}>RECENT ACTIVITY</Txt>
                     </>
                 }
                 ListEmptyComponent={
@@ -174,11 +185,11 @@ export function WalletScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
+    root: { flex: 1, backgroundColor: tokens.colors.background.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    hero: { borderRadius: 40, padding: 32, marginBottom: 32, shadowColor: R.purple, shadowRadius: 30, shadowOpacity: 0.5 },
+    hero: { borderRadius: 40, padding: 32, marginBottom: 32, shadowColor: tokens.colors.primary.purple, shadowRadius: 30, shadowOpacity: 0.5 },
     balanceRow: { flexDirection: 'row', alignItems: 'baseline', marginVertical: 8 },
     gCoinBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, alignSelf: 'flex-start' },
 

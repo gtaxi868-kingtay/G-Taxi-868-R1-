@@ -92,7 +92,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
     const renderItem = ({ item }: { item: CartItem }) => (
         <View style={s.itemRow}>
-            <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
+            <BlurView intensity={20} style={StyleSheet.absoluteFillObject} tint="dark" />
             <View style={s.itemLeft}>
                 <Text style={s.itemName}>{item.product.name}</Text>
                 <Text style={s.itemPrice}>${(item.product.price_cents / 100).toFixed(2)} TTD each</Text>
@@ -137,7 +137,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                         {/* Delivery toggle — only shown if rider has an active ride */}
                         {activeRide && (
                             <View style={s.deliveryCard}>
-                                <BlurView intensity={25} style={StyleSheet.absoluteFill} tint="dark" />
+                                <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                                 <View style={s.deliveryRow}>
                                     <View style={s.deliveryInfo}>
                                         <Text style={s.deliveryTitle}>Deliver to My Taxi</Text>
@@ -158,7 +158,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
                         {/* Price breakdown */}
                         <View style={s.priceCard}>
-                            <BlurView intensity={25} style={StyleSheet.absoluteFill} tint="dark" />
+                            <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                             <View style={s.priceRow}>
                                 <Text style={s.priceLabel}>Subtotal</Text>
                                 <Text style={s.priceVal}>${(subTotal / 100).toFixed(2)} TTD</Text>

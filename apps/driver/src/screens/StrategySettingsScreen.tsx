@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity, SafeAreaView,
+    View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
     ScrollView, Switch, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,10 +9,15 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '../design-system/primitives';
-
-// ── Driver-only tokens ────────────────────────────────────────────────────────
-import { BRAND, VOICES, SEMANTIC, RADIUS, GRADIENTS } from '../design-system';
+// Blueberry Luxe — Gold Edition (Driver)
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    gold: '#FFD700',
+    goldLight: '#F0E68C',
+    purple: '#9B59B6',
+    text: '#FFFFFF',
+    textMuted: 'rgba(255,255,255,0.4)',
+};
 
 export function StrategySettingsScreen({ navigation }: any) {
     const { user } = useAuth();
@@ -78,7 +83,7 @@ export function StrategySettingsScreen({ navigation }: any) {
     if (loading) {
         return (
             <View style={[s.root, { justifyContent: 'center' }]}>
-                <ActivityIndicator color={BRAND.purple} />
+                <ActivityIndicator color={COLORS.purple} />
             </View>
         );
     }
@@ -88,14 +93,14 @@ export function StrategySettingsScreen({ navigation }: any) {
             <StatusBar style="light" />
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity style={s.headerBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color={VOICES.driver.text} />
+                    <Ionicons name="chevron-back" size={24} color={COLORS.text} />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="bold" color={VOICES.driver.text} style={{ marginLeft: 16 }}>AI strategy</Txt>
+                <Text style={{ marginLeft: 16, fontSize: 16, fontWeight: '700', color: COLORS.text }}>AI strategy</Text>
             </View>
 
             <ScrollView contentContainerStyle={s.scroll}>
                 <View style={s.section}>
-                    <Txt variant="caption" color={VOICES.driver.textMuted} style={s.sectionTitle}>BUSINESS GOAL</Txt>
+                    <Text style={[s.sectionTitle, {fontSize: 11, fontWeight: '600', color: COLORS.textMuted}]}>BUSINESS GOAL</Text>
                     <View style={s.modeGrid}>
                         {[
                             { id: 'hustler', label: 'Hustler', icon: 'flash', desc: 'Max earnings. Priority on long, high-surge trips.' },
@@ -107,39 +112,39 @@ export function StrategySettingsScreen({ navigation }: any) {
                                 style={[s.modeItem, strategy.strategy_mode === m.id && s.modeItemActive]}
                                 onPress={() => updateStrategy('strategy_mode', m.id)}
                             >
-                                <Ionicons name={m.icon as any} size={24} color={strategy.strategy_mode === m.id ? VOICES.driver.text : VOICES.driver.textMuted} />
-                                <Txt variant="bodyBold" color={strategy.strategy_mode === m.id ? VOICES.driver.text : VOICES.driver.textMuted} style={{ marginTop: 8 }}>{m.label}</Txt>
+                                <Ionicons name={m.icon as any} size={24} color={strategy.strategy_mode === m.id ? COLORS.text : COLORS.textMuted} />
+                                <Text style={{ marginTop: 8, fontSize: 14, fontWeight: '600', color: strategy.strategy_mode === m.id ? COLORS.text : COLORS.textMuted }}>{m.label}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
                     <View style={{ marginTop: 20, padding: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12 }}>
-                        <Txt variant="small" color={VOICES.driver.textMuted} style={{ textAlign: 'center' }}>
+                        <Text style={{fontSize: 11, fontWeight: '500', color: COLORS.textMuted, textAlign: 'center'}}>
                             {strategy.strategy_mode === 'hustler' && "Hustler mode optimizes for the highest hourly rate, often leading you further from home."}
                             {strategy.strategy_mode === 'stable' && "Stable mode focuses on high-frequency, low-stress trips with minimal downtime."}
                             {strategy.strategy_mode === 'closer' && "Closer mode filtered to only show you rides that end within 5km of your registered home."}
-                        </Txt>
+                        </Text>
                     </View>
                 </View>
 
                 <View style={s.section}>
-                    <Txt variant="caption" color={VOICES.driver.textMuted} style={s.sectionTitle}>HEALTH & SAFETY</Txt>
+                    <Text style={[s.sectionTitle, {fontSize: 11, fontWeight: '600', color: COLORS.textMuted}]}>HEALTH & SAFETY</Text>
                     <View style={s.row}>
                         <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color={VOICES.driver.text}>Fatigue & Wellness Alerts</Txt>
-                            <Txt variant="small" color={VOICES.driver.textMuted}>AI monitors driving patterns to suggest breaks.</Txt>
+                            <Text style={{fontSize: 14, fontWeight: '600', color: COLORS.text}}>Fatigue & Wellness Alerts</Text>
+                            <Text style={{fontSize: 11, fontWeight: '500', color: COLORS.textMuted}}>AI monitors driving patterns to suggest breaks.</Text>
                         </View>
                         <Switch
                             value={strategy.fatigue_alerts_enabled}
                             onValueChange={(val: boolean) => updateStrategy('fatigue_alerts_enabled', val)}
-                            trackColor={{ false: 'rgba(26, 21, 48, 1)', true: BRAND.purple }}
+                            trackColor={{ false: 'rgba(26, 21, 48, 1)', true: COLORS.purple }}
                         />
                     </View>
                 </View>
 
                 {saving && (
                     <View style={s.savingIndicator}>
-                        <ActivityIndicator size="small" color={BRAND.purple} />
-                        <Txt variant="small" color={BRAND.purpleLight} style={{ marginLeft: 8 }}>Updating Strategy...</Txt>
+                        <ActivityIndicator size="small" color={COLORS.purple} />
+                        <Text style={{ marginLeft: 8, fontSize: 11, fontWeight: '500', color: COLORS.goldLight }}>Updating Strategy...</Text>
                     </View>
                 )}
             </ScrollView>
@@ -148,7 +153,7 @@ export function StrategySettingsScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: VOICES.driver.bg },
+    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 20, borderBottomWidth: 1, borderColor: 'rgba(0, 255, 255, 0.15)', paddingBottom: 12 },
     headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     
@@ -158,7 +163,7 @@ const s = StyleSheet.create({
     
     modeGrid: { flexDirection: 'row', gap: 10 },
     modeItem: { flex: 1, height: 100, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
-    modeItemActive: { backgroundColor: BRAND.purple, borderColor: BRAND.purpleLight },
+    modeItemActive: { backgroundColor: COLORS.purple, borderColor: COLORS.goldLight },
 
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     savingIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 }

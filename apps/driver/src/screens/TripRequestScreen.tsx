@@ -1,25 +1,46 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity,
-    ActivityIndicator, Dimensions, Text, Alert
+    View, Text, StyleSheet, TouchableOpacity,
+    ActivityIndicator, Dimensions, Alert, Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
-    useSharedValue, withSpring, withTiming, withSequence, withRepeat,
-    useAnimatedStyle, useDerivedValue, interpolate, runOnJS,
-    Easing,
+    useSharedValue, withSpring, withTiming, withSequence,
+    useAnimatedStyle, Easing,
 } from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
 import { acceptRide, declineRide } from '../services/api';
 import { supabase } from '../../../../shared/supabase';
-import { Txt } from '../design-system/primitives';
-import { GlassCard, BRAND, VOICES, RADIUS, SEMANTIC, GRADIENTS, StatusBadge } from '../design-system';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
+
+// Blueberry Luxe — Gold Edition (Driver)
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    bgSecondary: '#1A1508',
+    gradientStart: '#1A1200',
+    gradientEnd: '#0D0B1E',
+    purple: '#7B5CF0',
+    purpleDark: '#5B3FD0',
+    purpleLight: '#9B7CF0',
+    gold: '#FFD700',
+    goldDark: '#B8860B',
+    goldLight: '#FFEC8B',
+    amber: '#FFB000',
+    amberSoft: 'rgba(255,176,0,0.1)',
+    white: '#FFFFFF',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    textMuted: 'rgba(255,255,255,0.4)',
+    glassBg: 'rgba(255,215,0,0.06)',
+    glassBorder: 'rgba(255,176,0,0.3)',
+    success: '#00FF94',
+    warning: '#F59E0B',
+    error: '#EF4444',
+};
 
 const DEFAULT_DRIVER_SHARE = 0.78; // 22% commission (Standard)
 const ARC_SIZE = 180;
@@ -81,7 +102,24 @@ export function TripRequestScreen({ navigation, route }: any) {
     }, []);
 
     useEffect(() => {
-        if (!offer?.ride_id) { setDetailLoading(false); return; }
+        const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
+            if (isHandling || timeLeft <= 0) return;
+
+            e.preventDefault();
+            Alert.alert(
+                'Discard Offer?',
+                'Leaving this screen will ignore the current trip offer. Are you sure?',
+                [
+                    { text: 'Keep Offer', style: 'cancel' },
+                    { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) }
+                ]
+            );
+        });
+
+        if (!offer?.ride_id) { 
+            setDetailLoading(false); 
+            return () => beforeRemoveListener();
+        }
         const fetchDetails = async () => {
             const { data } = await supabase.from('rides')
                 .select('pickup_address, dropoff_address, total_fare_cents, payment_method, vehicle_type, rider_id')
@@ -99,6 +137,8 @@ export function TripRequestScreen({ navigation, route }: any) {
             setDetailLoading(false);
         };
         fetchDetails();
+
+        return () => beforeRemoveListener();
     }, [offer?.ride_id]);
 
     useEffect(() => {
@@ -136,124 +176,353 @@ export function TripRequestScreen({ navigation, route }: any) {
         ? (offer.driver_payout_cents / 100) 
         : (rideDetail?.total_fare_cents || offer?.fare_cents || 0) * DEFAULT_DRIVER_SHARE / 100;
     const distanceKm = offer?.distance_meters ? (offer.distance_meters / 1000).toFixed(1) : '?';
-    const arcColor = timeLeft > 5 ? BRAND.cyan : timeLeft > 2 ? SEMANTIC.warning : SEMANTIC.danger;
+    const arcColor = timeLeft > 5 ? COLORS.gold : timeLeft > 2 ? COLORS.warning : COLORS.error;
 
     const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetY.value }, { translateX: shakeX.value }] }));
     const fareStyle = useAnimatedStyle(() => ({ transform: [{ scale: fareScale.value }] }));
 
     return (
-        <View style={s.overlay}>
-             <BlurView tint="dark" intensity={30} style={StyleSheet.absoluteFill} />
+        <View style={s.root}>
+            {/* Deep Gradient Background */}
+            <LinearGradient
+                colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                style={StyleSheet.absoluteFillObject}
+            />
+            
+            {/* Glass Overlay */}
+            <BlurView tint="dark" intensity={20} style={StyleSheet.absoluteFillObject} />
             
             <Reanimated.View style={[s.sheet, { paddingBottom: insets.bottom + 20 }, sheetStyle]}>
-                <GlassCard variant="driver" style={s.content}>
-                    <View style={s.handle} />
-                    
-                    <View style={s.headerRow}>
-                        <StatusBadge status="searching" label="NEW LOGISTICS OFFER" />
-                        {isPreferred && (
-                            <View style={s.prefBadge}>
-                                <Ionicons name="star" size={12} color={BRAND.cyan} />
-                                <Txt variant="caption" weight="heavy" color={BRAND.cyan} style={{ marginLeft: 6 }}>PREFERRED</Txt>
+                <BlurView intensity={30} tint="dark" style={s.cardBlur}>
+                    <View style={s.cardInner}>
+                        <View style={s.handle} />
+                        
+                        {/* Header with Logo and Status */}
+                        <View style={s.headerRow}>
+                            <Image 
+                                source={require('../../assets/logo.png')} 
+                                style={s.headerLogo}
+                                resizeMode="contain"
+                            />
+                            {isPreferred && (
+                                <View style={s.prefBadge}>
+                                    <Ionicons name="star" size={12} color={COLORS.gold} />
+                                    <Text style={s.prefBadgeText}>PREFERRED</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Earnings Circle with Countdown */}
+                        <View style={s.timerOuter}>
+                            <LinearGradient
+                                colors={[COLORS.amberSoft, 'transparent']}
+                                style={[s.arc, { borderColor: arcColor }]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                            >
+                                <Reanimated.View style={[s.fareBox, fareStyle]}>
+                                    <Text style={s.earningsLabel}>EARNINGS</Text>
+                                    <Text style={s.earningsValue}>${driverEarnings.toFixed(2)}</Text>
+                                    <Text style={[s.countdownText, { color: arcColor }]}>{timeLeft}S REMAINING</Text>
+                                </Reanimated.View>
+                            </LinearGradient>
+                        </View>
+
+                        {/* Address Details */}
+                        {detailLoading ? (
+                            <ActivityIndicator color={COLORS.gold} style={{ marginVertical: 40 }} />
+                        ) : (
+                            <View style={s.addressLayer}>
+                                <Reanimated.View style={[s.addrRow, useAnimatedStyle(() => ({ transform: [{ translateX: pickupX.value }], opacity: pickupOp.value }))]}>
+                                    <View style={s.dot} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={s.addrLabel}>PICKUP</Text>
+                                        <Text style={s.addrText} numberOfLines={1}>{rideDetail?.pickup_address || offer?.pickup_address || 'Current Location'}</Text>
+                                    </View>
+                                </Reanimated.View>
+                                <View style={s.line} />
+                                <Reanimated.View style={[s.addrRow, useAnimatedStyle(() => ({ transform: [{ translateX: dropoffX.value }], opacity: dropoffOp.value }))]}>
+                                    <View style={s.square} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={s.addrLabel}>DROPOFF</Text>
+                                        <Text style={s.addrText} numberOfLines={1}>{rideDetail?.dropoff_address || offer?.dropoff_address || 'Destination'}</Text>
+                                    </View>
+                                </Reanimated.View>
                             </View>
                         )}
-                    </View>
 
-                    <View style={s.timerOuter}>
-                        <View style={[s.arc, { borderColor: arcColor }]}>
-                            <Reanimated.View style={[s.fareBox, fareStyle]}>
-                                <Txt variant="caption" weight="regular" color={VOICES.driver.textMuted} style={{ letterSpacing: 1.5 }}>EARNINGS</Txt>
-                                <Txt variant="displayXL" weight="heavy" color={BRAND.cyan}>${driverEarnings.toFixed(2)}</Txt>
-                                <Txt variant="caption" weight="heavy" color={arcColor}>{timeLeft}S REMAINING</Txt>
-                            </Reanimated.View>
+                        {/* Stats Grid */}
+                        <View style={s.statsGrid}>
+                            <View style={s.statPill}>
+                                <Ionicons name="navigate-outline" size={16} color={COLORS.gold} />
+                                <Text style={s.statPillText}>{distanceKm} KM</Text>
+                            </View>
+                            <View style={s.statPill}>
+                                <Ionicons name="time-outline" size={16} color={COLORS.gold} />
+                                <Text style={s.statPillText}>{offer?.duration_min || '?'} MIN</Text>
+                            </View>
+                            <View style={s.statPill}>
+                                <Ionicons name={paymentIcon(rideDetail?.payment_method || 'cash') as any} size={16} color={COLORS.gold} />
+                                <Text style={s.statPillText}>{paymentLabel(rideDetail?.payment_method || 'cash')}</Text>
+                            </View>
                         </View>
-                    </View>
 
-                    {detailLoading ? <ActivityIndicator color={BRAND.cyan} style={{ marginVertical: 40 }} /> : (
-                        <View style={s.addressLayer}>
-                            <Reanimated.View style={[s.addrRow, useAnimatedStyle(() => ({ transform: [{ translateX: pickupX.value }], opacity: pickupOp.value }))]}>
-                                <View style={s.dot} />
-                                <View style={{ flex: 1 }}>
-                                    <Txt variant="caption" weight="regular" color={VOICES.driver.textMuted}>PICKUP</Txt>
-                                    <Txt variant="bodyBold" weight="heavy" color="#FFF" numberOfLines={1}>{rideDetail?.pickup_address || offer?.pickup_address || 'Current Location'}</Txt>
-                                </View>
-                            </Reanimated.View>
-                            <View style={s.line} />
-                            <Reanimated.View style={[s.addrRow, useAnimatedStyle(() => ({ transform: [{ translateX: dropoffX.value }], opacity: dropoffOp.value }))]}>
-                                <View style={s.square} />
-                                <View style={{ flex: 1 }}>
-                                    <Txt variant="caption" weight="regular" color={VOICES.driver.textMuted}>DROPOFF</Txt>
-                                    <Txt variant="bodyBold" weight="heavy" color="#FFF" numberOfLines={1}>{rideDetail?.dropoff_address || offer?.dropoff_address || 'Destination'}</Txt>
-                                </View>
-                            </Reanimated.View>
-                        </View>
-                    )}
-
-                    <View style={s.statsGrid}>
-                        <View style={s.statPill}>
-                            <Ionicons name="navigate-outline" size={16} color={BRAND.cyan} />
-                            <Txt variant="bodyReg" weight="heavy" color="#FFF" style={{ marginLeft: 8 }}>{distanceKm} KM</Txt>
-                        </View>
-                        <View style={s.statPill}>
-                            <Ionicons name="time-outline" size={16} color={BRAND.cyan} />
-                            <Txt variant="bodyReg" weight="heavy" color="#FFF" style={{ marginLeft: 8 }}>{offer?.duration_min || '?'} MIN</Txt>
-                        </View>
-                        <View style={s.statPill}>
-                            <Ionicons name={paymentIcon(rideDetail?.payment_method || 'cash') as any} size={16} color={BRAND.cyan} />
-                            <Txt variant="bodyReg" weight="heavy" color="#FFF" style={{ marginLeft: 8 }}>{paymentLabel(rideDetail?.payment_method || 'cash')}</Txt>
+                        {/* Action Buttons */}
+                        <View style={s.actionRow}>
+                            <TouchableOpacity style={s.declineBtn} onPress={() => handleDecline(false)} disabled={isHandling}>
+                                <Text style={s.declineText}>DECLINE</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity style={s.acceptBtn} onPress={handleAccept} disabled={isHandling} activeOpacity={0.9}>
+                                <LinearGradient 
+                                    colors={[COLORS.gold, COLORS.goldDark]} 
+                                    style={s.acceptGradient}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                >
+                                    {isHandling ? <ActivityIndicator color={COLORS.bgPrimary} /> : (
+                                        <>
+                                            <Ionicons name="flash" size={20} color={COLORS.bgPrimary} />
+                                            <Text style={s.acceptText}>ACCEPT TRIP</Text>
+                                        </>
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
                         </View>
                     </View>
-
-                    <View style={s.actionRow}>
-                        <TouchableOpacity style={s.declineBtn} onPress={() => handleDecline(false)} disabled={isHandling}>
-                            <Txt variant="bodyReg" weight="heavy" color={SEMANTIC.danger}>DECLINE</Txt>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity style={s.acceptBtn} onPress={handleAccept} disabled={isHandling} activeOpacity={0.9}>
-                            <LinearGradient 
-                                colors={[BRAND.cyan, '#0099FF']} 
-                                style={s.acceptGradient}
-                                start={GRADIENTS.primaryStart}
-                                end={GRADIENTS.primaryEnd}
-                            >
-                                {isHandling ? <ActivityIndicator color="#0A0718" /> : (
-                                    <>
-                                        <Ionicons name="flash" size={20} color="#0A0718" />
-                                        <Txt variant="bodyReg" weight="heavy" color="#0A0718" style={{ marginLeft: 8 }}>ACCEPT TRIP</Txt>
-                                    </>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </View>
-                </GlassCard>
+                </BlurView>
             </Reanimated.View>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    overlay: { flex: 1, backgroundColor: 'transparent', justifyContent: 'flex-end' },
-    sheet: { paddingHorizontal: 16 },
-    content: { padding: 24, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden' },
-    handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.08)', alignSelf: 'center', marginBottom: 28 },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 },
-    prefBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,255,194,0.06)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,255,194,0.1)' },
-    
-    timerOuter: { alignItems: 'center', marginBottom: 44, shadowColor: BRAND.cyan, shadowRadius: 20, shadowOpacity: 0.1 },
-    arc: { width: ARC_SIZE, height: ARC_SIZE, borderRadius: ARC_SIZE / 2, borderWidth: 3, alignItems: 'center', justifyContent: 'center', borderStyle: 'solid', backgroundColor: 'rgba(0,255,194,0.02)' },
-    fareBox: { alignItems: 'center' },
-    
-    addressLayer: { backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 24, padding: 20, marginBottom: 36, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    addrRow: { flexDirection: 'row', alignItems: 'center' },
-    dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: BRAND.cyan, marginRight: 16, shadowColor: BRAND.cyan, shadowRadius: 4, shadowOpacity: 0.5 },
-    square: { width: 12, height: 12, borderRadius: 3, backgroundColor: SEMANTIC.warning, marginRight: 16, shadowColor: SEMANTIC.warning, shadowRadius: 4, shadowOpacity: 0.5 },
-    line: { width: 2, height: 28, backgroundColor: 'rgba(255,255,255,0.05)', marginLeft: 5, marginVertical: 4 },
+    // Root & Layout
+    root: { 
+        flex: 1, 
+        backgroundColor: COLORS.bgPrimary,
+        justifyContent: 'flex-end',
+    },
+    sheet: { 
+        paddingHorizontal: 16,
+    },
 
-    statsGrid: { flexDirection: 'row', gap: 12, marginBottom: 44 },
-    statPill: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.03)', paddingVertical: 14, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    // Card with Blur
+    cardBlur: {
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+    },
+    cardInner: { 
+        padding: 24, 
+        backgroundColor: 'rgba(22,11,50,0.5)',
+    },
 
-    actionRow: { flexDirection: 'row', gap: 16 },
-    declineBtn: { flex: 1, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 32, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)', backgroundColor: 'rgba(239,68,68,0.05)' },
-    acceptBtn: { flex: 2, height: 64, borderRadius: 32, overflow: 'hidden', shadowColor: BRAND.cyan, shadowRadius: 15, shadowOpacity: 0.4, elevation: 8 },
-    acceptGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+    // Handle
+    handle: { 
+        width: 44, 
+        height: 5, 
+        borderRadius: 3, 
+        backgroundColor: 'rgba(255,255,255,0.15)', 
+        alignSelf: 'center', 
+        marginBottom: 24,
+    },
+
+    // Header
+    headerRow: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: 28,
+    },
+    headerLogo: {
+        width: 48,
+        height: 48,
+    },
+    prefBadge: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: 'rgba(0,229,255,0.1)', 
+        paddingHorizontal: 12, 
+        paddingVertical: 6, 
+        borderRadius: 16, 
+        borderWidth: 1, 
+        borderColor: 'rgba(0,229,255,0.2)',
+        gap: 6,
+    },
+    prefBadgeText: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: COLORS.gold,
+        letterSpacing: 0.5,
+    },
+    
+    // Earnings Circle
+    timerOuter: { 
+        alignItems: 'center', 
+        marginBottom: 32, 
+        shadowColor: COLORS.gold, 
+        shadowOffset: { width: 0, height: 0 },
+        shadowRadius: 20, 
+        shadowOpacity: 0.2,
+    },
+    arc: { 
+        width: ARC_SIZE, 
+        height: ARC_SIZE, 
+        borderRadius: ARC_SIZE / 2, 
+        borderWidth: 3, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderStyle: 'solid',
+        backgroundColor: 'rgba(0,229,255,0.05)',
+    },
+    fareBox: { 
+        alignItems: 'center',
+    },
+    earningsLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: COLORS.textMuted,
+        letterSpacing: 1.5,
+        marginBottom: 4,
+    },
+    earningsValue: {
+        fontSize: 42,
+        fontWeight: '800',
+        color: COLORS.gold,
+        letterSpacing: -1,
+        marginBottom: 4,
+    },
+    countdownText: {
+        fontSize: 13,
+        fontWeight: '800',
+        letterSpacing: 1,
+    },
+    
+    // Address Layer
+    addressLayer: { 
+        backgroundColor: COLORS.glassBg, 
+        borderRadius: 20, 
+        padding: 20, 
+        marginBottom: 28, 
+        borderWidth: 1, 
+        borderColor: COLORS.glassBorder,
+    },
+    addrRow: { 
+        flexDirection: 'row', 
+        alignItems: 'center',
+    },
+    addrLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: COLORS.textMuted,
+        letterSpacing: 0.5,
+        marginBottom: 2,
+    },
+    addrText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: COLORS.white,
+    },
+    dot: { 
+        width: 12, 
+        height: 12, 
+        borderRadius: 6, 
+        backgroundColor: COLORS.gold, 
+        marginRight: 14, 
+        shadowColor: COLORS.gold, 
+        shadowOffset: { width: 0, height: 0 },
+        shadowRadius: 6, 
+        shadowOpacity: 0.5,
+    },
+    square: { 
+        width: 12, 
+        height: 12, 
+        borderRadius: 3, 
+        backgroundColor: COLORS.warning, 
+        marginRight: 14, 
+        shadowColor: COLORS.warning, 
+        shadowOffset: { width: 0, height: 0 },
+        shadowRadius: 6, 
+        shadowOpacity: 0.5,
+    },
+    line: { 
+        width: 2, 
+        height: 28, 
+        backgroundColor: 'rgba(255,255,255,0.1)', 
+        marginLeft: 5, 
+        marginVertical: 4,
+    },
+
+    // Stats Grid
+    statsGrid: { 
+        flexDirection: 'row', 
+        gap: 10, 
+        marginBottom: 28,
+    },
+    statPill: { 
+        flex: 1, 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        backgroundColor: COLORS.glassBg, 
+        paddingVertical: 12, 
+        borderRadius: 14, 
+        borderWidth: 1, 
+        borderColor: COLORS.glassBorder,
+        gap: 6,
+    },
+    statPillText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: COLORS.white,
+    },
+
+    // Action Buttons
+    actionRow: { 
+        flexDirection: 'row', 
+        gap: 12,
+    },
+    declineBtn: { 
+        flex: 1, 
+        height: 56, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderRadius: 16, 
+        borderWidth: 1, 
+        borderColor: 'rgba(239,68,68,0.3)', 
+        backgroundColor: 'rgba(239,68,68,0.08)',
+    },
+    declineText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: COLORS.error,
+        letterSpacing: 0.5,
+    },
+    acceptBtn: { 
+        flex: 2, 
+        height: 56, 
+        borderRadius: 16, 
+        overflow: 'hidden', 
+        shadowColor: COLORS.gold, 
+        shadowOffset: { width: 0, height: 4 },
+        shadowRadius: 12, 
+        shadowOpacity: 0.3, 
+        elevation: 6,
+    },
+    acceptGradient: { 
+        flex: 1, 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        gap: 8,
+    },
+    acceptText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: COLORS.bgPrimary,
+        letterSpacing: 0.5,
+    },
 });

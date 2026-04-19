@@ -14,6 +14,8 @@ interface ActiveRide {
     total_fare_cents: number;
     distance_meters: number;
     duration_seconds: number;
+    created_at?: string;
+    updated_at?: string;
     // Driver Details (Realtime)
     driver_id?: string;
     driver_name?: string;
@@ -48,14 +50,17 @@ export function RideProvider({ children }: { children: ReactNode }) {
         }
 
         try {
+            console.log('[RideContext] Checking for active ride session...');
             const response = await getActiveRide();
             if (response.success && response.data) {
+                console.log('[RideContext] Active ride found:', response.data.ride_id);
                 setActiveRide(response.data);
             } else {
+                console.log('[RideContext] No active ride session found.');
                 setActiveRide(null);
             }
         } catch (error) {
-            console.log('Error checking active ride:', error);
+            console.error('[RideContext] Critical recovery error:', error);
             setActiveRide(null);
         } finally {
             setLoading(false);

@@ -60,19 +60,54 @@ ALTER TABLE public.driver_ai_strategy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.merchants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
-CREATE POLICY "Riders can manage their own AI preferences" 
-    ON public.rider_ai_preferences FOR ALL 
-    USING (auth.uid() = user_id);
+-- RLS Policies (with existence checks)
+DO $$
+BEGIN
+    -- Rider AI preferences policy
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'rider_ai_preferences' 
+        AND policyname = 'Riders can manage their own AI preferences'
+    ) THEN
+        CREATE POLICY "Riders can manage their own AI preferences"
+            ON public.rider_ai_preferences FOR ALL
+            USING (auth.uid() = user_id);
+    END IF;
 
-CREATE POLICY "Drivers can manage their own AI strategy" 
-    ON public.driver_ai_strategy FOR ALL 
-    USING (auth.uid() = user_id);
+    -- Driver AI strategy policy
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'driver_ai_strategy' 
+        AND policyname = 'Drivers can manage their own AI strategy'
+    ) THEN
+        CREATE POLICY "Drivers can manage their own AI strategy"
+            ON public.driver_ai_strategy FOR ALL
+            USING (auth.uid() = user_id);
+    END IF;
 
-CREATE POLICY "Everyone can view active merchants" 
-    ON public.merchants FOR SELECT 
-    USING (is_active = true);
+    -- Merchants view policy
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'merchants' 
+        AND policyname = 'Everyone can view active merchants'
+    ) THEN
+        CREATE POLICY "Everyone can view active merchants"
+            ON public.merchants FOR SELECT
+            USING (is_active = true);
+    END IF;
 
-CREATE POLICY "Everyone can view available products" 
-    ON public.products FOR SELECT 
-    USING (is_available = true);
+    -- Products view policy
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = 'public' 
+        AND tablename = 'products' 
+        AND policyname = 'Everyone can view available products'
+    ) THEN
+        CREATE POLICY "Everyone can view available products"
+            ON public.products FOR SELECT
+            USING (is_available = true);
+    END IF;
+END $$;

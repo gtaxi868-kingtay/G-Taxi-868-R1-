@@ -1,114 +1,104 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     View, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Dimensions, ScrollView, Alert
+    Dimensions, ScrollView, Alert, Image, Text
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
-import Reanimated, {
-    useSharedValue, useAnimatedStyle, withTiming,
-    FadeIn, FadeOut, Layout
-} from 'react-native-reanimated';
+import Reanimated, { FadeIn } from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../../../../shared/supabase';
-import { Txt } from '../design-system/primitives';
-import { Ionicons } from '@expo/vector-icons';
-
-import { tokens } from '../design-system/tokens';
 
 const { width, height } = Dimensions.get('window');
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
-const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
-    gold: '#F59E0B',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+// Blueberry Luxe Color System
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    bgSecondary: '#160B32',
+    gradientStart: '#1A0533',
+    gradientEnd: '#0D1B4B',
+    purple: '#7B5CF0',
+    purpleDark: '#5B3FD0',
+    cyan: '#00E5FF',
+    cyanDark: '#0099BB',
+    white: '#FFFFFF',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    textMuted: 'rgba(255,255,255,0.5)',
+    glassBg: 'rgba(255,255,255,0.06)',
+    glassBorder: 'rgba(123,92,240,0.3)',
+    glassBorderFocus: 'rgba(0,229,255,0.5)',
+    error: '#FF4D6D',
 };
 
 export function SignupScreen({ navigation }: any) {
-    const { signUp, verifyPhoneOTP } = useAuth();
+    const { signUp } = useAuth();
     const insets = useSafeAreaInsets();
 
-    const [step, setStep] = useState(1); // 1: Info, 2: OTP
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [focusedField, setFocusedField] = useState<string | null>(null);
 
     const [formData, setFormData] = useState({
-        name: '', email: '', phone: '', password: '',
-        emergencyName: '', emergencyPhone: '',
-        aiEnabled: true // Default to enabled for premium experience
+        name: '',
+        email: '',
+        phone: '',
+        password: '',
+        aiEnabled: true,
     });
-    const [otp, setOtp] = useState('');
 
-    const handleNext = async () => {
-        if (!formData.name || !formData.email || !formData.phone || !formData.password) {
-            setError('Please fill all required fields');
+    const handleSignup = async () => {
+        if (!formData.name || !formData.email || !formData.password) {
+            setError('PLEASE FILL IN NAME, EMAIL AND PASSWORD');
             return;
         }
+        if (formData.password.length < 6) {
+            setError('PASSWORD MUST BE AT LEAST 6 CHARACTERS');
+            return;
+        }
+
         setLoading(true);
         setError('');
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            const { data: authData, error: signUpError } = await signUp(
-                formData.email, formData.password, formData.name, formData.phone
+            // Step 1: Create the auth account with email + password
+            const { data: authData, error: signUpError } = await supabase.auth.signUp({
+                email: formData.email.trim().toLowerCase(),
+                password: formData.password,
+                options: {
+                    data: {
+                        full_name: formData.name.trim(),
+                        role: 'rider',
+                    },
+                },
+            });
+
+            if (signUpError) throw signUpError;
+            if (!authData.user) throw new Error('Signup failed — no user returned');
+
+            // Step 2: Save phone number to profiles table (no OTP required)
+            if (formData.phone) {
+                await supabase
+                    .from('profiles')
+                    .update({ phone: formData.phone.trim() })
+                    .eq('id', authData.user.id);
+            }
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert(
+                'Account Created',
+                'Your account is ready. Please log in with your email and password.',
+                [{ text: 'Sign In', onPress: () => navigation.navigate('Login') }]
             );
 
-            if (signUpError) {
-                setError(signUpError.message);
-                return;
-            }
-
-            if (authData?.user) {
-                // BUG_FIX: Ensure profiles insert includes full_name
-                const { error: profileError } = await supabase.from('profiles').upsert({
-                    id: authData.user.id,
-                    full_name: formData.name.trim(), // Correct mapping
-                    phone_number: formData.phone.trim(),
-                    emergency_contact_name: formData.emergencyName.trim() || 'N/A',
-                    emergency_contact_phone: formData.emergencyPhone.trim() || 'N/A',
-                    updated_at: new Date().toISOString()
-                });
-                if (profileError) console.error("Profile update failed:", profileError);
-            }
-
-            setStep(2);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (err: any) {
-            if (err?.message?.includes("already registered as a rider") ||
-                err?.message?.includes("already registered as a driver")) {
-                Alert.alert(
-                    "Phone Already Registered",
-                    "This phone number is already linked to a G-Taxi account. " +
-                    "Each phone number can only be used for one account."
-                );
-            } else {
-                setError(err.message || 'Signup failed');
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleVerify = async () => {
-        if (!otp) return;
-        setLoading(true);
-        setError('');
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-        try {
-            await verifyPhoneOTP(formData.phone, otp);
-            Alert.alert("Welcome!", "Your account has been verified. Welcome to G-Taxi.");
-        } catch (err: any) {
-            setError(err.message || 'Verification failed');
+            console.error('Signup error:', err);
+            setError(err.message?.toUpperCase() || 'SIGNUP FAILED — PLEASE TRY AGAIN');
         } finally {
             setLoading(false);
         }
@@ -118,88 +108,148 @@ export function SignupScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            {/* Background: Vibrant Gradient DNA */}
+            {/* Deep Gradient Background */}
             <LinearGradient
-                colors={['#1A1A4A', R.bg]}
-                style={StyleSheet.absoluteFill}
+                colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                style={StyleSheet.absoluteFillObject}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                end={{ x: 0, y: 1 }}
             />
 
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.container}>
-                <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}>
+                <ScrollView
+                    contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}
+                    showsVerticalScrollIndicator={false}
+                >
 
-                    <TouchableOpacity style={s.backBtn} onPress={() => step === 2 ? setStep(1) : navigation.goBack()}>
+                    {/* Back Button */}
+                    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
 
-                    <View style={s.header}>
-                        <Txt variant="displayXL" weight="heavy" color="#FFF">Join Us</Txt>
-                        <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 8 }}>Experience the future of mobility</Txt>
+                    {/* Logo Section */}
+                    <View style={s.logoSection}>
+                        <View style={s.logoGlow} />
+                        <Image 
+                            source={require('../../assets/logo.png')} 
+                            style={s.logo}
+                            resizeMode="contain"
+                        />
                     </View>
 
-                    {step === 1 ? (
-                        <Reanimated.View entering={FadeIn} exiting={FadeOut} layout={Layout} style={s.form}>
-                            {error ? <Txt variant="small" color="#EF4444" style={s.error}>{error}</Txt> : null}
+                    {/* Progress Indicator */}
+                    <View style={s.progressContainer}>
+                        <Text style={s.progressText}>Step 1 of 1</Text>
+                        <View style={s.progressBar}>
+                            <View style={s.progressFill} />
+                        </View>
+                    </View>
 
-                            <Input label="FULL NAME" placeholder="John Doe" value={formData.name} onChange={(v: string) => setFormData({ ...formData, name: v })} />
-                            <Input label="EMAIL" placeholder="john@example.com" value={formData.email} onChange={(v: string) => setFormData({ ...formData, email: v })} />
-                            <Input label="PHONE" placeholder="+1 868 000 0000" value={formData.phone} onChange={(v: string) => setFormData({ ...formData, phone: v })} keyboardType="phone-pad" />
-                            <Input label="PASSWORD" placeholder="••••••••" value={formData.password} onChange={(v: string) => setFormData({ ...formData, password: v })} secure />
+                    {/* Glass Card - Signup Form */}
+                    <View style={s.cardContainer}>
+                        <BlurView intensity={20} tint="dark" style={s.blurBacking}>
+                            <View style={s.glassCard}>
+                                <Reanimated.View entering={FadeIn} style={s.form}>
+                                    {error ? (
+                                        <Text style={s.errorText}>{error}</Text>
+                                    ) : null}
 
-                            <View style={s.emergency}>
-                                <Txt variant="caption" weight="heavy" color={R.muted} style={{ marginBottom: 16 }}>EMERGENCY CONTACT (OPTIONAL)</Txt>
-                                <Input label="CONTACT NAME" placeholder="Name" value={formData.emergencyName} onChange={(v: string) => setFormData({ ...formData, emergencyName: v })} />
-                                <Input label="CONTACT PHONE" placeholder="+1 868..." value={formData.emergencyPhone} onChange={(v: string) => setFormData({ ...formData, emergencyPhone: v })} keyboardType="phone-pad" />
-                            </View>
+                                    <Input
+                                        label="FULL NAME"
+                                        placeholder="John Doe"
+                                        value={formData.name}
+                                        onChange={(v: string) => setFormData({ ...formData, name: v })}
+                                        isFocused={focusedField === 'name'}
+                                        onFocus={() => setFocusedField('name')}
+                                        onBlur={() => setFocusedField(null)}
+                                    />
+                                    <Input
+                                        label="EMAIL"
+                                        placeholder="you@email.com"
+                                        value={formData.email}
+                                        onChange={(v: string) => setFormData({ ...formData, email: v })}
+                                        keyboardType="email-address"
+                                        isFocused={focusedField === 'email'}
+                                        onFocus={() => setFocusedField('email')}
+                                        onBlur={() => setFocusedField(null)}
+                                    />
+                                    <Input
+                                        label="PHONE"
+                                        placeholder="+1 868 000 0000"
+                                        value={formData.phone}
+                                        onChange={(v: string) => setFormData({ ...formData, phone: v })}
+                                        keyboardType="phone-pad"
+                                        isFocused={focusedField === 'phone'}
+                                        onFocus={() => setFocusedField('phone')}
+                                        onBlur={() => setFocusedField(null)}
+                                        optional
+                                    />
+                                    <Input
+                                        label="PASSWORD"
+                                        placeholder="••••••••"
+                                        value={formData.password}
+                                        onChange={(v: string) => setFormData({ ...formData, password: v })}
+                                        secure
+                                        isFocused={focusedField === 'password'}
+                                        onFocus={() => setFocusedField('password')}
+                                        onBlur={() => setFocusedField(null)}
+                                    />
 
-                            <View style={s.aiOptIn}>
-                                <View style={{ flex: 1 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                        <Ionicons name="sparkles" size={16} color={R.purpleLight} />
-                                        <Txt variant="small" weight="heavy" color="#FFF" style={{ marginLeft: 8 }}>AI CONCIERGE</Txt>
+                                    {/* AI Toggle */}
+                                    <View style={s.aiOptIn}>
+                                        <View style={{ flex: 1 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <Ionicons name="sparkles" size={16} color={COLORS.cyan} />
+                                                <Text style={s.aiLabel}>AI CONCIERGE</Text>
+                                            </View>
+                                            <Text style={s.aiSubtext}>Enable proactive safety & comfort</Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={[s.toggle, { backgroundColor: formData.aiEnabled ? COLORS.cyan : 'rgba(255,255,255,0.1)' }]}
+                                            onPress={() => {
+                                                setFormData({ ...formData, aiEnabled: !formData.aiEnabled });
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            }}
+                                        >
+                                            <View style={[s.toggleDot, { marginLeft: formData.aiEnabled ? 22 : 2 }]} />
+                                        </TouchableOpacity>
                                     </View>
-                                    <Txt variant="caption" color={R.muted} style={{ marginTop: 4 }}>Allow G-Taxi AI to learn your music and route preferences for a premium experience.</Txt>
-                                </View>
-                                <TouchableOpacity 
-                                    style={[s.toggle, { backgroundColor: formData.aiEnabled ? R.purple : 'rgba(255,255,255,0.1)' }]}
-                                    onPress={() => {
-                                        setFormData({ ...formData, aiEnabled: !formData.aiEnabled });
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    }}
-                                >
-                                    <View style={[s.toggleDot, { marginLeft: formData.aiEnabled ? 22 : 2 }]} />
-                                </TouchableOpacity>
+
+                                    {/* CTA Button - Cyan Gradient */}
+                                    <TouchableOpacity 
+                                        style={s.cyanButton}
+                                        onPress={handleSignup}
+                                        disabled={loading}
+                                        activeOpacity={0.8}
+                                    >
+                                        <LinearGradient
+                                            colors={[COLORS.cyan, COLORS.cyanDark]}
+                                            style={s.buttonGradient}
+                                            start={{ x: 0, y: 0 }}
+                                            end={{ x: 1, y: 1 }}
+                                        >
+                                            {loading ? (
+                                                <ActivityIndicator color={COLORS.bgPrimary} />
+                                            ) : (
+                                                <Text style={s.cyanButtonText}>Create Account</Text>
+                                            )}
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+
+                                    {/* Login Link */}
+                                    <TouchableOpacity
+                                        style={s.loginLink}
+                                        onPress={() => navigation.navigate('Login')}
+                                    >
+                                        <Text style={s.loginLinkText}>
+                                            Already have an account? <Text style={s.loginLinkCyan}>Sign In</Text>
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                </Reanimated.View>
                             </View>
-
-                            <TouchableOpacity style={s.btn} onPress={handleNext} disabled={loading}>
-                                <LinearGradient 
-                                    colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
-                                    start={{x: 0, y: 0}} 
-                                    end={{x: 1, y: 0}}
-                                    style={s.btnGradient}
-                                >
-                                    {loading ? <ActivityIndicator color="#FFF" /> : <Txt variant="bodyBold" color="#FFF">INITIALIZE ACCOUNT</Txt>}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </Reanimated.View>
-                    ) : (
-                        <Reanimated.View entering={FadeIn} exiting={FadeOut} layout={Layout} style={s.form}>
-                            <View style={s.otpHeader}>
-                                <Ionicons name="chatbubble-ellipses-outline" size={48} color={R.purpleLight} />
-                                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginTop: 24 }}>Enter OTP</Txt>
-                                <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 8, textAlign: 'center' }}>We sent a 6-digit code to {formData.phone}</Txt>
-                            </View>
-
-                            <Input label="VERIFICATION CODE" placeholder="123456" value={otp} onChange={(v: string) => setOtp(v)} keyboardType="number-pad" />
-
-                            <TouchableOpacity style={s.btn} onPress={handleVerify} disabled={loading}>
-                                <LinearGradient colors={[R.purple, '#4C1D95']} style={s.btnGradient}>
-                                    {loading ? <ActivityIndicator color="#FFF" /> : <Txt variant="bodyBold" color="#FFF">Verify Account</Txt>}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </Reanimated.View>
-                    )}
+                        </BlurView>
+                    </View>
 
                 </ScrollView>
             </KeyboardAvoidingView>
@@ -207,50 +257,256 @@ export function SignupScreen({ navigation }: any) {
     );
 }
 
-function Input({ label, placeholder, value, onChange, secure, keyboardType }: any) {
+function Input({ label, placeholder, value, onChange, secure, keyboardType, isFocused, onFocus, onBlur, optional }: any) {
     return (
-        <View style={s.inputContainer}>
-            <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>{label}</Txt>
-            <TextInput
-                style={s.input}
-                placeholder={placeholder}
-                placeholderTextColor="rgba(255,255,255,0.15)"
-                value={value}
-                onChangeText={onChange}
-                secureTextEntry={secure}
-                keyboardType={keyboardType}
-                autoCapitalize="none"
-            />
+        <View style={s.inputWrapper}>
+            <View style={s.labelRow}>
+                <Text style={s.label}>{label}</Text>
+                {optional && <Text style={s.optionalTag}>(Optional)</Text>}
+            </View>
+            <View style={[s.inputContainer, isFocused && s.inputContainerFocused]}>
+                <TextInput
+                    style={s.input}
+                    placeholder={placeholder}
+                    placeholderTextColor={COLORS.textMuted}
+                    value={value}
+                    onChangeText={onChange}
+                    secureTextEntry={secure}
+                    keyboardType={keyboardType}
+                    autoCapitalize="none"
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                />
+            </View>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    container: { flex: 1 },
-    scroll: { paddingHorizontal: 32 },
-    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-
-    header: { marginBottom: 32 },
-    form: { gap: 24 },
-    error: { textAlign: 'center', marginBottom: 12 },
-
-    inputContainer: { gap: 10 },
-    label: { marginLeft: 8, opacity: 0.8 },
-    input: { height: 60, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 24, color: '#FFF', fontSize: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-
-    emergency: { marginTop: 12, padding: 24, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-
-    btn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 24, shadowColor: '#00FFFF', shadowRadius: 15, shadowOpacity: 0.3 },
-    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-
-    otpHeader: { alignItems: 'center', marginVertical: 40 },
-    
-    aiOptIn: { 
-        flexDirection: 'row', alignItems: 'center', padding: 20, 
-        backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24,
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', marginTop: 8 
+    root: { 
+        flex: 1, 
+        backgroundColor: COLORS.bgPrimary 
     },
-    toggle: { width: 44, height: 24, borderRadius: 12, justifyContent: 'center', padding: 2 },
-    toggleDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFF' },
+    container: { 
+        flex: 1 
+    },
+    scroll: { 
+        paddingHorizontal: 28 
+    },
+    backBtn: {
+        width: 44, 
+        height: 44, 
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        marginBottom: 16,
+        alignSelf: 'flex-start',
+    },
+
+    // Logo Section
+    logoSection: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+        height: 140,
+    },
+    logoGlow: {
+        position: 'absolute',
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: 'rgba(123,92,240,0.15)',
+    },
+    logo: {
+        width: 140,
+        height: 140,
+    },
+
+    // Progress Indicator
+    progressContainer: {
+        marginBottom: 24,
+        alignItems: 'center',
+    },
+    progressText: {
+        color: COLORS.textMuted,
+        fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
+        marginBottom: 8,
+    },
+    progressBar: {
+        width: 120,
+        height: 4,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        borderRadius: 2,
+        overflow: 'hidden',
+    },
+    progressFill: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: COLORS.cyan,
+    },
+
+    // Card Container
+    cardContainer: {
+        width: '100%',
+        marginBottom: 24,
+    },
+    blurBacking: {
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    glassCard: {
+        backgroundColor: COLORS.glassBg,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+        padding: 24,
+        gap: 16,
+        shadowColor: COLORS.purple,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+
+    form: { 
+        gap: 16 
+    },
+    errorText: {
+        color: COLORS.error,
+        fontSize: 14,
+        fontWeight: '600',
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+
+    // Input
+    inputWrapper: {
+        gap: 6,
+    },
+    labelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    label: {
+        color: COLORS.textMuted,
+        fontSize: 12,
+        fontWeight: '700',
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
+    },
+    optionalTag: {
+        color: COLORS.textSecondary,
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    inputContainer: {
+        height: 54,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        paddingHorizontal: 16,
+        justifyContent: 'center',
+    },
+    inputContainerFocused: {
+        borderColor: COLORS.glassBorderFocus,
+        shadowColor: COLORS.cyan,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+    },
+    input: {
+        color: COLORS.white,
+        fontSize: 15,
+        fontWeight: '500',
+    },
+
+    // AI Toggle
+    aiOptIn: {
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        padding: 16,
+        backgroundColor: 'rgba(255,255,255,0.03)', 
+        borderRadius: 16,
+        borderWidth: 1, 
+        borderColor: 'rgba(255,255,255,0.08)', 
+        marginTop: 4,
+    },
+    aiLabel: {
+        color: COLORS.white,
+        fontSize: 13,
+        fontWeight: '700',
+        marginLeft: 8,
+        letterSpacing: 0.5,
+    },
+    aiSubtext: {
+        color: COLORS.textMuted,
+        fontSize: 12,
+        fontWeight: '500',
+        marginTop: 2,
+        marginLeft: 24,
+    },
+    toggle: { 
+        width: 44, 
+        height: 24, 
+        borderRadius: 12, 
+        justifyContent: 'center', 
+        padding: 2 
+    },
+    toggleDot: { 
+        width: 20, 
+        height: 20, 
+        borderRadius: 10, 
+        backgroundColor: '#FFF',
+        shadowColor: 'rgba(0,0,0,0.3)',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 2,
+    },
+
+    // Cyan Button
+    cyanButton: {
+        height: 56,
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: COLORS.cyan,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        elevation: 10,
+        marginTop: 4,
+    },
+    buttonGradient: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    cyanButtonText: {
+        color: COLORS.bgPrimary,
+        fontSize: 17,
+        fontWeight: '800',
+        letterSpacing: 0.5,
+    },
+
+    // Login Link
+    loginLink: { 
+        marginTop: 8,
+        alignItems: 'center',
+    },
+    loginLinkText: {
+        color: COLORS.textSecondary,
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    loginLinkCyan: {
+        color: COLORS.cyan,
+        fontWeight: '700',
+    },
 });

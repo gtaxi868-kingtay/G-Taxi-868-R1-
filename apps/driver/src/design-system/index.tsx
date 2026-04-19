@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, TextStyle, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +15,7 @@ export const GlassCard = ({ children, style, variant = 'driver' }: { children: R
     const voice = VOICES[variant];
     return (
         <View style={[s.glassBase, { backgroundColor: variant === 'driver' ? 'rgba(26, 21, 48, 0.8)' : voice.surface }, style]}>
-            <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} tint={variant === 'driver' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+            <BlurView intensity={Platform.OS === 'ios' ? 80 : 100} tint={variant === 'driver' ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
             {children}
         </View>
     );
@@ -89,5 +89,3 @@ const s = StyleSheet.create({
         letterSpacing: 1,
     },
 });
-
-import { Platform } from 'react-native';

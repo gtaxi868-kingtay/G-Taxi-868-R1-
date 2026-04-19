@@ -9,3 +9,7 @@ coverage/
 # Ensure native folder is uploaded for custom patching
 !android/
 !ios/
+
+# Ignore old local builds
+*.apk
+build-*.apk

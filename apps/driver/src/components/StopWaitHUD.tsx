@@ -1,8 +1,13 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Txt } from '../design-system/primitives';
+import { View, Text, StyleSheet } from 'react-native';
 import { useStopWaitTimer } from '../hooks/useStopWaitTimer';
-import { BRAND, VOICES, SEMANTIC } from '../design-system';
+
+// Blueberry Luxe — Gold Edition (Driver)
+const COLORS = {
+    gold: '#FFD700',
+    goldDark: '#B8860B',
+    textMuted: 'rgba(255,255,255,0.4)',
+};
 
 interface StopWaitHUDProps {
     stopId: string;
@@ -26,18 +31,18 @@ export function StopWaitHUD({ stopId, isActive }: StopWaitHUDProps) {
             <View style={styles.left}>
                 <View style={[styles.pulseDot, isActive && styles.pulseDotActive]} />
                 <View>
-                    <Txt variant="caption" weight="heavy" color={SEMANTIC.warning} style={{ letterSpacing: 1 }}>
+                    <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.gold, letterSpacing: 1}}>
                         {isActive ? 'TRUTHFUL WAIT TIMER' : 'FINAL WAIT TIME'}
-                    </Txt>
-                    <Txt weight="heavy" color="#FFF" style={styles.timerText}>{timeStr}</Txt>
+                    </Text>
+                    <Text style={[styles.timerText, {fontWeight: '700', color: '#FFF'}]}>{timeStr}</Text>
                 </View>
             </View>
 
             <View style={styles.right}>
                 <View style={styles.feeBadge}>
-                    <Txt variant="caption" weight="heavy" color="#0A0718">+${(feeCents / 100).toFixed(2)}</Txt>
+                    <Text style={{fontSize: 11, fontWeight: '700', color: '#0A0718'}}>+${(feeCents / 100).toFixed(2)}</Text>
                 </View>
-                <Txt variant="caption" weight="regular" color={VOICES.driver.textMuted} style={{ marginTop: 4 }}>WAIT FEE</Txt>
+                <Text style={{ marginTop: 4, fontSize: 11, fontWeight: '400', color: COLORS.textMuted }}>WAIT FEE</Text>
             </View>
         </View>
     );
@@ -61,15 +66,15 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(245,158,11,0.2)',
     },
     pulseDotActive: {
-        backgroundColor: SEMANTIC.warning,
-        shadowColor: SEMANTIC.warning, shadowRadius: 6, shadowOpacity: 0.8,
+        backgroundColor: COLORS.gold,
+        shadowColor: COLORS.gold, shadowRadius: 6, shadowOpacity: 0.8,
     },
     timerText: {
         fontSize: 28,
     },
     right: { alignItems: 'flex-end' },
     feeBadge: {
-        backgroundColor: SEMANTIC.warning,
+        backgroundColor: COLORS.gold,
         paddingHorizontal: 12, paddingVertical: 6,
         borderRadius: 8,
     }

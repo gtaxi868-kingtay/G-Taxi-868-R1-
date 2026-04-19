@@ -21,10 +21,38 @@ import { ENV } from '../../../../shared/env';
 import { supabase } from '../../../../shared/supabase';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
-import { GlassCard, InfoChip, StatusBadge, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '../design-system';
-import { Txt } from '../design-system/primitives';
 
 const { width, height } = Dimensions.get('window');
+
+// Blueberry Luxe Color System
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    bgSecondary: '#160B32',
+    purple: '#7B5CF0',
+    purpleDark: '#5B3FD0',
+    purpleLight: '#9B7CF0',
+    cyan: '#00E5FF',
+    cyanDark: '#0099BB',
+    white: '#FFFFFF',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    textMuted: 'rgba(255,255,255,0.5)',
+    glassBg: 'rgba(255,255,255,0.06)',
+    glassBorder: 'rgba(123,92,240,0.3)',
+    success: '#00FF94',
+    warning: '#F59E0B',
+    error: '#FF4D6D',
+};
+
+// Custom Dark Map Style for Blueberry Luxe
+const DARK_MAP_STYLE = [
+    { elementType: 'geometry', stylers: [{ color: '#0d0b1e' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#7B5CF0' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0d0b1e' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1040' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#7B5CF0', weight: 0.5 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00E5FF', lightness: -80 }] },
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] }
+];
 
 interface DriverMarkerProps {
     coordinate: { latitude: number; longitude: number };
@@ -48,8 +76,24 @@ const DriverMarker = ({ coordinate, rotation }: DriverMarkerProps) => {
     return (
         <Marker coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }} rotation={rotation}>
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-                <Reanimated.View style={[pulseStyle, s.pulseRing]} />
-                <View style={s.markerDot} />
+                <Reanimated.View style={[pulseStyle, {
+                    position: 'absolute',
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: 'rgba(0,229,255,0.3)',
+                }]} />
+                <View style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    backgroundColor: COLORS.cyan,
+                    borderWidth: 2,
+                    borderColor: COLORS.white,
+                    shadowColor: COLORS.cyan,
+                    shadowRadius: 10,
+                    shadowOpacity: 0.8,
+                }} />
             </View>
         </Marker>
     );
@@ -163,6 +207,9 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                     rideId,
                     paymentMethod: paymentMethod || updatedRide.payment_method
                 });
+            } else if (updatedRide.status === 'cancelled') {
+                Alert.alert('Ride Cancelled', 'The driver had to cancel this trip.');
+                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
             }
         }
     }, [updatedRide]);
@@ -318,31 +365,33 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
     if (!ride) {
         return (
-            <View style={{ flex: 1, backgroundColor: VOICES.rider.bg, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                <ActivityIndicator size="large" color={BRAND.purple} />
-                <Text style={{ marginTop: 16, textAlign: 'center', color: VOICES.rider.textMuted }}>Connecting to your ride...</Text>
+            <View style={{ flex: 1, backgroundColor: COLORS.bgPrimary, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                <ActivityIndicator size="large" color={COLORS.purple} />
+                <Text style={{ marginTop: 16, textAlign: 'center', color: COLORS.textMuted }}>Connecting to your ride...</Text>
             </View>
         );
     }
 
     return (
         <View style={s.root}>
-            <StatusBar style="dark" />
+            <StatusBar style="light" />
 
+            {/* Dark Map with Blueberry Luxe Styling */}
             <MapView
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
+                customMapStyle={DARK_MAP_STYLE}
                 initialRegion={{
                     latitude: ride?.pickup_lat || 10.66,
                     longitude: ride?.pickup_lng || -61.51,
                     latitudeDelta: 0.05,
                     longitudeDelta: 0.05,
                 }}
-                userInterfaceStyle="light"
+                userInterfaceStyle="dark"
             >
                 {ENV.MAPBOX_PUBLIC_TOKEN && (
                     <UrlTile
-                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
+                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
                         shouldReplaceMapContent={true}
                     />
                 )}
@@ -350,71 +399,99 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                 {driverLocation && (
                     <DriverMarker coordinate={driverLocation} rotation={driver?.heading || 0} />
                 )}
+                {/* Pickup Marker */}
                 <Marker coordinate={{ latitude: ride?.pickup_lat || 0, longitude: ride?.pickup_lng || 0 }}>
-                    <View style={s.riderMarker} />
+                    <View style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 7,
+                        backgroundColor: COLORS.white,
+                        borderWidth: 3,
+                        borderColor: COLORS.purple,
+                    }} />
                 </Marker>
+                {/* Destination Marker */}
                 <Marker coordinate={{ latitude: ride?.dropoff_lat || 0, longitude: ride?.dropoff_lng || 0 }}>
-                    <View style={s.destMarker} />
+                    <View style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: 7,
+                        backgroundColor: COLORS.white,
+                        borderWidth: 3,
+                        borderColor: COLORS.cyan,
+                    }} />
                 </Marker>
             </MapView>
 
-            <Reanimated.View style={[s.statusBubble, statusStyle, { top: insets.top + 10 }]}>
-                <StatusBadge status={getStatusType()} label={ride?.status?.toUpperCase()} />
+            {/* Status Badge - Top Center */}
+            <Reanimated.View style={[s.statusBubble, statusStyle, { top: insets.top + 12 }]}>
+                <View style={s.statusBadge}>
+                    <View style={[s.statusDot, { 
+                        backgroundColor: ride?.status === 'in_progress' ? COLORS.success : 
+                                        ride?.status === 'arrived' ? COLORS.warning : COLORS.cyan 
+                    }]} />
+                    <Text style={s.statusText}>{ride?.status?.toUpperCase().replace('_', ' ')}</Text>
+                </View>
             </Reanimated.View>
 
+            {/* AI Concierge HUD */}
             {aiInsight && (
-                <Reanimated.View entering={FadeInUp} style={[s.aiInsightHud, { top: insets.top + 72 }]}>
-                    <LinearGradient 
-                        colors={[BRAND.purple, BRAND.purpleDark]} 
-                        style={s.aiInsightGradient} 
-                        start={GRADIENTS.primaryStart} 
-                        end={GRADIENTS.primaryEnd}
-                    >
-                        <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                <Ionicons name="sparkles" size={14} color="#FFF" />
-                                <Text style={s.aiTitle}>G-TAXI AI CONCIERGE</Text>
+                <Reanimated.View entering={FadeInUp} style={[s.aiInsightHud, { top: insets.top + 70 }]}>
+                    <BlurView intensity={20} tint="dark" style={s.aiInsightBlur}>
+                        <LinearGradient 
+                            colors={[COLORS.purple, COLORS.purpleDark]} 
+                            style={s.aiInsightGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                    <Ionicons name="sparkles" size={14} color={COLORS.white} />
+                                    <Text style={s.aiTitle}>G-TAXI AI CONCIERGE</Text>
+                                </View>
+                                <Text style={s.aiMessage}>{aiInsight}</Text>
+                                
+                                {aiInsight.toLowerCase().includes('stop') && (
+                                    <TouchableOpacity 
+                                        style={s.aiActionBtn}
+                                        onPress={async () => {
+                                            setAiInsight("Updating trip manifest... Navigation synced.");
+                                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                            
+                                            try {
+                                                const { data, error } = await supabase.rpc('add_mid_ride_stop', {
+                                                    p_ride_id: rideId,
+                                                    p_place_name: 'ATM Stop',
+                                                    p_lat: (ride?.dropoff_lat || 10.66) + 0.002,
+                                                    p_lng: (ride?.dropoff_lng || -61.51) + 0.002,
+                                                    p_address: 'Dynamic AI Suggested Stop'
+                                                });
+                                                if (error) throw error;
+                                            } catch (err) {
+                                                console.error("Failed to add mid-ride stop:", err);
+                                                setAiInsight("Unable to add stop. Please try again.");
+                                            }
+                                        }}
+                                    >
+                                        <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.cyan }}>ADD TO TRIP</Text>
+                                        <Ionicons name="arrow-forward-circle" size={16} color={COLORS.cyan} style={{ marginLeft: 4 }} />
+                                    </TouchableOpacity>
+                                )}
                             </View>
-                            <Text style={s.aiMessage}>{aiInsight}</Text>
-                            
-                            {aiInsight.toLowerCase().includes('stop') && (
-                                <TouchableOpacity 
-                                    style={s.aiActionBtn}
-                                    onPress={async () => {
-                                        setAiInsight("Updating trip manifest... Navigation synced.");
-                                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                        
-                                        try {
-                                            const { data, error } = await supabase.rpc('add_mid_ride_stop', {
-                                                p_ride_id: rideId,
-                                                p_place_name: 'ATM Stop',
-                                                p_lat: (ride?.dropoff_lat || 10.66) + 0.002,
-                                                p_lng: (ride?.dropoff_lng || -61.51) + 0.002,
-                                                p_address: 'Dynamic AI Suggested Stop'
-                                            });
-                                            if (error) throw error;
-                                        } catch (err) {
-                                            console.error("Failed to add mid-ride stop:", err);
-                                            setAiInsight("Unable to add stop. Please try again.");
-                                        }
-                                    }}
-                                >
-                                    <Text style={{ fontSize: 12, fontWeight: '800', color: BRAND.cyan }}>ADD TO TRIP</Text>
-                                    <Ionicons name="arrow-forward-circle" size={16} color={BRAND.cyan} style={{ marginLeft: 4 }} />
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                        <TouchableOpacity onPress={() => setAiInsight(null)} style={{ padding: 4 }}>
-                            <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
-                        </TouchableOpacity>
-                    </LinearGradient>
+                            <TouchableOpacity onPress={() => setAiInsight(null)} style={{ padding: 4 }}>
+                                <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
+                            </TouchableOpacity>
+                        </LinearGradient>
+                    </BlurView>
                 </Reanimated.View>
             )}
 
+            {/* Bottom Card - Glassmorphism */}
             <View style={[s.bottomCard, { paddingBottom: insets.bottom + 20 }]}>
-                <GlassCard variant="rider" style={s.cardBlur}>
+                <BlurView intensity={20} tint="dark" style={s.cardBlur}>
                     <View style={s.handle} />
 
+                    {/* Driver Info Row */}
                     <View style={s.driverRow}>
                         <View style={s.avatar}>
                             <Text style={s.avatarTxt}>{driver?.name?.charAt(0)}</Text>
@@ -435,67 +512,71 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         </TouchableOpacity>
                     </View>
 
+                    {/* Wait Clock */}
                     {ride?.status === 'arrived' && ride?.arrived_at && (
                         <IsolatedWaitClock arrivedAt={ride?.arrived_at} setAiInsight={setAiInsight} />
                     )}
 
+                    {/* Progress Track */}
                     <View style={s.track}>
                         <View style={[s.trackNode, step >= 1 && s.trackNodeActive]}>
-                            <Ionicons name="location" size={12} color={step >= 1 ? "#FFF" : VOICES.rider.textMuted} />
+                            <Ionicons name="location" size={12} color={step >= 1 ? COLORS.white : COLORS.textMuted} />
                         </View>
                         <View style={[s.trackLine, step >= 2 && s.trackLineActive]} />
                         <View style={[s.trackNode, step >= 2 && s.trackNodeActive]}>
-                            <Ionicons name="car" size={12} color={step >= 2 ? "#FFF" : VOICES.rider.textMuted} />
+                            <Ionicons name="car" size={12} color={step >= 2 ? COLORS.white : COLORS.textMuted} />
                         </View>
                         <View style={s.trackLine} />
                         <View style={s.trackNode}>
-                            <Ionicons name="flag" size={12} color={VOICES.rider.textMuted} />
+                            <Ionicons name="flag" size={12} color={COLORS.textMuted} />
                         </View>
                     </View>
 
+                    {/* Action Buttons */}
                     <View style={s.actions}>
                         <TouchableOpacity style={s.msgBtn} onPress={() => navigation.navigate('Chat', { rideId, driver })}>
-                            <Ionicons name="chatbubble-ellipses" size={20} color={BRAND.purple} />
+                            <Ionicons name="chatbubble-ellipses" size={20} color={COLORS.purple} />
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                            style={[s.msgBtn, { marginLeft: 8, borderColor: ride?.entertainment_status === 'accepted' ? SEMANTIC.success : 'transparent' }]} 
+                            style={[s.msgBtn, { marginLeft: 8, borderColor: ride?.entertainment_status === 'accepted' ? COLORS.success : 'transparent' }]} 
                             onPress={() => setMusicModalVisible(true)}
                         >
                             <Ionicons 
                                 name={ride?.entertainment_status === 'accepted' ? "musical-notes" : "musical-note-outline"} 
                                 size={20} 
-                                color={ride?.entertainment_status === 'accepted' ? SEMANTIC.success : BRAND.purple} 
+                                color={ride?.entertainment_status === 'accepted' ? COLORS.success : COLORS.purple} 
                             />
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                            style={[s.msgBtn, { marginLeft: 8, borderColor: BRAND.cyan, backgroundColor: 'rgba(0,255,255,0.05)' }]} 
+                            style={[s.msgBtn, { marginLeft: 8, borderColor: COLORS.cyan, backgroundColor: 'rgba(0,229,255,0.05)' }]} 
                             onPress={handleShareMirror}
                         >
-                            <Ionicons name="shield-checkmark" size={20} color={BRAND.cyan} />
+                            <Ionicons name="shield-checkmark" size={20} color={COLORS.cyan} />
                         </TouchableOpacity>
 
                         <TouchableOpacity 
-                            style={[s.msgBtn, { marginLeft: 8, borderColor: ride?.safe_entry ? SEMANTIC.success : 'transparent' }]} 
+                            style={[s.msgBtn, { marginLeft: 8, borderColor: ride?.safe_entry ? COLORS.success : 'transparent' }]} 
                             onPress={toggleSafeEntry}
                         >
-                            <Ionicons name="home-outline" size={20} color={ride?.safe_entry ? SEMANTIC.success : BRAND.purple} />
+                            <Ionicons name="home-outline" size={20} color={ride?.safe_entry ? COLORS.success : COLORS.purple} />
                         </TouchableOpacity>
 
                         <TouchableOpacity style={s.callBtn} onPress={() => driver?.phone_number && Linking.openURL(`tel:${driver.phone_number}`)}>
-                            <Ionicons name="call" size={20} color={BRAND.purple} />
+                            <Ionicons name="call" size={20} color={COLORS.purple} />
                             <Text style={s.callLabel}>Voice Call</Text>
                         </TouchableOpacity>
                     </View>
-                </GlassCard>
+                </BlurView>
             </View>
 
+            {/* Music Modal */}
             <Modal visible={musicModalVisible} transparent animationType="slide">
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
                     <BlurView tint="dark" intensity={100} style={s.modalContent}>
-                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF', marginBottom: 12 }}>Music Suggestion</Text>
-                        <Text style={{ fontSize: 14, color: VOICES.rider.textMuted, textAlign: 'center', marginBottom: 24 }}>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.white, marginBottom: 12 }}>Music Suggestion</Text>
+                        <Text style={{ fontSize: 14, color: COLORS.textMuted, textAlign: 'center', marginBottom: 24 }}>
                             Suggest a Spotify or YouTube link for the driver to play.
                         </Text>
                         <TextInput 
@@ -509,10 +590,10 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         />
                         <View style={s.modalActions}>
                             <TouchableOpacity style={s.modalCancel} onPress={() => setMusicModalVisible(false)}>
-                                <Text style={{ fontSize: 16, fontWeight: '800', color: VOICES.rider.textMuted }}>Cancel</Text>
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textMuted }}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.modalConfirm} onPress={handleMusicSuggestion} disabled={isMusicLoading}>
-                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFF' }}>{isMusicLoading ? 'Sending...' : 'Send'}</Text>
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.white }}>{isMusicLoading ? 'Sending...' : 'Send'}</Text>
                             </TouchableOpacity>
                         </View>
                     </BlurView>
@@ -542,7 +623,7 @@ function IsolatedWaitClock({ arrivedAt, setAiInsight }: { arrivedAt: string, set
     return (
         <View style={s.waitClockRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="time" size={16} color={SEMANTIC.warning} />
+                <Ionicons name="time" size={16} color={COLORS.warning} />
                 <Text style={s.lateFeeValue}>LATE FEE: TTD ${ (stats.cents / 100).toFixed(2) }</Text>
             </View>
             <Text style={s.lateFeeLabel}>{stats.mins}m elapsed</Text>
@@ -551,71 +632,352 @@ function IsolatedWaitClock({ arrivedAt, setAiInsight }: { arrivedAt: string, set
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: VOICES.rider.bg },
-    pulseRing: { position: 'absolute', width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,255,255,0.3)' },
-    markerDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: BRAND.cyan, borderWidth: 2, borderColor: '#FFF' },
-    riderMarker: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#FFF', borderWidth: 3, borderColor: BRAND.purple },
-    destMarker: { width: 12, height: 12, backgroundColor: '#FFF', borderWidth: 3, borderColor: SEMANTIC.warning },
+    // Root
+    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
 
-    statusBubble: { position: 'absolute', alignSelf: 'center', zIndex: 100 },
-    
-    bottomCard: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20 },
-    cardBlur: { padding: 24, backgroundColor: 'rgba(255,255,255,0.85)' },
-    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(30,30,63,0.1)', alignSelf: 'center', marginBottom: 20 },
+    // Status Badge
+    statusBubble: { 
+        position: 'absolute', 
+        alignSelf: 'center', 
+        zIndex: 100,
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: 'rgba(22,11,50,0.9)',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+        shadowColor: COLORS.purple,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    statusText: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: COLORS.white,
+        letterSpacing: 1,
+    },
 
-    driverRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 28 },
-    avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: BRAND.purple, alignItems: 'center', justifyContent: 'center' },
-    avatarTxt: { fontSize: 24, fontWeight: '800', color: '#FFF' },
-    driverName: { fontSize: 20, fontWeight: '800', color: VOICES.rider.text },
-    vehicleInfo: { fontSize: 13, fontWeight: '300', color: VOICES.rider.textMuted },
-    
-    pinBadge: { flex: 1, alignItems: 'center', marginHorizontal: 16, paddingVertical: 8, backgroundColor: 'rgba(0,255,255,0.05)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(0,255,255,0.15)' },
-    pinLabel: { fontSize: 10, fontWeight: '300', color: BRAND.cyanSoft, letterSpacing: 1 },
-    pinValue: { fontSize: 32, fontWeight: '800', color: BRAND.cyan, letterSpacing: 4 },
-    
-    sosBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: SEMANTIC.danger, alignItems: 'center', justifyContent: 'center' },
-    sosLabel: { fontSize: 12, fontWeight: '800', color: '#FFF' },
-    sosRing: { position: 'absolute', width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: SEMANTIC.danger, opacity: 0.3 },
+    // AI Insight HUD
+    aiInsightHud: { 
+        width: width * 0.9, 
+        alignSelf: 'center', 
+        position: 'absolute', 
+        zIndex: 90,
+    },
+    aiInsightBlur: {
+        borderRadius: 20,
+        overflow: 'hidden',
+    },
+    aiInsightGradient: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        padding: 14, 
+        borderRadius: 20,
+        borderWidth: 1, 
+        borderColor: 'rgba(0,229,255,0.2)',
+    },
+    aiTitle: { 
+        marginLeft: 6, 
+        fontSize: 10, 
+        fontWeight: '800', 
+        color: COLORS.white, 
+        letterSpacing: 1,
+    },
+    aiMessage: { 
+        fontSize: 13, 
+        fontWeight: '500', 
+        color: COLORS.white, 
+        lineHeight: 18,
+        marginTop: 2,
+    },
+    aiActionBtn: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: 'rgba(0,229,255,0.1)', 
+        borderColor: 'rgba(0,229,255,0.3)', 
+        borderWidth: 1,
+        borderRadius: 12, 
+        paddingVertical: 6, 
+        paddingHorizontal: 12, 
+        marginTop: 10, 
+        alignSelf: 'flex-start',
+    },
 
-    track: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32, paddingHorizontal: 10 },
-    trackNode: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.1)' },
-    trackNodeActive: { backgroundColor: BRAND.purple, borderColor: BRAND.purpleLight },
-    trackLine: { flex: 1, height: 2, backgroundColor: 'rgba(124, 58, 237, 0.1)', marginHorizontal: 4 },
-    trackLineActive: { backgroundColor: BRAND.purple },
+    // Bottom Card
+    bottomCard: { 
+        position: 'absolute', 
+        bottom: 0, 
+        left: 0, 
+        right: 0, 
+        paddingHorizontal: 20,
+    },
+    cardBlur: { 
+        padding: 24, 
+        backgroundColor: 'rgba(22,11,50,0.85)',
+        borderRadius: 28,
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+        shadowColor: COLORS.purple,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+        elevation: 8,
+        overflow: 'hidden',
+    },
+    handle: { 
+        width: 40, 
+        height: 4, 
+        borderRadius: 2, 
+        backgroundColor: 'rgba(255,255,255,0.2)', 
+        alignSelf: 'center', 
+        marginBottom: 20,
+    },
 
-    actions: { flexDirection: 'row', gap: 12 },
-    msgBtn: { width: 54, height: 54, borderRadius: 16, backgroundColor: 'rgba(124, 58, 237, 0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.1)' },
-    callBtn: { flex: 1, height: 54, borderRadius: 16, backgroundColor: 'rgba(124, 58, 237, 0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(124, 58, 237, 0.1)' },
-    callLabel: { marginLeft: 8, fontSize: 16, fontWeight: '600', color: BRAND.purple },
+    // Driver Row
+    driverRow: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        marginBottom: 24,
+    },
+    avatar: { 
+        width: 56, 
+        height: 56, 
+        borderRadius: 16, 
+        backgroundColor: COLORS.purple, 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        shadowColor: COLORS.purple,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
+    avatarTxt: { 
+        fontSize: 24, 
+        fontWeight: '800', 
+        color: COLORS.white,
+    },
+    driverName: { 
+        fontSize: 20, 
+        fontWeight: '800', 
+        color: COLORS.white,
+        letterSpacing: -0.5,
+    },
+    vehicleInfo: { 
+        fontSize: 13, 
+        fontWeight: '500', 
+        color: COLORS.textSecondary,
+        marginTop: 2,
+    },
 
+    // PIN Badge
+    pinBadge: { 
+        flex: 1, 
+        alignItems: 'center', 
+        marginHorizontal: 12, 
+        paddingVertical: 8, 
+        backgroundColor: 'rgba(0,229,255,0.05)', 
+        borderRadius: 16, 
+        borderWidth: 1, 
+        borderColor: 'rgba(0,229,255,0.15)',
+    },
+    pinLabel: { 
+        fontSize: 10, 
+        fontWeight: '600', 
+        color: COLORS.textMuted, 
+        letterSpacing: 1,
+    },
+    pinValue: { 
+        fontSize: 28, 
+        fontWeight: '800', 
+        color: COLORS.cyan, 
+        letterSpacing: 3,
+        marginTop: 2,
+    },
+
+    // SOS Button
+    sosBtn: { 
+        width: 56, 
+        height: 56, 
+        borderRadius: 16, 
+        backgroundColor: COLORS.error, 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        shadowColor: COLORS.error,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    sosLabel: { 
+        fontSize: 12, 
+        fontWeight: '800', 
+        color: COLORS.white,
+        letterSpacing: 0.5,
+    },
+    sosRing: { 
+        position: 'absolute', 
+        width: 56, 
+        height: 56, 
+        borderRadius: 16, 
+        borderWidth: 2, 
+        borderColor: COLORS.error, 
+        opacity: 0.3,
+    },
+
+    // Progress Track
+    track: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        marginBottom: 28, 
+        paddingHorizontal: 10,
+    },
+    trackNode: { 
+        width: 24, 
+        height: 24, 
+        borderRadius: 12, 
+        backgroundColor: COLORS.glassBg, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderWidth: 1, 
+        borderColor: COLORS.glassBorder,
+    },
+    trackNodeActive: { 
+        backgroundColor: COLORS.purple, 
+        borderColor: COLORS.purpleLight,
+    },
+    trackLine: { 
+        flex: 1, 
+        height: 2, 
+        backgroundColor: COLORS.glassBg, 
+        marginHorizontal: 4,
+    },
+    trackLineActive: { 
+        backgroundColor: COLORS.purple,
+    },
+
+    // Action Buttons
+    actions: { 
+        flexDirection: 'row', 
+        gap: 10,
+    },
+    msgBtn: { 
+        width: 52, 
+        height: 52, 
+        borderRadius: 14, 
+        backgroundColor: 'rgba(123,92,240,0.1)', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderWidth: 1, 
+        borderColor: 'rgba(123,92,240,0.2)',
+    },
+    callBtn: { 
+        flex: 1, 
+        height: 52, 
+        borderRadius: 14, 
+        backgroundColor: 'rgba(123,92,240,0.1)', 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderWidth: 1, 
+        borderColor: 'rgba(123,92,240,0.2)',
+        gap: 8,
+    },
+    callLabel: { 
+        fontSize: 15, 
+        fontWeight: '700', 
+        color: COLORS.purple,
+        letterSpacing: 0.5,
+    },
+
+    // Wait Clock
     waitClockRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: 'rgba(245,158,11,0.05)',
+        backgroundColor: 'rgba(245,158,11,0.08)',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderRadius: RADIUS.md,
+        borderRadius: 16,
         marginBottom: 20,
         borderWidth: 1,
-        borderColor: 'rgba(245,158,11,0.1)',
+        borderColor: 'rgba(245,158,11,0.2)',
     },
-    lateFeeValue: { fontSize: 15, fontWeight: '700', color: SEMANTIC.warning },
-    lateFeeLabel: { fontSize: 12, fontWeight: '300', color: VOICES.rider.textMuted },
+    lateFeeValue: { 
+        fontSize: 15, 
+        fontWeight: '800', 
+        color: COLORS.warning,
+        letterSpacing: 0.5,
+    },
+    lateFeeLabel: { 
+        fontSize: 13, 
+        fontWeight: '500', 
+        color: COLORS.textMuted,
+    },
 
-    aiInsightHud: { width: width * 0.9, alignSelf: 'center', position: 'absolute', zIndex: 90 },
-    aiInsightGradient: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)' },
-    aiTitle: { marginLeft: 6, fontSize: 10, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
-    aiMessage: { fontSize: 13, fontWeight: '300', color: '#FFF', lineHeight: 18 },
-    aiActionBtn: { 
-        flexDirection: 'row', alignItems: 'center', 
-        backgroundColor: 'rgba(0,255,255,0.1)', borderColor: 'rgba(0,255,255,0.3)', borderWidth: 1,
-        borderRadius: 12, paddingVertical: 6, paddingHorizontal: 12, marginTop: 10, alignSelf: 'flex-start'
+    // Modal
+    modalOverlay: { 
+        flex: 1, 
+        backgroundColor: 'rgba(13,11,30,0.95)', 
+        justifyContent: 'center', 
+        padding: 20,
     },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
-    modalContent: { padding: 32, borderRadius: RADIUS.lg, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
-    musicInput: { width: '100%', height: 60, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 16, color: '#FFF', marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    modalActions: { flexDirection: 'row', gap: 12, width: '100%' },
-    modalCancel: { flex: 1, height: 50, alignItems: 'center', justifyContent: 'center' },
-    modalConfirm: { flex: 2, height: 50, backgroundColor: BRAND.purple, borderRadius: RADIUS.pill, alignItems: 'center', justifyContent: 'center' },
+    modalContent: { 
+        padding: 28, 
+        borderRadius: 28, 
+        alignItems: 'center', 
+        borderWidth: 1, 
+        borderColor: COLORS.glassBorder, 
+        overflow: 'hidden',
+        backgroundColor: COLORS.bgSecondary,
+    },
+    musicInput: { 
+        width: '100%', 
+        height: 56, 
+        backgroundColor: 'rgba(255,255,255,0.05)', 
+        borderRadius: 14, 
+        paddingHorizontal: 16, 
+        color: COLORS.white, 
+        marginBottom: 20, 
+        borderWidth: 1, 
+        borderColor: 'rgba(255,255,255,0.1)',
+        fontSize: 16,
+    },
+    modalActions: { 
+        flexDirection: 'row', 
+        gap: 12, 
+        width: '100%',
+    },
+    modalCancel: { 
+        flex: 1, 
+        height: 50, 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        borderRadius: 14,
+    },
+    modalConfirm: { 
+        flex: 2, 
+        height: 50, 
+        backgroundColor: COLORS.purple, 
+        borderRadius: 14, 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        shadowColor: COLORS.purple,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
 });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity, TextInput,
+    View, Text, StyleSheet, TouchableOpacity, TextInput,
     FlatList, KeyboardAvoidingView, Platform, Dimensions,
     Alert
 } from 'react-native';
@@ -12,9 +12,13 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '../design-system/primitives';
-
-import { GlassCard, BRAND, VOICES, SEMANTIC, RADIUS, GRADIENTS } from '../design-system';
+// Blueberry Luxe — Gold Edition (Driver)
+const COLORS = {
+    bgPrimary: '#0A0718',
+    gold: '#FFD700',
+    goldDark: '#B8860B',
+    textMuted: 'rgba(255,255,255,0.4)',
+};
 
 const { width } = Dimensions.get('window');
 
@@ -97,11 +101,11 @@ export function ChatScreen({ route, navigation }: any) {
             <View style={[s.msgRow, isSelf ? s.msgSelf : s.msgOther]}>
                 {!isSelf && (
                     <View style={s.msgAvatar}>
-                        <Txt weight="heavy" style={{ fontSize: 10, color: BRAND.cyan }}>RI</Txt>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.gold }}>RI</Text>
                     </View>
                 )}
                 <View style={[s.bubble, isSelf ? s.bubbleSelf : s.bubbleOther]}>
-                    <Txt style={[s.msgText, { color: isSelf ? '#0A0718' : '#FFF' }]}>{item.content}</Txt>
+                    <Text style={[s.msgText, { color: isSelf ? '#0A0718' : '#FFF' }]}>{item.content}</Text>
                 </View>
             </View>
         );
@@ -117,14 +121,14 @@ export function ChatScreen({ route, navigation }: any) {
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
                     <View style={s.headerTitle}>
-                        <Txt variant="bodyBold" weight="heavy" color="#FFF">{rider?.name?.toUpperCase() || 'RIDER'}</Txt>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{rider?.name?.toUpperCase() || 'RIDER'}</Text>
                         <View style={s.statusRow}>
                             <View style={s.statusDot} />
-                            <Txt variant="caption" weight="heavy" color={VOICES.driver.textMuted}>LIVE TELEMETRY</Txt>
+                            <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textMuted}}>LIVE TELEMETRY</Text>
                         </View>
                     </View>
                     <TouchableOpacity style={s.headerBtn}>
-                        <Ionicons name="call" size={20} color={BRAND.cyan} />
+                        <Ionicons name="call" size={20} color={COLORS.gold} />
                     </TouchableOpacity>
                 </View>
             </BlurView>
@@ -151,7 +155,7 @@ export function ChatScreen({ route, navigation }: any) {
                         keyExtractor={item => item}
                         renderItem={({ item }) => (
                             <TouchableOpacity style={s.chip} onPress={() => handleSend(item)}>
-                                <Txt variant="small" weight="heavy" color="#FFF">{item.toUpperCase()}</Txt>
+                                <Text style={{fontSize: 11, fontWeight: '700', color: '#FFF'}}>{item.toUpperCase()}</Text>
                             </TouchableOpacity>
                         )}
                         contentContainerStyle={{ paddingHorizontal: 16 }}
@@ -169,7 +173,7 @@ export function ChatScreen({ route, navigation }: any) {
                             multiline
                         />
                         <TouchableOpacity style={s.sendBtn} onPress={() => handleSend()}>
-                            <LinearGradient colors={[BRAND.cyan, '#00A881']} style={s.sendGrad}>
+                            <LinearGradient colors={[COLORS.gold, COLORS.goldDark]} style={s.sendGrad}>
                                 <Ionicons name="send" size={18} color="#0A0718" />
                             </LinearGradient>
                         </TouchableOpacity>
@@ -187,7 +191,7 @@ const s = StyleSheet.create({
     headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { flex: 1, marginLeft: 16 },
     statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: BRAND.cyan, marginRight: 6 },
+    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.gold, marginRight: 6 },
 
     list: { padding: 16, gap: 16 },
     msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
@@ -195,7 +199,7 @@ const s = StyleSheet.create({
     msgOther: { justifyContent: 'flex-start' },
     msgAvatar: { width: 28, height: 28, borderRadius: 10, backgroundColor: 'rgba(0,255,194,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,255,194,0.1)' },
     bubble: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20 },
-    bubbleSelf: { backgroundColor: BRAND.cyan, borderBottomRightRadius: 4 },
+    bubbleSelf: { backgroundColor: COLORS.gold, borderBottomRightRadius: 4 },
     bubbleOther: { backgroundColor: 'rgba(255,255,255,0.03)', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     msgText: { fontSize: 15, fontWeight: '600' },
 

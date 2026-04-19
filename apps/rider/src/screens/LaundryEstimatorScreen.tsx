@@ -81,27 +81,29 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
             <View style={s.content}>
                 {/* Visual scale */}
                 <View style={s.scaleBox}>
-                    <BlurView intensity={25} style={StyleSheet.absoluteFill} tint="dark" />
+                    <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                     <Text style={s.scaleEmoji}>⚖️</Text>
                     <Text style={s.weightDisplay}>{weight} lbs</Text>
                     <Text style={s.weightSub}>Estimated weight</Text>
 
                     {/* Slider */}
                     <View style={s.sliderContainer}>
-                        <Slider
-                            style={s.slider}
-                            minimumValue={1}
-                            maximumValue={30}
-                            step={1}
-                            value={weight}
-                            onValueChange={(val: number) => {
-                                setWeight(val);
-                                Haptics.selectionAsync();
-                            }}
-                            minimumTrackTintColor="#7B61FF"
-                            maximumTrackTintColor="rgba(255,255,255,0.15)"
-                            thumbTintColor="#00FFFF"
-                        />
+                        {Slider && (
+                            <Slider
+                                style={s.slider}
+                                minimumValue={1}
+                                maximumValue={30}
+                                step={1}
+                                value={weight}
+                                onValueChange={(val: any) => {
+                                    setWeight(val as number);
+                                    Haptics.selectionAsync();
+                                }}
+                                minimumTrackTintColor="#7B61FF"
+                                maximumTrackTintColor="rgba(255,255,255,0.15)"
+                                thumbTintColor="#00FFFF"
+                            />
+                        )}
                         <View style={s.sliderLabels}>
                             <Text style={s.sliderLabel}>1 lb</Text>
                             <Text style={s.sliderLabel}>30 lbs</Text>
@@ -111,7 +113,7 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
 
                 {/* Price card */}
                 <View style={s.priceCard}>
-                    <BlurView intensity={25} style={StyleSheet.absoluteFill} tint="dark" />
+                    <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                     <Text style={s.priceBreakdown}>
                         {weight} lbs  ×  ${(service.baseRate / 100).toFixed(2)}/lb
                     </Text>

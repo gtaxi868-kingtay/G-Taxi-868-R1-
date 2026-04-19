@@ -88,7 +88,7 @@ export function ProductListingScreen({ navigation, route }: any) {
                     navigation.navigate('ProductDetail', { product: item, onAddToCart: addToCart });
                 }}
             >
-                <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
+                <BlurView intensity={20} style={StyleSheet.absoluteFillObject} tint="dark" />
                 {/* Product image placeholder with emoji based on name */}
                 <View style={s.productImageBox}>
                     <Text style={s.productEmoji}>
@@ -179,7 +179,7 @@ export function ProductListingScreen({ navigation, route }: any) {
                         navigation.navigate('GroceryCart', { cart, merchant });
                     }}
                 >
-                    <BlurView intensity={40} style={StyleSheet.absoluteFill} tint="dark" />
+                    <BlurView intensity={40} style={StyleSheet.absoluteFillObject} tint="dark" />
                     <Text style={s.cartBarLeft}>{cartCount} item{cartCount !== 1 ? 's' : ''}</Text>
                     <Text style={s.cartBarCenter}>View Cart</Text>
                     <Text style={s.cartBarRight}>${(cartTotal / 100).toFixed(2)} TTD</Text>

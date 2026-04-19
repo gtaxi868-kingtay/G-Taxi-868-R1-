@@ -144,7 +144,7 @@ export function WalletTopUpScreen({ navigation }: any) {
                 <View style={s.balanceCard}>
                     <LinearGradient 
                         colors={['rgba(124,58,237,0.1)', 'transparent']} 
-                        style={StyleSheet.absoluteFill} 
+                        style={StyleSheet.absoluteFillObject} 
                     />
                     <Txt variant="caption" weight="heavy" color={tokens.colors.primary.cyan} style={{ letterSpacing: 2 }}>ESTABLISHED BALANCE</Txt>
                     <Txt variant="displayXL" weight="heavy" color="#FFF">
@@ -167,7 +167,7 @@ export function WalletTopUpScreen({ navigation }: any) {
                                 {isActive && (
                                     <LinearGradient 
                                         colors={['rgba(124,58,237,0.2)', 'transparent']} 
-                                        style={StyleSheet.absoluteFill} 
+                                        style={StyleSheet.absoluteFillObject} 
                                     />
                                 )}
                             </TouchableOpacity>

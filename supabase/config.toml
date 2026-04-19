@@ -1,6 +1,8 @@
 # Supabase Edge Functions Configuration
 # Disable JWT verification for rider flow functions
 
+project_id = "ffbbuafgeypvkpcuvdnv"
+
 [functions.create_ride]
 verify_jwt = false
 

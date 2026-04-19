@@ -10,21 +10,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
 import { Txt } from '../design-system/primitives';
 import { tokens } from '../design-system/tokens';
+import { Logo } from '../design-system';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.8;
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
-const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
-    gold: '#FFD700',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
-};
+// --- Blueberry Luxe Protocol ---
 
 interface SidebarProps {
     visible: boolean;
@@ -89,7 +80,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
                     {/* Profile Header */}
                     <TouchableOpacity style={s.header} onPress={() => navigateTo('Profile')}>
-                        <LinearGradient colors={[R.purple, '#4C1D95']} style={s.avatarBorder}>
+                        <LinearGradient colors={[tokens.colors.primary.purple, '#7C3AED']} style={s.avatarBorder}>
                             <View style={s.avatarInner}>
                                 {user?.photo_url ? (
                                     <Image source={{ uri: user.photo_url }} style={s.image} />
@@ -101,8 +92,8 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                         <View style={s.userInfo}>
                             <Txt variant="headingM" weight="heavy" color="#FFF">{user?.name || 'Rider'}</Txt>
                             <View style={s.rating}>
-                                <Ionicons name="star" size={12} color={R.gold} />
-                                <Txt variant="caption" weight="heavy" color={R.gold} style={{ marginLeft: 4 }}>
+                                <Ionicons name="star" size={12} color="#FFD700" />
+                                <Txt variant="caption" weight="heavy" color="#FFD700" style={{ marginLeft: 4 }}>
                                     {user?.rating?.toFixed(1) || '5.0'}
                                 </Txt>
                             </View>
@@ -122,12 +113,15 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                     <View style={s.footer}>
                         <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
                             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-                            <Txt variant="bodyBold" color="#EF4444" style={{ marginLeft: 12 }}>Log Out</Txt>
+                            <Txt variant="bodyBold" color="#EF4444" style={{ marginLeft: 12 }}>TERMINATE SESSION</Txt>
                         </TouchableOpacity>
 
-                        <Txt variant="small" color={R.muted} style={{ marginTop: 24, textAlign: 'center' }}>
-                            G-Taxi • v3.0.0 Vibrant Futurism
-                        </Txt>
+                        <View style={s.footerLogo}>
+                            <Logo size={24} variant="full" />
+                            <Txt variant="small" color={tokens.colors.text.secondary} style={{ marginTop: 12 }}>
+                                EMPIRE OS • V3.2 PREMIUM
+                            </Txt>
+                        </View>
                     </View>
 
                 </BlurView>
@@ -139,9 +133,9 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 const MenuItem = ({ icon, label, onPress }: any) => (
     <TouchableOpacity style={s.menuItem} onPress={onPress}>
         <View style={s.menuIcon}>
-            <Ionicons name={icon as any} size={22} color={R.purpleLight} />
+            <Ionicons name={icon as any} size={22} color={tokens.colors.primary.purple} />
         </View>
-        <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 16 }}>{label}</Txt>
+        <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 16 }}>{label.toUpperCase()}</Txt>
     </TouchableOpacity>
 );
 
@@ -151,17 +145,18 @@ const s = StyleSheet.create({
     panel: { width: SIDEBAR_WIDTH, height: '100%', backgroundColor: 'transparent' },
     blur: { flex: 1, paddingHorizontal: 20 },
 
-    header: { flexDirection: 'row', alignItems: 'center', marginTop: 80, marginBottom: 40, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, borderWidth: 1, borderColor: R.border },
+    header: { flexDirection: 'row', alignItems: 'center', marginTop: 80, marginBottom: 40, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     avatarBorder: { width: 62, height: 62, borderRadius: 31, padding: 2, alignItems: 'center', justifyContent: 'center' },
-    avatarInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: R.surface, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    avatarInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#1A1823', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
     image: { width: '100%', height: '100%' },
     userInfo: { marginLeft: 16 },
     rating: { flexDirection: 'row', alignItems: 'center', marginTop: 4, backgroundColor: 'rgba(245,158,11,0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, alignSelf: 'flex-start' },
 
     menu: { flex: 1, gap: 4 },
     menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16 },
-    menuIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(124,58,237,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+    menuIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(191, 64, 255, 0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
 
     footer: { paddingVertical: 32, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-    logoutBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: 'rgba(239,68,68,0.05)' },
+    logoutBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: 'rgba(239,68,68,0.05)', marginBottom: 24 },
+    footerLogo: { alignItems: 'center', opacity: 0.8 },
 });

@@ -72,8 +72,8 @@ export const Surface = ({ children, style, intensity = 40, noBorder = false }: S
     };
 
     return (
-        <BlurView intensity={intensity} tint="dark" style={[styles.overflowHidden, styles.surfaceBase, borderStyle, style]}>
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: tokens.colors.glass.fill }]} />
+        <BlurView intensity={intensity} tint="dark" style={[styles.overflowHidden, styles.surfaceBase, borderStyle as any, style]}>
+            <View style={[StyleSheet.absoluteFillObject, { backgroundColor: tokens.colors.glass.fill }]} />
             {children}
         </BlurView>
     );

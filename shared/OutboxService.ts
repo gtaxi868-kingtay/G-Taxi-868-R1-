@@ -1,4 +1,16 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// AsyncStorage handled dynamically for web/adjutant compatibility
+const getAsyncStorage = () => {
+    try {
+        return require('@react-native-async-storage/async-storage').default;
+    } catch {
+        return {
+            getItem: async () => null,
+            setItem: async () => {},
+            removeItem: async () => {},
+        };
+    }
+};
+const AsyncStorage = getAsyncStorage();
 import { supabase } from './supabase';
 
 const OUTBOX_STORAGE_KEY = '@gtaxi_outbox_queue';
@@ -87,8 +99,10 @@ export class OutboxService {
             const remaining = queue.slice(failIndex);
             await this.saveQueue(remaining);
 
-            // Schedule retry
-            setTimeout(() => this.processQueue(), 10000);
+            // Exponential Backoff Retry (Phase 4 Hardening)
+            const retryDelay = Math.min(1000 * Math.pow(2, queue[failIndex].retries), 60000);
+            console.log(`[Outbox] Scheduling retry for ${queue[failIndex].id} in ${retryDelay/1000}s`);
+            setTimeout(() => this.processQueue(), retryDelay);
         }
 
         this.isSyncing = false;

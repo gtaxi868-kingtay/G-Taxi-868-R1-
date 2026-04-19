@@ -71,24 +71,16 @@ if (!isExpoGo && !isWeb) {
         const { StripeProvider: StripeProv } = require('@stripe/stripe-react-native');
         StripeProvider = StripeProv;
 
-        Sentry.init({
-            dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder-dsn@sentry.io/0',
-            environment: __DEV__ ? 'development' : 'production',
-            tracesSampleRate: __DEV__ ? 0.0 : 0.2,
-            enableNative: true,
-            debug: __DEV__,
-            replaysSessionSampleRate: 1.0,
-            replaysOnErrorSampleRate: 1.0,
-            integrations: [
-                Sentry.mobileReplayIntegration({
-                    maskAllText: true,
-                    maskAllImages: true,
-                    maskAllVectors: true,
-                }),
-            ],
-        });
+        try {
+            Sentry.init({
+                dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder-dsn@sentry.io/0',
+                enabled: false, // DISABLED until Phase 10
+            });
+        } catch (e) {
+            console.log('Sentry init skipped:', e);
+        }
     } catch (e) {
-        console.warn('Sentry/Stripe failed to load in non-expo-go env', e);
+        console.warn('Stripe failed to load in non-expo-go env', e);
     }
 }
 
@@ -125,7 +117,7 @@ function AppNavigator() {
                 <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} />
                 <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} />
                 <AppStack.Screen name="SearchingDriver" component={SearchingDriverScreen} />
-                <AppStack.Screen name="ActiveRide" component={ActiveRideScreen} />
+                <AppStack.Screen name="ActiveRide" component={ActiveRideScreen as any} />
                 <AppStack.Screen name="Rating" component={RatingScreen} />
                 <AppStack.Screen name="Trips" component={TripsScreen} />
                 <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
@@ -153,7 +145,7 @@ function AppNavigator() {
                 <AppStack.Screen name="DriverFound" component={DriverFoundScreen} />
                 <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} />
                 <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
-                <AppStack.Screen name="Legal" component={LegalScreen!} />
+                <AppStack.Screen name="Legal" component={LegalScreen} />
             </AppStack.Navigator>
         </>
     );

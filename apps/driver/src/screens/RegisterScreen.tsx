@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    View, StyleSheet, TextInput, TouchableOpacity,
+    View, Text, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
     Alert, ScrollView, Dimensions,
 } from 'react-native';
@@ -10,13 +10,17 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
-import { Txt } from '../design-system/primitives';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 
 const { width } = Dimensions.get('window');
 
-import { BRAND, VOICES, RADIUS, GRADIENTS } from '../design-system';
+// Blueberry Luxe — Gold Edition (Driver)
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    gold: '#FFD700',
+    textMuted: 'rgba(255,255,255,0.4)',
+};
 
 export function RegisterScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
@@ -177,10 +181,10 @@ export function RegisterScreen({ navigation }: any) {
             <TextInput
                 style={s.input}
                 placeholder={placeholder}
-                placeholderTextColor={VOICES.driver.textMuted}
+                placeholderTextColor={COLORS.textMuted}
                 value={value}
                 onChangeText={setter}
-                selectionColor={BRAND.purpleLight}
+                selectionColor={COLORS.gold}
                 {...opts}
             />
         </View>
@@ -195,32 +199,32 @@ export function RegisterScreen({ navigation }: any) {
                     {/* Header: [← back] | ["Become a Driver" centered] | step indicator (1 of 2) */}
                     <View style={s.headerRow}>
                         <TouchableOpacity style={s.backBtn} onPress={step === 2 ? () => setStep(1) : () => navigation.goBack()}>
-                            <Ionicons name="chevron-back" size={24} color={BRAND.white} />
+                            <Ionicons name="chevron-back" size={24} color="#FFF" />
                         </TouchableOpacity>
-                        <Txt variant="headingM" weight="bold" color={BRAND.white}>Become a Driver</Txt>
-                        <Txt variant="bodyBold" color={BRAND.purpleLight}>{step} of 2</Txt>
+                        <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Become a Driver</Text>
+                        <Text style={{fontSize: 14, fontWeight: '600', color: COLORS.gold}}>{step} of 2</Text>
                     </View>
 
                     {step === 1 ? (
                         <View style={s.container}>
-                            <Txt variant="headingL" weight="heavy" color={BRAND.white} style={s.title}>Account Info</Txt>
+                            <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#FFF'}]}>Account Info</Text>
                             {renderInput('Full Name', fullName, setFullName)}
                             {renderInput('Phone Number', phone, setPhone, { keyboardType: 'phone-pad' })}
                             {renderInput('Email Address', email, setEmail, { keyboardType: 'email-address', autoCapitalize: 'none' })}
                             {renderInput('Password', password, setPassword, { secureTextEntry: true })}
 
                             <TouchableOpacity style={s.primaryBtn} onPress={handleNext}>
-                                <Txt variant="headingM" weight="bold" color={BRAND.white}>Next →</Txt>
+                                <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Next →</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
                         <View style={s.container}>
-                            <Txt variant="headingL" weight="heavy" color={BRAND.white} style={s.title}>Vehicle Info</Txt>
+                            <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#FFF'}]}>Vehicle Info</Text>
                             {renderInput('Vehicle Model (e.g. 2022 Toyota Aqua)', vehicleModel, setVehicleModel)}
                             {renderInput('Plate Number', licensePlate, setLicensePlate, { autoCapitalize: 'characters' })}
 
                             {/* Vehicle type selector: 3 pill options [Standard] [XL] [Premium] */}
-                            <Txt variant="caption" weight="bold" color={VOICES.driver.textMuted} style={s.label}>VEHICLE CLASS</Txt>
+                            <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: COLORS.textMuted}]}>VEHICLE CLASS</Text>
                             <View style={s.typeSelector}>
                                 {['Standard', 'XL', 'Premium'].map(type => (
                                     <TouchableOpacity
@@ -231,32 +235,31 @@ export function RegisterScreen({ navigation }: any) {
                                             setVehicleType(type);
                                         }}
                                     >
-                                        <Txt variant="bodyBold" color={vehicleType === type ? BRAND.white : VOICES.driver.textMuted}>{type}</Txt>
+                                        <Text style={{fontSize: 14, fontWeight: '600', color: vehicleType === type ? "#FFF" : COLORS.textMuted}}>{type}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
 
-                            <Txt variant="caption" weight="bold" color={VOICES.driver.textMuted} style={s.label}>KYC DOCUMENTS</Txt>
-                            
-                            <View style={s.docGrid}>
+                            <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: COLORS.textMuted}]}>KYC DOCUMENTS</Text>
+                                                     <View style={s.docGrid}>
                             <TouchableOpacity style={[s.docCard, licenseFront && s.docCardActive]} onPress={() => pickImage(setLicenseFront)}>
-                                <Ionicons name={licenseFront ? "checkmark-circle" : "card-outline"} size={24} color={licenseFront ? BRAND.purpleLight : VOICES.driver.textMuted} />
-                                <Txt variant="small" color={BRAND.white} style={{ marginTop: 8 }}>License Front</Txt>
+                                <Ionicons name={licenseFront ? "checkmark-circle" : "card-outline"} size={24} color={licenseFront ? COLORS.gold : COLORS.textMuted} />
+                                <Text style={{fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8}}>License Front</Text>
                             </TouchableOpacity>
-
+ 
                             <TouchableOpacity style={[s.docCard, licenseBack && s.docCardActive]} onPress={() => pickImage(setLicenseBack)}>
-                                <Ionicons name={licenseBack ? "checkmark-circle" : "card-outline"} size={24} color={licenseBack ? BRAND.purpleLight : VOICES.driver.textMuted} />
-                                <Txt variant="small" color={BRAND.white} style={{ marginTop: 8 }}>License Back</Txt>
+                                <Ionicons name={licenseBack ? "checkmark-circle" : "card-outline"} size={24} color={licenseBack ? COLORS.gold : COLORS.textMuted} />
+                                <Text style={{fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8}}>License Back</Text>
                             </TouchableOpacity>
-
+ 
                             <TouchableOpacity style={[s.docCard, vehiclePhoto && s.docCardActive]} onPress={() => pickImage(setVehiclePhoto)}>
-                                <Ionicons name={vehiclePhoto ? "checkmark-circle" : "car-outline"} size={24} color={vehiclePhoto ? BRAND.purpleLight : VOICES.driver.textMuted} />
-                                <Txt variant="small" color={BRAND.white} style={{ marginTop: 8 }}>Vehicle Photo</Txt>
+                                <Ionicons name={vehiclePhoto ? "checkmark-circle" : "car-outline"} size={24} color={vehiclePhoto ? COLORS.gold : COLORS.textMuted} />
+                                <Text style={{fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8}}>Vehicle Photo</Text>
                             </TouchableOpacity>
                         </View>
 
                         <TouchableOpacity style={[s.primaryBtn, loading && s.disabled]} onPress={handleRegister} disabled={loading}>
-                            {loading ? <ActivityIndicator color={BRAND.white} /> : <Txt variant="headingM" weight="bold" color={BRAND.white}>Submit Application</Txt>}
+                            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Submit Application</Text>}
                         </TouchableOpacity>
                         </View>
                     )}
@@ -268,25 +271,25 @@ export function RegisterScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: VOICES.driver.bg },
+    root: { flex: 1, backgroundColor: '#0F0D16' },
     scroll: { paddingHorizontal: 24, paddingBottom: 40 },
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40 },
     backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     container: { width: '100%' },
     title: { marginBottom: 32, letterSpacing: -1 },
-
-    inputWrap: { height: 64, backgroundColor: 'rgba(26, 21, 48, 0.8)', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    input: { flex: 1, color: BRAND.white, fontSize: 16 },
-
+ 
+    inputWrap: { height: 64, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    input: { flex: 1, color: '#FFF', fontSize: 16 },
+ 
     label: { marginTop: 16, marginBottom: 12, marginLeft: 4, letterSpacing: 1 },
     typeSelector: { flexDirection: 'row', gap: 10, marginBottom: 40 },
     typePill: { flex: 1, height: 50, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    typePillActive: { backgroundColor: BRAND.purple, borderColor: BRAND.purple },
-
-    primaryBtn: { height: 64, backgroundColor: BRAND.purple, borderRadius: 32, alignItems: 'center', justifyContent: 'center', shadowColor: BRAND.purple, shadowRadius: 15, shadowOpacity: 0.3, elevation: 8, marginTop: 10 },
+    typePillActive: { backgroundColor: COLORS.gold, borderColor: COLORS.gold },
+ 
+    primaryBtn: { height: 64, backgroundColor: COLORS.gold, borderRadius: 32, alignItems: 'center', justifyContent: 'center', shadowColor: COLORS.gold, shadowRadius: 15, shadowOpacity: 0.3, elevation: 8, marginTop: 10 },
     disabled: { opacity: 0.7 },
-
+ 
     docGrid: { flexDirection: 'row', gap: 10, marginBottom: 30 },
-    docCard: { flex: 1, height: 90, backgroundColor: 'rgba(26, 21, 48, 0.8)', borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    docCardActive: { borderColor: BRAND.purple, backgroundColor: 'rgba(124, 58, 237, 0.1)' },
+    docCard: { flex: 1, height: 90, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    docCardActive: { borderColor: COLORS.gold, backgroundColor: 'rgba(255, 215, 0, 0.05)' },
 });

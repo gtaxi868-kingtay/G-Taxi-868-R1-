@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity, Alert,
-    Dimensions, Platform, BackHandler
+    View, Text, StyleSheet, TouchableOpacity, Alert,
+    Dimensions, Platform, BackHandler, Image
 } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,23 +19,35 @@ import { ENV } from '../../../../shared/env';
 import { supabase } from '../../../../shared/supabase';
 import { cancelRide } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
-import { Txt } from '../design-system/primitives';
-
-import { tokens } from '../design-system/tokens';
 
 const { width, height } = Dimensions.get('window');
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
-const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
-    red: tokens.colors.status.error,
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+// Blueberry Luxe Color System
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    bgSecondary: '#160B32',
+    purple: '#7B5CF0',
+    purpleDark: '#5B3FD0',
+    cyan: '#00E5FF',
+    white: '#FFFFFF',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    textMuted: 'rgba(255,255,255,0.5)',
+    glassBg: 'rgba(255,255,255,0.06)',
+    glassBorder: 'rgba(123,92,240,0.3)',
+    error: '#FF4D6D',
+    warning: '#F59E0B',
 };
+
+// Custom Dark Map Style for Blueberry Luxe
+const DARK_MAP_STYLE = [
+    { elementType: 'geometry', stylers: [{ color: '#0d0b1e' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#7B5CF0' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0d0b1e' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1040' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#7B5CF0', weight: 0.5 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00E5FF', lightness: -80 }] },
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] }
+];
 
 export function SearchingDriverScreen({ route, navigation }: any) {
     const { rideId, destination, fare, pickup, paymentMethod } = route.params;
@@ -156,10 +168,20 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                 if (payload.new.status === 'waiting_queue') {
                     setIsInQueue(true);
                 }
+                if (payload.new.status === 'requested' || payload.new.status === 'searching') {
+                    setIsInQueue(false);
+                }
                 if (payload.new.status === 'assigned' && payload.new.driver_id) {
                     setIsInQueue(false);
                     clearInterval(pollTimer);
                     await handleAssignment(payload.new.driver_id);
+                }
+                if (payload.new.status === 'cancelled') {
+                    clearInterval(pollTimer);
+                    sub.unsubscribe();
+                    setIsCanceling(true);
+                    Alert.alert('Ride Cancelled', 'Your request timed out or was cancelled.');
+                    navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
                 }
             })
             .subscribe();
@@ -176,12 +198,22 @@ export function SearchingDriverScreen({ route, navigation }: any) {
             if (ride?.status === "waiting_queue") {
                 setIsInQueue(true);
             }
+            if (ride?.status === 'requested' || ride?.status === 'searching') {
+                setIsInQueue(false);
+            }
 
             if (ride?.status === "assigned" && ride?.driver_id) {
                 setIsInQueue(false);
                 clearInterval(pollTimer);
                 sub.unsubscribe();
                 await handleAssignment(ride.driver_id);
+            }
+            if (ride?.status === "cancelled") {
+                clearInterval(pollTimer);
+                sub.unsubscribe();
+                setIsCanceling(true);
+                Alert.alert('Ride Cancelled', 'Your request timed out or was cancelled.');
+                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
             }
         }, 3000);
 
@@ -243,10 +275,11 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            {/* Background: Mapbox dark-v11 (full screen) */}
+            {/* Background: Full Screen Map with Blueberry Luxe Dark Style */}
             <MapView
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
+                customMapStyle={DARK_MAP_STYLE}
                 initialRegion={{
                     latitude: pickup?.latitude || 10.66,
                     longitude: pickup?.longitude || -61.51,
@@ -263,8 +296,12 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                 )}
             </MapView>
 
-            <View style={StyleSheet.absoluteFill} pointerEvents="none">
-                <LinearGradient colors={['rgba(7,5,15,0.6)', 'transparent', 'rgba(7,5,15,0.8)']} style={StyleSheet.absoluteFill} />
+            {/* Deep Gradient Overlay */}
+            <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                <LinearGradient 
+                    colors={['rgba(13,11,30,0.7)', 'transparent', 'rgba(13,11,30,0.9)']} 
+                    style={StyleSheet.absoluteFillObject} 
+                />
             </View>
 
             <Radar animation={radarRadius} opacity={radarOpacity} />
@@ -273,71 +310,76 @@ export function SearchingDriverScreen({ route, navigation }: any) {
             <View style={[s.content, { bottom: insets.bottom + 40 }]}>
                 {isPriorityContact && preferredDriver && (
                     <Reanimated.View entering={FadeIn} style={s.priorityCard}>
-                        <LinearGradient colors={['rgba(255, 215, 0, 0.1)', 'rgba(0, 255, 255, 0.05)']} style={StyleSheet.absoluteFill} />
+                        <LinearGradient 
+                            colors={['rgba(245, 158, 11, 0.15)', 'rgba(0, 229, 255, 0.08)']} 
+                            style={StyleSheet.absoluteFillObject} 
+                        />
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                            <Ionicons name="star" size={24} color="#F59E0B" />
+                            <Ionicons name="star" size={24} color={COLORS.warning} />
                             <View>
-                                <Txt variant="bodyBold" color="#F59E0B">CONTACTING PREFERRED DRIVER</Txt>
-                                <Txt variant="small" color="rgba(255,255,255,0.6)">{preferredDriver?.name} is nearby</Txt>
+                                <Text style={s.priorityTitle}>CONTACTING PREFERRED DRIVER</Text>
+                                <Text style={s.prioritySubtitle}>{preferredDriver?.name} is nearby</Text>
                             </View>
                         </View>
                     </Reanimated.View>
                 )}
 
+                {/* Status Card - Glassmorphism */}
                 <View style={s.statusCard}>
-                    {/* FIX 7: Queue state feedback — never leave the rider guessing */}
                     {isInQueue ? (
                         <>
-                            <Txt variant="displayXL" weight="heavy" color="#F59E0B" style={{ textAlign: 'center' }}>
+                            <Text style={s.queueTitle}>
                                 You're in the queue ⏳
-                            </Txt>
-                            <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 12, textAlign: 'center', lineHeight: 22 }}>
+                            </Text>
+                            <Text style={s.statusSubtitle}>
                                 No drivers are available near you right now. We'll notify you the moment one becomes free — no need to cancel or restart.
-                            </Txt>
+                            </Text>
                         </>
                     ) : (
                         <>
-                            <Txt variant="displayXL" weight="heavy" color="#FFF" style={{ textAlign: 'center' }}>
-                                {isPriorityContact ? 'Priority Match' : 'Finding your Rider'}{dots}
-                            </Txt>
-                            <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 12, textAlign: 'center' }}>
+                            <Text style={s.statusTitle}>
+                                {isPriorityContact ? 'Priority Match' : 'Finding your G-Taxi'}{dots}
+                            </Text>
+                            <Text style={s.statusSubtitle}>
                                 {isPriorityContact 
                                     ? `Securing ${preferredDriver?.name} for your trip...` 
                                     : 'Contacting drivers nearby...'}
-                            </Txt>
+                            </Text>
                         </>
                     )}
                 </View>
 
+                {/* Cancel Button - Ghost Style */}
                 <Reanimated.View style={[s.cancelWrap, { opacity: cancelOpacity }]}>
                     <TouchableOpacity 
                         style={s.cancelBtn} 
                         onPress={() => handleCancel()}
                         disabled={isCanceling}
                     >
-                        <Txt variant="bodyBold" color={R.red}>Cancel Engagement</Txt>
+                        <Text style={s.cancelText}>Cancel Request</Text>
                     </TouchableOpacity>
                 </Reanimated.View>
             </View>
 
             {/* AI NEGOTIATION OVERLAY */}
             {showNegotiation && (
-                <Reanimated.View entering={FadeIn} style={[StyleSheet.absoluteFill, { zIndex: 1000 }]}>
+                <Reanimated.View entering={FadeIn} style={[StyleSheet.absoluteFillObject, { zIndex: 1000 }]}>
                     <BlurView intensity={90} tint="dark" style={s.lockBlur}>
                         <View style={s.negotiationCard}>
                             <View style={s.aiAvatar}>
-                                <LinearGradient colors={['#7B61FF', '#00FFFF']} style={StyleSheet.absoluteFill} />
+                                <LinearGradient 
+                                    colors={[COLORS.purple, COLORS.cyan]} 
+                                    style={StyleSheet.absoluteFillObject} 
+                                />
                                 <Ionicons name="sparkles" size={24} color="#FFF" />
                             </View>
                             
-                            <Txt variant="headingM" color="#FFF" style={{ marginTop: 20, textAlign: 'center' }}>
-                                CONCIERGE UPDATE
-                            </Txt>
+                            <Text style={s.negotiationTitle}>CONCIERGE UPDATE</Text>
                             
-                            <Txt variant="bodyReg" color="rgba(255,255,255,0.7)" style={{ marginTop: 12, textAlign: 'center', lineHeight: 22 }}>
-                                Your favored driver, <Txt variant="bodyBold" color="#00FFFF">{preferredDriver?.name}</Txt>, is finishing a trip 8 mins away.
+                            <Text style={s.negotiationText}>
+                                Your favored driver, <Text style={s.negotiationHighlight}>{preferredDriver?.name}</Text>, is finishing a trip 8 mins away.
                                 {"\n\n"}Would you like to wait for them, or find the nearest driver (2 mins)?
-                            </Txt>
+                            </Text>
 
                             <View style={{ width: '100%', gap: 12, marginTop: 32 }}>
                                 <TouchableOpacity 
@@ -348,7 +390,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                     }}
                                 >
-                                    <Txt variant="bodyBold" color="#000">Wait for {preferredDriver?.name}</Txt>
+                                    <Text style={s.waitBtnText}>Wait for {preferredDriver?.name}</Text>
                                 </TouchableOpacity>
                                 
                                 <TouchableOpacity 
@@ -360,7 +402,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     }}
                                 >
-                                    <Txt variant="bodyBold" color="#FFF">Find Nearest Driver</Txt>
+                                    <Text style={s.skipBtnText}>Find Nearest Driver</Text>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -373,45 +415,272 @@ export function SearchingDriverScreen({ route, navigation }: any) {
 }
 
 function Radar({ animation, opacity }: any) {
-    const ringStyle = useAnimatedStyle(() => ({
+    const ring1Style = useAnimatedStyle(() => ({
         width: animation.value,
         height: animation.value,
         borderRadius: animation.value / 2,
         opacity: opacity.value,
         borderWidth: 2,
-        borderColor: tokens.colors.primary.cyan,
+        borderColor: COLORS.cyan,
+    }));
+    
+    const ring2Style = useAnimatedStyle(() => ({
+        width: animation.value * 0.7,
+        height: animation.value * 0.7,
+        borderRadius: (animation.value * 0.7) / 2,
+        opacity: opacity.value * 0.7,
+        borderWidth: 1.5,
+        borderColor: COLORS.purple,
+    }));
+    
+    const ring3Style = useAnimatedStyle(() => ({
+        width: animation.value * 0.4,
+        height: animation.value * 0.4,
+        borderRadius: (animation.value * 0.4) / 2,
+        opacity: opacity.value * 0.4,
+        borderWidth: 1,
+        borderColor: COLORS.cyan,
     }));
 
     return (
         <View style={s.radarContainer}>
-            <Reanimated.View style={[s.radarRing, ringStyle]} />
+            <Reanimated.View style={[s.radarRing, ring1Style]} />
+            <Reanimated.View style={[s.radarRing, ring2Style]} />
+            <Reanimated.View style={[s.radarRing, ring3Style]} />
             <View style={s.radarCore}>
                 <LinearGradient 
-                    colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
-                    style={StyleSheet.absoluteFill} 
+                    colors={[COLORS.purple, COLORS.purpleDark]} 
+                    style={StyleSheet.absoluteFillObject} 
                 />
-                <Ionicons name="radio" size={24} color="#FFF" />
+                <Image 
+                    source={require('../../assets/logo.png')} 
+                    style={s.radarLogo}
+                    resizeMode="contain"
+                />
+                {/* Glow effect */}
+                <View style={s.radarGlow} />
             </View>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    radarContainer: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-    radarRing: { position: 'absolute' },
-    radarCore: { width: 64, height: 64, borderRadius: 32, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center', shadowColor: R.purpleLight, shadowRadius: 20, shadowOpacity: 0.6, overflow: 'hidden' },
+    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
+    
+    // Radar Animation
+    radarContainer: { 
+        ...StyleSheet.absoluteFillObject, 
+        alignItems: 'center', 
+        justifyContent: 'center' 
+    },
+    radarRing: { 
+        position: 'absolute',
+        borderStyle: 'dashed',
+    },
+    radarCore: { 
+        width: 80, 
+        height: 80, 
+        borderRadius: 40, 
+        backgroundColor: COLORS.purple, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        shadowColor: COLORS.purple,
+        shadowOffset: { width: 0, height: 0 },
+        shadowRadius: 30, 
+        shadowOpacity: 0.8,
+        overflow: 'hidden',
+        elevation: 10,
+    },
+    radarLogo: {
+        width: 50,
+        height: 50,
+        zIndex: 10,
+    },
+    radarGlow: {
+        position: 'absolute',
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: COLORS.purple,
+        opacity: 0.3,
+    },
 
-    content: { position: 'absolute', left: 24, right: 24, alignItems: 'center' },
-    priorityCard: { width: '100%', padding: 20, borderRadius: 24, marginBottom: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255, 215, 0, 0.3)' },
-    statusCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 32, width: '100%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    // Content Positioning
+    content: { 
+        position: 'absolute', 
+        left: 24, 
+        right: 24, 
+        alignItems: 'center' 
+    },
+    
+    // Priority Card
+    priorityCard: { 
+        width: '100%', 
+        padding: 18, 
+        borderRadius: 20, 
+        marginBottom: 16, 
+        overflow: 'hidden', 
+        borderWidth: 1, 
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+        backgroundColor: 'rgba(245, 158, 11, 0.05)',
+    },
+    priorityTitle: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: COLORS.warning,
+        letterSpacing: 0.5,
+    },
+    prioritySubtitle: {
+        fontSize: 13,
+        color: COLORS.textSecondary,
+        marginTop: 2,
+    },
+    
+    // Status Card - Glassmorphism
+    statusCard: { 
+        backgroundColor: COLORS.glassBg, 
+        borderRadius: 28, 
+        padding: 28, 
+        width: '100%', 
+        borderWidth: 1, 
+        borderColor: COLORS.glassBorder,
+        shadowColor: COLORS.purple,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    statusTitle: {
+        fontSize: 26,
+        fontWeight: '800',
+        color: COLORS.white,
+        textAlign: 'center',
+        letterSpacing: -0.5,
+    },
+    queueTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: COLORS.warning,
+        textAlign: 'center',
+        letterSpacing: -0.5,
+    },
+    statusSubtitle: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        marginTop: 12,
+        lineHeight: 22,
+    },
 
-    cancelWrap: { marginTop: 40, width: '100%' },
-    cancelBtn: { height: 64, borderRadius: 24, backgroundColor: 'rgba(255,69,58,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,69,58,0.2)' },
+    // Cancel Button
+    cancelWrap: { 
+        marginTop: 32, 
+        width: '100%' 
+    },
+    cancelBtn: { 
+        height: 56, 
+        borderRadius: 18, 
+        backgroundColor: 'rgba(255,77,109,0.1)', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderWidth: 1, 
+        borderColor: 'rgba(255,77,109,0.25)',
+    },
+    cancelText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: COLORS.error,
+        letterSpacing: 0.5,
+    },
 
-    negotiationCard: { width: width * 0.85, padding: 32, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
-    aiAvatar: { width: 56, height: 56, borderRadius: 28, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', shadowColor: '#00FFFF', shadowRadius: 15, shadowOpacity: 0.5 },
-    waitBtn: { width: '100%', height: 64, borderRadius: 24, backgroundColor: '#00FFFF', alignItems: 'center', justifyContent: 'center' },
-    skipBtn: { width: '100%', height: 64, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    lockBlur: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    // Negotiation Overlay
+    lockBlur: { 
+        ...StyleSheet.absoluteFillObject, 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        padding: 20,
+        backgroundColor: 'rgba(13,11,30,0.95)',
+    },
+    negotiationCard: { 
+        width: width * 0.85, 
+        padding: 28, 
+        borderRadius: 32, 
+        backgroundColor: COLORS.glassBg, 
+        borderWidth: 1, 
+        borderColor: COLORS.glassBorder, 
+        alignItems: 'center',
+        shadowColor: COLORS.purple,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    aiAvatar: { 
+        width: 56, 
+        height: 56, 
+        borderRadius: 28, 
+        overflow: 'hidden', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        shadowColor: COLORS.cyan,
+        shadowOffset: { width: 0, height: 0 },
+        shadowRadius: 15, 
+        shadowOpacity: 0.5,
+    },
+    negotiationTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: COLORS.white,
+        marginTop: 20,
+        textAlign: 'center',
+        letterSpacing: 1,
+    },
+    negotiationText: {
+        fontSize: 15,
+        fontWeight: '400',
+        color: COLORS.textSecondary,
+        marginTop: 12,
+        textAlign: 'center',
+        lineHeight: 22,
+    },
+    negotiationHighlight: {
+        fontWeight: '700',
+        color: COLORS.cyan,
+    },
+    
+    // Buttons
+    waitBtn: { 
+        width: '100%', 
+        height: 56, 
+        borderRadius: 16, 
+        backgroundColor: COLORS.cyan, 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        shadowColor: COLORS.cyan,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    waitBtnText: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: COLORS.bgPrimary,
+    },
+    skipBtn: { 
+        width: '100%', 
+        height: 56, 
+        borderRadius: 16, 
+        backgroundColor: 'rgba(255,255,255,0.05)', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        borderWidth: 1, 
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    skipBtnText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: COLORS.white,
+    },
 });

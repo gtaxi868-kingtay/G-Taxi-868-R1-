@@ -67,7 +67,7 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
     if (loading) {
         return (
             <View style={s.container}>
-                <ActivityIndicator size="large" color={tokens.colors.primary.blueberry} />
+                <ActivityIndicator size="large" color={tokens.colors.primary.purple} />
                 <Txt style={s.loadingText}>Establishing Unified Handshake...</Txt>
             </View>
         );
@@ -87,7 +87,7 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
 
     return (
         <View style={s.container}>
-            <LinearGradient colors={tokens.colors.primary.gradient} style={StyleSheet.absoluteFill} />
+            <LinearGradient colors={tokens.colors.primary.gradient} style={StyleSheet.absoluteFillObject} />
             
             <Reanimated.View entering={FadeInUp} style={s.content}>
                 <BlurView intensity={40} tint="light" style={s.glassCard}>
@@ -107,7 +107,7 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
                                 <Ionicons 
                                     name={service.icon} 
                                     size={32} 
-                                    color={selectedServices.includes(service.id) ? tokens.colors.primary.blueberry : tokens.colors.text.tertiary} 
+                                    color={selectedServices.includes(service.id) ? tokens.colors.primary.purple : tokens.colors.text.tertiary} 
                                 />
                                 <Txt style={s.serviceName}>{service.name}</Txt>
                                 <Txt style={s.serviceCategory}>{service.category.toUpperCase()}</Txt>
@@ -137,7 +137,7 @@ const s = StyleSheet.create({
     sectionLabel: { fontSize: 14, fontWeight: '600', color: tokens.colors.text.tertiary, marginBottom: 16 },
     serviceGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
     serviceItem: { width: '48%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: 'transparent' },
-    serviceItemActive: { borderColor: tokens.colors.primary.blueberry, backgroundColor: 'rgba(79, 134, 247, 0.1)' },
+    serviceItemActive: { borderColor: tokens.colors.primary.purple, backgroundColor: 'rgba(79, 134, 247, 0.1)' },
     serviceName: { fontSize: 14, fontWeight: '700', marginTop: 8 },
     serviceCategory: { fontSize: 10, color: tokens.colors.text.tertiary, marginTop: 4 },
     confirmBtn: { width: '100%', height: 64, borderRadius: 32, marginTop: 24, overflow: 'hidden' },

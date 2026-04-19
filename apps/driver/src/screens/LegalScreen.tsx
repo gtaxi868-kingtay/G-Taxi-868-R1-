@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Txt } from '../design-system/primitives';
-import { VOICES } from '../design-system';
+// Blueberry Luxe — Gold Edition (Driver)
+const COLORS = {
+    textMuted: 'rgba(255,255,255,0.4)',
+};
 
 export function LegalScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
@@ -16,25 +18,25 @@ export function LegalScreen({ navigation }: any) {
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>
+                <Text style={{ marginLeft: 16, fontSize: 16, fontWeight: '800', color: '#FFF' }}>
                     Operator Agreements
-                </Txt>
+                </Text>
             </View>
 
             <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 40 }}>
-                <Txt variant="headingM" weight="bold" color="#FFF" style={{ marginBottom: 12 }}>
+                <Text style={{ marginBottom: 12, fontSize: 16, fontWeight: '700', color: '#FFF' }}>
                     Privacy & Telemetry Policy
-                </Txt>
-                <Txt variant="bodyReg" color={VOICES.driver.textMuted} style={{ marginBottom: 24, lineHeight: 24 }}>
+                </Text>
+                <Text style={{ marginBottom: 24, lineHeight: 24, fontSize: 14, fontWeight: '400', color: COLORS.textMuted }}>
                     As an operator, G-Taxi requires persistent background location tracking while you are online to dispatch trips effectively. We log ride events for dispute resolution. You may terminate your account and erase your telemetry data permanently via the Profile Settings.
-                </Txt>
+                </Text>
 
-                <Txt variant="headingM" weight="bold" color="#FFF" style={{ marginBottom: 12 }}>
+                <Text style={{ marginBottom: 12, fontSize: 16, fontWeight: '700', color: '#FFF' }}>
                     Platform Terms of Service
-                </Txt>
-                <Txt variant="bodyReg" color={VOICES.driver.textMuted} style={{ lineHeight: 24 }}>
+                </Text>
+                <Text style={{ lineHeight: 24, fontSize: 14, fontWeight: '400', color: COLORS.textMuted }}>
                      You are acting as an independent contractor. Financial payouts are handled via the Platform Ledger minus the automated routing fee (19% Pioneer / 22% Standard). Indebted operators below the threshold will face automated dispatch lockouts until the balance is resolved.
-                </Txt>
+                </Text>
             </ScrollView>
         </View>
     );

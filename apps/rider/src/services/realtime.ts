@@ -1,7 +1,6 @@
 // Realtime subscription hooks for ride updates
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../../../shared/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface RideUpdate {
     ride_id: string;
@@ -33,7 +32,7 @@ export function useRideSubscription(rideId: string | null) {
             return;
         }
 
-        let channel: RealtimeChannel;
+        let channel: any;
         let pollInterval: NodeJS.Timeout;
 
         const setupSubscription = async () => {
@@ -147,7 +146,7 @@ export function useDriverLocationSubscription(driverId: string | null) {
             return;
         }
 
-        let channel: RealtimeChannel;
+        let channel: any;
         let pollInterval: NodeJS.Timeout;
 
         const setupSubscription = async () => {

@@ -80,6 +80,7 @@ serve(async (req: Request) => {
 
         // NEW: Pull Candidates from REDIS FIRST (The Scaling Fix)
         let candidateIds: string[] = [];
+        let redisFailed = false;
         try {
             // GEORADIUS active_drivers {lng} {lat} 15 km
             const redisResults = await redisCommand([
@@ -99,23 +100,36 @@ serve(async (req: Request) => {
             console.log(`Redis found ${candidateIds.length} candidates nearby.`);
         } catch (redisErr) {
             console.error("Redis candidate fetch failed, falling back to full table search:", redisErr);
-            // We'll leave candidateIds empty to trigger the high-cost DB fallback if needed
+            redisFailed = true;
+            // CRITICAL FIX: When Redis fails, we query ALL drivers, not empty set
+            candidateIds = [];
         }
 
-        // 2. If Redis is empty and we had a succesful connection, we skip the DB scan entirely
-        if (candidateIds.length === 0) {
-            console.log("No candidates in range via Redis. Skipping SQL scan.");
+        // ── EMERGENCY FIX: Redis Fallback Logic ─────────────────────────────────
+        // Determine whether to use candidate list or query all drivers
+        // - If Redis succeeded and found candidates: use those (fast path)
+        // - If Redis succeeded but empty: query all drivers (Redis shows none nearby)
+        // - If Redis failed: query all drivers (fallback to full DB scan)
+        const useCandidateList = candidateIds.length > 0;
+        const redisEmptyButWorking = candidateIds.length === 0 && !redisFailed;
+        
+        if (redisFailed) {
+            console.log("Redis failed - falling back to full database scan for all drivers");
+        } else if (redisEmptyButWorking) {
+            console.log("Redis returned empty (no nearby drivers) - querying full database");
         }
 
         // NEW: Atomic, race-safe driver selection (Fix 1)
+        // FIX: When Redis fails or returns empty, pass NULL to query ALL drivers
+        // When Redis returns candidates, pass those IDs for optimized search
         const { data: claimedDrivers, error: claimError } = await supabaseAdmin
             .rpc("claim_available_driver", {
                 p_pickup_lat: ride.pickup_lat,
                 p_pickup_lng: ride.pickup_lng,
                 p_vehicle_type: ride.vehicle_type || "Any",
-                p_rider_id: ride.rider_id, // Fix 6: Mutual Blacklist
+                p_rider_id: ride.rider_id,
                 p_max_distance_km: 15,
-                p_candidate_ids: candidateIds.length > 0 ? candidateIds : null // Pass Redis IDs
+                p_candidate_ids: useCandidateList ? candidateIds : null // null = query all available drivers
             });
 
         if (claimError || !claimedDrivers || claimedDrivers.length === 0) {

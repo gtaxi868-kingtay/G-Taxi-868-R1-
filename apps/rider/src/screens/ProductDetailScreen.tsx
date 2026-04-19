@@ -102,7 +102,7 @@ export function ProductDetailScreen({ navigation, route }: any) {
 
                 {/* Product info card */}
                 <View style={s.infoCard}>
-                    <BlurView intensity={25} style={StyleSheet.absoluteFill} tint="dark" />
+                    <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                     <Text style={s.productName}>{product.name}</Text>
                     {product.description ? (
                         <Text style={s.productDesc}>{product.description}</Text>

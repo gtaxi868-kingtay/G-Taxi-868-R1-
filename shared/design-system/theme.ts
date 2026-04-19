@@ -4,12 +4,12 @@
  */
 
 export const BRAND = {
-    purple: '#7C3AED',
-    purpleDark: '#5A2DDE',
-    purpleLight: '#A78BFA',
-    cyan: '#00FFFF',
-    cyanSoft: '#00D4AA',
-    deepViolet: '#2D1B69',
+    purple: '#BF40FF', // The "Pulse"
+    purpleDark: '#4D0070',
+    purpleLight: '#DB90FF',
+    cyan: '#06B6D4', // The "Data Stream"
+    cyanSoft: 'rgba(6, 182, 212, 0.1)',
+    deepViolet: '#0F0D16', // Obsidian Base
     lavender: '#F5F3FF',
     indigoDeep: '#1E1B4B',
 };
@@ -53,18 +53,18 @@ export const GRADIENTS = {
 
 export const VOICES = {
     rider: {
-        bg: '#160B32',
+        bg: '#0F0D16', // Obsidian Depth
         surface: 'rgba(255,255,255,0.08)',
-        text: '#FFFFFF',
-        textMuted: 'rgba(255,255,255,0.65)',
-        border: 'rgba(255,255,255,0.15)',
+        text: '#E9E3F0',
+        textMuted: 'rgba(174,169,181,0.65)',
+        border: 'rgba(119, 116, 127, 0.15)',
     },
     driver: {
-        bg: '#0A0718',
-        surface: '#1A1530',
-        surfaceHigh: '#241E42',
-        text: '#FFFFFF',
-        textMuted: 'rgba(255,255,255,0.45)',
+        bg: '#0F0D16', // Obsidian Depth (Consistent with Rider)
+        surface: '#1A1823',
+        surfaceHigh: 'rgba(26, 21, 48, 0.8)',
+        text: '#E9E3F0',
+        textMuted: '#AEA9B5',
         gold: '#F59E0B',
     },
     admin: {

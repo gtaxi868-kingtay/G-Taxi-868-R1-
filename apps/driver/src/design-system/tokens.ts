@@ -6,41 +6,46 @@
 export const tokens = {
     colors: {
         background: {
-            base: '#0A0718', // Midnight Depth
-            ambient: '#0F0B21',
-            surface: 'rgba(26, 21, 48, 0.8)', // Midnight Glass
+            base: '#0F0D16', // Obsidian Depth
+            ambient: '#1A1823',
+            surface: 'rgba(26, 21, 48, 0.8)', // Deep Glass
         },
         glass: {
             fill: 'rgba(255, 255, 255, 0.03)',
-            stroke: 'rgba(0, 255, 255, 0.15)', // Cyan hint
-            strokeHighlight: 'rgba(0, 255, 255, 0.3)',
-            shadow: 'rgba(0, 0, 0, 0.4)',
+            stroke: 'rgba(6, 182, 212, 0.2)', // Cyan Data Stream
+            strokeHighlight: '#06B6D4',
+            shadow: 'rgba(0, 0, 0, 0.5)',
         },
         primary: {
-            cyan: '#00FFFF', // G-Taxi Signature Cyan
-            cyanDark: '#00CCCC',
-            cyanSoft: 'rgba(0, 255, 255, 0.1)',
-            gradient: ['#00FFFF', '#0099FF'] as const,
+            cyan: '#06B6D4', // The "Data Stream"
+            purple: '#BF40FF', // The "Pulse"
+            cyanSoft: 'rgba(6, 182, 212, 0.1)',
+            gradient: ['#06B6D4', '#BF40FF'] as const,
         },
         text: {
-            primary: '#FFFFFF',
-            secondary: 'rgba(255, 255, 255, 0.7)',
-            tertiary: 'rgba(255, 255, 255, 0.35)',
-            inverse: '#0A0718',
+            primary: '#E9E3F0',
+            secondary: '#AEA9B5', // on-surface-variant
+            tertiary: 'rgba(174, 169, 181, 0.5)',
+            inverse: '#0F0D16',
         },
         status: {
-            error: '#FF453A',
+            error: '#FF6E84',
             success: '#32D74B',
             warning: '#FF9F0A',
-            online: '#00FFFF',
+            online: '#06B6D4',
         },
         border: {
-            subtle: 'rgba(255, 255, 255, 0.08)',
-            active: '#00FFFF',
+            subtle: 'rgba(119, 116, 127, 0.15)', // Outline-variant 15%
+            active: '#06B6D4',
         }
     },
     typography: {
         fonts: {
+            display: 'SpaceGrotesk-Bold',
+            headline: 'SpaceGrotesk-Medium',
+            body: 'Manrope-Regular',
+            bodyBold: 'Manrope-Bold',
+            label: 'PlusJakartaSans-Medium',
             system: 'System',
         },
         sizes: {
@@ -73,6 +78,7 @@ export const tokens = {
             l: 28, // G-Taxi Signature
             xl: 40,
             pill: 9999,
+            full: 9999,
         },
         spacing: {
             xxs: 4,
@@ -83,5 +89,10 @@ export const tokens = {
             xl: 32,
             xxl: 48,
         }
+    },
+    elevation: {
+        level1: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 2 },
+        level2: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+        level3: { shadowColor: '#06B6D4', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
     }
 } as const;

@@ -1,6 +1,9 @@
 {
   "name": "g-taxi-root",
   "version": "1.0.0",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "rider": "cd apps/rider && npm start",
     "driver": "cd apps/driver && npm start"

@@ -1,42 +1,46 @@
 export const tokens = {
     colors: {
         background: {
-            base: '#160B32', // Deep Rich Purple — Blueberry Luxe Base
-            ambient: '#2F1A5C', // Bright Purple Gradient Top
+            base: '#0F0D16', // Obsidian Depth
+            ambient: '#1A1823',
             surface: 'rgba(255, 255, 255, 0.08)', // Dark Glassmorphism 
         },
         glass: {
             fill: 'rgba(255, 255, 255, 0.10)', // Blueberry Luxe Translucent Card
-            stroke: 'rgba(255, 255, 255, 0.20)', // Sharp Glass edge
-            strokeHighlight: '#00FFFF', // Cyan pop
+            stroke: 'rgba(191, 64, 255, 0.2)', // Pulse Purple edge
+            strokeHighlight: '#BF40FF',
             shadow: 'rgba(0, 0, 0, 0.40)', // Heavy shadow for pop
         },
         primary: {
-            purple: '#7C3AED',
-            purpleDark: '#350085',
-            purpleLight: '#A78BFA',
-            cyan: '#00FFFF',
-            cyanSoft: '#00D4AA',
-            gradient: ['#7C3AED', '#00FFFF'] as const,
+            purple: '#BF40FF', // The "Pulse"
+            cyan: '#06B6D4', // The "Data Stream"
+            purpleDark: '#4D0070',
+            purpleLight: '#DB90FF',
+            gradient: ['#BF40FF', '#06B6D4'] as const,
         },
         text: {
-            primary: '#FFFFFF', // Pure White for Dark Mode
-            secondary: 'rgba(255, 255, 255, 0.65)',
-            tertiary: 'rgba(255, 255, 255, 0.45)',
-            inverse: '#1E1E3F',
+            primary: '#E9E3F0',
+            secondary: '#AEA9B5', // on-surface-variant
+            tertiary: 'rgba(174, 169, 181, 0.45)',
+            inverse: '#0F0D16',
         },
         status: {
-            error: '#EF4444',
-            success: '#10B981',
-            warning: '#F59E0B',
+            error: '#FF6E84',
+            success: '#32D74B',
+            warning: '#FF9F0A',
         },
         border: {
-            subtle: 'rgba(255, 255, 255, 0.12)',
-            active: '#00FFFF',
+            subtle: 'rgba(119, 116, 127, 0.15)', // Outline-variant 15%
+            active: '#BF40FF',
         }
     },
     typography: {
         fonts: {
+            display: 'SpaceGrotesk-Bold',
+            headline: 'SpaceGrotesk-Medium',
+            body: 'Manrope-Regular',
+            bodyBold: 'Manrope-Bold',
+            label: 'PlusJakartaSans-Medium',
             system: 'System',
         },
         sizes: {
@@ -121,3 +125,4 @@ export const tokens = {
         animation: { duration: 2000 }
     }
 } as const;
+export const THEME = tokens;

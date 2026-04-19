@@ -115,7 +115,7 @@ export function ChatScreen({ route, navigation }: any) {
                             colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
                             start={{x: 0, y: 0}} 
                             end={{x: 1, y: 0}}
-                            style={StyleSheet.absoluteFill} 
+                            style={StyleSheet.absoluteFillObject} 
                         />
                     )}
                     <Txt variant="bodyReg" color="#FFF">{item.content}</Txt>

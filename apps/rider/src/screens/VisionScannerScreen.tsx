@@ -86,10 +86,10 @@ export function VisionScannerScreen({ navigation }: any) {
 
     return (
         <View style={s.container}>
-            <CameraView style={StyleSheet.absoluteFill} facing="back" />
+            <CameraView style={StyleSheet.absoluteFillObject} facing="back" />
 
             {/* Dark overlay with reticle cutout effect */}
-            <View style={StyleSheet.absoluteFill}>
+            <View style={StyleSheet.absoluteFillObject}>
                 {/* Top overlay */}
                 <View style={[s.overlay, { height: (height - RETICLE) / 2 - 40 }]} />
                 {/* Middle row */}
@@ -155,8 +155,8 @@ export function VisionScannerScreen({ navigation }: any) {
             {/* Result card */}
             {result && (
                 <View style={[s.resultCard, { bottom: insets.bottom + 150 }]}>
-                    <View style={StyleSheet.absoluteFill}>
-                        <View style={[StyleSheet.absoluteFill, s.resultBg]} />
+                    <View style={StyleSheet.absoluteFillObject}>
+                        <View style={[StyleSheet.absoluteFillObject, s.resultBg]} />
                     </View>
                     <Text style={s.resultName}>{result.name}</Text>
                     <Text style={s.resultPrice}>${(result.price_cents / 100).toFixed(2)} TTD</Text>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, StyleSheet, ScrollView, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Text,
+    ActivityIndicator, RefreshControl, Text, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -13,9 +13,31 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '../design-system/primitives';
-import { GlassCard, BRAND, VOICES, SEMANTIC, RADIUS, GRADIENTS } from '../design-system';
 import { Ionicons } from '@expo/vector-icons';
+
+// Blueberry Luxe — Gold Edition (Driver)
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    bgSecondary: '#1A1508',
+    gradientStart: '#1A1200',
+    gradientEnd: '#0D0B1E',
+    gold: '#FFD700',
+    goldDark: '#B8860B',
+    goldLight: '#FFEC8B',
+    amber: '#FFB000',
+    amberSoft: 'rgba(255,176,0,0.1)',
+    purple: '#7B5CF0',
+    purpleDark: '#5B3FD0',
+    purpleLight: '#9B7CF0',
+    white: '#FFFFFF',
+    textSecondary: 'rgba(255,255,255,0.6)',
+    textMuted: 'rgba(255,255,255,0.4)',
+    glassBg: 'rgba(255,215,0,0.06)',
+    glassBorder: 'rgba(255,176,0,0.3)',
+    success: '#00FF94',
+    warning: '#F59E0B',
+    error: '#EF4444',
+};
 
 const DRIVER_SHARE = 0.81;
 
@@ -26,9 +48,9 @@ function paymentIcon(method: string | null): string {
     return 'card-outline';
 }
 function paymentColor(method: string | null): string {
-    if (method === 'cash') return SEMANTIC.success;
-    if (method === 'wallet') return BRAND.cyan;
-    return SEMANTIC.warning;
+    if (method === 'cash') return COLORS.success;
+    if (method === 'wallet') return COLORS.gold;
+    return COLORS.warning;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -63,7 +85,9 @@ export function EarningsScreen({ navigation }: any) {
             .eq('status', 'completed')
             .order('created_at', { ascending: false });
 
-        if (data && !error) {
+        if (error) {
+             Alert.alert("Sync Defect", "Could not fetch recent earnings. Swipe to try again.");
+        } else if (data) {
             let todayCents = 0, weekCents = 0, monthCents = 0, tripsToday = 0;
             data.forEach(trip => {
                 const fare = trip.total_fare_cents || 0;
@@ -99,7 +123,7 @@ export function EarningsScreen({ navigation }: any) {
     if (loading) {
         return (
             <View style={[s.root, s.center]}>
-                <ActivityIndicator color={BRAND.cyan} size="large" />
+                <ActivityIndicator color={COLORS.gold} size="large" />
             </View>
         );
     }
@@ -117,7 +141,7 @@ export function EarningsScreen({ navigation }: any) {
                     >
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
-                    <Txt variant="headingM" weight="heavy" color="#FFF">Partner Hub</Txt>
+                    <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>Partner Hub</Text>
                     <View style={{ width: 44 }} />
                 </View>
             </BlurView>
@@ -126,49 +150,49 @@ export function EarningsScreen({ navigation }: any) {
                 contentContainerStyle={[s.scroll, { paddingTop: insets.top + 80 }]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND.cyan} colors={[BRAND.cyan]} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.gold} colors={[COLORS.gold]} />
                 }
             >
-                <GlassCard variant="driver" style={s.heroCard}>
-                    <Txt variant="caption" weight="heavy" color={BRAND.cyan} style={{ letterSpacing: 1.5, marginBottom: 12 }}>
+                <View style={[s.heroCard, {backgroundColor: COLORS.glassBg, borderColor: COLORS.glassBorder, borderWidth: 1, borderRadius: 24}]}>
+                    <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.gold, letterSpacing: 1.5, marginBottom: 12 }}>
                         TODAY'S EARNINGS (81% SHARE)
-                    </Txt>
+                    </Text>
 
                     <Reanimated.Text style={s.earningsNum}>
                         {earningsDisplay.value}
                     </Reanimated.Text>
-                    <Txt variant="caption" weight="heavy" color={VOICES.driver.textMuted} style={{ marginTop: 4 }}>TTD TOTAL</Txt>
+                    <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textMuted, marginTop: 4}}>TTD TOTAL</Text>
 
                     <View style={s.heroDivider} />
 
                     <View style={s.subRow}>
                         <View style={s.subItem}>
-                            <Txt variant="headingM" weight="heavy" color="#FFF">{stats.trips}</Txt>
-                            <Txt variant="caption" color={VOICES.driver.textMuted}>TRIPS</Txt>
+                            <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>{stats.trips}</Text>
+                            <Text style={{fontSize: 11, color: COLORS.textMuted}}>TRIPS</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
-                            <Txt variant="headingM" weight="heavy" color="#FFF">${stats.week.toFixed(0)}</Txt>
-                            <Txt variant="caption" color={VOICES.driver.textMuted}>WEEK</Txt>
+                            <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.week.toFixed(0)}</Text>
+                            <Text style={{fontSize: 11, color: COLORS.textMuted}}>WEEK</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
-                            <Txt variant="headingM" weight="heavy" color="#FFF">${stats.month.toFixed(0)}</Txt>
-                            <Txt variant="caption" color={VOICES.driver.textMuted}>MONTH</Txt>
+                            <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.month.toFixed(0)}</Text>
+                            <Text style={{fontSize: 11, color: COLORS.textMuted}}>MONTH</Text>
                         </View>
                     </View>
-                </GlassCard>
+                </View>
 
-                <Txt variant="caption" weight="heavy" color={VOICES.driver.textMuted} style={[s.sectionLabel, { letterSpacing: 2 }]}>
+                <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textMuted, marginBottom: 16, letterSpacing: 2}}>
                     RECENT LOGISTICS ACTIVITY
-                </Txt>
+                </Text>
 
                 {recentTrips.length === 0 ? (
                     <View style={s.emptyWrap}>
                         <Ionicons name="receipt-outline" size={48} color="rgba(255,255,255,0.1)" />
-                        <Txt variant="bodyReg" color={VOICES.driver.textMuted} style={{ marginTop: 16, textAlign: 'center' }}>
+                        <Text style={{fontSize: 14, color: COLORS.textMuted, marginTop: 16, textAlign: 'center'}}>
                             No completed trips recorded in this session.
-                        </Txt>
+                        </Text>
                     </View>
                 ) : (
                     <View style={s.tripList}>
@@ -190,15 +214,15 @@ export function EarningsScreen({ navigation }: any) {
                                     </View>
 
                                     <View style={{ flex: 1 }}>
-                                        <Txt variant="bodyBold" weight="heavy" color="#FFF" numberOfLines={1}>
+                                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}} numberOfLines={1}>
                                             {trip.dropoff_address || 'Logistics Completion'}
-                                        </Txt>
-                                        <Txt variant="caption" color={VOICES.driver.textMuted} style={{ marginTop: 4 }}>
+                                        </Text>
+                                        <Text style={{fontSize: 11, color: COLORS.textMuted, marginTop: 4}}>
                                             {dateStr} · {timeStr}
-                                        </Txt>
+                                        </Text>
                                     </View>
 
-                                    <Txt variant="bodyBold" weight="heavy" color={SEMANTIC.success}>+$${earnings}</Txt>
+                                    <Text style={{fontSize: 14, fontWeight: '700', color: COLORS.success}}>+${earnings}</Text>
                                 </TouchableOpacity>
                             );
                         })}
@@ -213,13 +237,13 @@ export function EarningsScreen({ navigation }: any) {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0718' },
+    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
     center: { justifyContent: 'center', alignItems: 'center' },
     scroll: { paddingHorizontal: 20 },
 
     headerBlur: {
         position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 20, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+        zIndex: 20, borderBottomWidth: 1, borderColor: 'rgba(255,215,0,0.15)',
     },
     headerInner: {
         flexDirection: 'row', alignItems: 'center',
@@ -239,7 +263,7 @@ const s = StyleSheet.create({
     },
     earningsNum: {
         fontSize: 56, fontWeight: '800',
-        color: BRAND.cyan, letterSpacing: -2,
+        color: COLORS.gold, letterSpacing: -2,
         marginVertical: 4,
     },
     heroDivider: {
@@ -260,7 +284,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.02)',
         borderRadius: 24,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: 'rgba(255,215,0,0.15)',
         overflow: 'hidden',
     },
     tripRow: {
@@ -276,7 +300,7 @@ const s = StyleSheet.create({
 
     emptyWrap: {
         paddingVertical: 64, alignItems: 'center',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1, borderColor: 'rgba(255,215,0,0.15)',
         borderRadius: 24, borderStyle: 'dotted',
     },
 });

@@ -1,33 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, StyleSheet, FlatList, TouchableOpacity,
-    ActivityIndicator, Dimensions
+    ActivityIndicator, Dimensions, RefreshControl, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '../design-system/primitives';
+import { Txt, GlassCard } from '../design-system';
 import { tokens } from '../design-system/tokens';
 
-const { width } = Dimensions.get('window');
-
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
-const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
-    gold: '#F59E0B',
-    green: tokens.colors.status.success,
-    red: tokens.colors.status.error,
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
-};
+const { width, height } = Dimensions.get('window');
 
 export function TripsScreen({ navigation }: any) {
     const { user } = useAuth();
@@ -35,22 +22,31 @@ export function TripsScreen({ navigation }: any) {
 
     const [trips, setTrips] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         if (user?.id) fetchTrips();
     }, [user?.id]);
 
     const fetchTrips = async () => {
-        setLoading(true);
-        // BUG_FIX: Ensure rides query filters by rider_id AND sorts by created_at DESC
         const { data, error } = await supabase
             .from('rides')
             .select('*')
             .eq('rider_id', user?.id)
             .order('created_at', { ascending: false });
 
-        if (data && !error) setTrips(data);
+        if (error) {
+            Alert.alert("Notice", "We couldn't sync your recent trips. Swipe down to retry.");
+        } else if (data) {
+            setTrips(data);
+        }
         setLoading(false);
+        setRefreshing(false);
+    };
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchTrips();
     };
 
     const renderTrip = ({ item }: { item: any }) => {
@@ -60,35 +56,43 @@ export function TripsScreen({ navigation }: any) {
 
         return (
             <TouchableOpacity
-                style={s.card}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Receipt', { ride: item }); }}
+                onPress={() => { 
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); 
+                    navigation.navigate('Receipt', { ride: item }); 
+                }}
             >
-                <View style={s.cardHeader}>
-                    <Txt variant="bodyBold" color={R.white}>{date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</Txt>
-                    <Txt variant="headingM" weight="heavy" color={tokens.colors.primary.cyan}>${((item.total_fare_cents || 0) / 100).toFixed(2)}</Txt>
-                </View>
-
-                <View style={s.route}>
-                    <View style={s.routeLineWrap}>
-                        <View style={[s.marker, { backgroundColor: R.purple }]} />
-                        <View style={s.line} />
-                        <View style={[s.marker, { backgroundColor: R.gold }]} />
-                    </View>
-                    <View style={s.addressWrap}>
-                        <Txt variant="small" color={R.muted} numberOfLines={1}>{item.pickup_address}</Txt>
-                        <View style={{ height: 12 }} />
-                        <Txt variant="small" color={R.muted} numberOfLines={1}>{item.dropoff_address}</Txt>
-                    </View>
-                </View>
-
-                <View style={s.cardFooter}>
-                    <View style={[s.statusPill, { backgroundColor: isCompleted ? 'rgba(16,185,129,0.1)' : isCancelled ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.05)' }]}>
-                        <Txt variant="caption" weight="heavy" color={isCompleted ? R.green : isCancelled ? R.red : R.muted}>
-                            {item.status.toUpperCase()}
+                <GlassCard variant="rider" style={s.card}>
+                    <View style={s.cardHeader}>
+                        <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>
+                            {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </Txt>
+                        <Txt variant="headingM" weight="heavy" color={tokens.colors.primary.cyan}>
+                            ${((item.total_fare_cents || 0) / 100).toFixed(2)}
                         </Txt>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={R.muted} />
-                </View>
+
+                    <View style={s.route}>
+                        <View style={s.routeLineWrap}>
+                            <View style={[s.marker, { backgroundColor: tokens.colors.primary.purple }]} />
+                            <View style={s.line} />
+                            <View style={[s.marker, { backgroundColor: '#F59E0B' }]} />
+                        </View>
+                        <View style={s.addressWrap}>
+                            <Txt variant="small" color={tokens.colors.text.primary} numberOfLines={1}>{item.pickup_address}</Txt>
+                            <View style={{ height: 12 }} />
+                            <Txt variant="small" color={tokens.colors.text.secondary} numberOfLines={1}>{item.dropoff_address}</Txt>
+                        </View>
+                    </View>
+
+                    <View style={s.cardFooter}>
+                        <View style={[s.statusPill, { backgroundColor: isCompleted ? 'rgba(16,185,129,0.1)' : isCancelled ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.05)' }]}>
+                            <Txt variant="caption" weight="heavy" color={isCompleted ? tokens.colors.status.success : isCancelled ? tokens.colors.status.error : tokens.colors.text.tertiary}>
+                                {item.status.toUpperCase()}
+                            </Txt>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color={tokens.colors.text.tertiary} />
+                    </View>
+                </GlassCard>
             </TouchableOpacity>
         );
     };
@@ -96,26 +100,35 @@ export function TripsScreen({ navigation }: any) {
     return (
         <View style={s.root}>
             <StatusBar style="light" />
+            
+            <LinearGradient 
+                colors={[tokens.colors.background.base, tokens.colors.background.ambient, tokens.colors.background.base]} 
+                style={StyleSheet.absoluteFillObject} 
+            />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                    <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFillObject} />
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={s.title}>Engagement History</Txt>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={s.title}>ENGAGEMENT LOG</Txt>
             </View>
 
             {loading ? (
-                <View style={s.center}><ActivityIndicator color={R.purple} /></View>
+                <View style={s.center}><ActivityIndicator color={tokens.colors.primary.purple} /></View>
             ) : (
                 <FlatList
                     data={trips}
                     keyExtractor={item => item.id}
                     renderItem={renderTrip}
                     contentContainerStyle={[s.list, { paddingBottom: insets.bottom + 40 }]}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.colors.primary.purple} colors={[tokens.colors.primary.purple]} />
+                    }
                     ListEmptyComponent={
                         <View style={s.empty}>
-                            <Ionicons name="car-outline" size={64} color={R.muted} />
-                            <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 16 }}>No trips yet</Txt>
+                            <Ionicons name="car-outline" size={64} color={tokens.colors.text.tertiary} />
+                            <Txt variant="bodyReg" color={tokens.colors.text.tertiary} style={{ marginTop: 16 }}>No sorties logged.</Txt>
                         </View>
                     }
                 />
@@ -125,24 +138,24 @@ export function TripsScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
+    root: { flex: 1, backgroundColor: '#160B32' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    title: { marginLeft: 16 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    title: { marginLeft: 16, letterSpacing: 2 },
 
     list: { paddingHorizontal: 20 },
-    card: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 24, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+    card: { marginBottom: 16, padding: 20 },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
 
-    route: { flexDirection: 'row', marginBottom: 24 },
+    route: { flexDirection: 'row', marginBottom: 20 },
     routeLineWrap: { width: 24, alignItems: 'center', paddingVertical: 4 },
-    marker: { width: 10, height: 10, borderRadius: 5 },
-    line: { width: 2, flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 6 },
+    marker: { width: 8, height: 8, borderRadius: 4 },
+    line: { width: 1, flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
     addressWrap: { flex: 1, marginLeft: 16 },
 
-    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-    statusPill: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 16 },
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
+    statusPill: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
 
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    empty: { marginTop: 100, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 40, borderRadius: 40 },
+    empty: { marginTop: 100, alignItems: 'center', padding: 40, borderRadius: 40 },
 });

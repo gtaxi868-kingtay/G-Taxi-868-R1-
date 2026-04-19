@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-    View, StyleSheet, FlatList, ActivityIndicator,
+    View, Text, StyleSheet, FlatList, ActivityIndicator,
     TouchableOpacity, Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,12 +9,17 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../shared/supabase';
-import { Txt } from '../design-system/primitives';
-
 const { width } = Dimensions.get('window');
 
-// ── Driver-only tokens ────────────────────────────────────────────────────────
-import { BRAND, VOICES, SEMANTIC, RADIUS } from '../design-system';
+// Blueberry Luxe — Gold Edition (Driver)
+const COLORS = {
+    bgPrimary: '#0D0B1E',
+    gold: '#FFD700',
+    goldLight: '#F0E68C',
+    purple: '#9B59B6',
+    text: '#FFFFFF',
+    textMuted: 'rgba(255,255,255,0.4)',
+};
 
 interface ScheduledRide {
     id: string;
@@ -58,29 +63,29 @@ export function ScheduledRidesScreen({ navigation }: any) {
             >
                 {/* Top row: calendar icon + formatted date/time (bold) */}
                 <View style={s.cardTop}>
-                    <Ionicons name="calendar-outline" size={16} color={BRAND.purpleLight} />
-                    <Txt variant="bodyBold" color={VOICES.driver.text} style={{ marginLeft: 8 }}>{formattedDate}</Txt>
+                    <Ionicons name="calendar-outline" size={16} color={COLORS.goldLight} />
+                    <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: COLORS.text }}>{formattedDate}</Text>
                 </View>
 
                 {/* Pickup row: dot + address */}
                 <View style={s.addressRow}>
                     <View style={s.dot} />
-                    <Txt variant="bodyReg" color={VOICES.driver.text} numberOfLines={1} style={{ flex: 1 }}>{item.pickup_address}</Txt>
+                    <Text style={{ flex: 1, fontSize: 14, fontWeight: '400', color: COLORS.text }} numberOfLines={1}>{item.pickup_address}</Text>
                 </View>
 
                 {/* Dropoff row: square + address */}
                 <View style={s.addressRow}>
                     <View style={s.square} />
-                    <Txt variant="bodyReg" color={VOICES.driver.text} numberOfLines={1} style={{ flex: 1 }}>{item.dropoff_address}</Txt>
+                    <Text style={{ flex: 1, fontSize: 14, fontWeight: '400', color: COLORS.text }} numberOfLines={1}>{item.dropoff_address}</Text>
                 </View>
 
                 <View style={s.cardDivider} />
 
                 {/* Bottom row: estimated fare gold | vehicle type tag */}
                 <View style={s.cardBottom}>
-                    <Txt variant="headingM" weight="heavy" color={SEMANTIC.warning}>${fair}</Txt>
+                    <Text style={{fontSize: 16, fontWeight: '800', color: COLORS.gold}}>${fair}</Text>
                     <View style={s.tag}>
-                        <Txt variant="caption" weight="heavy" color={BRAND.purpleLight}>{item.vehicle_type?.toUpperCase() || 'STANDARD'}</Txt>
+                        <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.goldLight}}>{item.vehicle_type?.toUpperCase() || 'STANDARD'}</Text>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -97,14 +102,14 @@ export function ScheduledRidesScreen({ navigation }: any) {
                     style={s.headerBtn}
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }}
                 >
-                    <Ionicons name="chevron-back" size={24} color={VOICES.driver.text} />
+                    <Ionicons name="chevron-back" size={24} color={COLORS.text} />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="bold" color={VOICES.driver.text}>Scheduled</Txt>
+                <Text style={{fontSize: 16, fontWeight: '700', color: COLORS.text}}>Scheduled</Text>
                 <View style={s.headerBtn} pointerEvents="none" />
             </BlurView>
 
             {loading ? (
-                <View style={s.center}><ActivityIndicator color={BRAND.purple} /></View>
+                <View style={s.center}><ActivityIndicator color={COLORS.purple} /></View>
             ) : (
                 <FlatList
                     data={rides}
@@ -113,9 +118,9 @@ export function ScheduledRidesScreen({ navigation }: any) {
                     contentContainerStyle={[s.list, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 20 }]}
                     ListEmptyComponent={
                         <View style={s.empty}>
-                            <Ionicons name="calendar-outline" size={48} color={VOICES.driver.textMuted} />
-                            <Txt variant="headingM" weight="bold" color={VOICES.driver.text} style={{ marginTop: 24 }}>No scheduled rides</Txt>
-                            <Txt variant="bodyReg" color={VOICES.driver.textMuted} style={{ textAlign: 'center', marginTop: 8 }}>Go online to receive trips</Txt>
+                            <Ionicons name="calendar-outline" size={48} color={COLORS.textMuted} />
+                            <Text style={{ marginTop: 24, fontSize: 16, fontWeight: '700', color: COLORS.text }}>No scheduled rides</Text>
+                            <Text style={{ textAlign: 'center', marginTop: 8, fontSize: 14, fontWeight: '400', color: COLORS.textMuted }}>Go online to receive trips</Text>
                         </View>
                     }
                 />
@@ -125,7 +130,7 @@ export function ScheduledRidesScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: VOICES.driver.bg },
+    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: {
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
@@ -140,8 +145,8 @@ const s = StyleSheet.create({
     },
     cardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
     addressRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND.purple, marginRight: 12 },
-    square: { width: 8, height: 8, backgroundColor: SEMANTIC.warning, marginRight: 12 },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.purple, marginRight: 12 },
+    square: { width: 8, height: 8, backgroundColor: COLORS.gold, marginRight: 12 },
     cardDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 8 },
     cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
     tag: { backgroundColor: 'rgba(124, 58, 237, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },

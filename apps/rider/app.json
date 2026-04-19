@@ -36,21 +36,13 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow G-Taxi to use your location to find nearby drivers."
         }
-      ],
-      [
-        "@sentry/react-native/expo",
-        {
-          "organization": "gtaxi",
-          "project": "g-taxi-rider",
-          "disableSourcemapUpload": true
-        }
       ]
     ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.gtaxi.rider",
       "config": {
-        "googleMapsApiKey": "AIzaSyC2IzqWf_DUeWChHY8ZvJZMn419ZyiXGpI"
+        "googleMapsApiKey": "AIzaSyACp6vv3kUcB3UnYGrbXV8nf-NJrCl5d5g"
       },
       "infoPlist": {
         "UIBackgroundModes": [
@@ -71,7 +63,7 @@
       "package": "com.gtaxi.rider",
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyC2IzqWf_DUeWChHY8ZvJZMn419ZyiXGpI"
+          "apiKey": "AIzaSyA9g2wY_wRM19Ojw75kiceqLANXkHM6FtI"
         }
       },
       "permissions": [
