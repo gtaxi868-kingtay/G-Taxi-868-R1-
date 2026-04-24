@@ -4,10 +4,11 @@ import Login from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { FleetManager } from './pages/FleetManager';
 import { Financials } from './pages/Financials';
+import { DriverApproval } from './pages/DriverApproval';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck } from 'lucide-react';
 
-type AdminView = 'dashboard' | 'fleet' | 'financials';
+type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval';
 
 function App() {
   const [view, setView] = useState<'checking' | 'login' | 'app'>('checking');
@@ -85,6 +86,7 @@ function App() {
           <nav className="flex-1 space-y-2">
               <NavItem active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={20}/>} label="God View Telemetry" />
               <NavItem active={activeTab === 'fleet'} onClick={() => setActiveTab('fleet')} icon={<Users size={20}/>} label="Fleet & Personnel" />
+              <NavItem active={activeTab === 'approval'} onClick={() => setActiveTab('approval')} icon={<UserCheck size={20}/>} label="Driver Approval" />
               <NavItem active={activeTab === 'financials'} onClick={() => setActiveTab('financials')} icon={<CreditCard size={20}/>} label="Financial Index" />
           </nav>
 
@@ -124,6 +126,7 @@ function App() {
           <div className="max-w-7xl">
               {activeTab === 'dashboard' && <Dashboard rides={rides} />}
               {activeTab === 'fleet' && <FleetManager rides={rides} allUsers={allUsers} orders={orders} onRefresh={fetchData} />}
+              {activeTab === 'approval' && <DriverApproval onRefresh={fetchData} />}
               {activeTab === 'financials' && <Financials />}
           </div>
       </main>
