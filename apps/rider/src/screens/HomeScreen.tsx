@@ -3,6 +3,7 @@ import {
     View, Text, StyleSheet, TouchableOpacity, Image,
     Dimensions, Alert, Platform
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -79,6 +80,7 @@ export function HomeScreen({ navigation }: any) {
     const [aiGreeting, setAiGreeting] = useState<string | null>(null);
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [proactiveAction, setProactiveAction] = useState<string | null>(null);
+    const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
     const [visionLoading, setVisionLoading] = useState(false);
     
     // FIX #1: Fare Estimate - show upfront fare before ride request
@@ -170,57 +172,93 @@ export function HomeScreen({ navigation }: any) {
         };
         fetchStatus();
 
-        // --- 100% READY AI: PERSISTENT BRAIN (Truth Layer) ---
-        const fetchLatestInsight = async () => {
+        // --- AI PREFERENCE FETCH ---
+        const fetchAiPrefs = async () => {
             if (!profile?.id) return;
             const { data } = await supabase
-                .from('ride_events')
-                .select('metadata, created_at')
-                .eq('event_type', 'ai_insight')
-                .order('created_at', { ascending: false })
-                .limit(1)
+                .from('rider_ai_preferences')
+                .select('ai_suggestions_enabled')
+                .eq('user_id', profile.id)
                 .maybeSingle();
+            if (data && data.ai_suggestions_enabled === false) {
+                setAiSuggestionsEnabled(false);
+            }
+        };
+        fetchAiPrefs();
 
-            if (data?.metadata?.message) {
-                setAiGreeting(data.metadata.message);
-                if (data.metadata.proactive) {
-                    setProactiveAction(data.metadata.proactive);
+        // --- 100% READY AI: PERSISTENT BRAIN (Truth Layer) ---
+        // Cache TTL: 4 hours (per wiring directive rules)
+        const AI_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
+        const AI_CACHE_KEY = `ai_greeting_cache_${profile?.id}`;
+
+        const fetchAIGreeting = async () => {
+            if (!profile?.id || !aiSuggestionsEnabled) return;
+
+            // Check client-side cache first (4-hour TTL)
+            try {
+                const cached = await AsyncStorage.getItem(AI_CACHE_KEY);
+                if (cached) {
+                    const { message, timestamp } = JSON.parse(cached);
+                    const age = Date.now() - timestamp;
+                    if (age < AI_CACHE_TTL_MS) {
+                        setAiGreeting(message);
+                        console.log('[AI Greeting] Using client cache');
+                        return;
+                    }
                 }
-            } else {
-                // Fallback to Time-of-Day Greeting if no DB events
+            } catch (e) {
+                console.warn('[AI Greeting] Cache read failed:', e);
+            }
+
+            // Cache miss - call AI edge function
+            setIsAiThinking(true);
+            try {
+                const firstName = profile?.name?.split(' ')[0] || 'Partner';
+                const { data, error } = await supabase.functions.invoke('generate_ai_greeting', {
+                    body: { user_id: profile.id, user_name: firstName }
+                });
+
+                if (error) throw error;
+
+                if (data?.greeting) {
+                    setAiGreeting(data.greeting);
+                    console.log('[AI Greeting] From edge function:', data.cached ? 'cached' : 'fresh');
+
+                    // Save to client cache
+                    try {
+                        await AsyncStorage.setItem(AI_CACHE_KEY, JSON.stringify({
+                            message: data.greeting,
+                            timestamp: Date.now()
+                        }));
+                    } catch (e) {
+                        console.warn('[AI Greeting] Cache write failed:', e);
+                    }
+                } else {
+                    throw new Error('No greeting returned');
+                }
+            } catch (err: any) {
+                console.error('[AI Greeting] Edge function failed:', err.message);
+                // Fallback to time-based greeting
                 const now = new Date();
                 const hour = now.getHours();
                 const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-                setAiGreeting(`${greeting}, ${profile?.name?.split(' ')[0] || 'Partner'}! Ready to roll?`);
+                const fallbackMessage = `${greeting}, ${profile?.name?.split(' ')[0] || 'Partner'}! Ready to roll?`;
+                setAiGreeting(fallbackMessage);
+            } finally {
+                setIsAiThinking(false);
             }
         };
 
-        fetchLatestInsight();
-
-        const eventsChannel = supabase
-            .channel('ai-insights-realtime')
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'ride_events', filter: `event_type=eq.ai_insight` },
-                (payload: any) => {
-                    if (payload.new?.metadata?.message) {
-                        setAiGreeting(payload.new.metadata.message);
-                        if (payload.new.metadata.proactive) {
-                            setProactiveAction(payload.new.metadata.proactive);
-                        }
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    }
-                }
-            )
-            .subscribe();
+        if (aiSuggestionsEnabled) {
+            fetchAIGreeting();
+        }
 
         // Animations
         panelY.value = withSpring(0, { damping: 18, stiffness: 120 });
         mapPitch.value = withDelay(1000, withTiming(30, { duration: 1500 }));
 
         return () => {
-            verticalsChannel.unsubscribe();
-            eventsChannel.unsubscribe();
+            verticalsChannel?.unsubscribe();
         };
     }, []);
 
@@ -639,12 +677,10 @@ export function HomeScreen({ navigation }: any) {
                             {/* MARKET - Purple */}
                             <TouchableOpacity 
                                 style={s.serviceTile}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    if (featureFlags.grocery) {
-                                        navigation.navigate('GroceryStorefront', { category: 'service' });
-                                    }
-                                }}
+                                onPress={() => Alert.alert(
+                                    'Coming Soon', 
+                                    'This feature is being built. Stay tuned!'
+                                )}
                             >
                                 <View style={[s.serviceIconContainer, s.serviceIconPurple]}>
                                     <Ionicons name="bag" size={26} color={COLORS.purple} />
@@ -655,12 +691,10 @@ export function HomeScreen({ navigation }: any) {
                             {/* LAUNDRY - Cyan */}
                             <TouchableOpacity 
                                 style={s.serviceTile}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    if (featureFlags.laundry) {
-                                        navigation.navigate('LaundryLanding');
-                                    }
-                                }}
+                                onPress={() => Alert.alert(
+                                    'Coming Soon', 
+                                    'This feature is being built. Stay tuned!'
+                                )}
                             >
                                 <View style={[s.serviceIconContainer, s.serviceIconCyan]}>
                                     <Ionicons name="shirt" size={26} color={COLORS.cyan} />
@@ -671,9 +705,10 @@ export function HomeScreen({ navigation }: any) {
                             {/* MORE - Purple */}
                             <TouchableOpacity 
                                 style={s.serviceTile}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                }}
+                                onPress={() => Alert.alert(
+                                    'Coming Soon', 
+                                    'This feature is being built. Stay tuned!'
+                                )}
                             >
                                 <View style={[s.serviceIconContainer, s.serviceIconPurple]}>
                                     <Ionicons name="grid" size={26} color={COLORS.purple} />

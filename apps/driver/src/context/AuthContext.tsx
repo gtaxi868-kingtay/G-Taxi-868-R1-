@@ -115,7 +115,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         });
 
-        return () => subscription.unsubscribe();
+        // ── PHASE 5: Notification Handlers ──────────────────────────────────────
+        Notifications.setNotificationHandler({
+            handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
+                shouldShowAlert: true,
+                shouldPlaySound: true,
+                shouldSetBadge: false,
+                shouldShowBanner: true,
+                shouldShowList: true,
+            }),
+        });
+
+        const notificationReceivedListener = Notifications.addNotificationReceivedListener(notification => {
+            console.log('[Notification] Received:', notification.request.content.title);
+        });
+
+        const notificationResponseListener = Notifications.addNotificationResponseReceivedListener(response => {
+            const data = response.notification.request.content.data;
+            console.log('[Notification] Tapped:', data);
+        });
+
+        return () => {
+            subscription.unsubscribe();
+            notificationReceivedListener.remove();
+            notificationResponseListener.remove();
+        };
     }, []);
 
     const fetchDriverProfile = async (userId: string) => {
