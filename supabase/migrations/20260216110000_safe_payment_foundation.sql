@@ -3,7 +3,6 @@
 -- Goal: Internal Payment State Engine (Cash, Wallet, Ledger)
 
 BEGIN;
-
 -- STEP 2: ADD PAYMENT STATE FIELDS (Safe Alter)
 DO $$ BEGIN
     -- payment_status
@@ -31,7 +30,6 @@ DO $$ BEGIN
         ALTER TABLE public.rides ADD COLUMN ledger_recorded BOOLEAN DEFAULT FALSE;
     END IF;
 END $$;
-
 -- Idempotent Constraints
 DO $$ BEGIN
     -- Payment Status Check
@@ -48,8 +46,6 @@ DO $$ BEGIN
 EXCEPTION
     WHEN OTHERS THEN NULL; -- Ignore constraint errors if data mismatch (Safe Mode)
 END $$;
-
-
 -- STEP 3: COMPLETION SAFETY TRIGGER
 CREATE OR REPLACE FUNCTION check_payment_completion_safety() RETURNS TRIGGER AS $$
 BEGIN
@@ -85,13 +81,10 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS trg_block_completion_without_payment ON public.rides;
 CREATE TRIGGER trg_block_completion_without_payment
 BEFORE UPDATE ON public.rides
 FOR EACH ROW EXECUTE FUNCTION check_payment_completion_safety();
-
-
 -- STEP 4: AUTO LEDGER WRITE TRIGGER
 CREATE OR REPLACE FUNCTION auto_insert_ledger_on_completion() RETURNS TRIGGER AS $$
 BEGIN
@@ -108,13 +101,10 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS trg_auto_insert_ledger_on_completion ON public.rides;
 CREATE TRIGGER trg_auto_insert_ledger_on_completion
 BEFORE UPDATE ON public.rides
 FOR EACH ROW EXECUTE FUNCTION auto_insert_ledger_on_completion();
-
-
 -- STEP 5: CASH CONFIRMATION SUPPORT (RPC)
 CREATE OR REPLACE FUNCTION confirm_cash_payment(ride_uuid UUID) RETURNS BOOLEAN AS $$
 DECLARE
@@ -143,13 +133,9 @@ BEGIN
     RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Grants
 GRANT EXECUTE ON FUNCTION confirm_cash_payment(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION confirm_cash_payment(UUID) TO service_role;
-
-
 -- STEP 6: PAYMENT INITIALIZATION DEFAULT (Constraint)
 ALTER TABLE public.rides ALTER COLUMN payment_status SET DEFAULT 'pending';
-
 COMMIT;

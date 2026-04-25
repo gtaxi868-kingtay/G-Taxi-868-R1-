@@ -2,7 +2,6 @@
 -- Enables dynamic pricing and professional financial settlements.
 
 BEGIN;
-
 -- 1. Surge Pricing Zones
 CREATE TABLE IF NOT EXISTS public.pricing_zones (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -13,7 +12,6 @@ CREATE TABLE IF NOT EXISTS public.pricing_zones (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 2. Payout Requests
 CREATE TABLE IF NOT EXISTS public.payout_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -26,28 +24,21 @@ CREATE TABLE IF NOT EXISTS public.payout_requests (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 3. Security (RLS)
 ALTER TABLE public.pricing_zones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payout_requests ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Anyone can view active surge" ON public.pricing_zones
     FOR SELECT USING (is_active = true);
-
 CREATE POLICY "Drivers can view own payouts" ON public.payout_requests
     FOR SELECT USING (driver_id = auth.uid());
-
 CREATE POLICY "Drivers can create payout requests" ON public.payout_requests
     FOR INSERT WITH CHECK (driver_id = auth.uid());
-
 CREATE POLICY "Admins full access surge" ON public.pricing_zones
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.is_admin = true)
     );
-
 CREATE POLICY "Admins full access payouts" ON public.payout_requests
     FOR ALL TO authenticated USING (
         EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.is_admin = true)
     );
-
 COMMIT;

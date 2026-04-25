@@ -12,16 +12,12 @@ CREATE TABLE IF NOT EXISTS public.saved_places (
     icon TEXT, -- e.g. "🏠"
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
-
 -- Enable RLS for saved_places
 ALTER TABLE public.saved_places ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Users can manage their own saved places"
 ON public.saved_places FOR ALL
 TO authenticated
 USING (auth.uid() = user_id);
-
-
 -- 2. Promo Codes System
 CREATE TABLE IF NOT EXISTS public.admin_promos (
     code TEXT PRIMARY KEY,
@@ -33,7 +29,6 @@ CREATE TABLE IF NOT EXISTS public.admin_promos (
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
-
 -- Promos claimed by users
 CREATE TABLE IF NOT EXISTS public.user_promos (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -43,28 +38,23 @@ CREATE TABLE IF NOT EXISTS public.user_promos (
     claimed_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(user_id, promo_code)
 );
-
 -- Enable RLS for promos
 ALTER TABLE public.admin_promos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_promos ENABLE ROW LEVEL SECURITY;
-
 -- Reading global promos (anyone authenticated can see active ones, but Admin manages)
 CREATE POLICY "Anyone can view active promos"
 ON public.admin_promos FOR SELECT
 TO authenticated
 USING (is_active = true AND (expires_at IS NULL OR expires_at > now()));
-
 CREATE POLICY "Admins manage promos"
 ON public.admin_promos FOR ALL
 TO authenticated
 USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.is_admin = true));
-
 -- User Promos
 CREATE POLICY "Users view and claim their own promos"
 ON public.user_promos FOR ALL
 TO authenticated
 USING (auth.uid() = user_id);
-
 -- Seed a welcome promo
 INSERT INTO public.admin_promos (code, description, discount_percent, expires_at)
 VALUES ('WELCOME20', 'Get 20% off your first ride!', 20, now() + interval '1 year')

@@ -8,10 +8,8 @@ CREATE TABLE IF NOT EXISTS public.ride_messages (
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
-
 -- Enable RLS
 ALTER TABLE public.ride_messages ENABLE ROW LEVEL SECURITY;
-
 -- Policies
 DROP POLICY IF EXISTS "Users can view messages for their rides" ON public.ride_messages;
 CREATE POLICY "Users can view messages for their rides" 
@@ -23,7 +21,6 @@ USING (
         AND (rides.rider_id = auth.uid() OR rides.driver_id = auth.uid())
     )
 );
-
 DROP POLICY IF EXISTS "Users can send messages to their active rides" ON public.ride_messages;
 CREATE POLICY "Users can send messages to their active rides" 
 ON public.ride_messages FOR INSERT 
@@ -34,7 +31,6 @@ WITH CHECK (
         AND (rides.rider_id = auth.uid() OR rides.driver_id = auth.uid())
     )
 );
-
 -- Realtime
 DO $$
 BEGIN

@@ -35,13 +35,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 -- Trigger on profiles table
 DROP TRIGGER IF EXISTS trg_profiles_phone_unique ON public.profiles;
 CREATE TRIGGER trg_profiles_phone_unique
   BEFORE INSERT OR UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION enforce_phone_uniqueness();
-
 -- Trigger on drivers table
 DROP TRIGGER IF EXISTS trg_drivers_phone_unique ON public.drivers;
 CREATE TRIGGER trg_drivers_phone_unique

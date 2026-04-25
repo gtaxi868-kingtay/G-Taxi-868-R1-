@@ -2,7 +2,6 @@
 -- Goal: Atomic Payment Capture + Idempotency + Status Update
 
 BEGIN;
-
 CREATE OR REPLACE FUNCTION process_wallet_payment(p_ride_id UUID, p_amount INTEGER) RETURNS BOOLEAN AS $$
 DECLARE
     v_rider_id UUID;
@@ -37,5 +36,4 @@ BEGIN
     RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 COMMIT;

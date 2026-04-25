@@ -4,7 +4,6 @@
 -- IDEMPOTENT VERSION
 
 BEGIN;
-
 -- 1. WALLET TRANSACTIONS
 CREATE TABLE IF NOT EXISTS public.wallet_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -18,26 +17,21 @@ CREATE TABLE IF NOT EXISTS public.wallet_transactions (
     status TEXT DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'failed')),
     created_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- RLS
 ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY;
-
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users view own wallet' AND tablename = 'wallet_transactions') THEN
         CREATE POLICY "Users view own wallet" ON public.wallet_transactions FOR SELECT USING (user_id = auth.uid());
     END IF;
 END $$;
-
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Service Role manages wallet' AND tablename = 'wallet_transactions') THEN
         CREATE POLICY "Service Role manages wallet" ON public.wallet_transactions FOR ALL TO service_role USING (true) WITH CHECK (true);
     END IF;
 END $$;
-
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_wallet_user ON public.wallet_transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_ride ON public.wallet_transactions(ride_id);
-
 -- 2. BALANCE CALCULATION (RPC)
 -- Event Sourcing: Balance = Sum(amount) where status = 'completed'
 CREATE OR REPLACE FUNCTION get_wallet_balance(p_user_id UUID) RETURNS INTEGER AS $$
@@ -51,11 +45,9 @@ BEGIN
     RETURN v_balance;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Grant access to authenticated users (to check their own balance)
 GRANT EXECUTE ON FUNCTION get_wallet_balance TO authenticated;
 GRANT EXECUTE ON FUNCTION get_wallet_balance TO service_role;
-
 -- 3. PROCESS WALLET PAYMENT (RPC)
 -- Atomic Transaction: Check Balance -> Insert Debit
 CREATE OR REPLACE FUNCTION process_wallet_payment(p_ride_id UUID, p_amount INTEGER) RETURNS BOOLEAN AS $$
@@ -80,5 +72,4 @@ BEGIN
     RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 COMMIT;

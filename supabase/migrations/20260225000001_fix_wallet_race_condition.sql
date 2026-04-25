@@ -12,7 +12,6 @@
 -- Also writes a canonical record to payment_ledger.
 
 BEGIN;
-
 CREATE OR REPLACE FUNCTION public.process_wallet_payment(
     p_ride_id   UUID,
     p_amount    INTEGER   -- amount in cents (TTD)
@@ -101,5 +100,4 @@ BEGIN
     RETURN TRUE;
 END;
 $$;
-
 COMMIT;

@@ -5,11 +5,9 @@
 INSERT INTO auth.users (id, email) 
 VALUES ('00000000-0000-0000-0000-000000000000', 'system@gtaxi868.com')
 ON CONFLICT DO NOTHING;
-
 INSERT INTO public.profiles (id, email, full_name, is_admin)
 VALUES ('00000000-0000-0000-0000-000000000000', 'system@gtaxi868.com', 'G-Taxi Platform', true)
 ON CONFLICT DO NOTHING;
-
 -- 2. Update process_wallet_payment to handle the 80/20 split
 CREATE OR REPLACE FUNCTION public.process_wallet_payment(
     p_ride_id UUID,

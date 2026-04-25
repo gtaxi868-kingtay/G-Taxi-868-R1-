@@ -16,7 +16,6 @@
 -- =============================================================================
 
 BEGIN;
-
 -- =============================================================================
 -- FIX 7.1 — profiles table
 -- Problem: "Public read profiles" allows any authenticated user to read ALL rows.
@@ -25,7 +24,6 @@ BEGIN;
 -- Drop the permissive policies by every name they may have been created under
 DROP POLICY IF EXISTS "Public read profiles"          ON public.profiles;
 DROP POLICY IF EXISTS "Users can view all profiles"   ON public.profiles;
-
 -- "Users can view own profile" already exists from the original migration.
 -- Drop and recreate it cleanly so it remains the canonical policy.
 DROP POLICY IF EXISTS "Users can view own profile"    ON public.profiles;
@@ -34,20 +32,17 @@ DROP POLICY IF EXISTS "Driver sees active rider"      ON public.profiles;
 DROP POLICY IF EXISTS "Rider sees active driver"      ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile"  ON public.profiles;
 DROP POLICY IF EXISTS "Own profile update"            ON public.profiles;
-
 -- Own profile: read
 CREATE POLICY "Own profile read"
     ON public.profiles
     FOR SELECT
     USING (id = auth.uid());
-
 -- Own profile: update
 CREATE POLICY "Own profile update"
     ON public.profiles
     FOR UPDATE
     USING (id = auth.uid())
     WITH CHECK (id = auth.uid());
-
 -- Driver can read the profile of their currently assigned rider.
 -- Condition: there is an active ride where this driver is the driver
 --            and the profile being read belongs to the rider.
@@ -62,7 +57,6 @@ CREATE POLICY "Driver sees active rider"
               AND rides.status    IN ('assigned', 'arrived', 'in_progress')
         )
     );
-
 -- Rider can read the profile of their currently assigned driver.
 -- The driver's profile row lives in profiles (same table — id = auth.users id).
 CREATE POLICY "Rider sees active driver"
@@ -76,7 +70,6 @@ CREATE POLICY "Rider sees active driver"
               AND rides.status    IN ('assigned', 'arrived', 'in_progress')
         )
     );
-
 -- Service role keeps full access (may already exist — safe to recreate)
 DROP POLICY IF EXISTS "Service role full access profiles" ON public.profiles;
 CREATE POLICY "Service role full access profiles"
@@ -85,8 +78,6 @@ CREATE POLICY "Service role full access profiles"
     TO service_role
     USING (true)
     WITH CHECK (true);
-
-
 -- =============================================================================
 -- FIX 7.2 — drivers table
 -- Problem: "Public read drivers" exposes phone numbers, plate numbers, etc.
@@ -102,13 +93,11 @@ DROP POLICY IF EXISTS "Rider reads assigned driver"       ON public.drivers;
 -- from different migrations — drop all variants and recreate once.
 DROP POLICY IF EXISTS "Service role manages drivers"      ON public.drivers;
 DROP POLICY IF EXISTS "Service Role manages drivers"      ON public.drivers;
-
 -- Drivers can read their own complete record
 CREATE POLICY "Driver reads own record"
     ON public.drivers
     FOR SELECT
     USING (id = auth.uid());
-
 -- Rider can read a driver's record only while that driver is on their active ride
 CREATE POLICY "Rider reads assigned driver"
     ON public.drivers
@@ -121,7 +110,6 @@ CREATE POLICY "Rider reads assigned driver"
               AND rides.status    IN ('assigned', 'arrived', 'in_progress')
         )
     );
-
 -- Drivers update their own status / location columns
 CREATE POLICY "Drivers update own status"
     ON public.drivers
@@ -129,7 +117,6 @@ CREATE POLICY "Drivers update own status"
     TO authenticated
     USING (id = auth.uid())
     WITH CHECK (id = auth.uid());
-
 -- Service role full access (dispatch, admin operations)
 CREATE POLICY "Service role manages drivers"
     ON public.drivers
@@ -137,7 +124,6 @@ CREATE POLICY "Service role manages drivers"
     TO service_role
     USING (true)
     WITH CHECK (true);
-
 -- ── Map view: expose only safe columns for the rider map screen ──────────────
 -- This SECURITY DEFINER view lets the app show nearby cars (is_online, lat, lng,
 -- heading) without leaking phone numbers, plate numbers, or personal data.
@@ -145,7 +131,6 @@ CREATE POLICY "Service role manages drivers"
 -- itself, since views use the definer's privileges unless RLS is enabled.
 
 DROP VIEW IF EXISTS public.drivers_map_view;
-
 CREATE VIEW public.drivers_map_view
     WITH (security_invoker = false)   -- definer privileges; underlying RLS bypassed
 AS
@@ -156,13 +141,12 @@ AS
         heading,
         is_online
     FROM public.drivers
-    WHERE is_online = true;           -- only show online drivers on the map
+    WHERE is_online = true;
+-- only show online drivers on the map
 
 -- Revoke wide access and grant only to authenticated users
 REVOKE ALL ON public.drivers_map_view FROM PUBLIC;
 GRANT SELECT ON public.drivers_map_view TO authenticated;
-
-
 -- =============================================================================
 -- FIX 7.3 — driver_locations table
 -- Problem: "Authenticated read locations" lets any logged-in user read ALL
@@ -176,7 +160,6 @@ DROP POLICY IF EXISTS "Authenticated read locations"    ON public.driver_locatio
 -- Drop any prior Phase 7 attempts to allow clean re-run
 DROP POLICY IF EXISTS "Rider reads active driver location" ON public.driver_locations;
 DROP POLICY IF EXISTS "Driver reads own location history"  ON public.driver_locations;
-
 -- Riders may only read location rows for their own currently active rides.
 -- This covers the live tracking polling the rider app does during a trip.
 CREATE POLICY "Rider reads active driver location"
@@ -190,14 +173,12 @@ CREATE POLICY "Rider reads active driver location"
               AND rides.status    IN ('assigned', 'arrived', 'in_progress')
         )
     );
-
 -- Drivers can read their own location ping history
 -- (driver_locations.driver_id = drivers.id = auth.uid())
 CREATE POLICY "Driver reads own location history"
     ON public.driver_locations
     FOR SELECT
     USING (driver_id = auth.uid());
-
 -- "Service write locations" remains as-is (INSERT for service_role only).
 -- Confirm it exists; recreate if not.
 DROP POLICY IF EXISTS "Service write locations"         ON public.driver_locations;
@@ -206,8 +187,6 @@ CREATE POLICY "Service write locations"
     FOR INSERT
     TO service_role
     WITH CHECK (true);
-
-
 -- =============================================================================
 -- FIX 7.4 — rides table
 -- Problem 1: "Riders insert own rides" lacks WITH CHECK — rider_id can be spoofed.
@@ -221,7 +200,6 @@ CREATE POLICY "Riders insert own rides"
     ON public.rides
     FOR INSERT
     WITH CHECK (rider_id = auth.uid());
-
 -- Fix 7.4.2 — Replace broad update with narrow cancel-only update
 -- Riders are only allowed to cancel their own ride, and only when it is not
 -- already completed or cancelled. The DB-level trigger
@@ -229,7 +207,6 @@ CREATE POLICY "Riders insert own rides"
 -- a second enforcement layer for valid transitions.
 DROP POLICY IF EXISTS "Riders update own rides"         ON public.rides;
 DROP POLICY IF EXISTS "Riders cancel own rides"         ON public.rides;
-
 CREATE POLICY "Riders cancel own rides"
     ON public.rides
     FOR UPDATE
@@ -241,7 +218,6 @@ CREATE POLICY "Riders cancel own rides"
         rider_id = auth.uid()
         AND status = 'cancelled'
     );
-
 -- All other ride policies ("Riders see own rides", "Drivers see assigned rides",
 -- "Drivers update status only", "Service role full access rides") are untouched.
 
@@ -273,8 +249,6 @@ BEGIN
 
     END IF;
 END $$;
-
-
 -- =============================================================================
 -- FIX 7.6 — ride_offers table
 -- Analysis: drivers.id = auth.uid() (confirmed from schema — PRIMARY KEY
@@ -293,21 +267,18 @@ DROP POLICY IF EXISTS "Drivers respond offers"          ON public.ride_offers;
 -- Drop any prior Phase 7 attempts
 DROP POLICY IF EXISTS "Drivers view own offers"         ON public.ride_offers;
 DROP POLICY IF EXISTS "Drivers update own offers"       ON public.ride_offers;
-
 -- Drivers can SELECT offers assigned to them
 -- driver_id in ride_offers references drivers(id) = auth.uid()
 CREATE POLICY "Drivers view own offers"
     ON public.ride_offers
     FOR SELECT
     USING (driver_id = auth.uid());
-
 -- Drivers can UPDATE (accept/decline) their own offers
 CREATE POLICY "Drivers update own offers"
     ON public.ride_offers
     FOR UPDATE
     USING (driver_id = auth.uid())
     WITH CHECK (driver_id = auth.uid());
-
 -- "Service role offers" is untouched.
 
 COMMIT;

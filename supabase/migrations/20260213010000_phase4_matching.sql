@@ -35,9 +35,9 @@ BEGIN
             -- XL: Matches 'xl', 'premium'
             -- Premium: Matches 'premium' only
             AND (
-                (v_ride.vehicle_type ILIKE 'standard') OR 
-                (v_ride.vehicle_type ILIKE 'xl' AND vehicle_type IN ('xl', 'premium')) OR
-                (v_ride.vehicle_type ILIKE 'premium' AND vehicle_type = 'premium')
+                (v_ride.vehicle_type = 'standard') OR 
+                (v_ride.vehicle_type = 'xl' AND vehicle_type IN ('xl', 'premium')) OR
+                (v_ride.vehicle_type = 'premium' AND vehicle_type = 'premium')
             )
             -- Geospatial Filter (Within 50km)
             AND ST_DWithin(

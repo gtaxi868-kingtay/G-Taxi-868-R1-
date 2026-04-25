@@ -2,7 +2,6 @@
 
 -- 1. Add Tip Column to Rides
 ALTER TABLE public.rides ADD COLUMN IF NOT EXISTS tip_amount INTEGER DEFAULT 0;
-
 -- 2. Update Constraint to include 'tip'
 -- We drop and recreate to be safe, though this requires exclusive lock.
 DO $$ BEGIN
@@ -12,7 +11,6 @@ DO $$ BEGIN
 EXCEPTION
     WHEN OTHERS THEN NULL; -- Ignore if table doesn't exist (fresh install)
 END $$;
-
 -- 3. Process Tip RPC
 CREATE OR REPLACE FUNCTION process_tip(p_ride_id UUID, p_amount INTEGER) RETURNS BOOLEAN AS $$
 DECLARE
@@ -45,7 +43,6 @@ BEGIN
     RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- Grant Access
 GRANT EXECUTE ON FUNCTION process_tip TO authenticated;
 GRANT EXECUTE ON FUNCTION process_tip TO service_role;

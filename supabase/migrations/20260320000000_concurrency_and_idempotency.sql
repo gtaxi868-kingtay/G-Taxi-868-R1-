@@ -2,7 +2,6 @@
 -- Hardens the ride acceptance process against race conditions.
 
 BEGIN;
-
 -- 1. Improved accept_ride_offer with row locking
 CREATE OR REPLACE FUNCTION accept_ride_offer(p_offer_id UUID) RETURNS BOOLEAN AS $$
 DECLARE
@@ -52,5 +51,4 @@ BEGIN
     RETURN TRUE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 COMMIT;

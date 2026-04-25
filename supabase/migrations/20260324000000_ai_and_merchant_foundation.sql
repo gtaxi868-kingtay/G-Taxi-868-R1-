@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS public.rider_ai_preferences (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 2. Driver AI Strategy
 CREATE TABLE IF NOT EXISTS public.driver_ai_strategy (
     user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -21,7 +20,6 @@ CREATE TABLE IF NOT EXISTS public.driver_ai_strategy (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 3. Merchants (Groceries/Laundry Foundation)
 CREATE TABLE IF NOT EXISTS public.merchants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -34,7 +32,6 @@ CREATE TABLE IF NOT EXISTS public.merchants (
     commission_rate NUMERIC DEFAULT 0.05,
     created_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 4. Products (Basic Inventory)
 CREATE TABLE IF NOT EXISTS public.products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -45,7 +42,6 @@ CREATE TABLE IF NOT EXISTS public.products (
     is_available BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 5. Add New System Feature Flags for Service Management
 INSERT INTO public.system_feature_flags (id, is_active, description) VALUES
     ('grocery_active', false, 'Controls visibility of the Grocery service tile for riders.'),
@@ -53,13 +49,11 @@ INSERT INTO public.system_feature_flags (id, is_active, description) VALUES
     ('ai_assistant_active', false, 'Enables the AI concierge and predictive suggestions.'),
     ('merchant_commission_enabled', true, 'Toggles the platform fee for merchant sales.')
 ON CONFLICT (id) DO UPDATE SET description = EXCLUDED.description;
-
 -- Enable RLS
 ALTER TABLE public.rider_ai_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.driver_ai_strategy ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.merchants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
-
 -- RLS Policies (with existence checks)
 DO $$
 BEGIN

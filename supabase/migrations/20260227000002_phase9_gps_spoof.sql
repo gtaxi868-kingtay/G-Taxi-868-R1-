@@ -5,7 +5,6 @@
 -- =============================================================================
 
 BEGIN;
-
 -- =============================================================================
 -- PART A1 — Create gps_spoof_log table
 -- =============================================================================
@@ -23,9 +22,7 @@ CREATE TABLE IF NOT EXISTS public.gps_spoof_log (
     rejection_reason TEXT NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 ALTER TABLE public.gps_spoof_log ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Service role manages spoof log" ON public.gps_spoof_log;
 CREATE POLICY "Service role manages spoof log"
     ON public.gps_spoof_log 
@@ -33,11 +30,9 @@ CREATE POLICY "Service role manages spoof log"
     TO service_role
     USING (true) 
     WITH CHECK (true);
-
 -- Indexes for querying later
 CREATE INDEX IF NOT EXISTS idx_spoof_log_driver ON public.gps_spoof_log(driver_id);
 CREATE INDEX IF NOT EXISTS idx_spoof_log_created ON public.gps_spoof_log(created_at);
-
 -- =============================================================================
 -- PART A2 — Add spoof control columns to drivers table
 -- =============================================================================
@@ -45,7 +40,6 @@ CREATE INDEX IF NOT EXISTS idx_spoof_log_created ON public.gps_spoof_log(created
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS spoof_flag_count INTEGER DEFAULT 0;
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS spoof_flagged_at TIMESTAMPTZ;
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS spoof_suspended BOOLEAN DEFAULT false;
-
 -- =============================================================================
 -- PART A3 — Create increment_spoof_flag RPC
 -- =============================================================================
@@ -68,5 +62,4 @@ BEGIN
     WHERE id = p_driver_id;
 END;
 $$;
-
 COMMIT;

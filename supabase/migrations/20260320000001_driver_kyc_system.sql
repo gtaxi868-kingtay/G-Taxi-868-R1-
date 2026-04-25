@@ -2,7 +2,6 @@
 -- Enables professional driver verification and document tracking.
 
 BEGIN;
-
 -- 1. Add verified_status to drivers
 DO $$
 BEGIN
@@ -12,9 +11,7 @@ BEGIN
         );
     END IF;
 END $$;
-
 ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS verified_status public.driver_verified_status DEFAULT 'unverified';
-
 -- 2. Create driver_documents table
 CREATE TABLE IF NOT EXISTS public.driver_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,10 +24,8 @@ CREATE TABLE IF NOT EXISTS public.driver_documents (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
-
 -- 3. Security (RLS)
 ALTER TABLE public.driver_documents ENABLE ROW LEVEL SECURITY;
-
 -- Create policies if they don't exist
 DO $$
 BEGIN
@@ -60,7 +55,6 @@ BEGIN
             );
     END IF;
 END $$;
-
 -- 4. Storage Policies (Conceptual - assumes bucket 'driver-documents' exists)
 -- Note: These are usually set in the Storage UI or via SQL on the storage schema.
 -- Assuming standard Supabase storage setup:

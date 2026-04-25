@@ -6,7 +6,6 @@
 -- =============================================================================
 
 BEGIN;
-
 -- =============================================================================
 -- FIX 8.1 — Rewrite validate_ride_status_transition
 -- =============================================================================
@@ -80,15 +79,12 @@ BEGIN
     RAISE EXCEPTION 'Invalid Ride Status Transition: % -> %', old_status, new_status;
 END;
 $$ LANGUAGE plpgsql;
-
 -- Recreate Trigger
 DROP TRIGGER IF EXISTS trg_validate_ride_status ON public.rides;
 CREATE TRIGGER trg_validate_ride_status
     BEFORE UPDATE OF status ON public.rides
     FOR EACH ROW
     EXECUTE FUNCTION public.validate_ride_status_transition();
-
-
 -- =============================================================================
 -- FIX 8.2 — Fix prevent_driver_critical_edits trigger
 -- =============================================================================
@@ -114,21 +110,17 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 -- Recreate Trigger
 DROP TRIGGER IF EXISTS trg_prevent_driver_edits ON public.rides;
 CREATE TRIGGER trg_prevent_driver_edits 
     BEFORE UPDATE ON public.rides 
     FOR EACH ROW 
     EXECUTE FUNCTION public.prevent_driver_critical_edits();
-
-
 -- =============================================================================
 -- FIX 8.3 — Add fare_set_at timestamp to rides
 -- =============================================================================
 
 ALTER TABLE public.rides ADD COLUMN IF NOT EXISTS fare_set_at TIMESTAMPTZ;
-
 CREATE OR REPLACE FUNCTION public.set_fare_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -138,21 +130,17 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS trg_set_fare_timestamp ON public.rides;
 CREATE TRIGGER trg_set_fare_timestamp
     BEFORE UPDATE OF total_fare_cents ON public.rides
     FOR EACH ROW
     EXECUTE FUNCTION public.set_fare_timestamp();
-
-
 -- =============================================================================
 -- FIX 8.4 — Add completed_at enforcement
 -- =============================================================================
 
 -- Ensure column exists (from 20260216040000_add_completed_at.sql context, but safe to verify)
 ALTER TABLE public.rides ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
-
 CREATE OR REPLACE FUNCTION public.set_completed_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -162,12 +150,9 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS trg_set_completed_at ON public.rides;
 CREATE TRIGGER trg_set_completed_at
     BEFORE UPDATE OF status ON public.rides
     FOR EACH ROW
     EXECUTE FUNCTION public.set_completed_at();
-
-
 COMMIT;

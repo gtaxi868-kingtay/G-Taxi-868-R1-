@@ -4,7 +4,6 @@
 -- =============================================================================
 
 BEGIN;
-
 -- =============================================================================
 -- PART A1 — Create rate_limit_log table
 -- =============================================================================
@@ -17,9 +16,7 @@ CREATE TABLE IF NOT EXISTS public.rate_limit_log (
     request_count INTEGER NOT NULL DEFAULT 1,
     UNIQUE(user_id, endpoint, window_start)
 );
-
 ALTER TABLE public.rate_limit_log ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Service role manages rate limits" ON public.rate_limit_log;
 CREATE POLICY "Service role manages rate limits"
     ON public.rate_limit_log 
@@ -27,10 +24,8 @@ CREATE POLICY "Service role manages rate limits"
     TO service_role
     USING (true) 
     WITH CHECK (true);
-
 CREATE INDEX IF NOT EXISTS idx_rate_limit_user_endpoint 
     ON public.rate_limit_log(user_id, endpoint, window_start);
-
 -- =============================================================================
 -- PART A2 — Create check_rate_limit RPC
 -- =============================================================================
@@ -63,7 +58,6 @@ BEGIN
     RETURN v_count <= p_max_requests;
 END;
 $$;
-
 -- =============================================================================
 -- PART A3 — Create cleanup_rate_limit_log RPC
 -- =============================================================================
@@ -78,5 +72,4 @@ BEGIN
     WHERE window_start < NOW() - INTERVAL '1 hour';
 END;
 $$;
-
 COMMIT;

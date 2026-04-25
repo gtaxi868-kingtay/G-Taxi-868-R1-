@@ -8,7 +8,6 @@
 -- comments, and arithmetic are all consistent with the new business rules.
 
 BEGIN;
-
 CREATE OR REPLACE FUNCTION public.process_wallet_payment(
     p_ride_id   UUID,
     p_amount    INTEGER   -- amount in cents (TTD)
@@ -99,5 +98,4 @@ BEGIN
     RETURN TRUE;
 END;
 $$;
-
 COMMIT;

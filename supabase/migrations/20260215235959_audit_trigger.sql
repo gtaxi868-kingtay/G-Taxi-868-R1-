@@ -3,7 +3,6 @@
 -- Strategy: Add Trigger to Rides Table (Zero Impact to RPCs)
 
 BEGIN;
-
 -- 1. Create Logging Function
 CREATE OR REPLACE FUNCTION log_ride_status_change()
 RETURNS TRIGGER AS $$
@@ -30,14 +29,12 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
 -- 2. Create Trigger
 DROP TRIGGER IF EXISTS trg_log_ride_status ON public.rides;
 CREATE TRIGGER trg_log_ride_status
     AFTER UPDATE OF status ON public.rides
     FOR EACH ROW
     EXECUTE FUNCTION log_ride_status_change();
-
 -- 3. Post-Verification Query (Commented out in migration file, run via client)
 -- Verify insert exists after update.
 

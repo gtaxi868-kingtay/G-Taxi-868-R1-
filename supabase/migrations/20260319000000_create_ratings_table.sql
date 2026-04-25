@@ -8,16 +8,13 @@ CREATE TABLE IF NOT EXISTS public.ratings (
     comment TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
-
 -- Enable RLS
 ALTER TABLE public.ratings ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Users can view their own ratings" ON public.ratings;
 CREATE POLICY "Users can view their own ratings"
 ON public.ratings FOR SELECT
 TO authenticated
 USING (auth.uid() = rider_id);
-
 DROP POLICY IF EXISTS "Users can insert their own ratings" ON public.ratings;
 CREATE POLICY "Users can insert their own ratings"
 ON public.ratings FOR INSERT

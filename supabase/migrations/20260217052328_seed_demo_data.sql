@@ -1,10 +1,8 @@
 -- 1. Ensure schema is correct
 ALTER TABLE public.saved_places ADD COLUMN IF NOT EXISTS icon TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
-
 -- 2. Seed Bot Drivers (Trinidad)
 -- POS Area
-/*
 INSERT INTO public.drivers (id, name, lat, lng, vehicle_model, plate_number, status, is_online, is_bot)
 VALUES (
     gen_random_uuid(), 
@@ -17,7 +15,6 @@ VALUES (
     true, 
     true
 ) ON CONFLICT DO NOTHING;
-
 -- San Fernando Area
 INSERT INTO public.drivers (id, name, lat, lng, vehicle_model, plate_number, status, is_online, is_bot)
 VALUES (
@@ -31,7 +28,6 @@ VALUES (
     true, 
     true
 ) ON CONFLICT DO NOTHING;
-
 -- Arima Area
 INSERT INTO public.drivers (id, name, lat, lng, vehicle_model, plate_number, status, is_online, is_bot)
 VALUES (
@@ -45,7 +41,5 @@ VALUES (
     true, 
     true
 ) ON CONFLICT DO NOTHING;
-*/
-
 -- 3. Notify PostgREST
 NOTIFY pgrst, 'reload schema';
