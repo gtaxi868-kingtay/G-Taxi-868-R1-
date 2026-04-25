@@ -150,6 +150,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             async (event, session) => {
                 setSession(session);
                 setUser(session?.user ?? null);
+
+                // FIX 4: JWT session expiry handling
+                if (event === 'TOKEN_REFRESHED') {
+                    console.log('AUTH: Token refreshed successfully');
+                }
+                if (event === 'SIGNED_OUT') {
+                    console.log('AUTH: Session ended, redirecting to login');
+                    setUser(null);
+                    setSession(null);
+                    setProfile(null);
+                    setPreferences(null);
+                }
+
                 if (session?.access_token) {
                     setAuthToken(session.access_token);
                     if (session.user) fetchUserData(session.user.id);

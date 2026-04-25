@@ -104,9 +104,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         // Listen for changes on auth state (sign in, sign out, etc.)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
+
+            // FIX 4: JWT session expiry handling
+            if (event === 'TOKEN_REFRESHED') {
+                console.log('AUTH: Token refreshed successfully');
+            }
+            if (event === 'SIGNED_OUT') {
+                console.log('AUTH: Session ended, redirecting to login');
+                setUser(null);
+                setSession(null);
+                setDriver(null);
+            }
+
             if (session?.user) {
                 fetchDriverProfile(session.user.id);
             } else {

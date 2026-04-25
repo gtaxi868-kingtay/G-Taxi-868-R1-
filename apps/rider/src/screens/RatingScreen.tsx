@@ -64,7 +64,18 @@ export function RatingScreen({ navigation, route }: any) {
             await Promise.all([ratingPromise, rideUpdatePromise, tipPromise]);
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+            navigation.navigate('Receipt', {
+                ride: {
+                    id: rideId,
+                    pickup_address: 'Pickup Location',
+                    dropoff_address: 'Dropoff Location',
+                    total_fare_cents: fare?.total_fare_cents || 0,
+                    payment_method: paymentMethod || 'cash',
+                    driver_name: driver?.name,
+                    vehicle_model: driver?.vehicle_model,
+                    plate_number: driver?.plate_number,
+                }
+            });
         } catch (err) {
             console.error(err);
         } finally {

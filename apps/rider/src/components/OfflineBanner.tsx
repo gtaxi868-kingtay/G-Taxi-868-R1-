@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { BlurView } from 'expo-blur';
@@ -7,15 +7,43 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export function OfflineBanner() {
   const netInfo = useNetInfo();
   const insets = useSafeAreaInsets();
-  const isOffline = netInfo.isConnected === false;
+  const [showReconnected, setShowReconnected] = useState(false);
 
-  if (!isOffline) return null;
+  const isOffline = netInfo.isConnected === false;
+  const wasOffline = netInfo.isConnected === true && showReconnected;
+
+  useEffect(() => {
+    if (netInfo.isConnected === true && showReconnected === false) {
+      // We just came back online
+      const hasBeenOfflineBefore = netInfo.details !== null;
+      if (hasBeenOfflineBefore) {
+        setShowReconnected(true);
+        const timer = setTimeout(() => {
+          setShowReconnected(false);
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [netInfo.isConnected]);
+
+  if (!isOffline && !showReconnected) return null;
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(20, insets.top) }]}>
-        <BlurView intensity={30} tint="dark" style={styles.banner}>
-            <View style={styles.dot} />
-            <Text style={styles.text}>NETWORK DISCONNECTED — RETRYING...</Text>
+        <BlurView intensity={30} tint="dark" style={[
+          styles.banner,
+          showReconnected && !isOffline && styles.bannerReconnected
+        ]}>
+            <View style={[
+              styles.dot,
+              showReconnected && !isOffline && styles.dotReconnected
+            ]} />
+            <Text style={[
+              styles.text,
+              showReconnected && !isOffline && styles.textReconnected
+            ]}>
+              {isOffline ? 'No internet connection' : 'Reconnected'}
+            </Text>
         </BlurView>
     </View>
   );
@@ -28,25 +56,32 @@ const styles = StyleSheet.create({
     zIndex: 99999,
   },
   banner: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 77, 109, 0.9)',
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(239,68,68,0.2)',
+  },
+  bannerReconnected: {
+    backgroundColor: 'rgba(0, 255, 148, 0.9)',
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#EF4444',
+    backgroundColor: '#FFFFFF',
+  },
+  dotReconnected: {
+    backgroundColor: '#0D0B1E',
   },
   text: {
-    color: '#EF4444',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 2.5,
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  textReconnected: {
+    color: '#0D0B1E',
   }
 });

@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, Text,
     ActivityIndicator, Linking, Alert, Animated,
-    Dimensions, ScrollView, Image, RefreshControl
+    Dimensions, ScrollView, Image, RefreshControl,
+    AppState
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
@@ -131,6 +132,36 @@ export function DashboardScreen({ navigation }: any) {
     useEffect(() => {
         earningsVal.value = withTiming(todayEarnings, { duration: 900 });
     }, [todayEarnings]);
+
+    // FIX F10: Background kill detection - heartbeat monitoring
+    useEffect(() => {
+        const handleAppStateChange = async (nextAppState: string) => {
+            if (nextAppState === 'background' || nextAppState === 'inactive') {
+                // App going to background - send heartbeat with timestamp
+                if (driver?.is_online) {
+                    await supabase.from('drivers').update({
+                        last_heartbeat_at: new Date().toISOString(),
+                    }).eq('id', driver.id);
+                }
+            }
+        };
+
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+        // Heartbeat every 30 seconds while online
+        const heartbeatInterval = setInterval(async () => {
+            if (driver?.is_online && AppState.currentState === 'active') {
+                await supabase.from('drivers').update({
+                    last_heartbeat_at: new Date().toISOString(),
+                }).eq('id', driver.id);
+            }
+        }, 30000);
+
+        return () => {
+            subscription.remove();
+            clearInterval(heartbeatInterval);
+        };
+    }, [driver?.id, driver?.is_online]);
 
     // Fix 3: System Diagnostics & Recovery
     useEffect(() => {

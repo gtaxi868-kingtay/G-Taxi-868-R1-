@@ -3,6 +3,7 @@ import {
     View, StyleSheet, TouchableOpacity, SafeAreaView,
     ScrollView, Switch, ActivityIndicator, Alert, Dimensions
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -70,6 +71,7 @@ export function AISettingsScreen({ navigation }: any) {
     };
 
     const updatePref = async (key: string, value: any) => {
+        const oldValue = prefs[key as keyof typeof prefs];
         const newPrefs = { ...prefs, [key]: value };
         setPrefs(newPrefs);
         setSaving(true);
@@ -84,6 +86,18 @@ export function AISettingsScreen({ navigation }: any) {
                 });
 
             if (error) throw error;
+
+            // Clear AI cache when re-enabling suggestions (force fresh fetch)
+            if (key === 'ai_suggestions_enabled' && oldValue === false && value === true) {
+                const cacheKey = `ai_insight_cache_${user?.id}`;
+                try {
+                    await AsyncStorage.removeItem(cacheKey);
+                    console.log('[AISettings] Cache cleared - will fetch fresh on next open');
+                } catch (e) {
+                    console.warn('[AISettings] Cache clear failed:', e);
+                }
+            }
+
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (err: any) {
             Alert.alert('Update Failed', err.message);

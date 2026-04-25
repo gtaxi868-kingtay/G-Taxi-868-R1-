@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
-    ScrollView, Dimensions, ActivityIndicator
+    ScrollView, Dimensions, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -52,16 +52,18 @@ export function ProfileScreen({ navigation }: any) {
 
     const fetchProfileStats = useCallback(async () => {
         try {
-            const { data: rides } = await supabase
+            const { data: rides, error: ridesError } = await supabase
                 .from('rides')
                 .select('rating')
                 .eq('rider_id', user?.id)
                 .not('rating', 'is', null);
+            if (ridesError) console.error('[ProfileScreen] rides rating query failed:', ridesError.message);
 
-            const { count } = await supabase
+            const { count, error: countError } = await supabase
                 .from('rides')
                 .select('*', { count: 'exact', head: true })
                 .eq('rider_id', user?.id);
+            if (countError) console.error('[ProfileScreen] rides count query failed:', countError.message);
 
             const joinDate = new Date(user?.created_at || '');
             const memberSince = joinDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -72,7 +74,7 @@ export function ProfileScreen({ navigation }: any) {
 
             setStats({ totalTrips: count || 0, rating: avg, memberSince });
         } catch (err) {
-            console.error(err);
+            console.error('[ProfileScreen] fetchProfileStats error:', err);
         } finally {
             setLoading(false);
         }
@@ -89,18 +91,20 @@ export function ProfileScreen({ navigation }: any) {
     const fetchSubscriptionDetails = async () => {
         try {
             // Get user's tier
-            const { data: profileData } = await supabase
+            const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
                 .select('subscription_tier, subscription_expires_at')
                 .eq('id', user?.id)
                 .single();
+            if (profileError) console.error('[ProfileScreen] profiles query failed:', profileError.message);
             
             // Get tier benefits
-            const { data: benefits } = await supabase
+            const { data: benefits, error: benefitsError } = await supabase
                 .from('subscription_benefits')
                 .select('*')
                 .eq('tier', profileData?.subscription_tier || 'free')
                 .single();
+            if (benefitsError) console.error('[ProfileScreen] subscription_benefits query failed:', benefitsError.message);
             
             setSubscription({
                 tier: profileData?.subscription_tier || 'free',
@@ -108,7 +112,7 @@ export function ProfileScreen({ navigation }: any) {
                 expires_at: profileData?.subscription_expires_at
             });
         } catch (err) {
-            console.warn('Failed to fetch subscription:', err);
+            console.warn('[ProfileScreen] Failed to fetch subscription:', err);
         }
     };
 
@@ -182,7 +186,7 @@ export function ProfileScreen({ navigation }: any) {
                 {/* FIX #2: Subscription Tier Card */}
                 <TouchableOpacity 
                     style={s.subscriptionCard}
-                    onPress={() => navigation.navigate('SubscriptionPlans')}
+                    onPress={() => Alert.alert('Coming Soon', 'Subscription plans launching soon!')}
                     activeOpacity={0.8}
                 >
                     <LinearGradient 

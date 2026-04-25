@@ -25,6 +25,13 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow G-Taxi to access your camera for scanning items.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "@stripe/stripe-react-native",
         {
           "merchantIdentifier": "merchant.com.gtaxi.rider",
@@ -70,7 +77,8 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "allowBackup": false
     },

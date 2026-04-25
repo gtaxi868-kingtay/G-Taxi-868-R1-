@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { BlurView } from 'expo-blur';
@@ -7,16 +7,42 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export function OfflineBanner() {
   const netInfo = useNetInfo();
   const insets = useSafeAreaInsets();
+  const [showReconnected, setShowReconnected] = useState(false);
+
   const isOffline = netInfo.isConnected === false;
 
-  if (!isOffline) return null;
+  useEffect(() => {
+    if (netInfo.isConnected === true && showReconnected === false) {
+      const hasBeenOfflineBefore = netInfo.details !== null;
+      if (hasBeenOfflineBefore) {
+        setShowReconnected(true);
+        const timer = setTimeout(() => {
+          setShowReconnected(false);
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [netInfo.isConnected]);
+
+  if (!isOffline && !showReconnected) return null;
 
   return (
     <View style={[styles.container, { paddingTop: Math.max(0, insets.top) }]}>
-        <BlurView intensity={80} tint="dark" style={styles.banner}>
+        <BlurView intensity={80} tint="dark" style={[
+          styles.banner,
+          showReconnected && !isOffline && styles.bannerReconnected
+        ]}>
             <View style={styles.content}>
-              <View style={styles.dot} />
-              <Text style={styles.text}>NETWORK INTERRUPTED — SURVIVAL MODE ACTIVE</Text>
+              <View style={[
+                styles.dot,
+                showReconnected && !isOffline && styles.dotReconnected
+              ]} />
+              <Text style={[
+                styles.text,
+                showReconnected && !isOffline && styles.textReconnected
+              ]}>
+                {isOffline ? 'No internet connection' : 'Reconnected'}
+              </Text>
             </View>
         </BlurView>
     </View>
@@ -30,10 +56,14 @@ const styles = StyleSheet.create({
     zIndex: 999999, // Absolute top
   },
   banner: {
-    paddingBottom: 12,
-    paddingTop: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(239,68,68,0.3)',
+    backgroundColor: 'rgba(255, 77, 109, 0.9)',
+    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerReconnected: {
+    backgroundColor: 'rgba(0, 255, 148, 0.9)',
   },
   content: {
     flexDirection: 'row',
@@ -42,18 +72,21 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-    shadowColor: '#EF4444',
-    shadowOpacity: 1,
-    shadowRadius: 10,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
+  },
+  dotReconnected: {
+    backgroundColor: '#0D0B1E',
   },
   text: {
-    color: '#EF4444',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 2,
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  textReconnected: {
+    color: '#0D0B1E',
   }
 });

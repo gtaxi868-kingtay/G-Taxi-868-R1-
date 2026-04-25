@@ -61,6 +61,9 @@ export function SearchingDriverScreen({ route, navigation }: any) {
     const [negotiationType, setNegotiationType] = useState<'none' | 'busy'>('none');
     // FIX 7: Track queue state so rider knows they are waiting, not broken
     const [isInQueue, setIsInQueue] = useState(false);
+    // FIX F6: Track driver rejections for toast and auto-retry
+    const [showRejectionToast, setShowRejectionToast] = useState(false);
+    const [rejectionCount, setRejectionCount] = useState(0);
 
     // Reanimated Values
     const radarRadius = useSharedValue(0);
@@ -184,6 +187,27 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                     navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
                 }
             })
+            .subscribe();
+
+        // FIX F6: Watch for driver rejections and auto-retry
+        const offersChannel = supabase.channel(`ride_offers_${rideId}`)
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'ride_offers', filter: `ride_id=eq.${rideId}` },
+                (payload) => {
+                    if (payload.new.status === 'declined') {
+                        setRejectionCount(prev => prev + 1);
+                        setShowRejectionToast(true);
+
+                        // Auto-trigger match_driver after 10 seconds
+                        setTimeout(() => {
+                            supabase.functions.invoke('match_driver', {
+                                body: { ride_id: rideId }
+                            });
+                            setShowRejectionToast(false);
+                        }, 10000);
+                    }
+                }
+            )
             .subscribe();
 
         // Polling fallback (backup path — runs every 3 seconds)
@@ -360,6 +384,16 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                     </TouchableOpacity>
                 </Reanimated.View>
             </View>
+
+            {/* FIX F6: Rejection Toast */}
+            {showRejectionToast && (
+                <View style={s.rejectionToast}>
+                    <Ionicons name="people-outline" size={20} color="#0D0B1E" />
+                    <Text style={s.rejectionToastText}>
+                        Drivers are busy. Expanding search{dots}
+                    </Text>
+                </View>
+            )}
 
             {/* AI NEGOTIATION OVERLAY */}
             {showNegotiation && (
@@ -682,5 +716,21 @@ const s = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         color: COLORS.white,
+    },
+
+    // FIX F6: Rejection Toast
+    rejectionToast: {
+        position: 'absolute',
+        bottom: 200,
+        left: 20, right: 20,
+        backgroundColor: 'rgba(245, 158, 11, 0.95)',
+        paddingVertical: 16, paddingHorizontal: 20,
+        borderRadius: 16,
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        zIndex: 100,
+    },
+    rejectionToastText: {
+        color: '#0D0B1E',
+        fontSize: 14, fontWeight: '700', flex: 1,
     },
 });

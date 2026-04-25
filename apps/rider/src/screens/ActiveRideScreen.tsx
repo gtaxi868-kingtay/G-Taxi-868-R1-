@@ -113,14 +113,19 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     const [driverLocation, setDriverLocation] = useState<any>(null);
     const [isSosLoading, setIsSosLoading] = useState(false);
     const [aiInsight, setAiInsight] = useState<string | null>("I'm monitoring your ride security and wait-time.");
+    const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
     const [musicModalVisible, setMusicModalVisible] = useState(false);
     const [musicUrl, setMusicUrl] = useState('');
     const [isMusicLoading, setIsMusicLoading] = useState(false);
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
 
     const driverChannelRef = useRef<any>(null);
+    const lastLocationUpdateRef = useRef<number>(Date.now());
+    const [signalStatus, setSignalStatus] = useState<'ok' | 'stale' | 'lost'>('ok');
+    const signalCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const { rideUpdate: updatedRide } = useRideSubscription(rideId);
+    const hasArrivalNotifiedRef = useRef(false);
 
     const sosPulse = useSharedValue(1);
     const statusOpacity = useSharedValue(0);
@@ -169,6 +174,26 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             return () => locationSub.remove();
         })();
 
+    // Signal staleness check
+    useEffect(() => {
+        if (!driver) return;
+
+        signalCheckIntervalRef.current = setInterval(() => {
+            const elapsed = Date.now() - lastLocationUpdateRef.current;
+
+            if (elapsed > 180000 && signalStatus !== 'lost') {
+                setSignalStatus('lost');
+            } else if (elapsed > 30000 && signalStatus === 'ok') {
+                setSignalStatus('stale');
+                console.log('DRIVER SIGNAL: Stale - no update for 30s');
+            }
+        }, 15000);
+
+        return () => {
+            if (signalCheckIntervalRef.current) clearInterval(signalCheckIntervalRef.current);
+        };
+    }, [driver, signalStatus]);
+
         const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
             // Allow navigation if the ride is actually finished
             if (ride?.status === 'completed' || ride?.status === 'closed' || ride?.status === 'cancelled') {
@@ -210,12 +235,42 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             } else if (updatedRide.status === 'cancelled') {
                 Alert.alert('Ride Cancelled', 'The driver had to cancel this trip.');
                 navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+            } else if (updatedRide.status === 'arrived' && !hasArrivalNotifiedRef.current) {
+                // FIX F7: Driver arrival notification
+                hasArrivalNotifiedRef.current = true;
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                // Burst haptics
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                    }, i * 300);
+                }
+                Alert.alert(
+                    "Your driver has arrived! 🚖",
+                    `${driver?.name || 'Your driver'} is waiting at the pickup location.`,
+                    [{ text: "OK", style: "default" }]
+                );
             }
         }
     }, [updatedRide]);
 
+    // Fetch AI preferences on mount
     useEffect(() => {
-        if (ride?.status !== 'in_progress') return;
+        const fetchAiPrefs = async () => {
+            const { data } = await supabase
+                .from('rider_ai_preferences')
+                .select('ai_suggestions_enabled')
+                .eq('user_id', ride?.rider_id)
+                .maybeSingle();
+            if (data && data.ai_suggestions_enabled === false) {
+                setAiSuggestionsEnabled(false);
+            }
+        };
+        fetchAiPrefs();
+    }, [ride?.rider_id]);
+
+    useEffect(() => {
+        if (ride?.status !== 'in_progress' || !aiSuggestionsEnabled) return;
 
         const pollAi = async () => {
             try {
@@ -240,10 +295,54 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
         pollAi();
         
         return () => clearInterval(interval);
-    }, [ride?.status, location]);
+    }, [ride?.status, location, aiSuggestionsEnabled]);
+
+    const openWhatsAppSupport = () => {
+        Linking.openURL('https://wa.me/18681234567?text=I+need+help+with+my+ride');
+    };
+
+    const handleCancelRide = () => {
+        const feeApplies = ride?.status === 'assigned' || ride?.status === 'arrived';
+
+        if (feeApplies) {
+            Alert.alert(
+                "Cancel this ride?",
+                "Your driver has already accepted.\nA TTD 10.00 cancellation fee will apply.",
+                [
+                    { text: "Keep My Ride", style: "cancel" },
+                    { text: "Cancel Anyway", style: "destructive", onPress: executeCancelRide }
+                ]
+            );
+        } else {
+            Alert.alert(
+                "Cancel this ride?",
+                "Are you sure you want to cancel?",
+                [
+                    { text: "No", style: "cancel" },
+                    { text: "Yes, Cancel", style: "destructive", onPress: executeCancelRide }
+                ]
+            );
+        }
+    };
+
+    const executeCancelRide = async () => {
+        try {
+            const { data, error } = await supabase.functions.invoke('cancel_ride', {
+                body: { ride_id: rideId }
+            });
+
+            if (error) throw error;
+
+            Alert.alert("Ride Cancelled", "Your ride has been cancelled.");
+            navigation.replace('Home');
+        } catch (err) {
+            console.error('Cancel failed:', err);
+            Alert.alert("Error", "Could not cancel ride. Please try again.");
+        }
+    };
 
     const fetchInitialData = async () => {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('rides')
             .select(`
                 *,
@@ -254,6 +353,12 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             .eq('id', rideId)
             .single();
 
+        if (error) {
+            console.error('[ActiveRideScreen] rides query failed:', error.message);
+            Alert.alert("Error", "Could not load ride details. Please try again.");
+            return;
+        }
+
         if (data) {
             setRide(data);
             setDriver(data.driver);
@@ -262,6 +367,11 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             driverChannelRef.current = supabase.channel(`driver_loc_${data.driver?.id}`)
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${data.driver?.id}` }, (payload) => {
                     setDriverLocation({ latitude: payload.new.lat, longitude: payload.new.lng });
+                    lastLocationUpdateRef.current = Date.now();
+                    if (signalStatus !== 'ok') {
+                        setSignalStatus('ok');
+                        console.log('DRIVER SIGNAL: Restored');
+                    }
                 })
                 .subscribe();
         }
@@ -338,13 +448,43 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             {
                 text: "TRIGGER", style: "destructive", onPress: async () => {
                     setIsSosLoading(true);
-                    if (rideId) {
-                        await supabase.functions.invoke('trigger_emergency', { body: { ride_id: rideId } });
-                        Alert.alert("Success", "Security notified.");
-                    } else {
-                        Alert.alert("Error", "No active ride found to trigger SOS.");
+
+                    try {
+                        // FIX F9: Try G-Taxi emergency system first
+                        if (rideId) {
+                            const { data, error } = await supabase.functions.invoke('trigger_emergency', {
+                                body: { ride_id: rideId }
+                            });
+
+                            if (error) throw error;
+
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            Alert.alert("Emergency Triggered", "Security team notified. Help is on the way.");
+                        } else {
+                            throw new Error("No active ride found");
+                        }
+                    } catch (err) {
+                        console.error("SOS failed:", err);
+
+                        // FIX F9: FALLBACK to direct emergency dial
+                        Alert.alert(
+                            "Emergency Services",
+                            "G-Taxi emergency system unavailable. Call emergency services directly?",
+                            [
+                                { text: "Cancel", style: "cancel" },
+                                {
+                                    text: "CALL 999", style: "destructive",
+                                    onPress: () => Linking.openURL('tel:999')
+                                },
+                                {
+                                    text: "WhatsApp Support", style: "default",
+                                    onPress: () => Linking.openURL('https://wa.me/18681234567?text=EMERGENCY')
+                                }
+                            ]
+                        );
+                    } finally {
+                        setIsSosLoading(false);
                     }
-                    setIsSosLoading(false);
                 }
             }
         ]);
@@ -422,6 +562,33 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                     }} />
                 </Marker>
             </MapView>
+
+            {signalStatus === 'stale' && (
+                <View style={[s.signalBanner, { top: insets.top + 60 }]}>
+                    <Ionicons name="cellular-outline" size={16} color="#0D0B1E" />
+                    <Text style={s.signalBannerText}>
+                        Driver signal temporarily lost. Last position shown.
+                    </Text>
+                </View>
+            )}
+
+            {signalStatus === 'lost' && (
+                <View style={[s.signalBannerLost, { top: insets.top + 60 }]}>
+                    <Ionicons name="warning" size={20} color={COLORS.white} />
+                    <Text style={s.signalBannerLostText}>
+                        We've lost contact with your driver.{'\n'}
+                        Your trip is still active.
+                    </Text>
+                    <View style={s.signalButtons}>
+                        <TouchableOpacity style={s.signalBtnPrimary} onPress={() => navigation.navigate('Chat', { rideId })}>
+                            <Text style={s.signalBtnPrimaryText}>Contact Driver</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={s.signalBtnSecondary} onPress={openWhatsAppSupport}>
+                            <Text style={s.signalBtnSecondaryText}>Call Support</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
 
             {/* Status Badge - Top Center */}
             <Reanimated.View style={[s.statusBubble, statusStyle, { top: insets.top + 12 }]}>
@@ -566,6 +733,13 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         <TouchableOpacity style={s.callBtn} onPress={() => driver?.phone_number && Linking.openURL(`tel:${driver.phone_number}`)}>
                             <Ionicons name="call" size={20} color={COLORS.purple} />
                             <Text style={s.callLabel}>Voice Call</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[s.msgBtn, { marginLeft: 8, borderColor: COLORS.error }]}
+                            onPress={handleCancelRide}
+                        >
+                            <Ionicons name="close-circle" size={20} color={COLORS.error} />
                         </TouchableOpacity>
                     </View>
                 </BlurView>
@@ -967,17 +1141,81 @@ const s = StyleSheet.create({
         justifyContent: 'center',
         borderRadius: 14,
     },
-    modalConfirm: { 
-        flex: 2, 
-        height: 50, 
-        backgroundColor: COLORS.purple, 
-        borderRadius: 14, 
-        alignItems: 'center', 
+    modalConfirm: {
+        flex: 2,
+        height: 50,
+        backgroundColor: COLORS.purple,
+        borderRadius: 14,
+        alignItems: 'center',
         justifyContent: 'center',
         shadowColor: COLORS.purple,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 4,
+    },
+
+    signalBanner: {
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        backgroundColor: 'rgba(245, 158, 11, 0.9)',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        zIndex: 100,
+    },
+    signalBannerText: {
+        color: '#0D0B1E',
+        fontSize: 13,
+        fontWeight: '700',
+        flex: 1,
+    },
+    signalBannerLost: {
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        backgroundColor: 'rgba(239, 68, 68, 0.95)',
+        padding: 20,
+        borderRadius: 16,
+        alignItems: 'center',
+        zIndex: 100,
+    },
+    signalBannerLostText: {
+        color: COLORS.white,
+        fontSize: 14,
+        fontWeight: '700',
+        textAlign: 'center',
+        marginBottom: 16,
+        lineHeight: 20,
+    },
+    signalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    signalBtnPrimary: {
+        backgroundColor: COLORS.white,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+    },
+    signalBtnPrimaryText: {
+        color: '#EF4444',
+        fontSize: 14,
+        fontWeight: '800',
+    },
+    signalBtnSecondary: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+    },
+    signalBtnSecondaryText: {
+        color: COLORS.white,
+        fontSize: 14,
+        fontWeight: '700',
     },
 });

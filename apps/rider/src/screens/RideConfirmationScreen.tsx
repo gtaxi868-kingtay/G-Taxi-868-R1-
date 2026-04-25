@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-    Alert, ScrollView, Dimensions, Platform
+    Alert, ScrollView, Dimensions, Platform, Linking
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -73,6 +73,11 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const [multiplier, setMultiplier] = useState(1.0);
     const [confirming, setConfirming] = useState(false);
     const [walletBalance, setWalletBalance] = useState<number>(0);
+
+    const [requestStatus, setRequestStatus] = useState<'idle' | 'connecting' | 'still_trying' | 'failed'>('idle');
+    const [retryCount, setRetryCount] = useState(0);
+    const requestTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [stopSuggestions, setStopSuggestions] = useState<StopSuggestion[]>([]);
     const [selectedStops, setSelectedStops] = useState<StopSuggestion[]>([]);
@@ -150,6 +155,27 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const handleConfirm = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setConfirming(true);
+        setRequestStatus('connecting');
+
+        if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
+        if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+
+        requestTimeoutRef.current = setTimeout(() => {
+            setRequestStatus('still_trying');
+        }, 5000);
+
+        retryTimeoutRef.current = setTimeout(() => {
+            if (retryCount === 0) {
+                console.log('RIDE REQUEST: Auto-retrying after 10s');
+                setRetryCount(1);
+                executeRideRequest();
+            }
+        }, 10000);
+
+        await executeRideRequest();
+    };
+
+    const executeRideRequest = async () => {
         try {
             const res = await createRide({
                 pickup_lat: pickupLoc.latitude,
@@ -172,19 +198,47 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             });
 
             if (res.success && res.data) {
+                if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
+                if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+                setRequestStatus('idle');
+                setRetryCount(0);
                 navigation.replace('SearchingDriver', {
                     rideId: res.data.ride_id,
                     destination,
                     fare: { ...fare, total_fare_cents: displayFareCents },
                     pickup: pickupLoc
                 });
+            } else {
+                throw new Error(res.error || 'Failed to create ride');
             }
-        } catch (err) {
-            Alert.alert("Error", "Failed to book ride");
-        } finally {
-            setConfirming(false);
+        } catch (err: any) {
+            console.error('Ride request failed:', err);
+            if (retryCount >= 1) {
+                setRequestStatus('failed');
+                setConfirming(false);
+            } else {
+                setRequestStatus('still_trying');
+            }
         }
     };
+
+    const handleRetry = () => {
+        setRetryCount(0);
+        setRequestStatus('idle');
+        handleConfirm();
+    };
+
+    const openWhatsAppFallback = () => {
+        const message = encodeURIComponent(`I need a ride from ${pickupLoc.address} to ${destination.address}`);
+        Linking.openURL(`https://wa.me/18681234567?text=${message}`);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
+            if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+        };
+    }, []);
 
     const STOP_CONVENIENCE_FEE_TTD = 5.00;
     const WAIT_RATE_PER_MIN = 0.855;
@@ -327,13 +381,33 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             <Text style={s.identityText}>G-TAXI IDENTITY SHIELD ACTIVE</Text>
                         </View>
 
+                        {requestStatus === 'still_trying' && (
+                            <View style={s.statusBanner}>
+                                <Text style={s.statusTextAmber}>Still connecting... please wait</Text>
+                            </View>
+                        )}
+
+                        {requestStatus === 'failed' && (
+                            <View style={s.failureContainer}>
+                                <Text style={s.failureTitle}>We're having trouble connecting right now.</Text>
+                                <View style={s.failureButtons}>
+                                    <TouchableOpacity style={s.retryBtn} onPress={handleRetry}>
+                                        <Text style={s.retryBtnText}>Try Again</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={s.whatsappBtn} onPress={openWhatsAppFallback}>
+                                        <Text style={s.whatsappBtnText}>Contact via WhatsApp</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+
                         <TouchableOpacity
                             style={[s.confirmBtn, confirming && { opacity: 0.7 }]}
                             onPress={handleConfirm}
                             disabled={confirming}
                         >
-                            <LinearGradient 
-                                colors={[COLORS.purple, COLORS.cyan]} 
+                            <LinearGradient
+                                colors={[COLORS.purple, COLORS.cyan]}
                                 style={s.btnGradient}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
@@ -397,4 +471,62 @@ const s = StyleSheet.create({
     confirmBtnText: { fontSize: 16, fontWeight: '900', color: COLORS.white, letterSpacing: 0.5 },
     markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: COLORS.cyan, borderWidth: 2, borderColor: COLORS.white },
     markerDropoff: { width: 14, height: 14, borderRadius: 7, backgroundColor: COLORS.purple, borderWidth: 2, borderColor: COLORS.white },
+
+    statusBanner: {
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+        alignItems: 'center'
+    },
+    statusTextAmber: {
+        color: '#F59E0B',
+        fontSize: 14,
+        fontWeight: '700'
+    },
+    failureContainer: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        padding: 20,
+        borderRadius: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.3)',
+        alignItems: 'center'
+    },
+    failureTitle: {
+        color: COLORS.white,
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 16,
+        textAlign: 'center'
+    },
+    failureButtons: {
+        flexDirection: 'row',
+        gap: 12
+    },
+    retryBtn: {
+        backgroundColor: COLORS.purple,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 12
+    },
+    retryBtnText: {
+        color: COLORS.white,
+        fontSize: 14,
+        fontWeight: '800'
+    },
+    whatsappBtn: {
+        backgroundColor: '#25D366',
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderRadius: 12
+    },
+    whatsappBtnText: {
+        color: COLORS.white,
+        fontSize: 14,
+        fontWeight: '800'
+    }
 });

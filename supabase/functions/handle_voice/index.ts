@@ -1,13 +1,13 @@
 // Supabase Edge Function: handle_voice
 // Processes natural language voice commands to extract intent and target locations
-// UPGRADED TO USE LIVE GEMINI 1.5 FLASH
+// UPGRADED TO USE GROQ LLAMA 3.3 70B
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,8 +44,8 @@ serve(async (req: Request) => {
     const merchantsContext = (serviceHistory || []).map((h: any) => h.merchants?.name ? `${h.merchants.name} (Address: ${h.merchants.address})` : '').filter(Boolean).join(", ");
     const availableMerchants = (serviceHistory || []).map((h: any) => h.merchants).filter(Boolean);
 
-    // 2. Call Gemini for Intent Extraction
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // 2. Call Groq (Llama 3.3 70B) for Intent Extraction
+    const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
     
     const prompt = `
       User Command: "${text}"
@@ -72,16 +72,22 @@ serve(async (req: Request) => {
       Respond in plain JSON only.
     `;
 
-    const response = await fetch(geminiUrl, {
+    const response = await fetch(groqUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json' 
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 500,
+        temperature: 0.7
       })
     });
 
-    const geminiData = await response.json();
-    let aiText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const groqData = await response.json();
+    let aiText = groqData.choices?.[0]?.message?.content || "{}";
     aiText = aiText.replace(/```json|```/g, "").trim();
     
     const aiResult = JSON.parse(aiText);

@@ -55,19 +55,27 @@ export function WalletScreen({ navigation }: any) {
         setLoading(true);
         try {
             // BUG_FIX: Ensure wallet_balance is fetched correctly
-            const { data: balData } = await supabase.rpc('get_wallet_balance', { p_user_id: user?.id });
-            const realBal = (balData || 0) / 100;
-            setBalance(realBal);
-            animatedBalance.value = withTiming(realBal, { duration: 1500 });
+            const { data: balData, error: balError } = await supabase.rpc('get_wallet_balance', { p_user_id: user?.id });
+            if (balError) {
+                console.error('[WalletScreen] get_wallet_balance failed:', balError.message);
+            } else {
+                const realBal = (balData || 0) / 100;
+                setBalance(realBal);
+                animatedBalance.value = withTiming(realBal, { duration: 1500 });
+            }
 
-            const { data: txData } = await supabase
+            const { data: txData, error: txError } = await supabase
                 .from('wallet_transactions')
                 .select('*')
                 .eq('user_id', user?.id)
                 .order('created_at', { ascending: false })
                 .limit(20);
 
-            if (txData) setTransactions(txData);
+            if (txError) {
+                console.error('[WalletScreen] wallet_transactions query failed:', txError.message);
+            } else if (txData) {
+                setTransactions(txData);
+            }
         } catch (err) {
             console.error(err);
             Alert.alert("Sync Issue", "Could not securely fetch your wallet balance. Pull down to refresh.");
@@ -159,11 +167,15 @@ export function WalletScreen({ navigation }: any) {
                                 </View>
                                 <Txt variant="caption" weight="heavy" color="#FFF" style={{ marginTop: 12 }}>ADD FUNDS</Txt>
                             </TouchableOpacity>
-                            <TouchableOpacity style={s.actionBtn} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
+                            <TouchableOpacity style={s.actionBtn} onPress={() => Alert.alert(
+                                'Withdraw Funds',
+                                'Withdrawals are processed within 2 business days. Contact support to request a withdrawal.',
+                                [{ text: 'OK' }]
+                            )}>
                                 <View style={s.actionIcon}><Ionicons name="swap-horizontal" size={22} color="rgba(255,255,255,0.6)" /></View>
-                                <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>TRANSFER</Txt>
+                                <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>WITHDRAW</Txt>
                             </TouchableOpacity>
-                            <TouchableOpacity style={s.actionBtn} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
+                            <TouchableOpacity style={s.actionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Trips'); }}>
                                 <View style={s.actionIcon}><Ionicons name="list" size={22} color="rgba(255,255,255,0.6)" /></View>
                                 <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>HISTORY</Txt>
                             </TouchableOpacity>

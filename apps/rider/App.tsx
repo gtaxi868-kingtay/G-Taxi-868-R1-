@@ -61,28 +61,10 @@ const queryClient = new QueryClient();
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 const isWeb = Platform.OS === 'web';
 
-// Safe dynamic providers
-let StripeProvider: any = ({ children }: any) => <>{children}</>;
-let Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
-
-if (!isExpoGo && !isWeb) {
-    try {
-        Sentry = require('@sentry/react-native');
-        const { StripeProvider: StripeProv } = require('@stripe/stripe-react-native');
-        StripeProvider = StripeProv;
-
-        try {
-            Sentry.init({
-                dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder-dsn@sentry.io/0',
-                enabled: false, // DISABLED until Phase 10
-            });
-        } catch (e) {
-            console.log('Sentry init skipped:', e);
-        }
-    } catch (e) {
-        console.warn('Stripe failed to load in non-expo-go env', e);
-    }
-}
+// Safe dynamic providers - DISABLED in release builds to prevent Metro bundler issues
+// Sentry and Stripe will be enabled in Phase 10
+const StripeProvider: any = ({ children }: any) => <>{children}</>;
+const Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
 
 // Auth screens (for logged-out users)
 function AuthNavigator() {
@@ -162,6 +144,23 @@ function RootNavigator() {
     return user ? <RideProvider><AppNavigator /></RideProvider> : <AuthNavigator />;
 }
 
+// FIX 5: Deep link handling for QR codes
+const linking = {
+  prefixes: ['gtaxi://'],
+  config: {
+    screens: {
+      Home: {
+        path: 'request',
+        parse: {
+          lat: (lat: string) => parseFloat(lat),
+          lng: (lng: string) => parseFloat(lng),
+          stand: (stand: string) => stand,
+        }
+      }
+    }
+  }
+};
+
 function App() {
     React.useEffect(() => {
         OutboxService.getInstance().processQueue();
@@ -174,7 +173,7 @@ function App() {
                     <ErrorBoundary>
                         <View style={{ flex: 1 }}>
                             <OfflineBanner />
-                            <NavigationContainer>
+                            <NavigationContainer linking={linking}>
                                 <StatusBar style="light" />
                                 <RootNavigator />
                             </NavigationContainer>

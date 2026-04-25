@@ -51,6 +51,10 @@ export function PaymentScreen({ navigation, route }: any) {
     const [loading, setLoading] = useState(false);
     const [userId, setUserId] = useState('');
     const isProcessingRef = useRef(false);
+    // FIX F8: Payment retry state
+    const [showPaymentRetry, setShowPaymentRetry] = useState(false);
+    const [paymentAttempts, setPaymentAttempts] = useState(0);
+    const MAX_PAYMENT_ATTEMPTS = 3;
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? ""));
@@ -105,7 +109,28 @@ export function PaymentScreen({ navigation, route }: any) {
 
             const { error: presentError } = await stripe.presentPaymentSheet();
             if (presentError && presentError.code !== 'Canceled') {
-                Alert.alert('Payment Failed', presentError.message);
+                // FIX F8: Payment retry logic
+                const attempts = paymentAttempts + 1;
+                setPaymentAttempts(attempts);
+
+                if (attempts < MAX_PAYMENT_ATTEMPTS) {
+                    setShowPaymentRetry(true);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                    setTimeout(() => {
+                        setShowPaymentRetry(false);
+                        isProcessingRef.current = false;
+                        handleCardPayment();
+                    }, 3000);
+                } else {
+                    Alert.alert(
+                        'Payment Failed',
+                        'Multiple attempts failed. Try a different method or contact support.',
+                        [
+                            { text: 'Try Again', onPress: () => { setPaymentAttempts(0); isProcessingRef.current = false; handleCardPayment(); }},
+                            { text: 'Use Cash', onPress: () => { setSelected('cash'); navigation.goBack(); }}
+                        ]
+                    );
+                }
                 return;
             }
 
@@ -119,7 +144,7 @@ export function PaymentScreen({ navigation, route }: any) {
             setLoading(false);
             isProcessingRef.current = false;
         }
-    }, [rideId, userId, stripe, navigation, isExpoGo]);
+    }, [rideId, userId, stripe, navigation, isExpoGo, paymentAttempts]);
 
     const handleConfirm = async () => {
         if (selected === 'card') {
@@ -197,6 +222,16 @@ export function PaymentScreen({ navigation, route }: any) {
                 )}
 
             </ScrollView>
+
+            {/* FIX F8: Payment Retry Toast */}
+            {showPaymentRetry && (
+                <View style={s.retryToast}>
+                    <ActivityIndicator size="small" color="#0D0B1E" style={{ marginRight: 12 }} />
+                    <Txt variant="bodyBold" color="#0D0B1E">
+                        Retrying payment... (Attempt {paymentAttempts + 1}/{MAX_PAYMENT_ATTEMPTS})
+                    </Txt>
+                </View>
+            )}
         </View>
     );
 }
@@ -220,4 +255,16 @@ const s = StyleSheet.create({
     securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 32 },
     payBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 40 },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+    // FIX F8: Payment Retry Toast
+    retryToast: {
+        position: 'absolute',
+        bottom: 100,
+        left: 20, right: 20,
+        backgroundColor: 'rgba(245, 158, 11, 0.95)',
+        paddingVertical: 16, paddingHorizontal: 20,
+        borderRadius: 16,
+        flexDirection: 'row', alignItems: 'center',
+        zIndex: 100,
+    },
 });

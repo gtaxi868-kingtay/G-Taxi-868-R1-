@@ -45,6 +45,7 @@ const COLORS = {
     glassBorder: 'rgba(123,92,240,0.3)',
     success: '#00FF94',
     error: '#FF4D6D',
+    warning: '#F59E0B',
 };
 
 // Custom Dark Map Style for Blueberry Luxe
@@ -64,7 +65,7 @@ import { SavedPlaceModal } from '../components/SavedPlaceModal';
 import { RecentRidesModal } from '../components/RecentRidesModal';
 import { formatTTDDollars } from '../utils/currency';
 
-export function HomeScreen({ navigation }: any) {
+export function HomeScreen({ navigation, route }: any) {
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
 
@@ -82,7 +83,9 @@ export function HomeScreen({ navigation }: any) {
     const [proactiveAction, setProactiveAction] = useState<string | null>(null);
     const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
     const [visionLoading, setVisionLoading] = useState(false);
-    
+    const [showLocationConfirm, setShowLocationConfirm] = useState(false);
+    const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+
     // FIX #1: Fare Estimate - show upfront fare before ride request
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
@@ -95,7 +98,11 @@ export function HomeScreen({ navigation }: any) {
         // 0. SECONDARY ACTIVE RIDE GUARD (Fail-safe)
         const checkActive = async () => {
             try {
-                const { data } = await supabase.functions.invoke('get_active_ride');
+                const { data, error } = await supabase.functions.invoke('get_active_ride');
+                if (error) {
+                    console.error('[HomeScreen] get_active_ride failed:', error.message);
+                    return;
+                }
                 if (data?.success && data?.data?.ride_id) {
                     console.log('[Phase 3] Active ride detected. Hardening navigation...');
                     navigation.replace('ActiveRide', { 
@@ -109,11 +116,25 @@ export function HomeScreen({ navigation }: any) {
         };
         checkActive();
 
+        // FIX 5: Handle QR deep link params
+        const { lat, lng, stand } = route?.params || {};
+        if (lat && lng) {
+            console.log('QR DEEP LINK: Stand', stand, 'at', lat, lng);
+            setLocation({
+                coords: {
+                    latitude: lat,
+                    longitude: lng,
+                    accuracy: 10,
+                }
+            } as any);
+        }
+
         (async () => {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status === 'granted') {
                 const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
                 setLocation(current);
+                setLocationAccuracy(current.coords.accuracy || null);
             }
         })();
 
@@ -175,11 +196,15 @@ export function HomeScreen({ navigation }: any) {
         // --- AI PREFERENCE FETCH ---
         const fetchAiPrefs = async () => {
             if (!profile?.id) return;
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('rider_ai_preferences')
                 .select('ai_suggestions_enabled')
                 .eq('user_id', profile.id)
                 .maybeSingle();
+            if (error) {
+                console.error('[HomeScreen] rider_ai_preferences query failed:', error.message);
+                return;
+            }
             if (data && data.ai_suggestions_enabled === false) {
                 setAiSuggestionsEnabled(false);
             }
@@ -649,7 +674,16 @@ export function HomeScreen({ navigation }: any) {
                             style={s.searchBarContainer}
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng } });
+
+                                const accuracy = location?.coords?.accuracy;
+                                if (accuracy && accuracy > 50) {
+                                    setLocationAccuracy(accuracy);
+                                    setShowLocationConfirm(true);
+                                } else {
+                                    navigation.navigate('DestinationSearch', {
+                                        currentLocation: { latitude: currentLat, longitude: currentLng }
+                                    });
+                                }
                             }}
                         >
                             <View style={s.searchBarInner}>
@@ -832,6 +866,70 @@ export function HomeScreen({ navigation }: any) {
                     }
                     return null;
                 })()
+            )}
+
+            {showLocationConfirm && (
+                <View style={[StyleSheet.absoluteFill, s.locationConfirmOverlay]}>
+                    <BlurView intensity={40} tint="dark" style={s.locationConfirmBlur}>
+                        <View style={s.locationConfirmCard}>
+                            <Ionicons name="location-outline" size={48} color={COLORS.warning} style={{ marginBottom: 16 }} />
+                            <Text style={s.locationConfirmTitle}>Your location may not be precise</Text>
+                            <Text style={s.locationConfirmSubtitle}>
+                                GPS accuracy: {Math.round(locationAccuracy || 0)} meters.{'\n'}
+                                Is this pin in the right place?
+                            </Text>
+
+                            <View style={s.miniMapContainer}>
+                                <MapView
+                                    style={s.miniMap}
+                                    region={{
+                                        latitude: currentLat,
+                                        longitude: currentLng,
+                                        latitudeDelta: 0.005,
+                                        longitudeDelta: 0.005,
+                                    }}
+                                    customMapStyle={DARK_MAP_STYLE}
+                                    scrollEnabled={false}
+                                    zoomEnabled={false}
+                                >
+                                    <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
+                                        <View style={s.accuracyPin}>
+                                            <View style={[s.accuracyRing, { width: Math.min((locationAccuracy || 50), 200), height: Math.min((locationAccuracy || 50), 200) }]} />
+                                            <View style={s.accuracyDot} />
+                                        </View>
+                                    </Marker>
+                                </MapView>
+                            </View>
+
+                            <View style={s.locationConfirmButtons}>
+                                <TouchableOpacity
+                                    style={s.locationConfirmBtnSecondary}
+                                    onPress={() => {
+                                        setShowLocationConfirm(false);
+                                        navigation.navigate('DestinationSearch', {
+                                            currentLocation: { latitude: currentLat, longitude: currentLng },
+                                            editPickupMode: true
+                                        });
+                                    }}
+                                >
+                                    <Text style={s.locationConfirmBtnSecondaryText}>Move the pin</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={s.locationConfirmBtnPrimary}
+                                    onPress={() => {
+                                        setShowLocationConfirm(false);
+                                        navigation.navigate('DestinationSearch', {
+                                            currentLocation: { latitude: currentLat, longitude: currentLng }
+                                        });
+                                    }}
+                                >
+                                    <Text style={s.locationConfirmBtnPrimaryText}>Yes, this is right</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </BlurView>
+                </View>
             )}
         </View>
     );
@@ -1293,5 +1391,97 @@ const s = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         color: COLORS.white,
+    },
+
+    locationConfirmOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 99999,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.7)',
+    },
+    locationConfirmBlur: {
+        width: width - 40,
+        borderRadius: 24,
+        overflow: 'hidden',
+    },
+    locationConfirmCard: {
+        padding: 24,
+        alignItems: 'center',
+    },
+    locationConfirmTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: COLORS.white,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    locationConfirmSubtitle: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        marginBottom: 20,
+        textAlign: 'center',
+        lineHeight: 20,
+    },
+    miniMapContainer: {
+        width: '100%',
+        height: 180,
+        borderRadius: 16,
+        overflow: 'hidden',
+        marginBottom: 20,
+        borderWidth: 2,
+        borderColor: COLORS.warning,
+    },
+    miniMap: {
+        width: '100%',
+        height: '100%',
+    },
+    accuracyPin: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    accuracyRing: {
+        borderRadius: 1000,
+        borderWidth: 2,
+        borderColor: 'rgba(245, 158, 11, 0.4)',
+        position: 'absolute',
+    },
+    accuracyDot: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: COLORS.warning,
+        borderWidth: 3,
+        borderColor: COLORS.white,
+    },
+    locationConfirmButtons: {
+        width: '100%',
+        gap: 12,
+    },
+    locationConfirmBtnPrimary: {
+        backgroundColor: COLORS.success,
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        borderRadius: 16,
+        alignItems: 'center',
+    },
+    locationConfirmBtnPrimaryText: {
+        color: '#0D0B1E',
+        fontSize: 16,
+        fontWeight: '800',
+    },
+    locationConfirmBtnSecondary: {
+        backgroundColor: COLORS.glassBg,
+        paddingVertical: 16,
+        paddingHorizontal: 24,
+        borderRadius: 16,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.glassBorder,
+    },
+    locationConfirmBtnSecondaryText: {
+        color: COLORS.white,
+        fontSize: 16,
+        fontWeight: '700',
     },
 });

@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,7 +44,7 @@ serve(async (req) => {
     const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
     const trafficContext = isRushHour ? "EXPECT HEAVY TRAFFIC. Rush hour patterns detected on Highway/Main Road." : "Traffic flowing normally.";
 
-    // 3. Query Gemini for a PROACTIVE suggestion
+    // 3. Query Groq (Llama 3.3 70B) for a PROACTIVE suggestion
     const prompt = `
       You are G-TAXI AI, a premium logistics concierge for Trinidad & Tobago.
       Rider: ${ride.rider?.full_name || 'Guest'}
@@ -59,17 +59,22 @@ serve(async (req) => {
       - Format: "AI SIGHT: [Message]".
     `;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json" 
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 50 }
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 50,
+        temperature: 0.7
       })
     });
 
-    const geminiData = await response.json();
-    const suggestion = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "Enjoy your journey with G-Taxi.";
+    const groqData = await response.json();
+    const suggestion = groqData.choices?.[0]?.message?.content || "Enjoy your journey with G-Taxi.";
 
     return new Response(JSON.stringify({ suggestion }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

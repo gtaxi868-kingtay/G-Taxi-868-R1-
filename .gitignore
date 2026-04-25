@@ -41,3 +41,4 @@ coverage/
 
 # [Sentry]
 .sentry-debug-files
+apps/rider/build-*.apk
