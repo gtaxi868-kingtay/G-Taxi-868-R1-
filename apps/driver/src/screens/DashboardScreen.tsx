@@ -445,7 +445,7 @@ export function DashboardScreen({ navigation }: any) {
                 </Text>
                 <TouchableOpacity
                     style={[s.solidBtn, { backgroundColor: COLORS.error, width: '100%' }]}
-                    onPress={() => Linking.openURL('https://wa.me/18685550100?text=I need to settle my G-Taxi commission balance.')}
+                    onPress={() => Linking.openURL('https://wa.me/18687031000?text=I need to settle my G-Taxi commission balance.')}
                 >
                     <Ionicons name="logo-whatsapp" size={20} color="#FFF" />
                     <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF' }}> SETTLE BALANCE NOW</Text>

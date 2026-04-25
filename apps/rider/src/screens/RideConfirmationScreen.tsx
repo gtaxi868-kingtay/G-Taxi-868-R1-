@@ -230,7 +230,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
     const openWhatsAppFallback = () => {
         const message = encodeURIComponent(`I need a ride from ${pickupLoc.address} to ${destination.address}`);
-        Linking.openURL(`https://wa.me/18681234567?text=${message}`);
+        Linking.openURL(`https://wa.me/18687031000?text=${message}`);
     };
 
     useEffect(() => {

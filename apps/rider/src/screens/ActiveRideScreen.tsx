@@ -298,7 +298,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     }, [ride?.status, location, aiSuggestionsEnabled]);
 
     const openWhatsAppSupport = () => {
-        Linking.openURL('https://wa.me/18681234567?text=I+need+help+with+my+ride');
+        Linking.openURL('https://wa.me/18687031000?text=I+need+help+with+my+ride');
     };
 
     const handleCancelRide = () => {
@@ -478,7 +478,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                                 },
                                 {
                                     text: "WhatsApp Support", style: "default",
-                                    onPress: () => Linking.openURL('https://wa.me/18681234567?text=EMERGENCY')
+                                    onPress: () => Linking.openURL('https://wa.me/18687031000?text=EMERGENCY')
                                 }
                             ]
                         );

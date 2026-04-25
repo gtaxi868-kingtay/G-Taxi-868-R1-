@@ -249,7 +249,7 @@ export function WalletScreen({ navigation }: any) {
             [
                 { text: "$100 Top Up (Card)", onPress: () => handleCardTopUp(100) },
                 { text: "Upload Bank Receipt", onPress: handleManualDeposit },
-                { text: "Contact Support (WA)", onPress: () => Linking.openURL('https://wa.me/18685550100?text=I need to settle my G-Taxi commission balance.') },
+                { text: "Contact Support (WA)", onPress: () => Linking.openURL('https://wa.me/18687031000?text=I need to settle my G-Taxi commission balance.') },
                 { text: "Cancel", style: "cancel" }
             ]
         );
