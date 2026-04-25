@@ -199,9 +199,22 @@ export function LoginScreen({ navigation }: any) {
                                     </LinearGradient>
                                 </TouchableOpacity>
 
+                                {/* Forgot Password Link */}
+                                <TouchableOpacity
+                                    style={[s.linkContainer, { marginTop: 16 }]}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        navigation.navigate('ForgotPassword');
+                                    }}
+                                >
+                                    <Text style={s.linkText}>
+                                        Forgot password? <Text style={s.linkTextCyan}>Reset</Text>
+                                    </Text>
+                                </TouchableOpacity>
+
                                 {/* Create Account Link - Cyan */}
                                 <TouchableOpacity 
-                                    style={s.linkContainer}
+                                    style={[s.linkContainer, { marginTop: 20 }]}
                                     onPress={() => { 
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); 
                                         navigation.navigate('Signup'); 

@@ -184,9 +184,9 @@ export function ProfileScreen({ navigation }: any) {
                 </View>
 
                 {/* FIX #2: Subscription Tier Card */}
-                <TouchableOpacity 
+                <TouchableOpacity
                     style={s.subscriptionCard}
-                    onPress={() => Alert.alert('Coming Soon', 'Subscription plans launching soon!')}
+                    onPress={() => navigation.navigate('Subscription')}
                     activeOpacity={0.8}
                 >
                     <LinearGradient 

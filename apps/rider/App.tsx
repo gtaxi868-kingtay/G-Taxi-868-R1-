@@ -6,6 +6,14 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ENV } from '../../shared/env';
+import * as Sentry from '@sentry/react-native';
+
+// Initialize Sentry for error tracking
+Sentry.init({
+    dsn: ENV.SENTRY_DSN || 'https://examplePublicKey@o0.ingest.sentry.io/0',
+    enableInExpoDevelopment: false,
+    debug: false,
+});
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -16,6 +24,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 // Auth Screens
 import { LoginScreen } from './src/screens/LoginScreen';
 import { SignupScreen } from './src/screens/SignupScreen';
+import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 
 // App Screens
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -38,6 +47,7 @@ import { WalletScreen } from './src/screens/WalletScreen';
 import { WalletTopUpScreen } from './src/screens/WalletTopUpScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { AISettingsScreen } from './src/screens/AISettingsScreen';
+import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { GroceryStorefrontScreen } from './src/screens/GroceryStorefrontScreen';
 import { ProductListingScreen } from './src/screens/ProductListingScreen';
 import { ProductDetailScreen } from './src/screens/ProductDetailScreen';
@@ -78,6 +88,7 @@ function AuthNavigator() {
         >
             <AuthStack.Screen name="Login" component={LoginScreen} />
             <AuthStack.Screen name="Signup" component={SignupScreen} />
+            <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </AuthStack.Navigator>
     );
 }
@@ -113,6 +124,7 @@ function AppNavigator() {
                 <AppStack.Screen name="Promo" component={PromoScreen} />
                 <AppStack.Screen name="Chat" component={ChatScreen} />
                 <AppStack.Screen name="AISettings" component={AISettingsScreen} />
+                <AppStack.Screen name="Subscription" component={SubscriptionScreen} />
                 {/* Grocery Vertical */}
                 <AppStack.Screen name="GroceryStorefront" component={GroceryStorefrontScreen} />
                 <AppStack.Screen name="ProductListing" component={ProductListingScreen} />
