@@ -514,6 +514,33 @@ export function HomeScreen({ navigation, route }: any) {
                         <Image source={CAR_ASSET} style={s.carMarker} resizeMode="contain" />
                     </Marker>
                 ))}
+
+                {/* Saved Places Markers */}
+                {savedPlaces.map((place) => (
+                    <Marker
+                        key={`saved-${place.id}`}
+                        coordinate={{ latitude: place.lat, longitude: place.lng }}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            navigation.navigate('RideConfirmation', {
+                                pickup: { latitude: currentLat, longitude: currentLng },
+                                destination: { latitude: place.lat, longitude: place.lng, address: place.address || place.label }
+                            });
+                        }}
+                    >
+                        <View style={{
+                            backgroundColor: 'rgba(123, 92, 240, 0.9)',
+                            borderRadius: 20,
+                            padding: 8,
+                            borderWidth: 2,
+                            borderColor: '#00E5FF',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <Ionicons name="heart" size={16} color="#FFF" />
+                        </View>
+                    </Marker>
+                ))}
             </MapView>
 
             {/* Top Bar: Floating Glass Card */}

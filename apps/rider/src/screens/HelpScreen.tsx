@@ -60,7 +60,7 @@ export function HelpScreen({ navigation }: any) {
     };
 
     const handleEmail = () => Linking.openURL('mailto:support@gtaxi.tt');
-    const handleCall = () => Linking.openURL('tel:+18681234567');
+    const handleCall = () => Linking.openURL('tel:+18687031000');
 
     return (
         <View style={s.root}>

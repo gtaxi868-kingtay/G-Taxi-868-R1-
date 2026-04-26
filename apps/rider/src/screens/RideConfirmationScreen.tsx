@@ -272,6 +272,29 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                     )}
                     <Marker coordinate={pickupLoc}><View style={s.markerPickup} /></Marker>
                     <Marker coordinate={destination}><View style={s.markerDropoff} /></Marker>
+
+                    {/* AI Suggested Stop Markers */}
+                    {stopSuggestions.map((stop, index) => (
+                        <Marker
+                            key={`stop-${index}`}
+                            coordinate={{ latitude: stop.lat, longitude: stop.lng }}
+                            onPress={() => toggleStop(stop)}
+                        >
+                            <View style={{
+                                backgroundColor: selectedStops.some(s => s.place_name === stop.place_name) 
+                                    ? 'rgba(0, 229, 255, 0.9)' 
+                                    : 'rgba(123, 92, 240, 0.8)',
+                                borderRadius: 20,
+                                padding: 6,
+                                borderWidth: 1.5,
+                                borderColor: '#FFF',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <Text style={{ fontSize: 14 }}>{stop.emoji}</Text>
+                            </View>
+                        </Marker>
+                    ))}
                 </MapView>
 
                 <TouchableOpacity

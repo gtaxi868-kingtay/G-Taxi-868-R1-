@@ -226,6 +226,35 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
         if (updatedRide) {
             setRide((prev: any) => ({ ...prev, ...updatedRide }));
             if (updatedRide.status === 'completed' || updatedRide.status === 'closed') {
+                // Fire-and-forget: Update user memory for AI personalization
+                const rideLat = updatedRide.dropoff_lat || ride?.dropoff_lat;
+                const rideLng = updatedRide.dropoff_lng || ride?.dropoff_lng;
+                let direction = 'unknown';
+                if (rideLat && rideLng) {
+                    if (rideLat > 10.65) direction = 'north';
+                    else if (rideLat < 10.65) direction = 'south';
+                    else if (rideLng > -61.5) direction = 'east';
+                    else direction = 'west';
+                }
+
+                // Log memory update attempt (silent fail OK)
+                // console.log('MEMORY UPDATE: Attempting for ride', rideId);
+
+                supabase.functions.invoke('update_user_memory', {
+                    body: {
+                        user_id: ride?.rider_id,
+                        ride_id: rideId,
+                        direction,
+                        hour: new Date().getHours(),
+                        day_of_week: new Date().getDay(),
+                        payment_method: updatedRide.payment_method || ride?.payment_method,
+                        had_stop: (ride?.stops?.length || 0) > 0
+                    }
+                }).catch((err: any) => {
+                    // Silent fail — memory update is non-critical
+                    // console.log('MEMORY UPDATE: Silent fail:', err?.message || err);
+                });
+
                 navigation.replace('Rating', {
                     driver,
                     fare: { total_fare_cents: updatedRide.total_fare_cents || ride?.total_fare_cents },
