@@ -81,7 +81,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
             Alert.alert(
                 '🛒 Order Placed!',
                 `Your order from ${merchant.name} has been confirmed.\nID: ${order.id.slice(0, 8).toUpperCase()}`,
-                [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
+                [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', {orderId: order.id}) }]
             );
         } catch (err: any) {
             Alert.alert('Order Failed', err.message || 'Please try again.');

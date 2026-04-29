@@ -35,12 +35,12 @@ async function registerPushToken(userId: string): Promise<void> {
         return;
     }
 
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    const permissionResponse: any = await Notifications.getPermissionsAsync();
+    let finalStatus = permissionResponse.status || (permissionResponse.granted ? 'granted' : 'denied');
 
-    if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
+    if (finalStatus !== 'granted') {
+        const requestResponse: any = await Notifications.requestPermissionsAsync();
+        finalStatus = requestResponse.status || (requestResponse.granted ? 'granted' : 'denied');
     }
 
     if (finalStatus !== 'granted') {
@@ -181,8 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 shouldShowAlert: true,
                 shouldPlaySound: true,
                 shouldSetBadge: false,
-                shouldShowBanner: true,
-                shouldShowList: true,
             }),
         });
 

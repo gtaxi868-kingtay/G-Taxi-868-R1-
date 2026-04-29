@@ -405,7 +405,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                                     colors={[COLORS.purple, COLORS.cyan]} 
                                     style={StyleSheet.absoluteFillObject} 
                                 />
-                                <Ionicons name="sparkles" size={24} color="#FFF" />
+                                <Ionicons name="star" size={24} color="#FFF" />
                             </View>
                             
                             <Text style={s.negotiationTitle}>CONCIERGE UPDATE</Text>

@@ -139,7 +139,7 @@ export function ProductListingScreen({ navigation, route }: any) {
                     }}
                     disabled={cartCount === 0}
                 >
-                    <Ionicons name="bag-outline" size={22} color={cartCount > 0 ? '#00FFFF' : 'rgba(255,255,255,0.3)'} />
+                    <Ionicons name="cart-outline" size={22} color={cartCount > 0 ? '#00FFFF' : 'rgba(255,255,255,0.3)'} />
                     {cartCount > 0 && (
                         <View style={s.cartBadge}>
                             <Text style={s.cartBadgeText}>{cartCount}</Text>

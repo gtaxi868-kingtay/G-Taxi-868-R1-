@@ -199,7 +199,7 @@ export function SignupScreen({ navigation }: any) {
                                     <View style={s.aiOptIn}>
                                         <View style={{ flex: 1 }}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <Ionicons name="sparkles" size={16} color={COLORS.cyan} />
+                                                <Ionicons name="star" size={16} color={COLORS.cyan} />
                                                 <Text style={s.aiLabel}>AI CONCIERGE</Text>
                                             </View>
                                             <Text style={s.aiSubtext}>Enable proactive safety & comfort</Text>

@@ -7,6 +7,7 @@ export const ENV = {
     SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmYmJ1YWZnZXlwdmtwY3V2ZG52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mzc5ODAsImV4cCI6MjA4NjUxMzk4MH0.0bvE6YskOdVROtbto3RrJA9Vj--9M2hKg76oZkOxia8',
     MAPBOX_PUBLIC_TOKEN: 'pk.eyJ1IjoidGF4aWciLCJhIjoiY21ra2U3MHpxMWRnYzNwcTBubjFvZndoOCJ9.1wZm2poSFz_YsiCPlkEZPw',
     STRIPE_PUBLISHABLE_KEY: 'pk_test_placeholder',
+    SENTRY_DSN: 'https://examplePublicKey@o0.ingest.sentry.io/0',
 } as const;
 
 // Trinidad & Tobago default location (Port of Spain)

@@ -198,7 +198,7 @@ export function ProfileScreen({ navigation }: any) {
                         <View style={s.subscriptionContent}>
                             <View style={s.subscriptionBadge}>
                                 <Ionicons 
-                                    name={subscription.tier === 'pro' ? 'diamond' : 
+                                    name={subscription.tier === 'pro' ? 'shield' : 
                                           subscription.tier === 'plus' ? 'star' : 'person'} 
                                     size={20} 
                                     color="#FFF" 

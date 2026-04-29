@@ -143,7 +143,7 @@ export function ProductDetailScreen({ navigation, route }: any) {
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                         style={s.ctaGradient}
                     >
-                        <Ionicons name="bag-add-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
+                        <Ionicons name="cart-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
                         <Text style={s.ctaText}>Add to Cart  ·  ${(totalCents / 100).toFixed(2)} TTD</Text>
                     </LinearGradient>
                 </TouchableOpacity>

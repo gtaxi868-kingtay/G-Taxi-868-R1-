@@ -10,8 +10,7 @@ import * as Sentry from '@sentry/react-native';
 
 // Initialize Sentry for error tracking
 Sentry.init({
-    dsn: ENV.SENTRY_DSN || 'https://examplePublicKey@o0.ingest.sentry.io/0',
-    enableInExpoDevelopment: false,
+    dsn: ENV.SENTRY_DSN,
     debug: false,
 });
 
@@ -74,7 +73,7 @@ const isWeb = Platform.OS === 'web';
 // Safe dynamic providers - DISABLED in release builds to prevent Metro bundler issues
 // Sentry and Stripe will be enabled in Phase 10
 const StripeProvider: any = ({ children }: any) => <>{children}</>;
-const Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
+const SentryMock: any = { wrap: (comp: any) => comp, init: () => { } };
 
 // Auth screens (for logged-out users)
 function AuthNavigator() {

@@ -12,6 +12,8 @@ export interface RideUpdate {
     driver_rating?: number;
     driver_lat?: number;
     driver_lng?: number;
+    dropoff_lat?: number;
+    dropoff_lng?: number;
     estimated_arrival_min?: number;
     payment_method?: string;
     total_fare_cents?: number;

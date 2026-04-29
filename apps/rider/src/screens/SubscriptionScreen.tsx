@@ -75,7 +75,6 @@ export function SubscriptionScreen({ navigation }: any) {
     const { user } = useAuth();
     const [currentTier, setCurrentTier] = useState('free');
     const [loading, setLoading] = useState(true);
-    const [subscribing, setSubscribing] = useState<string | null>(null);
 
     useEffect(() => {
         fetchCurrentTier();
@@ -108,18 +107,12 @@ export function SubscriptionScreen({ navigation }: any) {
             return;
         }
 
-        setSubscribing(tierId);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-        // Simulate subscription process
-        setTimeout(() => {
-            setSubscribing(null);
-            Alert.alert(
-                'Subscription Ready',
-                `The ${tierId.toUpperCase()} plan will be available for purchase soon.`,
-                [{ text: 'OK', onPress: () => navigation.goBack() }]
-            );
-        }, 1500);
+        // TODO: Implement Stripe Billing when ready
+        Alert.alert(
+            'Coming Soon',
+            'Subscription billing will be available soon. Stay tuned for Plus and Pro plans!',
+            [{ text: 'OK' }]
+        );
     };
 
     if (loading) {
@@ -185,17 +178,13 @@ export function SubscriptionScreen({ navigation }: any) {
                             </View>
 
                             <TouchableOpacity
-                                style={[s.subscribeBtn, currentTier === tier.id && s.currentBtn]}
+                                style={[s.subscribeBtn, currentTier === tier.id && s.currentBtn, tier.id !== 'free' && tier.id !== currentTier && {opacity: 0.6}]}
                                 onPress={() => handleSubscribe(tier.id)}
-                                disabled={subscribing === tier.id}
+                                disabled={tier.id !== 'free' && tier.id !== currentTier}
                             >
-                                {subscribing === tier.id ? (
-                                    <ActivityIndicator color="#FFF" />
-                                ) : (
-                                    <Text style={s.subscribeText}>
-                                        {currentTier === tier.id ? 'CURRENT PLAN' : tier.id === 'free' ? 'FREE TIER' : 'SUBSCRIBE'}
-                                    </Text>
-                                )}
+                                <Text style={s.subscribeText}>
+                                    {currentTier === tier.id ? 'CURRENT PLAN' : tier.id === 'free' ? 'FREE TIER' : 'COMING SOON'}
+                                </Text>
                             </TouchableOpacity>
                         </LinearGradient>
                     </View>

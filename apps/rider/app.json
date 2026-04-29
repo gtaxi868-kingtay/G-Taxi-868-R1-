@@ -59,7 +59,8 @@
         ],
         "NSLocationWhenInUseUsageDescription": "G-Taxi needs your location to show available drivers and set your pickup point.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "G-Taxi tracks your ride location to ensure security and accurate fare calculation, even when the app is in the background.",
-        "NSLocationAlwaysUsageDescription": "G-Taxi tracks your ride location to ensure security and accurate fare calculation, even when the app is in the background."
+        "NSLocationAlwaysUsageDescription": "G-Taxi tracks your ride location to ensure security and accurate fare calculation, even when the app is in the background.",
+        "NFCReaderUsageDescription": "G-Taxi uses NFC to instantly book rides at taxi stands and partner locations."
       }
     },
     "android": {
@@ -78,7 +79,8 @@
         "ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.NFC"
       ],
       "allowBackup": false
     },

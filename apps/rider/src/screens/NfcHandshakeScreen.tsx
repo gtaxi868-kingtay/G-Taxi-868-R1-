@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
+// @ts-ignore - expo-nfc doesn't have type declarations yet
+import * as NfcManager from 'expo-nfc';
 import { Txt } from '../design-system/primitives';
 import { tokens } from '../design-system/tokens';
 import { supabase } from '../../../../shared/supabase';
@@ -19,8 +21,77 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
     useEffect(() => {
         if (tagUid) {
             handleHandshake();
+        } else {
+            // No tag provided, start NFC scanning
+            scanNfcTag();
         }
+        
+        return () => {
+            // Cleanup NFC when screen unmounts
+            NfcManager.stopScan();
+        };
     }, [tagUid]);
+
+    const scanNfcTag = async () => {
+        try {
+            // Check if NFC is available
+            const isAvailable = await NfcManager.isAvailableAsync();
+            if (!isAvailable) {
+                Alert.alert('NFC Not Available', 'This device does not support NFC.');
+                setLoading(false);
+                return;
+            }
+
+            // Start scanning
+            await NfcManager.startScan();
+            
+            // Wait for tag discovery
+            const tag = await NfcManager.getTag();
+            if (tag && tag.id) {
+                // Got a tag, process it
+                handleHandshakeWithTag(tag.id);
+            }
+        } catch (error) {
+            console.error('NFC scan failed', error);
+            Alert.alert('Scan Failed', 'Could not read NFC tag. Please try again.');
+            setLoading(false);
+        }
+    };
+
+    const handleHandshakeWithTag = async (scannedTagUid: string) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                Alert.alert('Sign In Required', 'Please sign in to use NFC ride booking.');
+                setLoading(false);
+                return;
+            }
+
+            const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/nfc_event_handler`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                    tag_uid: scannedTagUid,
+                    profile_id: session.user.id,
+                }),
+            });
+
+            const data = await response.json();
+            if (data.error) {
+                Alert.alert('Error', data.error);
+            } else {
+                setHandshake(data);
+            }
+        } catch (error) {
+            console.error('Handshake failed', error);
+            Alert.alert('Connection Failed', 'Could not connect to taxi stand. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleHandshake = async () => {
         try {

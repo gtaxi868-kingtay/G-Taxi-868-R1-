@@ -17,18 +17,38 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { ride_id, lat, lng, destination_name } = await req.json();
+    const { ride_id, lat, lng, destination_name, mode, profile_id } = await req.json();
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: ride } = await supabase.from('rides').select('*, rider:rider_id(*)').eq('id', ride_id).single();
-
-    if (!ride) throw new Error("Ride not found");
+    
+    // Fetch ride data if ride_id provided, otherwise fetch profile for home mode
+    let ride = null;
+    let riderName = 'Guest';
+    let dropoffLat = lat;
+    let dropoffLng = lng;
+    let destName = destination_name;
+    
+    if (ride_id) {
+      const { data: rideData } = await supabase.from('rides').select('*, rider:rider_id(*)').eq('id', ride_id).single();
+      ride = rideData;
+      if (ride) {
+        riderName = ride.rider?.full_name || 'Guest';
+        dropoffLat = ride.dropoff_lat;
+        dropoffLng = ride.dropoff_lng;
+        destName = ride.dropoff_address;
+      }
+    } else if (profile_id) {
+      const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', profile_id).single();
+      if (profile) riderName = profile.full_name;
+    }
+    
+    const isHomeMode = mode === 'home' || !ride_id;
 
     // 1. REAL POI Discovery (Phase 11.5)
     // Fetch nearby partner merchants OR utility POIs (ATMs/Groceries)
     const { data: poiData } = await supabase.rpc('get_proactive_poi_context', {
-      p_lat: lat || ride.dropoff_lat,
-      p_lng: lng || ride.dropoff_lng,
+      p_lat: lat || dropoffLat,
+      p_lng: lng || dropoffLng,
       p_radius_meters: 1500
     });
 
@@ -45,19 +65,46 @@ serve(async (req) => {
     const trafficContext = isRushHour ? "EXPECT HEAVY TRAFFIC. Rush hour patterns detected on Highway/Main Road." : "Traffic flowing normally.";
 
     // 3. Query Groq (Llama 3.3 70B) for a PROACTIVE suggestion
-    const prompt = `
-      You are G-TAXI AI, a premium logistics concierge for Trinidad & Tobago.
-      Rider: ${ride.rider?.full_name || 'Guest'}
-      Current Journey: Heading to ${destination_name || ride.dropoff_address}.
-      Traffic State: ${trafficContext}.
-      Real-Time POI Context: ${poiContext}.
-      
-      TASK: Suggest ONE proactive move OR explain a delay. 
-      - If traffic is heavy, explain why (e.g. "Peak flow on the Highway..."). 
-      - If a PARTNER merchant is nearby, suggest a STOP.
-      - Be brief (15 words max). 
-      - Format: "AI SIGHT: [Message]".
-    `;
+    let prompt;
+    
+    if (isHomeMode) {
+      // Home mode: Time-aware suggestions based on patterns
+      const timeContext = hour >= 6 && hour < 11 ? 'morning' : 
+                         hour >= 11 && hour < 14 ? 'lunch' : 
+                         hour >= 14 && hour < 18 ? 'afternoon' : 'evening';
+      prompt = `
+        You are G-TAXI AI, a premium logistics concierge for Trinidad & Tobago.
+        User: ${riderName}
+        Time: ${timeContext} (${hour}:00 AST)
+        Location: ${lat}, ${lng}
+        Nearby POIs: ${poiContext}
+        
+        TASK: Suggest ONE thing based on time of day and location.
+        - Morning (6-11am): Suggest coffee nearby
+        - Lunch (11am-2pm): Suggest food/restaurant  
+        - Afternoon (2-6pm): Suggest errands, pharmacy, gas
+        - Evening (6pm+): Suggest dinner, late pharmacy
+        - If partner merchant nearby, mention by name
+        Be brief (10 words max).
+        Format: "[Emoji] [Suggestion] at [Place]".
+        Examples: "☕ Coffee at Rituals?", "🍽️ Lunch at Kenny's?", "⛽ Gas at NP?"
+      `;
+    } else {
+      // Ride mode: Navigation-aware suggestions
+      prompt = `
+        You are G-TAXI AI, a premium logistics concierge for Trinidad & Tobago.
+        Rider: ${riderName}
+        Current Journey: Heading to ${destName || 'destination'}.
+        Traffic State: ${trafficContext}.
+        Real-Time POI Context: ${poiContext}.
+        
+        TASK: Suggest ONE proactive move OR explain a delay. 
+        - If traffic is heavy, explain why (e.g. "Peak flow on the Highway..."). 
+        - If a PARTNER merchant is nearby, suggest a STOP.
+        - Be brief (15 words max). 
+        - Format: "AI SIGHT: [Message]".
+      `;
+    }
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",

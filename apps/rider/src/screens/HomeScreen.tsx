@@ -81,6 +81,7 @@ export function HomeScreen({ navigation, route }: any) {
     const [aiGreeting, setAiGreeting] = useState<string | null>(null);
     const [isAiThinking, setIsAiThinking] = useState(false);
     const [proactiveAction, setProactiveAction] = useState<string | null>(null);
+    const [proactiveData, setProactiveData] = useState<{type?: string, merchant_id?: string, merchant_name?: string, text?: string} | null>(null);
     const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
     const [visionLoading, setVisionLoading] = useState(false);
     const [showLocationConfirm, setShowLocationConfirm] = useState(false);
@@ -274,8 +275,25 @@ export function HomeScreen({ navigation, route }: any) {
             }
         };
 
+        const fetchProactiveSuggestion = async () => {
+            if (!location?.coords || !profile?.id) return;
+            try {
+                const { data, error } = await supabase.functions.invoke('ai_concierge_proactive', {
+                    body: { mode: 'home', lat: location.coords.latitude, lng: location.coords.longitude, profile_id: profile.id }
+                });
+                if (error) throw error;
+                if (data?.suggestion) {
+                    setProactiveData({ type: 'general', text: data.suggestion });
+                    setProactiveAction(data.suggestion);
+                }
+            } catch (err) {
+                console.error('[AI Proactive] Error:', err);
+            }
+        };
+
         if (aiSuggestionsEnabled) {
             fetchAIGreeting();
+            fetchProactiveSuggestion();
         }
 
         // Animations
