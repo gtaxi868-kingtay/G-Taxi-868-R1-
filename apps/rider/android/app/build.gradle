@@ -124,6 +124,14 @@ android {
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
+
+    // FIX: Suppress Kotlin inline function access errors from expo-modules-core
+    kotlinOptions {
+        freeCompilerArgs += [
+            '-Xsuppress-deprecated-warnings',
+            '-Xskip-metadata-version-check'
+        ]
+    }
 }
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
