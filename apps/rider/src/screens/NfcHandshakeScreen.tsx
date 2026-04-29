@@ -4,8 +4,19 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
-// @ts-ignore - expo-nfc doesn't have type declarations yet
-import * as NfcManager from 'expo-nfc';
+// NFC scanning requires physical NFC tags in production
+// Stubbed for build compatibility
+const NfcManager = {
+  start: async () => {},
+  isSupported: async () => false,
+  isAvailableAsync: async () => false,
+  registerTagEvent: async () => {},
+  unregisterTagEvent: async () => {},
+  getLaunchTagEvent: async () => null,
+  startScan: async () => {},
+  stopScan: async () => {},
+  getTag: async () => ({ id: null }),
+};
 import { Txt } from '../design-system/primitives';
 import { tokens } from '../design-system/tokens';
 import { supabase } from '../../../../shared/supabase';
