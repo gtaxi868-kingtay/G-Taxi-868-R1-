@@ -28,7 +28,7 @@ class MainApplication : Application(), ReactApplication {
             return packages
           }
 
-          override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"
+          override fun getJSMainModuleName(): String = "index"
 
           override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG
 
@@ -42,11 +42,15 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // 1. Initialize SoLoader FIRST (The Engine)
     SoLoader.init(this, OpenSourceMergedSoMapping)
+    
+    // 2. Load New Architecture if enabled
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      // If you opted-in for the New Architecture, we load the native entry point for this app.
       load()
     }
+    
+    // 3. Initialize Expo Modules LAST (The Gearbox)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
   }
 
