@@ -139,7 +139,7 @@ export function DestinationSearchScreen({ navigation, route }: any) {
             </View>
 
             {/* Results list or Recent Searches */}
-            <FlatList
+            <FlatList<any>
                 data={query.length > 0 ? results : recentSearches}
                 keyExtractor={item => item.id}
                 renderItem={renderItem}

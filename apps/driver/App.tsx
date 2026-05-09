@@ -20,7 +20,7 @@ import { StrategySettingsScreen } from './src/screens/StrategySettingsScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { supabase } from '../../shared/supabase';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -29,79 +29,26 @@ import { ENV } from '../../shared/env';
 import { OutboxService } from '../../shared/OutboxService';
 import { StripeProvider } from '@stripe/stripe-react-native';
 
-// ── Phase 5 Fix 5.7: Background retry task for offline ride completions ────────
-const RETRY_TASK = 'OFFLINE_COMPLETION_RETRY';
-const LOCATION_TASK = 'LOCATION_TRACKING'; // Fix 2: Background Heartbeat
-const COMPLETE_RIDE_URL = `${ENV.SUPABASE_URL}/functions/v1/complete_ride`;
+// ── Free Background Location using expo-location ───────────────────────────────
+const LOCATION_TASK = 'BACKGROUND_LOCATION_TASK';
 const UPDATE_LOCATION_URL = `${ENV.SUPABASE_URL}/functions/v1/update_driver_location`;
 
-TaskManager.defineTask(RETRY_TASK, async () => {
-    try {
-        const pending = await AsyncStorage.getItem('pending_completions');
-        if (!pending) return BackgroundFetch.BackgroundFetchResult.NoData;
-
-        const completions: Array<{ ride_id: string; driver_lat: number; driver_lng: number }> = JSON.parse(pending);
-        if (completions.length === 0) return BackgroundFetch.BackgroundFetchResult.NoData;
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return BackgroundFetch.BackgroundFetchResult.Failed;
-
-        const remaining: typeof completions = [];
-
-        for (const item of completions) {
-            try {
-                const res = await fetch(COMPLETE_RIDE_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify(item),
-                });
-
-                if (res.ok) {
-                    const json = await res.json();
-                    if (json.success) {
-                        console.log(`[RETRY_TASK] Ride ${item.ride_id} completed successfully on retry.`);
-                    }
-                } else {
-                    remaining.push(item);
-                }
-            } catch (err) {
-                remaining.push(item);
-            }
-        }
-
-        await AsyncStorage.setItem('pending_completions', JSON.stringify(remaining));
-
-        return remaining.length < completions.length
-            ? BackgroundFetch.BackgroundFetchResult.NewData
-            : BackgroundFetch.BackgroundFetchResult.NoData;
-
-    } catch (err) {
-        console.error('[RETRY_TASK] Unexpected error:', err);
-        return BackgroundFetch.BackgroundFetchResult.Failed;
-    }
-});
-
-// Fix 2: Surgical Background Location Heartbeat (Hardened for Phase 11)
-TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
+// Define background location task using expo-task-manager + expo-location (free alternative)
+TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: { data?: any, error?: any }) => {
     if (error) {
         console.error(`[LOCATION_TASK] Error: ${error.message}`);
         return;
     }
     if (data) {
-        const { locations } = data;
+        const locations = data.locations as Location.LocationObject[];
         const location = locations[0];
         if (location) {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) return;
 
-                // Phase 11: Check for active ride in storage for "High Priority" tagging
                 const activeRideId = await AsyncStorage.getItem('active_ride_id');
 
-                // Sync to backend using raw fetch to avoid supabase-js overhead in bg task
                 await fetch(UPDATE_LOCATION_URL, {
                     method: 'POST',
                     headers: {
@@ -124,43 +71,33 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: any) => {
     }
 });
 
-async function registerBackgroundRetryTask() {
+async function startBackgroundLocationTracking() {
     try {
-        const isRegistered = await TaskManager.isTaskRegisteredAsync(RETRY_TASK);
-        if (!isRegistered) {
-            await BackgroundFetch.registerTaskAsync(RETRY_TASK, {
-                minimumInterval: 30,
-                stopOnTerminate: false,
-                startOnBoot: true,
+        const hasStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK);
+        if (!hasStarted) {
+            await Location.startLocationUpdatesAsync(LOCATION_TASK, {
+                accuracy: Location.Accuracy.Balanced,
+                timeInterval: 30000, // Update every 30 seconds
+                distanceInterval: 50, // Or every 50 meters
+                foregroundService: {
+                    notificationTitle: "G-Taxi Driver",
+                    notificationBody: "Location tracking active",
+                    notificationColor: '#FFD700',
+                },
+                pausesUpdatesAutomatically: false,
             });
-            console.log('[BackgroundFetch] Registered OFFLINE_COMPLETION_RETRY task.');
+            console.log('[Location] Background tracking started');
         }
     } catch (err) {
-        console.warn('[BackgroundFetch] Could not register retry task:', err);
+        console.warn('[Location] Could not start background tracking:', err);
     }
 }
 
 const Stack = createNativeStackNavigator();
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-// Safe dynamic providers
-let Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
-
-if (!isExpoGo) {
-    try {
-        Sentry = require('@sentry/react-native');
-        try {
-            Sentry.init({
-                dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder-dsn@sentry.io/0',
-                enabled: false, // DISABLED until Phase 10
-            });
-        } catch (e) {
-            console.log('Sentry init skipped:', e);
-        }
-    } catch (e) {
-        console.warn('Sentry failed to load in non-expo-go env', e);
-    }
-}
+// Sentry is disabled for now to prevent native boot-time crashes in APK builds
+const Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
 
 function AuthNavigator() {
     return (
@@ -296,7 +233,7 @@ function RootNavigator() {
 
 function App() {
     useEffect(() => {
-        registerBackgroundRetryTask();
+        startBackgroundLocationTracking();
         OutboxService.getInstance().processQueue();
     }, []);
 

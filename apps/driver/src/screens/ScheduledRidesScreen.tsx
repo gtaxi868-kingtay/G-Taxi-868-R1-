@@ -115,7 +115,7 @@ export function ScheduledRidesScreen({ navigation }: any) {
                     data={rides}
                     keyExtractor={t => t.id}
                     renderItem={renderItem}
-                    contentContainerStyle={[s.list, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 20 }]}
+                    contentContainerStyle={[s.list, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 20 }] as any}
                     ListEmptyComponent={
                         <View style={s.empty}>
                             <Ionicons name="calendar-outline" size={48} color={COLORS.textMuted} />

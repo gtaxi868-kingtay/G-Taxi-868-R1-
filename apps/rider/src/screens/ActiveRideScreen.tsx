@@ -123,6 +123,8 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     const lastLocationUpdateRef = useRef<number>(Date.now());
     const [signalStatus, setSignalStatus] = useState<'ok' | 'stale' | 'lost'>('ok');
     const signalCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    // Fix 4: Ref to hold the location watcher so it can be cleaned up on unmount
+    const locationWatcherRef = useRef<{ remove: () => void } | null>(null);
 
     const { rideUpdate: updatedRide } = useRideSubscription(rideId);
     const hasArrivalNotifiedRef = useRef(false);
@@ -160,39 +162,20 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             )
             .subscribe();
 
+        // Fix 4: Location watcher stored in ref for proper cleanup
         (async () => {
-            let { status } = await Location.requestForegroundPermissionsAsync();
+            const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') return;
-            
-            let loc = await Location.getCurrentPositionAsync({});
+
+            const loc = await Location.getCurrentPositionAsync({});
             setLocation(loc);
 
-            const locationSub = await Location.watchPositionAsync(
+            const watcher = await Location.watchPositionAsync(
                 { accuracy: Location.Accuracy.Balanced, distanceInterval: 10 },
                 (newLoc) => setLocation(newLoc)
             );
-            return () => locationSub.remove();
+            locationWatcherRef.current = watcher;
         })();
-
-    // Signal staleness check
-    useEffect(() => {
-        if (!driver) return;
-
-        signalCheckIntervalRef.current = setInterval(() => {
-            const elapsed = Date.now() - lastLocationUpdateRef.current;
-
-            if (elapsed > 180000 && signalStatus !== 'lost') {
-                setSignalStatus('lost');
-            } else if (elapsed > 30000 && signalStatus === 'ok') {
-                setSignalStatus('stale');
-                console.log('DRIVER SIGNAL: Stale - no update for 30s');
-            }
-        }, 15000);
-
-        return () => {
-            if (signalCheckIntervalRef.current) clearInterval(signalCheckIntervalRef.current);
-        };
-    }, [driver, signalStatus]);
 
         const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
             // Allow navigation if the ride is actually finished
@@ -219,8 +202,30 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             }
             eventsChannel.unsubscribe();
             beforeRemoveListener();
+            // Fix 4: Remove location watcher on unmount
+            locationWatcherRef.current?.remove();
         };
     }, []);
+
+    // Fix 2: Signal staleness check — extracted to top-level useEffect (was illegally nested)
+    useEffect(() => {
+        if (!driver) return;
+
+        signalCheckIntervalRef.current = setInterval(() => {
+            const elapsed = Date.now() - lastLocationUpdateRef.current;
+
+            if (elapsed > 180000 && signalStatus !== 'lost') {
+                setSignalStatus('lost');
+            } else if (elapsed > 30000 && signalStatus === 'ok') {
+                setSignalStatus('stale');
+                console.log('DRIVER SIGNAL: Stale - no update for 30s');
+            }
+        }, 15000);
+
+        return () => {
+            if (signalCheckIntervalRef.current) clearInterval(signalCheckIntervalRef.current);
+        };
+    }, [driver, signalStatus]);
 
     useEffect(() => {
         if (updatedRide) {

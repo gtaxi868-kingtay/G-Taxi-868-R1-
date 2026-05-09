@@ -117,7 +117,7 @@ export function SavedPlacesScreen({ navigation }: any) {
             {loading ? (
                 <View style={s.center}><ActivityIndicator color={R.purple} /></View>
             ) : (
-                <FlatList
+                <FlatList<SavedPlace>
                     data={places}
                     keyExtractor={item => item.id}
                     renderItem={renderItem}

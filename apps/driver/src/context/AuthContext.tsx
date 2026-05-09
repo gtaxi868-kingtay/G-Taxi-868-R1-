@@ -133,8 +133,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 shouldShowAlert: true,
                 shouldPlaySound: true,
                 shouldSetBadge: false,
-                shouldShowBanner: true,
-                shouldShowList: true,
             }),
         });
 

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    Alert, Dimensions,
+    Alert, Dimensions, FlatList, ActivityIndicator
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,13 +22,49 @@ export function LaundryLandingScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
     const [selectedService, setSelectedService] = useState(SERVICES[0]);
     const [isProcessingAI, setIsProcessingAI] = useState(false);
+    const [merchants, setMerchants] = useState<any[]>([]);
+    const [selectedMerchant, setSelectedMerchant] = useState<any | null>(null);
+    const [loadingMerchants, setLoadingMerchants] = useState(true);
+
+    useEffect(() => {
+        fetchLaundryMerchants();
+    }, []);
+
+    const fetchLaundryMerchants = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('merchants')
+                .select('*')
+                .eq('category', 'laundry')
+                .eq('is_active', true);
+            
+            if (error) throw error;
+            setMerchants(data || []);
+            if (data?.length > 0) setSelectedMerchant(data[0]);
+        } catch (err) {
+            Alert.alert("Error", "Could not load laundry providers.");
+        } finally {
+            setLoadingMerchants(false);
+        }
+    };
 
     const handleNext = () => {
+        if (!selectedMerchant) {
+            Alert.alert("Selection Required", "Please select a laundry provider first.");
+            return;
+        }
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        navigation.navigate('LaundryEstimator', { service: selectedService });
+        navigation.navigate('LaundryEstimator', { 
+            service: selectedService,
+            merchant: selectedMerchant 
+        });
     };
 
     const handleAITakePhoto = async () => {
+        if (!selectedMerchant) {
+            Alert.alert("Selection Required", "Select a provider before photo intake.");
+            return;
+        }
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
             Alert.alert("Permission Needed", "Camera access is required for AI intake.");
@@ -45,15 +81,14 @@ export function LaundryLandingScreen({ navigation }: any) {
         if (!result.canceled && result.assets[0]) {
             setIsProcessingAI(true);
             try {
-                // Phase 16 Placeholder: Upload to Supabase and call edge function
-                // For now, we simulate the AI processing and pass a dummy generated list
                 setTimeout(() => {
                     setIsProcessingAI(false);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     navigation.navigate('LaundryEstimator', { 
                         service: selectedService, 
+                        merchant: selectedMerchant,
                         photoUrl: result.assets[0].uri,
-                        aiList: [{ name: "AI Bundle", qty: 1 }] // Mock list until Edge fn is wired
+                        aiList: [{ name: "AI Bundle", qty: 1 }]
                     });
                 }, 2000);
             } catch (err) {
@@ -62,6 +97,18 @@ export function LaundryLandingScreen({ navigation }: any) {
             }
         }
     };
+
+    const renderMerchant = ({ item }: { item: any }) => (
+        <TouchableOpacity 
+            style={[s.mCard, selectedMerchant?.id === item.id && s.mCardActive]}
+            onPress={() => { setSelectedMerchant(item); Haptics.selectionAsync(); }}
+        >
+            <BlurView intensity={20} style={StyleSheet.absoluteFillObject} tint="dark" />
+            <Text style={s.mName}>{item.name}</Text>
+            <Text style={s.mSub}>{item.address.split(',')[0]}</Text>
+            {selectedMerchant?.id === item.id && <Ionicons name="checkmark-circle" size={16} color="#00FFFF" style={s.mCheck} />}
+        </TouchableOpacity>
+    );
 
     return (
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
@@ -76,47 +123,48 @@ export function LaundryLandingScreen({ navigation }: any) {
                 <View style={{ width: 38 }} />
             </View>
 
-            {/* Hero */}
-            <View style={s.hero}>
-                <Text style={s.heroEmoji}>🧺</Text>
-                <Text style={s.heroTitle}>Fresh & Clean,{'\n'}On Demand</Text>
-                <Text style={s.heroSub}>Select your service type below</Text>
+            {/* Merchant Selection */}
+            <View style={s.section}>
+                <Text style={s.sectionTitle}>SELECT PROVIDER</Text>
+                {loadingMerchants ? (
+                    <ActivityIndicator color="#00FFFF" style={{ height: 100 }} />
+                ) : (
+                    <FlatList
+                        horizontal
+                        data={merchants}
+                        renderItem={renderMerchant}
+                        keyExtractor={item => item.id}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+                    />
+                )}
             </View>
 
             {/* Service selector */}
-            <View style={s.serviceGrid}>
-                {SERVICES.map(service => {
-                    const active = selectedService.id === service.id;
-                    return (
-                        <TouchableOpacity
-                            key={service.id}
-                            style={[s.serviceCard, active && s.serviceCardActive]}
-                            onPress={() => { setSelectedService(service); Haptics.selectionAsync(); }}
-                            activeOpacity={0.85}
-                        >
-                            <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
-                            {active && (
-                                <LinearGradient
-                                    colors={['rgba(123,97,255,0.2)', 'rgba(0,255,255,0.05)']}
-                                    style={StyleSheet.absoluteFillObject}
-                                />
-                            )}
-                            <Text style={s.serviceIcon}>{service.icon}</Text>
-                            <Text style={[s.serviceLabel, active && s.serviceLabelActive]}>{service.label}</Text>
-                            <Text style={s.serviceRate}>
-                                From ${(service.baseRate / 100).toFixed(2)}/lb TTD
-                            </Text>
-                            {active && (
-                                <View style={s.activeDot} />
-                            )}
-                        </TouchableOpacity>
-                    );
-                })}
+            <View style={s.section}>
+                <Text style={s.sectionTitle}>SERVICE TYPE</Text>
+                <View style={s.serviceGrid}>
+                    {SERVICES.map(service => {
+                        const active = selectedService.id === service.id;
+                        return (
+                            <TouchableOpacity
+                                key={service.id}
+                                style={[s.serviceCard, active && s.serviceCardActive]}
+                                onPress={() => { setSelectedService(service); Haptics.selectionAsync(); }}
+                                activeOpacity={0.85}
+                            >
+                                <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
+                                <Text style={s.serviceIcon}>{service.icon}</Text>
+                                <Text style={[s.serviceLabel, active && s.serviceLabelActive]}>{service.label}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
             </View>
 
             {/* Features */}
             <View style={s.featureRow}>
-                {['Pickup Today', '24h Return', 'Fragrance-Free'].map(feat => (
+                {['Pickup Today', '24h Return', 'Pro Handling'].map(feat => (
                     <View key={feat} style={s.featurePill}>
                         <Text style={s.featureText}>{feat}</Text>
                     </View>
@@ -125,24 +173,21 @@ export function LaundryLandingScreen({ navigation }: any) {
 
             {/* CTA */}
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 20 }]}>
-                {isProcessingAI && <LoadingOverlay message="AI IS ANALYZING BUNDLE..." color="#00FFFF" />}
+                {isProcessingAI && <LoadingOverlay message="AI ANALYZING..." color="#00FFFF" />}
                 
                 {!isProcessingAI && (
                     <>
                         <TouchableOpacity style={s.aiButton} onPress={handleAITakePhoto} activeOpacity={0.88}>
-                            <View style={s.aiIconWrap}>
-                                <Ionicons name="camera" size={20} color="#00FFFF" />
-                            </View>
-                            <Text style={s.aiButtonText}>AI Photo Intake</Text>
+                            <Ionicons name="camera" size={20} color="#00FFFF" />
+                            <Text style={s.aiButtonText}>AI Smart Scan</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={s.ctaButton} onPress={handleNext} activeOpacity={0.88}>
                             <LinearGradient
                                 colors={['#7C3AED', '#5A2DDE']}
-                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                                 style={s.ctaGradient}
                             >
-                                <Text style={s.ctaText}>Estimate Price Manually →</Text>
+                                <Text style={s.ctaText}>Continue to Estimate →</Text>
                             </LinearGradient>
                         </TouchableOpacity>
                     </>
@@ -164,10 +209,17 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
-    hero: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 20 },
-    heroEmoji: { fontSize: 72, marginBottom: 16 },
-    heroTitle: { fontSize: 28, fontWeight: '900', color: '#FFF', textAlign: 'center', lineHeight: 36 },
-    heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.4)', marginTop: 10 },
+    section: { marginTop: 24, gap: 12 },
+    sectionTitle: { fontSize: 10, fontWeight: '900', color: 'rgba(255,255,255,0.4)', letterSpacing: 2, paddingHorizontal: 24 },
+    mCard: {
+        width: 160, height: 100, borderRadius: 20, overflow: 'hidden', padding: 16,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(255,255,255,0.04)',
+    },
+    mCardActive: { borderColor: '#00FFFF', backgroundColor: 'rgba(0,255,255,0.05)' },
+    mName: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+    mSub: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 },
+    mCheck: { position: 'absolute', top: 12, right: 12 },
     serviceGrid: { flexDirection: 'row', gap: 12, paddingHorizontal: 20 },
     serviceCard: {
         flex: 1, borderRadius: 22, overflow: 'hidden',
@@ -179,11 +231,6 @@ const s = StyleSheet.create({
     serviceIcon: { fontSize: 36 },
     serviceLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
     serviceLabelActive: { color: '#FFF' },
-    serviceRate: { fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center' },
-    activeDot: {
-        width: 8, height: 8, borderRadius: 4,
-        backgroundColor: '#00FFFF', marginTop: 4,
-    },
     featureRow: {
         flexDirection: 'row', justifyContent: 'center', gap: 10, paddingVertical: 24, paddingHorizontal: 20,
     },
@@ -195,9 +242,7 @@ const s = StyleSheet.create({
     featureText: { fontSize: 12, color: '#00FFFF', fontWeight: '600' },
     ctaContainer: { paddingHorizontal: 20, paddingTop: 8, marginTop: 'auto' },
     ctaButton: { borderRadius: 20, overflow: 'hidden' },
-    ctaGradient: {
-        alignItems: 'center', justifyContent: 'center', paddingVertical: 18,
-    },
+    ctaGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 18 },
     ctaText: { fontSize: 17, fontWeight: '800', color: '#FFF' },
     aiButton: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -206,9 +251,5 @@ const s = StyleSheet.create({
         borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)',
         marginBottom: 12, gap: 10,
     },
-    aiIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    aiButtonText: { fontSize: 17, fontWeight: '800', color: '#00FFFF', letterSpacing: 0.5 },
-    aiLoadingBlock: { alignItems: 'center', paddingVertical: 20 },
-    loadingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#00FFFF', marginBottom: 10 },
-    aiLoadingText: { fontSize: 13, fontWeight: '800', color: '#00FFFF', letterSpacing: 1.5 },
+    aiButtonText: { fontSize: 17, fontWeight: '800', color: '#00FFFF' },
 });

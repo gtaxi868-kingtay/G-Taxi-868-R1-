@@ -224,7 +224,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     <Text style={s.emptySubtext}>Pull down to refresh.</Text>
                 </View>
             ) : (
-                <FlatList
+                <FlatList<Merchant>
                     data={filteredMerchants}
                     keyExtractor={item => item.id}
                     renderItem={renderMerchant}

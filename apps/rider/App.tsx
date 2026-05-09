@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -6,13 +6,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ENV } from '../../shared/env';
-import * as Sentry from '@sentry/react-native';
 
-// Initialize Sentry for error tracking
-Sentry.init({
-    dsn: ENV.SENTRY_DSN,
-    debug: false,
-});
+// Sentry is dynamically loaded below to prevent native crash on boot
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -70,9 +65,9 @@ const queryClient = new QueryClient();
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 const isWeb = Platform.OS === 'web';
 
-// Safe dynamic providers - DISABLED in release builds to prevent Metro bundler issues
-// Sentry and Stripe will be enabled in Phase 10
-const StripeProvider: any = ({ children }: any) => <>{children}</>;
+// Safe dynamic providers
+import { StripeProvider } from '@stripe/stripe-react-native';
+
 const SentryMock: any = { wrap: (comp: any) => comp, init: () => { } };
 
 // Auth screens (for logged-out users)
@@ -173,7 +168,7 @@ const linking = {
 };
 
 function App() {
-    React.useEffect(() => {
+    useEffect(() => {
         OutboxService.getInstance().processQueue();
     }, []);
 
@@ -213,4 +208,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default (isExpoGo || isWeb) ? App : Sentry.wrap(App);
+export default (isExpoGo || isWeb) ? App : SentryMock.wrap(App);

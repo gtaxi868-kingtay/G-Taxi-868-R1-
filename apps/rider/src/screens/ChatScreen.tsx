@@ -44,7 +44,7 @@ export function ChatScreen({ route, navigation }: any) {
     const { rideId, driver } = route.params;
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
-    const flatListRef = useRef<FlatList>(null);
+    const flatListRef = useRef<FlatList<Message>>(null);
 
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
@@ -150,7 +150,7 @@ export function ChatScreen({ route, navigation }: any) {
                 style={{ flex: 1 }}
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
             >
-                <FlatList
+                <FlatList<Message>
                     ref={flatListRef}
                     data={messages}
                     keyExtractor={item => item.id}
@@ -161,7 +161,7 @@ export function ChatScreen({ route, navigation }: any) {
 
                 {/* Quick Replies */}
                 <View style={s.quickReplies}>
-                    <FlatList
+                    <FlatList<string>
                         horizontal
                         showsHorizontalScrollIndicator={false}
                         data={quickReplies}

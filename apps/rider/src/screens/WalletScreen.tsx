@@ -132,7 +132,7 @@ export function WalletScreen({ navigation }: any) {
                 <Txt variant="headingM" weight="heavy" color={tokens.colors.text.primary} style={{ marginLeft: 16 }}>Luxe Wallet</Txt>
             </View>
 
-            <FlatList
+            <FlatList<any>
                 data={transactions}
                 keyExtractor={item => item.id}
                 renderItem={renderTransaction}

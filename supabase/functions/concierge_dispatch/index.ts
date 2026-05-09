@@ -50,15 +50,21 @@ serve(async (req: Request) => {
             destination_lng,
             destination_address,
             vehicle_type = "Standard",
-            payment_method = "cash", // Guests typically pay cash unless Merchant Billable
+            payment_method = merchant.billing_type === 'net-30' ? 'corporate' : 'cash',
         } = await req.json();
 
         if (!guest_name || !guest_phone || !destination_lat || !destination_lng) {
             throw new Error("Missing required guest or destination information");
         }
 
-        // 3. Create the Ride Request
-        // We use the Merchant's location as the pickup, and bill the ride to them (or cash)
+        // 3. Verify Credit Limit for Corporate Billing
+        if (payment_method === 'corporate') {
+            if (merchant.current_debt_cents >= merchant.credit_limit_cents) {
+                throw new Error("Corporate credit limit reached. Please settle balance or use cash.");
+            }
+        }
+
+        // 4. Create the Ride Request
         const ridePin = Math.floor(1000 + Math.random() * 9000).toString();
 
         const { data: newRide, error: insertError } = await adminClient
@@ -75,6 +81,7 @@ serve(async (req: Request) => {
                 total_fare_cents: 0, // Will be calculated by driver matching logic
                 vehicle_type: vehicle_type,
                 payment_method: payment_method,
+                billed_to_merchant_id: payment_method === 'corporate' ? merchant.id : null,
                 ride_pin: ridePin,
                 metadata: {
                     is_concierge: true,

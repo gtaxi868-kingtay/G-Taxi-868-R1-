@@ -120,7 +120,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 <View style={{ width: 38 }} />
             </View>
 
-            <FlatList
+            <FlatList<CartItem>
                 data={cart}
                 keyExtractor={i => i.product.id}
                 renderItem={renderItem}

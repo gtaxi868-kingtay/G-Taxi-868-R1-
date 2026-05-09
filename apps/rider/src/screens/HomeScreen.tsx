@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Image,
-    Dimensions, Alert, Platform
+    Dimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
@@ -86,6 +86,10 @@ export function HomeScreen({ navigation, route }: any) {
     const [visionLoading, setVisionLoading] = useState(false);
     const [showLocationConfirm, setShowLocationConfirm] = useState(false);
     const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+
+    // Cross-platform voice command modal (replaces iOS-only Alert.prompt)
+    const [voiceModalVisible, setVoiceModalVisible] = useState(false);
+    const [voiceInputText, setVoiceInputText] = useState('');
 
     // FIX #1: Fare Estimate - show upfront fare before ride request
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
@@ -649,14 +653,8 @@ export function HomeScreen({ navigation, route }: any) {
                                 style={s.voiceBtn} 
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                    Alert.prompt(
-                                        "AI Voice Command",
-                                        "Speak your destination",
-                                        [
-                                            { text: "Cancel", style: "cancel" },
-                                            { text: "Send", onPress: (val?: string) => handleVoiceComplete(val || '') }
-                                        ]
-                                    );
+                                    setVoiceInputText('');
+                                    setVoiceModalVisible(true);
                                 }}
                             >
                                 <Ionicons name="mic" size={20} color="#00FFFF" />
@@ -976,6 +974,71 @@ export function HomeScreen({ navigation, route }: any) {
                     </BlurView>
                 </View>
             )}
+
+            {/* ── CROSS-PLATFORM VOICE COMMAND MODAL ──────────────────────────── */}
+            {/* Replaces iOS-only Alert.prompt — works on Android, iOS, and Web   */}
+            <Modal
+                visible={voiceModalVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setVoiceModalVisible(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={s.voiceModalOverlay}
+                >
+                    <View style={s.voiceModalCard}>
+                        <View style={s.voiceModalHeader}>
+                            <View style={s.voiceModalAiDot}>
+                                <Ionicons name="mic" size={18} color={COLORS.cyan} />
+                            </View>
+                            <Text style={s.voiceModalTitle}>AI Voice Command</Text>
+                        </View>
+                        <Text style={s.voiceModalSubtitle}>Type your destination or command</Text>
+                        <TextInput
+                            style={s.voiceModalInput}
+                            placeholder="e.g. Take me to Port of Spain"
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            value={voiceInputText}
+                            onChangeText={setVoiceInputText}
+                            autoFocus
+                            autoCapitalize="sentences"
+                            returnKeyType="send"
+                            onSubmitEditing={() => {
+                                const text = voiceInputText.trim();
+                                setVoiceModalVisible(false);
+                                if (text) handleVoiceComplete(text);
+                            }}
+                        />
+                        <View style={s.voiceModalButtons}>
+                            <TouchableOpacity
+                                style={s.voiceModalCancel}
+                                onPress={() => setVoiceModalVisible(false)}
+                            >
+                                <Text style={s.voiceModalCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={s.voiceModalSend}
+                                onPress={() => {
+                                    const text = voiceInputText.trim();
+                                    setVoiceModalVisible(false);
+                                    if (text) handleVoiceComplete(text);
+                                }}
+                            >
+                                <LinearGradient
+                                    colors={[COLORS.purple, COLORS.cyan]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={s.voiceModalSendGradient}
+                                >
+                                    <Ionicons name="send" size={16} color={COLORS.white} />
+                                    <Text style={s.voiceModalSendText}>Send</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
         </View>
     );
 }
@@ -984,6 +1047,97 @@ const s = StyleSheet.create({
     // Root & Map
     root: { flex: 1, backgroundColor: COLORS.bgPrimary },
     map: { width, height },
+
+    // ── Voice Command Modal Styles (cross-platform Alert.prompt replacement) ──
+    voiceModalOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+    },
+    voiceModalCard: {
+        backgroundColor: '#160B32',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: 28,
+        paddingBottom: 40,
+        borderWidth: 1,
+        borderColor: 'rgba(123,92,240,0.3)',
+    },
+    voiceModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+        gap: 10,
+    },
+    voiceModalAiDot: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(0,229,255,0.12)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(0,229,255,0.3)',
+    },
+    voiceModalTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: COLORS.white,
+    },
+    voiceModalSubtitle: {
+        fontSize: 13,
+        color: COLORS.textMuted,
+        marginBottom: 20,
+        marginLeft: 46,
+    },
+    voiceModalInput: {
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderWidth: 1,
+        borderColor: 'rgba(123,92,240,0.4)',
+        borderRadius: 16,
+        paddingHorizontal: 18,
+        paddingVertical: 14,
+        fontSize: 16,
+        color: COLORS.white,
+        marginBottom: 20,
+    },
+    voiceModalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    voiceModalCancel: {
+        flex: 1,
+        height: 52,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    voiceModalCancelText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: COLORS.textSecondary,
+    },
+    voiceModalSend: {
+        flex: 1,
+        height: 52,
+        borderRadius: 14,
+        overflow: 'hidden',
+    },
+    voiceModalSendGradient: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    voiceModalSendText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: COLORS.white,
+    },
     
     // Car Marker with Cyan Glow
     carMarker: { 

@@ -17,12 +17,7 @@ function App() {
   const [mode, setMode] = useState<MerchantMode>('SERVICE');
   const [orders, setOrders] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(() => JSON.parse(localStorage.getItem('g_taxi_merchant_sound') || 'true'));
-  const [msg, setMsg] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showDispatch, setShowDispatch] = useState(false);
-  const [dispatchResult, setDispatchResult] = useState<any>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<any | null>(null);
 
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -33,11 +28,26 @@ function App() {
         determineMode(profile.merchant.category);
         setView('app');
         fetchData(profile.merchant.id);
+        setupRealtime(profile.merchant.id);
       } else {
         await supabase.auth.signOut();
         setView('login');
       }
     }
+  };
+
+  const setupRealtime = (mId: string) => {
+    supabase.channel('merchant_ops')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: `merchant_id=eq.${mId}` }, 
+        () => { if(soundEnabled) playChime(); fetchData(mId); })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'merchant_appointments', filter: `merchant_id=eq.${mId}` }, 
+        () => { if(soundEnabled) playChime(); fetchData(mId); })
+      .subscribe();
+  };
+
+  const playChime = () => {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audio.play().catch(() => {});
   };
 
   const determineMode = (category: string) => {
@@ -51,14 +61,20 @@ function App() {
   const fetchData = async (mId: string) => {
     const { data: ords } = await supabase.from('orders').select('*, rider:rider_id(full_name), order_items(*)').eq('merchant_id', mId).order('created_at', { ascending: false });
     setOrders(ords || []);
-    const { data: apps } = await supabase.from('merchant_appointments').select('*, rider:rider_id(full_name), service:service_id(name)').eq('merchant_id', mId);
+    const { data: apps } = await supabase.from('merchant_appointments').select('*, rider:rider_id(full_name), service:service_id(name)').eq('merchant_id', mId).order('scheduled_at', { ascending: true });
     setAppointments(apps || []);
+  };
+
+  const updateAppointment = async (id: string, status: string) => {
+    const { error } = await supabase.from('merchant_appointments').update({ merchant_consent_status: status }).eq('id', id);
+    if (!error) fetchData(merchant.id);
+    setSelectedAppointment(null);
   };
 
   useEffect(() => { checkSession(); }, []);
 
   if (view === 'login') return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-900">
       <div className="w-full max-w-md bg-white rounded-[3.5rem] p-12 text-center shadow-2xl border border-slate-100">
         <div className="w-24 h-24 bg-purple-600 rounded-[2rem] mx-auto flex items-center justify-center shadow-xl mb-12 rotate-3">
           <ShieldCheck size={48} color="white" />
@@ -85,7 +101,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-purple-100">
-      {/* SIDEBAR NAVIGATION (G-TAXI ELITE STYLE) */}
+      {/* SIDEBAR NAVIGATION */}
       <div className="fixed left-0 top-0 bottom-0 w-80 bg-white border-r border-slate-200 p-8 flex flex-col z-50">
           <div className="flex items-center gap-4 mb-16">
               <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
@@ -103,16 +119,24 @@ function App() {
               <MerchantNavItem active={activeTab === 'financials'} onClick={() => setActiveTab('financials')} icon={<CreditCard size={20}/>} label="Financial Audit" />
           </nav>
 
-          <button 
-            onClick={() => supabase.auth.signOut().then(() => setView('login'))}
-            className="mt-auto h-14 flex items-center justify-center gap-3 rounded-2xl border border-red-100 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-50 transition-all"
-          >
-            <LogOut size={18} />
-            END SESSION
-          </button>
+          <div className="mt-auto space-y-4">
+            <button 
+              onClick={() => { setSoundEnabled(!soundEnabled); localStorage.setItem('g_taxi_merchant_sound', (!soundEnabled).toString()); }}
+              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl border border-slate-100 text-slate-400 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all"
+            >
+              {soundEnabled ? <Bell size={14} className="text-purple-500" /> : <Bell size={14} />}
+              SOUND: {soundEnabled ? 'ON' : 'OFF'}
+            </button>
+            <button 
+              onClick={() => supabase.auth.signOut().then(() => setView('login'))}
+              className="w-full h-14 flex items-center justify-center gap-3 rounded-2xl border border-red-100 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-50 transition-all"
+            >
+              <LogOut size={18} />
+              END SESSION
+            </button>
+          </div>
       </div>
 
-      {/* MAIN CONTENT AREA */}
       <main className="pl-80 p-12 min-h-screen">
           <header className="flex justify-between items-center mb-16">
               <div>
@@ -122,7 +146,7 @@ function App() {
               <div className="flex items-center gap-6">
                   <div className="bg-white border border-slate-200 px-6 py-3 rounded-full flex items-center gap-3">
                       <div className={`w-2 h-2 ${merchant?.is_active ? 'bg-green-500' : 'bg-red-500'} rounded-full animate-pulse`} />
-                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{merchant?.is_active ? 'Online & Ready' : 'Diverted'}</span>
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{merchant?.is_active ? 'Online' : 'Diverted'}</span>
                   </div>
               </div>
           </header>
@@ -130,62 +154,161 @@ function App() {
           <div className="max-w-6xl">
               {activeTab === 'dashboard' && (
                   <div className="grid grid-cols-1 gap-12">
-                      {/* QUICK SUMMON FOR HOTELS */}
                       {mode === 'HOTEL' && (
                           <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-12 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
                               <div className="relative z-10">
                                   <h3 className="text-3xl font-black mb-4 italic">VIP GUEST SUMMON</h3>
                                   <p className="max-w-md text-white/70 mb-10 font-medium">Instantly dispatch a G-Taxi to your front door for arriving or departing guests.</p>
-                                  <button 
-                                      onClick={() => setShowDispatch(true)}
-                                      className="h-18 px-10 bg-white text-purple-700 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all flex items-center gap-4"
-                                  >
-                                      <Users size={24} />
-                                      DISPATCH NOW
+                                  <button onClick={() => setShowDispatch(true)} className="h-18 px-10 bg-white text-purple-700 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all flex items-center gap-4">
+                                      <Users size={24} /> DISPATCH NOW
                                   </button>
                               </div>
                               <MapPin className="absolute top-0 right-0 p-12 opacity-10 rotate-12" size={300} />
                           </div>
                       )}
 
-                      {/* ACTIVE ORDERS GRID */}
                       <div className="space-y-6">
-                        <h3 className="text-xs font-black text-slate-300 uppercase tracking-[0.4em] mb-8">Active Logistics Stream</h3>
-                        {orders.map(order => (
+                        <h3 className="text-xs font-black text-slate-300 uppercase tracking-[0.4em] mb-8">Incoming Manifests</h3>
+                        {orders.length === 0 ? (
+                            <div className="py-20 text-center bg-white border border-dashed border-slate-200 rounded-[2.5rem]">
+                                <Package className="mx-auto text-slate-200 mb-4" size={48} />
+                                <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">No Active Logistics</p>
+                            </div>
+                        ) : orders.map(order => (
                             <div key={order.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 flex items-center justify-between hover:border-purple-500/20 transition-all shadow-sm">
                                 <div className="flex items-center gap-8">
                                     <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100">
-                                        <Package className="text-slate-400" />
+                                        {mode === 'RETAIL' ? <ShoppingBag className="text-purple-400" /> : <Package className="text-slate-400" />}
                                     </div>
                                     <div>
                                         <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest">{order.status}</p>
-                                        <h4 className="text-xl font-black">Order #{order.id.slice(0,6)}</h4>
-                                        <p className="text-xs font-bold text-slate-400">{order.rider?.full_name}</p>
+                                        <h4 className="text-xl font-black">Order #{order.id.slice(0,6).toUpperCase()}</h4>
+                                        <p className="text-xs font-bold text-slate-400">{order.rider?.full_name} · {order.order_items?.length} items</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-12">
-                                    <div className="text-right">
-                                        <p className="text-[9px] font-black text-slate-300 uppercase mb-1">Items</p>
-                                        <p className="font-black">{order.order_items?.length || 0}</p>
-                                    </div>
-                                    <button className="h-12 px-6 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">Review</button>
-                                </div>
+                                <button onClick={() => setSelectedOrder(order)} className="h-12 px-6 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">MANIFEST DETAIL</button>
                             </div>
                         ))}
                       </div>
                   </div>
               )}
 
-              {activeTab === 'financials' && <MerchantFinancials merchantId={merchant?.id} />}
-              
               {activeTab === 'appointments' && (
-                  <div className="py-20 text-center bg-white border border-slate-200 rounded-[3.5rem]">
-                      <Clock size={48} className="mx-auto text-slate-200 mb-6" />
-                      <h3 className="text-xs font-black text-slate-300 uppercase tracking-[0.4em]">Appointment Schedule</h3>
-                      <p className="text-slate-400 text-sm mt-4 italic">Syncing with Client Calendar...</p>
+                  <div className="space-y-6">
+                      <h3 className="text-xs font-black text-slate-300 uppercase tracking-[0.4em] mb-8">Client Service Schedule</h3>
+                      {appointments.length === 0 ? (
+                          <div className="py-20 text-center bg-white border border-dashed border-slate-200 rounded-[2.5rem]">
+                              <Clock className="mx-auto text-slate-200 mb-4" size={48} />
+                              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Schedule Empty</p>
+                          </div>
+                      ) : appointments.map(app => (
+                          <div key={app.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-200 flex items-center justify-between hover:shadow-xl transition-all">
+                              <div className="flex items-center gap-8">
+                                  <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center border border-purple-100">
+                                      <Scissors className="text-purple-600" />
+                                  </div>
+                                  <div>
+                                      <p className="text-[9px] font-black text-purple-600 uppercase tracking-widest">{new Date(app.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {app.merchant_consent_status}</p>
+                                      <h4 className="text-xl font-black">{app.rider?.full_name}</h4>
+                                      <p className="text-xs font-bold text-slate-400">{app.service?.name}</p>
+                                  </div>
+                              </div>
+                              {app.merchant_consent_status === 'pending' && (
+                                  <button onClick={() => setSelectedAppointment(app)} className="h-12 px-8 bg-purple-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-purple-500/20">MANAGE</button>
+                              )}
+                          </div>
+                      ))}
                   </div>
               )}
+
+              {activeTab === 'financials' && <MerchantFinancials merchantId={merchant?.id} />}
           </div>
+
+          {/* OVERLAYS */}
+          {showDispatch && (
+              <DispatchModal merchant={merchant} onClose={() => { setShowDispatch(false); setDispatchResult(null); }} onSuccess={(res: any) => { setDispatchResult(res); fetchData(merchant.id); }} result={dispatchResult} />
+          )}
+
+          {selectedOrder && (
+              <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-end p-6">
+                  <div className="bg-white w-full max-w-xl h-full rounded-[3.5rem] p-12 shadow-2xl relative overflow-y-auto animate-in slide-in-from-right duration-500">
+                      <button onClick={() => setSelectedOrder(null)} className="absolute top-12 right-12 text-slate-300 hover:text-slate-900 transition-colors"><CheckCircle size={32} /></button>
+                      <h2 className="text-4xl font-black mb-2 italic">MANIFEST</h2>
+                      <p className="text-slate-400 text-sm font-bold mb-12 uppercase tracking-widest">Order #{selectedOrder.id.toUpperCase()}</p>
+                      
+                      <div className="space-y-8">
+                          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100">
+                              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">PICKING LIST</h4>
+                              <div className="space-y-4">
+                                {selectedOrder.order_items?.map((item: any) => (
+                                    <div key={item.id} className={`p-4 rounded-2xl border transition-all ${item.picking_status === 'FOUND' ? 'bg-green-50 border-green-100' : item.picking_status === 'OUT' ? 'bg-red-50 border-red-100' : 'bg-white border-slate-100'}`}>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center text-xs font-black">{item.quantity}x</div>
+                                                <span className="font-bold text-slate-900">{item.product_name || 'Item'}</span>
+                                            </div>
+                                            <span className="font-black text-purple-600">${(item.unit_price_cents/100).toFixed(2)}</span>
+                                        </div>
+                                        
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={async () => {
+                                                    const { error } = await supabase.from('order_items').update({ picking_status: 'FOUND' }).eq('id', item.id);
+                                                    if (!error) fetchData(merchant.id);
+                                                }}
+                                                className={`flex-1 h-10 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${item.picking_status === 'FOUND' ? 'bg-green-500 text-white' : 'bg-white border border-slate-200 text-slate-400 hover:bg-green-50'}`}
+                                            >
+                                                FOUND
+                                            </button>
+                                            <button 
+                                                onClick={async () => {
+                                                    const { error } = await supabase.from('order_items').update({ picking_status: 'OUT' }).eq('id', item.id);
+                                                    if (!error) fetchData(merchant.id);
+                                                }}
+                                                className={`flex-1 h-10 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${item.picking_status === 'OUT' ? 'bg-red-500 text-white' : 'bg-white border border-slate-200 text-slate-400 hover:bg-red-50'}`}
+                                            >
+                                                OUT OF STOCK
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                              </div>
+                          </div>
+                          
+                          <div className="p-8 bg-purple-50 rounded-3xl border border-purple-100">
+                             <div className="flex justify-between items-center mb-2">
+                                <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Total Valuation</span>
+                                <span className="text-2xl font-black text-purple-600">${(selectedOrder.total_price_cents/100).toFixed(2)}</span>
+                             </div>
+                             <p className="text-[9px] font-bold text-purple-300 uppercase tracking-widest italic">All prices in TTD · Includes VAT</p>
+                          </div>
+
+                          <button onClick={async () => {
+                              await supabase.from('orders').update({ status: 'ready' }).eq('id', selectedOrder.id);
+                              setSelectedOrder(null);
+                              fetchData(merchant.id);
+                          }} className="w-full h-20 bg-slate-900 text-white rounded-[1.5rem] font-black text-lg shadow-2xl shadow-slate-900/20 hover:scale-[1.02] active:scale-95 transition-all">MARK AS READY FOR PICKUP</button>
+                      </div>
+                  </div>
+              </div>
+          )}
+
+          {selectedAppointment && (
+              <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-6">
+                  <div className="bg-white w-full max-w-md rounded-[3.5rem] p-12 text-center shadow-2xl relative animate-in zoom-in-95">
+                      <h3 className="text-3xl font-black mb-4 italic">APPOINTMENT</h3>
+                      <p className="text-slate-400 font-bold mb-10">{selectedAppointment.rider?.full_name} for {selectedAppointment.service?.name}</p>
+                      <div className="grid grid-cols-2 gap-4">
+                          <button onClick={() => updateAppointment(selectedAppointment.id, 'rejected')} className="h-16 border border-slate-100 text-slate-400 font-black rounded-2xl uppercase tracking-widest text-xs hover:bg-red-50 hover:text-red-500 transition-all">Decline</button>
+                          <button onClick={() => updateAppointment(selectedAppointment.id, 'approved')} className="h-16 bg-purple-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-xl shadow-purple-500/20">Approve</button>
+                      </div>
+                  </div>
+              </div>
+          )}
+      </main>
+    </div>
+  );
+}
 
           {showDispatch && (
               <DispatchModal 

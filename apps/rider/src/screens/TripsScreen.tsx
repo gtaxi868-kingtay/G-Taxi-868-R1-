@@ -117,7 +117,7 @@ export function TripsScreen({ navigation }: any) {
             {loading ? (
                 <View style={s.center}><ActivityIndicator color={tokens.colors.primary.purple} /></View>
             ) : (
-                <FlatList
+                <FlatList<any>
                     data={trips}
                     keyExtractor={item => item.id}
                     renderItem={renderTrip}

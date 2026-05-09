@@ -143,7 +143,7 @@ export function ChatScreen({ route, navigation }: any) {
                     data={messages}
                     keyExtractor={item => item.id}
                     renderItem={renderMessage}
-                    contentContainerStyle={s.list}
+                    contentContainerStyle={s.list as any}
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
                 />
 
@@ -158,7 +158,7 @@ export function ChatScreen({ route, navigation }: any) {
                                 <Text style={{fontSize: 11, fontWeight: '700', color: '#FFF'}}>{item.toUpperCase()}</Text>
                             </TouchableOpacity>
                         )}
-                        contentContainerStyle={{ paddingHorizontal: 16 }}
+                        contentContainerStyle={{ paddingHorizontal: 12 } as any}
                     />
                 </View>
 

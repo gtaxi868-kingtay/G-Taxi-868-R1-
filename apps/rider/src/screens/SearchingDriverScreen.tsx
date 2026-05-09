@@ -269,6 +269,8 @@ export function SearchingDriverScreen({ route, navigation }: any) {
             clearInterval(hapticInterval);
             clearInterval(pollTimer);
             sub.unsubscribe();
+            // Fix 3: Unsubscribe offersChannel to prevent state updates on unmounted component
+            offersChannel.unsubscribe();
             beforeRemoveListener();
         };
     }, []);

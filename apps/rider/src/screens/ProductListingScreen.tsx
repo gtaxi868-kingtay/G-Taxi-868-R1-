@@ -159,7 +159,7 @@ export function ProductListingScreen({ navigation, route }: any) {
                     <Text style={s.emptyText}>No products available.</Text>
                 </View>
             ) : (
-                <FlatList
+                <FlatList<Product>
                     data={products}
                     keyExtractor={item => item.id}
                     renderItem={renderProduct}

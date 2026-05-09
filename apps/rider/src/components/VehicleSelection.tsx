@@ -150,7 +150,7 @@ interface VehicleSelectionProps {
 }
 
 export function VehicleSelection({ onSelect, selectedType }: VehicleSelectionProps) {
-    const flatListRef = useRef<FlatList>(null);
+    const flatListRef = useRef<FlatList<VehicleOption>>(null);
 
     // Auto-scroll to selected item if controlled externally (optional polish)
     // useEffect(() => {
@@ -162,7 +162,7 @@ export function VehicleSelection({ onSelect, selectedType }: VehicleSelectionPro
 
     return (
         <View style={styles.container}>
-            <FlatList
+            <FlatList<VehicleOption>
                 ref={flatListRef}
                 data={VEHICLES}
                 horizontal
@@ -171,7 +171,7 @@ export function VehicleSelection({ onSelect, selectedType }: VehicleSelectionPro
                 decelerationRate="fast"
                 contentContainerStyle={{
                     paddingHorizontal: SIDE_SPACER,
-                    gap: SPACING
+                    gap: SPACING,
                 }}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
