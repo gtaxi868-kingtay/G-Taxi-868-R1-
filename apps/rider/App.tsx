@@ -24,6 +24,7 @@ import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AnimatedSplash } from './src/components/AnimatedSplash';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { DeleteAccountScreen } from './src/screens/DeleteAccountScreen';
 import { DestinationSearchScreen } from './src/screens/DestinationSearchScreen';
 import { RideConfirmationScreen } from './src/screens/RideConfirmationScreen';
 import { SearchingDriverScreen } from './src/screens/SearchingDriverScreen';
@@ -134,6 +135,7 @@ function AppNavigator() {
                 <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} />
                 <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
                 <AppStack.Screen name="Legal" component={LegalScreen} />
+                <AppStack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
             </AppStack.Navigator>
         </>
     );
