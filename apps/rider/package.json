@@ -7,7 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test": "jest"
+    "test": "jest",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@babel/runtime": "^7.29.2",
@@ -39,8 +40,9 @@
     "react-dom": "18.3.1",
     "react-native": "^0.76.9",
     "react-native-gesture-handler": "~2.20.2",
-    "react-native-maps": "^1.18.2",
-    "react-native-nfc-manager": "^5.3.4",
+    "react-native-maps": "1.27.2",
+    "react-native-nfc-manager": "^3.14.0",
+    "patch-package": "^8.0.0",
     "react-native-reanimated": "~3.16.7",
     "react-native-safe-area-context": "~4.12.0",
     "react-native-screens": "~4.4.0",

@@ -1,0 +1,134 @@
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsCalloutManagerInterface.java b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsCalloutManagerInterface.java
+index 1234567..89abcdef 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsCalloutManagerInterface.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsCalloutManagerInterface.java
+@@ -10,9 +10,8 @@ package com.facebook.react.viewmanagers;
+ 
+ import android.view.View;
+ import androidx.annotation.Nullable;
+-import com.facebook.react.uimanager.ViewManagerWithGeneratedInterface;
+ 
+-public interface RNMapsCalloutManagerInterface<T extends View> extends ViewManagerWithGeneratedInterface {
++public interface RNMapsCalloutManagerInterface<T extends View> {
+   void setTooltip(T view, boolean value);
+ }
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsCircleManagerInterface.java b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsCircleManagerInterface.java
+index 1234567..89abcdef 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsCircleManagerInterface.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsCircleManagerInterface.java
+@@ -12,9 +12,8 @@ package com.facebook.react.viewmanagers;
+ 
+ import android.view.View;
+ import androidx.annotation.Nullable;
+-import com.facebook.react.uimanager.ViewManagerWithGeneratedInterface;
+ 
+-public interface RNMapsCircleManagerInterface<T extends View> extends ViewManagerWithGeneratedInterface {
++public interface RNMapsCircleManagerInterface<T extends View> {
+   void setCenter(T view, @Nullable ReadableMap value);
+   void setRadius(T view, double value);
+   void setFillColor(T view, @Nullable Integer value);
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsGooglePolygonManagerInterface.java b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsGooglePolygonManagerInterface.java
+index 1234567..89abcdef 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsGooglePolygonManagerInterface.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsGooglePolygonManagerInterface.java
+@@ -12,9 +12,8 @@ package com.facebook.react.viewmanagers;
+ 
+ import android.view.View;
+ import androidx.annotation.Nullable;
+-import com.facebook.react.uimanager.ViewManagerWithGeneratedInterface;
+ 
+-public interface RNMapsGooglePolygonManagerInterface<T extends View> extends ViewManagerWithGeneratedInterface {
++public interface RNMapsGooglePolygonManagerInterface<T extends View> {
+   void setCoordinates(T view, @Nullable ReadableArray value);
+   void setFillColor(T view, @Nullable Integer value);
+   void setStrokeColor(T view, @Nullable Integer value);
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsMapViewManagerInterface.java b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsMapViewManagerInterface.java
+index 1234567..89abcdef 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsMapViewManagerInterface.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsMapViewManagerInterface.java
+@@ -13,9 +13,8 @@ package com.facebook.react.viewmanagers;
+ 
+ import android.view.View;
+ import androidx.annotation.Nullable;
+-import com.facebook.react.uimanager.ViewManagerWithGeneratedInterface;
+ 
+-public interface RNMapsMapViewManagerInterface<T extends View> extends ViewManagerWithGeneratedInterface {
++public interface RNMapsMapViewManagerInterface<T extends View> {
+   void setInitialRegion(T view, @Nullable ReadableMap value);
+   void setRegion(T view, @Nullable ReadableMap value);
+   void setInitialCamera(T view, @Nullable ReadableMap value);
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsMarkerManagerInterface.java b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsMarkerManagerInterface.java
+index 1234567..89abcdef 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsMarkerManagerInterface.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsMarkerManagerInterface.java
+@@ -12,9 +12,8 @@ package com.facebook.react.viewmanagers;
+ 
+ import android.view.View;
+ import androidx.annotation.Nullable;
+-import com.facebook.react.uimanager.ViewManagerWithGeneratedInterface;
+ 
+-public interface RNMapsMarkerManagerInterface<T extends View> extends ViewManagerWithGeneratedInterface {
++public interface RNMapsMarkerManagerInterface<T extends View> {
+   void setCoordinate(T view, @Nullable ReadableMap value);
+   void setTitle(T view, @Nullable String value);
+   void setDescription(T view, @Nullable String value);
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsOverlayManagerInterface.java b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsOverlayManagerInterface.java
+index 1234567..89abcdef 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsOverlayManagerInterface.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsOverlayManagerInterface.java
+@@ -12,9 +12,8 @@ package com.facebook.react.viewmanagers;
+ 
+ import android.view.View;
+ import androidx.annotation.Nullable;
+-import com.facebook.react.uimanager.ViewManagerWithGeneratedInterface;
+ 
+-public interface RNMapsOverlayManagerInterface<T extends View> extends ViewManagerWithGeneratedInterface {
++public interface RNMapsOverlayManagerInterface<T extends View> {
+   void setBounds(T view, @Nullable ReadableArray value);
+   void setImage(T view, @Nullable String value);
+   void setTappable(T view, boolean value);
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsPolylineManagerInterface.java b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsPolylineManagerInterface.java
+index 1234567..89abcdef 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsPolylineManagerInterface.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsPolylineManagerInterface.java
+@@ -12,9 +12,8 @@ package com.facebook.react.viewmanagers;
+ 
+ import android.view.View;
+ import androidx.annotation.Nullable;
+-import com.facebook.react.uimanager.ViewManagerWithGeneratedInterface;
+ 
+-public interface RNMapsPolylineManagerInterface<T extends View> extends ViewManagerWithGeneratedInterface {
++public interface RNMapsPolylineManagerInterface<T extends View> {
+   void setCoordinates(T view, @Nullable ReadableArray value);
+   void setStrokeColor(T view, @Nullable Integer value);
+   void setStrokeWidth(T view, float value);
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsUrlTileManagerInterface.java b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsUrlTileManagerInterface.java
+index 1234567..89abcdef 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsUrlTileManagerInterface.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsUrlTileManagerInterface.java
+@@ -11,9 +11,8 @@ package com.facebook.react.viewmanagers;
+ 
+ import android.view.View;
+ import androidx.annotation.Nullable;
+-import com.facebook.react.uimanager.ViewManagerWithGeneratedInterface;
+ 
+-public interface RNMapsUrlTileManagerInterface<T extends View> extends ViewManagerWithGeneratedInterface {
++public interface RNMapsUrlTileManagerInterface<T extends View> {
+   void setUrlTemplate(T view, @Nullable String value);
+   void setMinimumZ(T view, float value);
+   void setMaximumZ(T view, float value);
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsWMSTileManagerInterface.java b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsWMSTileManagerInterface.java
+index 1234567..89abcdef 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsWMSTileManagerInterface.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/facebook/react/viewmanagers/RNMapsWMSTileManagerInterface.java
+@@ -11,9 +11,8 @@ package com.facebook.react.viewmanagers;
+ 
+ import android.view.View;
+ import androidx.annotation.Nullable;
+-import com.facebook.react.uimanager.ViewManagerWithGeneratedInterface;
+ 
+-public interface RNMapsWMSTileManagerInterface<T extends View> extends ViewManagerWithGeneratedInterface {
++public interface RNMapsWMSTileManagerInterface<T extends View> {
+   void setUrlTemplate(T view, @Nullable String value);
+   void setMinimumZ(T view, float value);
+   void setMaximumZ(T view, float value);

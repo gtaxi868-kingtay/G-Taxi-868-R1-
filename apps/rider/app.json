@@ -45,7 +45,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow G-Taxi to use your location to find nearby drivers."
         }
-      ]
+      ],
+      "react-native-nfc-manager"
     ],
     "ios": {
       "supportsTablet": false,
