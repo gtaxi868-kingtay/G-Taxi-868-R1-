@@ -36,7 +36,7 @@ const COLORS = {
 
 export function DestinationSearchScreen({ navigation, route }: any) {
     const insets = useSafeAreaInsets();
-    const { currentLocation } = route.params || {};
+    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId } = route.params || {};
 
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
@@ -93,7 +93,11 @@ export function DestinationSearchScreen({ navigation, route }: any) {
                 longitude: item.longitude,
                 address: item.name || item.address,
             },
-            pickup: currentLocation || { latitude: 10.66, longitude: -61.51, address: 'Current Location' }
+            pickup: currentLocation || { latitude: 10.66, longitude: -61.51, address: 'Current Location' },
+            source,
+            sourceMetadata,
+            kioskId,
+            taxiStandId,
         });
     };
 

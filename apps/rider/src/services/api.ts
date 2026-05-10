@@ -15,6 +15,11 @@ interface EstimateFareParams {
     pickup_lng: number;
     dropoff_lat: number;
     dropoff_lng: number;
+    vehicle_type?: 'Standard' | 'XL' | 'Premium';
+    stops?: Array<{
+        stop_type?: string;
+        estimated_wait_minutes?: number;
+    }>;
 }
 
 interface FareEstimate {
@@ -32,7 +37,14 @@ interface CreateRideParams {
     dropoff_lng: number;
     dropoff_address: string;
     vehicle_type?: 'Standard' | 'XL' | 'Premium';
-    payment_method?: 'cash' | 'card' | 'wallet';
+    payment_method?: 'cash' | 'card' | 'wallet' | 'corporate_billing';
+    source?: 'app' | 'qr_stand' | 'nfc_kiosk' | 'merchant_concierge' | 'api_partner';
+    source_metadata?: Record<string, unknown>;
+    taxi_stand_id?: string;
+    kiosk_id?: string;
+    guest_name?: string;
+    guest_phone?: string;
+    billed_to_merchant_id?: string;
     stops?: Array<{
         stop_order: number;
         place_name: string;

@@ -122,23 +122,44 @@ export function HomeScreen({ navigation, route }: any) {
         checkActive();
 
         // FIX 5: Handle QR deep link params
-        const { lat, lng, stand } = route?.params || {};
-        if (lat && lng) {
+        const { lat, lng, stand, source } = route?.params || {};
+        const qrLat = typeof lat === 'string' ? parseFloat(lat) : lat;
+        const qrLng = typeof lng === 'string' ? parseFloat(lng) : lng;
+        const hasQrPickup = Number.isFinite(qrLat) && Number.isFinite(qrLng);
+
+        if (hasQrPickup) {
             console.log('QR DEEP LINK: Stand', stand, 'at', lat, lng);
+            const qrPickup = {
+                latitude: qrLat,
+                longitude: qrLng,
+                address: stand ? `${stand} Taxi Stand` : 'G-Taxi QR Stand',
+            };
+
             setLocation({
                 coords: {
-                    latitude: lat,
-                    longitude: lng,
+                    latitude: qrLat,
+                    longitude: qrLng,
                     accuracy: 10,
                 }
             } as any);
+
+            navigation.navigate('DestinationSearch', {
+                currentLocation: qrPickup,
+                source: 'qr_stand',
+                sourceMetadata: {
+                    stand,
+                    source: source || 'qr',
+                    lat: qrLat,
+                    lng: qrLng,
+                },
+            });
         }
 
         (async () => {
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status === 'granted') {
                 const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                setLocation(current);
+                if (!hasQrPickup) setLocation(current);
                 setLocationAccuracy(current.coords.accuracy || null);
             }
         })();

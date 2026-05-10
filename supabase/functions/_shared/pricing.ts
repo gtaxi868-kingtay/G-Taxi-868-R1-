@@ -11,6 +11,17 @@ export const VEHICLE_MULTIPLIERS: Record<string, number> = {
     "Premium": 2.0,
 };
 
+export function calculateStopsFee(stops: Array<{ stop_type?: string; estimated_wait_minutes?: number }> = []): number {
+    return stops.reduce((total, stop) => {
+        let stopBase = 1500;
+        if (stop.stop_type === "grocery") stopBase = 3500;
+        if (stop.stop_type === "pharmacy") stopBase = 2500;
+
+        const waitFee = Math.round((stop.estimated_wait_minutes || 0) * PRICING.PER_MIN_CENTS);
+        return total + stopBase + waitFee;
+    }, 0);
+}
+
 export function calculateFare(
     distanceMeters: number, 
     durationSeconds: number, 

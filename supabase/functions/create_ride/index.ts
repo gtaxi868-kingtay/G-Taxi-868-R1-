@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
+import { calculateFare, calculateStopsFee } from "../_shared/pricing.ts";
 import { captureException } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -112,7 +113,14 @@ serve(async (req: Request) => {
             // payment_method = "cash", // Removed default to respect body
             payment_method, // use body value
             scheduled_for,
-            stops = [] // New: stops array (Fix 3)
+            stops = [],
+            source = "app",
+            source_metadata = {},
+            taxi_stand_id,
+            kiosk_id,
+            guest_name,
+            guest_phone,
+            billed_to_merchant_id
         } = body;
 
         log("INFO", "Request from verified user", { requestId, rider_id, vehicle_type, payment_method, stops_count: stops.length });
@@ -127,7 +135,7 @@ serve(async (req: Request) => {
 
 
         // 4. Check for Existing Active Ride
-        const activeStatuses = ["requested", "searching", "assigned", "in_progress"];
+        const activeStatuses = ["requested", "searching", "assigned", "arrived", "in_progress"];
         const { data: existingRide } = await supabaseClient
             .from("rides")
             .select("*")
@@ -181,29 +189,8 @@ serve(async (req: Request) => {
         // 6. Calculate Fare
         const distanceKm = distanceMeters / 1000;
         const durationMin = durationSeconds / 60;
-        const multiplier = VEHICLE_MULTIPLIERS[vehicle_type] || 1.0;
-
-        let fareCents = PRICING.BASE_FARE_CENTS +
-            Math.round(distanceKm * PRICING.PER_KM_CENTS) +
-            Math.round(durationMin * PRICING.PER_MIN_CENTS);
-
-        fareCents = Math.round(fareCents * multiplier);
-
-        // Add Multi-Stop Fees (Tiered: $15 standard/laundry, $35 grocery, $25 pharmacy)
-        let stopsFeeCents = 0;
-        if (stops && stops.length > 0) {
-            stopsFeeCents = stops.reduce((total: number, stop: any) => {
-                let stopBase = 1500;
-                if (stop.stop_type === 'grocery') stopBase = 3500;
-                if (stop.stop_type === 'pharmacy') stopBase = 2500; // Granny's Shield
-                
-                const waitFee = Math.round((stop.estimated_wait_minutes || 10) * 95); // 95 cents per min (PRICING.PER_MIN_CENTS)
-                return total + stopBase + waitFee;
-            }, 0);
-        }
-
-        fareCents += stopsFeeCents;
-        fareCents = Math.max(fareCents, PRICING.MIN_FARE_CENTS);
+        const stopsFeeCents = calculateStopsFee(Array.isArray(stops) ? stops : []);
+        const fareCents = calculateFare(distanceMeters, durationSeconds, vehicle_type, 1.0, stopsFeeCents);
 
         // 6.5. PHASE 8: RIDER DEBT LOCK & Payment Reserve Check
         const { data: balance, error: balanceError } = await supabaseClient
@@ -249,26 +236,39 @@ serve(async (req: Request) => {
         // to ensure it works even if specific INSERT policies are tricky, OR we use the user client.
         // Let's use the User Client to respect RLS (Proof of Concept for Phase 2).
 
+        const rideInsert: Record<string, unknown> = {
+            rider_id: rider_id,
+            pickup_lat,
+            pickup_lng,
+            pickup_address,
+            dropoff_lat,
+            dropoff_lng,
+            dropoff_address,
+            status: body.scheduled_for ? "scheduled" : "searching",
+            scheduled_for: body.scheduled_for || null,
+            total_fare_cents: fareCents,
+            distance_meters: distanceMeters,
+            duration_seconds: durationSeconds,
+            route_polyline: routePolyline,
+            vehicle_type,
+            payment_method: payment_method || "cash",
+            ride_pin: Math.floor(1000 + Math.random() * 9000).toString(),
+            metadata: {
+                source,
+                source_metadata,
+                kiosk_id: kiosk_id || null,
+                taxi_stand_id: taxi_stand_id || null,
+                guest_name: guest_name || null,
+                guest_phone: guest_phone || null,
+            },
+        };
+
+        if (taxi_stand_id) rideInsert.taxi_stand_id = taxi_stand_id;
+        if (billed_to_merchant_id) rideInsert.billed_to_merchant_id = billed_to_merchant_id;
+
         const { data: newRide, error: insertError } = await supabaseClient
             .from("rides")
-            .insert({
-                rider_id: rider_id,
-                pickup_lat,
-                pickup_lng,
-                pickup_address,
-                dropoff_lat,
-                dropoff_lng,
-                dropoff_address,
-                status: body.scheduled_for ? "scheduled" : "searching",
-                scheduled_for: body.scheduled_for || null,
-                total_fare_cents: fareCents,
-                distance_meters: distanceMeters,
-                duration_seconds: durationSeconds,
-                route_polyline: routePolyline,
-                vehicle_type,
-                payment_method,
-                ride_pin: Math.floor(1000 + Math.random() * 9000).toString(),
-            })
+            .insert(rideInsert)
             .select()
             .single();
 

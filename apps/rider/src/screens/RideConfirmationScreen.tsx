@@ -63,7 +63,7 @@ const VEHICLES = [
 type VehicleType = (typeof VEHICLES)[number]['type'];
 
 export function RideConfirmationScreen({ navigation, route }: any) {
-    const { destination, pickup } = route.params;
+    const { destination, pickup, source, sourceMetadata, kioskId, taxiStandId } = route.params;
     const insets = useSafeAreaInsets();
     const mapRef = useRef<MapView>(null);
 
@@ -72,6 +72,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const [selectedType, setSelectedType] = useState<VehicleType>('Standard');
     const [multiplier, setMultiplier] = useState(1.0);
     const [confirming, setConfirming] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet'>('cash');
     const [walletBalance, setWalletBalance] = useState<number>(0);
 
     const [requestStatus, setRequestStatus] = useState<'idle' | 'connecting' | 'still_trying' | 'failed'>('idle');
@@ -90,6 +91,18 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     }, []);
 
     const fetchData = async () => {
+        if (!destination?.latitude || !destination?.longitude) {
+            Alert.alert("Destination Required", "Choose where you are going before confirming the ride.");
+            navigation.replace('DestinationSearch', {
+                currentLocation: pickupLoc,
+                source,
+                sourceMetadata,
+                kioskId,
+                taxiStandId,
+            });
+            return;
+        }
+
         setLoading(true);
         try {
             const [fareRes, balanceRes] = await Promise.all([
@@ -185,7 +198,11 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 dropoff_lng: destination.longitude,
                 dropoff_address: destination.address,
                 vehicle_type: selectedType,
-                payment_method: 'cash',
+                payment_method: paymentMethod,
+                source: source || 'app',
+                source_metadata: sourceMetadata,
+                kiosk_id: kioskId,
+                taxi_stand_id: taxiStandId,
                 stops: selectedStops.map((s, i) => ({
                     stop_order: i + 1,
                     place_name: s.place_name,
@@ -240,17 +257,16 @@ export function RideConfirmationScreen({ navigation, route }: any) {
         };
     }, []);
 
-    const STOP_CONVENIENCE_FEE_TTD = 5.00;
-    const WAIT_RATE_PER_MIN = 0.855;
-
     const stopsAddedCents = selectedStops.reduce((total, stop) => {
-        const waitFee = stop.estimated_wait_minutes * WAIT_RATE_PER_MIN * 100;
-        const convFee = STOP_CONVENIENCE_FEE_TTD * 100;
-        return total + waitFee + convFee;
+        let stopBase = 1500;
+        if (stop.stop_type === 'grocery') stopBase = 3500;
+        if (stop.stop_type === 'pharmacy') stopBase = 2500;
+        const waitFee = Math.round((stop.estimated_wait_minutes || 0) * 95);
+        return total + stopBase + waitFee;
     }, 0);
 
-    const baseFareCents = fare ? fare.total_fare_cents * multiplier : 0;
-    const displayFareCents = baseFareCents + stopsAddedCents;
+    const baseFareCents = fare ? fare.total_fare_cents : 0;
+    const displayFareCents = Math.round((baseFareCents + stopsAddedCents) * multiplier);
     const finalFare = fare ? (displayFareCents / 100).toFixed(2) : '--';
 
     return (
@@ -384,7 +400,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                                     </TouchableOpacity>
                                                 ) : (
                                                     <Text style={[s.stopPrice, { color: isSelected ? COLORS.cyan : COLORS.textMuted }]}>
-                                                        +${((stop.estimated_wait_minutes * WAIT_RATE_PER_MIN) + STOP_CONVENIENCE_FEE_TTD).toFixed(2)}
+                                                        +${(((stop.stop_type === 'grocery' ? 3500 : stop.stop_type === 'pharmacy' ? 2500 : 1500) + Math.round((stop.estimated_wait_minutes || 0) * 95)) / 100).toFixed(2)}
                                                     </Text>
                                                 )}
                                             </View>

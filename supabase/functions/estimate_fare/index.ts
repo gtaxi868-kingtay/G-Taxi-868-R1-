@@ -18,7 +18,7 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
-import { PRICING, VEHICLE_MULTIPLIERS, calculateFare } from "../_shared/pricing.ts";
+import { VEHICLE_MULTIPLIERS, calculateFare, calculateStopsFee } from "../_shared/pricing.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -116,21 +116,7 @@ serve(async (req: Request) => {
             }
         }
 
-        // Add stops fees ($15 TTD per generic/laundry stop, $35 for Grocery, $25 for Pharmacy)
-        let totalStopsFeeCents = 0;
-        if (stops && Array.isArray(stops)) {
-            for (const stop of stops) {
-                if (stop.stop_type === 'grocery') {
-                    totalStopsFeeCents += 3500; // $35.00 TTD
-                } else if (stop.stop_type === 'pharmacy') {
-                    totalStopsFeeCents += 2500; // $25.00 TTD (Granny's Shield)
-                } else if (stop.stop_type === 'laundry') {
-                    totalStopsFeeCents += 1500; // $15.00 TTD
-                } else {
-                    totalStopsFeeCents += 1500; // $15.00 TTD (Standard stop)
-                }
-            }
-        }
+        const totalStopsFeeCents = calculateStopsFee(Array.isArray(stops) ? stops : []);
 
         // Calculate fare using shared logic
         const fareCents = calculateFare(

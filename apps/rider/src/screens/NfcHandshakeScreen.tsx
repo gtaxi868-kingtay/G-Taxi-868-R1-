@@ -4,19 +4,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
-// NFC scanning requires physical NFC tags in production
-// Stubbed for build compatibility
-const NfcManager = {
-  start: async () => {},
-  isSupported: async () => false,
-  isAvailableAsync: async () => false,
-  registerTagEvent: async () => {},
-  unregisterTagEvent: async () => {},
-  getLaunchTagEvent: async () => null,
-  startScan: async () => {},
-  stopScan: async () => {},
-  getTag: async () => ({ id: null }),
-};
+import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import { Txt } from '../design-system/primitives';
 import { tokens } from '../design-system/tokens';
 import { supabase } from '../../../../shared/supabase';
@@ -45,27 +33,17 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
 
     const scanNfcTag = async () => {
         try {
-            // Check if NFC is available
-            const isAvailable = await NfcManager.isAvailableAsync();
-            if (!isAvailable) {
-                Alert.alert('NFC Not Available', 'This device does not support NFC.');
-                setLoading(false);
-                return;
-            }
-
-            // Start scanning
-            await NfcManager.startScan();
-            
-            // Wait for tag discovery
+            await NfcManager.start();
+            await NfcManager.requestTechnology(NfcTech.Ndef);
             const tag = await NfcManager.getTag();
             if (tag && tag.id) {
-                // Got a tag, process it
                 handleHandshakeWithTag(tag.id);
             }
-        } catch (error) {
-            console.error('NFC scan failed', error);
-            Alert.alert('Scan Failed', 'Could not read NFC tag. Please try again.');
+        } catch (ex) {
+            console.warn('NFC Scan cancelled or failed', ex);
             setLoading(false);
+        } finally {
+            NfcManager.cancelTechnologyRequest();
         }
     };
 
@@ -78,21 +56,15 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
                 return;
             }
 
-            const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/nfc_event_handler`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
+            const { data, error } = await supabase.functions.invoke('nfc_event_handler', {
+                body: {
                     tag_uid: scannedTagUid,
                     profile_id: session.user.id,
-                }),
+                },
             });
 
-            const data = await response.json();
-            if (data.error) {
-                Alert.alert('Error', data.error);
+            if (error || data?.error) {
+                Alert.alert('Error', data?.error || error?.message || 'NFC handshake failed');
             } else {
                 setHandshake(data);
             }
@@ -107,21 +79,22 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
     const handleHandshake = async () => {
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
+            if (!session) {
+                Alert.alert('Sign In Required', 'Please sign in to use NFC ride booking.');
+                return;
+            }
 
-            const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/nfc_event_handler`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
+            const { data, error } = await supabase.functions.invoke('nfc_event_handler', {
+                body: {
                     tag_uid: tagUid,
                     profile_id: session.user.id,
-                }),
+                },
             });
 
-            const data = await response.json();
+            if (error || data?.error) {
+                Alert.alert('Error', data?.error || error?.message || 'NFC handshake failed');
+                return;
+            }
             setHandshake(data);
         } catch (error) {
             console.error('Handshake failed', error);
@@ -137,12 +110,22 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
     };
 
     const confirmRide = () => {
-        // Navigate to RideConfirmation with the pre-filled kiosk data and selected services
-        navigation.navigate('RideConfirmation', {
-            pickupAddress: handshake.locationName,
-            pickupCoords: handshake.pickupCoords,
-            logisticsAddons: selectedServices,
-            kioskId: handshake.kioskId
+        const pickup = {
+            latitude: handshake.pickup_lat || handshake.pickupCoords?.latitude || 0,
+            longitude: handshake.pickup_lng || handshake.pickupCoords?.longitude || 0,
+            address: handshake.locationName || 'G-Taxi NFC Kiosk',
+        };
+
+        navigation.navigate('DestinationSearch', {
+            currentLocation: pickup,
+            source: 'nfc_kiosk',
+            kioskId: handshake.kiosk_id || handshake.kioskId,
+            sourceMetadata: {
+                kioskId: handshake.kiosk_id || handshake.kioskId,
+                locationName: handshake.locationName,
+                selectedServices,
+                tagUid,
+            },
         });
     };
 

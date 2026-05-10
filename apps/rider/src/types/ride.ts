@@ -24,6 +24,13 @@ export interface Ride {
     distance_meters: number | null;
     duration_seconds: number | null;
     created_at: string;
+    source?: string;
+    source_metadata?: any;
+    taxi_stand_id?: string;
+    kiosk_id?: string;
+    guest_name?: string;
+    guest_phone?: string;
+    payment_method?: string;
 }
 
 export interface FareEstimate {
