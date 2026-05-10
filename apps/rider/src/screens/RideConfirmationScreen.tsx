@@ -193,7 +193,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             const res = await createRide({
                 pickup_lat: pickupLoc.latitude,
                 pickup_lng: pickupLoc.longitude,
-                pickup_address: pickupLoc.address,
+                pickup_address: source === 'nfc_kiosk' ? (sourceMetadata?.locationName || 'NFC Kiosk') :
+                                source === 'qr_stand' ? (sourceMetadata?.standName || 'Taxi Stand') :
+                                pickupLoc.address,
                 dropoff_lat: destination.latitude,
                 dropoff_lng: destination.longitude,
                 dropoff_address: destination.address,
@@ -332,7 +334,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                 <View style={{ flex: 1, marginLeft: 16 }}>
                                     <Text style={s.addrLabel}>PICKUP</Text>
                                     <Text style={s.addrText} numberOfLines={1}>
-                                        {pickupLoc?.address || 'Current Location'}
+                                        {source === 'nfc_kiosk' ? (sourceMetadata?.locationName || 'NFC Kiosk') :
+                                         source === 'qr_stand' ? (sourceMetadata?.standName || 'Taxi Stand') :
+                                         pickupLoc?.address || 'Current Location'}
                                     </Text>
                                 </View>
                             </View>
