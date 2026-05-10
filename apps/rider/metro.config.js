@@ -18,10 +18,10 @@ config.resolver.nodeModulesPaths = [
 
 // Deduplicate React and other core libraries to prevent "Double React" crashes
 config.resolver.extraNodeModules = {
-    'react': path.resolve(projectRoot, 'node_modules/react'),
-    'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
-    '@react-navigation/native': path.resolve(projectRoot, 'node_modules/@react-navigation/native'),
-    'react-native-safe-area-context': path.resolve(projectRoot, 'node_modules/react-native-safe-area-context'),
+    'react': path.resolve(projectRoot, 'node_modules/react') || path.resolve(workspaceRoot, 'node_modules/react'),
+    'react-native': path.resolve(projectRoot, 'node_modules/react-native') || path.resolve(workspaceRoot, 'node_modules/react-native'),
+    '@react-navigation/native': path.resolve(projectRoot, 'node_modules/@react-navigation/native') || path.resolve(workspaceRoot, 'node_modules/@react-navigation/native'),
+    'react-native-safe-area-context': path.resolve(projectRoot, 'node_modules/react-native-safe-area-context') || path.resolve(workspaceRoot, 'node_modules/react-native-safe-area-context'),
 };
 
 
