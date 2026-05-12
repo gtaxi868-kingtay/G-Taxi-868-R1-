@@ -1,0 +1,1610 @@
+> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
+
+> Configure project :expo
+
+Using expo modules
+  - [32mexpo-application[0m (6.0.2)
+  - [32mexpo-asset[0m (11.0.5)
+  - [32mexpo-blur[0m (14.0.3)
+  - [32mexpo-camera[0m (16.0.18)
+  - [32mexpo-constants[0m (17.0.8)
+  - [32mexpo-device[0m (7.0.3)
+  - [32mexpo-file-system[0m (18.0.12)
+  - [32mexpo-font[0m (13.0.4)
+  - [32mexpo-haptics[0m (14.0.1)
+  - [32mexpo-image-loader[0m (5.0.0)
+  - [32mexpo-image-picker[0m (16.0.6)
+  - [32mexpo-keep-awake[0m (14.0.3)
+  - [32mexpo-linear-gradient[0m (14.0.2)
+  - [32mexpo-location[0m (18.0.10)
+  - [32mexpo-modules-core[0m (2.2.3)
+  - [32mexpo-notifications[0m (0.29.14)
+  - [32mexpo-system-ui[0m (4.0.9)
+
+
+> Configure project :react-native-reanimated
+Android gradle plugin: 8.6.0
+Gradle: 8.10.2
+
+> Task :app:clean UP-TO-DATE
+> Task :expo:clean
+> Task :expo-application:clean
+> Task :expo-asset:clean
+> Task :expo-blur:clean
+> Task :expo-camera:clean
+> Task :expo-constants:clean
+> Task :expo-device:clean
+> Task :expo-file-system:clean
+> Task :expo-font:clean
+> Task :expo-haptics:clean
+> Task :expo-image-loader:clean
+> Task :expo-image-picker:clean
+> Task :expo-keep-awake:clean
+> Task :expo-linear-gradient:clean
+> Task :expo-location:clean
+> Task :expo-modules-core:externalNativeBuildCleanDebug
+> Task :expo-modules-core:externalNativeBuildCleanRelease
+> Task :expo-modules-core:clean
+> Task :expo-notifications:clean
+
+> Transform io.nlopez.smartlocation-3.3.3-jetified.aar (project :expo-location$io.nlopez.smartlocation-jetified-aar) with DexingNoClasspathTransform
+ERROR: /Users/kingtay/Desktop/g taxi rider/node_modules/expo-location/android/build/expo-location$io.nlopez.smartlocation-jetified-aar/build/.transforms/fde2421ab5ff2a7762134f5a9303cf19/transformed/io.nlopez.smartlocation-3.3.3-jetified-runtime/io.nlopez.smartlocation-3.3.3-jetified-runtime_dex: D8: java.nio.file.NoSuchFileException: /Users/kingtay/Desktop/g taxi rider/node_modules/expo-location/android/build/expo-location$io.nlopez.smartlocation-jetified-aar/build/.transforms/fde2421ab5ff2a7762134f5a9303cf19/transformed/io.nlopez.smartlocation-3.3.3-jetified-runtime/io.nlopez.smartlocation-3.3.3-jetified-runtime_dex
+
+> Task :expo-system-ui:clean
+> Task :lottie-react-native:clean
+> Task :react-native-async-storage_async-storage:clean
+> Task :react-native-community_netinfo:clean
+> Task :react-native-community_slider:clean
+> Task :react-native-gesture-handler:clean
+> Task :react-native-maps:clean
+> Task :react-native-nfc-manager:clean
+> Task :react-native-reanimated:cleanCmakeCache
+> Task :react-native-reanimated:externalNativeBuildCleanDebug
+> Task :react-native-reanimated:externalNativeBuildCleanRelease
+> Task :react-native-reanimated:clean
+> Task :react-native-safe-area-context:clean
+> Task :react-native-screens:externalNativeBuildCleanDebug
+> Task :react-native-screens:externalNativeBuildCleanRelease
+> Task :react-native-screens:clean
+> Task :react-native-svg:clean
+> Task :sentry_react-native:clean
+> Task :stripe_stripe-react-native:clean
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateAutolinkingPackageList
+> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
+> Task :app:generateCodegenArtifactsFromSchema SKIPPED
+> Task :app:preBuild
+> Task :app:preReleaseBuild
+> Task :app:generateReleaseBuildConfig
+> Task :expo:generateExpoModulesPackageListTask
+> Task :expo:preBuild
+> Task :expo:preReleaseBuild
+> Task :expo-application:preBuild UP-TO-DATE
+> Task :expo-application:preReleaseBuild UP-TO-DATE
+> Task :expo:writeReleaseAarMetadata
+> Task :expo-asset:preBuild UP-TO-DATE
+> Task :expo-asset:preReleaseBuild UP-TO-DATE
+> Task :expo-application:writeReleaseAarMetadata
+> Task :expo-blur:preBuild UP-TO-DATE
+> Task :expo-blur:preReleaseBuild UP-TO-DATE
+> Task :expo-asset:writeReleaseAarMetadata
+> Task :expo-camera:preBuild UP-TO-DATE
+> Task :expo-camera:preReleaseBuild UP-TO-DATE
+> Task :expo-blur:writeReleaseAarMetadata
+> Task :expo-camera:writeReleaseAarMetadata
+
+> Task :expo-constants:createExpoConfig
+The NODE_ENV environment variable is required but was not specified. Ensure the project is bundled with Expo CLI or NODE_ENV is set.
+Proceeding without mode-specific .env
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN
+
+> Task :expo-constants:preBuild
+> Task :expo-constants:preReleaseBuild
+> Task :expo-device:preBuild UP-TO-DATE
+> Task :expo-device:preReleaseBuild UP-TO-DATE
+> Task :expo-constants:writeReleaseAarMetadata
+> Task :expo-file-system:preBuild UP-TO-DATE
+> Task :expo-file-system:preReleaseBuild UP-TO-DATE
+> Task :expo-device:writeReleaseAarMetadata
+> Task :expo-font:preBuild UP-TO-DATE
+> Task :expo-font:preReleaseBuild UP-TO-DATE
+> Task :expo-file-system:writeReleaseAarMetadata
+> Task :expo-haptics:preBuild UP-TO-DATE
+> Task :expo-haptics:preReleaseBuild UP-TO-DATE
+> Task :expo-font:writeReleaseAarMetadata
+> Task :expo-image-loader:preBuild UP-TO-DATE
+> Task :expo-image-loader:preReleaseBuild UP-TO-DATE
+> Task :expo-haptics:writeReleaseAarMetadata
+> Task :expo-image-picker:preBuild UP-TO-DATE
+> Task :expo-image-picker:preReleaseBuild UP-TO-DATE
+> Task :expo-image-loader:writeReleaseAarMetadata
+> Task :expo-keep-awake:preBuild UP-TO-DATE
+> Task :expo-keep-awake:preReleaseBuild UP-TO-DATE
+> Task :expo-image-picker:writeReleaseAarMetadata
+> Task :expo-linear-gradient:preBuild UP-TO-DATE
+> Task :expo-linear-gradient:preReleaseBuild UP-TO-DATE
+> Task :expo-keep-awake:writeReleaseAarMetadata
+> Task :expo-location:preBuild UP-TO-DATE
+> Task :expo-location:preReleaseBuild UP-TO-DATE
+> Task :expo-linear-gradient:writeReleaseAarMetadata
+> Task :expo-modules-core:preBuild UP-TO-DATE
+> Task :expo-modules-core:preReleaseBuild UP-TO-DATE
+> Task :expo-location:writeReleaseAarMetadata
+> Task :expo-notifications:preBuild UP-TO-DATE
+> Task :expo-notifications:preReleaseBuild UP-TO-DATE
+> Task :expo-modules-core:writeReleaseAarMetadata
+> Task :expo-system-ui:preBuild UP-TO-DATE
+> Task :expo-system-ui:preReleaseBuild UP-TO-DATE
+> Task :expo-notifications:writeReleaseAarMetadata
+> Task :lottie-react-native:preBuild UP-TO-DATE
+> Task :lottie-react-native:preReleaseBuild UP-TO-DATE
+> Task :expo-system-ui:writeReleaseAarMetadata
+> Task :react-native-async-storage_async-storage:preBuild UP-TO-DATE
+> Task :react-native-async-storage_async-storage:preReleaseBuild UP-TO-DATE
+> Task :lottie-react-native:writeReleaseAarMetadata
+> Task :react-native-community_netinfo:preBuild UP-TO-DATE
+> Task :react-native-async-storage_async-storage:writeReleaseAarMetadata
+> Task :react-native-community_netinfo:preReleaseBuild UP-TO-DATE
+> Task :react-native-community_slider:preBuild UP-TO-DATE
+> Task :react-native-community_slider:preReleaseBuild UP-TO-DATE
+> Task :react-native-community_netinfo:writeReleaseAarMetadata
+> Task :react-native-gesture-handler:preBuild UP-TO-DATE
+> Task :react-native-gesture-handler:preReleaseBuild UP-TO-DATE
+> Task :react-native-community_slider:writeReleaseAarMetadata
+> Task :react-native-maps:preBuild UP-TO-DATE
+> Task :react-native-maps:preReleaseBuild UP-TO-DATE
+> Task :react-native-gesture-handler:writeReleaseAarMetadata
+> Task :react-native-nfc-manager:preBuild UP-TO-DATE
+> Task :react-native-nfc-manager:preReleaseBuild UP-TO-DATE
+> Task :react-native-maps:writeReleaseAarMetadata
+> Task :react-native-reanimated:assertLatestReactNativeWithNewArchitectureTask SKIPPED
+> Task :react-native-reanimated:assertMinimalReactNativeVersionTask SKIPPED
+> Task :react-native-nfc-manager:writeReleaseAarMetadata
+> Task :react-native-reanimated:prepareReanimatedHeadersForPrefabs
+> Task :react-native-reanimated:prepareWorkletsHeadersForPrefabs
+> Task :react-native-reanimated:preBuild
+> Task :react-native-reanimated:preReleaseBuild
+> Task :react-native-safe-area-context:preBuild UP-TO-DATE
+> Task :react-native-safe-area-context:preReleaseBuild UP-TO-DATE
+> Task :react-native-reanimated:writeReleaseAarMetadata
+> Task :react-native-screens:preBuild UP-TO-DATE
+> Task :react-native-screens:preReleaseBuild UP-TO-DATE
+> Task :react-native-safe-area-context:writeReleaseAarMetadata
+> Task :react-native-svg:preBuild UP-TO-DATE
+> Task :react-native-svg:preReleaseBuild UP-TO-DATE
+> Task :react-native-screens:writeReleaseAarMetadata
+> Task :sentry_react-native:preBuild UP-TO-DATE
+> Task :sentry_react-native:preReleaseBuild UP-TO-DATE
+> Task :react-native-svg:writeReleaseAarMetadata
+> Task :stripe_stripe-react-native:preBuild UP-TO-DATE
+> Task :stripe_stripe-react-native:preReleaseBuild UP-TO-DATE
+> Task :sentry_react-native:writeReleaseAarMetadata
+> Task :stripe_stripe-react-native:writeReleaseAarMetadata
+> Task :app:checkReleaseAarMetadata
+
+> Task :app:createBundleReleaseJsAndAssets
+env: load .env
+env: export EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Android Bundled 37673ms apps/rider/index.js (1386 modules)
+Writing bundle output to: /Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle
+Writing sourcemap output to: /Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/intermediates/sourcemaps/react/release/index.android.bundle.packager.map
+Copying 27 asset files
+Done writing bundle output
+Done writing sourcemap output
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:3976:16: warning: the variable "SharedArrayBuffer" was not declared in function "from"
+    if (typeof SharedArrayBuffer !== 'undefined' && (isInstance(value, Shared...
+               ^~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:7864:23: warning: the variable "DebuggerInternal" was not declared in function "__shouldPauseOnThrow"
+        return typeof DebuggerInternal !== 'undefined' && DebuggerInternal.sh...
+                      ^~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:18219:7: warning: the variable "setTimeout" was not declared in function "logCapturedError"
+      setTimeout(function () {
+      ^~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:16453:31: warning: the variable "nativeFabricUIManager" was not declared in anonymous function " 391#"
+  var _nativeFabricUIManage = nativeFabricUIManager,
+                              ^~~~~~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:16481:21: warning: the variable "clearTimeout" was not declared in anonymous function " 391#"
+    cancelTimeout = clearTimeout;
+                    ^~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:16494:51: warning: the variable "RN$enableMicrotasksInReact" was not declared in anonymous function " 391#"
+... "undefined" !== typeof RN$enableMicrotasksInReact && !!RN$enableMicrotask...
+                           ^~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:16495:47: warning: the variable "queueMicrotask" was not declared in anonymous function " 391#"
+...otask = "function" === typeof queueMicrotask ? queueMicrotask : scheduleTi...
+                                 ^~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:20916:30: warning: the variable "__REACT_DEVTOOLS_GLOBAL_HOOK__" was not declared in anonymous function " 391#"
+  if ("undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__) {
+                             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:22350:5: warning: the variable "setImmediate" was not declared in function "handleResolved"
+    setImmediate(function () {
+    ^~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:25616:5: warning: the variable "fetch" was not declared in anonymous function " 614#"
+    fetch,
+    ^~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:25617:5: warning: the variable "Headers" was not declared in anonymous function " 614#"
+    Headers,
+    ^~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:25618:5: warning: the variable "Request" was not declared in anonymous function " 614#"
+    Request,
+    ^~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:25619:5: warning: the variable "Response" was not declared in anonymous function " 614#"
+    Response
+    ^~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:25776:24: warning: the variable "FileReader" was not declared in function "readBlobAsArrayBuffer"
+      var reader = new FileReader();
+                       ^~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:25831:44: warning: the variable "URLSearchParams" was not declared in anonymous function " 625#"
+...e if (support.searchParams && URLSearchParams.prototype.isPrototypeOf(body...
+                                 ^~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:25950:26: warning: the variable "AbortController" was not declared in anonymous function " 631#"
+          var ctrl = new AbortController();
+                         ^~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:26084:23: warning: the variable "XMLHttpRequest" was not declared in anonymous function " 635#"
+        var xhr = new XMLHttpRequest();
+                      ^~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:25629:71: warning: the variable "self" was not declared in anonymous function " 617#"
+...undefined' && globalThis || typeof self !== 'undefined' && self ||
+                                      ^~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:28471:26: warning: the variable "navigator" was not declared in anonymous function " 794#"
+  "undefined" !== typeof navigator && undefined !== navigator.scheduling && u...
+                         ^~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:28581:37: warning: the variable "MessageChannel" was not declared in anonymous function " 794#"
+  };else if ("undefined" !== typeof MessageChannel) {
+                                    ^~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:28596:34: warning: the variable "nativeRuntimeScheduler" was not declared in anonymous function " 794#"
+... = "undefined" !== typeof nativeRuntimeScheduler ? nativeRuntimeScheduler....
+                             ^~~~~~~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:38445:34: warning: the variable "requestAnimationFrame" was not declared in function "start 9#"
+...    this._animationFrame = requestAnimationFrame(this.onUpdate.bind(this));
+                              ^~~~~~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:57825:38: warning: the variable "document" was not declared in anonymous function " 1892#"
+...r useClientLayoutEffect = typeof document !== 'undefined' || typeof naviga...
+                                    ^~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:77986:30: warning: the variable "Worker" was not declared in function "_startWorkerHeartbeat"
+        this.workerRef = new Worker(objectUrl);
+                             ^~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:78134:20: warning: the variable "WebSocket" was not declared in function "detectEnvironment"
+        if (typeof WebSocket !== 'undefined') {
+                   ^~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:78379:27: warning: the variable "TextEncoder" was not declared in function "_encodeJsonUserBroadcastPush"
+        var encoder = new TextEncoder();
+                          ^~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:78461:27: warning: the variable "TextDecoder" was not declared in function "_binaryDecode"
+        var decoder = new TextDecoder();
+                          ^~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:80565:12: warning: the variable "btoa" was not declared in arrow function "arrayBufferToBase64"
+    return btoa(binary);
+           ^~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:80571:26: warning: the variable "atob" was not declared in function "LongPoll 1#"
+        this.authToken = atob(protocols[1].slice(AUTH_TOKEN_PREFIX.length));
+                         ^~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:80729:20: warning: the variable "CloseEvent" was not declared in function "close 3#"
+        if (typeof CloseEvent !== "undefined") {
+                   ^~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:81309:16: warning: the variable "location" was not declared in function "protocol"
+        return location.protocol.match(/^https/) ? "wss" : "ws";
+               ^~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:83113:27: warning: the variable "ReadableStream" was not declared in function "?anon_0_ 64#"
+              if ((typeof ReadableStream !== "undefined" && body instanceof R...
+                          ^~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:84187:20: warning: the variable "Buffer" was not declared in function "toBase64"
+        if (typeof Buffer !== "undefined") return Buffer.from(data).toString(...
+                   ^~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:89066:16: warning: the variable "crypto" was not declared in function "generatePKCEVerifier"
+    if (typeof crypto === 'undefined') {
+               ^~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:97157:7: warning: the variable "__magic__" was not declared in function "polyfillGlobalThis"
+      __magic__.globalThis = __magic__;
+      ^~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:97360:16: warning: the variable "PublicKeyCredential" was not declared in function "deserializeCredentialCreationOptions"
+    if (typeof PublicKeyCredential !== 'undefined' && 'parseCreationOptionsFr...
+               ^~~~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:98229:37: warning: the variable "AbortSignal" was not declared in function "identifyRegistrationError"
+      if (options.signal instanceof AbortSignal) {
+                                    ^~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:102803:25: warning: the variable "Atomics" was not declared in anonymous function " 3684#"
+    '%Atomics%': typeof Atomics === 'undefined' ? undefined : Atomics,
+                        ^~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:102818:30: warning: the variable "Float16Array" was not declared in anonymous function " 3684#"
+    '%Float16Array%': typeof Float16Array === 'undefined' ? undefined : Float...
+                             ^~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:102821:38: warning: the variable "FinalizationRegistry" was not declared in anonymous function " 3684#"
+...lizationRegistry%': typeof FinalizationRegistry === 'undefined' ? undefine...
+                              ^~~~~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:102861:25: warning: the variable "WeakRef" was not declared in anonymous function " 3684#"
+    '%WeakRef%': typeof WeakRef === 'undefined' ? undefined : WeakRef,
+                        ^~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:110876:11: warning: the variable "_WORKLET" was not declared in function "assertEasingIsWorklet"
+      if (_WORKLET) {
+          ^~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:113121:12: warning: the variable "__reanimatedLoggerConfig" was not declared in function "replaceLoggerImplementation"
+        ...__reanimatedLoggerConfig,
+           ^~~~~~~~~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:113722:26: warning: Direct call to eval(), but lexical scope is not supported.
+            workletFun = eval('(' + initData.code + '\n)');
+                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:113745:112: warning: the variable "_toString" was not declared in function "valueUnpacker"
+...recognized by value unpacker: "${_toString(objectToUnpack)}".`);
+                                    ^~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:130715:26: warning: the variable "structuredClone" was not declared in function "createAnimationWithInitialValues"
+    var animationStyle = structuredClone(_config.AnimationsData[animationName...
+                         ^~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:131130:27: warning: the variable "HTMLElement" was not declared in function "findDescendantWithExitingAnimation"
+    if (!(node instanceof HTMLElement)) {
+                          ^~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:131156:24: warning: the variable "MutationObserver" was not declared in function "addHTMLMutationObserver"
+    var observer = new MutationObserver(mutationsList => {
+                       ^~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:131201:41: warning: the variable "getComputedStyle" was not declared in function "fixElementPosition"
+...entBorderTopValue = parseInt(getComputedStyle(parent).borderTopWidth);
+                                ^~~~~~~~~~~~~~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:135173:5: warning: the variable "jest" was not declared in arrow function "beforeTest"
+    jest.useFakeTimers();
+    ^~~~
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle:135749:26: warning: the variable "_getAnimationTimestamp" was not declared in function "computeEasingProgress"
+      var elapsedTime = (_getAnimationTimestamp() - startingTimestamp) / 1000;
+                         ^~~~~~~~~~~~~~~~~~~~~~
+
+> Task :app:generateReleaseResValues
+> Task :expo:generateReleaseResValues
+> Task :expo:generateReleaseResources
+> Task :expo:packageReleaseResources
+> Task :expo-application:generateReleaseResValues
+> Task :expo-application:generateReleaseResources
+> Task :expo-application:packageReleaseResources
+> Task :expo-asset:generateReleaseResValues
+> Task :expo-asset:generateReleaseResources
+> Task :expo-asset:packageReleaseResources
+> Task :expo-blur:generateReleaseResValues
+> Task :expo-blur:generateReleaseResources
+> Task :expo-blur:packageReleaseResources
+> Task :expo-camera:generateReleaseResValues
+> Task :expo-camera:generateReleaseResources
+> Task :expo-camera:packageReleaseResources
+> Task :expo-constants:generateReleaseResValues
+> Task :expo-constants:generateReleaseResources
+> Task :expo-constants:packageReleaseResources
+> Task :expo-device:generateReleaseResValues
+> Task :expo-device:generateReleaseResources
+> Task :expo-device:packageReleaseResources
+> Task :expo-file-system:generateReleaseResValues
+> Task :expo-file-system:generateReleaseResources
+> Task :expo-file-system:packageReleaseResources
+> Task :expo-font:generateReleaseResValues
+> Task :expo-font:generateReleaseResources
+> Task :expo-font:packageReleaseResources
+> Task :expo-haptics:generateReleaseResValues
+> Task :expo-haptics:generateReleaseResources
+> Task :expo-haptics:packageReleaseResources
+> Task :expo-image-loader:generateReleaseResValues
+> Task :expo-image-loader:generateReleaseResources
+> Task :expo-image-loader:packageReleaseResources
+> Task :expo-image-picker:generateReleaseResValues
+> Task :expo-image-picker:generateReleaseResources
+> Task :expo-image-picker:packageReleaseResources
+> Task :expo-keep-awake:generateReleaseResValues
+> Task :expo-keep-awake:generateReleaseResources
+> Task :expo-keep-awake:packageReleaseResources
+> Task :expo-linear-gradient:generateReleaseResValues
+> Task :expo-linear-gradient:generateReleaseResources
+> Task :expo-linear-gradient:packageReleaseResources
+> Task :expo-location:generateReleaseResValues
+> Task :expo-location:generateReleaseResources
+> Task :expo-location:packageReleaseResources
+> Task :expo-modules-core:generateReleaseResValues
+> Task :expo-modules-core:generateReleaseResources
+> Task :expo-modules-core:packageReleaseResources
+> Task :expo-notifications:generateReleaseResValues
+> Task :expo-notifications:generateReleaseResources
+> Task :expo-notifications:packageReleaseResources
+> Task :expo-system-ui:generateReleaseResValues
+> Task :expo-system-ui:generateReleaseResources
+> Task :expo-system-ui:packageReleaseResources
+> Task :lottie-react-native:generateReleaseResValues
+> Task :lottie-react-native:generateReleaseResources
+> Task :lottie-react-native:packageReleaseResources
+> Task :react-native-async-storage_async-storage:generateReleaseResValues
+> Task :react-native-async-storage_async-storage:generateReleaseResources
+> Task :react-native-async-storage_async-storage:packageReleaseResources
+> Task :react-native-community_netinfo:generateReleaseResValues
+> Task :react-native-community_netinfo:generateReleaseResources
+> Task :react-native-community_netinfo:packageReleaseResources
+> Task :react-native-community_slider:generateReleaseResValues
+> Task :react-native-community_slider:generateReleaseResources
+> Task :react-native-community_slider:packageReleaseResources
+> Task :react-native-gesture-handler:generateReleaseResValues
+> Task :react-native-gesture-handler:generateReleaseResources
+> Task :react-native-gesture-handler:packageReleaseResources
+> Task :react-native-maps:generateReleaseResValues
+> Task :react-native-maps:generateReleaseResources
+> Task :react-native-maps:packageReleaseResources
+> Task :react-native-nfc-manager:generateReleaseResValues
+> Task :react-native-nfc-manager:generateReleaseResources
+> Task :react-native-nfc-manager:packageReleaseResources
+> Task :react-native-reanimated:generateReleaseResValues
+> Task :react-native-reanimated:generateReleaseResources
+> Task :react-native-reanimated:packageReleaseResources
+> Task :react-native-safe-area-context:generateReleaseResValues
+> Task :react-native-safe-area-context:generateReleaseResources
+> Task :react-native-safe-area-context:packageReleaseResources
+> Task :react-native-screens:generateReleaseResValues
+> Task :react-native-screens:generateReleaseResources
+> Task :react-native-screens:packageReleaseResources
+> Task :react-native-svg:generateReleaseResValues
+> Task :react-native-svg:generateReleaseResources
+> Task :react-native-svg:packageReleaseResources
+> Task :sentry_react-native:generateReleaseResValues
+> Task :sentry_react-native:generateReleaseResources
+> Task :sentry_react-native:packageReleaseResources
+> Task :stripe_stripe-react-native:generateReleaseResValues
+> Task :stripe_stripe-react-native:generateReleaseResources
+> Task :stripe_stripe-react-native:packageReleaseResources
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :expo:extractDeepLinksRelease
+> Task :expo-application:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :expo:processReleaseManifest
+> Task :expo-application:processReleaseManifest
+> Task :expo-asset:extractDeepLinksRelease
+> Task :expo-blur:extractDeepLinksRelease
+> Task :expo-asset:processReleaseManifest
+> Task :expo-camera:extractDeepLinksRelease
+> Task :expo-blur:processReleaseManifest
+> Task :expo-constants:extractDeepLinksRelease
+> Task :expo-camera:processReleaseManifest
+> Task :expo-device:extractDeepLinksRelease
+> Task :expo-constants:processReleaseManifest
+> Task :expo-file-system:extractDeepLinksRelease
+> Task :expo-device:processReleaseManifest
+> Task :expo-font:extractDeepLinksRelease
+
+> Task :expo-file-system:processReleaseManifest
+/Users/kingtay/Desktop/g taxi rider/node_modules/expo-file-system/android/src/main/AndroidManifest.xml:6:9-8:20 Warning:
+	provider#expo.modules.filesystem.FileSystemFileProvider@android:authorities was tagged at AndroidManifest.xml:6 to replace other declarations but no other declaration present
+
+> Task :expo-haptics:extractDeepLinksRelease
+> Task :expo-font:processReleaseManifest
+> Task :expo-image-loader:extractDeepLinksRelease
+> Task :expo-haptics:processReleaseManifest
+> Task :expo-image-picker:extractDeepLinksRelease
+> Task :expo-image-loader:processReleaseManifest
+> Task :expo-keep-awake:extractDeepLinksRelease
+> Task :expo-image-picker:processReleaseManifest
+> Task :expo-linear-gradient:extractDeepLinksRelease
+> Task :expo-keep-awake:processReleaseManifest
+> Task :expo-location:extractDeepLinksRelease
+> Task :expo-linear-gradient:processReleaseManifest
+> Task :expo-modules-core:extractDeepLinksRelease
+> Task :expo-location:processReleaseManifest
+> Task :expo-notifications:extractDeepLinksRelease
+
+> Task :expo-modules-core:processReleaseManifest
+/Users/kingtay/Desktop/g taxi rider/node_modules/expo-modules-core/android/src/main/AndroidManifest.xml:8:9-11:45 Warning:
+	meta-data#com.facebook.soloader.enabled@android:value was tagged at AndroidManifest.xml:8 to replace other declarations but no other declaration present
+
+> Task :expo-system-ui:extractDeepLinksRelease
+> Task :expo-notifications:processReleaseManifest
+> Task :lottie-react-native:extractDeepLinksRelease
+> Task :expo-system-ui:processReleaseManifest
+> Task :react-native-async-storage_async-storage:extractDeepLinksRelease
+> Task :lottie-react-native:processReleaseManifest
+> Task :react-native-community_netinfo:extractDeepLinksRelease
+
+> Task :react-native-async-storage_async-storage:processReleaseManifest
+package="com.reactnativecommunity.asyncstorage" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.reactnativecommunity.asyncstorage" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml.
+
+> Task :react-native-community_slider:extractDeepLinksRelease
+
+> Task :react-native-community_netinfo:processReleaseManifest
+package="com.reactnativecommunity.netinfo" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/apps/rider/node_modules/@react-native-community/netinfo/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.reactnativecommunity.netinfo" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/apps/rider/node_modules/@react-native-community/netinfo/android/src/main/AndroidManifest.xml.
+
+> Task :react-native-gesture-handler:extractDeepLinksRelease
+
+> Task :react-native-community_slider:processReleaseManifest
+package="com.reactnativecommunity.slider" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/apps/rider/node_modules/@react-native-community/slider/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.reactnativecommunity.slider" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/apps/rider/node_modules/@react-native-community/slider/android/src/main/AndroidManifest.xml.
+
+> Task :react-native-maps:extractDeepLinksRelease
+> Task :react-native-gesture-handler:processReleaseManifest
+> Task :react-native-nfc-manager:extractDeepLinksRelease
+
+> Task :react-native-maps:processReleaseManifest
+package="com.rnmaps.maps" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/apps/rider/node_modules/react-native-maps/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.rnmaps.maps" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/apps/rider/node_modules/react-native-maps/android/src/main/AndroidManifest.xml.
+
+> Task :react-native-reanimated:extractDeepLinksRelease
+
+> Task :react-native-nfc-manager:processReleaseManifest
+package="community.revteltech.nfc" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/react-native-nfc-manager/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="community.revteltech.nfc" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/react-native-nfc-manager/android/src/main/AndroidManifest.xml.
+
+> Task :react-native-safe-area-context:extractDeepLinksRelease
+> Task :react-native-reanimated:processReleaseManifest
+> Task :react-native-screens:extractDeepLinksRelease
+
+> Task :react-native-safe-area-context:processReleaseManifest
+package="com.th3rdwave.safeareacontext" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/react-native-safe-area-context/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.th3rdwave.safeareacontext" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/react-native-safe-area-context/android/src/main/AndroidManifest.xml.
+
+> Task :react-native-svg:extractDeepLinksRelease
+
+> Task :react-native-screens:processReleaseManifest
+package="com.swmansion.rnscreens" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/react-native-screens/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.swmansion.rnscreens" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/react-native-screens/android/src/main/AndroidManifest.xml.
+
+> Task :sentry_react-native:extractDeepLinksRelease
+
+> Task :react-native-svg:processReleaseManifest
+package="com.horcrux.svg" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.horcrux.svg" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/AndroidManifest.xml.
+
+> Task :stripe_stripe-react-native:extractDeepLinksRelease
+
+> Task :sentry_react-native:processReleaseManifest
+package="io.sentry.react" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/@sentry/react-native/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="io.sentry.react" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/@sentry/react-native/android/src/main/AndroidManifest.xml.
+
+> Task :expo:compileReleaseLibraryResources
+
+> Task :stripe_stripe-react-native:processReleaseManifest
+package="com.reactnativestripesdk" found in source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/@stripe/stripe-react-native/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.reactnativestripesdk" from the source AndroidManifest.xml: /Users/kingtay/Desktop/g taxi rider/node_modules/@stripe/stripe-react-native/android/src/main/AndroidManifest.xml.
+
+> Task :expo:parseReleaseLocalResources
+> Task :expo-application:compileReleaseLibraryResources
+
+> Task :app:processReleaseMainManifest
+/Users/kingtay/Desktop/g taxi rider/apps/rider/android/app/src/main/AndroidManifest.xml Warning:
+	provider#expo.modules.filesystem.FileSystemFileProvider@android:authorities was tagged at AndroidManifest.xml:0 to replace other declarations but no other declaration present
+
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :expo-application:parseReleaseLocalResources
+> Task :expo:generateReleaseRFile
+> Task :expo-asset:compileReleaseLibraryResources
+> Task :expo-application:generateReleaseRFile
+> Task :expo-blur:compileReleaseLibraryResources
+> Task :expo-asset:parseReleaseLocalResources
+> Task :expo-blur:parseReleaseLocalResources
+> Task :expo-camera:compileReleaseLibraryResources
+> Task :expo-asset:generateReleaseRFile
+> Task :expo-blur:generateReleaseRFile
+> Task :expo-camera:parseReleaseLocalResources
+> Task :expo-constants:compileReleaseLibraryResources
+> Task :expo-camera:generateReleaseRFile
+> Task :expo-constants:parseReleaseLocalResources
+> Task :expo-device:compileReleaseLibraryResources
+> Task :expo-constants:generateReleaseRFile
+> Task :expo-device:parseReleaseLocalResources
+> Task :expo-file-system:compileReleaseLibraryResources
+> Task :expo-device:generateReleaseRFile
+> Task :expo-file-system:parseReleaseLocalResources
+> Task :expo-font:compileReleaseLibraryResources
+> Task :expo-font:parseReleaseLocalResources
+> Task :expo-file-system:generateReleaseRFile
+> Task :expo-haptics:compileReleaseLibraryResources
+> Task :expo-image-loader:compileReleaseLibraryResources
+> Task :expo-haptics:parseReleaseLocalResources
+> Task :expo-font:generateReleaseRFile
+> Task :expo-image-loader:parseReleaseLocalResources
+> Task :expo-haptics:generateReleaseRFile
+> Task :expo-image-loader:generateReleaseRFile
+> Task :expo-image-picker:compileReleaseLibraryResources
+> Task :expo-image-picker:parseReleaseLocalResources
+> Task :expo-keep-awake:compileReleaseLibraryResources
+> Task :expo-keep-awake:parseReleaseLocalResources
+> Task :expo-image-picker:generateReleaseRFile
+> Task :expo-linear-gradient:compileReleaseLibraryResources
+> Task :expo-keep-awake:generateReleaseRFile
+> Task :app:mergeReleaseResources
+> Task :expo-location:compileReleaseLibraryResources
+> Task :expo-linear-gradient:parseReleaseLocalResources
+> Task :expo-location:parseReleaseLocalResources
+> Task :expo-linear-gradient:generateReleaseRFile
+> Task :expo-modules-core:compileReleaseLibraryResources
+> Task :expo-location:generateReleaseRFile
+> Task :expo-notifications:compileReleaseLibraryResources
+> Task :expo-modules-core:parseReleaseLocalResources
+> Task :expo-notifications:parseReleaseLocalResources
+> Task :expo-modules-core:generateReleaseRFile
+> Task :expo-system-ui:compileReleaseLibraryResources
+> Task :expo-notifications:generateReleaseRFile
+> Task :expo-system-ui:parseReleaseLocalResources
+> Task :lottie-react-native:compileReleaseLibraryResources
+> Task :expo-system-ui:generateReleaseRFile
+> Task :lottie-react-native:parseReleaseLocalResources
+> Task :react-native-async-storage_async-storage:compileReleaseLibraryResources
+> Task :lottie-react-native:generateReleaseRFile
+> Task :react-native-async-storage_async-storage:parseReleaseLocalResources
+> Task :react-native-community_netinfo:compileReleaseLibraryResources
+> Task :react-native-async-storage_async-storage:generateReleaseRFile
+> Task :react-native-community_netinfo:parseReleaseLocalResources
+> Task :react-native-community_slider:compileReleaseLibraryResources
+> Task :react-native-community_slider:parseReleaseLocalResources
+> Task :react-native-gesture-handler:compileReleaseLibraryResources
+> Task :react-native-community_slider:generateReleaseRFile
+> Task :react-native-gesture-handler:parseReleaseLocalResources
+> Task :react-native-community_netinfo:generateReleaseRFile
+> Task :react-native-maps:compileReleaseLibraryResources
+> Task :react-native-maps:parseReleaseLocalResources
+> Task :react-native-nfc-manager:compileReleaseLibraryResources
+> Task :react-native-gesture-handler:generateReleaseRFile
+> Task :react-native-maps:generateReleaseRFile
+> Task :react-native-nfc-manager:parseReleaseLocalResources
+> Task :react-native-reanimated:compileReleaseLibraryResources
+> Task :react-native-reanimated:parseReleaseLocalResources
+> Task :react-native-nfc-manager:generateReleaseRFile
+> Task :react-native-safe-area-context:compileReleaseLibraryResources
+> Task :react-native-reanimated:generateReleaseRFile
+> Task :react-native-safe-area-context:parseReleaseLocalResources
+> Task :react-native-screens:compileReleaseLibraryResources
+> Task :react-native-safe-area-context:generateReleaseRFile
+> Task :react-native-svg:compileReleaseLibraryResources
+> Task :react-native-screens:parseReleaseLocalResources
+> Task :react-native-svg:parseReleaseLocalResources
+> Task :sentry_react-native:compileReleaseLibraryResources
+> Task :react-native-screens:generateReleaseRFile
+> Task :react-native-svg:generateReleaseRFile
+> Task :sentry_react-native:parseReleaseLocalResources
+> Task :stripe_stripe-react-native:compileReleaseLibraryResources
+> Task :expo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :sentry_react-native:generateReleaseRFile
+> Task :stripe_stripe-react-native:parseReleaseLocalResources
+> Task :expo:generateReleaseBuildConfig
+> Task :expo-application:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :stripe_stripe-react-native:generateReleaseRFile
+> Task :expo-application:generateReleaseBuildConfig
+> Task :expo-modules-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-modules-core:generateReleaseBuildConfig
+> Task :expo-modules-core:javaPreCompileRelease
+> Task :expo-asset:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-application:javaPreCompileRelease
+> Task :expo-asset:generateReleaseBuildConfig
+> Task :expo-blur:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-asset:javaPreCompileRelease
+> Task :expo-blur:generateReleaseBuildConfig
+> Task :expo-camera:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-blur:javaPreCompileRelease
+> Task :expo-camera:generateReleaseBuildConfig
+> Task :expo-constants:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-camera:javaPreCompileRelease
+> Task :expo-constants:generateReleaseBuildConfig
+> Task :expo-device:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-constants:javaPreCompileRelease
+> Task :expo-device:generateReleaseBuildConfig
+> Task :expo-file-system:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-device:javaPreCompileRelease
+> Task :expo-file-system:generateReleaseBuildConfig
+> Task :expo-font:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-file-system:javaPreCompileRelease
+> Task :expo-font:generateReleaseBuildConfig
+> Task :expo-haptics:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-font:javaPreCompileRelease
+> Task :expo-haptics:generateReleaseBuildConfig
+> Task :expo-image-loader:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-haptics:javaPreCompileRelease
+> Task :expo-image-loader:generateReleaseBuildConfig
+> Task :expo-image-picker:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-image-loader:javaPreCompileRelease
+> Task :expo-image-picker:generateReleaseBuildConfig
+> Task :expo-keep-awake:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-image-picker:javaPreCompileRelease
+> Task :expo-keep-awake:generateReleaseBuildConfig
+> Task :expo-linear-gradient:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-keep-awake:javaPreCompileRelease
+> Task :expo-linear-gradient:generateReleaseBuildConfig
+> Task :expo-location:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-linear-gradient:javaPreCompileRelease
+> Task :expo-location:generateReleaseBuildConfig
+> Task :expo-notifications:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-location:javaPreCompileRelease
+> Task :expo-notifications:generateReleaseBuildConfig
+> Task :expo-system-ui:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-notifications:javaPreCompileRelease
+> Task :expo-system-ui:generateReleaseBuildConfig
+> Task :expo-system-ui:javaPreCompileRelease
+> Task :lottie-react-native:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo:javaPreCompileRelease
+> Task :lottie-react-native:generateReleaseBuildConfig
+> Task :lottie-react-native:javaPreCompileRelease
+> Task :react-native-async-storage_async-storage:generateReleaseBuildConfig
+> Task :react-native-async-storage_async-storage:javaPreCompileRelease
+> Task :react-native-community_netinfo:generateReleaseBuildConfig
+
+> Task :react-native-async-storage_async-storage:compileReleaseJavaWithJavac
+/Users/kingtay/Desktop/g taxi rider/node_modules/@react-native-async-storage/async-storage/android/src/main/java/com/reactnativecommunity/asyncstorage/AsyncStorageModule.java:84: warning: [removal] onCatalystInstanceDestroy() in NativeModule has been deprecated and marked for removal
+  public void onCatalystInstanceDestroy() {
+              ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /Users/kingtay/Desktop/g taxi rider/node_modules/@react-native-async-storage/async-storage/android/src/javaPackage/java/com/reactnativecommunity/asyncstorage/AsyncStoragePackage.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+1 warning
+
+> Task :react-native-community_netinfo:javaPreCompileRelease
+> Task :react-native-community_slider:generateReleaseBuildConfig
+> Task :react-native-async-storage_async-storage:bundleLibCompileToJarRelease
+
+> Task :react-native-community_netinfo:compileReleaseJavaWithJavac
+/Users/kingtay/Desktop/g taxi rider/apps/rider/node_modules/@react-native-community/netinfo/android/src/main/java/com/reactnativecommunity/netinfo/NetInfoModule.java:47: warning: [removal] onCatalystInstanceDestroy() in NativeModule has been deprecated and marked for removal
+    public void onCatalystInstanceDestroy() {
+                ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+1 warning
+
+> Task :react-native-gesture-handler:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-community_slider:javaPreCompileRelease
+> Task :react-native-community_netinfo:bundleLibCompileToJarRelease
+> Task :react-native-gesture-handler:generateReleaseBuildConfig
+
+> Task :react-native-community_slider:compileReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /Users/kingtay/Desktop/g taxi rider/apps/rider/node_modules/@react-native-community/slider/android/src/oldarch/java/com/reactnativecommunity/slider/ReactSliderManager.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :react-native-community_slider:bundleLibCompileToJarRelease
+> Task :react-native-reanimated:generateReleaseBuildConfig
+> Task :react-native-reanimated:packageNdkLibs NO-SOURCE
+> Task :react-native-reanimated:javaPreCompileRelease
+> Task :react-native-gesture-handler:javaPreCompileRelease
+
+> Task :lottie-react-native:compileReleaseKotlin
+w: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/lottie-react-native/android/src/main/java/com/airbnb/android/react/lottie/LottieAnimationViewManagerImpl.kt:12:8 'class MapBuilder : Any' is deprecated. Deprecated in Java.
+w: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/lottie-react-native/android/src/main/java/com/airbnb/android/react/lottie/LottieAnimationViewManagerImpl.kt:21:17 'class MapBuilder : Any' is deprecated. Deprecated in Java.
+w: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/lottie-react-native/android/src/main/java/com/airbnb/android/react/lottie/LottieAnimationViewManagerImpl.kt:72:16 'class MapBuilder : Any' is deprecated. Deprecated in Java.
+w: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/lottie-react-native/android/src/main/java/com/airbnb/android/react/lottie/LottieAnimationViewManagerImpl.kt:74:13 'class MapBuilder : Any' is deprecated. Deprecated in Java.
+w: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/lottie-react-native/android/src/main/java/com/airbnb/android/react/lottie/LottieAnimationViewManagerImpl.kt:76:13 'class MapBuilder : Any' is deprecated. Deprecated in Java.
+w: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/lottie-react-native/android/src/main/java/com/airbnb/android/react/lottie/LottieAnimationViewManagerImpl.kt:78:13 'class MapBuilder : Any' is deprecated. Deprecated in Java.
+w: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/lottie-react-native/android/src/main/java/com/airbnb/android/react/lottie/LottieAnimationViewPropertyManager.kt:20:8 'class ReactFontManager : Any' is deprecated. Deprecated in Java.
+w: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/lottie-react-native/android/src/main/java/com/airbnb/android/react/lottie/LottieAnimationViewPropertyManager.kt:72:24 'class ReactFontManager : Any' is deprecated. Deprecated in Java.
+w: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/lottie-react-native/android/src/main/java/com/airbnb/android/react/lottie/LottieAnimationViewPropertyManager.kt:86:24 'class ReactFontManager : Any' is deprecated. Deprecated in Java.
+
+> Task :react-native-reanimated:compileReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :lottie-react-native:compileReleaseJavaWithJavac
+> Task :lottie-react-native:bundleLibCompileToJarRelease
+> Task :react-native-maps:generateReleaseBuildConfig
+> Task :react-native-maps:javaPreCompileRelease
+> Task :react-native-nfc-manager:generateReleaseBuildConfig
+> Task :react-native-reanimated:bundleLibCompileToJarRelease
+
+> Task :react-native-maps:compileReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-nfc-manager:javaPreCompileRelease
+> Task :react-native-safe-area-context:generateReleaseBuildConfig
+> Task :react-native-maps:bundleLibCompileToJarRelease
+> Task :app:processReleaseResources
+
+> Task :react-native-nfc-manager:compileReleaseJavaWithJavac
+Note: /Users/kingtay/Desktop/g taxi rider/node_modules/react-native-nfc-manager/android/src/main/java/community/revteltech/nfc/NfcManager.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :react-native-nfc-manager:bundleLibCompileToJarRelease
+> Task :react-native-screens:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-safe-area-context:javaPreCompileRelease
+> Task :react-native-screens:generateReleaseBuildConfig
+> Task :react-native-screens:javaPreCompileRelease
+> Task :react-native-svg:generateReleaseBuildConfig
+> Task :sentry_react-native:generateReleaseBuildConfig
+> Task :react-native-svg:javaPreCompileRelease
+> Task :sentry_react-native:javaPreCompileRelease
+
+> Task :react-native-svg:compileReleaseJavaWithJavac
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:98: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGCircleManagerDelegate;
+                                      ^
+  symbol:   class RNSVGCircleManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:99: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGCircleManagerInterface;
+                                      ^
+  symbol:   class RNSVGCircleManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:100: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGClipPathManagerDelegate;
+                                      ^
+  symbol:   class RNSVGClipPathManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:101: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGClipPathManagerInterface;
+                                      ^
+  symbol:   class RNSVGClipPathManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:102: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGDefsManagerDelegate;
+                                      ^
+  symbol:   class RNSVGDefsManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:103: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGDefsManagerInterface;
+                                      ^
+  symbol:   class RNSVGDefsManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:104: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGEllipseManagerDelegate;
+                                      ^
+  symbol:   class RNSVGEllipseManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:105: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGEllipseManagerInterface;
+                                      ^
+  symbol:   class RNSVGEllipseManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:106: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeBlendManagerDelegate;
+                                      ^
+  symbol:   class RNSVGFeBlendManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:107: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeBlendManagerInterface;
+                                      ^
+  symbol:   class RNSVGFeBlendManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:108: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeColorMatrixManagerDelegate;
+                                      ^
+  symbol:   class RNSVGFeColorMatrixManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:109: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeColorMatrixManagerInterface;
+                                      ^
+  symbol:   class RNSVGFeColorMatrixManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:110: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeFloodManagerDelegate;
+                                      ^
+  symbol:   class RNSVGFeFloodManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:111: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeFloodManagerInterface;
+                                      ^
+  symbol:   class RNSVGFeFloodManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:112: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeGaussianBlurManagerDelegate;
+                                      ^
+  symbol:   class RNSVGFeGaussianBlurManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:113: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeGaussianBlurManagerInterface;
+                                      ^
+  symbol:   class RNSVGFeGaussianBlurManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:114: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeMergeManagerDelegate;
+                                      ^
+  symbol:   class RNSVGFeMergeManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:115: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeMergeManagerInterface;
+                                      ^
+  symbol:   class RNSVGFeMergeManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:116: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeOffsetManagerDelegate;
+                                      ^
+  symbol:   class RNSVGFeOffsetManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:117: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFeOffsetManagerInterface;
+                                      ^
+  symbol:   class RNSVGFeOffsetManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:118: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFilterManagerDelegate;
+                                      ^
+  symbol:   class RNSVGFilterManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:119: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGFilterManagerInterface;
+                                      ^
+  symbol:   class RNSVGFilterManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:120: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGForeignObjectManagerDelegate;
+                                      ^
+  symbol:   class RNSVGForeignObjectManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:121: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGForeignObjectManagerInterface;
+                                      ^
+  symbol:   class RNSVGForeignObjectManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:122: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGGroupManagerDelegate;
+                                      ^
+  symbol:   class RNSVGGroupManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:123: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGGroupManagerInterface;
+                                      ^
+  symbol:   class RNSVGGroupManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:124: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGImageManagerDelegate;
+                                      ^
+  symbol:   class RNSVGImageManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:125: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGImageManagerInterface;
+                                      ^
+  symbol:   class RNSVGImageManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:126: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGLineManagerDelegate;
+                                      ^
+  symbol:   class RNSVGLineManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:127: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGLineManagerInterface;
+                                      ^
+  symbol:   class RNSVGLineManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:128: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGLinearGradientManagerDelegate;
+                                      ^
+  symbol:   class RNSVGLinearGradientManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:129: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGLinearGradientManagerInterface;
+                                      ^
+  symbol:   class RNSVGLinearGradientManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:130: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGMarkerManagerDelegate;
+                                      ^
+  symbol:   class RNSVGMarkerManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:131: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGMarkerManagerInterface;
+                                      ^
+  symbol:   class RNSVGMarkerManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:132: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGMaskManagerDelegate;
+                                      ^
+  symbol:   class RNSVGMaskManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:133: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGMaskManagerInterface;
+                                      ^
+  symbol:   class RNSVGMaskManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:134: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGPathManagerDelegate;
+                                      ^
+  symbol:   class RNSVGPathManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:135: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGPathManagerInterface;
+                                      ^
+  symbol:   class RNSVGPathManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:136: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGPatternManagerDelegate;
+                                      ^
+  symbol:   class RNSVGPatternManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:137: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGPatternManagerInterface;
+                                      ^
+  symbol:   class RNSVGPatternManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:138: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGRadialGradientManagerDelegate;
+                                      ^
+  symbol:   class RNSVGRadialGradientManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:139: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGRadialGradientManagerInterface;
+                                      ^
+  symbol:   class RNSVGRadialGradientManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:140: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGRectManagerDelegate;
+                                      ^
+  symbol:   class RNSVGRectManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:141: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGRectManagerInterface;
+                                      ^
+  symbol:   class RNSVGRectManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:142: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGSymbolManagerDelegate;
+                                      ^
+  symbol:   class RNSVGSymbolManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:143: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGSymbolManagerInterface;
+                                      ^
+  symbol:   class RNSVGSymbolManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:144: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGTSpanManagerDelegate;
+                                      ^
+  symbol:   class RNSVGTSpanManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:145: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGTSpanManagerInterface;
+                                      ^
+  symbol:   class RNSVGTSpanManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:146: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGTextManagerDelegate;
+                                      ^
+  symbol:   class RNSVGTextManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:147: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGTextManagerInterface;
+                                      ^
+  symbol:   class RNSVGTextManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:148: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGTextPathManagerDelegate;
+                                      ^
+  symbol:   class RNSVGTextPathManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:149: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGTextPathManagerInterface;
+                                      ^
+  symbol:   class RNSVGTextPathManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:150: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGUseManagerDelegate;
+                                      ^
+  symbol:   class RNSVGUseManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:151: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGUseManagerInterface;
+                                      ^
+  symbol:   class RNSVGUseManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:746: error: cannot find symbol
+      implements RNSVGGroupManagerInterface<GroupView> {
+                 ^
+  symbol:   class RNSVGGroupManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:756: error: cannot find symbol
+      implements RNSVGPathManagerInterface<PathView> {
+                 ^
+  symbol:   class RNSVGPathManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:841: error: cannot find symbol
+      implements RNSVGTextManagerInterface<TextView> {
+                 ^
+  symbol:   class RNSVGTextManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:856: error: cannot find symbol
+      implements RNSVGTSpanManagerInterface<TSpanView> {
+                 ^
+  symbol:   class RNSVGTSpanManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:876: error: cannot find symbol
+      implements RNSVGTextPathManagerInterface<TextPathView> {
+                 ^
+  symbol:   class RNSVGTextPathManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:926: error: cannot find symbol
+      implements RNSVGImageManagerInterface<ImageView> {
+                 ^
+  symbol:   class RNSVGImageManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:977: error: cannot find symbol
+      implements RNSVGCircleManagerInterface<CircleView> {
+                 ^
+  symbol:   class RNSVGCircleManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1002: error: cannot find symbol
+      implements RNSVGEllipseManagerInterface<EllipseView> {
+                 ^
+  symbol:   class RNSVGEllipseManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1032: error: cannot find symbol
+      implements RNSVGLineManagerInterface<LineView> {
+                 ^
+  symbol:   class RNSVGLineManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1063: error: cannot find symbol
+      implements RNSVGRectManagerInterface<RectView> {
+                 ^
+  symbol:   class RNSVGRectManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1104: error: cannot find symbol
+      implements RNSVGClipPathManagerInterface<ClipPathView> {
+                 ^
+  symbol:   class RNSVGClipPathManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1114: error: cannot find symbol
+      implements RNSVGDefsManagerInterface<DefsView> {
+                 ^
+  symbol:   class RNSVGDefsManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1125: error: cannot find symbol
+      implements RNSVGUseManagerInterface<UseView> {
+                 ^
+  symbol:   class RNSVGUseManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1161: error: cannot find symbol
+      implements RNSVGSymbolManagerInterface<SymbolView> {
+                 ^
+  symbol:   class RNSVGSymbolManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1201: error: cannot find symbol
+      implements RNSVGPatternManagerInterface<PatternView> {
+                 ^
+  symbol:   class RNSVGPatternManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1276: error: cannot find symbol
+      implements RNSVGMaskManagerInterface<MaskView> {
+                 ^
+  symbol:   class RNSVGMaskManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1321: error: cannot find symbol
+      implements RNSVGForeignObjectManagerInterface<ForeignObjectView> {
+                 ^
+  symbol:   class RNSVGForeignObjectManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1351: error: cannot find symbol
+      implements RNSVGMarkerManagerInterface<MarkerView> {
+                 ^
+  symbol:   class RNSVGMarkerManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1421: error: cannot find symbol
+      implements RNSVGLinearGradientManagerInterface<LinearGradientView> {
+                 ^
+  symbol:   class RNSVGLinearGradientManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1467: error: cannot find symbol
+      implements RNSVGRadialGradientManagerInterface<RadialGradientView> {
+                 ^
+  symbol:   class RNSVGRadialGradientManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1523: error: cannot find symbol
+      implements RNSVGFilterManagerInterface<FilterView> {
+                 ^
+  symbol:   class RNSVGFilterManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1594: error: cannot find symbol
+      implements RNSVGFeBlendManagerInterface<FeBlendView> {
+                 ^
+  symbol:   class RNSVGFeBlendManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1619: error: cannot find symbol
+      implements RNSVGFeColorMatrixManagerInterface<FeColorMatrixView> {
+                 ^
+  symbol:   class RNSVGFeColorMatrixManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1644: error: cannot find symbol
+      implements RNSVGFeFloodManagerInterface<FeFloodView> {
+                 ^
+  symbol:   class RNSVGFeFloodManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1668: error: cannot find symbol
+      implements RNSVGFeGaussianBlurManagerInterface<FeGaussianBlurView> {
+                 ^
+  symbol:   class RNSVGFeGaussianBlurManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1698: error: cannot find symbol
+      implements RNSVGFeMergeManagerInterface<FeMergeView> {
+                 ^
+  symbol:   class RNSVGFeMergeManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1713: error: cannot find symbol
+      implements RNSVGFeOffsetManagerInterface<FeOffsetView> {
+                 ^
+  symbol:   class RNSVGFeOffsetManagerInterface
+  location: class RenderableViewManager<T>
+  where T is a type-variable:
+    T extends RenderableView declared in class RenderableViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/borderRadiusRn75/java/com/horcrux/svg/SvgViewManager.java:24: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGSvgViewAndroidManagerDelegate;
+                                      ^
+  symbol:   class RNSVGSvgViewAndroidManagerDelegate
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/borderRadiusRn75/java/com/horcrux/svg/SvgViewManager.java:25: error: cannot find symbol
+import com.facebook.react.viewmanagers.RNSVGSvgViewAndroidManagerInterface;
+                                      ^
+  symbol:   class RNSVGSvgViewAndroidManagerInterface
+  location: package com.facebook.react.viewmanagers
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/borderRadiusRn75/java/com/horcrux/svg/SvgViewManager.java:39: error: cannot find symbol
+    implements RNSVGSvgViewAndroidManagerInterface<SvgView> {
+               ^
+  symbol: class RNSVGSvgViewAndroidManagerInterface
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:388: warning: [removal] processTransform(ReadableArray,double[]) in TransformHelper has been deprecated and marked for removal
+    TransformHelper.processTransform(transforms, sTransformDecompositionArray);
+                   ^
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:749: error: cannot find symbol
+      mDelegate = new RNSVGGroupManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGGroupManagerDelegate
+  location: class GroupViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:759: error: cannot find symbol
+      mDelegate = new RNSVGPathManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGPathManagerDelegate
+  location: class PathViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:844: error: cannot find symbol
+      mDelegate = new RNSVGTextManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGTextManagerDelegate
+  location: class TextViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:851: error: cannot find symbol
+      mDelegate = new RNSVGTextManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGTextManagerDelegate
+  location: class TextViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:859: error: cannot find symbol
+      mDelegate = new RNSVGTSpanManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGTSpanManagerDelegate
+  location: class TSpanViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:866: error: cannot find symbol
+      mDelegate = new RNSVGTSpanManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGTSpanManagerDelegate
+  location: class TSpanViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:879: error: cannot find symbol
+      mDelegate = new RNSVGTextPathManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGTextPathManagerDelegate
+  location: class TextPathViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:886: error: cannot find symbol
+      mDelegate = new RNSVGTextPathManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGTextPathManagerDelegate
+  location: class TextPathViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:904: error: method does not override or implement a method from a supertype
+    @Override
+    ^
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:929: error: cannot find symbol
+      mDelegate = new RNSVGImageManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGImageManagerDelegate
+  location: class ImageViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:980: error: cannot find symbol
+      mDelegate = new RNSVGCircleManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGCircleManagerDelegate
+  location: class CircleViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1005: error: cannot find symbol
+      mDelegate = new RNSVGEllipseManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGEllipseManagerDelegate
+  location: class EllipseViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1036: error: cannot find symbol
+      mDelegate = new RNSVGLineManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGLineManagerDelegate
+  location: class LineViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1067: error: cannot find symbol
+      mDelegate = new RNSVGRectManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGRectManagerDelegate
+  location: class RectViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1107: error: cannot find symbol
+      mDelegate = new RNSVGClipPathManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGClipPathManagerDelegate
+  location: class ClipPathViewManager
+/Users/kingtay/Desktop/g taxi rider/node_modules/react-native-svg/android/src/main/java/com/horcrux/svg/RenderableViewManager.java:1118: error: cannot find symbol
+      mDelegate = new RNSVGDefsManagerDelegate(this);
+                      ^
+  symbol:   class RNSVGDefsManagerDelegate
+  location: class DefsViewManager
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+100 errors
+1 warning
+
+> Task :react-native-svg:compileReleaseJavaWithJavac FAILED
+
+> Task :react-native-safe-area-context:compileReleaseKotlin FAILED
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaProviderManager.kt:8:40 Unresolved reference 'RNCSafeAreaProviderManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaProviderManager.kt:9:40 Unresolved reference 'RNCSafeAreaProviderManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaProviderManager.kt:13:43 Unresolved reference 'RNCSafeAreaProviderManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaProviderManager.kt:14:27 Unresolved reference 'RNCSafeAreaProviderManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaViewManager.kt:10:40 Unresolved reference 'RNCSafeAreaViewManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaViewManager.kt:15:49 Unresolved reference 'RNCSafeAreaViewManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaViewManager.kt:29:3 'setMode' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaViewManager.kt:41:3 'setEdges' overrides nothing.
+
+> Task :react-native-gesture-handler:compileReleaseKotlin
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:33:40 Unresolved reference 'RNGestureHandlerButtonManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:34:40 Unresolved reference 'RNGestureHandlerButtonManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:39:80 Unresolved reference 'RNGestureHandlerButtonManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:43:17 Unresolved reference 'RNGestureHandlerButtonManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:52:3 'setForeground' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:57:3 'setBorderless' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:62:3 'setEnabled' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:92:3 'setBorderWidth' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:97:3 'setBorderColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:102:3 'setBorderStyle' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:107:3 'setRippleColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:112:3 'setRippleRadius' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:117:3 'setExclusive' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerButtonViewManager.kt:122:3 'setTouchSoundDisabled' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerRootViewManager.kt:7:40 Unresolved reference 'RNGestureHandlerRootViewManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerRootViewManager.kt:8:40 Unresolved reference 'RNGestureHandlerRootViewManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerRootViewManager.kt:18:3 Unresolved reference 'RNGestureHandlerRootViewManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/apps/rider/node_modules/react-native-gesture-handler/android/src/main/java/com/swmansion/gesturehandler/react/RNGestureHandlerRootViewManager.kt:22:17 Unresolved reference 'RNGestureHandlerRootViewManagerDelegate'.
+
+> Task :react-native-gesture-handler:compileReleaseKotlin FAILED
+
+> Task :react-native-screens:compileReleaseKotlin FAILED
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainerViewManager.kt:10:40 Unresolved reference 'RNSScreenContainerManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainerViewManager.kt:11:40 Unresolved reference 'RNSScreenContainerManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainerViewManager.kt:16:5 Unresolved reference 'RNSScreenContainerManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContainerViewManager.kt:20:20 Unresolved reference 'RNSScreenContainerManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContentWrapperManager.kt:7:40 Unresolved reference 'RNSScreenContentWrapperManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContentWrapperManager.kt:8:40 Unresolved reference 'RNSScreenContentWrapperManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContentWrapperManager.kt:13:5 Unresolved reference 'RNSScreenContentWrapperManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenContentWrapperManager.kt:14:71 Unresolved reference 'RNSScreenContentWrapperManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenFooterManager.kt:7:40 Unresolved reference 'RNSScreenFooterManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenFooterManager.kt:8:40 Unresolved reference 'RNSScreenFooterManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenFooterManager.kt:13:5 Unresolved reference 'RNSScreenFooterManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenFooterManager.kt:14:63 Unresolved reference 'RNSScreenFooterManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:16:40 Unresolved reference 'RNSScreenStackHeaderConfigManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:17:40 Unresolved reference 'RNSScreenStackHeaderConfigManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:25:5 Unresolved reference 'RNSScreenStackHeaderConfigManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:29:20 Unresolved reference 'RNSScreenStackHeaderConfigManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:95:5 'setTitle' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:103:5 'setTitleFontFamily' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:111:5 'setTitleFontSize' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:119:5 'setTitleFontWeight' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:127:5 'setTitleColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:137:5 'setBackgroundColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:145:5 'setHideShadow' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:153:5 'setHideBackButton' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:161:5 'setTopInsetEnabled' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:169:5 'setColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:177:5 'setHidden' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:185:5 'setTranslucent' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:193:5 'setBackButtonInCustomView' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:201:5 'setDirection' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:227:5 'setBackTitle' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:234:5 'setBackTitleFontFamily' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:241:5 'setBackTitleFontSize' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:248:5 'setBackTitleVisible' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:255:5 'setLargeTitle' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:262:5 'setLargeTitleFontFamily' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:269:5 'setLargeTitleFontSize' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:276:5 'setLargeTitleFontWeight' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:283:5 'setLargeTitleBackgroundColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:290:5 'setLargeTitleHideShadow' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:297:5 'setLargeTitleColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:304:5 'setDisableBackButtonMenu' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:311:5 'setBackButtonDisplayMode' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderConfigViewManager.kt:318:5 'setBlurEffect' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderSubviewManager.kt:9:40 Unresolved reference 'RNSScreenStackHeaderSubviewManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderSubviewManager.kt:10:40 Unresolved reference 'RNSScreenStackHeaderSubviewManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderSubviewManager.kt:15:5 Unresolved reference 'RNSScreenStackHeaderSubviewManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderSubviewManager.kt:19:20 Unresolved reference 'RNSScreenStackHeaderSubviewManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackHeaderSubviewManager.kt:27:5 'setType' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackViewManager.kt:10:40 Unresolved reference 'RNSScreenStackManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackViewManager.kt:11:40 Unresolved reference 'RNSScreenStackManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackViewManager.kt:17:5 Unresolved reference 'RNSScreenStackManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStackViewManager.kt:21:20 Unresolved reference 'RNSScreenStackManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:15:40 Unresolved reference 'RNSScreenManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:16:40 Unresolved reference 'RNSScreenManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:30:5 Unresolved reference 'RNSScreenManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:34:20 Unresolved reference 'RNSScreenManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:41:5 'setActivityState' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:121:5 'setStackPresentation' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:138:5 'setStackAnimation' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:158:5 'setGestureEnabled' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:166:5 'setReplaceAnimation' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:179:5 'setScreenOrientation' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:187:5 'setStatusBarAnimation' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:196:5 'setStatusBarColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:204:5 'setStatusBarStyle' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:212:5 'setStatusBarTranslucent' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:220:5 'setStatusBarHidden' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:228:5 'setNavigationBarColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:236:5 'setNavigationBarTranslucent' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:244:5 'setNavigationBarHidden' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:252:5 'setNativeBackButtonDismissalEnabled' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:260:5 'setSheetElevation' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:268:5 'setFullScreenSwipeEnabled' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:273:5 'setFullScreenSwipeShadowEnabled' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:278:5 'setTransitionDuration' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:283:5 'setHideKeyboardOnSwipe' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:288:5 'setCustomAnimationOnSwipe' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:293:5 'setGestureResponseDistance' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:298:5 'setHomeIndicatorHidden' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:303:5 'setPreventNativeDismiss' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:308:5 'setSwipeDirection' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:314:5 'setSheetAllowedDetents' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:333:5 'setSheetLargestUndimmedDetent' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:342:5 'setSheetGrabberVisible' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:350:5 'setSheetCornerRadius' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:358:5 'setSheetExpandsWhenScrolledToEdge' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenViewManager.kt:366:5 'setSheetInitialDetent' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:11:40 Unresolved reference 'RNSSearchBarManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:12:40 Unresolved reference 'RNSSearchBarManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:23:5 Unresolved reference 'RNSSearchBarManagerInterface'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:27:20 Unresolved reference 'RNSSearchBarManagerDelegate'.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:42:5 'setAutoCapitalize' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:67:5 'setBarTintColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:75:5 'setDisableBackButtonOverride' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:83:5 'setInputType' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:100:5 'setPlaceholder' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:110:5 'setTextColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:118:5 'setHeaderIconColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:126:5 'setHintTextColor' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:134:5 'setShouldShowHintSearchIcon' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:167:5 'blur' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:171:5 'focus' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:175:5 'clearText' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:179:5 'toggleCancelButton' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:186:5 'setText' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:193:5 'cancelSearch' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:199:5 'setPlacement' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:206:5 'setHideWhenScrolling' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:213:5 'setObscureBackground' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:220:5 'setHideNavigationBar' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:227:5 'setCancelButtonText' overrides nothing.
+e: file:///Users/kingtay/Desktop/g%20taxi%20rider/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/SearchBarManager.kt:234:5 'setTintColor' overrides nothing.
+
+> Task :expo-modules-core:compileReleaseKotlin
+
+FAILURE: Build completed with 4 failures.
+
+1: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':react-native-svg:compileReleaseJavaWithJavac'.
+> Compilation failed; see the compiler error output for details.
+
+* Try:
+> Run with --info option to get more log output.
+> Run with --scan to get full insights.
+==============================================================================
+
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':react-native-safe-area-context:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+3: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':react-native-gesture-handler:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+4: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':react-native-screens:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+BUILD FAILED in 1m 59s
+431 actionable tasks: 420 executed, 11 up-to-date

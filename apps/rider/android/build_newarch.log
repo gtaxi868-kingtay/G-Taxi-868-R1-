@@ -1,0 +1,17 @@
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Settings file '/Users/kingtay/Desktop/g taxi rider/apps/rider/android/settings.gradle' line: 4
+
+* What went wrong:
+Error resolving plugin [id: 'com.facebook.react.settings']
+> Could not read workspace metadata from /Users/kingtay/.gradle/caches/8.10.2/kotlin-dsl/accessors/9b3f50cfe067b68ca375f5a6c7ecef4f/metadata.bin
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 23s

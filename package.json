@@ -1,21 +1,13 @@
 {
   "name": "g-taxi-root",
-  "version": "1.0.0",
+  "private": true,
   "workspaces": [
     "apps/*"
   ],
   "scripts": {
-    "rider": "cd apps/rider && npm start",
-    "driver": "cd apps/driver && npm start"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.95.3",
-    "base64-arraybuffer": "^1.0.2",
-    "expo-modules-autolinking": "^55.0.19"
-  },
-  "overrides": {
-    "@xmldom/xmldom": "^0.8.10",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "rider": "npm run start --workspace=rider",
+    "driver": "npm run start --workspace=driver",
+    "admin": "npm run start --workspace=admin",
+    "merchant": "npm run start --workspace=merchant"
   }
 }

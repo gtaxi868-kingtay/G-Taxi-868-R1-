@@ -1,0 +1,14 @@
+diff --git a/android/build.gradle b/android/build.gradle
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -10,6 +10,12 @@ android {
+   namespace "com.rnmaps.maps"
+   
+   sourceSets {
+     main {
++      java {
++        exclude '**/fabric/**'
++      }
+     }
+   }
+   
