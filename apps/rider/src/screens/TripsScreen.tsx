@@ -9,10 +9,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from '../../@gtaxi/shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Txt, GlassCard } from '../design-system';
-import { tokens } from '../design-system/tokens';
+import { Txt, GlassCard } from '@gtaxi/design-system';
+import { tokens } from '@gtaxi/design-system/tokens';
 
 const { width, height } = Dimensions.get('window');
 

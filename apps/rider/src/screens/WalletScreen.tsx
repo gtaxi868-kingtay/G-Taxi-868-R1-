@@ -13,11 +13,11 @@ import Reanimated, {
     useDerivedValue
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from '../../@gtaxi/shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '../design-system/primitives';
+import { Txt } from '@gtaxi/design-system/primitives';
 
-import { tokens, THEME } from '../design-system/tokens';
+import { tokens, THEME } from '@gtaxi/design-system/tokens';
 
 const { width } = Dimensions.get('window');
 

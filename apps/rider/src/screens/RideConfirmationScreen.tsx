@@ -10,11 +10,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { ENV } from '../../../../shared/env';
+import { ENV } from '../../@gtaxi/shared/env';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
-import { supabase } from '../../../../shared/supabase';
-import { Txt } from '../design-system/primitives';
-import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '../design-system';
+import { supabase } from '../../@gtaxi/shared/supabase';
+import { Txt } from '@gtaxi/design-system/primitives';
+import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '@gtaxi/design-system';
 import { formatTTDDollars } from '../utils/currency';
 
 const { width, height } = Dimensions.get('window');

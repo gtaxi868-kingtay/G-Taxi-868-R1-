@@ -1,13 +1,28 @@
 {
   "name": "g-taxi-root",
   "private": true,
+  "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "rider": "npm run start --workspace=rider",
     "driver": "npm run start --workspace=driver",
     "admin": "npm run start --workspace=admin",
-    "merchant": "npm run start --workspace=merchant"
+    "merchant": "npm run start --workspace=merchant",
+    "lint": "eslint .",
+    "lint:strict": "eslint . --max-warnings=0",
+    "arch": "node tools/arch-check.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "eslint": "^9.39.4",
+    "eslint-import-resolver-alias": "^1.1.2",
+    "eslint-plugin-import": "^2.32.0",
+    "madge": "^8.0.0"
+  },
+  "overrides": {
+    "react-native-screens": "~4.4.0"
   }
 }

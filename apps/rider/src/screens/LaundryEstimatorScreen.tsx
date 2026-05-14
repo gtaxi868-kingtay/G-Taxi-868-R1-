@@ -9,7 +9,7 @@ import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from '../../@gtaxi/shared/supabase';
 import { useAuth } from '../context/AuthContext';
 
 interface ServiceType {

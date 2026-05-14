@@ -7,10 +7,10 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
-import { Txt } from '../design-system/primitives';
-import { tokens } from '../design-system/tokens';
-import { Logo } from '../design-system';
+import { supabase } from '../../@gtaxi/shared/supabase';
+import { Txt } from '@gtaxi/design-system/primitives';
+import { tokens } from '@gtaxi/design-system/tokens';
+import { Logo } from '@gtaxi/design-system';
 
 const { width, height } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.8;

@@ -1,6 +1,6 @@
 // Realtime subscription hooks for ride updates
 import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from '../../@gtaxi/shared/supabase';
 
 export interface RideUpdate {
     ride_id: string;

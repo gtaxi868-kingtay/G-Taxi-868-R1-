@@ -1,7 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { tokens } from '../design-system/tokens';
+import { tokens } from '@gtaxi/design-system/tokens';
 
 interface Props {
     children: ReactNode;

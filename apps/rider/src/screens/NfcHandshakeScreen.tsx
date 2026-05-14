@@ -5,9 +5,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
-import { Txt } from '../design-system/primitives';
-import { tokens } from '../design-system/tokens';
-import { supabase } from '../../../../shared/supabase';
+import { Txt } from '@gtaxi/design-system/primitives';
+import { tokens } from '@gtaxi/design-system/tokens';
+import { supabase } from '../../@gtaxi/shared/supabase';
 
 const { width } = Dimensions.get('window');
 

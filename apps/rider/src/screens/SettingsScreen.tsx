@@ -9,11 +9,11 @@ import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from '../../@gtaxi/shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '../design-system/primitives';
+import { Txt } from '@gtaxi/design-system/primitives';
 
-import { tokens } from '../design-system/tokens';
+import { tokens } from '@gtaxi/design-system/tokens';
 
 const { width } = Dimensions.get('window');
 

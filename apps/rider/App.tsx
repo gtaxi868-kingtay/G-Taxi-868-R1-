@@ -5,14 +5,14 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ENV } from '../../shared/env';
+import { ENV } from '@gtaxi/shared/env';
 
 // Sentry is dynamically loaded below to prevent native crash on boot
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { RideProvider } from './src/context/RideContext';
-import { OutboxService } from '../../shared/OutboxService';
+import { OutboxService } from '@gtaxi/shared/OutboxService';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 // Auth Screens
@@ -67,7 +67,7 @@ const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreCl
 const isWeb = Platform.OS === 'web';
 
 // Safe dynamic providers
-import { StripeProvider } from '@stripe/stripe-react-native';
+import { StripeProvider } from '';
 
 const SentryMock: any = { wrap: (comp: any) => comp, init: () => { } };
 

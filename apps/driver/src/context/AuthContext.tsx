@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from '../../@gtaxi/shared/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';

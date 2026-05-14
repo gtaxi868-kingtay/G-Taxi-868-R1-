@@ -4,19 +4,19 @@ import {
     ActivityIndicator, Alert, Dimensions, ScrollView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useStripe } from '@stripe/stripe-react-native';
+import { useStripe } from '';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from '../../@gtaxi/shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '../design-system/primitives';
-import { ENV } from '../../../../shared/env';
+import { Txt } from '@gtaxi/design-system/primitives';
+import { ENV } from '../../@gtaxi/shared/env';
 
-import { tokens } from '../design-system/tokens';
+import { tokens } from '@gtaxi/design-system/tokens';
 
 const { width } = Dimensions.get('window');
 

@@ -9,8 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '../../../../shared/supabase';
-import { LoadingOverlay } from '../design-system';
+import { supabase } from '../../@gtaxi/shared/supabase';
+import { LoadingOverlay } from '@gtaxi/design-system';
 
 const SERVICES = [
     { id: 'wash_fold', label: 'Wash & Fold', icon: '🫧', baseRate: 500 },

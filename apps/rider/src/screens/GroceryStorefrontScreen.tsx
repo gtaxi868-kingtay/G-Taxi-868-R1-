@@ -8,9 +8,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from '../../@gtaxi/shared/supabase';
 import { useAuth } from '../context/AuthContext';
-import { LoadingOverlay } from '../design-system';
+import { LoadingOverlay } from '@gtaxi/design-system';
 
 const { width } = Dimensions.get('window');
 

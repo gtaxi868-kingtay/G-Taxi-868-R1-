@@ -22,12 +22,12 @@ import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { supabase } from '../../shared/supabase';
+import { supabase } from '@gtaxi/shared/supabase';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
-import { ENV } from '../../shared/env';
-import { OutboxService } from '../../shared/OutboxService';
-import { StripeProvider } from '@stripe/stripe-react-native';
+import { ENV } from '@gtaxi/shared/env';
+import { OutboxService } from '@gtaxi/shared/OutboxService';
+import { StripeProvider } from '';
 
 // ── Free Background Location using expo-location ───────────────────────────────
 const LOCATION_TASK = 'BACKGROUND_LOCATION_TASK';

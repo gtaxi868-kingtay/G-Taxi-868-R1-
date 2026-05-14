@@ -15,8 +15,8 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ENV } from '../../../../shared/env';
-import { supabase } from '../../../../shared/supabase';
+import { ENV } from '../../@gtaxi/shared/env';
+import { supabase } from '../../@gtaxi/shared/supabase';
 import { cancelRide } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
 
