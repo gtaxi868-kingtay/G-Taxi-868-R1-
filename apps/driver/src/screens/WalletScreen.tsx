@@ -11,12 +11,12 @@ import Reanimated, {
     useSharedValue, withTiming, useDerivedValue, withSpring, withSequence,
     useAnimatedStyle,
 } from 'react-native-reanimated';
-import { supabase } from '../../@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useStripe } from '';
 import * as ImagePicker from 'expo-image-picker';
-import { ENV } from '../../@gtaxi/shared/env';
+import { ENV } from '@gtaxi/shared/env';
 
 // Blueberry Luxe — Gold Edition (Driver)
 const COLORS = {

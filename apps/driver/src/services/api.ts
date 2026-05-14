@@ -1,7 +1,7 @@
-import { supabase } from '../../@gtaxi/shared/supabase';
-import { ENV } from '../../@gtaxi/shared/env';
-import { fetchWithRetry } from '../../@gtaxi/shared/retryWrapper';
-import { OutboxService } from '../../@gtaxi/shared/OutboxService';
+import { supabase } from '@gtaxi/shared/supabase';
+import { ENV } from '@gtaxi/shared/env';
+import { fetchWithRetry } from '@gtaxi/shared/retryWrapper';
+import { OutboxService } from '@gtaxi/shared/OutboxService';
 
 const FUNCTIONS_URL = `${ENV.SUPABASE_URL}/functions/v1`;
 

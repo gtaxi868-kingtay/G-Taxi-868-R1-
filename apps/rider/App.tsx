@@ -67,7 +67,7 @@ const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreCl
 const isWeb = Platform.OS === 'web';
 
 // Safe dynamic providers
-import { StripeProvider } from '';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 const SentryMock: any = { wrap: (comp: any) => comp, init: () => { } };
 

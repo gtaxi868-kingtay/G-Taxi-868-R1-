@@ -19,9 +19,9 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
 import { useLocationTracking } from '../hooks/useLocationTracking';
-import { DEFAULT_LOCATION, ENV } from '../../@gtaxi/shared/env';
+import { DEFAULT_LOCATION, ENV } from '@gtaxi/shared/env';
 import { useRideOfferSubscription } from '../services/realtime';
-import { supabase } from '../../@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/shared/supabase';
 import { Sidebar } from '../components/Sidebar';
 import { Ionicons } from '@expo/vector-icons';
 import { NfcIdentityHandler } from '../components/NfcIdentityHandler';

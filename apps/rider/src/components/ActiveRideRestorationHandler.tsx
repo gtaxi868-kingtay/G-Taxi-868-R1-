@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useRide } from '../context/RideContext';
-import { supabase } from '../../@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/shared/supabase';
 import { Location, FareEstimate } from '../types/ride';
 
 // Ride TTL: 30 minutes of no activity = stale

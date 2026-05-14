@@ -1,0 +1,23 @@
+{
+  "name": "@gtaxi/api",
+  "version": "1.0.0",
+  "description": "Centralized API client with auth interceptors and error handling",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@gtaxi/config": "*",
+    "@gtaxi/bootstrap": "*"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

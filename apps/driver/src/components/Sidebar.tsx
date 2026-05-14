@@ -11,8 +11,8 @@ import {
     SafeAreaView,
     Alert,
 } from 'react-native';
-import { supabase } from '../../@gtaxi/shared/supabase';
-import { Logo } from '../../@gtaxi/shared/design-system/components';
+import { supabase } from '@gtaxi/shared/supabase';
+import { Logo } from '@gtaxi/shared/design-system/components';
 import { Ionicons } from '@expo/vector-icons';
 
 // Blueberry Luxe — Gold Edition (Driver)

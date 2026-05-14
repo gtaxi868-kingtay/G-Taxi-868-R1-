@@ -7,7 +7,7 @@ import Reanimated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import { Txt } from '@gtaxi/design-system/primitives';
 import { tokens } from '@gtaxi/design-system/tokens';
-import { supabase } from '../../@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/shared/supabase';
 
 const { width } = Dimensions.get('window');
 

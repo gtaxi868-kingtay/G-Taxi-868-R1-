@@ -1,8 +1,8 @@
 // API Service - Uber Standard Pattern
 // Token is fetched fresh from Supabase for each authenticated request
 
-import { ENV } from '../../@gtaxi/shared/env';
-import { supabase } from '../../@gtaxi/shared/supabase';
+import { ENV } from '@gtaxi/shared/env';
+import { supabase } from '@gtaxi/shared/supabase';
 
 interface ApiResponse<T> {
     success: boolean;
@@ -145,7 +145,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 // ApiResponse is now imported or compatible with shared
-import { fetchWithRetry } from '../../@gtaxi/shared/retryWrapper';
+import { fetchWithRetry } from '@gtaxi/shared/retryWrapper';
 
 /**
  * Estimate fare (uses auth headers for consistency)

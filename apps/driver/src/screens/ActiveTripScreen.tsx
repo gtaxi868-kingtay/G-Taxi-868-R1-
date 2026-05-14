@@ -27,8 +27,8 @@ import Reanimated, {
     useSharedValue, withSpring, withTiming, withRepeat, withSequence,
     useAnimatedStyle, interpolate, Easing,
 } from 'react-native-reanimated';
-import { supabase } from '../../@gtaxi/shared/supabase';
-import { ENV } from '../../@gtaxi/shared/env';
+import { supabase } from '@gtaxi/shared/supabase';
+import { ENV } from '@gtaxi/shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { updateRideStatus } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';

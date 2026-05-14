@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@gtaxi/design-system/primitives';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../../@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/shared/supabase';
 import { decode } from 'base64-arraybuffer';
 
 import { tokens } from '@gtaxi/design-system/tokens';

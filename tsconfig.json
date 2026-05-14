@@ -2,12 +2,19 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      "@gtaxi/shared/*": [
+        "packages/shared/src/*"
+      ],
       "@gtaxi/shared": [
-        "packages/shared/src"
+        "packages/shared/src/index.ts"
+      ],
+      "@gtaxi/design-system/*": [
+        "packages/design-system/src/*"
       ],
       "@gtaxi/design-system": [
-        "packages/design-system/src"
+        "packages/design-system/src/index.ts"
       ]
     }
-  }
+  },
+  "extends": "expo/tsconfig.base"
 }

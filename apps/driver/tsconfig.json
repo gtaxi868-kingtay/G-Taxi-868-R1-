@@ -14,7 +14,22 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "noEmit": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@gtaxi/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "@gtaxi/shared": [
+        "../../packages/shared/src/index.ts"
+      ],
+      "@gtaxi/design-system/*": [
+        "../../packages/design-system/src/*"
+      ],
+      "@gtaxi/design-system": [
+        "../../packages/design-system/src/index.ts"
+      ]
+    }
   },
   "include": [
     "**/*.ts",

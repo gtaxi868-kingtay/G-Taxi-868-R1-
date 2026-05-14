@@ -13,7 +13,8 @@
     "merchant": "npm run start --workspace=merchant",
     "lint": "eslint .",
     "lint:strict": "eslint . --max-warnings=0",
-    "arch": "node tools/arch-check.js"
+    "arch": "node tools/arch-check.js",
+    "verify:all": "node scripts/verify-all.js"
   },
   "dependencies": {},
   "devDependencies": {

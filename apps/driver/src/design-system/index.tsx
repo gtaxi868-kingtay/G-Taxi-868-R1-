@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ViewStyle, TextStyle, Platform } from 'react-na
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '../../@gtaxi/shared/design-system/theme';
+import { BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '@gtaxi/shared/design-system/theme';
 
 export { BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC };
 
