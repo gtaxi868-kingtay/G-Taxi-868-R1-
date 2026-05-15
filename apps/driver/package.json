@@ -23,5 +23,6 @@
     "react-native": "0.76.9",
     "react-native-maps": "1.18.0",
     "react-native-screens": "4.4.0"
-  }
+  },
+  "version": "1.0.0"
 }
