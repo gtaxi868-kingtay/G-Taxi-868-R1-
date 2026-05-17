@@ -3,6 +3,19 @@
 # Do not skip sections. Do not assume you know the state of any file.
 # Do not fix multiple phases in one session unless explicitly told to.
 
+# Last updated: 2026-05-16
+# Plain English summary (based on code in this repo):
+# This repository implements a two-sided ride-hailing system for Trinidad
+# and Tobago: a Rider app, a Driver app, an Admin dashboard, and Supabase
+# backend code (database + edge functions). The mobile apps are Expo SDK
+# projects (Expo 52) and target Android/APKs via EAS; iOS prebuilds require
+# Xcode/CocoaPods on macOS. The system is feature-rich in code but not
+# production-ready — critical security, database, and build issues remain
+# (see below). Work performed to date: dependency versions pinned, a Stripe
+# plugin fix applied, and some prebuild errors resolved; the current blocking
+# item is an iOS environment (Xcode/CocoaPods) needed to finish native
+# prebuilds. Keep branch `monorepo-recovery` until builds pass.
+
 ---
 
 ## WHAT THIS SYSTEM IS

@@ -8,7 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
+import { AIGateway } from '@gtaxi/shared';
 
 const { width, height } = Dimensions.get('window');
 const RETICLE = 240;
@@ -46,10 +47,12 @@ export function VisionScannerScreen({ navigation }: any) {
                 skipProcessing: true
             });
 
-            // 2. Call AI Edge Function with REAL image
-            const { data, error } = await supabase.functions.invoke('identify_product', {
-                body: { image: photo.base64, trigger: 'camera_scan' },
-            });
+            // 2. Call AI Edge Function with REAL image (Shadow Wrapped)
+            const { data, error } = await AIGateway.identifyProduct(photo.base64, (img: string) => 
+                supabase.functions.invoke('identify_product', {
+                    body: { image: img, trigger: 'camera_scan' },
+                })
+            );
 
             if (error) throw error;
 

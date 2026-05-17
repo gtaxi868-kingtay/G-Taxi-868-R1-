@@ -1,10 +1,10 @@
 {
-  "name": "@gtaxi/shared-native",
+  "name": "@gtaxi/native",
   "version": "1.0.0",
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "private": true,
+  "private": "true",
   "dependencies": {
-    "@gtaxi/shared-core": "*"
+    "@gtaxi/core": "*"
   }
 }

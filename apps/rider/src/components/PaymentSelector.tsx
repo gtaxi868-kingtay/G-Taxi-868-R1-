@@ -7,8 +7,8 @@ import {
     Image,
 } from 'react-native';
 import { GlassView } from './GlassView';
-import { tokens } from '@gtaxi/design-system/tokens';
-import { Txt, Surface } from '@gtaxi/design-system/primitives';
+import { tokens } from '@/design-system/tokens';
+import { Txt, Surface } from '@/design-system/primitives';
 import { Ionicons } from '@expo/vector-icons';
 
 export type PaymentMethod = 'cash' | 'card' | 'wallet';

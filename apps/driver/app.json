@@ -74,10 +74,20 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
-      ]
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "g-taxi",
+          "project": "driver"
+        }
+      ],
+      "@sentry/react-native",
+      "expo-router"
     ],
     "owner": "gtaxi",
     "extra": {
+      "EXPO_USE_METRO_WORKSPACE_ROOT": "1",
       "eas": {
         "projectId": "33335543-47a2-4dc4-96ff-baffe6fc5132"
       }

@@ -1,7 +1,8 @@
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 import { ENV } from '@gtaxi/shared/env';
 import { fetchWithRetry } from '@gtaxi/shared/retryWrapper';
 import { OutboxService } from '@gtaxi/shared/OutboxService';
+import { RideEngine } from '@gtaxi/shared';
 
 const FUNCTIONS_URL = `${ENV.SUPABASE_URL}/functions/v1`;
 
@@ -14,6 +15,10 @@ async function getAuthHeaders() {
 }
 
 export async function acceptRide(rideId: string, driverId: string) {
+    return RideEngine.acceptRide(rideId, () => _acceptRideInternal(rideId, driverId));
+}
+
+async function _acceptRideInternal(rideId: string, driverId: string) {
     // We use the Edge Function for safe assignment
     const { data, error } = await supabase.functions.invoke('accept_ride', {
         body: { ride_id: rideId, driver_id: driverId } // driver_id redundant if auth used, but good for check
@@ -49,6 +54,19 @@ export async function updateDriverLocation(driverId: string, lat: number, lng: n
 }
 
 export async function updateRideStatus(
+    rideId: string,
+    status: 'arrived' | 'in_progress' | 'completed',
+    driverLat?: number,
+    driverLng?: number,
+    pin?: string
+) {
+    if (status === 'completed') {
+        return RideEngine.completeRide(rideId, () => _updateRideStatusInternal(rideId, status, driverLat, driverLng, pin));
+    }
+    return _updateRideStatusInternal(rideId, status, driverLat, driverLng, pin);
+}
+
+async function _updateRideStatusInternal(
     rideId: string,
     status: 'arrived' | 'in_progress' | 'completed',
     driverLat?: number,

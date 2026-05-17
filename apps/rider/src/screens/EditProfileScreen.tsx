@@ -11,12 +11,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { Txt } from '@gtaxi/design-system/primitives';
+import { Txt } from '@/design-system/primitives';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 import { decode } from 'base64-arraybuffer';
 
-import { tokens } from '@gtaxi/design-system/tokens';
+import { tokens } from '@/design-system/tokens';
 
 const { width } = Dimensions.get('window');
 

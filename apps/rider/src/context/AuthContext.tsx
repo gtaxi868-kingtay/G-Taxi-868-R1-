@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 import { Session, User } from '@supabase/supabase-js';
 import { setAuthToken } from '../services/api';
 import { Platform } from 'react-native';
@@ -181,6 +181,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 shouldShowAlert: true,
                 shouldPlaySound: true,
                 shouldSetBadge: false,
+                shouldShowBanner: true,
+                shouldShowList: true,
             }),
         });
 

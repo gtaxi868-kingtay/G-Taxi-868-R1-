@@ -22,7 +22,7 @@ import Constants from 'expo-constants';
 import { DEFAULT_LOCATION, ENV } from '@gtaxi/shared/env';
 import { useAuth } from '../context/AuthContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 import { Sidebar } from '../components/Sidebar';
 
 const { width, height } = Dimensions.get('window');

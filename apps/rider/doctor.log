@@ -1,0 +1,35 @@
+env: load .env
+env: export EXPO_PUBLIC_GOOGLE_MAPS_API_KEY EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_SUPABASE_URL
+Running 17 checks on your project...
+15/17 checks passed. 2 checks failed. Possible issues detected:
+Use the --verbose flag to see more details about passed checks.
+
+✖ Check for issues with Metro config
+- "watchFolders" does not contain all entries from Expo's defaults
+Advice:
+Modifying the "metro.config.js" is dangerous and may lead to unintended consequences.
+Unless you know what these overrides do, remove them and adopt the recommended values from "expo/metro-config".
+
+✖ Check that packages match versions required by installed Expo SDK
+The following packages should be updated for best compatibility with the installed expo version:
+  @react-native-async-storage/async-storage@3.0.2 - expected version: 1.23.1
+  @react-native-community/netinfo@12.0.1 - expected version: 11.4.1
+  @stripe/stripe-react-native@0.30.0 - expected version: 0.38.6
+  expo-blur@13.0.3 - expected version: ~14.0.3
+  expo-camera@14.0.6 - expected version: ~16.0.18
+  expo-device@55.0.17 - expected version: ~7.0.3
+  expo-haptics@13.0.1 - expected version: ~14.0.1
+  expo-linear-gradient@13.0.2 - expected version: ~14.0.2
+  expo-linking@55.0.15 - expected version: ~7.0.5
+  expo-notifications@55.0.23 - expected version: ~0.29.14
+  expo-router@4.0.17 - expected version: ~4.0.22
+  expo-status-bar@55.0.6 - expected version: ~2.0.1
+  react@18.2.0 - expected version: 18.3.1
+  @react-navigation/native@^6.1.8 - expected version: ^7.0.14
+Your project may not work correctly until you install the expected versions of the packages.
+Found outdated dependencies
+Advice:
+Use 'npx expo install --check' to review and upgrade your dependencies.
+To ignore specific packages, add them to "expo.install.exclude" in package.json. Learn more: https://expo.fyi/dependency-validation
+
+2 checks failed, indicating possible issues with the project.

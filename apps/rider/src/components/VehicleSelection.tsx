@@ -8,8 +8,8 @@ import {
     Image,
     FlatList,
 } from 'react-native';
-import { tokens } from '@gtaxi/design-system/tokens';
-import { Card, Txt, Surface, Btn } from '@gtaxi/design-system/primitives';
+import { tokens } from '@/design-system/tokens';
+import { Card, Txt, Surface, Btn } from '@/design-system/primitives';
 
 const { width } = Dimensions.get('window');
 // Card width is 70% of screen to show next item peeking

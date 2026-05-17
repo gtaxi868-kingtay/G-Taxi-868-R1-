@@ -13,7 +13,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
 import { acceptRide, declineRide } from '../services/api';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');

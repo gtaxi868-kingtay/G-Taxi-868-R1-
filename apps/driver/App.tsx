@@ -22,7 +22,7 @@ import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { ENV } from '@gtaxi/shared/env';
@@ -96,8 +96,23 @@ async function startBackgroundLocationTracking() {
 const Stack = createNativeStackNavigator();
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
-// Sentry is disabled for now to prevent native boot-time crashes in APK builds
-const Sentry: any = { wrap: (comp: any) => comp, init: () => { } };
+const SentryMock: any = { wrap: (comp: any) => comp, init: () => { } };
+let Sentry = SentryMock;
+
+if (!isExpoGo) {
+    try {
+        Sentry = require('@sentry/react-native');
+        Sentry.init({
+            dsn: ENV.SENTRY_DSN || 'https://placeholder@sentry.io/123456',
+            enabled: process.env.APP_ENV === 'production',
+            enableInExpoDevelopment: true,
+            debug: __DEV__,
+            environment: process.env.APP_ENV || 'development',
+        });
+    } catch (e) {
+        console.warn('[Sentry] Initialization failed:', e);
+    }
+}
 
 function AuthNavigator() {
     return (

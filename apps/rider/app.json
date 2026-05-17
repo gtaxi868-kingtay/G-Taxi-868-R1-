@@ -39,7 +39,20 @@
           "locationAlwaysAndWhenInUsePermission": "Allow G-Taxi to use your location to find nearby drivers."
         }
       ],
-      "./plugins/withDeleteMapsInterfaces"
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "g-taxi",
+          "project": "rider"
+        }
+      ],
+      "./plugins/withDeleteMapsInterfaces",
+      "@sentry/react-native",
+      [
+        "@stripe/stripe-react-native",
+        {}
+      ],
+      "expo-router"
     ],
     "ios": {
       "supportsTablet": false,
@@ -82,6 +95,7 @@
     },
     "owner": "gtaxi",
     "extra": {
+      "EXPO_USE_METRO_WORKSPACE_ROOT": "1",
       "eas": {
         "projectId": "f4f49272-bb2c-4a6d-8a35-caff959079dc"
       }

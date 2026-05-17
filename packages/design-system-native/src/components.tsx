@@ -259,3 +259,52 @@ export const LoadingOverlay = ({ message = 'PROCESSING...', color = BRAND.purple
         </BlurView>
     </View>
 );
+/**
+ * 6. Skeleton
+ * Shimmering placeholder for content loading.
+ */
+export const Skeleton = ({ width, height, borderRadius = 8, style }: any) => {
+    const shimmerAnim = React.useRef(new Animated.Value(0)).current;
+
+    React.useEffect(() => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(shimmerAnim, {
+                    toValue: 1,
+                    duration: 1000,
+                    easing: Easing.linear,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(shimmerAnim, {
+                    toValue: 0,
+                    duration: 1000,
+                    easing: Easing.linear,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+    }, []);
+
+    const opacity = shimmerAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.3, 0.7],
+    });
+
+    return (
+        <Animated.View
+            style={[
+                {
+                    width,
+                    height,
+                    borderRadius,
+                    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
+                    opacity,
+                },
+                style,
+            ]}
+        />
+    );
+};
+
+// @ts-ignore
+import { Easing } from 'react-native';

@@ -6,20 +6,21 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-config.watchFolders = [workspaceRoot];
+// Watch the root directory so we can import 'shared'
+config.watchFolders = [workspaceRoot, ...(config.watchFolders || [])];
 
+// Ensure Metro looks into the project node_modules for dependencies of files in 'shared'
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
-// Block Metro from resolving react-native from workspace root (monorepo safety)
-config.resolver.blockList = [
-  new RegExp(`^${escapeRegExp(path.join(workspaceRoot, 'node_modules', 'react-native'))}.*$`),
-];
-
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+// Deduplicate React and other core libraries to prevent "Double React" crashes
+config.resolver.extraNodeModules = {
+  'react': path.resolve(projectRoot, 'node_modules/react') || path.resolve(workspaceRoot, 'node_modules/react'),
+  'react-native': path.resolve(projectRoot, 'node_modules/react-native') || path.resolve(workspaceRoot, 'node_modules/react-native'),
+  '@react-navigation/native': path.resolve(projectRoot, 'node_modules/@react-navigation/native') || path.resolve(workspaceRoot, 'node_modules/@react-navigation/native'),
+  'react-native-safe-area-context': path.resolve(projectRoot, 'node_modules/react-native-safe-area-context') || path.resolve(workspaceRoot, 'node_modules/react-native-safe-area-context'),
+};
 
 module.exports = config;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 
 /**
  * useStopWaitTimer - The "Truthful Heartbeat" for Multi-Stops.

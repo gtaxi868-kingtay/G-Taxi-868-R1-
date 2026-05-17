@@ -11,7 +11,7 @@ import Reanimated, {
     useSharedValue, withTiming, useAnimatedStyle,
     useDerivedValue, withSpring,
 } from 'react-native-reanimated';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -112,8 +112,37 @@ export function EarningsScreen({ navigation }: any) {
     }, [driver?.id]);
 
     useEffect(() => {
+        if (!driver?.id) return;
+
         fetchEarnings();
-    }, [fetchEarnings]);
+
+        // --- REALTIME SYNC: Listen for newly completed rides ---
+        const channel = supabase
+            .channel(`driver_earnings:${driver.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'rides',
+                    filter: `driver_id=eq.${driver.id}`,
+                },
+                (payload) => {
+                    console.log('[Earnings] Ride update detected:', payload.eventType);
+                    // Only refresh if the status is relevant (completed/cancelled)
+                    const ride = payload.new as any;
+                    if (ride?.status === 'completed' || ride?.status === 'cancelled') {
+                        fetchEarnings();
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [driver?.id, fetchEarnings]);
 
     const onRefresh = () => {
         setRefreshing(true);

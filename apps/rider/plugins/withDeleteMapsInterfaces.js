@@ -8,8 +8,8 @@ const withDeleteMapsInterfaces = (config) => {
   return withProjectBuildGradle(config, (config) => {
     config.modResults.contents = config.modResults.contents + `
 // G-Taxi One Engine: Kill broken maps interfaces
-allprojects {
-    afterEvaluate { project ->
+allprojects { project ->
+    def fixMaps = {
         if (project.name.contains('react-native-maps')) {
             def brokenFolder = file("\${project.projectDir}/src/main/java/com/facebook/react/viewmanagers")
             if (brokenFolder.exists()) {
@@ -18,7 +18,13 @@ allprojects {
             }
         }
     }
+    if (project.state.executed) {
+        fixMaps()
+    } else {
+        project.afterEvaluate { fixMaps() }
+    }
 }
+
 `;
     return config;
   });

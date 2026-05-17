@@ -18,13 +18,13 @@
         "src/*"
       ],
       "@gtaxi/shared/*": [
-        "../../packages/shared/src/*"
+        "../../packages/shared/*"
       ],
       "@gtaxi/shared": [
         "../../packages/shared/src/index.ts"
       ],
       "@gtaxi/design-system/*": [
-        "../../packages/design-system/src/*"
+        "../../packages/design-system/*"
       ],
       "@gtaxi/design-system": [
         "../../packages/design-system/src/index.ts"

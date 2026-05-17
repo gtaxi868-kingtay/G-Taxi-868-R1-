@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Dimensions, Image, Animated, Easing, Platform } from 'react-native';
-import { tokens } from '@gtaxi/design-system/tokens';
-import { Txt } from '@gtaxi/design-system/primitives';
+import { tokens } from '@/design-system/tokens';
+import { Txt } from '@/design-system/primitives';
 import { BubblesBackground } from './BubblesBackground';
 
 const { width } = Dimensions.get('window');

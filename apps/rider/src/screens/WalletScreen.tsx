@@ -13,11 +13,11 @@ import Reanimated, {
     useDerivedValue
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '@gtaxi/design-system/primitives';
+import { Txt } from '@/design-system/primitives';
 
-import { tokens, THEME } from '@gtaxi/design-system/tokens';
+import { tokens, THEME } from '@/design-system/tokens';
 
 const { width } = Dimensions.get('window');
 
@@ -48,7 +48,32 @@ export function WalletScreen({ navigation }: any) {
     const animatedBalance = useSharedValue(0);
 
     useEffect(() => {
-        if (user?.id) fetchWalletData();
+        if (!user?.id) return;
+
+        fetchWalletData();
+
+        // --- REALTIME SYNC: Listen for new transactions ---
+        const channel = supabase
+            .channel(`wallet:${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'wallet_transactions',
+                    filter: `user_id=eq.${user.id}`,
+                },
+                (payload) => {
+                    console.log('[Wallet] Realtime update detected:', payload.eventType);
+                    fetchWalletData(); // Refresh both balance and list
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [user?.id]);
 
     const fetchWalletData = async () => {

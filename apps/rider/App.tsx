@@ -70,6 +70,22 @@ const isWeb = Platform.OS === 'web';
 import { StripeProvider } from '@stripe/stripe-react-native';
 
 const SentryMock: any = { wrap: (comp: any) => comp, init: () => { } };
+let Sentry = SentryMock;
+
+if (!isExpoGo && !isWeb) {
+    try {
+        Sentry = require('@sentry/react-native');
+        Sentry.init({
+            dsn: ENV.SENTRY_DSN || 'https://placeholder@sentry.io/123456',
+            enabled: process.env.APP_ENV === 'production',
+            enableInExpoDevelopment: true,
+            debug: __DEV__,
+            environment: process.env.APP_ENV || 'development',
+        });
+    } catch (e) {
+        console.warn('[Sentry] Initialization failed:', e);
+    }
+}
 
 // Auth screens (for logged-out users)
 function AuthNavigator() {

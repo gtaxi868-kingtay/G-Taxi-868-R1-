@@ -110,8 +110,7 @@ serve(async (req: Request) => {
             dropoff_lng,
             dropoff_address = "Destination",
             vehicle_type = "Standard",
-            // payment_method = "cash", // Removed default to respect body
-            payment_method, // use body value
+            payment_method,
             scheduled_for,
             stops = [],
             source = "app",
@@ -120,10 +119,42 @@ serve(async (req: Request) => {
             kiosk_id,
             guest_name,
             guest_phone,
-            billed_to_merchant_id
+            billed_to_merchant_id,
+            idempotency_key
         } = body;
 
-        log("INFO", "Request from verified user", { requestId, rider_id, vehicle_type, payment_method, stops_count: stops.length });
+        log("INFO", "Request from verified user", { requestId, rider_id, vehicle_type, payment_method, idempotency_key });
+
+        // 3.5. IDEMPOTENCY CHECK
+        if (idempotency_key) {
+            const { data: existingByIdempotency } = await supabaseClient
+                .from("rides")
+                .select("*")
+                .eq("rider_id", rider_id)
+                .eq("idempotency_key", idempotency_key)
+                .maybeSingle();
+
+            if (existingByIdempotency) {
+                log("INFO", "Idempotent hit: ride already exists", { ride_id: existingByIdempotency.id, idempotency_key });
+                return new Response(
+                    JSON.stringify({
+                        success: true,
+                        error: null,
+                        data: {
+                            ride_id: existingByIdempotency.id,
+                            status: existingByIdempotency.status,
+                            distance_km: (existingByIdempotency.distance_meters || 0) / 1000,
+                            duration_min: (existingByIdempotency.duration_seconds || 0) / 60,
+                            total_fare_cents: existingByIdempotency.total_fare_cents,
+                            vehicle_type: existingByIdempotency.vehicle_type,
+                            payment_method: existingByIdempotency.payment_method,
+                            existing_ride: true,
+                        },
+                    }),
+                    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+        }
 
         if (!pickup_lat || !pickup_lng || !dropoff_lat || !dropoff_lng) {
             log("ERROR", "Missing coordinates", { requestId, rider_id });
@@ -253,6 +284,7 @@ serve(async (req: Request) => {
             vehicle_type,
             payment_method: payment_method || "cash",
             ride_pin: Math.floor(1000 + Math.random() * 9000).toString(),
+            idempotency_key: idempotency_key || null,
             metadata: {
                 source,
                 source_metadata,

@@ -18,6 +18,10 @@ function App() {
   const [orders, setOrders] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<any | null>(null);
+  const [showDispatch, setShowDispatch] = useState(false);
+  const [dispatchResult, setDispatchResult] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('g_taxi_merchant_sound') !== 'false');
 
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -304,19 +308,6 @@ function App() {
                       </div>
                   </div>
               </div>
-          )}
-      </main>
-    </div>
-  );
-}
-
-          {showDispatch && (
-              <DispatchModal 
-                merchant={merchant}
-                onClose={() => { setShowDispatch(false); setDispatchResult(null); }} 
-                onSuccess={(res: any) => { setDispatchResult(res); fetchData(merchant.id); }}
-                result={dispatchResult}
-              />
           )}
       </main>
 

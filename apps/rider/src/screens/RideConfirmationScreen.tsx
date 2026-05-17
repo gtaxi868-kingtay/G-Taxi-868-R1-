@@ -12,8 +12,8 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { ENV } from '@gtaxi/shared/env';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
-import { supabase } from '@gtaxi/shared/supabase';
-import { Txt } from '@gtaxi/design-system/primitives';
+import { supabase } from '@gtaxi/native';
+import { Txt } from '@/design-system/primitives';
 import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '@gtaxi/design-system';
 import { formatTTDDollars } from '../utils/currency';
 

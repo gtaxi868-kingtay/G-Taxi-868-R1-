@@ -2,7 +2,8 @@
 // Token is fetched fresh from Supabase for each authenticated request
 
 import { ENV } from '@gtaxi/shared/env';
-import { supabase } from '@gtaxi/shared/supabase';
+import { RideEngine } from '@gtaxi/shared';
+import { supabase } from '@gtaxi/native';
 
 interface ApiResponse<T> {
     success: boolean;
@@ -45,6 +46,7 @@ interface CreateRideParams {
     guest_name?: string;
     guest_phone?: string;
     billed_to_merchant_id?: string;
+    idempotency_key?: string;
     stops?: Array<{
         stop_order: number;
         place_name: string;
@@ -197,14 +199,23 @@ export async function estimateFare(
 export async function createRide(
     params: CreateRideParams
 ): Promise<ApiResponse<CreateRideResponse>> {
+    return RideEngine.requestRide(params, _createRideInternal);
+}
+
+async function _createRideInternal(
+    params: CreateRideParams
+): Promise<ApiResponse<CreateRideResponse>> {
     let retries = 3;
     let delay = 1000; // 1s initial delay
 
+    const idempotencyKey = params.idempotency_key || require('expo-crypto').randomUUID();
+    const body = { ...params, idempotency_key: idempotencyKey };
+
     while (retries > 0) {
         try {
-            console.log(`[createRide] Invoking Edge Function (Attempts left: ${retries})`);
+            console.log(`[createRide] Invoking Edge Function (Attempts left: ${retries}, key: ${idempotencyKey})`);
             const { data, error } = await supabase.functions.invoke('create_ride', {
-                body: params,
+                body,
             });
 
             if (error) {

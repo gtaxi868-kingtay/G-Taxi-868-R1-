@@ -16,7 +16,7 @@ import Reanimated, {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ENV } from '@gtaxi/shared/env';
-import { supabase } from '@gtaxi/shared/supabase';
+import { supabase } from '@gtaxi/native';
 import { cancelRide } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
 

@@ -231,6 +231,15 @@ serve(async (req: Request) => {
             }
 
             const commission = Math.round(effectiveFare * commissionRate);
+            
+            // --- SHADOW LEDGER VALIDATION ---
+            console.log('[SHADOW_LEDGER][completeRide]', {
+                ride_id,
+                gross_cents: effectiveFare,
+                predicted_commission: commission,
+                rate_used: commissionRate,
+                payment_method: 'cash'
+            });
             await supabaseAdmin.from("wallet_transactions").insert({
                 user_id: ride.driver_id,
                 ride_id: ride_id,

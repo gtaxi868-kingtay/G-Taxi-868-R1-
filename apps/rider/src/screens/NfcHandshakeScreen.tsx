@@ -5,9 +5,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
-import { Txt } from '@gtaxi/design-system/primitives';
-import { tokens } from '@gtaxi/design-system/tokens';
-import { supabase } from '@gtaxi/shared/supabase';
+import { Txt } from '@/design-system/primitives';
+import { tokens } from '@/design-system/tokens';
+import { supabase } from '@gtaxi/native';
 
 const { width } = Dimensions.get('window');
 
@@ -27,7 +27,7 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
         
         return () => {
             // Cleanup NFC when screen unmounts
-            NfcManager.stopScan();
+            NfcManager.cancelTechnologyRequest();
         };
     }, [tagUid]);
 
