@@ -1,16 +1,15 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Image, Animated, Easing, Platform } from 'react-native';
+import { View, StyleSheet, useWindowDimensions, Image, Animated, Easing, Platform } from 'react-native';
 import { tokens } from '../design-system/tokens';
 import { Txt } from '../design-system/primitives';
 import { BubblesBackground } from './BubblesBackground';
-
-const { width } = Dimensions.get('window');
 
 // Duration for animations
 const PULSE_DURATION = 2000;
 const TAGLINE_DURATION = 1500;
 
 export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
+    const { width } = useWindowDimensions();
     // Standard React Native Animated
     const logoScale = useRef(new Animated.Value(0.8)).current;
     const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -106,7 +105,7 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
                     </Txt>
                     <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
                         <Animated.View style={[StyleSheet.absoluteFill, { overflow: 'hidden', width: animatedWidth }]}>
-                            <View style={{ flexDirection: 'row', width: 400 }}>
+                            <View style={{ flexDirection: 'row', width: width > 300 ? width : 300 }}>
                                 <Txt
                                     variant="headingM"
                                     style={[styles.taglineText, { color: tokens.colors.primary.cyan }]}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Image,
-    Dimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView,
+    useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import NfcManager from 'react-native-nfc-manager';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
     useSharedValue, withSpring, withTiming,
@@ -25,7 +26,6 @@ import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { supabase } from '../../../../shared/supabase';
 import { Sidebar } from '../components/Sidebar';
 
-const { width, height } = Dimensions.get('window');
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
 // Blueberry Luxe Color System
@@ -66,6 +66,7 @@ import { RecentRidesModal } from '../components/RecentRidesModal';
 import { formatTTDDollars } from '../utils/currency';
 
 export function HomeScreen({ navigation, route }: any) {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
 
@@ -86,6 +87,7 @@ export function HomeScreen({ navigation, route }: any) {
     const [visionLoading, setVisionLoading] = useState(false);
     const [showLocationConfirm, setShowLocationConfirm] = useState(false);
     const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+    const [nfcSupported, setNfcSupported] = useState(false);
 
     // Cross-platform voice command modal (replaces iOS-only Alert.prompt)
     const [voiceModalVisible, setVoiceModalVisible] = useState(false);
@@ -110,10 +112,23 @@ export function HomeScreen({ navigation, route }: any) {
                 }
                 if (data?.success && data?.data?.ride_id) {
                     console.log('[Phase 3] Active ride detected. Hardening navigation...');
-                    navigation.replace('ActiveRide', { 
-                        rideId: data.data.ride_id,
-                        paymentMethod: data.data.payment_method 
-                    });
+                    // Check if navigator is ready
+                    if (navigation.isFocused()) {
+                        navigation.replace('ActiveRide', {
+                            rideId: data.data.ride_id,
+                            paymentMethod: data.data.payment_method
+                        });
+                    } else {
+                        // If not focused, we might be navigating elsewhere or just mounting
+                        // Safe to use navigate or wait, but replace is aggressive.
+                        // Let's use a small timeout or just navigate if focused
+                        setTimeout(() => {
+                            navigation.navigate('ActiveRide', {
+                                rideId: data.data.ride_id,
+                                paymentMethod: data.data.payment_method
+                            });
+                        }, 500);
+                    }
                 }
             } catch (e) {
                 console.warn('[Phase 3] Recovery check suppressed:', e);
@@ -175,9 +190,13 @@ export function HomeScreen({ navigation, route }: any) {
                     .rpc('get_enabled_verticals', {
                         p_user_id: profile?.id,
                         p_region: 'POS' // TODO: Detect from GPS or profile
-                    });
+                    }).catch(err => ({ data: null, error: err }));
                 
-                if (error) throw error;
+                if (error) {
+                    console.warn('RPC get_enabled_verticals failed (missing logic?):', error.message);
+                    setFeatureFlags({ grocery: false, laundry: false, merchant: false });
+                    return;
+                }
                 
                 const flags = { 
                     grocery: verticals?.some((v: any) => v.vertical_name === 'grocery') || false,
@@ -209,12 +228,14 @@ export function HomeScreen({ navigation, route }: any) {
         // Fetch System Status (Diagnostics)
         const fetchStatus = async () => {
             try {
-                const { data, error } = await supabase.functions.invoke('get_system_status');
+                const { data, error } = await supabase.functions.invoke('get_system_status').catch(err => ({ data: null, error: err }));
                 if (!error && data?.success) {
                     setSystemStatus(data.data);
+                } else if (error) {
+                    console.warn('System status check failed (Function missing?):', error.message);
                 }
             } catch (err) {
-                console.warn('System status check failed:', err);
+                console.warn('System status check exception:', err);
             }
         };
         fetchStatus();
@@ -320,6 +341,9 @@ export function HomeScreen({ navigation, route }: any) {
             fetchAIGreeting();
             fetchProactiveSuggestion();
         }
+
+        // Check NFC support
+        NfcManager.isSupported().then(setNfcSupported).catch(() => setNfcSupported(false));
 
         // Animations
         panelY.value = withSpring(0, { damping: 18, stiffness: 120 });
@@ -528,7 +552,7 @@ export function HomeScreen({ navigation, route }: any) {
 
             {/* MAP: Full screen with Blueberry Luxe dark styling */}
             <MapView
-                style={s.map}
+                style={[s.map, { width, height }]}
                 provider={PROVIDER_DEFAULT}
                 customMapStyle={DARK_MAP_STYLE}
                 initialRegion={{
@@ -653,7 +677,7 @@ export function HomeScreen({ navigation, route }: any) {
                 <Reanimated.View 
                     entering={FadeIn}
                     exiting={FadeOut}
-                    style={[s.aiBubbleContainer, { bottom: 330 }]}
+                    style={[s.aiBubbleContainer, { bottom: height * 0.4 }]}
                 >
                     <BlurView intensity={80} tint="dark" style={s.aiBlur}>
                         <View style={s.aiAvatar}>
@@ -686,22 +710,38 @@ export function HomeScreen({ navigation, route }: any) {
             )}
 
             {/* VISION FAB: Holographic Scanner */}
-            <TouchableOpacity 
-                style={[s.visionFab, { bottom: 330 + 74 }]} 
-                onPress={handleVisionSighting}
-                activeOpacity={0.7}
-            >
-                <View style={s.visionGlass}>
-                    <LinearGradient 
-                        colors={['rgba(0, 229, 255, 0.2)', 'rgba(123, 92, 240, 0.2)']} 
-                        style={StyleSheet.absoluteFillObject}
-                    />
-                    <Ionicons name="scan-outline" size={28} color={COLORS.cyan} />
-                    <Text style={s.visionText}>VISION</Text>
-                </View>
-            </TouchableOpacity>
+            <View style={[s.visionFab, { bottom: height * 0.4 + 74 }]}>
+                {nfcSupported && (
+                    <TouchableOpacity
+                        style={[s.visionGlass, { marginBottom: 12 }]}
+                        onPress={() => navigation.navigate('NfcHandshake')}
+                        activeOpacity={0.7}
+                    >
+                        <LinearGradient
+                            colors={['rgba(123, 92, 240, 0.2)', 'rgba(0, 229, 255, 0.2)']}
+                            style={StyleSheet.absoluteFillObject}
+                        />
+                        <Ionicons name="infinite" size={28} color={COLORS.purple} />
+                        <Text style={[s.visionText, { color: COLORS.purple }]}>NFC</Text>
+                    </TouchableOpacity>
+                )}
 
-            <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20 }]}>
+                <TouchableOpacity
+                    onPress={handleVisionSighting}
+                    activeOpacity={0.7}
+                >
+                    <View style={s.visionGlass}>
+                        <LinearGradient
+                            colors={['rgba(0, 229, 255, 0.2)', 'rgba(123, 92, 240, 0.2)']}
+                            style={StyleSheet.absoluteFillObject}
+                        />
+                        <Ionicons name="scan-outline" size={28} color={COLORS.cyan} />
+                        <Text style={s.visionText}>VISION</Text>
+                    </View>
+                </TouchableOpacity>
+            </View>
+
+            <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20, maxHeight: height * 0.6 }]}>
                 <BlurView intensity={20} tint="dark" style={s.glassPanel}>
                     <View style={s.cardInner}>
                         
@@ -1067,7 +1107,7 @@ export function HomeScreen({ navigation, route }: any) {
 const s = StyleSheet.create({
     // Root & Map
     root: { flex: 1, backgroundColor: COLORS.bgPrimary },
-    map: { width, height },
+    map: { flex: 1 },
 
     // ── Voice Command Modal Styles (cross-platform Alert.prompt replacement) ──
     voiceModalOverlay: {
@@ -1269,7 +1309,6 @@ const s = StyleSheet.create({
         bottom: 10, 
         left: 10, 
         right: 10,
-        maxHeight: height * 0.6,
     },
     glassPanel: { 
         backgroundColor: COLORS.glassBg, 
@@ -1337,7 +1376,8 @@ const s = StyleSheet.create({
         marginBottom: 20,
     },
     serviceTile: { 
-        width: (width - 72) / 2,
+        flex: 1,
+        minWidth: '45%',
         height: 100, 
         alignItems: 'center', 
         justifyContent: 'center', 
@@ -1542,7 +1582,7 @@ const s = StyleSheet.create({
         position: 'absolute', 
         right: 20, 
         zIndex: 100,
-        bottom: 340,
+        alignItems: 'flex-end',
     },
     visionGlass: { 
         flexDirection: 'row', 

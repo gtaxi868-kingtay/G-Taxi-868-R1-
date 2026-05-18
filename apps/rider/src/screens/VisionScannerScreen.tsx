@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    Alert, Animated, Dimensions,
+    Alert, Animated, useWindowDimensions,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,10 +10,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '../../../../shared/supabase';
 
-const { width, height } = Dimensions.get('window');
 const RETICLE = 240;
 
 export function VisionScannerScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const [permission, requestPermission] = useCameraPermissions();
     const [scanning, setScanning] = useState(false);

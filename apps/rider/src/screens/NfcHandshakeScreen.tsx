@@ -18,12 +18,25 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
     const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
     useEffect(() => {
-        if (tagUid) {
-            handleHandshake();
-        } else {
-            // No tag provided, start NFC scanning
-            scanNfcTag();
-        }
+        const initNfc = async () => {
+            const isSupported = await NfcManager.isSupported();
+            if (!isSupported) {
+                Alert.alert('NFC Not Supported', 'This device does not support NFC booking. Redirecting...', [
+                    { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
+                setLoading(false);
+                return;
+            }
+
+            if (tagUid) {
+                handleHandshake();
+            } else {
+                // No tag provided, start NFC scanning
+                scanNfcTag();
+            }
+        };
+
+        initNfc();
         
         return () => {
             // Cleanup NFC when screen unmounts
@@ -33,6 +46,12 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
 
     const scanNfcTag = async () => {
         try {
+            const isEnabled = await NfcManager.isEnabled();
+            if (!isEnabled) {
+                Alert.alert('NFC Disabled', 'Please enable NFC in your system settings to use this feature.');
+                setLoading(false);
+                return;
+            }
             await NfcManager.start();
             await NfcManager.requestTechnology(NfcTech.Ndef);
             const tag = await NfcManager.getTag();
