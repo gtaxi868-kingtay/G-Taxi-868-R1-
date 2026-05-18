@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView,
-    ActivityIndicator, Alert, Dimensions, Platform
+    ActivityIndicator, Alert, useWindowDimensions, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { Txt } from '../design-system/primitives';
 import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS } from '../design-system';
 import { formatTTDDollars } from '../utils/currency';
 
-const { width } = Dimensions.get('window');
+
 
 interface Service {
     id: string;
@@ -23,6 +23,7 @@ interface Service {
 }
 
 export function ServiceBookingScreen({ navigation, route }: any) {
+    const { width, height } = useWindowDimensions();
     const { merchantId, merchantName, pickup, destination } = route.params;
     const insets = useSafeAreaInsets();
 

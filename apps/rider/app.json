@@ -50,7 +50,7 @@
       "./plugins/withDeleteMapsInterfaces"
     ],
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.gtaxi.rider",
       "config": {
         "googleMapsApiKey": "AIzaSyACp6vv3kUcB3UnYGrbXV8nf-NJrCl5d5g"

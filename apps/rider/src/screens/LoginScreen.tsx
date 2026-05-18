@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Dimensions, Image, Text
+    useWindowDimensions, Image, Text
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,7 +15,7 @@ import Reanimated, {
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../context/AuthContext';
 
-const { width, height } = Dimensions.get('window');
+// Removed static useWindowDimensions
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -37,6 +37,7 @@ const COLORS = {
 };
 
 export function LoginScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const { signIn } = useAuth();
     const insets = useSafeAreaInsets();
 

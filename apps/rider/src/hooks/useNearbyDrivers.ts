@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Animated, Easing } from 'react-native';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 
 // Animated wrapper for driver positions
 interface AnimatedDriver {

@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView,
-    Dimensions, Text, ActivityIndicator, Alert
+    useWindowDimensions, Text, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { useAuth } from '../context/AuthContext';
 
-const { width, height } = Dimensions.get('window');
+// Removed static useWindowDimensions
 
 const COLORS = {
     bgPrimary: '#0D0B1E',
@@ -71,6 +71,7 @@ const TIERS = [
 ];
 
 export function SubscriptionScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const [currentTier, setCurrentTier] = useState('free');

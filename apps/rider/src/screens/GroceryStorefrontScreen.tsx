@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Dimensions, ScrollView, RefreshControl,
+    ActivityIndicator, useWindowDimensions, ScrollView, RefreshControl,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { LoadingOverlay } from '../design-system';
 
-const { width } = Dimensions.get('window');
+
 
 interface Merchant {
     id: string;
@@ -40,6 +40,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 export function GroceryStorefrontScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 

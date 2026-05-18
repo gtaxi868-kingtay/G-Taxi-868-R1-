@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Dimensions, Image, Text, Alert
+    useWindowDimensions, Image, Text, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,10 +10,10 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width, height } = Dimensions.get('window');
+// Removed static useWindowDimensions
 
 const COLORS = {
     bgPrimary: '#0D0B1E',
@@ -36,6 +36,7 @@ const COLORS = {
 };
 
 export function ForgotPasswordScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);

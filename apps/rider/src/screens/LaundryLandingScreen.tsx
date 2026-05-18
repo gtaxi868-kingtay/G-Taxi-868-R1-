@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    Alert, Dimensions, FlatList, ActivityIndicator
+    Alert, useWindowDimensions, FlatList, ActivityIndicator
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { LoadingOverlay } from '../design-system';
 
 const SERVICES = [

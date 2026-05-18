@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     View, StyleSheet, FlatList, TouchableOpacity,
-    SafeAreaView, Dimensions, Linking, ScrollView
+    SafeAreaView, useWindowDimensions, Linking, ScrollView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -13,7 +13,7 @@ import { Txt } from '../design-system/primitives';
 
 import { tokens } from '../design-system/tokens';
 
-const { width } = Dimensions.get('window');
+
 
 // --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
@@ -51,6 +51,7 @@ const FAQ_ITEMS = [
 ];
 
 export function HelpScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 

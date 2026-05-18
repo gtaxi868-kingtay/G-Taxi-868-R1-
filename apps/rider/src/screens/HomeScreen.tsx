@@ -20,10 +20,10 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { DEFAULT_LOCATION, ENV } from '../../../../shared/env';
+import { DEFAULT_LOCATION, ENV } from 'shared/env';
 import { useAuth } from '../context/AuthContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { Sidebar } from '../components/Sidebar';
 
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
@@ -1661,7 +1661,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.7)',
     },
     locationConfirmBlur: {
-        width: width - 40,
+        width: '90%' , // FIXED: Use inline style instead
         borderRadius: 24,
         overflow: 'hidden',
     },

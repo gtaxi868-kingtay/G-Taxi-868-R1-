@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ScrollView, Dimensions, Alert,
+    ScrollView, useWindowDimensions, Alert,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 
-const { width } = Dimensions.get('window');
+
 
 interface Product {
     id: string;
@@ -41,6 +41,7 @@ const NUTRIENT_PILLS = [
 ];
 
 export function ProductDetailScreen({ navigation, route }: any) {
+    const { width, height } = useWindowDimensions();
     const { product, onAddToCart } = route.params as { product: Product; onAddToCart?: (p: Product) => void };
     const insets = useSafeAreaInsets();
     const [quantity, setQuantity] = useState(1);

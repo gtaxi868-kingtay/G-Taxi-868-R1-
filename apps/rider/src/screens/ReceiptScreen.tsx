@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ScrollView,
-    Dimensions, Platform, ActivityIndicator, Image
+    useWindowDimensions, Platform, ActivityIndicator, Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -9,9 +9,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 
-const { width, height } = Dimensions.get('window');
+// Removed static useWindowDimensions
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -47,6 +47,7 @@ interface RideData {
 }
 
 export function ReceiptScreen({ navigation, route }: any) {
+    const { width, height } = useWindowDimensions();
     const { ride: initialRide, rideId } = route.params;
     const insets = useSafeAreaInsets();
     const [ride, setRide] = useState<RideData | null>(initialRide || null);

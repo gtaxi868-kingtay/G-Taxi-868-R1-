@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, TextInput,
-    ScrollView, Dimensions, ActivityIndicator, Alert
+    ScrollView, useWindowDimensions, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -9,13 +9,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { processTip, formatCurrency } from '../services/api';
 import { Txt } from '../design-system/primitives';
 
 import { tokens } from '../design-system/tokens';
 
-const { width } = Dimensions.get('window');
+
 
 // --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
@@ -30,6 +30,7 @@ const R = {
 };
 
 export function RatingScreen({ navigation, route }: any) {
+    const { width, height } = useWindowDimensions();
     const { driver, fare, rideId, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
 

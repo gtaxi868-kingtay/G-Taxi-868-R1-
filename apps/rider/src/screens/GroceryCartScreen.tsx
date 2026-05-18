@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    FlatList, Alert, Switch, Dimensions,
+    FlatList, Alert, Switch, useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
 

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView,
-    Alert, ActivityIndicator, Dimensions, Platform
+    Alert, ActivityIndicator, useWindowDimensions, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -10,13 +10,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { Txt } from '../design-system/primitives';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 import { tokens } from '../design-system/tokens';
 
-const { width } = Dimensions.get('window');
+
 
 // --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
@@ -39,6 +39,7 @@ const OPTIONS = [
 ];
 
 export function PaymentScreen({ navigation, route }: any) {
+    const { width, height } = useWindowDimensions();
     const rideId = route?.params?.ride_id;
     const initialMethod = route?.params?.payment_method ?? 'cash';
     const fareCents = route?.params?.fare_cents;

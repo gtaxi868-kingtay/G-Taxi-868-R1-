@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Alert,
-    Dimensions, Platform, BackHandler, Image
+    useWindowDimensions, Platform, BackHandler, Image
 } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,12 +15,12 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ENV } from '../../../../shared/env';
-import { supabase } from '../../../../shared/supabase';
+import { ENV } from 'shared/env';
+import { supabase } from 'shared/supabase';
 import { cancelRide } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
 
-const { width, height } = Dimensions.get('window');
+// Removed static useWindowDimensions
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -50,6 +50,7 @@ const DARK_MAP_STYLE = [
 ];
 
 export function SearchingDriverScreen({ route, navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const { rideId, destination, fare, pickup, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
 
@@ -639,7 +640,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(13,11,30,0.95)',
     },
     negotiationCard: { 
-        width: width * 0.85, 
+        width: '85%' , // FIXED: Use inline style instead
         padding: 28, 
         borderRadius: 32, 
         backgroundColor: COLORS.glassBg, 

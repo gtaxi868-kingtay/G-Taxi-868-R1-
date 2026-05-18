@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, StyleSheet, FlatList, TouchableOpacity,
-    ActivityIndicator, Dimensions, RefreshControl, Alert
+    ActivityIndicator, useWindowDimensions, RefreshControl, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -9,14 +9,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Txt, GlassCard } from '../design-system';
 import { tokens } from '../design-system/tokens';
 
-const { width, height } = Dimensions.get('window');
-
 export function TripsScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 

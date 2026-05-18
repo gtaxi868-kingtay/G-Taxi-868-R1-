@@ -8,11 +8,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 
-const RETICLE = 240;
+
 
 export function VisionScannerScreen({ navigation }: any) {
+
     const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const [permission, requestPermission] = useCameraPermissions();
@@ -179,7 +180,7 @@ const s = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
     overlay: { backgroundColor: 'rgba(0,0,0,0.6)' },
     reticle: {
-        width: RETICLE, height: RETICLE,
+        width: 240, height: 240,
         alignItems: 'center', justifyContent: 'center',
     },
     corner: {
@@ -205,7 +206,7 @@ const s = StyleSheet.create({
     hint: {
         position: 'absolute',
         top: '50%', left: 0, right: 0,
-        marginTop: RETICLE / 2 + 20,
+        marginTop: 140,
         textAlign: 'center',
         fontSize: 13, color: 'rgba(255,255,255,0.6)',
     },

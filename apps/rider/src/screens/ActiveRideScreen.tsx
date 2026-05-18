@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Alert,
-    Linking, Dimensions, Platform, Image as RNImage, AppState,
+    Linking, useWindowDimensions, Platform, Image as RNImage, AppState,
     Modal, TextInput, KeyboardAvoidingView,
     ActivityIndicator, Share
 } from 'react-native';
@@ -17,12 +17,12 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { ENV } from '../../../../shared/env';
-import { supabase } from '../../../../shared/supabase';
+import { ENV } from 'shared/env';
+import { supabase } from 'shared/supabase';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
 
-const { width, height } = Dimensions.get('window');
+// Removed static useWindowDimensions
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -105,6 +105,7 @@ interface ActiveRideRouteParams {
 }
 
 export function ActiveRideScreen({ route, navigation }: { route: { params: ActiveRideRouteParams }, navigation: any }) {
+    const { width, height } = useWindowDimensions();
     const { rideId, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
 
@@ -879,7 +880,7 @@ const s = StyleSheet.create({
 
     // AI Insight HUD
     aiInsightHud: { 
-        width: width * 0.9, 
+        width: '90%' , // FIXED: Use inline style instead
         alignSelf: 'center', 
         position: 'absolute', 
         zIndex: 90,

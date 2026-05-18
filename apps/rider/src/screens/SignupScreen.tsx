@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Dimensions, ScrollView, Alert, Image, Text
+    useWindowDimensions, ScrollView, Alert, Image, Text
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,9 +12,9 @@ import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../../../../shared/supabase';
+import { supabase } from 'shared/supabase';
 
-const { width, height } = Dimensions.get('window');
+// Removed static useWindowDimensions
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -36,6 +36,7 @@ const COLORS = {
 };
 
 export function SignupScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const { signUp } = useAuth();
     const insets = useSafeAreaInsets();
 

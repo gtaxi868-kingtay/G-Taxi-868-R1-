@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, useWindowDimensions, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,11 +7,10 @@ import Reanimated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import { Txt } from '../design-system/primitives';
 import { tokens } from '../design-system/tokens';
-import { supabase } from '../../../../shared/supabase';
-
-const { width } = Dimensions.get('window');
+import { supabase } from 'shared/supabase';
 
 export function NfcHandshakeScreen({ route, navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const { tagUid } = route.params || {};
     const [loading, setLoading] = useState(true);
     const [handshake, setHandshake] = useState<any>(null);

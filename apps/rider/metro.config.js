@@ -23,6 +23,7 @@ const extraNodeModules = {
     'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
     '@react-navigation/native': path.resolve(workspaceRoot, 'node_modules/@react-navigation/native'),
     'react-native-safe-area-context': path.resolve(workspaceRoot, 'node_modules/react-native-safe-area-context'),
+    'shared': path.resolve(workspaceRoot, 'shared'),
 };
 
 config.resolver.extraNodeModules = new Proxy(extraNodeModules, {
