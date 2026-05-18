@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    Alert, Linking, Platform, Dimensions,
+    Alert, Linking, Platform,
     Modal, TextInput, KeyboardAvoidingView, ScrollView,
     ActivityIndicator, Image,
 } from 'react-native';
@@ -58,7 +58,6 @@ const COLORS = {
     error: '#EF4444',
 };
 
-const { height } = Dimensions.get('window');
 const CARD_HEIGHT = 260;
 
 const DRIVER_SHARE = 0.81;

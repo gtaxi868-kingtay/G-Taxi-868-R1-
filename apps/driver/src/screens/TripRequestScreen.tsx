@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    ActivityIndicator, Dimensions, Alert, Image
+    ActivityIndicator, useWindowDimensions, Alert, Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -16,7 +16,6 @@ import { acceptRide, declineRide } from '../services/api';
 import { supabase } from '@gtaxi/native';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width, height } = Dimensions.get('window');
 
 // Blueberry Luxe — Gold Edition (Driver)
 const COLORS = {
@@ -66,6 +65,7 @@ interface RideDetail {
 }
 
 export function TripRequestScreen({ navigation, route }: any) {
+    const { height } = useWindowDimensions();
     const { offer } = route.params || {};
     const { driver } = useAuth();
     const insets = useSafeAreaInsets();

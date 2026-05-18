@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Image,
-    Dimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView,
+    useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
@@ -25,7 +25,6 @@ import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { supabase } from '@gtaxi/native';
 import { Sidebar } from '../components/Sidebar';
 
-const { width, height } = Dimensions.get('window');
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
 // Blueberry Luxe Color System
@@ -66,6 +65,7 @@ import { RecentRidesModal } from '../components/RecentRidesModal';
 import { formatTTDDollars } from '../utils/currency';
 
 export function HomeScreen({ navigation, route }: any) {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
 
@@ -587,8 +587,8 @@ export function HomeScreen({ navigation, route }: any) {
             </MapView>
 
             {/* Top Bar: Floating Glass Card */}
-            <View style={[s.topBarContainer, { top: insets.top + 12 }]}>
-                <BlurView intensity={20} tint="dark" style={s.topBarBlur}>
+            <View style={[s.topBarContainer, { top: insets.top + 12 }, width > 600 && { alignItems: 'center' }]}>
+                <BlurView intensity={20} tint="dark" style={[s.topBarBlur, width > 600 && { maxWidth: 600 }]}>
                     <View style={s.topBar}>
                         {/* G-Taxi Logo */}
                         <Image 
@@ -701,7 +701,7 @@ export function HomeScreen({ navigation, route }: any) {
                 </View>
             </TouchableOpacity>
 
-            <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20 }]}>
+            <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20 }, width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300 }]}>
                 <BlurView intensity={20} tint="dark" style={s.glassPanel}>
                     <View style={s.cardInner}>
                         
@@ -761,7 +761,7 @@ export function HomeScreen({ navigation, route }: any) {
                         <View style={s.tilesContainer}>
                             {/* RIDE - Cyan */}
                             <TouchableOpacity 
-                                style={s.serviceTile}
+                                style={[s.serviceTile, { width: (width - 72) / 2 }]}
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                 }}
@@ -774,7 +774,7 @@ export function HomeScreen({ navigation, route }: any) {
 
                             {/* MARKET - Purple */}
                             <TouchableOpacity 
-                                style={s.serviceTile}
+                                style={[s.serviceTile, { width: (width - 72) / 2 }]}
                                 onPress={() => Alert.alert(
                                     'Coming Soon', 
                                     'This feature is being built. Stay tuned!'
@@ -788,7 +788,7 @@ export function HomeScreen({ navigation, route }: any) {
 
                             {/* LAUNDRY - Cyan */}
                             <TouchableOpacity 
-                                style={s.serviceTile}
+                                style={[s.serviceTile, { width: (width - 72) / 2 }]}
                                 onPress={() => Alert.alert(
                                     'Coming Soon', 
                                     'This feature is being built. Stay tuned!'
@@ -802,7 +802,7 @@ export function HomeScreen({ navigation, route }: any) {
 
                             {/* MORE - Purple */}
                             <TouchableOpacity 
-                                style={s.serviceTile}
+                                style={[s.serviceTile, { width: (width - 72) / 2 }]}
                                 onPress={() => Alert.alert(
                                     'Coming Soon', 
                                     'This feature is being built. Stay tuned!'
@@ -934,7 +934,7 @@ export function HomeScreen({ navigation, route }: any) {
 
             {showLocationConfirm && (
                 <View style={[StyleSheet.absoluteFill, s.locationConfirmOverlay]}>
-                    <BlurView intensity={40} tint="dark" style={s.locationConfirmBlur}>
+                    <BlurView intensity={40} tint="dark" style={[s.locationConfirmBlur, { width: width - 40 }]}>
                         <View style={s.locationConfirmCard}>
                             <Ionicons name="location-outline" size={48} color={COLORS.warning} style={{ marginBottom: 16 }} />
                             <Text style={s.locationConfirmTitle}>Your location may not be precise</Text>
@@ -1067,7 +1067,7 @@ export function HomeScreen({ navigation, route }: any) {
 const s = StyleSheet.create({
     // Root & Map
     root: { flex: 1, backgroundColor: COLORS.bgPrimary },
-    map: { width, height },
+    map: { width: '100%', height: '100%' },
 
     // ── Voice Command Modal Styles (cross-platform Alert.prompt replacement) ──
     voiceModalOverlay: {
@@ -1269,7 +1269,7 @@ const s = StyleSheet.create({
         bottom: 10, 
         left: 10, 
         right: 10,
-        maxHeight: height * 0.6,
+        maxHeight: '60%',
     },
     glassPanel: { 
         backgroundColor: COLORS.glassBg, 
@@ -1337,7 +1337,6 @@ const s = StyleSheet.create({
         marginBottom: 20,
     },
     serviceTile: { 
-        width: (width - 72) / 2,
         height: 100, 
         alignItems: 'center', 
         justifyContent: 'center', 
@@ -1621,7 +1620,6 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.7)',
     },
     locationConfirmBlur: {
-        width: width - 40,
         borderRadius: 24,
         overflow: 'hidden',
     },

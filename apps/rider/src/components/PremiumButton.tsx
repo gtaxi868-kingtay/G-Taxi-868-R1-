@@ -11,10 +11,8 @@ import {
     ActivityIndicator,
     ViewStyle,
     TextStyle,
-    Dimensions,
+    useWindowDimensions,
 } from 'react-native';
-
-const { width } = Dimensions.get('window');
 
 interface PremiumButtonProps {
     title: string;
@@ -37,6 +35,7 @@ export function PremiumButton({
     textStyle,
     icon,
 }: PremiumButtonProps) {
+    const { width } = useWindowDimensions();
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {

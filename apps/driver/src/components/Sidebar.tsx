@@ -6,7 +6,7 @@ import {
     StyleSheet,
     TouchableOpacity,
     Animated,
-    Dimensions,
+    useWindowDimensions,
     Pressable,
     SafeAreaView,
     Alert,
@@ -23,8 +23,6 @@ const COLORS = {
     error: '#EF4444',
 };
 
-const { width, height } = Dimensions.get('window');
-const SIDEBAR_WIDTH = width * 0.75;
 
 interface SidebarProps {
     visible: boolean;
@@ -38,6 +36,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
+    const { width } = useWindowDimensions();
+    const SIDEBAR_WIDTH = width * 0.75;
     const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -112,7 +112,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                 <Pressable style={{ flex: 1 }} onPress={onClose} />
             </Animated.View>
 
-            <Animated.View style={[styles.panel, { transform: [{ translateX: slideAnim }] }]}>
+            <Animated.View style={[styles.panel, { width: SIDEBAR_WIDTH, transform: [{ translateX: slideAnim }] }]}>
                 <View style={{ flex: 1, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' }}>
                     <SafeAreaView style={{ flex: 1 }}>
                         {/* Profile Header */}
@@ -202,7 +202,6 @@ const styles = StyleSheet.create({
         top: 0,
         bottom: 0,
         left: 0,
-        width: SIDEBAR_WIDTH,
         backgroundColor: COLORS.bgPrimary,
         shadowColor: '#000',
         shadowOffset: { width: 4, height: 0 },

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, TextInput,
-    FlatList, KeyboardAvoidingView, Platform, Dimensions,
+    FlatList, KeyboardAvoidingView, Platform,
     Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +20,6 @@ const COLORS = {
     textMuted: 'rgba(255,255,255,0.4)',
 };
 
-const { width } = Dimensions.get('window');
 
 interface Message {
     id: string;

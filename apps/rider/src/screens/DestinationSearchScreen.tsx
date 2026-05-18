@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
-    FlatList, Dimensions, ActivityIndicator, Keyboard
+    FlatList, useWindowDimensions, ActivityIndicator, Keyboard
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -9,8 +9,6 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/native';
-
-const { width, height } = Dimensions.get('window');
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -35,6 +33,7 @@ const COLORS = {
 };
 
 export function DestinationSearchScreen({ navigation, route }: any) {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { currentLocation, source, sourceMetadata, kioskId, taxiStandId } = route.params || {};
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Alert,
-    Dimensions, Platform, BackHandler, Image
+    useWindowDimensions, Platform, BackHandler, Image
 } from 'react-native';
 import MapView, { PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,8 +19,6 @@ import { ENV } from '@gtaxi/shared/env';
 import { supabase } from '@gtaxi/native';
 import { cancelRide } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
-
-const { width, height } = Dimensions.get('window');
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -50,6 +48,7 @@ const DARK_MAP_STYLE = [
 ];
 
 export function SearchingDriverScreen({ route, navigation }: any) {
+    const { width } = useWindowDimensions();
     const { rideId, destination, fare, pickup, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
 
@@ -401,7 +400,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
             {showNegotiation && (
                 <Reanimated.View entering={FadeIn} style={[StyleSheet.absoluteFillObject, { zIndex: 1000 }]}>
                     <BlurView intensity={90} tint="dark" style={s.lockBlur}>
-                        <View style={s.negotiationCard}>
+                        <View style={[s.negotiationCard, { width: width * 0.85 }]}>
                             <View style={s.aiAvatar}>
                                 <LinearGradient 
                                     colors={[COLORS.purple, COLORS.cyan]} 
@@ -639,7 +638,6 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(13,11,30,0.95)',
     },
     negotiationCard: { 
-        width: width * 0.85, 
         padding: 28, 
         borderRadius: 32, 
         backgroundColor: COLORS.glassBg, 

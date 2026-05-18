@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Dimensions, Image, Text, Alert
+    useWindowDimensions, Image, Text, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,8 +12,6 @@ import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { supabase } from '@gtaxi/native';
 import { Ionicons } from '@expo/vector-icons';
-
-const { width, height } = Dimensions.get('window');
 
 const COLORS = {
     bgPrimary: '#0D0B1E',
@@ -36,6 +34,7 @@ const COLORS = {
 };
 
 export function ForgotPasswordScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
@@ -84,7 +83,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={s.container}
             >
-                <Reanimated.View entering={FadeIn.duration(1000)} style={s.content}>
+                <Reanimated.View entering={FadeIn.duration(1000)} style={[s.content, { paddingTop: height * 0.12 }]}>
 
                     {/* Back Button */}
                     <TouchableOpacity
@@ -210,7 +209,6 @@ const s = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: 28,
-        paddingTop: height * 0.12,
         paddingBottom: 20,
     },
     backBtn: {

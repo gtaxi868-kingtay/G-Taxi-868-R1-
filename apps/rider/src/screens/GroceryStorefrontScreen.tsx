@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Dimensions, ScrollView, RefreshControl,
+    ActivityIndicator, useWindowDimensions, ScrollView, RefreshControl,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,8 +11,6 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/native';
 import { useAuth } from '../context/AuthContext';
 import { LoadingOverlay } from '@gtaxi/design-system';
-
-const { width } = Dimensions.get('window');
 
 interface Merchant {
     id: string;
@@ -40,6 +38,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 export function GroceryStorefrontScreen({ navigation }: any) {
+    const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 

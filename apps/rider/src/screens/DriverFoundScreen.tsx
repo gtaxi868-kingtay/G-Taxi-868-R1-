@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    Animated, Dimensions, ActivityIndicator,
+    Animated, useWindowDimensions, ActivityIndicator,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,8 +9,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/native';
-
-const { width } = Dimensions.get('window');
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -42,6 +40,7 @@ interface DriverInfo {
 }
 
 export function DriverFoundScreen({ navigation, route }: any) {
+    const { width } = useWindowDimensions();
     const { rideId, driver: initialDriver, destination, fare } = route.params as {
         rideId: string;
         driver?: DriverInfo;

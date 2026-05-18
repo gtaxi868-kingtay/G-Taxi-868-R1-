@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, SafeAreaView,
-    ScrollView, Switch, ActivityIndicator, Alert, Dimensions
+    ScrollView, Switch, ActivityIndicator, Alert, useWindowDimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -14,8 +14,6 @@ import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 
 import { tokens } from '@/design-system/tokens';
-
-const { width } = Dimensions.get('window');
 
 // --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
@@ -31,6 +29,7 @@ const R = {
 };
 
 export function AISettingsScreen({ navigation }: any) {
+    const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(true);

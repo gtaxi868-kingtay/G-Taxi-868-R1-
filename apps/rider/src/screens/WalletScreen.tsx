@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, SafeAreaView,
-    FlatList, ActivityIndicator, Dimensions, RefreshControl, Alert
+    FlatList, ActivityIndicator, useWindowDimensions, RefreshControl, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -19,8 +19,6 @@ import { Txt } from '@/design-system/primitives';
 
 import { tokens, THEME } from '@/design-system/tokens';
 
-const { width } = Dimensions.get('window');
-
 // --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
     bg: tokens.colors.background.base,
@@ -37,6 +35,7 @@ const R = {
 };
 
 export function WalletScreen({ navigation }: any) {
+    const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 

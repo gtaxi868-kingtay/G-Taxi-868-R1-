@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, TextInput,
-    ScrollView, ActivityIndicator, Dimensions, Alert
+    ScrollView, ActivityIndicator, useWindowDimensions, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -14,8 +14,6 @@ import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 
 import { tokens } from '@/design-system/tokens';
-
-const { width } = Dimensions.get('window');
 
 // --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
@@ -30,6 +28,7 @@ const R = {
 };
 
 export function PromoScreen({ navigation }: any) {
+    const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 

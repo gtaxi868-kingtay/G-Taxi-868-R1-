@@ -13,6 +13,30 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const VEHICLE_MULTIPLIERS: Record<string, number> = {
+    Standard: 1.0,
+    XL: 1.5,
+    Premium: 2.0,
+};
+
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371000;
+    const toRad = (value: number) => value * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function estimateFareCents(pickupLat: number, pickupLng: number, dropoffLat: number, dropoffLng: number, vehicleType: string): number {
+    const distanceMeters = haversineMeters(pickupLat, pickupLng, dropoffLat, dropoffLng);
+    const durationMinutes = Math.max(8, (distanceMeters / 1000 / 28) * 60);
+    const multiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? VEHICLE_MULTIPLIERS.Standard;
+    const fare = (1600 + (distanceMeters / 1000) * 175 + durationMinutes * 95) * multiplier;
+    return Math.max(2200, Math.round(fare));
+}
+
 // Extremely simple hashing for the sake of the Edge environment. 
 // Standard integration would use WebCrypto SubtleCrypto.
 async function hashKey(rawKey: string): Promise<string> {
@@ -77,8 +101,11 @@ serve(async (req: Request) => {
             vehicle_type = "Standard",
         } = await req.json();
 
-        if (!destination_lat || !destination_lng) {
+        if (destination_lat == null || destination_lng == null) {
             throw new Error("Missing destination coordinates");
+        }
+        if (merchant.lat == null || merchant.lng == null) {
+            throw new Error("Merchant pickup coordinates are not configured");
         }
 
         // 6. Net-30 Billing Check
@@ -97,6 +124,7 @@ serve(async (req: Request) => {
 
         // 7. Dispatch the Headless Ride Request
         const ridePin = Math.floor(1000 + Math.random() * 9000).toString();
+        const fareCents = estimateFareCents(merchant.lat, merchant.lng, destination_lat, destination_lng, vehicle_type);
 
         const { data: newRide, error: insertError } = await adminClient
             .from("rides")
@@ -110,7 +138,7 @@ serve(async (req: Request) => {
                 dropoff_lng: destination_lng,
                 dropoff_address: destination_address,
                 status: "searching",
-                total_fare_cents: 0, 
+                total_fare_cents: fareCents,
                 vehicle_type: vehicle_type,
                 payment_method: finalPaymentMethod,
                 ride_pin: ridePin,

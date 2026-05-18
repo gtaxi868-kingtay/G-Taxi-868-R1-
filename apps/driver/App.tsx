@@ -27,7 +27,7 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { ENV } from '@gtaxi/shared/env';
 import { OutboxService } from '@gtaxi/shared/OutboxService';
-import { StripeProvider } from '';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 // ── Free Background Location using expo-location ───────────────────────────────
 const LOCATION_TASK = 'BACKGROUND_LOCATION_TASK';

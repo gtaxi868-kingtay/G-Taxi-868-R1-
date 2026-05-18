@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
     View, Text, StyleSheet, Modal, TouchableOpacity,
-    ActivityIndicator, Dimensions
+    ActivityIndicator, useWindowDimensions
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,7 +9,6 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@gtaxi/native';
 
-const { width } = Dimensions.get('window');
 
 interface Props {
     visible: boolean;
@@ -19,6 +18,7 @@ interface Props {
 }
 
 export function NfcIdentityHandler({ visible, onClose, rideId, onSuccess }: Props) {
+    const { width } = useWindowDimensions();
     const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
     const [msg, setMsg] = useState('Hold keychain near back of phone');
 
@@ -61,7 +61,7 @@ export function NfcIdentityHandler({ visible, onClose, rideId, onSuccess }: Prop
         <Modal visible={visible} transparent animationType="fade">
             <View style={s.overlay}>
                 <BlurView intensity={40} style={StyleSheet.absoluteFillObject} tint="dark" />
-                <View style={s.modal}>
+                <View style={[s.modal, { width: width * 0.85 }]}>
                     <LinearGradient
                         colors={['#161632', '#0A0A1F']}
                         style={StyleSheet.absoluteFillObject}
@@ -103,7 +103,7 @@ export function NfcIdentityHandler({ visible, onClose, rideId, onSuccess }: Prop
 const s = StyleSheet.create({
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
     modal: {
-        width: width * 0.85, borderRadius: 32, overflow: 'hidden',
+        borderRadius: 32, overflow: 'hidden',
         padding: 32, alignItems: 'center',
         borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
     },

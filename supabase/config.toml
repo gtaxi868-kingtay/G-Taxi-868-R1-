@@ -1,13 +1,13 @@
 # Supabase Edge Functions Configuration
-# Disable JWT verification for rider flow functions
+# JWT verification is enabled for authenticated ride functions.
 
 project_id = "ffbbuafgeypvkpcuvdnv"
 
 [functions.create_ride]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get_active_ride]
-verify_jwt = false
+verify_jwt = true
 
 [functions.geocode]
 verify_jwt = false
@@ -19,15 +19,27 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.cancel_ride]
-verify_jwt = false
+verify_jwt = true
 
 [functions.complete_ride]
-verify_jwt = false
+verify_jwt = true
 
 [functions.accept_ride]
-verify_jwt = false
+verify_jwt = true
 
 [functions.update_driver_location]
+verify_jwt = true
+
+[functions.nfc_event_handler]
+verify_jwt = true
+
+[functions.concierge_dispatch]
+verify_jwt = true
+
+[functions.merchant_gateway]
+verify_jwt = false
+
+[functions.mirror_ride]
 verify_jwt = false
 
 [functions.update_ride_status]

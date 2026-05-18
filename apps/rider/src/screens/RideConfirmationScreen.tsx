@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-    Alert, ScrollView, Dimensions, Platform, Linking
+    Alert, ScrollView, useWindowDimensions, Platform, Linking
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,8 +16,6 @@ import { supabase } from '@gtaxi/native';
 import { Txt } from '@/design-system/primitives';
 import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '@gtaxi/design-system';
 import { formatTTDDollars } from '../utils/currency';
-
-const { width, height } = Dimensions.get('window');
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -63,6 +61,7 @@ const VEHICLES = [
 type VehicleType = (typeof VEHICLES)[number]['type'];
 
 export function RideConfirmationScreen({ navigation, route }: any) {
+    const { height } = useWindowDimensions();
     const { destination, pickup, source, sourceMetadata, kioskId, taxiStandId } = route.params;
     const insets = useSafeAreaInsets();
     const mapRef = useRef<MapView>(null);

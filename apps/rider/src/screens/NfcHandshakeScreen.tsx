@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, useWindowDimensions, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,9 +9,8 @@ import { Txt } from '@/design-system/primitives';
 import { tokens } from '@/design-system/tokens';
 import { supabase } from '@gtaxi/native';
 
-const { width } = Dimensions.get('window');
-
 export function NfcHandshakeScreen({ route, navigation }: any) {
+    const { width } = useWindowDimensions();
     const { tagUid } = route.params || {};
     const [loading, setLoading] = useState(true);
     const [handshake, setHandshake] = useState<any>(null);
@@ -111,8 +110,8 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
 
     const confirmRide = () => {
         const pickup = {
-            latitude: handshake.pickup_lat || handshake.pickupCoords?.latitude || 0,
-            longitude: handshake.pickup_lng || handshake.pickupCoords?.longitude || 0,
+            latitude: handshake.pickup_lat ?? handshake.pickupCoords?.lat ?? handshake.pickupCoords?.latitude ?? 0,
+            longitude: handshake.pickup_lng ?? handshake.pickupCoords?.lng ?? handshake.pickupCoords?.longitude ?? 0,
             address: handshake.locationName || 'G-Taxi NFC Kiosk',
         };
 

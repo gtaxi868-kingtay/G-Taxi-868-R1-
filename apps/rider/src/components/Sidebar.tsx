@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
     Image, View, StyleSheet, TouchableOpacity,
-    Animated, Dimensions, Pressable, Alert
+    Animated, useWindowDimensions, Pressable, Alert
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,8 +12,7 @@ import { Txt } from '@/design-system/primitives';
 import { tokens } from '@/design-system/tokens';
 import { Logo } from '@gtaxi/design-system';
 
-const { width, height } = Dimensions.get('window');
-const SIDEBAR_WIDTH = width * 0.8;
+
 
 // --- Blueberry Luxe Protocol ---
 
@@ -29,6 +28,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
+    const { width } = useWindowDimensions();
+    const SIDEBAR_WIDTH = width * 0.8;
     const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -75,7 +76,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                 <Pressable style={{ flex: 1 }} onPress={onClose} />
             </Animated.View>
 
-            <Animated.View style={[s.panel, { transform: [{ translateX: slideAnim }] }]}>
+            <Animated.View style={[s.panel, { width: SIDEBAR_WIDTH, transform: [{ translateX: slideAnim }] }]}>
                 <BlurView tint="dark" intensity={100} style={s.blur}>
 
                     {/* Profile Header */}
@@ -142,7 +143,7 @@ const MenuItem = ({ icon, label, onPress }: any) => (
 const s = StyleSheet.create({
     overlay: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
     backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
-    panel: { width: SIDEBAR_WIDTH, height: '100%', backgroundColor: 'transparent' },
+    panel: { height: '100%', backgroundColor: 'transparent' },
     blur: { flex: 1, paddingHorizontal: 20 },
 
     header: { flexDirection: 'row', alignItems: 'center', marginTop: 80, marginBottom: 40, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },

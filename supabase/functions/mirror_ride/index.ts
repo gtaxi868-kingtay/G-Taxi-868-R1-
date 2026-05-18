@@ -17,7 +17,7 @@ serve(async (req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: ride } = await supabase
     .from("rides")
-    .select("*, drivers!inner(full_name, car_model, car_plate)")
+    .select("*, drivers!inner(id, name, vehicle_model, plate_number, lat, lng)")
     .eq("id", rideId)
     .single();
 
@@ -51,14 +51,14 @@ serve(async (req: Request) => {
         <div id="map"></div>
         <div id="hud">
             <div class="badge">Guardian Shield Restricted Access</div>
-            <h1>${ride.drivers?.full_name || 'Driver'}</h1>
-            <p>Heading to ${ride.destination_address || 'Destination'}</p>
+            <h1>${ride.drivers?.name || 'Driver'}</h1>
+            <p>Heading to ${ride.dropoff_address || 'Destination'}</p>
             
             <div class="driver-info">
-                <div class="avatar">${(ride.drivers?.full_name || 'D').charAt(0)}</div>
+                <div class="avatar">${(ride.drivers?.name || 'D').charAt(0)}</div>
                 <div>
-                    <p style="color: #fff; font-weight: 700;">${ride.drivers?.car_model || 'Premium Vehicle'}</p>
-                    <span class="plate">${ride.drivers?.car_plate || 'GT-868'}</span>
+                    <p style="color: #fff; font-weight: 700;">${ride.drivers?.vehicle_model || 'Premium Vehicle'}</p>
+                    <span class="plate">${ride.drivers?.plate_number || 'GT-868'}</span>
                 </div>
             </div>
             
@@ -74,13 +74,13 @@ serve(async (req: Request) => {
             const map = new mapboxgl.Map({
                 container: 'map',
                 style: 'mapbox://styles/mapbox/dark-v11',
-                center: [${ride.pickup_longitude}, ${ride.pickup_latitude}],
+                center: [${ride.drivers?.lng ?? ride.pickup_lng}, ${ride.drivers?.lat ?? ride.pickup_lat}],
                 zoom: 14,
                 pitch: 45
             });
 
             const marker = new mapboxgl.Marker({ color: '#00FFFF' })
-                .setLngLat([${ride.pickup_longitude}, ${ride.pickup_latitude}])
+                .setLngLat([${ride.drivers?.lng ?? ride.pickup_lng}, ${ride.drivers?.lat ?? ride.pickup_lat}])
                 .addTo(map);
 
             // Subscribe to real-time location updates for this ride
@@ -92,11 +92,23 @@ serve(async (req: Request) => {
                     table: 'rides', 
                     filter: 'id=eq.${rideId}' 
                 }, payload => {
-                    const { last_lat, last_lng, status } = payload.new;
-                    if (last_lat && last_lng) {
-                        marker.setLngLat([last_lng, last_lat]);
-                        map.easeTo({ center: [last_lng, last_lat], duration: 1000 });
-                        document.getElementById('status').innerText = 'LIVE · ' + status.toUpperCase();
+                    const { driver_lat, driver_lng, status } = payload.new;
+                    if (driver_lat && driver_lng) {
+                        marker.setLngLat([driver_lng, driver_lat]);
+                        map.easeTo({ center: [driver_lng, driver_lat], duration: 1000 });
+                    }
+                    document.getElementById('status').innerText = 'LIVE · ' + status.toUpperCase();
+                })
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'drivers',
+                    filter: 'id=eq.${ride.driver_id}'
+                }, payload => {
+                    const { lat, lng } = payload.new;
+                    if (lat && lng) {
+                        marker.setLngLat([lng, lat]);
+                        map.easeTo({ center: [lng, lat], duration: 1000 });
                     }
                 })
                 .subscribe();

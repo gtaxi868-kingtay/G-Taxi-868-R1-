@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
     View,
     StyleSheet,
-    Dimensions,
+    useWindowDimensions,
     TouchableOpacity,
     Animated,
     Image,
@@ -11,12 +11,7 @@ import {
 import { tokens } from '@/design-system/tokens';
 import { Card, Txt, Surface, Btn } from '@/design-system/primitives';
 
-const { width } = Dimensions.get('window');
-// Card width is 70% of screen to show next item peeking
-const CARD_WIDTH = width * 0.65;
-const SPACING = tokens.layout.spacing.md;
-const SNAP_INTERVAL = CARD_WIDTH + SPACING;
-const SIDE_SPACER = (width - CARD_WIDTH) / 2; // Center the first item
+
 
 export type VehicleType = 'Standard' | 'XL' | 'Premium';
 
@@ -66,9 +61,10 @@ interface VehicleCardProps {
     vehicle: VehicleOption;
     selected: boolean;
     onPress: () => void;
+    cardWidth: number;
 }
 
-function VehicleCard({ vehicle, selected, onPress }: VehicleCardProps) {
+function VehicleCard({ vehicle, selected, onPress, cardWidth }: VehicleCardProps) {
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {
@@ -108,6 +104,7 @@ function VehicleCard({ vehicle, selected, onPress }: VehicleCardProps) {
                     padding="md"
                     style={[
                         styles.card,
+                        { width: cardWidth, height: cardWidth * 0.85 },
                         borderStyle,
                         selected && { backgroundColor: 'rgba(168, 85, 247, 0.15)' } // Subtle internal glow
                     ]}
@@ -150,6 +147,11 @@ interface VehicleSelectionProps {
 }
 
 export function VehicleSelection({ onSelect, selectedType }: VehicleSelectionProps) {
+    const { width } = useWindowDimensions();
+    const CARD_WIDTH = width * 0.65;
+    const SPACING = tokens.layout.spacing.md;
+    const SNAP_INTERVAL = CARD_WIDTH + SPACING;
+    const SIDE_SPACER = (width - CARD_WIDTH) / 2;
     const flatListRef = useRef<FlatList<VehicleOption>>(null);
 
     // Auto-scroll to selected item if controlled externally (optional polish)
@@ -179,6 +181,7 @@ export function VehicleSelection({ onSelect, selectedType }: VehicleSelectionPro
                         vehicle={item}
                         selected={selectedType === item.id}
                         onPress={() => onSelect(item.id, item.multiplier)}
+                        cardWidth={CARD_WIDTH}
                     />
                 )}
             />
@@ -191,8 +194,6 @@ const styles = StyleSheet.create({
         marginVertical: 16,
     },
     card: {
-        width: CARD_WIDTH,
-        height: CARD_WIDTH * 0.85,
         justifyContent: 'space-between',
         backgroundColor: 'rgba(255,255,255,0.03)', // Very subtle glass
     },

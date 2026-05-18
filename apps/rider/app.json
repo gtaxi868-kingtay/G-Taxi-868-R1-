@@ -3,7 +3,7 @@
     "name": "G Taxi Rider",
     "slug": "g-taxi-rider",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "dark",
     "splash": {
@@ -51,11 +51,10 @@
       [
         "@stripe/stripe-react-native",
         {}
-      ],
-      "expo-router"
+      ]
     ],
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.gtaxi.rider",
       "config": {
         "googleMapsApiKey": "AIzaSyACp6vv3kUcB3UnYGrbXV8nf-NJrCl5d5g"
@@ -78,6 +77,21 @@
         "backgroundColor": "#05050A"
       },
       "package": "com.gtaxi.rider",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "gtaxi"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyA9g2wY_wRM19Ojw75kiceqLANXkHM6FtI"

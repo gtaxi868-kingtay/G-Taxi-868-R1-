@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, FlatList,
-    Alert, Dimensions, ActivityIndicator
+    Alert, useWindowDimensions, ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -14,8 +14,6 @@ import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 
 import { tokens } from '@/design-system/tokens';
-
-const { width } = Dimensions.get('window');
 
 // --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
@@ -39,6 +37,7 @@ interface SavedPlace {
 }
 
 export function SavedPlacesScreen({ navigation }: any) {
+    const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 

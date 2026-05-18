@@ -19,6 +19,24 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Internal cron call — authenticate by service role env variable
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    return new Response(
+      JSON.stringify({ error: "SUPABASE_SERVICE_ROLE_KEY not configured" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const authHeader = req.headers.get("Authorization");
+  if (authHeader !== `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized — service role required" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
   // Track stats for logging
   let processed = 0;
   let sent = 0;
@@ -28,7 +46,6 @@ serve(async (req: Request) => {
   let errors = 0;
 
   try {
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Step 1: Get active riders (completed a ride in last 14 days)
     const { data: activeRiders, error: ridersError } = await supabaseAdmin

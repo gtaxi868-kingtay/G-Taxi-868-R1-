@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
-    ScrollView, Dimensions, ActivityIndicator, Alert
+    ScrollView, useWindowDimensions, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -11,8 +11,6 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/native';
-
-const { width } = Dimensions.get('window');
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -37,6 +35,7 @@ const COLORS = {
 };
 
 export function ProfileScreen({ navigation }: any) {
+    const { width } = useWindowDimensions();
     const { user, profile, signOut } = useAuth();
     const insets = useSafeAreaInsets();
 

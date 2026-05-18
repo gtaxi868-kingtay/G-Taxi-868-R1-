@@ -1,12 +1,11 @@
 import React from 'react';
-import { StyleSheet, View, Dimensions } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
 
-const { width, height } = Dimensions.get('window');
-
 export function PremiumRainBackground() {
+    const { width, height } = useWindowDimensions();
     return (
         <View style={styles.container}>
             <LinearGradient

@@ -17,6 +17,30 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const VEHICLE_MULTIPLIERS: Record<string, number> = {
+    Standard: 1.0,
+    XL: 1.5,
+    Premium: 2.0,
+};
+
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6371000;
+    const toRad = (value: number) => value * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function estimateFareCents(pickupLat: number, pickupLng: number, dropoffLat: number, dropoffLng: number, vehicleType: string): number {
+    const distanceMeters = haversineMeters(pickupLat, pickupLng, dropoffLat, dropoffLng);
+    const durationMinutes = Math.max(8, (distanceMeters / 1000 / 28) * 60);
+    const multiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? VEHICLE_MULTIPLIERS.Standard;
+    const fare = (1600 + (distanceMeters / 1000) * 175 + durationMinutes * 95) * multiplier;
+    return Math.max(2200, Math.round(fare));
+}
+
 serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
@@ -33,11 +57,20 @@ serve(async (req: Request) => {
 
         const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // Verify user is a merchant
+        const { data: profile, error: profileError } = await adminClient
+            .from("profiles")
+            .select("merchant_id")
+            .eq("id", user.id)
+            .single();
+
+        if (profileError || !profile?.merchant_id) throw new Error("Caller is not linked to a merchant");
+
+        // Verify user is linked to an active merchant
         const { data: merchant, error: merchantError } = await adminClient
             .from("merchants")
             .select("*")
-            .eq("id", user.id)
+            .eq("id", profile.merchant_id)
+            .eq("is_active", true)
             .single();
 
         if (merchantError || !merchant) throw new Error("Caller is not a registered merchant");
@@ -50,15 +83,18 @@ serve(async (req: Request) => {
             destination_lng,
             destination_address,
             vehicle_type = "Standard",
-            payment_method = merchant.billing_type === 'net-30' ? 'corporate' : 'cash',
+            payment_method = merchant.billing_type === 'net-30' ? 'corporate_billing' : 'cash',
         } = await req.json();
 
-        if (!guest_name || !guest_phone || !destination_lat || !destination_lng) {
+        if (!guest_name || !guest_phone || destination_lat == null || destination_lng == null) {
             throw new Error("Missing required guest or destination information");
+        }
+        if (merchant.lat == null || merchant.lng == null) {
+            throw new Error("Merchant pickup coordinates are not configured");
         }
 
         // 3. Verify Credit Limit for Corporate Billing
-        if (payment_method === 'corporate') {
+        if (payment_method === 'corporate_billing') {
             if (merchant.current_debt_cents >= merchant.credit_limit_cents) {
                 throw new Error("Corporate credit limit reached. Please settle balance or use cash.");
             }
@@ -66,6 +102,7 @@ serve(async (req: Request) => {
 
         // 4. Create the Ride Request
         const ridePin = Math.floor(1000 + Math.random() * 9000).toString();
+        const fareCents = estimateFareCents(merchant.lat, merchant.lng, destination_lat, destination_lng, vehicle_type);
 
         const { data: newRide, error: insertError } = await adminClient
             .from("rides")
@@ -78,10 +115,10 @@ serve(async (req: Request) => {
                 dropoff_lng: destination_lng,
                 dropoff_address: destination_address,
                 status: "searching",
-                total_fare_cents: 0, // Will be calculated by driver matching logic
+                total_fare_cents: fareCents,
                 vehicle_type: vehicle_type,
                 payment_method: payment_method,
-                billed_to_merchant_id: payment_method === 'corporate' ? merchant.id : null,
+                billed_to_merchant_id: payment_method === 'corporate_billing' ? merchant.id : null,
                 ride_pin: ridePin,
                 metadata: {
                     is_concierge: true,

@@ -10,6 +10,8 @@ yarn-error.*
 ios/build/
 android/app/build/
 android/build/
+/android/  # root-level android from expo run:android
+/app.json  # root-level app.json from expo run:android
 .expo/
 dist/
 *.jks

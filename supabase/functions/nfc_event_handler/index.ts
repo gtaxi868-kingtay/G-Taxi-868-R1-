@@ -4,10 +4,11 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,6 +20,20 @@ serve(async (req) => {
 
   try {
     const { tag_uid, profile_id, lat, lng } = await req.json();
+    const user = await requireAuth(req);
+    if (profile_id && profile_id !== user.id) {
+      return new Response(JSON.stringify({ error: "Profile does not match authenticated user" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!tag_uid) {
+      return new Response(JSON.stringify({ error: "tag_uid required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // 1. Resolve the Kiosk Node
@@ -45,7 +60,7 @@ serve(async (req) => {
       .limit(5);
 
     // 3. Get personalized AI greeting via Gemini
-    const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', profile_id).single();
+    const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
     
     const prompt = `
       User: ${profile?.full_name || 'Guest'}
@@ -56,17 +71,28 @@ serve(async (req) => {
       Example: "Welcome to Piarco! Add Grocery or Laundry to your ride in ONE TAP."
     `;
 
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 60 }
-      })
-    });
+    let welcomeMessage = `Welcome to ${kiosk.location_name}. Add Grocery or Laundry to your ride in ONE TAP.`;
+    if (GEMINI_API_KEY) {
+      try {
+        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 60 }
+          })
+        });
 
-    const geminiData = await geminiRes.json();
-    const welcomeMessage = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || `Welcome to ${kiosk.location_name}.`;
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          welcomeMessage = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || welcomeMessage;
+        } else {
+          console.warn("Gemini greeting failed:", geminiRes.status, await geminiRes.text());
+        }
+      } catch (geminiError) {
+        console.warn("Gemini greeting unavailable:", geminiError);
+      }
+    }
 
     // 4. Return the Unified Handshake Payload
     return new Response(JSON.stringify({
@@ -74,7 +100,7 @@ serve(async (req) => {
       welcomeMessage,
       kioskId: kiosk.id,
       locationName: kiosk.location_name,
-      pickupCoords: { lat: kiosk.lat, lng: kiosk.lng },
+      pickupCoords: { lat: kiosk.lat ?? lat, lng: kiosk.lng ?? lng },
       availableServices: partners?.map(p => ({
         id: p.id,
         name: p.name,
@@ -86,6 +112,7 @@ serve(async (req) => {
     });
 
   } catch (err: any) {
+    if (err instanceof Response) return err;
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }
 });

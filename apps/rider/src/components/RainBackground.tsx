@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo } from 'react';
-import { View, StyleSheet, Animated, Dimensions, Easing, Platform } from 'react-native';
+import { View, StyleSheet, Animated, useWindowDimensions, Easing, Platform } from 'react-native';
 import { theme } from '../theme';
-
-const { width, height } = Dimensions.get('window');
 
 // Number of drops to render
 const DROP_COUNT = 40;
 
 const RainDrop = () => {
+    const { width, height } = useWindowDimensions();
     // Randomize properties for "natural" feel
     const startX = Math.random() * width;
     const duration = 1500 + Math.random() * 2000; // 1.5s - 3.5s fall time

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Dimensions, Image, Text
+    useWindowDimensions, Image, Text
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,8 +14,6 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../context/AuthContext';
-
-const { width, height } = Dimensions.get('window');
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -37,6 +35,7 @@ const COLORS = {
 };
 
 export function LoginScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const { signIn } = useAuth();
     const insets = useSafeAreaInsets();
 
@@ -112,7 +111,7 @@ export function LoginScreen({ navigation }: any) {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={s.container}
             >
-                <Reanimated.View entering={FadeIn.duration(1000)} style={s.content}>
+                <Reanimated.View entering={FadeIn.duration(1000)} style={[s.content, { paddingTop: height * 0.08 }]}>
 
                     {/* Logo Section - Top Third */}
                     <View style={s.logoSection}>
@@ -251,7 +250,6 @@ const s = StyleSheet.create({
     content: { 
         flex: 1, 
         paddingHorizontal: 28,
-        paddingTop: height * 0.08,
         paddingBottom: 20
     },
 

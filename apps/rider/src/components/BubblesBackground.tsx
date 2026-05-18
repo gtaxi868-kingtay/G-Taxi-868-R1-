@@ -1,17 +1,16 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Animated, Easing } from 'react-native';
-
-const { width, height } = Dimensions.get('window');
+import { View, StyleSheet, useWindowDimensions, Animated, Easing } from 'react-native';
 
 interface BubbleProps {
     delay: number;
     duration: number;
     size: number;
     left: number;
+    screenHeight: number;
 }
 
-const Bubble = ({ delay, duration, size, left }: BubbleProps) => {
-    const translateY = useRef(new Animated.Value(height)).current;
+const Bubble = ({ delay, duration, size, left, screenHeight }: BubbleProps) => {
+    const translateY = useRef(new Animated.Value(screenHeight)).current;
     const opacity = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -64,6 +63,7 @@ const Bubble = ({ delay, duration, size, left }: BubbleProps) => {
 };
 
 export const BubblesBackground = () => {
+    const { height } = useWindowDimensions();
     // Generate 15-20 semi-random bubbles
     const bubbles = Array.from({ length: 18 }).map((_, i) => ({
         id: i,
@@ -76,7 +76,7 @@ export const BubblesBackground = () => {
     return (
         <View style={StyleSheet.absoluteFill}>
             {bubbles.map((b) => (
-                <Bubble key={b.id} {...b} />
+                <Bubble key={b.id} {...b} screenHeight={height} />
             ))}
         </View>
     );

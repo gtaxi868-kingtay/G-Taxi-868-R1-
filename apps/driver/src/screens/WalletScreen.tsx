@@ -14,7 +14,7 @@ import Reanimated, {
 import { supabase } from '@gtaxi/native';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useStripe } from '';
+import { useStripe } from '@stripe/stripe-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ENV } from '@gtaxi/shared/env';
 

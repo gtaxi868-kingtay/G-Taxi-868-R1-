@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, TextInput,
-    ActivityIndicator, Alert, Dimensions, ScrollView, Platform
+    ActivityIndicator, Alert, useWindowDimensions, ScrollView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -18,8 +18,6 @@ import { ENV } from '@gtaxi/shared/env';
 
 import { tokens } from '@/design-system/tokens';
 
-const { width } = Dimensions.get('window');
-
 // --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
     bg: tokens.colors.background.base,
@@ -33,6 +31,7 @@ const R = {
 };
 
 export function WalletTopUpScreen({ navigation }: any) {
+    const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
@@ -159,7 +158,7 @@ export function WalletTopUpScreen({ navigation }: any) {
                         return (
                             <TouchableOpacity
                                 key={amt}
-                                style={[s.amountCard, isActive && s.amountCardActive]}
+                                style={[s.amountCard, { width: (width - 40 - 12) / 2 }, isActive && s.amountCardActive]}
                                 onPress={() => handleAmountSelect(amt)}
                             >
                                 <Txt variant="headingM" weight="heavy" color={isActive ? "#FFF" : R.muted}>${amt}</Txt>
@@ -219,7 +218,7 @@ const s = StyleSheet.create({
     balanceCard: { backgroundColor: 'rgba(255,255,255,0.03)', padding: 40, borderRadius: 40, alignItems: 'center', marginBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
 
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-    amountCard: { width: (width - 40 - 12) / 2, height: 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    amountCard: { height: 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
     amountCardActive: { borderColor: tokens.colors.primary.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
 
     customWrap: { gap: 12, marginTop: 12 },

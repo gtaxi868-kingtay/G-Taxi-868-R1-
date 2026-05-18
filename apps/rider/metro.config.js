@@ -9,15 +9,12 @@ const config = getDefaultConfig(projectRoot);
 config.watchFolders = [workspaceRoot, ...(config.watchFolders || [])];
 
 config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
+  path.resolve(projectRoot, 'node_modules'),
 ];
 
-config.resolver.extraNodeModules = {
-  'react': path.resolve(workspaceRoot, 'node_modules/react'),
-  'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
-  '@react-navigation/native': path.resolve(workspaceRoot, 'node_modules/@react-navigation/native'),
-  'react-native-safe-area-context': path.resolve(workspaceRoot, 'node_modules/react-native-safe-area-context'),
-};
+config.resolver.extraNodeModules = new Proxy({}, {
+  get: (_, name) => path.resolve(workspaceRoot, `node_modules/${name}`),
+});
 
 module.exports = config;

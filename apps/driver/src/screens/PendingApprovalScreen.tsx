@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,9 +20,9 @@ const COLORS = {
     error: '#EF4444',
 };
 
-const { width, height } = Dimensions.get('window');
 
 export function PendingApprovalScreen() {
+    const { height } = useWindowDimensions();
     const { signOut } = useAuth();
     const insets = useSafeAreaInsets();
 

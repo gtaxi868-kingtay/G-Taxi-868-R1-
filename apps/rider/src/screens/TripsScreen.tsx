@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, StyleSheet, FlatList, TouchableOpacity,
-    ActivityIndicator, Dimensions, RefreshControl, Alert
+    ActivityIndicator, useWindowDimensions, RefreshControl, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -15,9 +15,8 @@ import { Txt } from '@/design-system/primitives';
 import { GlassCard } from '@gtaxi/design-system';
 import { tokens } from '@/design-system/tokens';
 
-const { width, height } = Dimensions.get('window');
-
 export function TripsScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView, Text,
-    ActivityIndicator, Alert, TextInput, Dimensions,
+    ActivityIndicator, Alert, TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -12,7 +12,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/native';
 
-const { width } = Dimensions.get('window');
 
 // Blueberry Luxe — Gold Edition (Driver)
 const COLORS = {

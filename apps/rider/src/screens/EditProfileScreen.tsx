@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, TextInput,
     Alert, KeyboardAvoidingView, Platform, Image,
-    ScrollView, ActivityIndicator, Dimensions
+    ScrollView, ActivityIndicator, useWindowDimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,8 +18,6 @@ import { decode } from 'base64-arraybuffer';
 
 import { tokens } from '@/design-system/tokens';
 
-const { width } = Dimensions.get('window');
-
 // --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
     bg: tokens.colors.background.base,
@@ -32,6 +30,7 @@ const R = {
 };
 
 export function EditProfileScreen({ navigation }: any) {
+    const { width } = useWindowDimensions();
     const { profile, refreshProfile, user } = useAuth();
     const insets = useSafeAreaInsets();
 

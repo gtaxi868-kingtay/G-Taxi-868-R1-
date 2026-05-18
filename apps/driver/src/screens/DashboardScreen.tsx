@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, Text,
     ActivityIndicator, Linking, Alert, Animated,
-    Dimensions, ScrollView, Image, RefreshControl,
+    useWindowDimensions, ScrollView, Image, RefreshControl,
     AppState
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -26,9 +26,6 @@ import { Sidebar } from '../components/Sidebar';
 import { Ionicons } from '@expo/vector-icons';
 import { NfcIdentityHandler } from '../components/NfcIdentityHandler';
 
-const { width, height } = Dimensions.get('window');
-const PANEL_HEIGHT = height * 0.54;
-const MAP_HEIGHT = height - PANEL_HEIGHT + 32;
 const CAR_SIZE = 120;
 
 const LOCKOUT_THRESHOLD_CENTS = -60000;
@@ -69,11 +66,14 @@ function firstName(name?: string) {
 }
 
 export function DashboardScreen({ navigation }: any) {
+    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { driver, toggleOnline, signOut, refreshPushToken } = useAuth();
     const { location, signalStatus } = useLocationTracking();
     const { offer, clearOffer } = useRideOfferSubscription(driver?.id);
     const isOnline = driver?.is_online;
+    const panelHeightLocal = height * 0.54;
+    const mapHeightLocal = height - panelHeightLocal + 32;
 
     const [sidebarVisible, setSidebarVisible] = useState(false);
     const [balanceCents, setBalanceCents] = useState<number | null>(null);
@@ -88,7 +88,7 @@ export function DashboardScreen({ navigation }: any) {
     const [demandHint, setDemandHint] = useState<string | null>(null);
     const [nfcVisible, setNfcVisible] = useState(false);
 
-    const panelY = useSharedValue(PANEL_HEIGHT);
+    const panelY = useSharedValue(panelHeightLocal);
     const carY = useSharedValue(40);
     const carRotate = useSharedValue(0);
     const carSpinFast = useSharedValue(0);
@@ -243,7 +243,7 @@ export function DashboardScreen({ navigation }: any) {
                 onSuccess={(profile) => { Alert.alert("Key Recognized", `Linked to: ${profile.full_name}\nBalance: $${(profile.balance_cents/100).toFixed(2)}`); }}
             />
 
-            <View style={[s.mapContainer, { height: MAP_HEIGHT }]}>
+            <View style={[s.mapContainer, { height: mapHeightLocal }]}>
                 <MapView style={StyleSheet.absoluteFillObject} provider={PROVIDER_DEFAULT} initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}>
                     <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
                     {location && (
@@ -256,7 +256,7 @@ export function DashboardScreen({ navigation }: any) {
                     )}
                 </MapView>
 
-                <View style={[s.mapOverlay, { top: insets.top + 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: width - 40 }]} pointerEvents="box-none">
+                <View style={[s.mapOverlay, { top: insets.top + 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: Math.min(width - 40, 560) }]} pointerEvents="box-none">
                     <TouchableOpacity style={s.mapBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSidebarVisible(true); }} activeOpacity={0.8}><Ionicons name="menu-outline" size={22} color={'#FFFFFF'} /></TouchableOpacity>
                     <View style={{ flexDirection: 'row', gap: 12 }}>
                         <TouchableOpacity style={[s.mapBtn, { backgroundColor: COLORS.purple }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setNfcVisible(true); }} activeOpacity={0.8}><Ionicons name="radio-outline" size={20} color={'#FFFFFF'} /></TouchableOpacity>
@@ -265,13 +265,13 @@ export function DashboardScreen({ navigation }: any) {
                 </View>
             </View>
 
-            <Reanimated.View style={[s.carWrap, carStyle]}>
+            <Reanimated.View style={[s.carWrap, { bottom: panelHeightLocal - 20 }, carStyle]}>
                 {isOnline && <LinearGradient colors={[COLORS.gold, COLORS.amber]} style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, opacity: 0.15, top: -40 }} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} />}
                 <TouchableOpacity onPress={handleCarTap} activeOpacity={0.9}><Image source={require('../../assets/images/car_gtaxi_standard_v7.png')} style={s.carImg} resizeMode="contain" /></TouchableOpacity>
                 {carLabel && <Text style={[s.carLabel, { fontSize: 11, fontWeight: '700', color: COLORS.purpleLight }]}>G-Taxi Standard</Text>}
             </Reanimated.View>
 
-            <Reanimated.View style={[s.panelOuter, panelStyle]}>
+            <Reanimated.View style={[s.panelOuter, { height: panelHeightLocal }, panelStyle, width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300, borderTopLeftRadius: 36, borderTopRightRadius: 36 }]}>
                 <BlurView tint="dark" intensity={60} style={{ flex: 1 }}>
                     <View style={s.panelInner}>
                         <View style={s.handle} />
@@ -328,10 +328,10 @@ const s = StyleSheet.create({
     markerWrap: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
     markerRing: { position: 'absolute', width: 32, height: 32, borderRadius: 16, borderWidth: 2 },
     markerCore: { width: 12, height: 12, borderRadius: 6, borderWidth: 2.5, borderColor: '#0A0718' },
-    carWrap: { position: 'absolute', bottom: PANEL_HEIGHT - 20, left: 0, right: 0, alignItems: 'center', zIndex: 10 },
+    carWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 10 },
     carImg: { width: CAR_SIZE, height: CAR_SIZE },
     carLabel: { marginTop: 4, letterSpacing: 0.5, textAlign: 'center', backgroundColor: 'rgba(7,5,15,0.7)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-    panelOuter: { position: 'absolute', bottom: 0, left: 0, right: 0, height: PANEL_HEIGHT, borderTopLeftRadius: 36, borderTopRightRadius: 36, overflow: 'hidden', elevation: 20 },
+    panelOuter: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 36, borderTopRightRadius: 36, overflow: 'hidden', elevation: 20 },
     panelInner: { flex: 1, paddingHorizontal: 20, paddingTop: 12 },
     handle: { width: 44, height: 5, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3, alignSelf: 'center', marginBottom: 20 },
     greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

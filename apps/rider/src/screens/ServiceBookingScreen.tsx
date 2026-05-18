@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView,
-    ActivityIndicator, Alert, Dimensions, Platform
+    ActivityIndicator, Alert, useWindowDimensions, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -12,8 +12,6 @@ import { Txt } from '@/design-system/primitives';
 import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS } from '@gtaxi/design-system';
 import { formatTTDDollars } from '../utils/currency';
 
-const { width } = Dimensions.get('window');
-
 interface Service {
     id: string;
     name: string;
@@ -23,6 +21,7 @@ interface Service {
 }
 
 export function ServiceBookingScreen({ navigation, route }: any) {
+    const { width } = useWindowDimensions();
     const { merchantId, merchantName, pickup, destination } = route.params;
     const insets = useSafeAreaInsets();
 
@@ -144,7 +143,7 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                         return (
                             <TouchableOpacity 
                                 key={time.getTime()} 
-                                style={[s.timeSlot, isSelected && s.activeTime]}
+                                style={[s.timeSlot, { width: (width - 60) / 3 }, isSelected && s.activeTime]}
                                 onPress={() => setSelectedTime(time)}
                             >
                                 <Txt variant="bodyReg" weight="heavy" color={isSelected ? "#FFF" : "rgba(255,255,255,0.6)"}>
@@ -195,7 +194,7 @@ const s = StyleSheet.create({
     serviceCard: { flexDirection: 'row', alignItems: 'center', padding: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.lg, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     activeCard: { borderColor: BRAND.purple, backgroundColor: 'rgba(124, 58, 237, 0.1)' },
     timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    timeSlot: { width: (width - 60) / 3, paddingVertical: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    timeSlot: { paddingVertical: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     activeTime: { backgroundColor: BRAND.purple, borderColor: BRAND.purpleLight },
     logisticsCard: { marginTop: 32, flexDirection: 'row', alignItems: 'center', padding: 20 },
     footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(10,10,31,0.8)' },

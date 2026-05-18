@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Alert, ScrollView, Dimensions,
+    Alert, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -13,7 +13,6 @@ import { supabase } from '@gtaxi/native';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 
-const { width } = Dimensions.get('window');
 
 // Blueberry Luxe — Gold Edition (Driver)
 const COLORS = {

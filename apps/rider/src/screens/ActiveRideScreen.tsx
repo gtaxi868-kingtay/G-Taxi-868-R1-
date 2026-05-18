@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Alert,
-    Linking, Dimensions, Platform, Image as RNImage, AppState,
+    Linking, useWindowDimensions, Platform, Image as RNImage, AppState,
     Modal, TextInput, KeyboardAvoidingView,
     ActivityIndicator, Share
 } from 'react-native';
@@ -21,8 +21,6 @@ import { ENV } from '@gtaxi/shared/env';
 import { supabase } from '@gtaxi/native';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
-
-const { width, height } = Dimensions.get('window');
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -105,6 +103,7 @@ interface ActiveRideRouteParams {
 }
 
 export function ActiveRideScreen({ route, navigation }: { route: { params: ActiveRideRouteParams }, navigation: any }) {
+    const { width, height } = useWindowDimensions();
     const { rideId, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
 
@@ -637,7 +636,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
             {/* AI Concierge HUD */}
             {aiInsight && (
-                <Reanimated.View entering={FadeInUp} style={[s.aiInsightHud, { top: insets.top + 70 }]}>
+                <Reanimated.View entering={FadeInUp} style={[s.aiInsightHud, { width: width * 0.9, top: insets.top + 70 }]}>
                     <BlurView intensity={20} tint="dark" style={s.aiInsightBlur}>
                         <LinearGradient 
                             colors={[COLORS.purple, COLORS.purpleDark]} 
@@ -879,7 +878,6 @@ const s = StyleSheet.create({
 
     // AI Insight HUD
     aiInsightHud: { 
-        width: width * 0.9, 
         alignSelf: 'center', 
         position: 'absolute', 
         zIndex: 90,

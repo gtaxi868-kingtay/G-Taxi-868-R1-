@@ -8,10 +8,8 @@ import {
     StyleSheet,
     Image,
     ViewStyle,
-    Dimensions,
+    useWindowDimensions,
 } from 'react-native';
-
-const { width } = Dimensions.get('window');
 
 // RAINBOW GLASS CARD - The frosted card with rainbow edge on left (like driver card in mockup)
 interface RainbowGlassCardProps {
@@ -138,8 +136,9 @@ interface VehicleCardProps {
 }
 
 export function VehicleCard({ name, selected }: VehicleCardProps) {
+    const { width } = useWindowDimensions();
     return (
-        <View style={[styles.vehicleCardContainer, selected && styles.vehicleCardSelected]}>
+        <View style={[styles.vehicleCardContainer, { width: (width - 56) / 2 }, selected && styles.vehicleCardSelected]}>
             {/* Purple glow border when selected */}
             {selected && <View style={styles.vehicleGlowBorder} />}
 
@@ -413,7 +412,6 @@ const styles = StyleSheet.create({
 
     // VEHICLE CARD
     vehicleCardContainer: {
-        width: (width - 56) / 2,
         borderRadius: 20,
         borderWidth: 2,
         borderColor: 'transparent',

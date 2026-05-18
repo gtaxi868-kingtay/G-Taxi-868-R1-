@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Dimensions, Alert,
+    ActivityIndicator, useWindowDimensions, Alert,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,8 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/native';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 52) / 2;
+
 
 interface Product {
     id: string;
@@ -28,6 +27,8 @@ interface CartItem {
 }
 
 export function ProductListingScreen({ navigation, route }: any) {
+    const { width } = useWindowDimensions();
+    const CARD_WIDTH = (width - 52) / 2;
     const { merchant } = route.params;
     const insets = useSafeAreaInsets();
 
