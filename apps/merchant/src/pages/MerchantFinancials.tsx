@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { initializeSupabaseClient } from '@gtaxi/core';
 import { DollarSign, Download, Calendar, ArrowUpRight, Sparkles } from 'lucide-react';
+
+const { supabase } = initializeSupabaseClient('web');
 
 interface RevenueSummary {
     month: string;
@@ -13,6 +15,65 @@ interface RevenueSummary {
 export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
     const [summary, setSummary] = useState<RevenueSummary[]>([]);
     const [loading, setLoading] = useState(false);
+    const [nodeEarningsCents, setNodeEarningsCents] = useState(0);
+    const [nodeId, setNodeId] = useState<string | null>(null);
+    const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+    const fetchNodeEarnings = useCallback(async (nId: string) => {
+        const { data, error } = await supabase
+            .rpc('get_merchant_earnings', { p_merchant_id: merchantId });
+        const earningsData = data as unknown as { total_cents?: number } | null;
+        if (error) {
+            const { data: splits } = await supabase
+                .from('revenue_splits')
+                .select('merchant_cut')
+                .eq('node_id', nId)
+                .eq('status', 'settled');
+            const total = (splits || []).reduce((sum: number, r: any) => sum + (r.merchant_cut || 0), 0);
+            setNodeEarningsCents(total);
+        } else if (earningsData?.total_cents !== undefined) {
+            setNodeEarningsCents(earningsData.total_cents);
+        }
+    }, [merchantId]);
+
+    const debouncedRefresh = useCallback((nId: string) => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            fetchNodeEarnings(nId);
+        }, 2000);
+    }, [fetchNodeEarnings]);
+
+    useEffect(() => {
+        if (!merchantId) return;
+        (async () => {
+            const { data: nodes } = await supabase
+                .from('kiosk_nodes')
+                .select('id')
+                .eq('merchant_id', merchantId)
+                .limit(1);
+            if (nodes && nodes.length > 0) {
+                const nId = nodes[0].id;
+                setNodeId(nId);
+                fetchNodeEarnings(nId);
+            }
+        })();
+        loadData();
+    }, [merchantId]);
+
+    useEffect(() => {
+        if (!nodeId) return;
+        const channel = supabase
+            .channel(`merchant-earnings-${nodeId}`)
+            .on('postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'revenue_splits', filter: `node_id=eq.${nodeId}` },
+                () => { debouncedRefresh(nodeId); }
+            )
+            .subscribe();
+        return () => {
+            channel.unsubscribe();
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [nodeId, debouncedRefresh]);
 
     const loadData = async () => {
         setLoading(true);
@@ -31,8 +92,6 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
         }
     };
 
-    useEffect(() => { if (merchantId) loadData(); }, [merchantId]);
-
     const handleExport = async (month: string) => {
         try {
             const { data, error } = await supabase
@@ -41,7 +100,7 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
                 .eq('merchant_id', merchantId)
                 .gte('created_at', month)
                 .lt('created_at', new Date(new Date(month).setMonth(new Date(month).getMonth() + 1)).toISOString());
-            
+
             if (error) throw error;
 
             const csvRows = [
@@ -69,6 +128,20 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-8 rounded-[2rem] text-white shadow-xl">
+                <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-70">Live Node Earnings</p>
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                </div>
+                <p className="text-4xl sm:text-5xl font-black tracking-tight">
+                    ${(nodeEarningsCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs font-bold opacity-60 mt-2 uppercase tracking-widest">TTD · 5% Merchant Share · Synced</p>
+                <div className="mt-4 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                    <div className="h-full w-3/4 bg-white/60 rounded-full" />
+                </div>
+            </div>
+
             <div className="bg-white rounded-[3rem] p-10 border border-slate-200">
                 <div className="flex items-center gap-6 mb-10">
                     <div className="w-16 h-16 bg-green-500/10 rounded-3xl flex items-center justify-center border border-green-500/20">
@@ -104,7 +177,7 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
                                 <p className="text-[9px] font-bold text-slate-300 uppercase mt-1">Platform Commission: ${(row.total_platform_commission_cents / 100).toFixed(2)}</p>
                             </div>
 
-                            <button 
+                            <button
                                 onClick={() => handleExport(row.month)}
                                 className="h-16 px-10 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-black transition-all shadow-xl shadow-slate-900/10"
                             >
@@ -118,7 +191,7 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
                     )}
                 </div>
             </div>
-            
+
             <div className="bg-purple-600 rounded-[3rem] p-12 text-white flex items-center justify-between overflow-hidden relative">
                 <div className="relative z-10 max-w-lg">
                     <h3 className="text-2xl font-black mb-4 italic">B2B REFERRAL BONUS</h3>

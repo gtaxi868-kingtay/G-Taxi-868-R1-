@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
 
@@ -77,6 +77,13 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 .insert(items);
 
             if (itemsErr) throw itemsErr;
+
+            // Fire match_order_delivery to find a driver (non-blocking)
+            supabase.functions.invoke('match_order_delivery', {
+              body: { order_id: order.id },
+            }).then(({ error }) => {
+              if (error) console.warn('[Checkout] match_order_delivery:', error.message);
+            });
 
             Alert.alert(
                 '🛒 Order Placed!',

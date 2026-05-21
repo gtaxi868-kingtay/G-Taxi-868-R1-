@@ -20,7 +20,7 @@ export function createSupabaseClient(
             storage: storage,
             autoRefreshToken: true,
             persistSession: true,
-            detectSessionInUrl: typeof window !== 'undefined' && !!window.location,
+            detectSessionInUrl: typeof globalThis !== 'undefined' && !!((globalThis as any).location),
         },
     });
 }

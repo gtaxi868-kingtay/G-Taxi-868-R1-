@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { RegisterScreen } from './RegisterScreen';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 
 
 // Blueberry Luxe — Gold Edition (Driver)

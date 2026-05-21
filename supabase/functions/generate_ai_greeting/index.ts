@@ -1,15 +1,12 @@
-// Supabase Edge Function: generate_ai_greeting
-// Generates personalized AI greeting using Gemini based on user patterns
-// Caches result for 4 hours to reduce API calls
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
 
-const CACHE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+const CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,6 +19,8 @@ serve(async (req: Request) => {
   }
 
   try {
+    const user = await requireAuth(req);
+
     const { user_id, user_name } = await req.json();
     if (!user_id || !user_name) {
       return new Response(
@@ -30,9 +29,15 @@ serve(async (req: Request) => {
       );
     }
 
+    if (user_id !== user.id) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Step 1: Check cache
     const { data: prefs } = await supabaseAdmin
       .from("rider_ai_preferences")
       .select("metadata")
@@ -52,7 +57,6 @@ serve(async (req: Request) => {
       }
     }
 
-    // Step 2: Get user patterns
     const patternsRes = await fetch(`${SUPABASE_URL}/functions/v1/get_user_patterns`, {
       method: "POST",
       headers: {
@@ -65,10 +69,8 @@ serve(async (req: Request) => {
     const patternsData = await patternsRes.json();
     const patterns = patternsData.patterns;
 
-    // Step 3: Call Gemini
     const greeting = await generateGreetingWithGemini(user_name, patterns);
 
-    // Step 4: Store in cache
     const newMetadata = {
       ...prefs?.metadata,
       cached_greeting: greeting,
@@ -90,7 +92,7 @@ serve(async (req: Request) => {
 
   } catch (err: any) {
     console.error("[generate_ai_greeting] Error:", err.message);
-    // Fallback to time-based greeting on error
+    if (err instanceof Response) return err;
     const hour = new Date().getHours();
     const fallback = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
     return new Response(
@@ -126,7 +128,6 @@ async function generateGreetingWithGemini(name: string, patterns: any): Promise<
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     
-    // Clean up - remove quotes and ensure under 15 words
     const clean = text.replace(/["']/g, "").trim();
     const words = clean.split(/\s+/);
     if (words.length > 15) {

@@ -7,7 +7,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 
 
 interface Props {

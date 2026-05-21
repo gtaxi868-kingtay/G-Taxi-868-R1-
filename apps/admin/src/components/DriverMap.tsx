@@ -55,7 +55,8 @@ export function DriverMap() {
     if (!MAPBOX_TOKEN) {
         return (
             <div style={{ 
-                height: '500px', 
+                height: '100%',
+                minHeight: '300px',
                 display: 'flex', 
                 flexDirection: 'column',
                 alignItems: 'center', 
@@ -72,7 +73,7 @@ export function DriverMap() {
     }
 
     return (
-        <div style={{ height: '500px', width: '100%', borderRadius: '1.5rem', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+        <div style={{ height: '100%', minHeight: '300px', width: '100%', borderRadius: '1.5rem', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.05)', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
             <Map
                 mapboxAccessToken={MAPBOX_TOKEN}
                 initialViewState={{

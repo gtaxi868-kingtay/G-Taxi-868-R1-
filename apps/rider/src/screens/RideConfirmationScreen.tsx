@@ -10,14 +10,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { ENV } from '@gtaxi/shared/env';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { initializeSupabaseClient, ENV } from '@gtaxi/core';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
-import { supabase } from '@gtaxi/native';
 import { Txt } from '@/design-system/primitives';
 import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '@gtaxi/design-system';
 import { formatTTDDollars } from '../utils/currency';
 
-// Blueberry Luxe Color System
+const { supabase, getSupabase } = initializeSupabaseClient('native');
+
 const COLORS = {
     bgPrimary: '#0D0B1E',
     bgSecondary: '#160B32',
@@ -48,8 +49,8 @@ interface StopSuggestion {
     emoji: string;
     estimated_wait_minutes: number;
     is_preferred: boolean;
-    is_network_partner?: boolean; // Phase 8A
-    merchant_id?: string;        // Phase 8A
+    is_network_partner?: boolean;
+    merchant_id?: string;
 }
 
 const VEHICLES = [
@@ -65,6 +66,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const { destination, pickup, source, sourceMetadata, kioskId, taxiStandId } = route.params;
     const insets = useSafeAreaInsets();
     const mapRef = useRef<MapView>(null);
+    const cameraRef = useRef<CameraView>(null);
 
     const [loading, setLoading] = useState(true);
     const [fare, setFare] = useState<any>(null);
@@ -82,6 +84,12 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const [stopSuggestions, setStopSuggestions] = useState<StopSuggestion[]>([]);
     const [selectedStops, setSelectedStops] = useState<StopSuggestion[]>([]);
     const [bookForFamily, setBookForFamily] = useState(false);
+    const [selfieMode, setSelfieMode] = useState(false);
+    const [selfieUri, setSelfieUri] = useState<string | null>(null);
+    const [selfieVerified, setSelfieVerified] = useState(false);
+    const [selfieUploading, setSelfieUploading] = useState(false);
+    const [selfieError, setSelfieError] = useState<string | null>(null);
+    const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
     const pickupLoc = pickup || { latitude: 10.66, longitude: -61.51, address: 'Current Location' };
 
@@ -164,8 +172,57 @@ export function RideConfirmationScreen({ navigation, route }: any) {
         });
     };
 
+    const handleSelfieCapture = async () => {
+        if (!cameraRef.current) return;
+        try {
+            const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
+            if (!photo || !photo.uri) {
+                setSelfieError('Failed to capture photo');
+                return;
+            }
+            setSelfieUploading(true);
+            setSelfieError(null);
+
+            const userId = (await supabase.auth.getUser()).data.user?.id || 'unknown';
+            const fileName = `selfies/${userId}/${Date.now()}.jpg`;
+
+            const response = await fetch(photo.uri);
+            const blob = await response.blob();
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('verification-photos')
+                .upload(fileName, blob, { contentType: 'image/jpeg' });
+
+            if (uploadError) {
+                setSelfieError('Upload failed: ' + uploadError.message);
+                setSelfieUploading(false);
+                return;
+            }
+
+            const { data: urlData } = supabase.storage
+                .from('verification-photos')
+                .getPublicUrl(fileName);
+
+            setSelfieUri(urlData?.publicUrl || null);
+            setSelfieVerified(true);
+            setSelfieUploading(false);
+            setSelfieMode(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (err: any) {
+            setSelfieError('Camera error: ' + (err.message || 'Unknown error'));
+            setSelfieUploading(false);
+        }
+    };
+
     const handleConfirm = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+        if (!selfieVerified || !selfieUri) {
+            setSelfieError('Identity verification required before confirming ride.');
+            Alert.alert('Verification Required', 'Please complete identity verification before confirming your ride.');
+            return;
+        }
+
         setConfirming(true);
         setRequestStatus('connecting');
 
@@ -204,6 +261,8 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 source_metadata: sourceMetadata,
                 kiosk_id: kioskId,
                 taxi_stand_id: taxiStandId,
+                identity_verified: true,
+                verification_url: selfieUri,
                 stops: selectedStops.map((s, i) => ({
                     stop_order: i + 1,
                     place_name: s.place_name,
@@ -290,7 +349,6 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                     <Marker coordinate={pickupLoc}><View style={s.markerPickup} /></Marker>
                     <Marker coordinate={destination}><View style={s.markerDropoff} /></Marker>
 
-                    {/* AI Suggested Stop Markers */}
                     {stopSuggestions.map((stop, index) => (
                         <Marker
                             key={`stop-${index}`}
@@ -423,6 +481,41 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             <Text style={s.identityText}>G-TAXI IDENTITY SHIELD ACTIVE</Text>
                         </View>
 
+                        {selfieError && (
+                            <View style={s.selfieErrorContainer}>
+                                <Ionicons name="alert-circle" size={16} color={COLORS.error} />
+                                <Text style={s.selfieErrorText}>{selfieError}</Text>
+                            </View>
+                        )}
+
+                        <TouchableOpacity
+                            style={[s.selfieBtn, selfieVerified && s.selfieBtnVerified]}
+                            onPress={async () => {
+                                if (selfieVerified) return;
+                                if (!cameraPermission?.granted) {
+                                    const perm = await requestCameraPermission();
+                                    if (!perm.granted) {
+                                        Alert.alert('Camera Required', 'Camera access is required for identity verification.');
+                                        return;
+                                    }
+                                }
+                                setSelfieMode(true);
+                            }}
+                        >
+                            {selfieUploading ? (
+                                <ActivityIndicator color={COLORS.cyan} size="small" />
+                            ) : (
+                                <Ionicons
+                                    name={selfieVerified ? 'checkmark-circle' : 'camera-outline'}
+                                    size={20}
+                                    color={selfieVerified ? COLORS.success : COLORS.cyan}
+                                />
+                            )}
+                            <Text style={[s.selfieBtnText, selfieVerified && { color: COLORS.success }]}>
+                                {selfieUploading ? 'UPLOADING...' : selfieVerified ? 'PASSENGER VERIFIED' : 'VERIFY IDENTITY'}
+                            </Text>
+                        </TouchableOpacity>
+
                         {requestStatus === 'still_trying' && (
                             <View style={s.statusBanner}>
                                 <Text style={s.statusTextAmber}>Still connecting... please wait</Text>
@@ -443,10 +536,54 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             </View>
                         )}
 
+                        {selfieMode && (
+                            <View style={StyleSheet.absoluteFill}>
+                                <CameraView
+                                    ref={cameraRef}
+                                    facing="front"
+                                    style={StyleSheet.absoluteFill}
+                                    onMountError={() => { Alert.alert('Camera Error', 'Could not open camera.'); setSelfieMode(false); }}
+                                >
+                                    <View style={{ flex: 1, justifyContent: 'flex-end', padding: 24, paddingBottom: 60 }}>
+                                        <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 24, alignItems: 'center' }}>
+                                            <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800', marginBottom: 8 }}>
+                                                Identity Verification
+                                            </Text>
+                                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>
+                                                Take a selfie to verify your identity before confirming the ride.
+                                            </Text>
+                                            <View style={{ flexDirection: 'row', gap: 12 }}>
+                                                <TouchableOpacity
+                                                    onPress={() => setSelfieMode(false)}
+                                                    style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>Cancel</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    onPress={handleSelfieCapture}
+                                                    disabled={selfieUploading}
+                                                    style={{ flex: 2, height: 48, borderRadius: 24, backgroundColor: COLORS.cyan, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
+                                                >
+                                                    {selfieUploading ? (
+                                                        <ActivityIndicator color={COLORS.bgPrimary} size="small" />
+                                                    ) : (
+                                                        <>
+                                                            <Ionicons name="camera" size={18} color={COLORS.bgPrimary} />
+                                                            <Text style={{ color: COLORS.bgPrimary, fontWeight: '900', fontSize: 13 }}>CAPTURE & VERIFY</Text>
+                                                        </>
+                                                    )}
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    </View>
+                                </CameraView>
+                            </View>
+                        )}
+
                         <TouchableOpacity
-                            style={[s.confirmBtn, confirming && { opacity: 0.7 }]}
+                            style={[s.confirmBtn, (confirming || !selfieVerified || !selfieUri) && { opacity: 0.5 }]}
                             onPress={handleConfirm}
-                            disabled={confirming}
+                            disabled={confirming || !selfieVerified || !selfieUri}
                         >
                             <LinearGradient
                                 colors={[COLORS.purple, COLORS.cyan]}
@@ -505,8 +642,13 @@ const s = StyleSheet.create({
     fareLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textMuted, letterSpacing: 1, marginBottom: 4 },
     fareValue: { fontSize: 36, fontWeight: '900', color: COLORS.purple },
     
-    identityShield: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.cyanSoft, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 100, marginBottom: 32, alignSelf: 'center' },
+    identityShield: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.cyanSoft, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 100, marginBottom: 12, alignSelf: 'center' },
     identityText: { marginLeft: 8, fontSize: 12, fontWeight: '800', color: COLORS.cyan, letterSpacing: 1 },
+    selfieBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.glassBg, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 16, marginBottom: 24, borderWidth: 1, borderColor: COLORS.glassBorder, gap: 8 },
+    selfieBtnVerified: { backgroundColor: 'rgba(0,255,148,0.08)', borderColor: 'rgba(0,255,148,0.3)' },
+    selfieBtnText: { fontSize: 12, fontWeight: '800', color: COLORS.cyan, letterSpacing: 0.5 },
+    selfieErrorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(239,68,68,0.1)', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, marginBottom: 12, gap: 8 },
+    selfieErrorText: { fontSize: 12, fontWeight: '700', color: COLORS.error, flex: 1 },
 
     confirmBtn: { height: 60, borderRadius: 30, overflow: 'hidden', shadowColor: COLORS.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },

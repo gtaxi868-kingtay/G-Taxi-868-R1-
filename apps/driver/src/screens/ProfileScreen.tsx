@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView, Text,
-    ActivityIndicator, Alert, TextInput,
+    ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -10,7 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 
 
 // Blueberry Luxe — Gold Edition (Driver)
@@ -127,6 +127,10 @@ export function ProfileScreen({ navigation }: any) {
                 </View>
             </BlurView>
 
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
             <ScrollView contentContainerStyle={{ paddingTop: insets.top + 80, paddingHorizontal: 24 }}>
                 <View style={s.identity}>
                     <LinearGradient colors={[COLORS.gold, '#0891B2']} style={s.avatar}>
@@ -279,6 +283,7 @@ export function ProfileScreen({ navigation }: any) {
 
                 <View style={{ height: insets.bottom + 40 }} />
             </ScrollView>
+            </KeyboardAvoidingView>
         </View>
     );
 }

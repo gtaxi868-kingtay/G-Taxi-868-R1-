@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, TextInput,
-    ActivityIndicator, Alert, useWindowDimensions, ScrollView, Platform
+    ActivityIndicator, Alert, useWindowDimensions, ScrollView, Platform,
+    KeyboardAvoidingView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -11,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 import { ENV } from '@gtaxi/shared/env';
@@ -138,6 +139,10 @@ export function WalletTopUpScreen({ navigation }: any) {
                 <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Financial Support</Txt>
             </View>
 
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
 
                 <View style={s.balanceCard}>
@@ -205,6 +210,7 @@ export function WalletTopUpScreen({ navigation }: any) {
                 </TouchableOpacity>
 
             </ScrollView>
+            </KeyboardAvoidingView>
         </View>
     );
 }

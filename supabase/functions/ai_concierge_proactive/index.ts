@@ -1,8 +1,6 @@
-// Supabase Edge Function: ai_concierge_proactive
-// Real AI Proactivity: Sees the world through GPS and suggests the next move.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -17,11 +15,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    const user = await requireAuth(req);
+
     const { ride_id, lat, lng, destination_name, mode, profile_id } = await req.json();
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
-    // Fetch ride data if ride_id provided, otherwise fetch profile for home mode
     let ride = null;
     let riderName = 'Guest';
     let dropoffLat = lat;
@@ -32,20 +31,24 @@ serve(async (req) => {
       const { data: rideData } = await supabase.from('rides').select('*, rider:rider_id(*)').eq('id', ride_id).single();
       ride = rideData;
       if (ride) {
+        if (ride.rider_id !== user.id && ride.driver_id !== user.id) {
+          return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+        }
         riderName = ride.rider?.full_name || 'Guest';
         dropoffLat = ride.dropoff_lat;
         dropoffLng = ride.dropoff_lng;
         destName = ride.dropoff_address;
       }
     } else if (profile_id) {
+      if (profile_id !== user.id) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+      }
       const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', profile_id).single();
       if (profile) riderName = profile.full_name;
     }
     
     const isHomeMode = mode === 'home' || !ride_id;
 
-    // 1. REAL POI Discovery (Phase 11.5)
-    // Fetch nearby partner merchants OR utility POIs (ATMs/Groceries)
     const { data: poiData } = await supabase.rpc('get_proactive_poi_context', {
       p_lat: lat || dropoffLat,
       p_lng: lng || dropoffLng,
@@ -59,16 +62,13 @@ serve(async (req) => {
       ).join(", ");
     }
 
-    // 2. Traffic Analysis (Mocked for local Trini context)
-    const hour = new Date().getUTCHours() - 4; // AST Time
+    const hour = new Date().getUTCHours() - 4;
     const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
     const trafficContext = isRushHour ? "EXPECT HEAVY TRAFFIC. Rush hour patterns detected on Highway/Main Road." : "Traffic flowing normally.";
 
-    // 3. Query Groq (Llama 3.3 70B) for a PROACTIVE suggestion
     let prompt;
     
     if (isHomeMode) {
-      // Home mode: Time-aware suggestions based on patterns
       const timeContext = hour >= 6 && hour < 11 ? 'morning' : 
                          hour >= 11 && hour < 14 ? 'lunch' : 
                          hour >= 14 && hour < 18 ? 'afternoon' : 'evening';
@@ -90,7 +90,6 @@ serve(async (req) => {
         Examples: "☕ Coffee at Rituals?", "🍽️ Lunch at Kenny's?", "⛽ Gas at NP?"
       `;
     } else {
-      // Ride mode: Navigation-aware suggestions
       prompt = `
         You are G-TAXI AI, a premium logistics concierge for Trinidad & Tobago.
         Rider: ${riderName}
@@ -121,13 +120,26 @@ serve(async (req) => {
     });
 
     const groqData = await response.json();
-    const suggestion = groqData.choices?.[0]?.message?.content || "Enjoy your journey with G-Taxi.";
+    let suggestion = groqData.choices?.[0]?.message?.content?.trim();
+
+    if (!suggestion) {
+      const timeBlock = hour >= 6 && hour < 11 ? 'morning' :
+                        hour >= 11 && hour < 14 ? 'lunch' :
+                        hour >= 14 && hour < 18 ? 'afternoon' : 'evening';
+      const greeting = isHomeMode
+        ? `Good ${timeBlock}, ${riderName}!`
+        : `Smooth travels to ${destName || 'your destination'}`;
+      suggestion = poiData && poiData.length > 0
+        ? `${greeting} ${poiData[0].name} is nearby.`
+        : greeting;
+    }
 
     return new Response(JSON.stringify({ suggestion }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (err: any) {
+    if (err instanceof Response) return err;
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
   }
 });

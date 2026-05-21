@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 // Blueberry Luxe — Gold Edition (Driver)
 const COLORS = {

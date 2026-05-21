@@ -53,9 +53,7 @@
         }
       }
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "web": {},
     "plugins": [
       [
         "expo-build-properties",

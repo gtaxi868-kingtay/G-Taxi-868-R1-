@@ -1,9 +1,6 @@
-// Supabase Edge Function: expire_offer
-// Called by the Rider App's "Heartbeat" loop when an offer has sat pending for > 15s.
-// Transitions the stuck offer and triggers the next cascade.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -19,6 +16,8 @@ serve(async (req: Request) => {
     }
 
     try {
+        const user = await requireAuth(req);
+
         const { offer_id } = await req.json();
 
         if (!offer_id) {
@@ -27,7 +26,20 @@ serve(async (req: Request) => {
 
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // Force expiration to prune the dead ping
+        const { data: offer } = await supabaseAdmin
+            .from("ride_offers")
+            .select("driver_id")
+            .eq("id", offer_id)
+            .single();
+
+        if (!offer) {
+            return new Response(JSON.stringify({ success: false, error: "Offer not found" }), { status: 404, headers: corsHeaders });
+        }
+
+        if (offer.driver_id !== user.id) {
+            return new Response(JSON.stringify({ success: false, error: "Forbidden" }), { status: 403, headers: corsHeaders });
+        }
+
         const { error: updateError } = await supabaseAdmin
             .from("ride_offers")
             .update({ status: "expired" })
@@ -39,8 +51,6 @@ serve(async (req: Request) => {
             return new Response(JSON.stringify({ success: false, error: "Failed to expire offer" }), { status: 500, headers: corsHeaders });
         }
 
-        // Rider App will watch for this 'expired' status and immediately re-trigger match_driver.
-
         return new Response(
             JSON.stringify({ success: true, message: "Offer marked as expired" }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -48,6 +58,7 @@ serve(async (req: Request) => {
 
     } catch (error) {
         console.error("Expire error:", error);
+        if (error instanceof Response) return error;
         return new Response(JSON.stringify({ success: false, error: "Internal server error" }), { status: 500, headers: corsHeaders });
     }
 });

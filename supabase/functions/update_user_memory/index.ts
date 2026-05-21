@@ -1,7 +1,5 @@
-// Update user memory after ride completion
-// Stores ride patterns for AI personalization
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { requireAuth } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +12,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const user = await requireAuth(req);
+
     const { user_id, ride_id, direction, hour, day_of_week, payment_method, had_stop } = await req.json();
 
     if (!user_id || !ride_id) {
@@ -23,22 +23,26 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (user_id !== user.id) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Create memory text summary
     const memoryText = `Rider traveled ${direction || 'unknown direction'} at ${hour}:00 on day ${day_of_week}. ${had_stop ? 'Made a stop.' : 'Direct trip.'} Paid ${payment_method || 'unknown'}.`;
 
-    // Simple embedding using hash of text (production would use Gemini embeddings)
     const encoder = new TextEncoder();
     const data = encoder.encode(memoryText);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const embedding = hashArray.slice(0, 768).map(b => b / 255); // Normalize to 768 dims
+    const embedding = hashArray.slice(0, 768).map(b => b / 255);
 
-    // Insert into user_memories
     const { error } = await supabaseAdmin
       .from('user_memories')
       .insert({
@@ -63,6 +67,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (err: any) {
+    if (err instanceof Response) return err;
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

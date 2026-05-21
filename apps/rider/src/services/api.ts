@@ -3,7 +3,7 @@
 
 import { ENV } from '@gtaxi/shared/env';
 import { RideEngine } from '@gtaxi/shared';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 
 interface ApiResponse<T> {
     success: boolean;
@@ -47,6 +47,9 @@ interface CreateRideParams {
     guest_phone?: string;
     billed_to_merchant_id?: string;
     idempotency_key?: string;
+    identity_verified?: boolean;
+    verification_url?: string | null;
+    flagged_location_drift?: boolean;
     stops?: Array<{
         stop_order: number;
         place_name: string;
@@ -384,7 +387,7 @@ export function formatCurrency(cents: number): string {
  * Get online drivers for map (Ghost Cars)
  * Returns a list of drivers with their locations
  */
-import { Driver } from '../types/ride';
+import { Driver } from '@gtaxi/core';
 export async function getOnlineDrivers(): Promise<Driver[]> {
     const { data, error } = await supabase
         .from('drivers_map_view')
@@ -407,7 +410,7 @@ export function setAuthToken(_token: string) {
 /**
  * Saved Places API
  */
-import { SavedPlace, Location } from '../types/ride';
+import { SavedPlace, Location } from '@gtaxi/core';
 
 export async function getSavedPlaces(): Promise<SavedPlace[]> {
     const { data, error } = await supabase

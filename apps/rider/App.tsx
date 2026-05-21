@@ -47,12 +47,15 @@ import { GroceryStorefrontScreen } from './src/screens/GroceryStorefrontScreen';
 import { ProductListingScreen } from './src/screens/ProductListingScreen';
 import { ProductDetailScreen } from './src/screens/ProductDetailScreen';
 import { GroceryCartScreen } from './src/screens/GroceryCartScreen';
+import { GroceryOrderStatusScreen } from './src/screens/GroceryOrderStatusScreen';
 import { VisionScannerScreen } from './src/screens/VisionScannerScreen';
 import { LaundryLandingScreen } from './src/screens/LaundryLandingScreen';
 import { LaundryEstimatorScreen } from './src/screens/LaundryEstimatorScreen';
 import { LaundryOrderStatusScreen } from './src/screens/LaundryOrderStatusScreen';
 import { DriverFoundScreen } from './src/screens/DriverFoundScreen';
 import { NfcHandshakeScreen } from './src/screens/NfcHandshakeScreen';
+import { NfcScanScreen } from './src/screens/NfcScanScreen';
+import { TagMarkerScreen } from './src/screens/TagMarkerScreen';
 import { ServiceBookingScreen } from './src/screens/ServiceBookingScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
@@ -141,6 +144,7 @@ function AppNavigator() {
                 <AppStack.Screen name="ProductListing" component={ProductListingScreen} />
                 <AppStack.Screen name="ProductDetail" component={ProductDetailScreen} />
                 <AppStack.Screen name="GroceryCart" component={GroceryCartScreen} />
+                <AppStack.Screen name="GroceryOrderStatus" component={GroceryOrderStatusScreen} />
                 <AppStack.Screen name="VisionScanner" component={VisionScannerScreen} />
                 {/* Laundry Vertical */}
                 <AppStack.Screen name="LaundryLanding" component={LaundryLandingScreen} />
@@ -149,6 +153,8 @@ function AppNavigator() {
                 {/* Driver Found Confirmation */}
                 <AppStack.Screen name="DriverFound" component={DriverFoundScreen} />
                 <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} />
+                <AppStack.Screen name="NfcScan" component={NfcScanScreen} />
+                <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
                 <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
                 <AppStack.Screen name="Legal" component={LegalScreen} />
                 <AppStack.Screen name="DeleteAccount" component={DeleteAccountScreen} />

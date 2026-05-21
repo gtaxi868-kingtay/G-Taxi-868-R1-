@@ -10,7 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
 
 const COLORS = {

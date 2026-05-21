@@ -156,6 +156,8 @@ export function useLocationTracking() {
         }
     };
 
+    const DISTANCE_FILTER_METERS = 30;
+
     const handleLocationUpdate = async (newLoc: Location.LocationObject, isExtrapolated = false) => {
         const now = Date.now();
         const lastLoc = lastLocationRef.current;
@@ -164,6 +166,11 @@ export function useLocationTracking() {
         const lat = parseFloat(newLoc.coords.latitude.toFixed(6));
         const lng = parseFloat(newLoc.coords.longitude.toFixed(6));
         const heading = newLoc.coords.heading || 0;
+
+        if (lastLoc && !isExtrapolated) {
+            const dist = getDistanceFromLatLonInM(lastLoc.coords.latitude, lastLoc.coords.longitude, lat, lng);
+            if (dist < DISTANCE_FILTER_METERS) return;
+        }
 
         if (!isExtrapolated) {
             setSignalStatus('lock');

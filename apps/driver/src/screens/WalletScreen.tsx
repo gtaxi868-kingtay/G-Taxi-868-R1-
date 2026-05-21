@@ -11,7 +11,7 @@ import Reanimated, {
     useSharedValue, withTiming, useDerivedValue, withSpring, withSequence,
     useAnimatedStyle,
 } from 'react-native-reanimated';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useStripe } from '@stripe/stripe-react-native';

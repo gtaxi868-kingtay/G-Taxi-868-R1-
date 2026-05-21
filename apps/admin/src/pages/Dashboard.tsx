@@ -5,8 +5,8 @@ export const Dashboard = ({ rides, stats }: any) => {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* REALTIME MAP HUD */}
-            <div className="bg-white/5 border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl relative h-[500px]">
-                <div className="absolute top-8 left-8 z-10 space-y-3">
+            <div className="bg-white/5 border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl relative h-[40vh] min-h-[300px]">
+                <div className="absolute top-8 left-8 right-8 z-10 flex flex-wrap justify-between items-start gap-4">
                     <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center gap-4">
                         <div className="w-3 h-3 bg-cyan-400 rounded-full animate-ping" />
                         <div>
@@ -14,8 +14,6 @@ export const Dashboard = ({ rides, stats }: any) => {
                             <p className="text-sm font-black text-white">Live Fleet Active</p>
                         </div>
                     </div>
-                </div>
-                <div className="absolute top-8 right-8 z-10">
                     <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex gap-6">
                         <MiniStat icon={<Zap size={14} className="text-yellow-400" />} label="Avg. Wait" value="4.2m" />
                         <MiniStat icon={<ShieldAlert size={14} className="text-red-400" />} label="Active SOS" value="0" />

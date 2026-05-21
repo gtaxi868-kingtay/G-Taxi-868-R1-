@@ -1,4 +1,4 @@
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { ENV } from '@gtaxi/shared/env';
 import { fetchWithRetry } from '@gtaxi/shared/retryWrapper';
 import { OutboxService } from '@gtaxi/shared/OutboxService';
@@ -53,13 +53,23 @@ export async function updateDriverLocation(driverId: string, lat: number, lng: n
     });
 }
 
+interface UpdateRideStatusResponse {
+  data: {
+    ride_id: string;
+    status: string;
+    driver_payout_cents?: number;
+    total_fare_cents?: number;
+  } | null;
+  error: any;
+}
+
 export async function updateRideStatus(
     rideId: string,
     status: 'arrived' | 'in_progress' | 'completed',
     driverLat?: number,
     driverLng?: number,
     pin?: string
-) {
+): Promise<UpdateRideStatusResponse> {
     if (status === 'completed') {
         return RideEngine.completeRide(rideId, () => _updateRideStatusInternal(rideId, status, driverLat, driverLng, pin));
     }
@@ -84,7 +94,7 @@ async function _updateRideStatusInternal(
     const functionName = status === 'completed' ? 'complete_ride' : 'update_ride_status';
 
     // 1. Attempt immediate sync
-    const { data, error } = await supabase.functions.invoke(functionName, {
+    const { data: rawData, error } = await supabase.functions.invoke(functionName, {
         body: payload
     });
 
@@ -97,6 +107,14 @@ async function _updateRideStatusInternal(
             payload: payload
         });
     }
+
+    // 3. Map response to guarantee type-safe payload with driver_payout_cents
+    const data = rawData?.data ? {
+        ride_id: rawData.data.ride_id,
+        status: rawData.data.status,
+        driver_payout_cents: rawData.data.driver_payout_cents,
+        total_fare_cents: rawData.data.total_fare_cents,
+    } : null;
 
     return { data, error };
 }

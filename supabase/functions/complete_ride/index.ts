@@ -365,14 +365,6 @@ serve(async (req: Request) => {
         status: "completed",
       });
 
-      await supabaseAdmin.from("payment_ledger").insert({
-        ride_id: ride_id,
-        user_id: ride.rider_id,
-        amount: effectiveFare / 100.0,
-        currency: "TTD",
-        status: "captured",
-        provider: "cash",
-      });
     } else if (ride.payment_method === "card") {
       if (ride.payment_status !== "captured") {
         return new Response(

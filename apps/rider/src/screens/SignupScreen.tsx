@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    useWindowDimensions, ScrollView, Alert, Image, Text
+    useWindowDimensions, ScrollView, Alert, Image, Text, Linking
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,7 +12,7 @@ import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -48,9 +48,15 @@ export function SignupScreen({ navigation }: any) {
         phone: '',
         password: '',
         aiEnabled: true,
+        termsAccepted: false,
     });
 
     const handleSignup = async () => {
+        if (!formData.termsAccepted) {
+            setError('YOU MUST ACCEPT THE TERMS OF SERVICE');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            return;
+        }
         if (!formData.name || !formData.email || !formData.password) {
             setError('PLEASE FILL IN NAME, EMAIL AND PASSWORD');
             return;
@@ -73,6 +79,8 @@ export function SignupScreen({ navigation }: any) {
                     data: {
                         full_name: formData.name.trim(),
                         role: 'rider',
+                        terms_accepted: true,
+                        terms_accepted_at: new Date().toISOString(),
                     },
                 },
             });
@@ -84,16 +92,27 @@ export function SignupScreen({ navigation }: any) {
             if (formData.phone) {
                 await supabase
                     .from('profiles')
-                    .update({ phone: formData.phone.trim() })
+                    .update({ phone_number: formData.phone.trim() })
                     .eq('id', authData.user.id);
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert(
-                'Account Created',
-                'Your account is ready. Please log in with your email and password.',
-                [{ text: 'Sign In', onPress: () => navigation.navigate('Login') }]
-            );
+            if (!authData.session) {
+                Alert.alert(
+                    'Check Your Email',
+                    'We sent a verification link. Please check your inbox.\n\nDidn\'t get the code?',
+                    [
+                        { text: 'Verify via WhatsApp', onPress: () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(formData.email)) },
+                        { text: 'Sign In', onPress: () => navigation.navigate('Login') }
+                    ]
+                );
+            } else {
+                Alert.alert(
+                    'Account Created',
+                    'Your account is ready. Please log in with your email and password.',
+                    [{ text: 'Sign In', onPress: () => navigation.navigate('Login') }]
+                );
+            }
 
         } catch (err: any) {
             console.error('Signup error:', err);
@@ -115,7 +134,7 @@ export function SignupScreen({ navigation }: any) {
                 end={{ x: 0, y: 1 }}
             />
 
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.container}>
+            <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} style={s.container}>
                 <ScrollView
                     contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}
                     showsVerticalScrollIndicator={false}
@@ -213,6 +232,25 @@ export function SignupScreen({ navigation }: any) {
                                             <View style={[s.toggleDot, { marginLeft: formData.aiEnabled ? 22 : 2 }]} />
                                         </TouchableOpacity>
                                     </View>
+
+                                    {/* Terms Checkbox */}
+                                    <TouchableOpacity
+                                        style={s.termsRow}
+                                        onPress={() => {
+                                            setFormData({ ...formData, termsAccepted: !formData.termsAccepted });
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        }}
+                                    >
+                                        <View style={[s.checkbox, formData.termsAccepted && s.checkboxActive]}>
+                                            {formData.termsAccepted && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                                        </View>
+                                        <Text style={s.termsText}>
+                                            I accept the{' '}
+                                            <Text style={s.termsLink}>Terms of Service</Text>
+                                            {' '}and{' '}
+                                            <Text style={s.termsLink}>Privacy Policy</Text>
+                                        </Text>
+                                    </TouchableOpacity>
 
                                     {/* CTA Button - Cyan Gradient */}
                                     <TouchableOpacity 
@@ -505,6 +543,37 @@ const s = StyleSheet.create({
         fontWeight: '500',
     },
     loginLinkCyan: {
+        color: COLORS.cyan,
+        fontWeight: '700',
+    },
+
+    // Terms Checkbox
+    termsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 4,
+    },
+    checkbox: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: COLORS.textMuted,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    checkboxActive: {
+        backgroundColor: COLORS.cyan,
+        borderColor: COLORS.cyan,
+    },
+    termsText: {
+        flex: 1,
+        color: COLORS.textSecondary,
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    termsLink: {
         color: COLORS.cyan,
         fontWeight: '700',
     },

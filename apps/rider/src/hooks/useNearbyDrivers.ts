@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Animated, Easing } from 'react-native';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 
 // Animated wrapper for driver positions
 interface AnimatedDriver {

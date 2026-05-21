@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { theme } from '../theme';
 import { GlassView } from './GlassView';
-import { Location } from '../types/ride';
+import { Location } from '@gtaxi/core';
 
 interface RecentRidesModalProps {
     visible: boolean;

@@ -1,8 +1,6 @@
-// auto-match-bot/index.ts
-// Edge Function that automatically matches ride requests to bot drivers
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -17,12 +15,13 @@ interface RideRequest {
 }
 
 serve(async (req) => {
-    // Handle CORS preflight
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
 
     try {
+        const user = await requireAuth(req);
+
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -36,7 +35,20 @@ serve(async (req) => {
             );
         }
 
-        // 1. Find an available bot driver near the pickup location
+        const { data: ride } = await supabase
+            .from("rides")
+            .select("rider_id")
+            .eq("id", ride_id)
+            .single();
+
+        if (!ride) {
+            return new Response(JSON.stringify({ error: "Ride not found" }), { status: 404, headers: corsHeaders });
+        }
+
+        if (ride.rider_id !== user.id) {
+            return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+        }
+
         const { data: botDrivers, error: driverError } = await supabase
             .from("drivers")
             .select("id, name, lat, lng, vehicle_type, vehicle_model, plate_number, rating")
@@ -52,7 +64,6 @@ serve(async (req) => {
             );
         }
 
-        // 2. Pick the closest bot driver
         const pickClosest = (drivers: any[]) => {
             return drivers.reduce((closest, driver) => {
                 const dist = Math.sqrt(
@@ -67,7 +78,6 @@ serve(async (req) => {
 
         const selectedDriver = pickClosest(botDrivers);
 
-        // 3. Assign the driver to the ride
         const { error: updateError } = await supabase
             .from("rides")
             .update({
@@ -85,15 +95,10 @@ serve(async (req) => {
             );
         }
 
-        // 4. Mark driver as busy
         await supabase
             .from("drivers")
             .update({ status: "busy" })
             .eq("id", selectedDriver.id);
-
-        // 5. Start movement simulation (move driver toward pickup)
-        // This will be done in a separate interval or cron job
-        // For now, we just assign and return the driver info
 
         return new Response(
             JSON.stringify({
@@ -112,6 +117,7 @@ serve(async (req) => {
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     } catch (err) {
+        if (err instanceof Response) return err;
         return new Response(
             JSON.stringify({ error: "Internal server error", details: String(err) }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

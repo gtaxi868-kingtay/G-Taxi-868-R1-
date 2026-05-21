@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, TextInput,
-    ScrollView, useWindowDimensions, ActivityIndicator, Alert
+    ScrollView, useWindowDimensions, ActivityIndicator, Alert,
+    KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -9,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { processTip, formatCurrency } from '../services/api';
 import { Txt } from '@/design-system/primitives';
 
@@ -119,6 +120,10 @@ export function RatingScreen({ navigation, route }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
             <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}>
 
                 {/* Hero: Driver name + "Rate your ride" */}
@@ -197,6 +202,7 @@ export function RatingScreen({ navigation, route }: any) {
                 </TouchableOpacity>
 
             </ScrollView>
+            </KeyboardAvoidingView>
         </View>
     );
 }

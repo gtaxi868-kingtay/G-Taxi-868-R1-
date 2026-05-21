@@ -1,0 +1,12 @@
+{
+  "ignore_dirs": [
+    "node_modules",
+    ".git",
+    "android/.gradle",
+    "android/build",
+    "apps/rider/android/.gradle",
+    "apps/rider/android/build",
+    "apps/driver/android/.gradle",
+    "apps/driver/android/build"
+  ]
+}

@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { LoadingOverlay } from '@gtaxi/design-system';
 
 const SERVICES = [

@@ -4,15 +4,16 @@ import { ENV, createSupabaseClient } from '@gtaxi/core';
 let supabaseInstance: SupabaseClient | null = null;
 
 const getWebStorage = () => {
-    if (typeof window !== 'undefined' && window.localStorage) {
+    const ls = typeof globalThis !== 'undefined' && (globalThis as any)?.localStorage;
+    if (ls) {
         return {
-            getItem: (key: string) => Promise.resolve(window.localStorage.getItem(key)),
+            getItem: (key: string) => Promise.resolve(ls.getItem(key)),
             setItem: (key: string, value: string) => {
-                window.localStorage.setItem(key, value);
+                ls.setItem(key, value);
                 return Promise.resolve();
             },
             removeItem: (key: string) => {
-                window.localStorage.removeItem(key);
+                ls.removeItem(key);
                 return Promise.resolve();
             },
         };

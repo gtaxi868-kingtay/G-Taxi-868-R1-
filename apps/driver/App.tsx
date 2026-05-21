@@ -18,11 +18,12 @@ import { PendingApprovalScreen } from './src/screens/PendingApprovalScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { StrategySettingsScreen } from './src/screens/StrategySettingsScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
+import { ReportIssueScreen } from './src/screens/ReportIssueScreen';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { ENV } from '@gtaxi/shared/env';
@@ -116,7 +117,7 @@ if (!isExpoGo) {
 
 function AuthNavigator() {
     return (
-        <Stack.Navigator id="AuthStack" screenOptions={{ headerShown: false }}>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
         </Stack.Navigator>
@@ -128,6 +129,7 @@ function AppNavigator() {
     const [initialRoute, setInitialRoute] = useState<string | null>(null);
     const [activeRideId, setActiveRideId] = useState<string | undefined>();
     const [scheduledEnabled, setScheduledEnabled] = useState(false);
+    const [kioskEnabled, setKioskEnabled] = useState(false);
 
     const checkActiveRide = useCallback(async () => {
         if (!user) {
@@ -177,12 +179,21 @@ function AppNavigator() {
     useEffect(() => {
         checkActiveRide();
 
-        // Check scheduled rides feature flag
+        // Check feature flags
         supabase.from('system_feature_flags')
-            .select('is_enabled')
-            .eq('flag_name', 'scheduled_rides_enabled')
-            .maybeSingle()
-            .then(({ data }) => setScheduledEnabled(data?.is_enabled ?? false));
+            .select('id, is_active')
+            .in('id', ['scheduled_rides_enabled', 'kiosk_active'])
+            .then(({ data }) => {
+                if (data) {
+                    for (const flag of data) {
+                        if (flag.id === 'scheduled_rides_enabled') {
+                            setScheduledEnabled(flag.is_active);
+                        } else if (flag.id === 'kiosk_active') {
+                            setKioskEnabled(flag.is_active);
+                        }
+                    }
+                }
+            });
 
         // Real-time listener for status changes (e.g. Admin Approval)
         if (user) {
@@ -218,7 +229,7 @@ function AppNavigator() {
     }
 
     return (
-        <Stack.Navigator id="AppStack" initialRouteName={initialRoute as any} screenOptions={{ headerShown: false }}>
+        <Stack.Navigator initialRouteName={initialRoute as any} screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Dashboard" component={DashboardScreen} />
             <Stack.Screen name="PendingApproval" component={PendingApprovalScreen} />
             <Stack.Screen name="TripRequest" component={TripRequestScreen} />
@@ -236,6 +247,7 @@ function AppNavigator() {
             <Stack.Screen name="Chat" component={ChatScreen} />
             <Stack.Screen name="StrategySettings" component={StrategySettingsScreen} />
             <Stack.Screen name="Legal" component={LegalScreen} />
+            <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
         </Stack.Navigator>
     );
 }

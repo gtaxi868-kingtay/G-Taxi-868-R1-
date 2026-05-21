@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Alert, ScrollView,
+    Alert, ScrollView, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 
@@ -42,7 +42,18 @@ export function RegisterScreen({ navigation }: any) {
     const [licenseBack, setLicenseBack] = useState<string | null>(null);
     const [vehiclePhoto, setVehiclePhoto] = useState<string | null>(null);
 
+    // Terms
+    const [termsAccepted, setTermsAccepted] = useState(false);
+
     const handleNext = () => {
+        if (!termsAccepted) {
+            Alert.alert(
+                'Terms Required',
+                'You must accept the Terms of Service and Privacy Policy to continue.'
+            );
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            return;
+        }
         if (!fullName || !phone || !email || !password) {
             Alert.alert('Missing Info', 'Please fill in all personal details');
             return;
@@ -114,10 +125,18 @@ export function RegisterScreen({ navigation }: any) {
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: email.trim().toLowerCase(),
                 password,
+                options: {
+                    data: {
+                        role: 'driver',
+                        terms_accepted: true,
+                        terms_accepted_at: new Date().toISOString(),
+                    },
+                },
             });
 
             if (authError) throw authError;
             if (!authData.user) throw new Error('Signup failed');
+            const requiresEmailConfirmation = !authData.session;
 
             // 1. Upload Documents
             const ts = Date.now();
@@ -153,11 +172,22 @@ export function RegisterScreen({ navigation }: any) {
             if (driverError) throw driverError;
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert(
-                'Application Submitted',
-                'Your application is under review. You will be notified once approved.',
-                [{ text: 'OK', onPress: () => navigation.goBack() }]
-            );
+            if (requiresEmailConfirmation) {
+                Alert.alert(
+                    'Check Your Email',
+                    'Your application is submitted. Please verify your email to activate your account.\n\nDidn\'t get the code?',
+                    [
+                        { text: 'Verify via WhatsApp', onPress: () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(email)) },
+                        { text: 'OK', onPress: () => navigation.goBack() }
+                    ]
+                );
+            } else {
+                Alert.alert(
+                    'Application Submitted',
+                    'Your application is under review. You will be notified once approved.',
+                    [{ text: 'OK', onPress: () => navigation.goBack() }]
+                );
+            }
         } catch (err: any) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             if (err?.message?.includes("already registered as a rider") ||
@@ -211,6 +241,31 @@ export function RegisterScreen({ navigation }: any) {
                             {renderInput('Phone Number', phone, setPhone, { keyboardType: 'phone-pad' })}
                             {renderInput('Email Address', email, setEmail, { keyboardType: 'email-address', autoCapitalize: 'none' })}
                             {renderInput('Password', password, setPassword, { secureTextEntry: true })}
+
+                            {/* Terms Checkbox */}
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    setTermsAccepted(!termsAccepted);
+                                }}
+                            >
+                                <View style={{
+                                    width: 24, height: 24, borderRadius: 6,
+                                    borderWidth: 2,
+                                    borderColor: termsAccepted ? COLORS.gold : 'rgba(255,255,255,0.2)',
+                                    backgroundColor: termsAccepted ? COLORS.gold : 'transparent',
+                                    alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    {termsAccepted && <Ionicons name="checkmark" size={14} color="#0F0D16" />}
+                                </View>
+                                <Text style={{ flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' }}>
+                                    I accept the{' '}
+                                    <Text style={{ color: COLORS.gold, fontWeight: '700' }}>Terms of Service</Text>
+                                    {' '}and{' '}
+                                    <Text style={{ color: COLORS.gold, fontWeight: '700' }}>Privacy Policy</Text>
+                                </Text>
+                            </TouchableOpacity>
 
                             <TouchableOpacity style={s.primaryBtn} onPress={handleNext}>
                                 <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Next →</Text>

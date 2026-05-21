@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 

@@ -11,7 +11,7 @@ import Reanimated, {
     useSharedValue, withTiming, useAnimatedStyle,
     useDerivedValue, withSpring,
 } from 'react-native-reanimated';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -80,7 +80,7 @@ export function EarningsScreen({ navigation }: any) {
 
         const { data, error } = await supabase
             .from('rides')
-            .select('id, created_at, total_fare_cents, payment_method, dropoff_address')
+            .select('id, created_at, total_fare_cents, driver_payout_cents, payment_method, dropoff_address')
             .eq('driver_id', driver.id)
             .eq('status', 'completed')
             .order('created_at', { ascending: false });
@@ -90,21 +90,20 @@ export function EarningsScreen({ navigation }: any) {
         } else if (data) {
             let todayCents = 0, weekCents = 0, monthCents = 0, tripsToday = 0;
             data.forEach(trip => {
-                const fare = trip.total_fare_cents || 0;
-                if (trip.created_at >= startOfDay) { todayCents += fare; tripsToday += 1; }
-                if (trip.created_at >= startOfWeek) weekCents += fare;
-                if (trip.created_at >= monthStart) monthCents += fare;
+                const payout = trip.driver_payout_cents || Math.round((trip.total_fare_cents || 0) * 0.81);
+                if (trip.created_at >= startOfDay) { todayCents += payout; tripsToday += 1; }
+                if (trip.created_at >= startOfWeek) weekCents += payout;
+                if (trip.created_at >= monthStart) monthCents += payout;
             });
 
-            const todayVal = (todayCents * DRIVER_SHARE) / 100;
             setStats({
-                today: todayVal,
-                week: (weekCents * DRIVER_SHARE) / 100,
-                month: (monthCents * DRIVER_SHARE) / 100,
+                today: todayCents / 100,
+                week: weekCents / 100,
+                month: monthCents / 100,
                 trips: tripsToday,
             });
             earningsAnim.value = 0;
-            earningsAnim.value = withTiming(todayVal, { duration: 900 });
+            earningsAnim.value = withTiming(todayCents, { duration: 900 });
             setRecentTrips(data.slice(0, 20));
         }
         setLoading(false);
@@ -184,7 +183,7 @@ export function EarningsScreen({ navigation }: any) {
             >
                 <View style={[s.heroCard, {backgroundColor: COLORS.glassBg, borderColor: COLORS.glassBorder, borderWidth: 1, borderRadius: 24}]}>
                     <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.gold, letterSpacing: 1.5, marginBottom: 12 }}>
-                        TODAY'S EARNINGS (81% SHARE)
+                        TODAY'S EARNINGS
                     </Text>
 
                     <Reanimated.Text style={s.earningsNum}>
@@ -229,7 +228,8 @@ export function EarningsScreen({ navigation }: any) {
                             const date = new Date(trip.created_at);
                             const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                            const earnings = ((trip.total_fare_cents || 0) * DRIVER_SHARE / 100).toFixed(2);
+                            const payoutCents = trip.driver_payout_cents || Math.round((trip.total_fare_cents || 0) * 0.81);
+                            const earnings = (payoutCents / 100).toFixed(2);
                             const isLast = idx === recentTrips.length - 1;
 
                             return (

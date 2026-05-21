@@ -27,7 +27,7 @@ import Reanimated, {
     useSharedValue, withSpring, withTiming, withRepeat, withSequence,
     useAnimatedStyle, interpolate, Easing,
 } from 'react-native-reanimated';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { ENV } from '@gtaxi/shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { updateRideStatus } from '../services/api';
@@ -43,9 +43,9 @@ const COLORS = {
     purple: '#7B5CF0',
     purpleDark: '#5B3FD0',
     purpleLight: '#9B7CF0',
-    gold: '#FFD700',
-    goldDark: '#B8860B',
-    goldLight: '#FFEC8B',
+    gold: '#F59E0B',
+    goldDark: '#F59E0B',
+    goldLight: '#F59E0B',
     amber: '#FFB000',
     amberSoft: 'rgba(255,176,0,0.1)',
     white: '#FFFFFF',
@@ -141,7 +141,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
         const fetchData = async () => {
             const { data } = await supabase
                 .from('rides')
-                .select('*, rider:rider_id(id, raw_user_meta_data, name, phone_number)')
+                .select('*, rider:rider_id(id, raw_user_meta_data, full_name, phone_number)')
                 .eq('id', rideId)
                 .single();
             
@@ -150,6 +150,16 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 setRider(data.rider);
                 await AsyncStorage.setItem('active_ride_id', rideId); // Phase 11: Ensure BG knows we are active
                 if (data.route_geometry) setRouteCoords(decodePolyline(data.route_geometry));
+
+                // Resolve associated order (delivery trip) via orders.ride_id
+                const { data: order } = await supabase
+                    .from('orders')
+                    .select('id')
+                    .eq('ride_id', rideId)
+                    .maybeSingle();
+                if (order) {
+                    (data as any).order_id = order.id;
+                }
 
                 if (data.order_id) {
                     const { data: items } = await supabase
@@ -253,6 +263,34 @@ export function ActiveTripScreen({ route, navigation }: any) {
         };
     }, [rideId]);
 
+    useEffect(() => {
+        const orderId = ride?.order_id;
+        if (!orderId) return;
+
+        supabase.from('orders').select('status').eq('id', orderId).single().then(({ data }) => {
+            if (data?.status === 'ready_for_pickup') {
+                Alert.alert('PACKAGE READY', 'Merchant confirmed the order is ready for pickup.');
+            }
+        });
+
+        const orderCh = supabase
+            .channel(`order_sync_${orderId}`)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'orders',
+                filter: `id=eq.${orderId}`,
+            }, (payload: any) => {
+                if (payload.new?.status === 'ready_for_pickup') {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    Alert.alert('PACKAGE READY', 'Merchant confirmed the order is ready for pickup.');
+                }
+            })
+            .subscribe();
+
+        return () => { orderCh.unsubscribe(); };
+    }, [ride?.order_id]);
+
     const fetchNewRoute = async (currentStops: any[]) => {
         if (!ride || !location) return;
         const coords = (location as any).coords;
@@ -344,12 +382,35 @@ export function ActiveTripScreen({ route, navigation }: any) {
                     Alert.alert('GPS Required');
                     return;
                 }
-                const { error } = await updateRideStatus(rideId, 'completed', lat, lng);
+                const { data, error } = await updateRideStatus(rideId, 'completed', lat, lng);
                 if (error) Alert.alert('Error');
-                else {
+                else if (data) {
                     await AsyncStorage.removeItem('active_ride_id');
-                    setRide((prev: any) => ({ ...prev, status: 'completed' }));
+                    setRide((prev: any) => ({
+                        ...prev,
+                        status: 'completed',
+                        driver_payout_cents: data.driver_payout_cents ?? prev.driver_payout_cents,
+                        total_fare_cents: data.total_fare_cents ?? prev.total_fare_cents,
+                    }));
                 }
+            }}
+        ]);
+    };
+
+    const handleDeliveryConfirmPickup = async () => {
+        Alert.alert('Confirm Pickup', 'Collected all items from merchant?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Confirm', onPress: async () => {
+                const { error } = await supabase
+                    .from('rides')
+                    .update({ status: 'in_progress' })
+                    .eq('id', rideId);
+                if (error) {
+                    Alert.alert('Error', error.message);
+                    return;
+                }
+                setRide((prev: any) => ({ ...prev, status: 'in_progress' }));
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }}
         ]);
     };
@@ -419,8 +480,10 @@ export function ActiveTripScreen({ route, navigation }: any) {
     }
 
     if (ride?.status === 'completed' || ride?.status === 'closed') {
-        const fare = ride?.total_fare_cents ? ride?.total_fare_cents / 100 : 0;
-        const earnings = (fare * DRIVER_SHARE).toFixed(2);
+        const payoutCents = ride?.driver_payout_cents;
+        const earnings = payoutCents != null
+            ? (payoutCents / 100).toFixed(2)
+            : '--';
         return (
             <View style={[s.root, { justifyContent: 'center', padding: 24 }]}>
                 <LinearGradient 
@@ -612,28 +675,40 @@ export function ActiveTripScreen({ route, navigation }: any) {
                         
                         {ride?.status === 'assigned' && (
                             <TouchableOpacity style={[s.mainBtn, { backgroundColor: COLORS.success }]} onPress={handleArrived}>
-                                <Text style={s.mainBtnText}>I'VE ARRIVED</Text>
+                                <Text style={s.mainBtnText}>
+                                    {ride?.order_id ? "ARRIVED AT MERCHANT" : "I'VE ARRIVED"}
+                                </Text>
                             </TouchableOpacity>
                         )}
-                        {ride?.status === 'arrived' && (
+                        {ride?.status === 'arrived' && !ride?.order_id && (
                             <TouchableOpacity 
-                                style={[s.mainBtn, { backgroundColor: (ride?.order_id && !hasMerchantPhoto) ? 'rgba(255,255,255,0.05)' : COLORS.gold }]} 
+                                style={[s.mainBtn, { backgroundColor: COLORS.gold }]} 
+                                onPress={() => setShowPinModal(true)}
+                            >
+                                <Text style={s.mainBtnText}>VERIFY & PICKUP</Text>
+                            </TouchableOpacity>
+                        )}
+                        {ride?.status === 'arrived' && ride?.order_id && (
+                            <TouchableOpacity 
+                                style={[s.mainBtn, { backgroundColor: hasMerchantPhoto ? COLORS.gold : 'rgba(255,255,255,0.05)' }]} 
                                 onPress={() => {
-                                    if (ride?.order_id && !hasMerchantPhoto) {
+                                    if (!hasMerchantPhoto) {
                                         Alert.alert('PHOTO REQUIRED', 'Merchant must upload intake photo.');
                                         return;
                                     }
-                                    setShowPinModal(true);
+                                    handleDeliveryConfirmPickup();
                                 }}
                             >
                                 <Text style={s.mainBtnText}>
-                                    {(ride?.order_id && !hasMerchantPhoto) ? 'AWAITING PHOTO' : 'VERIFY & PICKUP'}
+                                    {hasMerchantPhoto ? 'CONFIRM PICKUP' : 'AWAITING PHOTO'}
                                 </Text>
                             </TouchableOpacity>
                         )}
                         {ride?.status === 'in_progress' && (
                             <TouchableOpacity style={[s.mainBtn, { backgroundColor: COLORS.warning }]} onPress={handleComplete}>
-                                <Text style={s.mainBtnText}>COMPLETE TRIP</Text>
+                                <Text style={s.mainBtnText}>
+                                    {ride?.order_id ? "DELIVERED" : "COMPLETE TRIP"}
+                                </Text>
                             </TouchableOpacity>
                         )}
                     </View>

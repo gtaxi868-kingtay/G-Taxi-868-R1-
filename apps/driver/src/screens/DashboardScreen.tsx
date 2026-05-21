@@ -21,7 +21,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { DEFAULT_LOCATION, ENV } from '@gtaxi/shared/env';
 import { useRideOfferSubscription } from '../services/realtime';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
 import { Ionicons } from '@expo/vector-icons';
 import { NfcIdentityHandler } from '../components/NfcIdentityHandler';
@@ -36,9 +36,9 @@ const COLORS = {
     bgSecondary: '#1A1508',
     gradientStart: '#1A1200',
     gradientEnd: '#0D0B1E',
-    gold: '#FFD700',
-    goldDark: '#B8860B',
-    goldLight: '#FFEC8B',
+    gold: '#F59E0B',
+    goldDark: '#F59E0B',
+    goldLight: '#F59E0B',
     amber: '#FFB000',
     amberSoft: 'rgba(255,176,0,0.1)',
     purple: '#7B5CF0',
@@ -47,7 +47,7 @@ const COLORS = {
     white: '#FFFFFF',
     textSecondary: 'rgba(255,255,255,0.6)',
     textMuted: 'rgba(255,255,255,0.4)',
-    glassBg: 'rgba(255,215,0,0.06)',
+    glassBg: 'rgba(245,158,11,0.06)',
     glassBorder: 'rgba(255,176,0,0.3)',
     success: '#00FF94',
     warning: '#F59E0B',
@@ -103,6 +103,7 @@ export function DashboardScreen({ navigation }: any) {
     const navBounce = [
         useSharedValue(1), useSharedValue(1),
         useSharedValue(1), useSharedValue(1),
+        useSharedValue(1),
     ];
 
     const pulseScale = useRef(new Animated.Value(1)).current;
@@ -157,6 +158,14 @@ export function DashboardScreen({ navigation }: any) {
             } catch (e) { console.warn('Recovery failed:', e); }
         };
         checkActiveTrip();
+        const fetchBalance = async () => {
+            if (!driver?.id) return;
+            try {
+                const { data, error } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
+                if (!error && data != null) setBalanceCents(data);
+            } catch (e) { console.warn('Balance fetch failed:', e); }
+        };
+        fetchBalance();
     }, [driver?.id]);
 
     useEffect(() => {
@@ -202,7 +211,8 @@ export function DashboardScreen({ navigation }: any) {
     const navStyle1 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[1].value }] }));
     const navStyle2 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[2].value }] }));
     const navStyle3 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[3].value }] }));
-    const navStyles = [navStyle0, navStyle1, navStyle2, navStyle3];
+    const navStyle4 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[4].value }] }));
+    const navStyles = [navStyle0, navStyle1, navStyle2, navStyle3, navStyle4];
 
     const panelStyle = useAnimatedStyle(() => ({ transform: [{ translateY: panelY.value }] }));
     const carStyle = useAnimatedStyle(() => ({ transform: [{ translateY: carY.value }, { rotate: `${carRotate.value + carSpinFast.value}deg` }] }));
@@ -230,6 +240,7 @@ export function DashboardScreen({ navigation }: any) {
         { icon: 'bar-chart-outline', label: 'Earnings', screen: 'Earnings' },
         { icon: 'calendar-outline', label: 'Schedule', screen: 'ScheduledRides' },
         { icon: 'person-outline', label: 'Profile', screen: 'Profile' },
+        { icon: 'warning-outline', label: 'Report', screen: 'ReportIssue' },
     ];
 
     return (
@@ -291,7 +302,7 @@ export function DashboardScreen({ navigation }: any) {
                                 </Reanimated.View>
                                 <Reanimated.View style={[{ flex: 1 }, card1Style]}>
                                     <TouchableOpacity activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('ScheduledRides'); }}>
-                                        <View style={[s.statCard, { borderColor: 'rgba(255,215,0,0.2)', backgroundColor: 'rgba(255,215,0,0.03)' }]}><Ionicons name="car-outline" size={16} color={COLORS.gold} /><Text style={[s.statLabel, { fontSize: 10, fontWeight: '700', color: COLORS.gold }]}>TRIPS</Text><Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF' }}>{todayTrips}</Text></View>
+                                        <View style={[s.statCard, { borderColor: 'rgba(245,158,11,0.2)', backgroundColor: 'rgba(245,158,11,0.03)' }]}><Ionicons name="car-outline" size={16} color={COLORS.gold} /><Text style={[s.statLabel, { fontSize: 10, fontWeight: '700', color: COLORS.gold }]}>TRIPS</Text><Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF' }}>{todayTrips}</Text></View>
                                     </TouchableOpacity>
                                 </Reanimated.View>
                             </View>
@@ -337,7 +348,7 @@ const s = StyleSheet.create({
     greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     driverName: { marginTop: 2, letterSpacing: -0.5 },
     statusPill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 50 },
-    statusPillOn: { backgroundColor: 'rgba(255,215,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,215,0,0.25)' },
+    statusPillOn: { backgroundColor: 'rgba(245,158,11,0.08)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.25)' },
     statusPillOff: { backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
     statusDot: { width: 7, height: 7, borderRadius: 3.5 },
     statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },

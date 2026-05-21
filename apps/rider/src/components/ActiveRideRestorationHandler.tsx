@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useRide } from '../context/RideContext';
-import { supabase } from '@gtaxi/native';
-import { Location, FareEstimate } from '../types/ride';
+import { supabase } from '@gtaxi/core';
+import { Location, FareEstimate } from '@gtaxi/core';
 
 // Ride TTL: 30 minutes of no activity = stale
 const RIDE_TTL_MINUTES = 30;
@@ -86,6 +86,14 @@ export function ActiveRideRestorationHandler() {
                 }
             } else if (ride.status === 'completed') {
                 // FIX 2: Navigate to receipt after ride completion
+                navigation.reset({
+                    index: 0,
+                    routes: [{
+                        name: 'Receipt',
+                        params: { rideId: ride.ride_id }
+                    }],
+                });
+            } else if (ride.status === 'payment_confirmed' || ride.status === 'closed') {
                 navigation.reset({
                     index: 0,
                     routes: [{

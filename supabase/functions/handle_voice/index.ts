@@ -1,9 +1,6 @@
-// Supabase Edge Function: handle_voice
-// Processes natural language voice commands to extract intent and target locations
-// UPGRADED TO USE GROQ LLAMA 3.3 70B
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -20,12 +17,14 @@ serve(async (req: Request) => {
   }
 
   try {
+    const user = await requireAuth(req);
+
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { text, rider_id } = await req.json();
 
     if (!text || !rider_id) throw new Error("Text and rider_id required");
+    if (rider_id !== user.id) throw new Error("Forbidden");
 
-    // 1. Fetch Rider's Saved Places
     const { data: places } = await supabaseAdmin
       .from('saved_places')
       .select('label, address, latitude, longitude')
@@ -33,7 +32,6 @@ serve(async (req: Request) => {
 
     const placesContext = (places || []).map(p => `${p.label}: ${p.address}`).join(", ");
 
-    // 1.5 Fetch Merchant Service History (Proactive AI Component Phase 8)
     const { data: serviceHistory } = await supabaseAdmin
       .from('user_service_history')
       .select('merchant_id, merchants(name, address, lat, lng)')
@@ -44,7 +42,6 @@ serve(async (req: Request) => {
     const merchantsContext = (serviceHistory || []).map((h: any) => h.merchants?.name ? `${h.merchants.name} (Address: ${h.merchants.address})` : '').filter(Boolean).join(", ");
     const availableMerchants = (serviceHistory || []).map((h: any) => h.merchants).filter(Boolean);
 
-    // 2. Call Groq (Llama 3.3 70B) for Intent Extraction
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
     
     const prompt = `
@@ -92,22 +89,18 @@ serve(async (req: Request) => {
     
     const aiResult = JSON.parse(aiText);
 
-    // 3. If intent is book_ride or book_service, enrich with coordinates from DB if possible
     if ((aiResult.intent === 'book_ride' || aiResult.intent === 'book_service') && aiResult.destination?.label) {
-        // Check saved places first
         let mat = (places || []).find(p => p.label.toLowerCase() === aiResult.destination.label.toLowerCase());
         if (mat) {
             aiResult.destination.lat = mat.latitude;
             aiResult.destination.lng = mat.longitude;
             aiResult.destination.address = mat.address;
         } else {
-            // Check merchants
             let merch = availableMerchants.find(m => m.name.toLowerCase().includes(aiResult.destination.label.toLowerCase()) || aiResult.destination.label.toLowerCase().includes(m.name.toLowerCase()));
             if (merch) {
                 aiResult.destination.lat = merch.lat;
                 aiResult.destination.lng = merch.lng;
                 aiResult.destination.address = merch.address;
-                // If it successfully matched a merchant, auto-upgrade intent to book_service so frontend handles it
                 aiResult.intent = 'book_service'; 
             }
         }
@@ -120,6 +113,7 @@ serve(async (req: Request) => {
 
   } catch (error: any) {
     console.error("Voice AI Error:", error);
+    if (error instanceof Response) return error;
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

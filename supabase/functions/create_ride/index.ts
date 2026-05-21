@@ -1,20 +1,14 @@
-// Supabase Edge Function: create_ride
-// HARDENED MODE - Strict Auth Verification
-//
-// Creates a new ride request with server-calculated fare.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { checkRateLimit } from "../_shared/rateLimit.ts";
-import { calculateFare, calculateStopsFee } from "../_shared/pricing.ts";
-import { captureException } from "../_shared/sentry.ts";
+import { checkRateLimit } from "./_shared/rateLimit.ts";
+import { calculateFare, calculateStopsFee } from "./_shared/pricing.ts";
+import { captureException } from "./_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
 
-// Trinidad pricing (in TTD cents)
 const PRICING = {
     BASE_FARE_CENTS: 1600,
     PER_KM_CENTS: 175,
@@ -33,7 +27,6 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Phase 8: Structured Logging
 function log(level: "INFO" | "ERROR", message: string, data: Record<string, any> = {}) {
     console.log(JSON.stringify({
         timestamp: new Date().toISOString(),
@@ -47,13 +40,11 @@ function log(level: "INFO" | "ERROR", message: string, data: Record<string, any>
 serve(async (req: Request) => {
     const requestId = crypto.randomUUID();
 
-    // Handle CORS preflight
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
 
     try {
-        // 1. Initialize Supabase Client with Auth Context
         const supabaseClient = createClient(
             SUPABASE_URL,
             SUPABASE_ANON_KEY,
@@ -64,8 +55,6 @@ serve(async (req: Request) => {
             }
         );
 
-        // 2. AUTHENTICATION (The Gatekeeper)
-        // We strictly require a valid user session.
         const {
             data: { user },
             error: authError,
@@ -79,18 +68,8 @@ serve(async (req: Request) => {
             );
         }
 
-        const rider_id = user.id; // STRICT usage of verified ID
+        const rider_id = user.id;
 
-        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-        const rateCheck = await checkRateLimit(adminClient, rider_id, "create_ride");
-        if (!rateCheck.allowed) {
-            return new Response(
-                JSON.stringify({ success: false, error: rateCheck.error }),
-                { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-        }
-
-        // 3. Parse Request Body
         let body;
         try {
             body = await req.json();
@@ -99,6 +78,26 @@ serve(async (req: Request) => {
             return new Response(
                 JSON.stringify({ success: false, error: "Invalid JSON body", data: null }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        if (!body.identity_verified) {
+            log("ERROR", "Missing identity verification", { requestId, rider_id });
+            return new Response(
+                JSON.stringify({
+                    success: false,
+                    error: "Identity verification required. Please complete the selfie check before requesting a ride."
+                }),
+                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const rateCheck = await checkRateLimit(adminClient, rider_id, "create_ride");
+        if (!rateCheck.allowed) {
+            return new Response(
+                JSON.stringify({ success: false, error: rateCheck.error }),
+                { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
@@ -125,7 +124,6 @@ serve(async (req: Request) => {
 
         log("INFO", "Request from verified user", { requestId, rider_id, vehicle_type, payment_method, idempotency_key });
 
-        // 3.5. IDEMPOTENCY CHECK
         if (idempotency_key) {
             const { data: existingByIdempotency } = await supabaseClient
                 .from("rides")
@@ -164,8 +162,6 @@ serve(async (req: Request) => {
             );
         }
 
-
-        // 4. Check for Existing Active Ride
         const activeStatuses = ["requested", "searching", "assigned", "arrived", "in_progress"];
         const { data: existingRide } = await supabaseClient
             .from("rides")
@@ -194,7 +190,6 @@ serve(async (req: Request) => {
             );
         }
 
-        // 5. Calculate Route (Mapbox or Haversine Fallback)
         let distanceMeters = 5000;
         let durationSeconds = 600;
         let routePolyline = "";
@@ -213,17 +208,14 @@ serve(async (req: Request) => {
                 }
             } catch (e) {
                 console.error("Mapbox error:", e);
-                // Fallback will be used
             }
         }
 
-        // 6. Calculate Fare
         const distanceKm = distanceMeters / 1000;
         const durationMin = durationSeconds / 60;
         const stopsFeeCents = calculateStopsFee(Array.isArray(stops) ? stops : []);
         const fareCents = calculateFare(distanceMeters, durationSeconds, vehicle_type, 1.0, stopsFeeCents);
 
-        // 6.5. PHASE 8: RIDER DEBT LOCK & Payment Reserve Check
         const { data: balance, error: balanceError } = await supabaseClient
             .rpc("get_wallet_balance", { p_user_id: rider_id });
 
@@ -234,7 +226,6 @@ serve(async (req: Request) => {
 
         const currentBalance = balance || 0;
 
-        // Debt Lock: Block ANY new rides if the rider owes money (balance < 0)
         if (currentBalance < 0) {
             log("INFO", "Rider Debt Lock Triggered", { currentBalance, rider_id });
             return new Response(
@@ -247,7 +238,6 @@ serve(async (req: Request) => {
             );
         }
 
-        // Wallet Payment Check: Prevent requesting a ride they can't afford
         if (payment_method === "wallet" && currentBalance < fareCents) {
             log("INFO", "Insufficient wallet balance", { currentBalance, fareCents });
             return new Response(
@@ -260,62 +250,90 @@ serve(async (req: Request) => {
             );
         }
 
-        // 7. Insert Ride
-        // We use the Service Role key here if we need to bypass any potential RLS on INSERT,
-        // but typically the User should be allowed to INSERT their own ride.
-        // However, since we validated the user above, we can safely use the Service Role for the INSERT
-        // to ensure it works even if specific INSERT policies are tricky, OR we use the user client.
-        // Let's use the User Client to respect RLS (Proof of Concept for Phase 2).
+        const hasNode = !!(kiosk_id || billed_to_merchant_id);
+        const driverSharePct = 0.81;
+        const platformSharePct = hasNode ? 0.14 : 0.19;
+        const merchantSharePct = hasNode ? 0.05 : 0.0;
 
-        const rideInsert: Record<string, unknown> = {
-            rider_id: rider_id,
-            pickup_lat,
-            pickup_lng,
-            pickup_address,
-            dropoff_lat,
-            dropoff_lng,
-            dropoff_address,
-            status: body.scheduled_for ? "scheduled" : "searching",
-            scheduled_for: body.scheduled_for || null,
-            total_fare_cents: fareCents,
-            distance_meters: distanceMeters,
-            duration_seconds: durationSeconds,
-            route_polyline: routePolyline,
-            vehicle_type,
-            payment_method: payment_method || "cash",
-            ride_pin: Math.floor(1000 + Math.random() * 9000).toString(),
-            idempotency_key: idempotency_key || null,
-            metadata: {
-                source,
-                source_metadata,
-                kiosk_id: kiosk_id || null,
-                taxi_stand_id: taxi_stand_id || null,
-                guest_name: guest_name || null,
-                guest_phone: guest_phone || null,
-            },
+        const driverPayoutCents = Math.floor(fareCents * driverSharePct);
+        const platformRevenueCents = Math.floor(fareCents * platformSharePct);
+        const merchantRevenueCents = Math.floor(fareCents * merchantSharePct);
+
+        const ridePin = Math.floor(1000 + Math.random() * 9000).toString();
+
+        const metadataWithIdentity: Record<string, unknown> = {
+            source,
+            source_metadata,
+            kiosk_id: kiosk_id || null,
+            taxi_stand_id: taxi_stand_id || null,
+            guest_name: guest_name || null,
+            guest_phone: guest_phone || null,
         };
 
-        if (taxi_stand_id) rideInsert.taxi_stand_id = taxi_stand_id;
-        if (billed_to_merchant_id) rideInsert.billed_to_merchant_id = billed_to_merchant_id;
+        const { data: identityPayload, error: identityError } = body.identity_verified
+            ? { data: { identity_verified: true, verification_url: body.verification_url }, error: null }
+            : { data: null, error: null };
 
-        const { data: newRide, error: insertError } = await supabaseClient
-            .from("rides")
-            .insert(rideInsert)
-            .select()
-            .single();
+        if (identityPayload) {
+            metadataWithIdentity.identity_verified = identityPayload.identity_verified;
+            metadataWithIdentity.verification_url = identityPayload.verification_url;
+        }
 
-        if (insertError) {
-            console.error("Insert error:", insertError);
+        const flags: Record<string, unknown> = {};
+        if (body.flagged_location_drift) {
+            flags.flagged_location_drift = true;
+        }
+
+        const rideStatus = body.scheduled_for ? "scheduled" : "searching";
+
+        const rpcResult = await adminClient.rpc('create_ride_atomic', {
+            p_rider_id: rider_id,
+            p_pickup_lat: pickup_lat,
+            p_pickup_lng: pickup_lng,
+            p_pickup_address: pickup_address,
+            p_dropoff_lat: dropoff_lat,
+            p_dropoff_lng: dropoff_lng,
+            p_dropoff_address: dropoff_address,
+            p_status: rideStatus,
+            p_total_fare_cents: fareCents,
+            p_driver_payout_cents: driverPayoutCents,
+            p_distance_meters: distanceMeters,
+            p_duration_seconds: durationSeconds,
+            p_route_polyline: routePolyline,
+            p_vehicle_type: vehicle_type,
+            p_payment_method: payment_method || "cash",
+            p_ride_pin: ridePin,
+            p_idempotency_key: idempotency_key || null,
+            p_metadata: {
+                ...metadataWithIdentity,
+                ...flags,
+                scheduled_for: body.scheduled_for || null,
+            },
+            p_taxi_stand_id: taxi_stand_id || null,
+            p_billed_to_merchant_id: billed_to_merchant_id || null,
+            p_node_id: kiosk_id || null,
+            p_driver_cut: driverPayoutCents,
+            p_platform_cut: platformRevenueCents,
+            p_merchant_cut: merchantRevenueCents,
+        });
+
+        if (!rpcResult.data || !rpcResult.data.success) {
+            console.error("Atomic ride creation failed:", rpcResult.error || rpcResult.data?.error);
             return new Response(
-                JSON.stringify({ success: false, error: "Failed to create ride: " + insertError.message, data: null }),
+                JSON.stringify({
+                    success: false,
+                    error: "Failed to create ride: " + (rpcResult.data?.error || rpcResult.error || "Unknown error"),
+                    data: null
+                }),
                 { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        // 8. Insert Ride Stops (Fix 3)
+        const newRideId = rpcResult.data.ride_id;
+
         if (stops && stops.length > 0) {
             const stopsData = stops.map((s: any, i: number) => ({
-                ride_id: newRide.id,
+                ride_id: newRideId,
                 stop_order: i + 1,
                 place_name: s.place_name,
                 place_address: s.place_address,
@@ -331,45 +349,43 @@ serve(async (req: Request) => {
                 .insert(stopsData);
 
             if (stopsError) {
-                console.error("Failed to insert stops (non-fatal for ride creation):", stopsError);
+                console.error("Failed to insert stops (non-fatal):", stopsError);
             }
 
-            // AI LAYER: Log stops_added event
             await adminClient.from("user_events").insert({
                 user_id: rider_id,
                 event_type: "stops_added",
-                payload: { ride_id: newRide.id, count: stops.length, stops: stops.map((s: any) => s.stop_type) }
+                payload: { ride_id: newRideId, count: stops.length, stops: stops.map((s: any) => s.stop_type) }
             });
         }
 
-        // AI LAYER: Log ride_request event
         await adminClient.from("user_events").insert({
             user_id: rider_id,
             event_type: "ride_request",
-            payload: { 
-                ride_id: newRide.id, 
-                vehicle_type, 
+            payload: {
+                ride_id: newRideId,
+                vehicle_type,
                 fare_cents: fareCents,
                 has_stops: stops.length > 0
             }
         });
 
-        console.log("Ride created:", newRide.id);
+        console.log("Ride created (atomic):", newRideId);
 
         return new Response(
             JSON.stringify({
                 success: true,
                 error: null,
                 data: {
-                    ride_id: newRide.id,
-                    status: "searching",
+                    ride_id: newRideId,
+                    status: rideStatus,
                     distance_km: parseFloat(distanceKm.toFixed(2)),
                     duration_min: parseFloat(durationMin.toFixed(0)),
                     total_fare_cents: fareCents,
                     vehicle_type,
                     payment_method,
                     route_polyline: routePolyline,
-                    driver: null, // Async matching
+                    driver: null,
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

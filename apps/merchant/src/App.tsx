@@ -22,7 +22,7 @@ function App() {
   const [dispatchResult, setDispatchResult] = useState<any>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('g_taxi_merchant_sound') !== 'false');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();

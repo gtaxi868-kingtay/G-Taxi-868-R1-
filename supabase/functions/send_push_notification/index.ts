@@ -1,8 +1,6 @@
-// Supabase Edge Function: send_push_notification
-// Receives a notification request, fetches the user's push token, and sends via Expo/FCM.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -18,6 +16,8 @@ serve(async (req: Request) => {
   }
 
   try {
+    const user = await requireAuth(req);
+
     const { user_id, title, body, data = {} } = await req.json();
 
     if (!user_id || !title || !body) {
@@ -27,9 +27,15 @@ serve(async (req: Request) => {
       );
     }
 
+    if (user_id !== user.id) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Try rider profile first, then driver
     let pushToken: string | null = null;
     let userType = "unknown";
 
@@ -62,7 +68,6 @@ serve(async (req: Request) => {
       );
     }
 
-    // Import shared push helper
     const { sendPushNotification } = await import("../_shared/push.ts");
 
     await sendPushNotification(pushToken, title, body, data);
@@ -74,6 +79,7 @@ serve(async (req: Request) => {
 
   } catch (err: any) {
     console.error("[send_push_notification] Error:", err.message);
+    if (err instanceof Response) return err;
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -4,10 +4,16 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
-import NfcManager, { NfcTech } from 'react-native-nfc-manager';
+// NFC is not currently available — stub for compilation until native module is re-integrated
+const Nfc = {
+    requestTechnologyAsync: async (): Promise<{ id: string } | null> => {
+        console.warn('[Nfc] NFC hardware not available');
+        return null;
+    },
+};
 import { Txt } from '@/design-system/primitives';
 import { tokens } from '@/design-system/tokens';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 
 export function NfcHandshakeScreen({ route, navigation }: any) {
     const { width } = useWindowDimensions();
@@ -25,24 +31,18 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
         }
         
         return () => {
-            // Cleanup NFC when screen unmounts
-            NfcManager.cancelTechnologyRequest();
         };
     }, [tagUid]);
 
     const scanNfcTag = async () => {
         try {
-            await NfcManager.start();
-            await NfcManager.requestTechnology(NfcTech.Ndef);
-            const tag = await NfcManager.getTag();
+            const tag = await Nfc.requestTechnologyAsync();
             if (tag && tag.id) {
                 handleHandshakeWithTag(tag.id);
             }
         } catch (ex) {
             console.warn('NFC Scan cancelled or failed', ex);
             setLoading(false);
-        } finally {
-            NfcManager.cancelTechnologyRequest();
         }
     };
 

@@ -1,15 +1,35 @@
 // Environment configuration
-// These values are safe to commit - they are public keys
-// Service role key is ONLY used in Edge Functions (server-side)
+// All keys are consumed from platform-specific env variables:
+//   - Expo (mobile): process.env.EXPO_PUBLIC_*
+//   - Vite (web):    import.meta.env.VITE_*
+// No hardcoded keys in source code.
+
+// Detect the runtime platform to pick the correct env prefix
+function getEnvVar(key: string): string {
+    // Expo React Native — process.env is available
+    if (typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_SUPABASE_URL) {
+        const expoKey = `EXPO_PUBLIC_${key}`;
+        return (process.env as Record<string, string | undefined>)[expoKey] || '';
+    }
+
+    // Vite web — import.meta.env is available at build time
+    if (typeof (globalThis as any).import?.meta?.env !== 'undefined') {
+        const viteKey = `VITE_${key}`;
+        return ((globalThis as any).import.meta.env as Record<string, string | undefined>)[viteKey] || '';
+    }
+
+    // Fallback for SSR / test environments
+    return '';
+}
 
 export const ENV = {
-    SUPABASE_URL: 'https://ffbbuafgeypvkpcuvdnv.supabase.co',
-    SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmYmJ1YWZnZXlwdmtwY3V2ZG52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mzc5ODAsImV4cCI6MjA4NjUxMzk4MH0.0bvE6YskOdVROtbto3RrJA9Vj--9M2hKg76oZkOxia8',
-    MAPBOX_PUBLIC_TOKEN: 'pk.eyJ1IjoidGF4aWciLCJhIjoiY21ra2U3MHpxMWRnYzNwcTBubjFvZndoOCJ9.1wZm2poSFz_YsiCPlkEZPw',
-    STRIPE_PUBLISHABLE_KEY: 'pk_test_51T5BBd1WFmhcTKlewpCwO6l32TeobOpc3FrXTeGCDGkLqFkNECIa2WBkseeWvXvexMTS23c2d356XHNTwNnx6Z5c00Y94Vu24E',
-    GEMINI_API_KEY: 'AIzaSyD0z2CTpt-EeIxJ4476FrwnVcRnQWiQZLc',
-    GROQ_API_KEY: '24a726b6fc498268f3e2c9aeb10058bc1291493c09f5c5bb923e3f8825a76ca7',
-    SENTRY_DSN: 'https://examplePublicKey@o0.ingest.sentry.io/0',
+    SUPABASE_URL: getEnvVar('SUPABASE_URL'),
+    SUPABASE_ANON_KEY: getEnvVar('SUPABASE_ANON_KEY'),
+    MAPBOX_PUBLIC_TOKEN: getEnvVar('MAPBOX_ACCESS_TOKEN') || getEnvVar('MAPBOX_PUBLIC_TOKEN'),
+    STRIPE_PUBLISHABLE_KEY: getEnvVar('STRIPE_PUBLISHABLE_KEY'),
+    GEMINI_API_KEY: getEnvVar('GEMINI_API_KEY'),
+    GROQ_API_KEY: getEnvVar('GROQ_API_KEY'),
+    SENTRY_DSN: getEnvVar('SENTRY_DSN'),
 } as const;
 
 // Trinidad & Tobago default location (Port of Spain)

@@ -17,7 +17,7 @@ serve(async (req: Request) => {
     try {
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
         // G-TAXI HARDENING: Fix 12/15 - Handle column-based single row config
-        const { data: configRows } = await supabase.from("system_config").select("*").eq("id", "global").limit(1);
+        const { data: configRows } = await supabase.from("system_config").select("*").eq("key", "global").limit(1);
         const config = configRows?.[0] || {};
 
         const status = {

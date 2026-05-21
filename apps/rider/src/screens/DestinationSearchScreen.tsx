@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
-    FlatList, useWindowDimensions, ActivityIndicator, Keyboard
+    FlatList, useWindowDimensions, ActivityIndicator, Keyboard,
+    KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 
 // Blueberry Luxe Color System
 const COLORS = {
@@ -116,6 +117,10 @@ export function DestinationSearchScreen({ navigation, route }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
             {/* Header row: [← back circle] | search TextInput autofocus */}
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity
@@ -163,6 +168,7 @@ export function DestinationSearchScreen({ navigation, route }: any) {
                     ) : null
                 }
             />
+            </KeyboardAvoidingView>
         </View>
     );
 }

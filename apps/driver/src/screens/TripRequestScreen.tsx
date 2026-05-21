@@ -13,8 +13,9 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
 import { acceptRide, declineRide } from '../services/api';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
+import { Ride } from '@gtaxi/core';
 
 
 // Blueberry Luxe — Gold Edition (Driver)
@@ -76,6 +77,8 @@ export function TripRequestScreen({ navigation, route }: any) {
     const [detailLoading, setDetailLoading] = useState(true);
     const [isPreferred, setIsPreferred] = useState(false);
     const [stops, setStops] = useState<any[]>([]);
+    const [hasNode, setHasNode] = useState(false);
+    const [identityVerified, setIdentityVerified] = useState(false);
 
     const totalSeconds = offer?.timeout_seconds ?? 15;
 
@@ -122,10 +125,14 @@ export function TripRequestScreen({ navigation, route }: any) {
         }
         const fetchDetails = async () => {
             const { data } = await supabase.from('rides')
-                .select('pickup_address, dropoff_address, total_fare_cents, payment_method, vehicle_type, rider_id')
+                .select('pickup_address, dropoff_address, total_fare_cents, payment_method, vehicle_type, rider_id, metadata')
                 .eq('id', offer.ride_id).single();
             if (data) {
                 setRideDetail(data);
+                const meta = data.metadata || {};
+                const hasNodeId = !!(meta.kiosk_id || meta.node_id || meta.revenue_split?.node_present);
+                setHasNode(hasNodeId);
+                setIdentityVerified(!!meta.identity_verified);
                 const { data: stps } = await supabase.from('ride_stops').select('stop_type').eq('ride_id', offer.ride_id);
                 if (stps) setStops(stps);
                 if (data.rider_id && driver?.id) {
@@ -204,12 +211,26 @@ export function TripRequestScreen({ navigation, route }: any) {
                                 style={s.headerLogo}
                                 resizeMode="contain"
                             />
-                            {isPreferred && (
-                                <View style={s.prefBadge}>
-                                    <Ionicons name="star" size={12} color={COLORS.gold} />
-                                    <Text style={s.prefBadgeText}>PREFERRED</Text>
-                                </View>
-                            )}
+                            <View style={s.badgeRow}>
+                                {isPreferred && (
+                                    <View style={s.prefBadge}>
+                                        <Ionicons name="star" size={12} color={COLORS.gold} />
+                                        <Text style={s.prefBadgeText}>PREFERRED</Text>
+                                    </View>
+                                )}
+                                {hasNode && (
+                                    <View style={s.premiumBadge}>
+                                        <Ionicons name="storefront" size={12} color="#FFF" />
+                                        <Text style={s.premiumBadgeText}>MERCHANT PICKUP</Text>
+                                    </View>
+                                )}
+                                {identityVerified && (
+                                    <View style={s.verifiedBadge}>
+                                        <Ionicons name="shield-checkmark" size={12} color={COLORS.success} />
+                                        <Text style={s.verifiedBadgeText}>VERIFIED</Text>
+                                    </View>
+                                )}
+                            </View>
                         </View>
 
                         {/* Earnings Circle with Countdown */}
@@ -341,6 +362,11 @@ const s = StyleSheet.create({
         width: 48,
         height: 48,
     },
+    badgeRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
     prefBadge: { 
         flexDirection: 'row', 
         alignItems: 'center', 
@@ -356,6 +382,40 @@ const s = StyleSheet.create({
         fontSize: 11,
         fontWeight: '800',
         color: COLORS.gold,
+        letterSpacing: 0.5,
+    },
+    premiumBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(123,92,240,0.15)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(123,92,240,0.3)',
+        gap: 6,
+    },
+    premiumBadgeText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#FFF',
+        letterSpacing: 0.5,
+    },
+    verifiedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,255,148,0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(0,255,148,0.25)',
+        gap: 6,
+    },
+    verifiedBadgeText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: COLORS.success,
         letterSpacing: 0.5,
     },
     

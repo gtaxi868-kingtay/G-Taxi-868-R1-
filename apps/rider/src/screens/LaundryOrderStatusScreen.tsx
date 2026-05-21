@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
 
 const STATUS_STEPS = ['pending', 'picked_up', 'processing', 'ready', 'delivered'];

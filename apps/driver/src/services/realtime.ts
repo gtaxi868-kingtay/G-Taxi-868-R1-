@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface RideOffer {

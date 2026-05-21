@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, Image,
-    useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView,
+    View, Text, StyleSheet, TouchableOpacity, Image, ScrollView,
+    useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
@@ -19,47 +19,55 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { DEFAULT_LOCATION, ENV } from '@gtaxi/shared/env';
+import { useNetInfo } from '@react-native-community/netinfo';
 import { useAuth } from '../context/AuthContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
-import { supabase } from '@gtaxi/native';
+import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
+
+const { supabase } = initializeSupabaseClient('native');
+
+const CARD_WIDTH = 220;
+const CARD_GAP = 12;
 
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
-// Blueberry Luxe Color System
+// G-Taxi Canonical Color System
 const COLORS = {
-    bgPrimary: '#0D0B1E',
+    bgPrimary: '#0F0D16',
     bgSecondary: '#160B32',
     gradientStart: '#1A0533',
     gradientEnd: '#0D1B4B',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    cyan: '#00E5FF',
+    purple: '#BF40FF',
+    purpleDark: '#4D0070',
+    cyan: '#06B6D4',
     cyanDark: '#0099BB',
+    gold: '#F59E0B',
+    teal: '#06B6D4',
+    crimson: '#DC2626',
     white: '#FFFFFF',
     textSecondary: 'rgba(255,255,255,0.6)',
     textMuted: 'rgba(255,255,255,0.5)',
     glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
+    glassBorder: 'rgba(191,64,255,0.3)',
     success: '#00FF94',
     error: '#FF4D6D',
     warning: '#F59E0B',
 };
 
-// Custom Dark Map Style for Blueberry Luxe
+// Custom Dark Map Style
 const DARK_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: '#0d0b1e' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#7B5CF0' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#0d0b1e' }] },
+    { elementType: 'geometry', stylers: [{ color: '#0f0d16' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#BF40FF' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0f0d16' }] },
     { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1040' }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#7B5CF0', weight: 0.5 }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00E5FF', lightness: -80 }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#BF40FF', weight: 0.5 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#06B6D4', lightness: -80 }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] }
 ];
 
 import { getSavedPlaces, savePlace, getRecentRides, estimateFare } from '../services/api';
-import { SavedPlace, Location as RideLocation } from '../types/ride';
+import { SavedPlace, Location as RideLocation, haversineMeters, isWithinRadius, checkGeofenceZone } from '@gtaxi/core';
 import { SavedPlaceModal } from '../components/SavedPlaceModal';
 import { RecentRidesModal } from '../components/RecentRidesModal';
 import { formatTTDDollars } from '../utils/currency';
@@ -74,7 +82,7 @@ export function HomeScreen({ navigation, route }: any) {
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false });
+    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false });
     const [systemStatus, setSystemStatus] = useState<any>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -87,7 +95,9 @@ export function HomeScreen({ navigation, route }: any) {
     const [showLocationConfirm, setShowLocationConfirm] = useState(false);
     const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
 
-    // Cross-platform voice command modal (replaces iOS-only Alert.prompt)
+    const nfcDedupCache = useRef<Map<string, number>>(new Map());
+    const netInfo = useNetInfo();
+
     const [voiceModalVisible, setVoiceModalVisible] = useState(false);
     const [voiceInputText, setVoiceInputText] = useState('');
 
@@ -182,13 +192,19 @@ export function HomeScreen({ navigation, route }: any) {
                 const flags = { 
                     grocery: verticals?.some((v: any) => v.vertical_name === 'grocery') || false,
                     laundry: verticals?.some((v: any) => v.vertical_name === 'laundry') || false,
-                    merchant: verticals?.some((v: any) => v.vertical_name === 'merchant_delivery') || false
+                    merchant: verticals?.some((v: any) => v.vertical_name === 'merchant_delivery') || false,
+                    kiosk: false,
                 };
+                const { data: sysKiosk } = await supabase
+                    .from('system_feature_flags')
+                    .select('is_active')
+                    .eq('id', 'kiosk_active')
+                    .maybeSingle();
+                flags.kiosk = sysKiosk?.is_active === true;
                 setFeatureFlags(flags);
             } catch (err) {
                 console.warn('Failed to fetch verticals:', err);
-                // Fallback: disable all verticals on error
-                setFeatureFlags({ grocery: false, laundry: false, merchant: false });
+                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false });
             }
         };
         fetchEnabledVerticals();
@@ -329,6 +345,72 @@ export function HomeScreen({ navigation, route }: any) {
             verticalsChannel?.unsubscribe();
         };
     }, []);
+
+    // NFC Tag Listener — geofenced, deduplicated, idempotent
+    useEffect(() => {
+        const { nfcTagId, nfcLat, nfcLng, nfcLocation } = route?.params || {};
+        if (!nfcTagId) return;
+
+        const now = Date.now();
+        const cache = nfcDedupCache.current;
+
+        // Clean expired entries (>30s)
+        for (const [key, ts] of cache.entries()) {
+            if (now - ts > 30000) cache.delete(key);
+        }
+
+        // Dedup check: if same node_id tapped within 30s, ignore
+        if (cache.has(nfcTagId)) {
+            console.log(`[NFC] Dedup: ${nfcTagId} already processed within 30s`);
+            return;
+        }
+        cache.set(nfcTagId, now);
+
+        if (netInfo.isConnected === false) {
+            Alert.alert(
+                'Network Disconnected',
+                "G-Taxi is still ready to route you.\n\nTo request your ride right now without internet data, please SMS 'GTAX " + nfcTagId + "' to 1-868-703-1000 or open WhatsApp to chat with our concierge."
+            );
+            Linking.openURL('https://wa.me/18687031000?text=GTAX_' + nfcTagId + '_OFFLINE_REQUEST');
+            return;
+        }
+
+        const tagLat = nfcLat ? parseFloat(nfcLat) : null;
+        const tagLng = nfcLng ? parseFloat(nfcLng) : null;
+        const tagAddress = nfcLocation || 'NFC Kiosk';
+
+        if (tagLat && tagLng && location?.coords) {
+            const { withinHard, withinSoft, driftMeters } = checkGeofenceZone(
+                location.coords.latitude,
+                location.coords.longitude,
+                tagLat,
+                tagLng
+            );
+            if (!withinHard) {
+                console.warn(`[NFC] Tag too far: ${driftMeters.toFixed(0)}m from node (limit 150m)`);
+                Alert.alert('Location Mismatch', `You are ${driftMeters.toFixed(0)}m from this NFC kiosk. Please move closer.`);
+                return;
+            }
+            if (!withinSoft) {
+                console.log(`[NFC] Tag within soft zone: ${driftMeters.toFixed(0)}m — flagging drift`);
+            }
+        }
+
+        navigation.navigate('DestinationSearch', {
+            currentLocation: {
+                latitude: tagLat || currentLat,
+                longitude: tagLng || currentLng,
+                address: tagAddress,
+            },
+            source: 'nfc_kiosk',
+            sourceMetadata: {
+                kioskId: nfcTagId,
+                locationName: tagAddress,
+                lat: tagLat,
+                lng: tagLng,
+            },
+        });
+    }, [route?.params?.nfcTagId]);
 
     const fetchPlaces = async () => {
         const places = await getSavedPlaces();
@@ -576,7 +658,7 @@ export function HomeScreen({ navigation, route }: any) {
                             borderRadius: 20,
                             padding: 8,
                             borderWidth: 2,
-                            borderColor: '#00E5FF',
+                            borderColor: COLORS.cyan,
                             alignItems: 'center',
                             justifyContent: 'center'
                         }}>
@@ -657,7 +739,7 @@ export function HomeScreen({ navigation, route }: any) {
                 >
                     <BlurView intensity={80} tint="dark" style={s.aiBlur}>
                         <View style={s.aiAvatar}>
-                            <LinearGradient colors={['#7B61FF', '#00FFFF']} style={StyleSheet.absoluteFillObject} />
+                            <LinearGradient colors={['#BF40FF', '#06B6D4']} style={StyleSheet.absoluteFillObject} />
                             <Ionicons name={visionLoading ? "scan" : "sparkles"} size={16} color="#FFF" />
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
@@ -757,63 +839,138 @@ export function HomeScreen({ navigation, route }: any) {
                             </View>
                         </TouchableOpacity>
 
-                        {/* SERVICE TILES - 2x2 GRID */}
-                        <View style={s.tilesContainer}>
-                            {/* RIDE - Cyan */}
-                            <TouchableOpacity 
-                                style={[s.serviceTile, { width: (width - 72) / 2 }]}
+                        {/* SERVICE CARDS - Horizontal snap carousel */}
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            snapToInterval={CARD_WIDTH + CARD_GAP}
+                            decelerationRate="fast"
+                            contentContainerStyle={{ paddingHorizontal: 16, gap: CARD_GAP, paddingBottom: 8 }}
+                        >
+                            {/* RIDE - Purple #BF40FF */}
+                            <TouchableOpacity
+                                activeOpacity={0.85}
+                                style={[s.serviceCard, { width: CARD_WIDTH }]}
+                                onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+                            >
+                                <BlurView intensity={40} tint="dark" style={s.cardBlur}>
+                                    <LinearGradient
+                                        colors={['rgba(191,64,255,0.2)', 'rgba(191,64,255,0.05)']}
+                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                        style={s.cardGradient}
+                                    >
+                                        <View style={[s.cardIconWrap, { backgroundColor: 'rgba(191,64,255,0.2)' }]}>
+                                            <Ionicons name="car" size={32} color={COLORS.purple} />
+                                        </View>
+                                        <Text style={s.cardTitle}>Ride</Text>
+                                        <Text style={s.cardSub}>Get a taxi anywhere</Text>
+                                    </LinearGradient>
+                                </BlurView>
+                            </TouchableOpacity>
+
+                            {/* MARKET - Gold #F59E0B */}
+                            <TouchableOpacity
+                                activeOpacity={0.85}
+                                style={[s.serviceCard, { width: CARD_WIDTH }]}
                                 onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    if (featureFlags.grocery) {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        navigation.navigate('GroceryStorefront');
+                                    } else {
+                                        Alert.alert('Coming Soon', 'Market is being built. Stay tuned!');
+                                    }
                                 }}
                             >
-                                <View style={[s.serviceIconContainer, s.serviceIconCyan]}>
-                                    <Ionicons name="car" size={26} color={COLORS.cyan} />
-                                </View>
-                                <Text style={s.serviceLabel}>Ride</Text>
+                                <BlurView intensity={40} tint="dark" style={s.cardBlur}>
+                                    <LinearGradient
+                                        colors={['rgba(245,158,11,0.2)', 'rgba(245,158,11,0.05)']}
+                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                        style={s.cardGradient}
+                                    >
+                                        <View style={[s.cardIconWrap, { backgroundColor: 'rgba(245,158,11,0.2)' }]}>
+                                            <Ionicons name="bag" size={32} color={COLORS.gold} />
+                                        </View>
+                                        <Text style={s.cardTitle}>Market</Text>
+                                        <Text style={s.cardSub}>Groceries delivered</Text>
+                                    </LinearGradient>
+                                </BlurView>
                             </TouchableOpacity>
 
-                            {/* MARKET - Purple */}
-                            <TouchableOpacity 
-                                style={[s.serviceTile, { width: (width - 72) / 2 }]}
-                                onPress={() => Alert.alert(
-                                    'Coming Soon', 
-                                    'This feature is being built. Stay tuned!'
-                                )}
+                            {/* LAUNDRY - Teal #06B6D4 */}
+                            <TouchableOpacity
+                                activeOpacity={0.85}
+                                style={[s.serviceCard, { width: CARD_WIDTH }]}
+                                onPress={() => {
+                                    if (featureFlags.laundry) {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        navigation.navigate('LaundryLanding');
+                                    } else {
+                                        Alert.alert('Coming Soon', 'Laundry is being built. Stay tuned!');
+                                    }
+                                }}
                             >
-                                <View style={[s.serviceIconContainer, s.serviceIconPurple]}>
-                                    <Ionicons name="bag" size={26} color={COLORS.purple} />
-                                </View>
-                                <Text style={s.serviceLabel}>Market</Text>
+                                <BlurView intensity={40} tint="dark" style={s.cardBlur}>
+                                    <LinearGradient
+                                        colors={['rgba(6,182,212,0.2)', 'rgba(6,182,212,0.05)']}
+                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                        style={s.cardGradient}
+                                    >
+                                        <View style={[s.cardIconWrap, { backgroundColor: 'rgba(6,182,212,0.2)' }]}>
+                                            <Ionicons name="shirt" size={32} color={COLORS.teal} />
+                                        </View>
+                                        <Text style={s.cardTitle}>Laundry</Text>
+                                        <Text style={s.cardSub}>Fresh & folded</Text>
+                                    </LinearGradient>
+                                </BlurView>
                             </TouchableOpacity>
 
-                            {/* LAUNDRY - Cyan */}
-                            <TouchableOpacity 
-                                style={[s.serviceTile, { width: (width - 72) / 2 }]}
-                                onPress={() => Alert.alert(
-                                    'Coming Soon', 
-                                    'This feature is being built. Stay tuned!'
-                                )}
+                            {/* PHARMA - Obsidian + Crimson #DC2626 border */}
+                            <TouchableOpacity
+                                activeOpacity={0.85}
+                                style={[s.serviceCard, { width: CARD_WIDTH }]}
+                                onPress={() => Alert.alert('Coming Soon', 'Pharma is being built. Stay tuned!')}
                             >
-                                <View style={[s.serviceIconContainer, s.serviceIconCyan]}>
-                                    <Ionicons name="shirt" size={26} color={COLORS.cyan} />
-                                </View>
-                                <Text style={s.serviceLabel}>Laundry</Text>
+                                <BlurView intensity={40} tint="dark" style={s.cardBlur}>
+                                    <LinearGradient
+                                        colors={['rgba(220,38,38,0.15)', 'rgba(0,0,0,0.3)']}
+                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                        style={[s.cardGradient, { borderColor: COLORS.crimson, borderWidth: 1 }]}
+                                    >
+                                        <View style={[s.cardIconWrap, { backgroundColor: 'rgba(220,38,38,0.2)' }]}>
+                                            <Ionicons name="medical" size={32} color={COLORS.crimson} />
+                                        </View>
+                                        <Text style={s.cardTitle}>Pharma</Text>
+                                        <Text style={s.cardSub}>Medicine fast</Text>
+                                    </LinearGradient>
+                                </BlurView>
                             </TouchableOpacity>
 
-                            {/* MORE - Purple */}
-                            <TouchableOpacity 
-                                style={[s.serviceTile, { width: (width - 72) / 2 }]}
-                                onPress={() => Alert.alert(
-                                    'Coming Soon', 
-                                    'This feature is being built. Stay tuned!'
-                                )}
-                            >
-                                <View style={[s.serviceIconContainer, s.serviceIconPurple]}>
-                                    <Ionicons name="grid" size={26} color={COLORS.purple} />
-                                </View>
-                                <Text style={s.serviceLabel}>More</Text>
-                            </TouchableOpacity>
-                        </View>
+                            {/* TAP (NFC/QR) - Purple, only when kiosk enabled */}
+                            {!!featureFlags.kiosk && (
+                                <TouchableOpacity
+                                    activeOpacity={0.85}
+                                    style={[s.serviceCard, { width: CARD_WIDTH }]}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        navigation.navigate('NfcScan');
+                                    }}
+                                >
+                                    <BlurView intensity={40} tint="dark" style={s.cardBlur}>
+                                        <LinearGradient
+                                            colors={['rgba(191,64,255,0.2)', 'rgba(191,64,255,0.05)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.cardGradient}
+                                        >
+                                            <View style={[s.cardIconWrap, { backgroundColor: 'rgba(191,64,255,0.2)' }]}>
+                                                <Ionicons name="radio" size={32} color={COLORS.purple} />
+                                            </View>
+                                            <Text style={s.cardTitle}>Tap</Text>
+                                            <Text style={s.cardSub}>Scan a puck</Text>
+                                        </LinearGradient>
+                                    </BlurView>
+                                </TouchableOpacity>
+                            )}
+                        </ScrollView>
 
                         {/* FIX #1: Fare Estimate Preview - shows upfront fare before ride request */}
                         {(selectedDestinationPreview || isEstimatingFare) && (
@@ -1329,47 +1486,46 @@ const s = StyleSheet.create({
         marginLeft: 8,
     },
 
-    // Service Tiles - 2x2 Grid
-    tilesContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-        marginBottom: 20,
-    },
-    serviceTile: { 
-        height: 100, 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        borderRadius: 20, 
+    // Service Cards - Horizontal snap carousel
+    serviceCard: {
+        height: 170,
+        borderRadius: 24,
         overflow: 'hidden',
-        backgroundColor: COLORS.glassBg,
         borderWidth: 1,
-        borderColor: COLORS.glassBorder,
+        borderColor: 'rgba(255,255,255,0.08)',
     },
-    serviceTileActive: {
-        borderColor: COLORS.cyan,
-        backgroundColor: 'rgba(0, 229, 255, 0.1)',
+    cardBlur: {
+        flex: 1,
+        borderRadius: 24,
+        overflow: 'hidden',
     },
-    serviceIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 16,
+    cardGradient: {
+        flex: 1,
+        padding: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 24,
+    },
+    cardIconWrap: {
+        width: 60,
+        height: 60,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 8,
+        marginBottom: 12,
     },
-    serviceIconCyan: {
-        backgroundColor: 'rgba(0, 229, 255, 0.15)',
-    },
-    serviceIconPurple: {
-        backgroundColor: 'rgba(123, 92, 240, 0.15)',
-    },
-    serviceLabel: {
-        fontSize: 12,
+    cardTitle: {
+        fontSize: 18,
         fontWeight: '700',
-        letterSpacing: 1.5,
-        textTransform: 'uppercase',
-        color: COLORS.textMuted,
+        color: '#FFFFFF',
+        fontFamily: 'SpaceGrotesk',
+    },
+    cardSub: {
+        fontSize: 12,
+        fontWeight: '500',
+        color: 'rgba(255,255,255,0.5)',
+        marginTop: 4,
+        fontFamily: 'Manrope',
     },
 
     // Fare Preview
@@ -1684,7 +1840,7 @@ const s = StyleSheet.create({
         alignItems: 'center',
     },
     locationConfirmBtnPrimaryText: {
-        color: '#0D0B1E',
+        color: COLORS.bgPrimary,
         fontSize: 16,
         fontWeight: '800',
     },

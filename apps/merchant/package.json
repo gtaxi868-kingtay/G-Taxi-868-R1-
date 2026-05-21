@@ -10,6 +10,8 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@gtaxi/core": "*",
+    "@gtaxi/design-system": "*",
     "@supabase/supabase-js": "2.48.1",
     "lucide-react": "0.577.0",
     "react": "18.3.1",

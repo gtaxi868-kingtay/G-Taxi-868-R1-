@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, TextInput,
-    ScrollView, ActivityIndicator, useWindowDimensions, Alert
+    ScrollView, ActivityIndicator, useWindowDimensions, Alert,
+    KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -9,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 
@@ -81,6 +82,10 @@ export function PromoScreen({ navigation }: any) {
                 <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Promotions</Txt>
             </View>
 
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
             <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}>
 
                 {/* Layout: Glassmorphism input card at top */}
@@ -137,6 +142,7 @@ export function PromoScreen({ navigation }: any) {
                 )}
 
             </ScrollView>
+            </KeyboardAvoidingView>
         </View>
     );
 }

@@ -1,3 +1,2 @@
-// Relay: @gtaxi/shared/OutboxService → @gtaxi/native
-export { OutboxService } from '@gtaxi/native';
-export type { OutboxAction } from '@gtaxi/native';
+export { OutboxService } from '@gtaxi/core';
+export type { OutboxAction } from '@gtaxi/core';

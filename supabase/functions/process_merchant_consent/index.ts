@@ -1,11 +1,6 @@
-// Supabase Edge Function: process_merchant_consent
-// BRIDGING THE GAP: Appointments -> Logistics Engine
-//
-// Triggered when a Merchant grants consent for a ride.
-// Automates the creation of a 'searching' ride to take the guest to their appointment.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -23,13 +18,14 @@ serve(async (req: Request) => {
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     try {
+        const user = await requireAuth(req);
+
         const { appointment_id } = await req.json();
 
         if (!appointment_id) {
             throw new Error("Missing appointment_id");
         }
 
-        // 1. Fetch Appointment Details
         const { data: app, error: appError } = await adminClient
             .from("merchant_appointments")
             .select("*, merchant:merchant_id(*), service:service_id(*)")
@@ -40,7 +36,12 @@ serve(async (req: Request) => {
         if (app.merchant_consent_status !== 'granted') throw new Error("Consent not granted");
         if (app.ride_id) throw new Error("Ride already created for this appointment");
 
-        // 2. Conflict Check: Is rider already in a ride?
+        if (app.rider_id !== user.id) {
+            return new Response(JSON.stringify({ error: "Forbidden" }), {
+                status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+        }
+
         const { data: activeRide } = await adminClient
             .from("rides")
             .select("id")
@@ -50,7 +51,6 @@ serve(async (req: Request) => {
         
         if (activeRide) throw new Error("Rider already has an active or pending ride");
 
-        // 3. Prepare Payload for create_ride
         const pickup_lat = app.pickup_lat;
         const pickup_lng = app.pickup_lng;
         const pickup_address = app.pickup_address || "Client Location";
@@ -58,7 +58,6 @@ serve(async (req: Request) => {
         const dropoff_lng = app.merchant.lng;
         const dropoff_address = app.merchant.address || app.merchant.name;
 
-        // 4. Calculate Distance & Fare (Haversine fallback)
         const R = 6371000;
         const dLat = (dropoff_lat - pickup_lat) * Math.PI / 180;
         const dLng = (dropoff_lng - pickup_lng) * Math.PI / 180;
@@ -66,13 +65,12 @@ serve(async (req: Request) => {
             Math.cos(pickup_lat * Math.PI / 180) * Math.cos(dropoff_lat * Math.PI / 180) *
             Math.sin(dLng / 2) * Math.sin(dLng / 2);
         const c_dist = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distanceMeters = Math.round(R * c_dist * 1.3); // 1.3x road factor
-        const durationSeconds = Math.round(distanceMeters / 8.33); // ~30km/h average
+        const distanceMeters = Math.round(R * c_dist * 1.3);
+        const durationSeconds = Math.round(distanceMeters / 8.33);
 
         const { calculateFare } = await import("../_shared/pricing.ts");
         const fareCents = calculateFare(distanceMeters, durationSeconds, "Standard");
 
-        // 5. Invoke create_ride logic
         const { data: newRide, error: rideError } = await adminClient
             .from("rides")
             .insert({
@@ -99,14 +97,10 @@ serve(async (req: Request) => {
 
         if (rideError) throw rideError;
 
-        // 4. Link Ride back to Appointment
         await adminClient
             .from("merchant_appointments")
             .update({ ride_id: newRide.id })
             .eq("id", app.id);
-
-        // 5. Notify Rider via Push (Phase 8A Placeholder)
-        // await adminClient.rpc('send_push_notification', { ... });
 
         return new Response(
             JSON.stringify({ success: true, ride_id: newRide.id }),
@@ -115,6 +109,7 @@ serve(async (req: Request) => {
 
     } catch (error: any) {
         console.error("process_merchant_consent error:", error);
+        if (error instanceof Response) return error;
         return new Response(
             JSON.stringify({ success: false, error: error.message }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

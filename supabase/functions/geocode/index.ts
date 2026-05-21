@@ -8,7 +8,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
 // Trinidad bounding box
@@ -35,6 +35,19 @@ serve(async (req: Request) => {
     }
 
     try {
+        // Auth check: require valid JWT
+        const authHeader = req.headers.get('Authorization');
+        const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            global: { headers: { Authorization: authHeader ?? '' } },
+        });
+        const { data: { user }, error: authError } = await anonClient.auth.getUser();
+        if (authError || !user) {
+            return new Response(
+                JSON.stringify({ success: false, error: 'Unauthorized: Valid JWT required' }),
+                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
         // Parse request body
         let body;
         try {
@@ -57,7 +70,7 @@ serve(async (req: Request) => {
 
         console.log("Searching for:", query);
 
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // Sanitize query — strip PostgREST-sensitive characters to prevent filter injection
         const sanitizedQuery = query.replace(/[(),."'\\%;]/g, '').trim();

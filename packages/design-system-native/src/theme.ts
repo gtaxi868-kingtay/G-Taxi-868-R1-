@@ -4,12 +4,16 @@
  */
 
 export const BRAND = {
-    purple: '#BF40FF', // The "Pulse"
+    purple: '#BF40FF', // "The Pulse"
     purpleDark: '#4D0070',
     purpleLight: '#DB90FF',
-    cyan: '#06B6D4', // The "Data Stream"
+    cyan: '#06B6D4', // "The Data Stream"
     cyanSoft: 'rgba(6, 182, 212, 0.1)',
+    gold: '#F59E0B', // "The Commerce Gold"
+    goldDark: '#B45309',
+    crimson: '#DC2626', // "The Admin Red"
     deepViolet: '#0F0D16', // Obsidian Base
+    obsidian: '#0A0A0F',
     lavender: '#F5F3FF',
     indigoDeep: '#1E1B4B',
 };
@@ -18,7 +22,7 @@ export const SEMANTIC = {
     success: '#10B981',
     danger: '#EF4444',
     warning: '#F59E0B',
-    info: '#6366F1',
+    info: '#06B6D4',
     surfaceLight: '#F9FAFB',
     surfaceDark: '#111827',
     textPrimary: '#374151',
@@ -40,7 +44,7 @@ export const SPACING = {
 export const RADIUS = {
     sm: 12,
     md: 20,
-    lg: 28, // G-Taxi Signature
+    lg: 28,
     xl: 40,
     pill: 999,
 };
@@ -53,30 +57,34 @@ export const GRADIENTS = {
 
 export const VOICES = {
     rider: {
-        bg: '#0F0D16', // Obsidian Depth
+        bg: '#0F0D16',
         surface: 'rgba(255,255,255,0.08)',
         text: '#E9E3F0',
         textMuted: 'rgba(174,169,181,0.65)',
         border: 'rgba(119, 116, 127, 0.15)',
+        accent: BRAND.purple,
     },
     driver: {
-        bg: '#0F0D16', // Obsidian Depth (Consistent with Rider)
+        bg: '#0F0D16',
         surface: '#1A1823',
         surfaceHigh: 'rgba(26, 21, 48, 0.8)',
         text: '#E9E3F0',
         textMuted: '#AEA9B5',
-        gold: '#F59E0B',
+        gold: BRAND.gold,
     },
     admin: {
         bg: '#0F172A',
         surface: '#1E293B',
-        accent: '#06B6D4',
+        accent: BRAND.crimson,
         text: '#F1F5F9',
     },
     merchant: {
-        bg: '#F0FDF4',
-        surface: '#FFFFFF',
-        accent: '#10B981',
-        text: '#064E3B',
+        bg: BRAND.obsidian,
+        surface: 'rgba(255,255,255,0.06)',
+        accent: BRAND.gold,
+        text: '#FFFFFF',
+        textMuted: 'rgba(255,255,255,0.5)',
+        border: 'rgba(245,158,11,0.2)',
+        glassBorder: 'rgba(255,255,255,0.08)',
     },
 };

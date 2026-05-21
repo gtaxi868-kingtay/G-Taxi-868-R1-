@@ -86,8 +86,12 @@ export function LoginScreen({ navigation }: any) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            const { error: signInError } = await signIn(email, password);
-            if (signInError) setError(signInError.message);
+            const { data, error: signInError } = await signIn(email, password);
+            if (signInError) {
+                setError(signInError.message);
+            } else if (data?.user && !data.user.email_confirmed_at) {
+                setError('EMAIL NOT VERIFIED — Check your inbox or verify via WhatsApp below');
+            }
         } catch (err: any) {
             setError(err.message || 'Login failed');
         } finally {
@@ -108,7 +112,8 @@ export function LoginScreen({ navigation }: any) {
             />
 
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                behavior="padding"
+                enabled={Platform.OS === 'ios'}
                 style={s.container}
             >
                 <Reanimated.View entering={FadeIn.duration(1000)} style={[s.content, { paddingTop: height * 0.08 }]}>

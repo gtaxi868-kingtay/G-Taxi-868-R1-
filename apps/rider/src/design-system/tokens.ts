@@ -40,7 +40,7 @@ export const tokens = {
             headline: 'SpaceGrotesk-Medium',
             body: 'Manrope-Regular',
             bodyBold: 'Manrope-Bold',
-            label: 'PlusJakartaSans-Medium',
+            label: 'Manrope-Medium',
             system: 'System',
         },
         sizes: {
@@ -107,7 +107,7 @@ export const tokens = {
             elevation: 20,
         },
         glow: {
-            shadowColor: '#00FFFF',
+            shadowColor: '#06B6D4',
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.6,
             shadowRadius: 20,

@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import { ENV } from '@gtaxi/core';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Anon client — uses VITE_ prefixed env vars for web, EXPO_PUBLIC_ for mobile.
+// Reads from import.meta.env first (Vite build), falls back to ENV from @gtaxi/core.
+const supabaseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) || ENV.SUPABASE_URL;
+const supabaseAnonKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) || ENV.SUPABASE_ANON_KEY;
 
 // Anon client — used only for auth (getSession, signIn, signOut) and Realtime subscriptions.
 // All data queries go through edge functions using the user's JWT.

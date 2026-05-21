@@ -44,3 +44,10 @@ coverage/
 # [Sentry]
 .sentry-debug-files
 apps/rider/build-*.apk
+
+# [Per-app local caches — prevent workspace drift]
+apps/driver/node_modules/
+apps/driver/dist/
+apps/admin-mobile/node_modules/
+apps/merchant-mobile/node_modules/
+packages/*/node_modules/

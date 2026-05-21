@@ -13,7 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@/design-system/primitives';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '@gtaxi/native';
+import { supabase } from '@gtaxi/core';
 import { decode } from 'base64-arraybuffer';
 
 import { tokens } from '@/design-system/tokens';
@@ -35,7 +35,7 @@ export function EditProfileScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
 
     const [fullName, setFullName] = useState(profile?.full_name || '');
-    const [phone, setPhone] = useState(profile?.phone || '');
+    const [phone, setPhone] = useState(profile?.phone_number || '');
     const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -80,7 +80,7 @@ export function EditProfileScreen({ navigation }: any) {
 
         const { error } = await supabase
             .from('profiles')
-            .update({ full_name: fullName, phone: phone, avatar_url: avatarUrl })
+            .update({ full_name: fullName, phone_number: phone, avatar_url: avatarUrl })
             .eq('id', user.id);
 
         if (error) {
