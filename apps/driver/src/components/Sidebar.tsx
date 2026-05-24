@@ -14,15 +14,8 @@ import {
 import { supabase } from '@gtaxi/core';
 import { Logo } from '@gtaxi/shared/design-system/components';
 import { Ionicons } from '@expo/vector-icons';
-
-// Blueberry Luxe — Gold Edition (Driver)
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    gold: '#FFD700',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    error: '#EF4444',
-};
-
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
 interface SidebarProps {
     visible: boolean;
@@ -32,7 +25,7 @@ interface SidebarProps {
         rating: number;
         photo_url?: string;
     };
-    navigation: any;
+    navigation: { navigate: (screen: string) => void };
 }
 
 export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
@@ -44,27 +37,27 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
     useEffect(() => {
         if (visible) {
             Animated.parallel([
-                Animated.timing(slideAnim, {
+                Animated.spring(slideAnim, {
                     toValue: 0,
-                    duration: 300,
+                    ...ANIMATION.spring,
                     useNativeDriver: true,
                 }),
-                Animated.timing(fadeAnim, {
+                Animated.spring(fadeAnim, {
                     toValue: 1,
-                    duration: 300,
+                    ...ANIMATION.spring,
                     useNativeDriver: true,
                 }),
             ]).start();
         } else {
             Animated.parallel([
-                Animated.timing(slideAnim, {
+                Animated.spring(slideAnim, {
                     toValue: -SIDEBAR_WIDTH,
-                    duration: 250,
+                    ...ANIMATION.spring,
                     useNativeDriver: true,
                 }),
-                Animated.timing(fadeAnim, {
+                Animated.spring(fadeAnim, {
                     toValue: 0,
-                    duration: 250,
+                    ...ANIMATION.spring,
                     useNativeDriver: true,
                 }),
             ]).start();
@@ -82,8 +75,8 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
             }}
             activeOpacity={0.7}
         >
-            <Ionicons name={iconName as any} size={22} color={isWarning ? COLORS.error : COLORS.gold} style={{ width: 32 }} />
-            <Text style={{fontSize: 16, fontWeight: '700', color: isWarning ? COLORS.error : '#FFF'}}>{label.toUpperCase()}</Text>
+            <Ionicons name={iconName as any} size={22} color={isWarning ? 'rgba(239,68,68,0.35)' : VOICES.driver.gold} style={{ width: 32 }} />
+            <Text style={{fontSize: 16, fontWeight: '700', color: isWarning ? 'rgba(239,68,68,0.35)' : '#FFF'}}>{label.toUpperCase()}</Text>
         </TouchableOpacity>
     );
 
@@ -99,7 +92,6 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                     onPress: async () => {
                         onClose();
                         await supabase.auth.signOut();
-                        // AuthContext will handle state change -> navigation reset
                     },
                 },
             ]
@@ -115,7 +107,6 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
             <Animated.View style={[styles.panel, { width: SIDEBAR_WIDTH, transform: [{ translateX: slideAnim }] }]}>
                 <View style={{ flex: 1, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' }}>
                     <SafeAreaView style={{ flex: 1 }}>
-                        {/* Profile Header */}
                         <TouchableOpacity
                             style={styles.header}
                             onPress={() => {
@@ -130,7 +121,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                     {user?.photo_url ? (
                                         <Image source={{ uri: user.photo_url }} style={styles.avatarImage} />
                                     ) : (
-                                        <Text style={{fontSize: 16, fontWeight: '700', color: COLORS.gold}}>
+                                        <Text style={{fontSize: 16, fontWeight: '700', color: VOICES.driver.gold}}>
                                             {user?.name?.charAt(0)?.toUpperCase() || 'D'}
                                         </Text>
                                     )}
@@ -146,7 +137,6 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
                         <View style={styles.divider} />
 
-                        {/* Navigation Links */}
                         <View style={styles.navSection}>
                             {navItem('Wallet', 'wallet-outline', 'Wallet')}
                             {navItem('Scheduled', 'calendar-outline', 'ScheduledRides')}
@@ -161,21 +151,20 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
                         <View style={{ flex: 1 }} />
 
-                        {/* Logout */}
                         <View style={styles.navSection}>
                             <TouchableOpacity
                                 style={styles.navItem}
                                 onPress={handleLogout}
                                 activeOpacity={0.7}
                             >
-                                <Ionicons name="log-out-outline" size={22} color={COLORS.error} style={{ width: 32 }} />
-                                <Text style={{fontSize: 16, fontWeight: '700', color: COLORS.error}}>TERMINATE SESSION</Text>
+                                <Ionicons name="log-out-outline" size={22} color="rgba(239,68,68,0.35)" style={{ width: 32 }} />
+                                <Text style={{fontSize: 16, fontWeight: '700', color: 'rgba(239,68,68,0.35)'}}>TERMINATE SESSION</Text>
                             </TouchableOpacity>
                         </View>
 
                         <View style={styles.footerLogo}>
                             <Logo size={24} variant="full" />
-                            <Text style={{ marginTop: 12, fontSize: 11, fontWeight: '500', color: COLORS.textSecondary }}>
+                            <Text style={{ marginTop: 12, fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.6)' }}>
                                 EMPIRE OS • V3.2 PILOT
                             </Text>
                         </View>
@@ -202,12 +191,8 @@ const styles = StyleSheet.create({
         top: 0,
         bottom: 0,
         left: 0,
-        backgroundColor: COLORS.bgPrimary,
-        shadowColor: '#000',
-        shadowOffset: { width: 4, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-        elevation: 20,
+        backgroundColor: SURFACE.base,
+        ...elevationGlow(),
     },
     header: {
         padding: 24,

@@ -4,7 +4,6 @@ import {
     ActivityIndicator, useWindowDimensions, RefreshControl, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -12,8 +11,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
-import { GlassCard } from '@gtaxi/design-system';
-import { tokens } from '@/design-system/tokens';
+import { SURFACE, VOICES, ANIMATION, GlassCard } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+
+const CYAN = '#06B6D4';
 
 export function TripsScreen({ navigation }: any) {
     const { width, height } = useWindowDimensions();
@@ -63,34 +64,34 @@ export function TripsScreen({ navigation }: any) {
             >
                 <GlassCard variant="rider" style={s.card}>
                     <View style={s.cardHeader}>
-                        <Txt variant="caption" weight="bold" color={tokens.colors.text.secondary}>
+                        <Txt variant="caption" weight="bold" color="#AEA9B5">
                             {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </Txt>
-                        <Txt variant="headingM" weight="heavy" color={tokens.colors.primary.cyan}>
+                        <Txt variant="headingM" weight="heavy" color={CYAN}>
                             ${((item.total_fare_cents || 0) / 100).toFixed(2)}
                         </Txt>
                     </View>
 
                     <View style={s.route}>
                         <View style={s.routeLineWrap}>
-                            <View style={[s.marker, { backgroundColor: tokens.colors.primary.purple }]} />
+                            <View style={[s.marker, { backgroundColor: VOICES.rider.accent }]} />
                             <View style={s.line} />
                             <View style={[s.marker, { backgroundColor: '#F59E0B' }]} />
                         </View>
                         <View style={s.addressWrap}>
-                            <Txt variant="small" color={tokens.colors.text.primary} numberOfLines={1}>{item.pickup_address}</Txt>
+                            <Txt variant="small" color="#FFF" numberOfLines={1}>{item.pickup_address}</Txt>
                             <View style={{ height: 12 }} />
-                            <Txt variant="small" color={tokens.colors.text.secondary} numberOfLines={1}>{item.dropoff_address}</Txt>
+                            <Txt variant="small" color="#AEA9B5" numberOfLines={1}>{item.dropoff_address}</Txt>
                         </View>
                     </View>
 
                     <View style={s.cardFooter}>
                         <View style={[s.statusPill, { backgroundColor: isCompleted ? 'rgba(16,185,129,0.1)' : isCancelled ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.05)' }]}>
-                            <Txt variant="caption" weight="heavy" color={isCompleted ? tokens.colors.status.success : isCancelled ? tokens.colors.status.error : tokens.colors.text.tertiary}>
+                            <Txt variant="caption" weight="heavy" color={isCompleted ? '#32D74B' : isCancelled ? '#FF6E84' : 'rgba(174, 169, 181, 0.45)'}>
                                 {item.status.toUpperCase()}
                             </Txt>
                         </View>
-                        <Ionicons name="chevron-forward" size={16} color={tokens.colors.text.tertiary} />
+                        <Ionicons name="chevron-forward" size={16} color="rgba(174, 169, 181, 0.45)" />
                     </View>
                 </GlassCard>
             </TouchableOpacity>
@@ -102,20 +103,20 @@ export function TripsScreen({ navigation }: any) {
             <StatusBar style="light" />
             
             <LinearGradient 
-                colors={[tokens.colors.background.base, tokens.colors.background.ambient, tokens.colors.background.base]} 
+                colors={[SURFACE.base, '#1A1823', SURFACE.base]} 
                 style={StyleSheet.absoluteFillObject} 
             />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <BlurView intensity={20} tint="light" style={StyleSheet.absoluteFillObject} />
+                    <View style={[StyleSheet.absoluteFillObject, glassSurface(20, 0.2)]} />
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
                 <Txt variant="headingM" weight="heavy" color="#FFF" style={s.title}>ENGAGEMENT LOG</Txt>
             </View>
 
             {loading ? (
-                <View style={s.center}><ActivityIndicator color={tokens.colors.primary.purple} /></View>
+                <View style={s.center}><ActivityIndicator color={VOICES.rider.accent} /></View>
             ) : (
                 <FlatList<any>
                     data={trips}
@@ -123,12 +124,12 @@ export function TripsScreen({ navigation }: any) {
                     renderItem={renderTrip}
                     contentContainerStyle={[s.list, { paddingBottom: insets.bottom + 40 }]}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.colors.primary.purple} colors={[tokens.colors.primary.purple]} />
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.rider.accent} colors={[VOICES.rider.accent]} />
                     }
                     ListEmptyComponent={
                         <View style={s.empty}>
-                            <Ionicons name="car-outline" size={64} color={tokens.colors.text.tertiary} />
-                            <Txt variant="bodyReg" color={tokens.colors.text.tertiary} style={{ marginTop: 16 }}>No sorties logged.</Txt>
+                            <Ionicons name="car-outline" size={64} color="rgba(174, 169, 181, 0.45)" />
+                            <Txt variant="bodyReg" color="rgba(174, 169, 181, 0.45)" style={{ marginTop: 16 }}>No sorties logged.</Txt>
                         </View>
                     }
                 />
@@ -138,9 +139,9 @@ export function TripsScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#160B32' },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-    backBtn: { width: 44, height: 44, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    backBtn: { width: 44, height: 44, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)', ...ghostBorder(0.15) },
     title: { marginLeft: 16, letterSpacing: 2 },
 
     list: { paddingHorizontal: 20 },

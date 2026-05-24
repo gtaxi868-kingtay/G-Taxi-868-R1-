@@ -5,11 +5,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
-    useSharedValue, withTiming, useDerivedValue, withSpring, withSequence,
-    useAnimatedStyle,
+    useSharedValue, withTiming, useDerivedValue,
 } from 'react-native-reanimated';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
@@ -17,33 +15,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useStripe } from '@stripe/stripe-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ENV } from '@gtaxi/shared/env';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { elevationGlow, ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
-// Blueberry Luxe — Gold Edition (Driver)
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#1A1508',
-    gradientStart: '#1A1200',
-    gradientEnd: '#0D0B1E',
-    gold: '#FFD700',
-    goldDark: '#B8860B',
-    goldLight: '#FFEC8B',
-    amber: '#FFB000',
-    amberSoft: 'rgba(255,176,0,0.1)',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    purpleLight: '#9B7CF0',
-    white: '#FFFFFF',
-    textDark: '#1A1A2E',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.4)',
-    glassBg: 'rgba(255,215,0,0.06)',
-    glassBorder: 'rgba(255,176,0,0.3)',
-    success: '#00FF94',
-    warning: '#F59E0B',
-    error: '#EF4444',
-};
+interface Transaction {
+    id: string;
+    created_at: string;
+    amount: number;
+    status: string;
+    provider: string;
+    description: string | null;
+    ride_id: string | null;
+}
 
-// ── "How It Works" info rows config ──────────────────────────────────────────
 const INFO_ROWS = [
     {
         icon: 'cash-outline' as const,
@@ -53,7 +38,7 @@ const INFO_ROWS = [
     },
     {
         icon: 'card-outline' as const,
-        color: '#7C3AED',
+        color: VOICES.driver.accent,
         title: 'Card / Wallet Trips',
         body: 'We collect the payment. Your 81% share is credited to this ledger.',
     },
@@ -65,18 +50,16 @@ const INFO_ROWS = [
     },
 ];
 
-// ── Component ─────────────────────────────────────────────────────────────────
-export function WalletScreen({ navigation }: any) {
+export function WalletScreen({ navigation }: { navigation: { navigate: (screen: string, params?: object) => void; goBack: () => void } }) {
     const insets = useSafeAreaInsets();
     const { driver, user } = useAuth();
 
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
     const [balance, setBalance] = useState<number | null>(null);
-    const [transactions, setTransactions] = useState<any[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
 
-    // Reanimated count-up for balance display
     const balanceAnim = useSharedValue(0);
     const balanceDisplay = useDerivedValue(() =>
         `$${Math.abs(balanceAnim.value).toFixed(2)}`
@@ -84,17 +67,14 @@ export function WalletScreen({ navigation }: any) {
 
     const [refreshing, setRefreshing] = useState(false);
 
-    // ── Supabase queries (DO NOT REMOVE) ────────────────────────────────────
     const fetchData = useCallback(async () => {
         if (!driver?.id) return;
 
-        // Balance via RPC
         const { data: balanceCents, error: balanceError } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
         const dollars = (balanceCents || 0) / 100;
         setBalance(dollars);
         balanceAnim.value = withTiming(dollars, { duration: 900 });
 
-        // Transaction ledger rows
         const { data: txs } = await supabase
             .from('payment_ledger')
             .select('id, created_at, amount, status, provider, description, ride_id')
@@ -188,8 +168,9 @@ export function WalletScreen({ navigation }: any) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             Alert.alert('Success', 'Wallet topped up successfully!');
             fetchData();
-        } catch (err: any) {
-            Alert.alert('Error', err.message || 'Payment failed');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Payment failed';
+            Alert.alert('Error', message);
         } finally {
             setProcessing(false);
         }
@@ -210,7 +191,6 @@ export function WalletScreen({ navigation }: any) {
             const fileExt = asset.uri.split('.').pop();
             const fileName = `${driver?.id}/${Date.now()}.${fileExt}`;
             
-            // Convert to blob
             const response = await fetch(asset.uri);
             const blob = await response.blob();
 
@@ -220,12 +200,11 @@ export function WalletScreen({ navigation }: any) {
 
             if (uploadError) throw uploadError;
 
-            // Log the manual deposit
             const { error: dbError } = await supabase
                 .from('manual_deposits')
                 .insert({
                     user_id: driver?.id,
-                    amount_cents: 0, // Admin will verify amount
+                    amount_cents: 0,
                     receipt_url: uploadData.path,
                     status: 'pending'
                 });
@@ -234,8 +213,9 @@ export function WalletScreen({ navigation }: any) {
 
             Alert.alert('Success', 'Receipt uploaded! Admin will verify and credit your wallet shortly.');
             fetchData();
-        } catch (err: any) {
-            Alert.alert('Error', err.message || 'Upload failed');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Upload failed';
+            Alert.alert('Error', message);
         } finally {
             setProcessing(false);
         }
@@ -258,35 +238,26 @@ export function WalletScreen({ navigation }: any) {
     const isOwed = balance !== null && balance < 0;
     const isGood = balance !== null && balance >= 0;
 
-    // ── Loading ───────────────────────────────────────────────────────────────
     if (loading) {
         return (
             <View style={[s.root, s.center]}>
-                <ActivityIndicator color={COLORS.purple} size="large" />
+                <ActivityIndicator color={VOICES.driver.accent} size="large" />
             </View>
         );
     }
 
-    // Color scheme based on balance direction
     const heroGradient: readonly [string, string] = isOwed
-        ? ['#FFFFFF', '#FFECEC']
-        : ['#FFFFFF', '#E8F5E9'];
-    const heroBorderColor = isOwed
-        ? 'rgba(239,68,68,0.25)'
-        : 'rgba(16,185,129,0.25)';
-    const heroStatusColor = isOwed ? COLORS.error : COLORS.success;
+        ? [SURFACE.base, '#2A0A0A']
+        : [SURFACE.base, '#0A2A1A'];
+    const heroStatusColor = isOwed ? '#FF4D4D' : '#10B981';
     const heroStatusLabel = isOwed
         ? `You owe the platform TTD ${(Math.abs(balance || 0) * 0.19 / 0.81).toFixed(0)} (19% cut)`
         : 'Balance all clear ✓';
 
     return (
         <View style={s.root}>
-            {/* ── HEADER — BlurView ─────────────────────────────────────── */}
-            <BlurView tint="light" intensity={80} style={[s.headerBlur, { paddingTop: insets.top + 8 }]}>
-                <LinearGradient
-                    colors={['rgba(255,255,255,0.95)', 'rgba(245,245,247,0.6)']}
-                    style={s.headerInner}
-                >
+            <BlurView tint="dark" intensity={80} style={[s.headerBlur, { paddingTop: insets.top + 8 }, glassSurface(80, 0.2)]}>
+                <View style={s.headerInner}>
                     <TouchableOpacity
                         style={s.backBtn}
                         onPress={() => {
@@ -295,34 +266,31 @@ export function WalletScreen({ navigation }: any) {
                         }}
                         activeOpacity={0.8}
                     >
-                        <Ionicons name="chevron-back" size={22} color={COLORS.textDark} />
+                        <Ionicons name="chevron-back" size={22} color="#FFF" />
                     </TouchableOpacity>
 
-                    <Text style={{fontSize: 20, fontWeight: '700', color: COLORS.textDark}}>Wallet</Text>
+                    <Text style={{fontSize: 20, fontWeight: '700', color: '#FFF'}}>Wallet</Text>
 
-                    {/* Spacer — same width as back button for visual centering */}
                     <View style={s.backBtn} pointerEvents="none" />
-                </LinearGradient>
+                </View>
             </BlurView>
 
             <ScrollView
                 contentContainerStyle={[s.scroll, { paddingTop: insets.top + 64 }]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.purple} colors={[COLORS.purple]} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} colors={[VOICES.driver.accent]} />
                 }
             >
-                {/* ── HERO BALANCE CARD ─────────────────────────────────── */}
                 <LinearGradient
                     colors={heroGradient}
-                    style={[s.heroCard, { borderColor: heroBorderColor }]}
+                    style={[s.heroCard, elevationGlow(0.12)]}
                 >
-                    <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textMuted, letterSpacing: 1, marginBottom: 6 }}>
+                    <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 6 }}>
                         TTD COMMISSION BALANCE
                     </Text>
 
-                    {/* Animated balance — 48px gold */}
-                    <Reanimated.Text style={[s.balanceNum, { color: isOwed ? COLORS.error : COLORS.purple }]}>
+                    <Reanimated.Text style={[s.balanceNum, { color: isOwed ? '#FF4D4D' : VOICES.driver.accent }]}>
                         {isOwed ? '-' : ''}{balanceDisplay.value}
                     </Reanimated.Text>
 
@@ -330,69 +298,65 @@ export function WalletScreen({ navigation }: any) {
                         {heroStatusLabel}
                     </Text>
 
-                    {/* Lockout warning */}
                     {isOwed && (balance || 0) <= -600 && (
                         <View style={s.lockBadge}>
-                            <Ionicons name="lock-closed" size={14} color={COLORS.textDark} />
-                            <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textDark, marginLeft: 6 }}>
+                            <Ionicons name="lock-closed" size={14} color="#FFF" />
+                            <Text style={{fontSize: 11, fontWeight: '700', color: '#FFF', marginLeft: 6 }}>
                                 ACCOUNT RESTRICTED — CAP REACHED
                             </Text>
                         </View>
                     )}
 
-                    {/* Settle button */}
                     {isOwed && (
                         <TouchableOpacity
                             style={s.settleBtn}
                             onPress={handleSettlePress}
                             activeOpacity={0.85}
                         >
-                            <Ionicons name="logo-whatsapp" size={16} color={COLORS.textDark} />
-                            <Text style={{fontSize: 14, fontWeight: '700', color: COLORS.textDark, marginLeft: 8 }}>
+                            <Ionicons name="logo-whatsapp" size={16} color="#FFF" />
+                            <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', marginLeft: 8 }}>
                                 Settle Balance via Transfer
                             </Text>
                         </TouchableOpacity>
                     )}
 
-                    {/* Payout button */}
                     {isGood && balance > 0 && (
                         <TouchableOpacity
-                            style={[s.settleBtn, { backgroundColor: COLORS.purple }]}
+                            style={[s.settleBtn, { backgroundColor: VOICES.driver.accent }]}
                             onPress={handlePayoutRequest}
                             activeOpacity={0.85}
                         >
-                            <Ionicons name="cash-outline" size={16} color={COLORS.textDark} />
-                            <Text style={{fontSize: 14, fontWeight: '700', color: COLORS.textDark, marginLeft: 8 }}>
+                            <Ionicons name="cash-outline" size={16} color={SURFACE.base} />
+                            <Text style={{fontSize: 14, fontWeight: '700', color: SURFACE.base, marginLeft: 8 }}>
                                 Request Payout
                             </Text>
                         </TouchableOpacity>
                     )}
                 </LinearGradient>
 
-                {/* ── TRANSACTION HISTORY ───────────────────────────────── */}
-                <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textMuted, letterSpacing: 1, marginBottom: 12 }}>
+                <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 12 }}>
                     TRANSACTION HISTORY
                 </Text>
 
                 {transactions.length === 0 ? (
                     <View style={s.emptyWrap}>
-                        <Ionicons name="receipt-outline" size={36} color={COLORS.textMuted} />
-                        <Text style={{fontSize: 14, color: COLORS.textMuted, marginTop: 12, textAlign: 'center' }}>
+                        <Ionicons name="receipt-outline" size={36} color="rgba(255,255,255,0.6)" />
+                        <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 12, textAlign: 'center' }}>
                             No transactions yet.
                         </Text>
                     </View>
                 ) : (
                     <View style={s.txList}>
                         {transactions.map((tx, idx) => {
-                            const isCredit = tx.amount_cents >= 0;
-                            const amount = (Math.abs(tx.amount_cents) / 100).toFixed(2);
+                            const isCredit = tx.amount >= 0;
+                            const amount = (Math.abs(tx.amount) / 100).toFixed(2);
                             const date = new Date(tx.created_at);
                             const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
                             const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             const isLast = idx === transactions.length - 1;
 
                             const txIcon = isCredit ? 'arrow-down-outline' : 'arrow-up-outline';
-                            const txColor = isCredit ? COLORS.success : COLORS.error;
+                            const txColor = isCredit ? '#10B981' : '#FF4D4D';
                             const txBg = isCredit ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
 
                             return (
@@ -402,22 +366,19 @@ export function WalletScreen({ navigation }: any) {
                                     onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
                                     activeOpacity={0.75}
                                 >
-                                    {/* Icon badge */}
                                     <View style={[s.txIcon, { backgroundColor: txBg }]}>
-                                        <Ionicons name={txIcon as any} size={18} color={txColor} />
+                                        <Ionicons name={txIcon as 'arrow-down-outline' | 'arrow-up-outline'} size={18} color={txColor} />
                                     </View>
 
-                                    {/* Description */}
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{fontSize: 14, fontWeight: '700', color: COLORS.textDark}} numberOfLines={1}>
+                                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}} numberOfLines={1}>
                                             {tx.description || (isCredit ? 'Commission Credit' : 'Commission Debit')}
                                         </Text>
-                                        <Text style={{fontSize: 10, color: COLORS.textMuted, marginTop: 3 }}>
+                                        <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>
                                             {dateStr} · {timeStr}
                                         </Text>
                                     </View>
 
-                                    {/* Amount */}
                                     <Text style={{fontSize: 14, fontWeight: '700', color: txColor}}>
                                         {isCredit ? '+' : '-'}${amount}
                                     </Text>
@@ -427,8 +388,7 @@ export function WalletScreen({ navigation }: any) {
                     </View>
                 )}
 
-                {/* ── HOW IT WORKS ──────────────────────────────────────── */}
-                <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textMuted, letterSpacing: 1, marginTop: 28, marginBottom: 12 }}>
+                <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginTop: 28, marginBottom: 12 }}>
                     HOW IT WORKS
                 </Text>
 
@@ -440,8 +400,8 @@ export function WalletScreen({ navigation }: any) {
                                     <Ionicons name={row.icon} size={20} color={row.color} />
                                 </View>
                                 <View style={{ flex: 1, gap: 3 }}>
-                                    <Text style={{fontSize: 14, fontWeight: '700', color: COLORS.textDark}}>{row.title}</Text>
-                                    <Text style={{fontSize: 10, color: COLORS.textMuted}}>{row.body}</Text>
+                                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{row.title}</Text>
+                                    <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.6)'}}>{row.body}</Text>
                                 </View>
                             </View>
                             {i < INFO_ROWS.length - 1 && <View style={s.infoDivider} />}
@@ -455,16 +415,14 @@ export function WalletScreen({ navigation }: any) {
     );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: COLORS.bgSecondary },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     center: { justifyContent: 'center', alignItems: 'center' },
     scroll: { paddingHorizontal: 20 },
 
-    // Header
     headerBlur: {
         position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 20, borderBottomWidth: 1, borderColor: 'rgba(255,215,0,0.2)',
+        zIndex: 20, ...ghostBorder(0.15),
     },
     headerInner: {
         flexDirection: 'row', alignItems: 'center',
@@ -477,10 +435,9 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
 
-    // Hero card
     heroCard: {
         borderRadius: 24, padding: 24,
-        borderWidth: 1, alignItems: 'center',
+        alignItems: 'center',
         marginBottom: 28,
     },
     balanceNum: {
@@ -489,7 +446,7 @@ const s = StyleSheet.create({
     },
     lockBadge: {
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: COLORS.error,
+        backgroundColor: '#FF4D4D',
         paddingHorizontal: 14, paddingVertical: 7,
         borderRadius: 20, marginTop: 14,
     },
@@ -500,11 +457,9 @@ const s = StyleSheet.create({
         borderRadius: 50, marginTop: 18, gap: 6,
     },
 
-    // Transactions
     txList: {
-        backgroundColor: 'rgba(26, 21, 48, 0.8)',
-        borderRadius: 20, borderWidth: 1,
-        borderColor: 'rgba(255,215,0,0.2)', overflow: 'hidden',
+        backgroundColor: SURFACE.containerLow,
+        borderRadius: 20, ...ghostBorder(0.15), overflow: 'hidden',
         marginBottom: 28,
     },
     txRow: {
@@ -518,19 +473,16 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
 
-    // Empty
     emptyWrap: {
         paddingVertical: 40, alignItems: 'center',
-        borderWidth: 1, borderColor: 'rgba(255,215,0,0.2)',
+        ...ghostBorder(0.15),
         borderRadius: 20, borderStyle: 'dashed',
         marginBottom: 28,
     },
 
-    // How it works
     infoCard: {
-        backgroundColor: 'rgba(26, 21, 48, 0.8)',
-        borderRadius: 20, borderWidth: 1,
-        borderColor: 'rgba(255,215,0,0.2)', overflow: 'hidden',
+        backgroundColor: SURFACE.containerLow,
+        borderRadius: 20, ...ghostBorder(0.15), overflow: 'hidden',
     },
     infoRow: {
         flexDirection: 'row', alignItems: 'flex-start',

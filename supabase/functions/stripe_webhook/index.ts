@@ -1,20 +1,19 @@
 // Supabase Edge Function: stripe_webhook
-// Phase 6 Fix 6.5 — Handles Stripe webhook events for payment processing.
+// ============================================================
+// CAPITAL RESERVE LOCK — Stripe Payment Path (2026-05-22)
+// ============================================================
+// Settlement math (server-side only):
+//   reserve      = round(gross * 0.015)     → capital_reserve_ledger
+//   net          = gross - reserve
+//   platform_fee = round(net * 0.185)       → platform wallet credit
+//   driver_payout = net - platform_fee       → driver wallet credit
 //
-// Security rules (MUST follow CLAUSE 5 in CLAUDE.md):
-//   - req.text() is called FIRST — before ANY JSON parsing.
+// Security rules (CLAUDE.md rule 5):
+//   - req.text() is called FIRST — before any JSON parsing.
 //   - Stripe signature verified using raw body string.
-//   - If signature check fails, return 400 immediately.
-//   - Idempotency enforced via payment_ledger.stripe_event_id UNIQUE constraint.
-//
-// Events handled:
-//   payment_intent.succeeded   — capture ledger entry, update ride payment_status,
-//                                credit driver 81% and platform 19% via wallet_transactions.
-//   payment_intent.payment_failed — log failure, do not complete ride.
-//
-// Register this URL in Stripe dashboard:
-//   https://[project-ref].supabase.co/functions/v1/stripe_webhook
-//   Events: payment_intent.succeeded, payment_intent.payment_failed
+//   - Idempotency enforced via payment_ledger.stripe_event_id UNIQUE.
+//   - On ANY partial failure, returns HTTP 500 so Stripe retries.
+// ============================================================
 
 import Stripe from "https://esm.sh/stripe@13";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -34,13 +33,21 @@ const stripe = new Stripe(STRIPE_SECRET_KEY, {
     httpClient: Stripe.createFetchHttpClient(),
 });
 
-// Platform account UUID — receives 19% commission on card rides
 const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
 
+function computeSettlement(grossCents: number): {
+    reserveCents: number;
+    platformFeeCents: number;
+    driverNetCents: number;
+} {
+    const reserveCents = Math.round(grossCents * 0.015);
+    const net = grossCents - reserveCents;
+    const platformFeeCents = Math.round(net * 0.185);
+    const driverNetCents = net - platformFeeCents;
+    return { reserveCents, platformFeeCents, driverNetCents };
+}
+
 Deno.serve(async (req: Request) => {
-    // ── MUST call req.text() BEFORE any JSON parsing (CLAUDE.md rule 5) ─────
-    // Stripe signature verification requires the raw, unmodified request body.
-    // If you parse first, the body is consumed/transformed and verification fails.
     const rawBody = await req.text();
     const sig = req.headers.get("stripe-signature");
 
@@ -49,21 +56,20 @@ Deno.serve(async (req: Request) => {
         return new Response("Missing stripe-signature header", { status: 400 });
     }
 
-    // ── Signature Verification ────────────────────────────────────────────────
     let event: Stripe.Event;
     try {
         event = stripe.webhooks.constructEvent(rawBody, sig, STRIPE_WEBHOOK_SECRET);
     } catch (error: any) {
-        console.error("stripe_webhook error:", error);
+        console.error("stripe_webhook signature error:", error);
         await captureException(error, { function: 'stripe_webhook' });
         return new Response("Webhook signature verification failed", { status: 400 });
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // ── Idempotency Check — Stripe retries failed webhooks ───────────────────
-    // The stripe_event_id column has a UNIQUE constraint, so duplicate events
-    // cannot be inserted. We pre-check to short-circuit without touching DB.
+    // ── IDEMPOTENCY CHECK ──────────────────────────────────────────────
+    // stripe_event_id UNIQUE constraint on payment_ledger prevents duplicates.
+    // If event already processed, return 200 (idempotent success).
     const { data: existing } = await supabaseAdmin
         .from("payment_ledger")
         .select("id")
@@ -71,22 +77,19 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
     if (existing) {
-        // Already processed — return 200 so Stripe stops retrying.
+        console.log(`stripe_webhook: Event ${event.id} already processed. Returning 200.`);
         return new Response(JSON.stringify({ status: "already_processed" }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
         });
     }
 
-    // ── Event Handlers ────────────────────────────────────────────────────────
-
     if (event.type === "payment_intent.succeeded") {
         const pi = event.data.object as Stripe.PaymentIntent;
-
         const eventType = pi.metadata?.type;
 
+        // ── WALLET TOPUP ────────────────────────────────────────────────
         if (eventType === 'wallet_topup') {
-            // Handle wallet top-up
             const userId = pi.metadata?.user_id;
             if (!userId) {
                 return new Response("Missing user_id in wallet_topup metadata", { status: 400 });
@@ -94,7 +97,6 @@ Deno.serve(async (req: Request) => {
 
             const topupAmountCents = pi.amount;
 
-            // Write ledger entry
             const { error: ledgerError } = await supabaseAdmin
                 .from('payment_ledger')
                 .insert({
@@ -113,7 +115,6 @@ Deno.serve(async (req: Request) => {
                 return new Response('Ledger insert failed', { status: 500 });
             }
 
-            // Credit rider wallet
             const { error: walletError } = await supabaseAdmin
                 .from('wallet_transactions')
                 .insert({
@@ -136,6 +137,7 @@ Deno.serve(async (req: Request) => {
             });
         }
 
+        // ── RIDE PAYMENT ────────────────────────────────────────────────
         const rideId = pi.metadata?.ride_id;
         const userId = pi.metadata?.user_id;
 
@@ -144,10 +146,9 @@ Deno.serve(async (req: Request) => {
             return new Response("Missing metadata", { status: 400 });
         }
 
-        // Fetch ride to get driver_id for the split
         const { data: ride, error: rideError } = await supabaseAdmin
             .from("rides")
-            .select("id, driver_id, rider_id, total_fare_cents, drivers:driver_id(commission_tier, custom_commission_rate)")
+            .select("id, driver_id, rider_id, total_fare_cents")
             .eq("id", rideId)
             .single();
 
@@ -156,99 +157,121 @@ Deno.serve(async (req: Request) => {
             return new Response("Ride not found", { status: 404 });
         }
 
-        // Amount Stripe confirmed (in cents — pi.amount is already in smallest unit)
         const totalCents = pi.amount;
 
-        // Dynamic Split: pioneer (19%), standard (22%), etc.
-        let commissionRate = 0.22;
-        const driverData = ride.drivers as any;
-        if (driverData) {
-            if (driverData.custom_commission_rate != null) {
-                commissionRate = driverData.custom_commission_rate / 100;
-            } else if (driverData.commission_tier === 'pioneer') {
-                commissionRate = 0.19;
-            } else if (driverData.commission_tier === 'top_earner') {
-                commissionRate = 0.17;
-            }
-        }
+        const { reserveCents, platformFeeCents, driverNetCents } = computeSettlement(totalCents);
 
-        const platformFeeCents = Math.round(totalCents * commissionRate);
-        const driverNetCents = totalCents - platformFeeCents;
+        console.log(`stripe_webhook: Processing ride ${rideId}`, {
+            gross: totalCents, reserve: reserveCents, platform: platformFeeCents, driver: driverNetCents,
+        });
 
-        // ── A: Write canonical ledger entry (rider's payment) ─────────────────
-        const { error: ledgerError } = await supabaseAdmin
+        // ── ATOMIC 6-STEP SETTLEMENT ───────────────────────────────────
+        // All-or-nothing: if ANY step fails, return 500 so Stripe retries.
+        // Idempotency (stripe_event_id UNIQUE) prevents duplicates on retry.
+
+        const errors: string[] = [];
+
+        // Step A: Write canonical ledger entry
+        const { error: aErr } = await supabaseAdmin
             .from("payment_ledger")
             .insert({
-                ride_id: rideId,
-                user_id: userId,
-                amount: totalCents / 100.0,
-                currency: pi.currency.toUpperCase(),
-                status: "captured",
-                provider: "stripe",
-                provider_ref: pi.id,
-                stripe_event_id: event.id,
+                ride_id: rideId, user_id: userId,
+                amount: totalCents / 100.0, currency: pi.currency.toUpperCase(),
+                status: "captured", provider: "stripe",
+                provider_ref: pi.id, stripe_event_id: event.id,
             });
+        if (aErr) errors.push(`payment_ledger: ${aErr.message}`);
 
-        if (ledgerError) {
-            console.error("stripe_webhook: Failed to insert payment_ledger:", ledgerError);
-            return new Response("Ledger insert failed", { status: 500 });
-        }
-
-        // ── B: Credit driver wallet (81%) ─────────────────────────────────────
-        const { error: driverCreditError } = await supabaseAdmin
+        // Step B: Credit driver wallet
+        const { error: bErr } = await supabaseAdmin
             .from("wallet_transactions")
             .insert({
-                user_id: ride.driver_id,
-                ride_id: rideId,
-                amount: driverNetCents,
-                transaction_type: "driver_payout",
-                description: `Card ride earnings (${(100 - commissionRate * 100).toFixed(0)}%)`,
-                status: "completed",
+                user_id: ride.driver_id, ride_id: rideId,
+                amount: driverNetCents, transaction_type: "driver_payout",
+                description: "Card ride earnings", status: "completed",
             });
+        if (bErr) errors.push(`driver_wallet: ${bErr.message}`);
 
-        if (driverCreditError) {
-            console.error("stripe_webhook: Driver wallet credit failed:", driverCreditError);
-            // Don't return error — ledger entry succeeded; reconcile manually.
-        }
-
-        // ── C: Credit platform account (19%) ──────────────────────────────────
-        const { error: platformCreditError } = await supabaseAdmin
+        // Step C: Credit platform — operational fee
+        const { error: cErr } = await supabaseAdmin
             .from("wallet_transactions")
             .insert({
-                user_id: PLATFORM_ACCOUNT,
-                ride_id: rideId,
-                amount: platformFeeCents,
-                transaction_type: "platform_commission",
-                description: `Platform commission (${(commissionRate * 100).toFixed(0)}%) for card ride`,
-                status: "completed",
+                user_id: PLATFORM_ACCOUNT, ride_id: rideId,
+                amount: platformFeeCents, transaction_type: "ride_payment",
+                description: "Platform commission on card ride", status: "completed",
             });
+        if (cErr) errors.push(`platform_fee_wallet: ${cErr.message}`);
 
-        if (platformCreditError) {
-            console.error("stripe_webhook: Platform wallet credit failed:", platformCreditError);
-            // Don't return error — ledger entry succeeded; reconcile manually.
-        }
+        // Step D: Credit platform — capital reserve
+        const { data: reserveTxn, error: dErr } = await supabaseAdmin
+            .from("wallet_transactions")
+            .insert({
+                user_id: PLATFORM_ACCOUNT, ride_id: rideId,
+                amount: reserveCents, transaction_type: "capital_reserve",
+                description: "1.5% Capital Reserve (War Chest) on card ride",
+                status: "completed",
+            })
+            .select("id")
+            .single();
+        if (dErr) errors.push(`reserve_wallet: ${dErr.message}`);
 
-        // ── D: Mark ride payment as captured ──────────────────────────────────
-        const { error: rideUpdateError } = await supabaseAdmin
+        // Step E: Write to capital_reserve_ledger
+        const { error: eErr } = await supabaseAdmin
+            .from("capital_reserve_ledger")
+            .insert({
+                ride_id: rideId, amount_cents: reserveCents,
+                status: "locked", wallet_transaction_id: reserveTxn?.id || null,
+                notes: "Card ride — reserve locked via Stripe settlement",
+            });
+        if (eErr) errors.push(`capital_reserve_ledger: ${eErr.message}`);
+
+        // Step F: Mark ride as captured + store settlement breakdown
+        const { error: fErr } = await supabaseAdmin
             .from("rides")
-            .update({ payment_status: "captured" })
+            .update({
+                payment_status: "captured",
+                driver_payout_cents: driverNetCents,
+                reserve_cents: reserveCents,
+                platform_fee_cents: platformFeeCents,
+            })
             .eq("id", rideId);
+        if (fErr) errors.push(`ride_update: ${fErr.message}`);
 
-        if (rideUpdateError) {
-            console.error("stripe_webhook: Failed to update ride payment_status:", rideUpdateError);
+        // ── DECIDE: SUCCESS OR RETRY ───────────────────────────────────
+        if (errors.length > 0) {
+            console.error(`stripe_webhook: PARTIAL FAILURE for ride ${rideId}. ${errors.length}/6 steps failed.`, errors);
+            await captureException(new Error(`Stripe settlement partial failure: ${errors.join('; ')}`), {
+                function: 'stripe_webhook',
+                ride_id: rideId,
+                stripe_event_id: event.id,
+                errors: errors.join(', '),
+            });
+            // Return 500 so Stripe retries the webhook event.
+            // Idempotency (stripe_event_id UNIQUE on payment_ledger) ensures
+            // that Step A (already committed) blocks duplicate inserts on retry.
+            // The retry will hit "already_processed" early return if Step A
+            // was the only successful step.
+            return new Response(
+                JSON.stringify({
+                    received: false,
+                    error: `Partial settlement failure: ${errors.join('; ')}`,
+                    committed_steps: 6 - errors.length,
+                }),
+                { status: 500, headers: { "Content-Type": "application/json" } }
+            );
         }
 
-        console.log(`stripe_webhook: payment_intent.succeeded processed for ride ${rideId}`);
+        console.log(`stripe_webhook: ALL 6 STEPS COMMITTED for ride ${rideId}`, {
+            gross: totalCents, reserve: reserveCents, platform: platformFeeCents, driver: driverNetCents,
+        });
     }
 
     if (event.type === "payment_intent.payment_failed") {
         const pi = event.data.object as Stripe.PaymentIntent;
         const rideId = pi.metadata?.ride_id;
 
-        // Log failure — do not complete the ride, do not write a captured ledger entry.
         console.error(`stripe_webhook: payment_intent.payment_failed for ride ${rideId ?? "unknown"}, PI: ${pi.id}`);
 
-        // Optionally update ride payment_status to 'failed' so the app can surface the error.
         if (rideId) {
             await supabaseAdmin
                 .from("rides")

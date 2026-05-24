@@ -4,7 +4,6 @@ import {
     Alert, useWindowDimensions, ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -12,19 +11,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
-import { tokens } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
+    border: 'rgba(255,255,255,0.15)',
+    purple: VOICES.rider.accent,
+    purpleLight: CYAN,
     gold: '#F59E0B',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.7)',
 };
 
 interface SavedPlace {
@@ -135,9 +135,9 @@ export function SavedPlacesScreen({ navigation }: any) {
                     style={s.addBtn}
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('DestinationSearch', { mode: 'save' }); }}
                 >
-                    <LinearGradient 
-                        colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
-                        start={{x: 0, y: 0}} 
+                    <LinearGradient
+                        colors={[VOICES.rider.accent, CYAN]}
+                        start={{x: 0, y: 0}}
                         end={{x: 1, y: 0}}
                         style={s.btnGradient}
                     >
@@ -156,7 +156,7 @@ const s = StyleSheet.create({
     headerBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
     list: { paddingHorizontal: 20 },
-    card: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 20, borderRadius: 32, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    card: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 20, borderRadius: 32, marginBottom: 12, ...ghostBorder(0.05) },
     iconWrap: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     info: { flex: 1, marginLeft: 16 },
     deleteBtn: { padding: 12 },

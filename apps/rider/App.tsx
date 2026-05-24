@@ -1,26 +1,20 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ENV } from '@gtaxi/shared/env';
-
-// Sentry is dynamically loaded below to prevent native crash on boot
-
-// Context
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { StripeProvider } from '@stripe/stripe-react-native';
+import { OutboxService } from '@gtaxi/shared/OutboxService';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { RideProvider } from './src/context/RideContext';
-import { OutboxService } from '@gtaxi/shared/OutboxService';
-import Constants, { ExecutionEnvironment } from 'expo-constants';
-
-// Auth Screens
 import { LoginScreen } from './src/screens/LoginScreen';
 import { SignupScreen } from './src/screens/SignupScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
-
-// App Screens
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AnimatedSplash } from './src/components/AnimatedSplash';
 import { ProfileScreen } from './src/screens/ProfileScreen';
@@ -61,16 +55,15 @@ import { LegalScreen } from './src/screens/LegalScreen';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
+import { installCrashReporter } from '@gtaxi/core';
+import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
-const AuthStack = createNativeStackNavigator();
-const AppStack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const AppStack = createNativeStackNavigator<AppStackParamList>();
 const queryClient = new QueryClient();
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 const isWeb = Platform.OS === 'web';
-
-// Safe dynamic providers
-import { StripeProvider } from '@stripe/stripe-react-native';
 
 const SentryMock: any = { wrap: (comp: any) => comp, init: () => { } };
 let Sentry = SentryMock;
@@ -85,18 +78,15 @@ if (!isExpoGo && !isWeb) {
             debug: __DEV__,
             environment: process.env.APP_ENV || 'development',
         });
-    } catch (e) {
-        console.warn('[Sentry] Initialization failed:', e);
-    }
+    } catch (_e) { /* silent */ }
 }
 
-// Auth screens (for logged-out users)
 function AuthNavigator() {
     return (
         <AuthStack.Navigator
             screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: '#000' },
+                contentStyle: { backgroundColor: SURFACE.base },
                 animation: 'slide_from_right',
             }}
         >
@@ -107,7 +97,6 @@ function AuthNavigator() {
     );
 }
 
-// Main app screens (for logged-in users)
 function AppNavigator() {
     return (
         <>
@@ -115,7 +104,7 @@ function AppNavigator() {
             <AppStack.Navigator
                 screenOptions={{
                     headerShown: false,
-                    contentStyle: { backgroundColor: '#000' },
+                    contentStyle: { backgroundColor: SURFACE.base },
                     animation: 'slide_from_right',
                 }}
             >
@@ -124,7 +113,7 @@ function AppNavigator() {
                 <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} />
                 <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} />
                 <AppStack.Screen name="SearchingDriver" component={SearchingDriverScreen} />
-                <AppStack.Screen name="ActiveRide" component={ActiveRideScreen as any} />
+                <AppStack.Screen name="ActiveRide" component={ActiveRideScreen} />
                 <AppStack.Screen name="Rating" component={RatingScreen} />
                 <AppStack.Screen name="Trips" component={TripsScreen} />
                 <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
@@ -139,18 +128,15 @@ function AppNavigator() {
                 <AppStack.Screen name="Chat" component={ChatScreen} />
                 <AppStack.Screen name="AISettings" component={AISettingsScreen} />
                 <AppStack.Screen name="Subscription" component={SubscriptionScreen} />
-                {/* Grocery Vertical */}
                 <AppStack.Screen name="GroceryStorefront" component={GroceryStorefrontScreen} />
                 <AppStack.Screen name="ProductListing" component={ProductListingScreen} />
                 <AppStack.Screen name="ProductDetail" component={ProductDetailScreen} />
                 <AppStack.Screen name="GroceryCart" component={GroceryCartScreen} />
                 <AppStack.Screen name="GroceryOrderStatus" component={GroceryOrderStatusScreen} />
                 <AppStack.Screen name="VisionScanner" component={VisionScannerScreen} />
-                {/* Laundry Vertical */}
                 <AppStack.Screen name="LaundryLanding" component={LaundryLandingScreen} />
                 <AppStack.Screen name="LaundryEstimator" component={LaundryEstimatorScreen} />
                 <AppStack.Screen name="LaundryOrderStatus" component={LaundryOrderStatusScreen} />
-                {/* Driver Found Confirmation */}
                 <AppStack.Screen name="DriverFound" component={DriverFoundScreen} />
                 <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} />
                 <AppStack.Screen name="NfcScan" component={NfcScanScreen} />
@@ -163,36 +149,31 @@ function AppNavigator() {
     );
 }
 
-// Root navigator that switches between auth and app
 function RootNavigator() {
     const { user, loading } = useAuth();
-
-    if (loading) {
-        return <AnimatedSplash onFinish={() => { }} />;
-    }
-
+    if (loading) return <AnimatedSplash onFinish={() => { }} />;
     return user ? <RideProvider><AppNavigator /></RideProvider> : <AuthNavigator />;
 }
 
-// FIX 5: Deep link handling for QR codes
 const linking = {
-  prefixes: ['gtaxi://'],
-  config: {
-    screens: {
-      Home: {
-        path: 'request',
-        parse: {
-          lat: (lat: string) => parseFloat(lat),
-          lng: (lng: string) => parseFloat(lng),
-          stand: (stand: string) => stand,
+    prefixes: ['gtaxi://'],
+    config: {
+        screens: {
+            Home: {
+                path: 'request',
+                parse: {
+                    lat: (lat: string) => parseFloat(lat),
+                    lng: (lng: string) => parseFloat(lng),
+                    stand: (stand: string) => stand,
+                }
+            }
         }
-      }
     }
-  }
 };
 
 function App() {
     useEffect(() => {
+        installCrashReporter();
         OutboxService.getInstance().processQueue();
     }, []);
 
@@ -222,14 +203,5 @@ function App() {
         </StripeProvider>
     );
 }
-
-const styles = StyleSheet.create({
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#000',
-    },
-});
 
 export default (isExpoGo || isWeb) ? App : SentryMock.wrap(App);

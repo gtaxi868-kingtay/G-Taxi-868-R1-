@@ -41,14 +41,23 @@ function App() {
     }
   };
 
+  let merchantOpsChannel: any = null;
+
   const setupRealtime = (mId: string) => {
-    supabase.channel('merchant_ops')
+    if (merchantOpsChannel) merchantOpsChannel.unsubscribe();
+    merchantOpsChannel = supabase.channel('merchant_ops')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: `merchant_id=eq.${mId}` }, 
         () => { if(soundEnabled) playChime(); fetchData(mId); })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'merchant_appointments', filter: `merchant_id=eq.${mId}` }, 
         () => { if(soundEnabled) playChime(); fetchData(mId); })
       .subscribe();
   };
+
+  useEffect(() => {
+    return () => {
+      if (merchantOpsChannel) merchantOpsChannel.unsubscribe();
+    };
+  }, []);
 
   const playChime = () => {
     const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');

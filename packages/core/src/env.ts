@@ -3,33 +3,48 @@
 //   - Expo (mobile): process.env.EXPO_PUBLIC_*
 //   - Vite (web):    import.meta.env.VITE_*
 // No hardcoded keys in source code.
-
-// Detect the runtime platform to pick the correct env prefix
-function getEnvVar(key: string): string {
-    // Expo React Native — process.env is available
-    if (typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_SUPABASE_URL) {
-        const expoKey = `EXPO_PUBLIC_${key}`;
-        return (process.env as Record<string, string | undefined>)[expoKey] || '';
-    }
-
-    // Vite web — import.meta.env is available at build time
-    if (typeof (globalThis as any).import?.meta?.env !== 'undefined') {
-        const viteKey = `VITE_${key}`;
-        return ((globalThis as any).import.meta.env as Record<string, string | undefined>)[viteKey] || '';
-    }
-
-    // Fallback for SSR / test environments
-    return '';
-}
+//
+// IMPORTANT: Every EXPO_PUBLIC_* must be a DIRECT property access on
+// process.env (e.g. process.env.EXPO_PUBLIC_SUPABASE_URL) so that Metro's
+// DefinePlugin can replace it with the string literal at BUILD time.
+// Computed/dynamic accesses (e.g. process.env["EXPO_PUBLIC_" + key])
+// are NOT replaced and will be undefined at runtime in React Native.
 
 export const ENV = {
-    SUPABASE_URL: getEnvVar('SUPABASE_URL'),
-    SUPABASE_ANON_KEY: getEnvVar('SUPABASE_ANON_KEY'),
-    MAPBOX_PUBLIC_TOKEN: getEnvVar('MAPBOX_ACCESS_TOKEN') || getEnvVar('MAPBOX_PUBLIC_TOKEN'),
-    STRIPE_PUBLISHABLE_KEY: getEnvVar('STRIPE_PUBLISHABLE_KEY'),
-    GEMINI_API_KEY: getEnvVar('GEMINI_API_KEY'),
-    GROQ_API_KEY: getEnvVar('GROQ_API_KEY'),
-    SENTRY_DSN: getEnvVar('SENTRY_DSN'),
+    SUPABASE_URL:
+        typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_SUPABASE_URL
+            ? process.env.EXPO_PUBLIC_SUPABASE_URL
+            : typeof (globalThis as any).import?.meta?.env?.VITE_SUPABASE_URL !== 'undefined'
+            ? (globalThis as any).import.meta.env.VITE_SUPABASE_URL
+            : '',
+    SUPABASE_ANON_KEY:
+        typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+            ? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+            : typeof (globalThis as any).import?.meta?.env?.VITE_SUPABASE_ANON_KEY !== 'undefined'
+            ? (globalThis as any).import.meta.env.VITE_SUPABASE_ANON_KEY
+            : '',
+    MAPBOX_PUBLIC_TOKEN:
+        typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN
+            ? process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN
+            : typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN
+            ? process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN
+            : '',
+    STRIPE_PUBLISHABLE_KEY:
+        typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY
+            ? process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY
+            : '',
+    GEMINI_API_KEY:
+        typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_GEMINI_API_KEY
+            ? process.env.EXPO_PUBLIC_GEMINI_API_KEY
+            : '',
+    GROQ_API_KEY:
+        typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_GROQ_API_KEY
+            ? process.env.EXPO_PUBLIC_GROQ_API_KEY
+            : '',
+    SENTRY_DSN:
+        typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_SENTRY_DSN
+            ? process.env.EXPO_PUBLIC_SENTRY_DSN
+            : '',
 } as const;
 
 // Trinidad & Tobago default location (Port of Spain)

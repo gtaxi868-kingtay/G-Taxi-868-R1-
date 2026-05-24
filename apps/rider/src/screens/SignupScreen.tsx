@@ -13,25 +13,8 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
-
-// Blueberry Luxe Color System
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#160B32',
-    gradientStart: '#1A0533',
-    gradientEnd: '#0D1B4B',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    cyan: '#00E5FF',
-    cyanDark: '#0099BB',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.5)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
-    glassBorderFocus: 'rgba(0,229,255,0.5)',
-    error: '#FF4D6D',
-};
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 
 export function SignupScreen({ navigation }: any) {
     const { width, height } = useWindowDimensions();
@@ -115,7 +98,7 @@ export function SignupScreen({ navigation }: any) {
             }
 
         } catch (err: any) {
-            console.error('Signup error:', err);
+
             setError(err.message?.toUpperCase() || 'SIGNUP FAILED — PLEASE TRY AGAIN');
         } finally {
             setLoading(false);
@@ -128,7 +111,7 @@ export function SignupScreen({ navigation }: any) {
 
             {/* Deep Gradient Background */}
             <LinearGradient
-                colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                colors={['#1A0533', '#0D1B4B']}
                 style={StyleSheet.absoluteFillObject}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 0, y: 1 }}
@@ -142,7 +125,7 @@ export function SignupScreen({ navigation }: any) {
 
                     {/* Back Button */}
                     <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                        <Ionicons name="chevron-back" size={24} color={'#FFF'} />
                     </TouchableOpacity>
 
                     {/* Logo Section */}
@@ -167,7 +150,7 @@ export function SignupScreen({ navigation }: any) {
                     <View style={s.cardContainer}>
                         <BlurView intensity={20} tint="dark" style={s.blurBacking}>
                             <View style={s.glassCard}>
-                                <Reanimated.View entering={FadeIn} style={s.form}>
+                                <Reanimated.View entering={FadeIn.springify().mass(ANIMATION.spring.mass).stiffness(ANIMATION.spring.stiffness).damping(ANIMATION.spring.damping)} style={s.form}>
                                     {error ? (
                                         <Text style={s.errorText}>{error}</Text>
                                     ) : null}
@@ -217,13 +200,13 @@ export function SignupScreen({ navigation }: any) {
                                     <View style={s.aiOptIn}>
                                         <View style={{ flex: 1 }}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                                <Ionicons name="star" size={16} color={COLORS.cyan} />
+                                                <Ionicons name="star" size={16} color={VOICES.rider.accent} />
                                                 <Text style={s.aiLabel}>AI CONCIERGE</Text>
                                             </View>
                                             <Text style={s.aiSubtext}>Enable proactive safety & comfort</Text>
                                         </View>
                                         <TouchableOpacity
-                                            style={[s.toggle, { backgroundColor: formData.aiEnabled ? COLORS.cyan : 'rgba(255,255,255,0.1)' }]}
+                                            style={[s.toggle, { backgroundColor: formData.aiEnabled ? VOICES.rider.accent : 'rgba(255,255,255,0.1)' }]}
                                             onPress={() => {
                                                 setFormData({ ...formData, aiEnabled: !formData.aiEnabled });
                                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -252,23 +235,23 @@ export function SignupScreen({ navigation }: any) {
                                         </Text>
                                     </TouchableOpacity>
 
-                                    {/* CTA Button - Cyan Gradient */}
+                                    {/* CTA Button */}
                                     <TouchableOpacity 
-                                        style={s.cyanButton}
+                                        style={s.primaryButton}
                                         onPress={handleSignup}
                                         disabled={loading}
                                         activeOpacity={0.8}
                                     >
                                         <LinearGradient
-                                            colors={[COLORS.cyan, COLORS.cyanDark]}
+                                            colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
                                             style={s.buttonGradient}
                                             start={{ x: 0, y: 0 }}
                                             end={{ x: 1, y: 1 }}
                                         >
                                             {loading ? (
-                                                <ActivityIndicator color={COLORS.bgPrimary} />
+                                                <ActivityIndicator color={SURFACE.base} />
                                             ) : (
-                                                <Text style={s.cyanButtonText}>Create Account</Text>
+                                                <Text style={s.primaryButtonText}>Create Account</Text>
                                             )}
                                         </LinearGradient>
                                     </TouchableOpacity>
@@ -279,7 +262,7 @@ export function SignupScreen({ navigation }: any) {
                                         onPress={() => navigation.navigate('Login')}
                                     >
                                         <Text style={s.loginLinkText}>
-                                            Already have an account? <Text style={s.loginLinkCyan}>Sign In</Text>
+                                            Already have an account? <Text style={s.loginLinkAccent}>Sign In</Text>
                                         </Text>
                                     </TouchableOpacity>
 
@@ -305,7 +288,7 @@ function Input({ label, placeholder, value, onChange, secure, keyboardType, isFo
                 <TextInput
                     style={s.input}
                     placeholder={placeholder}
-                    placeholderTextColor={COLORS.textMuted}
+                    placeholderTextColor={'rgba(255,255,255,0.6)'}
                     value={value}
                     onChangeText={onChange}
                     secureTextEntry={secure}
@@ -322,7 +305,7 @@ function Input({ label, placeholder, value, onChange, secure, keyboardType, isFo
 const s = StyleSheet.create({
     root: { 
         flex: 1, 
-        backgroundColor: COLORS.bgPrimary 
+        backgroundColor: SURFACE.base 
     },
     container: { 
         flex: 1 
@@ -335,12 +318,11 @@ const s = StyleSheet.create({
         height: 44, 
         borderRadius: 14,
         backgroundColor: 'rgba(255,255,255,0.05)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center', 
         justifyContent: 'center', 
         marginBottom: 16,
         alignSelf: 'flex-start',
+        ...ghostBorder(0.15),
     },
 
     // Logo Section
@@ -355,7 +337,7 @@ const s = StyleSheet.create({
         width: 200,
         height: 200,
         borderRadius: 100,
-        backgroundColor: 'rgba(123,92,240,0.15)',
+        backgroundColor: VOICES.rider.accent + '26',
     },
     logo: {
         width: 140,
@@ -368,7 +350,7 @@ const s = StyleSheet.create({
         alignItems: 'center',
     },
     progressText: {
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 12,
         fontWeight: '700',
         letterSpacing: 1.5,
@@ -385,7 +367,7 @@ const s = StyleSheet.create({
     progressFill: {
         width: '100%',
         height: '100%',
-        backgroundColor: COLORS.cyan,
+        backgroundColor: VOICES.rider.accent,
     },
 
     // Card Container
@@ -398,24 +380,18 @@ const s = StyleSheet.create({
         overflow: 'hidden',
     },
     glassCard: {
-        backgroundColor: COLORS.glassBg,
+        backgroundColor: SURFACE.containerLow,
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
         padding: 24,
         gap: 16,
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
+        ...ghostBorder(0.15),
     },
 
     form: { 
         gap: 16 
     },
     errorText: {
-        color: COLORS.error,
+        color: '#FF4D4D',
         fontSize: 14,
         fontWeight: '600',
         textAlign: 'center',
@@ -432,14 +408,14 @@ const s = StyleSheet.create({
         gap: 6,
     },
     label: {
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 12,
         fontWeight: '700',
         letterSpacing: 1.5,
         textTransform: 'uppercase',
     },
     optionalTag: {
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 10,
         fontWeight: '600',
     },
@@ -447,20 +423,14 @@ const s = StyleSheet.create({
         height: 54,
         backgroundColor: 'rgba(255,255,255,0.04)',
         borderRadius: 14,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
         paddingHorizontal: 16,
         justifyContent: 'center',
     },
     inputContainerFocused: {
-        borderColor: COLORS.glassBorderFocus,
-        shadowColor: COLORS.cyan,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 8,
+        ...elevationGlow(),
     },
     input: {
-        color: COLORS.white,
+        color: '#FFF',
         fontSize: 15,
         fontWeight: '500',
     },
@@ -472,19 +442,18 @@ const s = StyleSheet.create({
         padding: 16,
         backgroundColor: 'rgba(255,255,255,0.03)', 
         borderRadius: 16,
-        borderWidth: 1, 
-        borderColor: 'rgba(255,255,255,0.08)', 
         marginTop: 4,
+        ...ghostBorder(0.15),
     },
     aiLabel: {
-        color: COLORS.white,
+        color: '#FFF',
         fontSize: 13,
         fontWeight: '700',
         marginLeft: 8,
         letterSpacing: 0.5,
     },
     aiSubtext: {
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 12,
         fontWeight: '500',
         marginTop: 2,
@@ -502,22 +471,15 @@ const s = StyleSheet.create({
         height: 20, 
         borderRadius: 10, 
         backgroundColor: '#FFF',
-        shadowColor: 'rgba(0,0,0,0.3)',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 2,
+        ...elevationGlow(),
     },
 
     // Cyan Button
-    cyanButton: {
+    primaryButton: {
         height: 56,
         borderRadius: 16,
         overflow: 'hidden',
-        shadowColor: COLORS.cyan,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-        elevation: 10,
+        ...elevationGlow(10),
         marginTop: 4,
     },
     buttonGradient: {
@@ -525,8 +487,8 @@ const s = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    cyanButtonText: {
-        color: COLORS.bgPrimary,
+    primaryButtonText: {
+        color: SURFACE.base,
         fontSize: 17,
         fontWeight: '800',
         letterSpacing: 0.5,
@@ -538,12 +500,12 @@ const s = StyleSheet.create({
         alignItems: 'center',
     },
     loginLinkText: {
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 14,
         fontWeight: '500',
     },
-    loginLinkCyan: {
-        color: COLORS.cyan,
+    loginLinkAccent: {
+        color: VOICES.rider.accent,
         fontWeight: '700',
     },
 
@@ -559,22 +521,22 @@ const s = StyleSheet.create({
         height: 24,
         borderRadius: 6,
         borderWidth: 2,
-        borderColor: COLORS.textMuted,
+        borderColor: 'rgba(255,255,255,0.6)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     checkboxActive: {
-        backgroundColor: COLORS.cyan,
-        borderColor: COLORS.cyan,
+        backgroundColor: VOICES.rider.accent,
+        borderColor: VOICES.rider.accent,
     },
     termsText: {
         flex: 1,
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 13,
         fontWeight: '500',
     },
     termsLink: {
-        color: COLORS.cyan,
+        color: VOICES.rider.accent,
         fontWeight: '700',
     },
 });

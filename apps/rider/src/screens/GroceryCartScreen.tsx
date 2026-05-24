@@ -3,7 +3,6 @@ import {
     View, Text, TouchableOpacity, StyleSheet,
     FlatList, Alert, Switch, Dimensions,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +10,10 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+
+const CYAN = '#06B6D4';
 
 interface CartItem {
     product: { id: string; name: string; price_cents: number };
@@ -28,7 +31,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
     const [loading, setLoading] = useState(false);
 
     const subTotal = cart.reduce((sum, i) => sum + i.product.price_cents * i.quantity, 0);
-    const deliveryFee = 500; // $5 TTD
+    const deliveryFee = 500;
     const total = subTotal + deliveryFee;
 
     const updateQty = (productId: string, delta: number) => {
@@ -48,7 +51,6 @@ export function GroceryCartScreen({ navigation, route }: any) {
         setLoading(true);
 
         try {
-            // Insert grocery order into Supabase
             const { data: order, error: orderErr } = await supabase
                 .from('orders')
                 .insert({
@@ -64,7 +66,6 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
             if (orderErr) throw orderErr;
 
-            // Insert order items
             const items = cart.map(c => ({
                 order_id: order.id,
                 product_id: c.product.id,
@@ -78,7 +79,6 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
             if (itemsErr) throw itemsErr;
 
-            // Fire match_order_delivery to find a driver (non-blocking)
             supabase.functions.invoke('match_order_delivery', {
               body: { order_id: order.id },
             }).then(({ error }) => {
@@ -99,7 +99,6 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
     const renderItem = ({ item }: { item: CartItem }) => (
         <View style={s.itemRow}>
-            <BlurView intensity={20} style={StyleSheet.absoluteFillObject} tint="dark" />
             <View style={s.itemLeft}>
                 <Text style={s.itemName}>{item.product.name}</Text>
                 <Text style={s.itemPrice}>${(item.product.price_cents / 100).toFixed(2)} TTD each</Text>
@@ -141,10 +140,8 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 }
                 ListFooterComponent={cart.length > 0 ? (
                     <View style={s.footer}>
-                        {/* Delivery toggle — only shown if rider has an active ride */}
                         {activeRide && (
                             <View style={s.deliveryCard}>
-                                <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                                 <View style={s.deliveryRow}>
                                     <View style={s.deliveryInfo}>
                                         <Text style={s.deliveryTitle}>Deliver to My Taxi</Text>
@@ -153,8 +150,8 @@ export function GroceryCartScreen({ navigation, route }: any) {
                                     <Switch
                                         value={deliverToRide}
                                         onValueChange={v => { Haptics.selectionAsync(); setDeliverToRide(v); }}
-                                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#7C3AED' }}
-                                        thumbColor={deliverToRide ? '#00FFFF' : '#888'}
+                                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: VOICES.rider.accent }}
+                                        thumbColor={deliverToRide ? CYAN : '#888'}
                                     />
                                 </View>
                                 {!deliverToRide && (
@@ -163,9 +160,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                             </View>
                         )}
 
-                        {/* Price breakdown */}
                         <View style={s.priceCard}>
-                            <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                             <View style={s.priceRow}>
                                 <Text style={s.priceLabel}>Subtotal</Text>
                                 <Text style={s.priceVal}>${(subTotal / 100).toFixed(2)} TTD</Text>
@@ -187,7 +182,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 16 }]}>
                     <TouchableOpacity style={s.ctaButton} onPress={handleCheckout} disabled={loading} activeOpacity={0.88}>
                         <LinearGradient
-                            colors={['#7C3AED', '#5A2DDE']}
+                            colors={[VOICES.rider.accent, '#4C1D95']}
                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                             style={s.ctaGradient}
                         >
@@ -217,7 +212,7 @@ const s = StyleSheet.create({
     itemRow: {
         flexDirection: 'row', alignItems: 'center',
         borderRadius: 18, overflow: 'hidden',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
         padding: 14, gap: 10,
         backgroundColor: 'rgba(255,255,255,0.05)',
     },
@@ -227,17 +222,17 @@ const s = StyleSheet.create({
     itemQty: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     qtyBtn: {
         width: 28, height: 28, borderRadius: 14,
-        backgroundColor: 'rgba(123,97,255,0.2)',
+        backgroundColor: `${VOICES.rider.accent}33`,
         alignItems: 'center', justifyContent: 'center',
     },
-    qtyBtnAdd: { backgroundColor: '#7C3AED' },
+    qtyBtnAdd: { backgroundColor: VOICES.rider.accent },
     qtyBtnText: { fontSize: 18, color: '#FFF', fontWeight: '700', lineHeight: 22 },
     qtyVal: { fontSize: 16, fontWeight: '700', color: '#FFF', minWidth: 20, textAlign: 'center' },
-    lineTotal: { fontSize: 14, fontWeight: '700', color: '#00FFFF', minWidth: 60, textAlign: 'right' },
+    lineTotal: { fontSize: 14, fontWeight: '700', color: CYAN, minWidth: 60, textAlign: 'right' },
     footer: { gap: 12, marginTop: 8 },
     deliveryCard: {
         borderRadius: 20, overflow: 'hidden', padding: 16,
-        borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)',
+        ...ghostBorder(0.2),
         backgroundColor: 'rgba(0,255,255,0.04)',
     },
     deliveryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -247,7 +242,7 @@ const s = StyleSheet.create({
     deliveryNote: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 8 },
     priceCard: {
         borderRadius: 20, overflow: 'hidden', padding: 18,
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
         backgroundColor: 'rgba(255,255,255,0.04)', gap: 10,
     },
     priceRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -258,7 +253,7 @@ const s = StyleSheet.create({
         borderTopColor: 'rgba(255,255,255,0.1)', marginTop: 4,
     },
     totalLabel: { fontSize: 16, fontWeight: '700', color: '#FFF' },
-    totalVal: { fontSize: 20, fontWeight: '900', color: '#00FFFF' },
+    totalVal: { fontSize: 20, fontWeight: '900', color: CYAN },
     emptyBox: { alignItems: 'center', paddingTop: 80 },
     emptyEmoji: { fontSize: 56, marginBottom: 16 },
     emptyText: { fontSize: 18, color: 'rgba(255,255,255,0.4)', fontWeight: '600' },

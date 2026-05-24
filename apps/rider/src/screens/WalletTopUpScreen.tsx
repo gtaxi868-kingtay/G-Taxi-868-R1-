@@ -7,7 +7,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -16,19 +15,20 @@ import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 import { ENV } from '@gtaxi/shared/env';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
 
-import { tokens } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
+    border: 'rgba(191,64,255,0.2)',
+    purple: VOICES.rider.accent,
+    purpleLight: CYAN,
     gold: '#F59E0B',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    white: '#FFF',
+    muted: '#AEA9B5',
 };
 
 export function WalletTopUpScreen({ navigation }: any) {
@@ -144,13 +144,12 @@ export function WalletTopUpScreen({ navigation }: any) {
                 style={{ flex: 1 }}
             >
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
-
                 <View style={s.balanceCard}>
                     <LinearGradient 
-                        colors={['rgba(124,58,237,0.1)', 'transparent']} 
+                        colors={[`${VOICES.rider.accent}1A`, 'transparent']} 
                         style={StyleSheet.absoluteFillObject} 
                     />
-                    <Txt variant="caption" weight="heavy" color={tokens.colors.primary.cyan} style={{ letterSpacing: 2 }}>ESTABLISHED BALANCE</Txt>
+                    <Txt variant="caption" weight="heavy" color={CYAN} style={{ letterSpacing: 2 }}>ESTABLISHED BALANCE</Txt>
                     <Txt variant="displayXL" weight="heavy" color="#FFF">
                         ${balance !== null ? balance.toFixed(2) : '0.00'}
                     </Txt>
@@ -167,10 +166,10 @@ export function WalletTopUpScreen({ navigation }: any) {
                                 onPress={() => handleAmountSelect(amt)}
                             >
                                 <Txt variant="headingM" weight="heavy" color={isActive ? "#FFF" : R.muted}>${amt}</Txt>
-                                <Txt variant="caption" weight="heavy" color={isActive ? tokens.colors.primary.cyan : R.muted}>TTD</Txt>
+                                <Txt variant="caption" weight="heavy" color={isActive ? CYAN : R.muted}>TTD</Txt>
                                 {isActive && (
                                     <LinearGradient 
-                                        colors={['rgba(124,58,237,0.2)', 'transparent']} 
+                                        colors={[`${VOICES.rider.accent}33`, 'transparent']} 
                                         style={StyleSheet.absoluteFillObject} 
                                     />
                                 )}
@@ -198,7 +197,7 @@ export function WalletTopUpScreen({ navigation }: any) {
 
                 <TouchableOpacity style={s.payBtn} onPress={handleAddFunds} disabled={loading || displayAmount <= 0}>
                     <LinearGradient 
-                        colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                        colors={[VOICES.rider.accent, CYAN]} 
                         start={{x: 0, y: 0}} 
                         end={{x: 1, y: 0}}
                         style={s.btnGradient}
@@ -221,15 +220,15 @@ const s = StyleSheet.create({
     headerBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
     scroll: { paddingHorizontal: 20 },
-    balanceCard: { backgroundColor: 'rgba(255,255,255,0.03)', padding: 40, borderRadius: 40, alignItems: 'center', marginBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    balanceCard: { backgroundColor: 'rgba(255,255,255,0.03)', padding: 40, borderRadius: 40, alignItems: 'center', marginBottom: 40, ...ghostBorder(0.05), overflow: 'hidden' },
 
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-    amountCard: { height: 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
-    amountCardActive: { borderColor: tokens.colors.primary.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
+    amountCard: { height: 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.05), overflow: 'hidden' },
+    amountCardActive: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(124,58,237,0.05)' },
 
     customWrap: { gap: 12, marginTop: 12 },
     label: { marginLeft: 16, letterSpacing: 1 },
-    input: { height: 64, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, paddingHorizontal: 24, color: '#FFF', fontSize: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    input: { height: 64, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, paddingHorizontal: 24, color: '#FFF', fontSize: 18, ...ghostBorder(0.05) },
 
     securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 32 },
     payBtn: { height: 64, borderRadius: 24, overflow: 'hidden' },

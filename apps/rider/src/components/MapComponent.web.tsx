@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { theme } from '../theme';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface Driver {
     id: string;
@@ -109,8 +110,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#000',
         borderRadius: theme.borderRadius.xxl,
-        borderWidth: 1,
-        borderColor: theme.colors.glass.border,
+        ...ghostBorder(0.15),
         overflow: 'hidden', // Essential for iframe
     },
 });

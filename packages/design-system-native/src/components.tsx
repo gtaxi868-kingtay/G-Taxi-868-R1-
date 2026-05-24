@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 /**
  * 0. Logo
- * The G-Taxi DNA: 3D-styled Glass Pin with Purple/Cyan Pulse.
+ * The G-Taxi DNA: 3D-styled Glass Pin with Cyan Pulse.
  */
 export const Logo = ({ size = 48, variant = 'full' }: any) => {
     const isFull = variant === 'full';
@@ -22,7 +22,6 @@ export const Logo = ({ size = 48, variant = 'full' }: any) => {
     return (
         <View style={{ alignItems: 'center', justifyContent: 'center' }}>
             <View style={{ width: size, height: size * 1.25, justifyContent: 'center', alignItems: 'center' }}>
-                {/* 3D Pin Shadow */}
                 <View style={{
                     position: 'absolute',
                     bottom: 0,
@@ -33,7 +32,6 @@ export const Logo = ({ size = 48, variant = 'full' }: any) => {
                     transform: [{ scaleX: 2 }]
                 }} />
                 
-                {/* The Pin Body (Split Gradient) */}
                 <View style={{
                     width: size,
                     height: size,
@@ -41,18 +39,17 @@ export const Logo = ({ size = 48, variant = 'full' }: any) => {
                     borderBottomRightRadius: size / 10,
                     overflow: 'hidden',
                     transform: [{ rotate: '-45deg' }],
-                    shadowColor: BRAND.purple,
+                    shadowColor: '#00FFFF',
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.5,
                     shadowRadius: 10,
                 }}>
                     <LinearGradient
-                        colors={[BRAND.purple, BRAND.cyan]}
+                        colors={['#00FFFF', '#00FFFF']}
                         start={{ x: 0, y: 0.5 }}
                         end={{ x: 1, y: 0.5 }}
                         style={StyleSheet.absoluteFill}
                     />
-                    {/* Glass Shine */}
                     <LinearGradient
                         colors={['rgba(255,255,255,0.4)', 'transparent']}
                         start={{ x: 0, y: 0 }}
@@ -61,7 +58,6 @@ export const Logo = ({ size = 48, variant = 'full' }: any) => {
                     />
                 </View>
 
-                {/* The "G" Initial */}
                 <View style={{ position: 'absolute', top: size * 0.15 }}>
                     <Text style={{ 
                         fontSize: size * 0.6, 
@@ -86,7 +82,7 @@ export const Logo = ({ size = 48, variant = 'full' }: any) => {
                     <Text style={{ 
                         fontSize: size * 0.15, 
                         fontWeight: '800', 
-                        color: BRAND.cyan,
+                        color: '#00FFFF',
                         letterSpacing: 4,
                         textAlign: 'center',
                         marginTop: -2
@@ -105,18 +101,21 @@ export const GlassCard = ({ children, style, variant = 'rider' }: any) => {
     const isDriver = variant === 'driver';
     return (
         <BlurView
-            intensity={isDriver ? 40 : 20}
-            tint={isDriver ? 'dark' : 'light'}
+            intensity={isDriver ? 20 : 20}
+            tint="dark"
             style={[
                 {
-                    borderRadius: RADIUS.lg,
+                    borderTopLeftRadius: RADIUS.lg,
+                    borderTopRightRadius: RADIUS.lg,
+                    borderBottomLeftRadius: 0,
+                    borderBottomRightRadius: 0,
                     borderWidth: 1,
-                    borderColor: isDriver ? 'rgba(0,255,255,0.12)' : 'rgba(124,58,237,0.12)',
+                    borderColor: 'rgba(0,255,255,0.12)',
                     overflow: 'hidden',
-                    shadowColor: BRAND.purple,
+                    shadowColor: '#00FFFF',
                     shadowOpacity: 0.08,
-                    shadowRadius: 16,
-                    shadowOffset: { width: 0, height: 4 },
+                    shadowRadius: 24,
+                    shadowOffset: { width: 0, height: 8 },
                 },
                 style,
             ]}
@@ -128,7 +127,6 @@ export const GlassCard = ({ children, style, variant = 'rider' }: any) => {
 
 /**
  * 2. PrimaryButton
- * Signature 135deg diagonal gradient full-pill button.
  */
 export const PrimaryButton = ({ label, onPress, loading, disabled, style }: any) => (
     <TouchableOpacity
@@ -161,15 +159,14 @@ export const PrimaryButton = ({ label, onPress, loading, disabled, style }: any)
 
 /**
  * 3. InfoChip
- * Data pills for stats/metrics.
  */
 export const InfoChip = ({ label, value, accent, variant = 'rider' }: any) => {
     const isDriver = variant === 'driver';
-    const accentColor = accent || (isDriver ? BRAND.cyan : BRAND.purple);
+    const accentColor = accent || '#00FFFF';
     
     return (
         <View style={{
-            backgroundColor: isDriver ? 'rgba(0,255,255,0.08)' : 'rgba(124,58,237,0.08)',
+            backgroundColor: 'rgba(0,255,255,0.08)',
             borderRadius: RADIUS.sm,
             paddingVertical: 8,
             paddingHorizontal: 14,
@@ -178,15 +175,15 @@ export const InfoChip = ({ label, value, accent, variant = 'rider' }: any) => {
         }}>
             <Text style={{
                 fontSize: 16,
-                fontWeight: '800', // Weight Contrast Rule: Value = Heavy
+                fontWeight: '800',
                 color: accentColor
             }}>
                 {value}
             </Text>
             <Text style={{
                 fontSize: 10,
-                fontWeight: '300', // Weight Contrast Rule: Label = Thin
-                color: isDriver ? 'rgba(255,255,255,0.45)' : 'rgba(30,30,63,0.55)',
+                fontWeight: '300',
+                color: 'rgba(255,255,255,0.45)',
                 letterSpacing: 0.8,
                 marginTop: 2
             }}>
@@ -198,14 +195,13 @@ export const InfoChip = ({ label, value, accent, variant = 'rider' }: any) => {
 
 /**
  * 4. StatusBadge
- * Semantic state indicator.
  */
 const badgeColors: any = {
     online: { bg: 'rgba(16,185,129,0.12)', text: '#059669', dot: '#10B981' },
     offline: { bg: 'rgba(107,114,128,0.12)', text: '#6B7280', dot: '#9CA3AF' },
     searching: { bg: 'rgba(245,158,11,0.12)', text: '#D97706', dot: '#F59E0B' },
-    assigned: { bg: 'rgba(124,58,237,0.12)', text: '#7C3AED', dot: '#A78BFA' },
-    live: { bg: 'rgba(0,255,255,0.08)', text: '#0891B2', dot: '#00FFFF' },
+    assigned: { bg: 'rgba(0,255,255,0.12)', text: '#00FFFF', dot: '#00FFFF' },
+    live: { bg: 'rgba(0,255,255,0.08)', text: '#00FFFF', dot: '#00FFFF' },
     sos: { bg: 'rgba(239,68,68,0.12)', text: '#DC2626', dot: '#EF4444' },
 };
 
@@ -229,9 +225,8 @@ export const StatusBadge = ({ status, label }: any) => {
 
 /**
  * 5. LoadingOverlay
- * Full-screen premium glass loader.
  */
-export const LoadingOverlay = ({ message = 'PROCESSING...', color = BRAND.purple }: any) => (
+export const LoadingOverlay = ({ message = 'PROCESSING...', color = '#00FFFF' }: any) => (
     <View style={[StyleSheet.absoluteFill, { 
         backgroundColor: 'rgba(0,0,0,0.4)', 
         justifyContent: 'center', 
@@ -259,6 +254,7 @@ export const LoadingOverlay = ({ message = 'PROCESSING...', color = BRAND.purple
         </BlurView>
     </View>
 );
+
 /**
  * 6. Skeleton
  * Shimmering placeholder for content loading.
@@ -272,13 +268,13 @@ export const Skeleton = ({ width, height, borderRadius = 8, style }: any) => {
                 Animated.timing(shimmerAnim, {
                     toValue: 1,
                     duration: 1000,
-                    easing: Easing.linear,
+                    easing: Animated.linear,
                     useNativeDriver: true,
                 }),
                 Animated.timing(shimmerAnim, {
                     toValue: 0,
                     duration: 1000,
-                    easing: Easing.linear,
+                    easing: Animated.linear,
                     useNativeDriver: true,
                 }),
             ])
@@ -305,6 +301,3 @@ export const Skeleton = ({ width, height, borderRadius = 8, style }: any) => {
         />
     );
 };
-
-// @ts-ignore
-import { Easing } from 'react-native';

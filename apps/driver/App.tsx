@@ -4,6 +4,15 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { ActivityIndicator, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
+import { StripeProvider } from '@stripe/stripe-react-native';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { supabase } from '@gtaxi/core';
+import { ENV } from '@gtaxi/shared/env';
+import { OutboxService } from '@gtaxi/shared/OutboxService';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
@@ -19,27 +28,16 @@ import { ChatScreen } from './src/screens/ChatScreen';
 import { StrategySettingsScreen } from './src/screens/StrategySettingsScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
 import { ReportIssueScreen } from './src/screens/ReportIssueScreen';
-import { ActivityIndicator, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Location from 'expo-location';
-import * as TaskManager from 'expo-task-manager';
-import { supabase } from '@gtaxi/core';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
-import { ENV } from '@gtaxi/shared/env';
-import { OutboxService } from '@gtaxi/shared/OutboxService';
-import { StripeProvider } from '@stripe/stripe-react-native';
+import { installCrashReporter } from '@gtaxi/core';
+import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
-// ── Free Background Location using expo-location ───────────────────────────────
 const LOCATION_TASK = 'BACKGROUND_LOCATION_TASK';
 const UPDATE_LOCATION_URL = `${ENV.SUPABASE_URL}/functions/v1/update_driver_location`;
 
-// Define background location task using expo-task-manager + expo-location (free alternative)
-TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: { data?: any, error?: any }) => {
-    if (error) {
-        console.error(`[LOCATION_TASK] Error: ${error.message}`);
-        return;
-    }
+TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: { data?: any; error?: any }) => {
+    if (error) return;
     if (data) {
         const locations = data.locations as Location.LocationObject[];
         const location = locations[0];
@@ -47,9 +45,7 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: { data?: any, erro
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) return;
-
                 const activeRideId = await AsyncStorage.getItem('active_ride_id');
-
                 await fetch(UPDATE_LOCATION_URL, {
                     method: 'POST',
                     headers: {
@@ -65,9 +61,7 @@ TaskManager.defineTask(LOCATION_TASK, async ({ data, error }: { data?: any, erro
                         is_background: true
                     }),
                 });
-            } catch (err) {
-                console.warn('[LOCATION_TASK] Sync failed:', err);
-            }
+            } catch (_err) { /* silent */ }
         }
     }
 });
@@ -78,23 +72,21 @@ async function startBackgroundLocationTracking() {
         if (!hasStarted) {
             await Location.startLocationUpdatesAsync(LOCATION_TASK, {
                 accuracy: Location.Accuracy.Balanced,
-                timeInterval: 30000, // Update every 30 seconds
-                distanceInterval: 50, // Or every 50 meters
+                timeInterval: 30000,
+                distanceInterval: 50,
                 foregroundService: {
                     notificationTitle: "G-Taxi Driver",
                     notificationBody: "Location tracking active",
-                    notificationColor: '#FFD700',
+                    notificationColor: VOICES.driver.accent,
                 },
                 pausesUpdatesAutomatically: false,
             });
-            console.log('[Location] Background tracking started');
         }
-    } catch (err) {
-        console.warn('[Location] Could not start background tracking:', err);
-    }
+    } catch (_err) { /* silent */ }
 }
 
-const Stack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const AppStack = createNativeStackNavigator<AppStackParamList>();
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
 const SentryMock: any = { wrap: (comp: any) => comp, init: () => { } };
@@ -110,33 +102,29 @@ if (!isExpoGo) {
             debug: __DEV__,
             environment: process.env.APP_ENV || 'development',
         });
-    } catch (e) {
-        console.warn('[Sentry] Initialization failed:', e);
-    }
+    } catch (_e) { /* silent */ }
 }
 
 function AuthNavigator() {
     return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-        </Stack.Navigator>
+        <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+            <AuthStack.Screen name="Login" component={LoginScreen} />
+            <AuthStack.Screen name="Register" component={RegisterScreen} />
+        </AuthStack.Navigator>
     );
 }
 
 function AppNavigator() {
     const { user } = useAuth();
-    const [initialRoute, setInitialRoute] = useState<string | null>(null);
+    const [initialRoute, setInitialRoute] = useState<keyof AppStackParamList | null>(null);
     const [activeRideId, setActiveRideId] = useState<string | undefined>();
     const [scheduledEnabled, setScheduledEnabled] = useState(false);
-    const [kioskEnabled, setKioskEnabled] = useState(false);
 
     const checkActiveRide = useCallback(async () => {
         if (!user) {
             setInitialRoute('Dashboard');
             return;
         }
-
         try {
             const { data: driverRecord } = await supabase
                 .from('drivers')
@@ -169,8 +157,7 @@ function AppNavigator() {
                 await AsyncStorage.removeItem('active_ride_id');
                 setInitialRoute('Dashboard');
             }
-        } catch (err) {
-            console.warn('Boot check failed:', err);
+        } catch (_err) {
             await AsyncStorage.removeItem('active_ride_id');
             setInitialRoute('Dashboard');
         }
@@ -179,7 +166,6 @@ function AppNavigator() {
     useEffect(() => {
         checkActiveRide();
 
-        // Check feature flags
         supabase.from('system_feature_flags')
             .select('id, is_active')
             .in('id', ['scheduled_rides_enabled', 'kiosk_active'])
@@ -188,14 +174,11 @@ function AppNavigator() {
                     for (const flag of data) {
                         if (flag.id === 'scheduled_rides_enabled') {
                             setScheduledEnabled(flag.is_active);
-                        } else if (flag.id === 'kiosk_active') {
-                            setKioskEnabled(flag.is_active);
                         }
                     }
                 }
             });
 
-        // Real-time listener for status changes (e.g. Admin Approval)
         if (user) {
             const channel = supabase
                 .channel(`driver-status-${user.id}`)
@@ -207,10 +190,7 @@ function AppNavigator() {
                         table: 'drivers',
                         filter: `user_id=eq.${user.id}`,
                     },
-                    () => {
-                        console.log('Driver status updated in real-time. Refreshing check...');
-                        checkActiveRide();
-                    }
+                    () => { checkActiveRide(); }
                 )
                 .subscribe();
 
@@ -222,33 +202,33 @@ function AppNavigator() {
 
     if (!initialRoute) {
         return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" />
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: SURFACE.base }}>
+                <ActivityIndicator size="large" color={VOICES.driver.accent} />
             </View>
         );
     }
 
     return (
-        <Stack.Navigator initialRouteName={initialRoute as any} screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Dashboard" component={DashboardScreen} />
-            <Stack.Screen name="PendingApproval" component={PendingApprovalScreen} />
-            <Stack.Screen name="TripRequest" component={TripRequestScreen} />
-            <Stack.Screen
+        <AppStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+            <AppStack.Screen name="Dashboard" component={DashboardScreen} />
+            <AppStack.Screen name="PendingApproval" component={PendingApprovalScreen} />
+            <AppStack.Screen name="TripRequest" component={TripRequestScreen} />
+            <AppStack.Screen
                 name="ActiveTrip"
                 component={ActiveTripScreen}
                 initialParams={activeRideId ? { rideId: activeRideId } : undefined}
             />
-            <Stack.Screen name="Earnings" component={EarningsScreen} />
-            <Stack.Screen name="Wallet" component={WalletScreen} />
+            <AppStack.Screen name="Earnings" component={EarningsScreen} />
+            <AppStack.Screen name="Wallet" component={WalletScreen} />
             {scheduledEnabled && (
-                <Stack.Screen name="ScheduledRides" component={ScheduledRidesScreen} />
+                <AppStack.Screen name="ScheduledRides" component={ScheduledRidesScreen} />
             )}
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="Chat" component={ChatScreen} />
-            <Stack.Screen name="StrategySettings" component={StrategySettingsScreen} />
-            <Stack.Screen name="Legal" component={LegalScreen} />
-            <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
-        </Stack.Navigator>
+            <AppStack.Screen name="Profile" component={ProfileScreen} />
+            <AppStack.Screen name="Chat" component={ChatScreen} />
+            <AppStack.Screen name="StrategySettings" component={StrategySettingsScreen} />
+            <AppStack.Screen name="Legal" component={LegalScreen} />
+            <AppStack.Screen name="ReportIssue" component={ReportIssueScreen} />
+        </AppStack.Navigator>
     );
 }
 
@@ -260,6 +240,7 @@ function RootNavigator() {
 
 function App() {
     useEffect(() => {
+        installCrashReporter();
         startBackgroundLocationTracking();
         OutboxService.getInstance().processQueue();
     }, []);

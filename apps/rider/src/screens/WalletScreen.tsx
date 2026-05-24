@@ -4,7 +4,6 @@ import {
     FlatList, ActivityIndicator, useWindowDimensions, RefreshControl, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -16,22 +15,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
-import { tokens, THEME } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
     surfaceHigh: 'rgba(255,255,255,0.1)',
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
+    border: 'rgba(191,64,255,0.2)',
+    purple: VOICES.rider.accent,
+    purpleLight: VOICES.rider.accent,
     gold: '#F59E0B',
-    green: tokens.colors.status.success,
-    red: tokens.colors.status.error,
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    green: '#32D74B',
+    red: '#FF6E84',
+    white: '#FFFFFF',
+    muted: '#AEA9B5',
 };
 
 export function WalletScreen({ navigation }: any) {
@@ -51,7 +51,6 @@ export function WalletScreen({ navigation }: any) {
 
         fetchWalletData();
 
-        // --- REALTIME SYNC: Listen for new transactions ---
         const channel = supabase
             .channel(`wallet:${user.id}`)
             .on(
@@ -63,8 +62,7 @@ export function WalletScreen({ navigation }: any) {
                     filter: `user_id=eq.${user.id}`,
                 },
                 (payload) => {
-                    console.log('[Wallet] Realtime update detected:', payload.eventType);
-                    fetchWalletData(); // Refresh both balance and list
+                    fetchWalletData();
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }
             )
@@ -78,7 +76,6 @@ export function WalletScreen({ navigation }: any) {
     const fetchWalletData = async () => {
         setLoading(true);
         try {
-            // BUG_FIX: Ensure wallet_balance is fetched correctly
             const { data: balData, error: balError } = await supabase.rpc('get_wallet_balance', { p_user_id: user?.id });
             if (balError) {
                 console.error('[WalletScreen] get_wallet_balance failed:', balError.message);
@@ -124,14 +121,14 @@ export function WalletScreen({ navigation }: any) {
                     <Ionicons
                         name={isPositive ? "arrow-down" : "arrow-up"}
                         size={18}
-                        color={isPositive ? tokens.colors.primary.cyan : tokens.colors.status.error}
+                        color={isPositive ? CYAN : '#FF6E84'}
                     />
                 </View>
                 <View style={{ flex: 1, marginLeft: 16 }}>
                     <Txt variant="bodyBold" color={R.white} style={{ fontSize: 16 }}>{item.description || 'Transaction'}</Txt>
                     <Txt variant="small" color={R.muted}>{date.toLocaleDateString()} · {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Txt>
                 </View>
-                <Txt variant="bodyBold" color={isPositive ? tokens.colors.glass.strokeHighlight : tokens.colors.text.primary}>
+                <Txt variant="bodyBold" color={isPositive ? '#BF40FF' : '#FFF'}>
                     {isPositive ? '+' : '-'}${Math.abs(item.amount / 100).toFixed(2)}
                 </Txt>
             </View>
@@ -140,7 +137,7 @@ export function WalletScreen({ navigation }: any) {
     if (loading) {
         return (
             <View style={[s.root, { alignItems: 'center', justifyContent: 'center' }]}>
-                <ActivityIndicator color={tokens.colors.primary.purple} size="large" />
+                <ActivityIndicator color={VOICES.rider.accent} size="large" />
             </View>
         );
     }
@@ -151,9 +148,9 @@ export function WalletScreen({ navigation }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color={tokens.colors.text.primary} />
+                    <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color={tokens.colors.text.primary} style={{ marginLeft: 16 }}>Luxe Wallet</Txt>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Luxe Wallet</Txt>
             </View>
 
             <FlatList<any>
@@ -162,12 +159,11 @@ export function WalletScreen({ navigation }: any) {
                 renderItem={renderTransaction}
                 contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.colors.primary.purple} colors={[tokens.colors.primary.purple]} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.rider.accent} colors={[VOICES.rider.accent]} />
                 }
                 ListHeaderComponent={
                     <>
-                        {/* Hero Card: LinearGradient Blueberry Luxe */}
-                        <LinearGradient colors={[tokens.colors.primary.purple, '#7C3AED']} style={s.hero}>
+                        <LinearGradient colors={[VOICES.rider.accent, '#a88be0']} style={s.hero}>
                             <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">AVAILABLE FUNDS</Txt>
                             <View style={s.balanceRow}>
                                 <Txt variant="headingL" weight="heavy" color="#FFF" style={{ fontSize: 48 }}>${balance.toFixed(2)}</Txt>
@@ -179,12 +175,11 @@ export function WalletScreen({ navigation }: any) {
                             </View>
                         </LinearGradient>
 
-                        {/* Quick Actions */}
                         <View style={s.actions}>
                             <TouchableOpacity style={s.actionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('WalletTopUp'); }}>
                                 <View style={s.actionIcon}>
                                     <LinearGradient 
-                                        colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                                        colors={[VOICES.rider.accent, CYAN]} 
                                         style={StyleSheet.absoluteFillObject} 
                                     />
                                     <Ionicons name="add" size={24} color="#FFF" />
@@ -205,7 +200,7 @@ export function WalletScreen({ navigation }: any) {
                             </TouchableOpacity>
                         </View>
 
-                        <Txt variant="bodyBold" color={tokens.colors.text.primary} style={{ marginBottom: 16 }}>RECENT ACTIVITY</Txt>
+                        <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>RECENT ACTIVITY</Txt>
                     </>
                 }
                 ListEmptyComponent={
@@ -221,19 +216,19 @@ export function WalletScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: tokens.colors.background.base },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    hero: { borderRadius: 40, padding: 32, marginBottom: 32, shadowColor: tokens.colors.primary.purple, shadowRadius: 30, shadowOpacity: 0.5 },
+    hero: { borderRadius: 40, padding: 32, marginBottom: 32, ...elevationGlow() },
     balanceRow: { flexDirection: 'row', alignItems: 'baseline', marginVertical: 8 },
     gCoinBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, alignSelf: 'flex-start' },
 
     actions: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 44 },
     actionBtn: { alignItems: 'center', flex: 1 },
-    actionIcon: { width: 64, height: 64, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    actionIcon: { width: 64, height: 64, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', ...ghostBorder(0.15) },
 
-    txCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 28, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)', overflow: 'hidden' },
+    txCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 28, marginBottom: 12, ...ghostBorder(0.15), overflow: 'hidden' },
     txIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
 
     empty: { marginTop: 40, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 40, borderRadius: 32 },

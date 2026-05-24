@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, useWindowDimensions, Animated, Easing } from 'react-native';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface BubbleProps {
     delay: number;
@@ -86,7 +87,6 @@ const styles = StyleSheet.create({
     bubble: {
         position: 'absolute',
         backgroundColor: 'rgba(0, 255, 255, 0.4)', // Cyan-ish theme color
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        ...ghostBorder(0.2),
     },
 });

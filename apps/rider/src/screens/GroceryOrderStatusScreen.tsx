@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Animated,
+    ActivityIndicator,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,8 +9,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
+
+const CYAN = '#06B6D4';
+const SUCCESS = '#10B981';
+const ERROR = '#FF4D4D';
 
 const STATUS_STEPS = ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'delivered'];
 const STATUS_LABELS: Record<string, string> = {
@@ -46,17 +52,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
     const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const [driverId, setDriverId] = useState<string | null>(null);
     const [rideId, setRideId] = useState<string | null>(null);
-    const pulseAnim = useRef(new Animated.Value(1)).current;
     const mapRef = useRef<MapView>(null);
-
-    useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseAnim, { toValue: 1.1, duration: 900, useNativeDriver: true }),
-                Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-            ])
-        ).start();
-    }, []);
 
     const resolveDriverFromRide = async (ride_id: string) => {
         const { data: ride } = await supabase
@@ -168,7 +164,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
     } : DEFAULT_REGION;
 
     return (
-        <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
+        <LinearGradient colors={[SURFACE.base, '#12122A']} style={s.container} pointerEvents="box-none">
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
                     <Ionicons name="arrow-back" size={22} color="#FFF" />
@@ -196,7 +192,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                         <Marker
                             coordinate={driverLocation}
                             title="Driver"
-                            pinColor="#BF40FF"
+                            pinColor={VOICES.rider.accent}
                         />
                     )}
                 </MapView>
@@ -204,10 +200,8 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                 {/* Searching overlay when no driver */}
                 {isPending && !hasDriver && (
                     <View style={s.searchingOverlay}>
-                        <BlurView intensity={80} tint="dark" style={s.searchingBlur}>
-                            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                                <Ionicons name="radio" size={40} color="#BF40FF" />
-                            </Animated.View>
+                        <BlurView intensity={60} tint="dark" style={s.searchingBlur}>
+                            <Ionicons name="radio" size={40} color={VOICES.rider.accent} />
                             <Text style={s.searchingText}>Searching for Driver...</Text>
                             <Text style={s.searchingSub}>Finding the nearest available driver</Text>
                         </BlurView>
@@ -218,7 +212,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                 {hasDriver && (
                     <View style={s.driverBadge}>
                         <BlurView intensity={60} tint="dark" style={s.driverBadgeBlur}>
-                            <Ionicons name="car" size={16} color="#06B6D4" />
+                            <Ionicons name="car" size={16} color={CYAN} />
                             <Text style={s.driverBadgeText}>Driver assigned</Text>
                         </BlurView>
                     </View>
@@ -227,7 +221,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
 
             {/* Order summary card */}
             <View style={s.summaryCard}>
-                <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
+                <BlurView intensity={60} style={StyleSheet.absoluteFillObject} tint="dark" />
                 <Text style={s.summaryId}>#{orderId.slice(0, 8).toUpperCase()}</Text>
                 <Text style={s.summaryDetail}>
                     {service?.label}  ·  {weight} lbs  ·  ${((priceCents || 0) / 100).toFixed(2)} TTD
@@ -237,7 +231,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
             {/* Status steps */}
             {loading ? (
                 <View style={s.center}>
-                    <ActivityIndicator size="large" color="#06B6D4" />
+                    <ActivityIndicator size="large" color={CYAN} />
                 </View>
             ) : (
                 <View style={s.steps}>
@@ -249,20 +243,19 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                                 {idx < STATUS_STEPS.length - 1 && (
                                     <View style={[s.connector, done && s.connectorDone]} />
                                 )}
-                                <Animated.View
+                                <View
                                     style={[
                                         s.stepIconBox,
                                         done && s.stepDone,
                                         active && s.stepActive,
-                                        active && { transform: [{ scale: pulseAnim }] },
                                     ]}
                                 >
                                     <Ionicons
                                         name={STATUS_ICONS[step] as any}
                                         size={20}
-                                        color={active ? '#0A0A1F' : done ? '#10B981' : 'rgba(255,255,255,0.3)'}
+                                        color={active ? SURFACE.base : done ? SUCCESS : 'rgba(255,255,255,0.3)'}
                                     />
-                                </Animated.View>
+                                </View>
                                 <View style={s.stepLabel}>
                                     <Text style={[
                                         s.stepText,
@@ -281,9 +274,9 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
             {/* PIN HUD */}
             {(status === 'pending' || status === 'confirmed') && pins && (
                 <View style={s.pinSection}>
-                    <BlurView intensity={20} tint="dark" style={s.pinCard}>
+                    <BlurView intensity={60} tint="dark" style={s.pinCard}>
                         <Txt variant="caption" color="rgba(255,255,255,0.4)">PICKUP PIN</Txt>
-                        <Txt variant="headingL" color="#06B6D4" style={{ letterSpacing: 8 }}>{pins.pickup_pin}</Txt>
+                        <Txt variant="headingL" color={CYAN} style={{ letterSpacing: 8 }}>{pins.pickup_pin}</Txt>
                         <Txt variant="small" color="rgba(255,255,255,0.4)" style={{ textAlign: 'center', marginTop: 8 }}>
                             Give this code to the driver upon pickup.
                         </Txt>
@@ -294,10 +287,10 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
             {/* INTAKE APPROVAL */}
             {status === 'awaiting_approval' && intakeLog && (
                 <View style={StyleSheet.absoluteFillObject}>
-                    <BlurView intensity={100} tint="dark" style={s.approvalOverlay}>
+                    <BlurView intensity={60} tint="dark" style={s.approvalOverlay}>
                         <View style={s.approvalCard}>
                             <LinearGradient colors={['rgba(191,64,255,0.2)', 'rgba(6,182,212,0.1)']} style={StyleSheet.absoluteFillObject} />
-                            <Ionicons name="shield-checkmark" size={44} color="#06B6D4" style={{ alignSelf: 'center', marginBottom: 16 }} />
+                            <Ionicons name="shield-checkmark" size={44} color={CYAN} style={{ alignSelf: 'center', marginBottom: 16 }} />
                             <Txt variant="headingM" color="#FFF" style={{ textAlign: 'center' }}>Verify Your Items</Txt>
                             <Txt variant="bodyReg" color="rgba(255,255,255,0.6)" style={{ textAlign: 'center', marginBottom: 24 }}>
                                 The merchant has received your order. Please confirm to begin preparation.
@@ -307,7 +300,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                                 {Object.entries(intakeLog.items).map(([key, val]: [string, any]) => (
                                     <View key={key} style={s.itemRow}>
                                         <Txt variant="bodyBold" color="#FFF">{key.toUpperCase()}</Txt>
-                                        <Txt variant="bodyBold" color="#06B6D4">{val} units</Txt>
+                                        <Txt variant="bodyBold" color={CYAN}>{val} units</Txt>
                                     </View>
                                 ))}
                             </View>
@@ -317,13 +310,13 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                                     await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
                                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                                 }}>
-                                    <Txt variant="bodyBold" color="#FF4D4D">REJECT</Txt>
+                                    <Txt variant="bodyBold" color={ERROR}>REJECT</Txt>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={s.approveBtn} onPress={async () => {
                                     await supabase.from('orders').update({ status: 'confirmed' }).eq('id', orderId);
                                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                                 }}>
-                                    <Txt variant="bodyBold" color="#0A0A1F">APPROVE</Txt>
+                                    <Txt variant="bodyBold" color={SURFACE.base}>APPROVE</Txt>
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -338,7 +331,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                     activeOpacity={0.88}
                 >
                     <LinearGradient
-                        colors={['rgba(191,64,255,0.3)', 'rgba(6,182,212,0.1)']}
+                        colors={[`${VOICES.rider.accent}4D`, `${CYAN}1A`]}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                         style={s.ctaGradient}
                     >
@@ -360,29 +353,34 @@ const s = StyleSheet.create({
         width: 38, height: 38, borderRadius: 19,
         backgroundColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center', justifyContent: 'center',
+        ...elevationGlow(),
     },
     headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
-    mapContainer: { height: 220, marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', marginBottom: 16 },
+    mapContainer: { height: 220, marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', marginBottom: 16, ...elevationGlow() },
     map: { flex: 1 },
     searchingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
     searchingBlur: {
         padding: 24, borderRadius: 20, alignItems: 'center',
-        borderWidth: 1, borderColor: 'rgba(191,64,255,0.3)', overflow: 'hidden',
+        ...glassSurface(60, 0.2),
+        ...ghostBorder(0.3),
     },
     searchingText: { fontSize: 16, fontWeight: '700', color: '#FFF', marginTop: 12, fontFamily: 'SpaceGrotesk' },
     searchingSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4, fontFamily: 'Manrope' },
     driverBadge: { position: 'absolute', top: 12, left: 12 },
     driverBadgeBlur: {
         flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12,
-        borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden',
+        borderRadius: 20, gap: 6,
+        ...glassSurface(60, 0.2),
+        ...ghostBorder(0.1),
     },
     driverBadgeText: { fontSize: 12, fontWeight: '600', color: '#FFF', fontFamily: 'Manrope' },
     summaryCard: {
-        marginHorizontal: 20, borderRadius: 20, overflow: 'hidden',
-        padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-        backgroundColor: 'rgba(255,255,255,0.04)', marginBottom: 20, alignItems: 'center',
+        marginHorizontal: 20, borderRadius: 20,
+        padding: 18, marginBottom: 20, alignItems: 'center',
+        ...glassSurface(60, 0.2),
+        ...ghostBorder(0.1),
     },
-    summaryId: { fontSize: 22, fontWeight: '900', color: '#06B6D4', letterSpacing: 2, fontFamily: 'SpaceGrotesk' },
+    summaryId: { fontSize: 22, fontWeight: '900', color: CYAN, letterSpacing: 2, fontFamily: 'SpaceGrotesk' },
     summaryDetail: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4, fontFamily: 'Manrope' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     steps: { paddingHorizontal: 40, gap: 0 },
@@ -392,32 +390,43 @@ const s = StyleSheet.create({
         width: 2, height: 32,
         backgroundColor: 'rgba(255,255,255,0.1)',
     },
-    connectorDone: { backgroundColor: '#10B981' },
+    connectorDone: { backgroundColor: SUCCESS },
     stepIconBox: {
         width: 40, height: 40, borderRadius: 20,
         backgroundColor: 'rgba(255,255,255,0.07)',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
         alignItems: 'center', justifyContent: 'center',
+        ...ghostBorder(0.15),
     },
-    stepDone: { backgroundColor: 'rgba(74,222,128,0.15)', borderColor: '#10B981' },
-    stepActive: { backgroundColor: '#06B6D4', borderColor: '#06B6D4' },
+    stepDone: { backgroundColor: 'rgba(74,222,128,0.15)', borderColor: SUCCESS },
+    stepActive: { backgroundColor: CYAN, borderColor: CYAN },
     stepLabel: { flex: 1 },
     stepText: { fontSize: 15, color: 'rgba(255,255,255,0.35)', fontWeight: '300', fontFamily: 'Manrope' },
-    stepTextDone: { color: '#10B981' },
+    stepTextDone: { color: SUCCESS },
     stepTextActive: { color: '#FFF', fontWeight: '700' },
     ctaContainer: { padding: 20, marginTop: 'auto' },
-    ctaButton: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(191,64,255,0.3)' },
+    ctaButton: { borderRadius: 20, overflow: 'hidden', ...ghostBorder(0.3) },
     ctaGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
     ctaText: { fontSize: 16, fontWeight: '700', color: '#FFF', fontFamily: 'SpaceGrotesk' },
-
     pinSection: { paddingHorizontal: 40, marginTop: 20 },
-    pinCard: { padding: 24, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(6,182,212,0.2)', overflow: 'hidden' },
-
+    pinCard: {
+        padding: 24, borderRadius: 24, alignItems: 'center',
+        ...glassSurface(60, 0.2),
+        ...ghostBorder(0.2),
+    },
     approvalOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', padding: 20 },
-    approvalCard: { borderRadius: 32, padding: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(191,64,255,0.3)', backgroundColor: 'rgba(10, 10, 31, 0.8)' },
+    approvalCard: {
+        borderRadius: 32, padding: 32, overflow: 'hidden',
+        backgroundColor: 'rgba(10, 10, 31, 0.8)',
+        ...ghostBorder(0.3),
+    },
     itemList: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 20, marginBottom: 32 },
     itemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     btnRow: { flexDirection: 'row', gap: 12 },
-    rejectBtn: { flex: 1, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,77,77,0.1)', borderWidth: 1, borderColor: 'rgba(255,77,77,0.2)' },
-    approveBtn: { flex: 2, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#06B6D4' },
+    rejectBtn: {
+        flex: 1, height: 56, borderRadius: 16,
+        alignItems: 'center', justifyContent: 'center',
+        backgroundColor: `${ERROR}1A`,
+        ...ghostBorder(0.2),
+    },
+    approveBtn: { flex: 2, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: CYAN },
 });

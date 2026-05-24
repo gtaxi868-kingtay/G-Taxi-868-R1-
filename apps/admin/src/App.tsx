@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { User } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 import { supabase, adminFetch } from './lib/supabase';
 import Login from './pages/Login';
 import { Dashboard } from './pages/Dashboard';

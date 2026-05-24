@@ -17,38 +17,25 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { ENV } from '@gtaxi/shared/env';
 import { supabase } from '@gtaxi/core';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
 
-// Blueberry Luxe Color System
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#160B32',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    purpleLight: '#9B7CF0',
-    cyan: '#00E5FF',
-    cyanDark: '#0099BB',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.5)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
-    success: '#00FF94',
-    warning: '#F59E0B',
-    error: '#FF4D6D',
-};
+const CYAN = '#00E5FF';
+const SUCCESS = '#00FF94';
+const ERROR = '#FF4D6D';
+const WARNING = '#F59E0B';
 
-// Custom Dark Map Style for Blueberry Luxe
 const DARK_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: '#0d0b1e' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#7B5CF0' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#0d0b1e' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1040' }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#7B5CF0', weight: 0.5 }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00E5FF', lightness: -80 }] },
+    { elementType: 'geometry', stylers: [{ color: SURFACE.base }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: VOICES.rider.accent }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: SURFACE.base }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: SURFACE.containerLow }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: VOICES.rider.accent, weight: 0.5 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: CYAN, lightness: -80 }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] }
 ];
 
@@ -85,12 +72,9 @@ const DriverMarker = ({ coordinate, rotation }: DriverMarkerProps) => {
                     width: 16,
                     height: 16,
                     borderRadius: 8,
-                    backgroundColor: COLORS.cyan,
+                    backgroundColor: CYAN,
                     borderWidth: 2,
-                    borderColor: COLORS.white,
-                    shadowColor: COLORS.cyan,
-                    shadowRadius: 10,
-                    shadowOpacity: 0.8,
+                    borderColor: '#FFFFFF',
                 }} />
             </View>
         </Marker>
@@ -538,15 +522,15 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
     if (!ride) {
         return (
-            <View style={{ flex: 1, backgroundColor: COLORS.bgPrimary, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                <ActivityIndicator size="large" color={COLORS.purple} />
-                <Text style={{ marginTop: 16, textAlign: 'center', color: COLORS.textMuted }}>Connecting to your ride...</Text>
+            <View style={{ flex: 1, backgroundColor: SURFACE.base, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                <ActivityIndicator size="large" color={VOICES.rider.accent} />
+                <Text style={{ marginTop: 16, textAlign: 'center', color: VOICES.rider.textMuted }}>Connecting to your ride...</Text>
             </View>
         );
     }
 
     return (
-        <View style={s.root}>
+        <View style={s.root} pointerEvents="box-none">
             <StatusBar style="light" />
 
             {/* Dark Map with Blueberry Luxe Styling */}
@@ -578,20 +562,19 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         width: 14,
                         height: 14,
                         borderRadius: 7,
-                        backgroundColor: COLORS.white,
+                        backgroundColor: '#FFFFFF',
                         borderWidth: 3,
-                        borderColor: COLORS.purple,
+                        borderColor: VOICES.rider.accent,
                     }} />
                 </Marker>
-                {/* Destination Marker */}
                 <Marker coordinate={{ latitude: ride?.dropoff_lat || 0, longitude: ride?.dropoff_lng || 0 }}>
                     <View style={{
                         width: 14,
                         height: 14,
                         borderRadius: 7,
-                        backgroundColor: COLORS.white,
+                        backgroundColor: '#FFFFFF',
                         borderWidth: 3,
-                        borderColor: COLORS.cyan,
+                        borderColor: CYAN,
                     }} />
                 </Marker>
             </MapView>
@@ -607,7 +590,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
             {signalStatus === 'lost' && (
                 <View style={[s.signalBannerLost, { top: insets.top + 60 }]}>
-                    <Ionicons name="warning" size={20} color={COLORS.white} />
+                    <Ionicons name="warning" size={20} color="#FFFFFF" />
                     <Text style={s.signalBannerLostText}>
                         We've lost contact with your driver.{'\n'}
                         Your trip is still active.
@@ -627,8 +610,8 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             <Reanimated.View style={[s.statusBubble, statusStyle, { top: insets.top + 12 }]}>
                 <View style={s.statusBadge}>
                     <View style={[s.statusDot, { 
-                        backgroundColor: ride?.status === 'in_progress' ? COLORS.success : 
-                                        ride?.status === 'arrived' ? COLORS.warning : COLORS.cyan 
+                        backgroundColor: ride?.status === 'in_progress' ? SUCCESS : 
+                                        ride?.status === 'arrived' ? WARNING : CYAN
                     }]} />
                     <Text style={s.statusText}>{ride?.status?.toUpperCase().replace('_', ' ')}</Text>
                 </View>
@@ -637,16 +620,16 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             {/* AI Concierge HUD */}
             {aiInsight && (
                 <Reanimated.View entering={FadeInUp} style={[s.aiInsightHud, { width: width * 0.9, top: insets.top + 70 }]}>
-                    <BlurView intensity={20} tint="dark" style={s.aiInsightBlur}>
+                    <BlurView intensity={60} tint="dark" style={[s.aiInsightBlur, glassSurface(60, 0.2)]}>
                         <LinearGradient 
-                            colors={[COLORS.purple, COLORS.purpleDark]} 
+                            colors={[VOICES.rider.accent, VOICES.rider.accentDark]} 
                             style={s.aiInsightGradient}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                         >
                             <View style={{ flex: 1 }}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                    <Ionicons name="star" size={14} color={COLORS.white} />
+                                    <Ionicons name="star" size={14} color="#FFFFFF" />
                                     <Text style={s.aiTitle}>G-TAXI AI CONCIERGE</Text>
                                 </View>
                                 <Text style={s.aiMessage}>{aiInsight}</Text>
@@ -673,8 +656,8 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                                             }
                                         }}
                                     >
-                                        <Text style={{ fontSize: 12, fontWeight: '800', color: COLORS.cyan }}>ADD TO TRIP</Text>
-                                        <Ionicons name="arrow-forward-circle" size={16} color={COLORS.cyan} style={{ marginLeft: 4 }} />
+                                        <Text style={{ fontSize: 12, fontWeight: '800', color: CYAN }}>ADD TO TRIP</Text>
+                                        <Ionicons name="arrow-forward-circle" size={16} color={CYAN} style={{ marginLeft: 4 }} />
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -688,7 +671,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
             {/* Bottom Card - Glassmorphism */}
             <View style={[s.bottomCard, { paddingBottom: insets.bottom + 20 }]}>
-                <BlurView intensity={20} tint="dark" style={s.cardBlur}>
+                <BlurView intensity={60} tint="dark" style={[s.cardBlur, glassSurface(60, 0.2)]}>
                     <View style={s.handle} />
 
                     {/* Driver Info Row */}
@@ -720,59 +703,59 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                     {/* Progress Track */}
                     <View style={s.track}>
                         <View style={[s.trackNode, step >= 1 && s.trackNodeActive]}>
-                            <Ionicons name="location" size={12} color={step >= 1 ? COLORS.white : COLORS.textMuted} />
+                            <Ionicons name="location" size={12} color={step >= 1 ? '#FFFFFF' : VOICES.rider.textMuted} />
                         </View>
                         <View style={[s.trackLine, step >= 2 && s.trackLineActive]} />
                         <View style={[s.trackNode, step >= 2 && s.trackNodeActive]}>
-                            <Ionicons name="car" size={12} color={step >= 2 ? COLORS.white : COLORS.textMuted} />
+                            <Ionicons name="car" size={12} color={step >= 2 ? '#FFFFFF' : VOICES.rider.textMuted} />
                         </View>
                         <View style={s.trackLine} />
                         <View style={s.trackNode}>
-                            <Ionicons name="flag" size={12} color={COLORS.textMuted} />
+                            <Ionicons name="flag" size={12} color={VOICES.rider.textMuted} />
                         </View>
                     </View>
 
                     {/* Action Buttons */}
                     <View style={s.actions}>
                         <TouchableOpacity style={s.msgBtn} onPress={() => navigation.navigate('Chat', { rideId, driver })}>
-                            <Ionicons name="chatbubble-ellipses" size={20} color={COLORS.purple} />
+                            <Ionicons name="chatbubble-ellipses" size={20} color={VOICES.rider.accent} />
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                            style={[s.msgBtn, { marginLeft: 8, borderColor: ride?.entertainment_status === 'accepted' ? COLORS.success : 'transparent' }]} 
+                            style={[s.msgBtn, { marginLeft: 8 }]} 
                             onPress={() => setMusicModalVisible(true)}
                         >
                             <Ionicons 
                                 name={ride?.entertainment_status === 'accepted' ? "musical-notes" : "musical-note-outline"} 
                                 size={20} 
-                                color={ride?.entertainment_status === 'accepted' ? COLORS.success : COLORS.purple} 
+                                color={ride?.entertainment_status === 'accepted' ? SUCCESS : VOICES.rider.accent} 
                             />
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                            style={[s.msgBtn, { marginLeft: 8, borderColor: COLORS.cyan, backgroundColor: 'rgba(0,229,255,0.05)' }]} 
+                            style={[s.msgBtn, { marginLeft: 8 }]} 
                             onPress={handleShareMirror}
                         >
-                            <Ionicons name="shield-checkmark" size={20} color={COLORS.cyan} />
+                            <Ionicons name="shield-checkmark" size={20} color={CYAN} />
                         </TouchableOpacity>
 
                         <TouchableOpacity 
-                            style={[s.msgBtn, { marginLeft: 8, borderColor: ride?.safe_entry ? COLORS.success : 'transparent' }]} 
+                            style={[s.msgBtn, { marginLeft: 8 }]} 
                             onPress={toggleSafeEntry}
                         >
-                            <Ionicons name="home-outline" size={20} color={ride?.safe_entry ? COLORS.success : COLORS.purple} />
+                            <Ionicons name="home-outline" size={20} color={ride?.safe_entry ? SUCCESS : VOICES.rider.accent} />
                         </TouchableOpacity>
 
                         <TouchableOpacity style={s.callBtn} onPress={() => driver?.phone_number && Linking.openURL(`tel:${driver.phone_number}`)}>
-                            <Ionicons name="call" size={20} color={COLORS.purple} />
+                            <Ionicons name="call" size={20} color={VOICES.rider.accent} />
                             <Text style={s.callLabel}>Voice Call</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={[s.msgBtn, { marginLeft: 8, borderColor: COLORS.error }]}
+                            style={[s.msgBtn, { marginLeft: 8 }]}
                             onPress={handleCancelRide}
                         >
-                            <Ionicons name="close-circle" size={20} color={COLORS.error} />
+                            <Ionicons name="close-circle" size={20} color={ERROR} />
                         </TouchableOpacity>
                     </View>
                 </BlurView>
@@ -781,9 +764,9 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             {/* Music Modal */}
             <Modal visible={musicModalVisible} transparent animationType="slide">
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
-                    <BlurView tint="dark" intensity={100} style={s.modalContent}>
-                        <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.white, marginBottom: 12 }}>Music Suggestion</Text>
-                        <Text style={{ fontSize: 14, color: COLORS.textMuted, textAlign: 'center', marginBottom: 24 }}>
+                    <BlurView tint="dark" intensity={60} style={[s.modalContent, glassSurface(60, 0.2)]}>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginBottom: 12 }}>Music Suggestion</Text>
+                        <Text style={{ fontSize: 14, color: VOICES.rider.textMuted, textAlign: 'center', marginBottom: 24 }}>
                             Suggest a Spotify or YouTube link for the driver to play.
                         </Text>
                         <TextInput 
@@ -797,10 +780,10 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         />
                         <View style={s.modalActions}>
                             <TouchableOpacity style={s.modalCancel} onPress={() => setMusicModalVisible(false)}>
-                                <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.textMuted }}>Cancel</Text>
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: VOICES.rider.textMuted }}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.modalConfirm} onPress={handleMusicSuggestion} disabled={isMusicLoading}>
-                                <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.white }}>{isMusicLoading ? 'Sending...' : 'Send'}</Text>
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>{isMusicLoading ? 'Sending...' : 'Send'}</Text>
                             </TouchableOpacity>
                         </View>
                     </BlurView>
@@ -830,7 +813,7 @@ function IsolatedWaitClock({ arrivedAt, setAiInsight }: { arrivedAt: string, set
     return (
         <View style={s.waitClockRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="time" size={16} color={COLORS.warning} />
+                <Ionicons name="time" size={16} color={WARNING} />
                 <Text style={s.lateFeeValue}>LATE FEE: TTD ${ (stats.cents / 100).toFixed(2) }</Text>
             </View>
             <Text style={s.lateFeeLabel}>{stats.mins}m elapsed</Text>
@@ -839,10 +822,8 @@ function IsolatedWaitClock({ arrivedAt, setAiInsight }: { arrivedAt: string, set
 }
 
 const s = StyleSheet.create({
-    // Root
-    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
+    root: { flex: 1, backgroundColor: SURFACE.base },
 
-    // Status Badge
     statusBubble: { 
         position: 'absolute', 
         alignSelf: 'center', 
@@ -854,15 +835,10 @@ const s = StyleSheet.create({
         gap: 8,
         paddingHorizontal: 16,
         paddingVertical: 10,
-        backgroundColor: 'rgba(22,11,50,0.9)',
+        backgroundColor: 'rgba(28,25,43,0.9)',
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
+        ...ghostBorder(0.2),
+        ...elevationGlow(6),
     },
     statusDot: {
         width: 8,
@@ -872,11 +848,10 @@ const s = StyleSheet.create({
     statusText: {
         fontSize: 12,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFFFFF',
         letterSpacing: 1,
     },
 
-    // AI Insight HUD
     aiInsightHud: { 
         alignSelf: 'center', 
         position: 'absolute', 
@@ -891,29 +866,27 @@ const s = StyleSheet.create({
         alignItems: 'center', 
         padding: 14, 
         borderRadius: 20,
-        borderWidth: 1, 
-        borderColor: 'rgba(0,229,255,0.2)',
+        ...ghostBorder(0.15),
     },
     aiTitle: { 
         marginLeft: 6, 
         fontSize: 10, 
         fontWeight: '800', 
-        color: COLORS.white, 
+        color: '#FFFFFF', 
         letterSpacing: 1,
     },
     aiMessage: { 
         fontSize: 13, 
         fontWeight: '500', 
-        color: COLORS.white, 
+        color: '#FFFFFF', 
         lineHeight: 18,
         marginTop: 2,
     },
     aiActionBtn: { 
         flexDirection: 'row', 
         alignItems: 'center', 
-        backgroundColor: 'rgba(0,229,255,0.1)', 
-        borderColor: 'rgba(0,229,255,0.3)', 
-        borderWidth: 1,
+        ...glassSurface(),
+        ...ghostBorder(0.2),
         borderRadius: 12, 
         paddingVertical: 6, 
         paddingHorizontal: 12, 
@@ -921,7 +894,6 @@ const s = StyleSheet.create({
         alignSelf: 'flex-start',
     },
 
-    // Bottom Card
     bottomCard: { 
         position: 'absolute', 
         bottom: 0, 
@@ -931,15 +903,10 @@ const s = StyleSheet.create({
     },
     cardBlur: { 
         padding: 24, 
-        backgroundColor: 'rgba(22,11,50,0.85)',
+        backgroundColor: 'rgba(28,25,43,0.85)',
         borderRadius: 28,
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 8,
+        ...ghostBorder(0.2),
+        ...elevationGlow(8),
         overflow: 'hidden',
     },
     handle: { 
@@ -951,7 +918,6 @@ const s = StyleSheet.create({
         marginBottom: 20,
     },
 
-    // Driver Row
     driverRow: { 
         flexDirection: 'row', 
         alignItems: 'center', 
@@ -961,33 +927,29 @@ const s = StyleSheet.create({
         width: 56, 
         height: 56, 
         borderRadius: 16, 
-        backgroundColor: COLORS.purple, 
+        backgroundColor: VOICES.rider.accent, 
         alignItems: 'center', 
         justifyContent: 'center',
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        ...elevationGlow(8),
     },
     avatarTxt: { 
         fontSize: 24, 
         fontWeight: '800', 
-        color: COLORS.white,
+        color: SURFACE.base,
     },
     driverName: { 
         fontSize: 20, 
         fontWeight: '800', 
-        color: COLORS.white,
+        color: '#FFFFFF',
         letterSpacing: -0.5,
     },
     vehicleInfo: { 
         fontSize: 13, 
         fontWeight: '500', 
-        color: COLORS.textSecondary,
+        color: VOICES.rider.textMuted,
         marginTop: 2,
     },
 
-    // PIN Badge
     pinBadge: { 
         flex: 1, 
         alignItems: 'center', 
@@ -995,41 +957,35 @@ const s = StyleSheet.create({
         paddingVertical: 8, 
         backgroundColor: 'rgba(0,229,255,0.05)', 
         borderRadius: 16, 
-        borderWidth: 1, 
-        borderColor: 'rgba(0,229,255,0.15)',
+        ...ghostBorder(0.15),
     },
     pinLabel: { 
         fontSize: 10, 
         fontWeight: '600', 
-        color: COLORS.textMuted, 
+        color: VOICES.rider.textMuted, 
         letterSpacing: 1,
     },
     pinValue: { 
         fontSize: 28, 
         fontWeight: '800', 
-        color: COLORS.cyan, 
+        color: CYAN, 
         letterSpacing: 3,
         marginTop: 2,
     },
 
-    // SOS Button
     sosBtn: { 
         width: 56, 
         height: 56, 
         borderRadius: 16, 
-        backgroundColor: COLORS.error, 
+        backgroundColor: ERROR, 
         alignItems: 'center', 
         justifyContent: 'center',
-        shadowColor: COLORS.error,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 8,
-        elevation: 4,
+        ...elevationGlow(4),
     },
     sosLabel: { 
         fontSize: 12, 
         fontWeight: '800', 
-        color: COLORS.white,
+        color: '#FFFFFF',
         letterSpacing: 0.5,
     },
     sosRing: { 
@@ -1038,11 +994,10 @@ const s = StyleSheet.create({
         height: 56, 
         borderRadius: 16, 
         borderWidth: 2, 
-        borderColor: COLORS.error, 
+        borderColor: ERROR, 
         opacity: 0.3,
     },
 
-    // Progress Track
     track: { 
         flexDirection: 'row', 
         alignItems: 'center', 
@@ -1054,27 +1009,25 @@ const s = StyleSheet.create({
         width: 24, 
         height: 24, 
         borderRadius: 12, 
-        backgroundColor: COLORS.glassBg, 
+        backgroundColor: SURFACE.containerLow, 
         alignItems: 'center', 
         justifyContent: 'center', 
-        borderWidth: 1, 
-        borderColor: COLORS.glassBorder,
+        ...ghostBorder(0.2),
     },
     trackNodeActive: { 
-        backgroundColor: COLORS.purple, 
-        borderColor: COLORS.purpleLight,
+        backgroundColor: VOICES.rider.accent, 
+        borderColor: VOICES.rider.accent,
     },
     trackLine: { 
         flex: 1, 
         height: 2, 
-        backgroundColor: COLORS.glassBg, 
+        backgroundColor: SURFACE.containerLow, 
         marginHorizontal: 4,
     },
     trackLineActive: { 
-        backgroundColor: COLORS.purple,
+        backgroundColor: VOICES.rider.accent,
     },
 
-    // Action Buttons
     actions: { 
         flexDirection: 'row', 
         gap: 10,
@@ -1083,32 +1036,29 @@ const s = StyleSheet.create({
         width: 52, 
         height: 52, 
         borderRadius: 14, 
-        backgroundColor: 'rgba(123,92,240,0.1)', 
+        backgroundColor: SURFACE.containerLow, 
         alignItems: 'center', 
         justifyContent: 'center', 
-        borderWidth: 1, 
-        borderColor: 'rgba(123,92,240,0.2)',
+        ...ghostBorder(0.2),
     },
     callBtn: { 
         flex: 1, 
         height: 52, 
         borderRadius: 14, 
-        backgroundColor: 'rgba(123,92,240,0.1)', 
+        backgroundColor: SURFACE.containerLow, 
         flexDirection: 'row', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        borderWidth: 1, 
-        borderColor: 'rgba(123,92,240,0.2)',
+        ...ghostBorder(0.2),
         gap: 8,
     },
     callLabel: { 
         fontSize: 15, 
         fontWeight: '700', 
-        color: COLORS.purple,
+        color: VOICES.rider.accent,
         letterSpacing: 0.5,
     },
 
-    // Wait Clock
     waitClockRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1118,25 +1068,23 @@ const s = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: 16,
         marginBottom: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(245,158,11,0.2)',
+        ...ghostBorder(0.2),
     },
     lateFeeValue: { 
         fontSize: 15, 
         fontWeight: '800', 
-        color: COLORS.warning,
+        color: WARNING,
         letterSpacing: 0.5,
     },
     lateFeeLabel: { 
         fontSize: 13, 
         fontWeight: '500', 
-        color: COLORS.textMuted,
+        color: VOICES.rider.textMuted,
     },
 
-    // Modal
     modalOverlay: { 
         flex: 1, 
-        backgroundColor: 'rgba(13,11,30,0.95)', 
+        backgroundColor: 'rgba(20,17,34,0.95)', 
         justifyContent: 'center', 
         padding: 20,
     },
@@ -1144,10 +1092,9 @@ const s = StyleSheet.create({
         padding: 28, 
         borderRadius: 28, 
         alignItems: 'center', 
-        borderWidth: 1, 
-        borderColor: COLORS.glassBorder, 
+        ...ghostBorder(0.2), 
         overflow: 'hidden',
-        backgroundColor: COLORS.bgSecondary,
+        backgroundColor: SURFACE.containerLow,
     },
     musicInput: { 
         width: '100%', 
@@ -1155,10 +1102,9 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.05)', 
         borderRadius: 14, 
         paddingHorizontal: 16, 
-        color: COLORS.white, 
+        color: '#FFFFFF', 
         marginBottom: 20, 
-        borderWidth: 1, 
-        borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
         fontSize: 16,
     },
     modalActions: { 
@@ -1176,15 +1122,11 @@ const s = StyleSheet.create({
     modalConfirm: {
         flex: 2,
         height: 50,
-        backgroundColor: COLORS.purple,
+        backgroundColor: VOICES.rider.accent,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
+        ...elevationGlow(4),
     },
 
     signalBanner: {
@@ -1217,7 +1159,7 @@ const s = StyleSheet.create({
         zIndex: 100,
     },
     signalBannerLostText: {
-        color: COLORS.white,
+        color: '#FFFFFF',
         fontSize: 14,
         fontWeight: '700',
         textAlign: 'center',
@@ -1229,7 +1171,7 @@ const s = StyleSheet.create({
         gap: 12,
     },
     signalBtnPrimary: {
-        backgroundColor: COLORS.white,
+        backgroundColor: '#FFFFFF',
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 12,
@@ -1246,7 +1188,7 @@ const s = StyleSheet.create({
         borderRadius: 12,
     },
     signalBtnSecondaryText: {
-        color: COLORS.white,
+        color: '#FFFFFF',
         fontSize: 14,
         fontWeight: '700',
     },

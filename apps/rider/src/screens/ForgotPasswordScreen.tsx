@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     View, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    useWindowDimensions, Image, Text, Alert
+    useWindowDimensions, Text, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,26 +12,8 @@ import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
-
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#160B32',
-    gradientStart: '#1A0533',
-    gradientEnd: '#0D1B4B',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    purpleLight: '#9B7CF0',
-    cyan: '#00E5FF',
-    cyanDark: '#0099BB',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.5)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
-    glassBorderFocus: 'rgba(0,229,255,0.5)',
-    success: '#00FF94',
-    error: '#FF4D6D',
-};
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 
 export function ForgotPasswordScreen({ navigation }: any) {
     const { width, height } = useWindowDimensions();
@@ -73,7 +55,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
             <StatusBar style="light" />
 
             <LinearGradient
-                colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                colors={['#1A0533', '#0D1B4B']}
                 style={StyleSheet.absoluteFillObject}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 0, y: 1 }}
@@ -83,7 +65,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={s.container}
             >
-                <Reanimated.View entering={FadeIn.duration(1000)} style={[s.content, { paddingTop: height * 0.12 }]}>
+                <Reanimated.View entering={FadeIn.springify().mass(ANIMATION.spring.mass).stiffness(ANIMATION.spring.stiffness).damping(ANIMATION.spring.damping)} style={[s.content, { paddingTop: height * 0.12 }]}>
 
                     {/* Back Button */}
                     <TouchableOpacity
@@ -96,7 +78,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                     {/* Header Section */}
                     <View style={s.headerSection}>
                         <View style={s.iconCircle}>
-                            <Ionicons name="lock-open-outline" size={32} color={COLORS.cyan} />
+                            <Ionicons name="lock-open-outline" size={32} color={VOICES.rider.accent} />
                         </View>
                         <Text style={s.title}>Reset Password</Text>
                         <Text style={s.subtitle}>
@@ -111,7 +93,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                                 {sent ? (
                                     <View style={s.successContainer}>
                                         <View style={s.successIcon}>
-                                            <Ionicons name="mail-outline" size={40} color={COLORS.success} />
+                                            <Ionicons name="mail-outline" size={40} color={'#00FF94'} />
                                         </View>
                                         <Text style={s.successTitle}>Check Your Email</Text>
                                         <Text style={s.successText}>
@@ -123,7 +105,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                                             onPress={() => navigation.navigate('Login')}
                                         >
                                             <LinearGradient
-                                                colors={[COLORS.purple, COLORS.purpleDark]}
+                                                colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
                                                 style={s.buttonGradient}
                                                 start={{ x: 0, y: 0 }}
                                                 end={{ x: 1, y: 1 }}
@@ -144,7 +126,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                                                 <TextInput
                                                     style={s.input}
                                                     placeholder="you@email.com"
-                                                    placeholderTextColor={COLORS.textMuted}
+                                                    placeholderTextColor={'rgba(255,255,255,0.6)'}
                                                     value={email}
                                                     onChangeText={setEmail}
                                                     autoCapitalize="none"
@@ -164,7 +146,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                                             activeOpacity={0.8}
                                         >
                                             <LinearGradient
-                                                colors={[COLORS.purple, COLORS.purpleDark]}
+                                                colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
                                                 style={s.buttonGradient}
                                                 start={{ x: 0, y: 0 }}
                                                 end={{ x: 1, y: 1 }}
@@ -183,7 +165,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                                             onPress={() => navigation.goBack()}
                                         >
                                             <Text style={s.linkText}>
-                                                Remember your password? <Text style={s.linkTextCyan}>Sign In</Text>
+                                                Remember your password? <Text style={s.linkTextAccent}>Sign In</Text>
                                             </Text>
                                         </TouchableOpacity>
                                     </>
@@ -201,7 +183,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
 const s = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: COLORS.bgPrimary,
+        backgroundColor: SURFACE.base,
     },
     container: {
         flex: 1,
@@ -232,12 +214,11 @@ const s = StyleSheet.create({
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: 'rgba(0,229,255,0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(0,229,255,0.3)',
+        backgroundColor: VOICES.rider.accent + '1A',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
+        ...ghostBorder(0.15),
     },
     title: {
         fontSize: 28,
@@ -248,7 +229,7 @@ const s = StyleSheet.create({
     },
     subtitle: {
         fontSize: 14,
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         textAlign: 'center',
         lineHeight: 20,
         paddingHorizontal: 20,
@@ -263,11 +244,10 @@ const s = StyleSheet.create({
         overflow: 'hidden',
     },
     glassCard: {
-        backgroundColor: 'rgba(22,11,50,0.6)',
+        backgroundColor: SURFACE.containerLow,
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
         padding: 24,
+        ...ghostBorder(0.15),
     },
 
     // Success State
@@ -280,8 +260,7 @@ const s = StyleSheet.create({
         height: 80,
         borderRadius: 40,
         backgroundColor: 'rgba(0,255,148,0.1)',
-        borderWidth: 1,
-        borderColor: 'rgba(0,255,148,0.3)',
+        ...ghostBorder(0.3),
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
@@ -294,13 +273,13 @@ const s = StyleSheet.create({
     },
     successText: {
         fontSize: 14,
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         textAlign: 'center',
         lineHeight: 20,
         marginBottom: 32,
     },
     emailHighlight: {
-        color: COLORS.cyan,
+        color: VOICES.rider.accent,
         fontWeight: '700',
     },
     backToLoginBtn: {
@@ -317,21 +296,18 @@ const s = StyleSheet.create({
     label: {
         fontSize: 11,
         fontWeight: '700',
-        color: COLORS.cyan,
+        color: VOICES.rider.accent,
         marginBottom: 8,
         letterSpacing: 1,
     },
     inputContainer: {
-        backgroundColor: COLORS.glassBg,
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
+        backgroundColor: 'rgba(255,255,255,0.04)',
         borderRadius: 12,
         paddingHorizontal: 16,
         height: 52,
         justifyContent: 'center',
     },
     inputContainerFocused: {
-        borderColor: COLORS.glassBorderFocus,
         backgroundColor: 'rgba(255,255,255,0.08)',
     },
     input: {
@@ -367,10 +343,10 @@ const s = StyleSheet.create({
     },
     linkText: {
         fontSize: 13,
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
     },
-    linkTextCyan: {
-        color: COLORS.cyan,
+    linkTextAccent: {
+        color: VOICES.rider.accent,
         fontWeight: '700',
     },
 });

@@ -5,63 +5,53 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
-    useSharedValue, withTiming, useAnimatedStyle,
-    useDerivedValue, withSpring,
+    useSharedValue, withTiming,
+    useDerivedValue,
 } from 'react-native-reanimated';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-
-// Blueberry Luxe — Gold Edition (Driver)
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#1A1508',
-    gradientStart: '#1A1200',
-    gradientEnd: '#0D0B1E',
-    gold: '#FFD700',
-    goldDark: '#B8860B',
-    goldLight: '#FFEC8B',
-    amber: '#FFB000',
-    amberSoft: 'rgba(255,176,0,0.1)',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    purpleLight: '#9B7CF0',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.4)',
-    glassBg: 'rgba(255,215,0,0.06)',
-    glassBorder: 'rgba(255,176,0,0.3)',
-    success: '#00FF94',
-    warning: '#F59E0B',
-    error: '#EF4444',
-};
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
 const DRIVER_SHARE = 0.81;
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+interface TripData {
+    id: string;
+    created_at: string;
+    total_fare_cents: number;
+    driver_payout_cents: number;
+    payment_method: string | null;
+    dropoff_address: string | null;
+    status?: string;
+}
+
+interface NavigationProp {
+    navigate: (screen: string, params?: object) => void;
+    goBack: () => void;
+}
+
 function paymentIcon(method: string | null): string {
     if (method === 'cash') return 'cash-outline';
     if (method === 'wallet') return 'wallet-outline';
     return 'card-outline';
 }
 function paymentColor(method: string | null): string {
-    if (method === 'cash') return COLORS.success;
-    if (method === 'wallet') return COLORS.gold;
-    return COLORS.warning;
+    if (method === 'cash') return '#10B981';
+    if (method === 'wallet') return VOICES.driver.accent;
+    return VOICES.driver.accent;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-export function EarningsScreen({ navigation }: any) {
+export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
     const insets = useSafeAreaInsets();
     const { driver } = useAuth();
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [stats, setStats] = useState({ today: 0, week: 0, month: 0, trips: 0 });
-    const [recentTrips, setRecentTrips] = useState<any[]>([]);
+    const [recentTrips, setRecentTrips] = useState<TripData[]>([]);
 
     const earningsAnim = useSharedValue(0);
     const earningsDisplay = useDerivedValue(() =>
@@ -115,7 +105,6 @@ export function EarningsScreen({ navigation }: any) {
 
         fetchEarnings();
 
-        // --- REALTIME SYNC: Listen for newly completed rides ---
         const channel = supabase
             .channel(`driver_earnings:${driver.id}`)
             .on(
@@ -127,9 +116,7 @@ export function EarningsScreen({ navigation }: any) {
                     filter: `driver_id=eq.${driver.id}`,
                 },
                 (payload) => {
-                    console.log('[Earnings] Ride update detected:', payload.eventType);
-                    // Only refresh if the status is relevant (completed/cancelled)
-                    const ride = payload.new as any;
+                    const ride = payload.new as TripData | null;
                     if (ride?.status === 'completed' || ride?.status === 'cancelled') {
                         fetchEarnings();
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -151,14 +138,14 @@ export function EarningsScreen({ navigation }: any) {
     if (loading) {
         return (
             <View style={[s.root, s.center]}>
-                <ActivityIndicator color={COLORS.gold} size="large" />
+                <ActivityIndicator color={VOICES.driver.accent} size="large" />
             </View>
         );
     }
 
     return (
         <View style={s.root}>
-            <BlurView tint="dark" intensity={90} style={[s.headerBlur, { paddingTop: insets.top }]}>
+            <BlurView tint="dark" intensity={90} style={[s.headerBlur, { paddingTop: insets.top }, glassSurface(90, 0.2)]}>
                 <View style={s.headerInner}>
                     <TouchableOpacity
                         style={s.backBtn}
@@ -178,47 +165,47 @@ export function EarningsScreen({ navigation }: any) {
                 contentContainerStyle={[s.scroll, { paddingTop: insets.top + 80 }]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.gold} colors={[COLORS.gold]} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} colors={[VOICES.driver.accent]} />
                 }
             >
-                <View style={[s.heroCard, {backgroundColor: COLORS.glassBg, borderColor: COLORS.glassBorder, borderWidth: 1, borderRadius: 24}]}>
-                    <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.gold, letterSpacing: 1.5, marginBottom: 12 }}>
+                <View style={[s.heroCard, glassSurface(0.15)]}>
+                    <Text style={{fontSize: 11, fontWeight: '700', color: VOICES.driver.accent, letterSpacing: 1.5, marginBottom: 12 }}>
                         TODAY'S EARNINGS
                     </Text>
 
                     <Reanimated.Text style={s.earningsNum}>
                         {earningsDisplay.value}
                     </Reanimated.Text>
-                    <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textMuted, marginTop: 4}}>TTD TOTAL</Text>
+                    <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginTop: 4}}>TTD TOTAL</Text>
 
                     <View style={s.heroDivider} />
 
                     <View style={s.subRow}>
                         <View style={s.subItem}>
                             <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>{stats.trips}</Text>
-                            <Text style={{fontSize: 11, color: COLORS.textMuted}}>TRIPS</Text>
+                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>TRIPS</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
                             <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.week.toFixed(0)}</Text>
-                            <Text style={{fontSize: 11, color: COLORS.textMuted}}>WEEK</Text>
+                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>WEEK</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
                             <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.month.toFixed(0)}</Text>
-                            <Text style={{fontSize: 11, color: COLORS.textMuted}}>MONTH</Text>
+                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>MONTH</Text>
                         </View>
                     </View>
                 </View>
 
-                <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textMuted, marginBottom: 16, letterSpacing: 2}}>
+                <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginBottom: 16, letterSpacing: 2}}>
                     RECENT LOGISTICS ACTIVITY
                 </Text>
 
                 {recentTrips.length === 0 ? (
                     <View style={s.emptyWrap}>
                         <Ionicons name="receipt-outline" size={48} color="rgba(255,255,255,0.1)" />
-                        <Text style={{fontSize: 14, color: COLORS.textMuted, marginTop: 16, textAlign: 'center'}}>
+                        <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 16, textAlign: 'center'}}>
                             No completed trips recorded in this session.
                         </Text>
                     </View>
@@ -239,19 +226,19 @@ export function EarningsScreen({ navigation }: any) {
                                     onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
                                 >
                                     <View style={[s.iconBadge, { backgroundColor: `${paymentColor(trip.payment_method)}15` }]}>
-                                        <Ionicons name={paymentIcon(trip.payment_method) as any} size={20} color={paymentColor(trip.payment_method)} />
+                                        <Ionicons name={paymentIcon(trip.payment_method) as 'cash-outline' | 'wallet-outline' | 'card-outline'} size={20} color={paymentColor(trip.payment_method)} />
                                     </View>
 
                                     <View style={{ flex: 1 }}>
                                         <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}} numberOfLines={1}>
                                             {trip.dropoff_address || 'Logistics Completion'}
                                         </Text>
-                                        <Text style={{fontSize: 11, color: COLORS.textMuted, marginTop: 4}}>
+                                        <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 4}}>
                                             {dateStr} · {timeStr}
                                         </Text>
                                     </View>
 
-                                    <Text style={{fontSize: 14, fontWeight: '700', color: COLORS.success}}>+${earnings}</Text>
+                                    <Text style={{fontSize: 14, fontWeight: '700', color: '#10B981'}}>+${earnings}</Text>
                                 </TouchableOpacity>
                             );
                         })}
@@ -264,15 +251,14 @@ export function EarningsScreen({ navigation }: any) {
     );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     center: { justifyContent: 'center', alignItems: 'center' },
     scroll: { paddingHorizontal: 20 },
 
     headerBlur: {
         position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 20, borderBottomWidth: 1, borderColor: 'rgba(255,215,0,0.15)',
+        zIndex: 20, ...ghostBorder(0.15),
     },
     headerInner: {
         flexDirection: 'row', alignItems: 'center',
@@ -289,10 +275,11 @@ const s = StyleSheet.create({
         padding: 24,
         marginBottom: 32,
         alignItems: 'center',
+        borderRadius: 24,
     },
     earningsNum: {
         fontSize: 56, fontWeight: '800',
-        color: COLORS.gold, letterSpacing: -2,
+        color: VOICES.driver.accent, letterSpacing: -2,
         marginVertical: 4,
     },
     heroDivider: {
@@ -312,8 +299,7 @@ const s = StyleSheet.create({
     tripList: {
         backgroundColor: 'rgba(255,255,255,0.02)',
         borderRadius: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(255,215,0,0.15)',
+        ...ghostBorder(0.15),
         overflow: 'hidden',
     },
     tripRow: {
@@ -329,7 +315,7 @@ const s = StyleSheet.create({
 
     emptyWrap: {
         paddingVertical: 64, alignItems: 'center',
-        borderWidth: 1, borderColor: 'rgba(255,215,0,0.15)',
+        ...ghostBorder(0.15),
         borderRadius: 24, borderStyle: 'dotted',
     },
 });

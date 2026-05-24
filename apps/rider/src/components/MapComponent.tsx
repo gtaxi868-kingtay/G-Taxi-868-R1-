@@ -4,6 +4,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { darkMapStyle } from '../config/mapStyle';
 import { GlassView } from './GlassView';
 import { theme } from '../theme';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 import { Image } from 'react-native';
 
@@ -74,8 +75,7 @@ const styles = StyleSheet.create({
         flex: 1,
         borderRadius: theme.borderRadius.xxl,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: theme.colors.glass.border,
+        ...ghostBorder(0.15),
     },
     map: {
         width: '100%',

@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, Image, ScrollView,
+    View, Text, StyleSheet, TouchableOpacity, Image,
     useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -24,45 +23,20 @@ import { useAuth } from '../context/AuthContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
+import { ANIMATION, SURFACE, VOICES, GlassCard, Skeleton } from '@gtaxi/design-system';
+import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 const { supabase } = initializeSupabaseClient('native');
 
-const CARD_WIDTH = 220;
-const CARD_GAP = 12;
-
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
-// G-Taxi Canonical Color System
-const COLORS = {
-    bgPrimary: '#0F0D16',
-    bgSecondary: '#160B32',
-    gradientStart: '#1A0533',
-    gradientEnd: '#0D1B4B',
-    purple: '#BF40FF',
-    purpleDark: '#4D0070',
-    cyan: '#06B6D4',
-    cyanDark: '#0099BB',
-    gold: '#F59E0B',
-    teal: '#06B6D4',
-    crimson: '#DC2626',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.5)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(191,64,255,0.3)',
-    success: '#00FF94',
-    error: '#FF4D6D',
-    warning: '#F59E0B',
-};
-
-// Custom Dark Map Style
 const DARK_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: '#0f0d16' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#BF40FF' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#0f0d16' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1040' }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#BF40FF', weight: 0.5 }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#06B6D4', lightness: -80 }] },
+    { elementType: 'geometry', stylers: [{ color: '#050505' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#00FFFF' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#050505' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#0A0A0A' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#00FFFF', weight: 0.5 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00FFFF', lightness: -80 }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] }
 ];
 
@@ -71,19 +45,19 @@ import { SavedPlace, Location as RideLocation, haversineMeters, isWithinRadius, 
 import { SavedPlaceModal } from '../components/SavedPlaceModal';
 import { RecentRidesModal } from '../components/RecentRidesModal';
 import { formatTTDDollars } from '../utils/currency';
+import { AppScreenProps } from '../navigation/types';
 
-export function HomeScreen({ navigation, route }: any) {
+export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
 
-    // State
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false });
-    const [systemStatus, setSystemStatus] = useState<any>({ stripe_ready: true, mapbox_ready: true, config: {} });
+    const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
     const [aiGreeting, setAiGreeting] = useState<string | null>(null);
@@ -101,7 +75,7 @@ export function HomeScreen({ navigation, route }: any) {
     const [voiceModalVisible, setVoiceModalVisible] = useState(false);
     const [voiceInputText, setVoiceInputText] = useState('');
 
-    // FIX #1: Fare Estimate - show upfront fare before ride request
+    const [isVerticalsLoading, setIsVerticalsLoading] = useState(true);
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
     const [isEstimatingFare, setIsEstimatingFare] = useState(false);
@@ -110,7 +84,6 @@ export function HomeScreen({ navigation, route }: any) {
     const mapPitch = useSharedValue(45);
 
     useEffect(() => {
-        // 0. SECONDARY ACTIVE RIDE GUARD (Fail-safe)
         const checkActive = async () => {
             try {
                 const { data, error } = await supabase.functions.invoke('get_active_ride');
@@ -119,7 +92,6 @@ export function HomeScreen({ navigation, route }: any) {
                     return;
                 }
                 if (data?.success && data?.data?.ride_id) {
-                    console.log('[Phase 3] Active ride detected. Hardening navigation...');
                     navigation.replace('ActiveRide', { 
                         rideId: data.data.ride_id,
                         paymentMethod: data.data.payment_method 
@@ -131,24 +103,22 @@ export function HomeScreen({ navigation, route }: any) {
         };
         checkActive();
 
-        // FIX 5: Handle QR deep link params
         const { lat, lng, stand, source } = route?.params || {};
         const qrLat = typeof lat === 'string' ? parseFloat(lat) : lat;
         const qrLng = typeof lng === 'string' ? parseFloat(lng) : lng;
         const hasQrPickup = Number.isFinite(qrLat) && Number.isFinite(qrLng);
 
         if (hasQrPickup) {
-            console.log('QR DEEP LINK: Stand', stand, 'at', lat, lng);
             const qrPickup = {
-                latitude: qrLat,
-                longitude: qrLng,
+                latitude: qrLat as number,
+                longitude: qrLng as number,
                 address: stand ? `${stand} Taxi Stand` : 'G-Taxi QR Stand',
             };
 
             setLocation({
                 coords: {
-                    latitude: qrLat,
-                    longitude: qrLng,
+                    latitude: qrLat as number,
+                    longitude: qrLng as number,
                     accuracy: 10,
                 }
             } as any);
@@ -174,17 +144,15 @@ export function HomeScreen({ navigation, route }: any) {
             }
         })();
 
-        // Fetch Places
         fetchPlaces();
 
-        // FIX #3: Fetch enabled verticals from new vertical_settings table
         const fetchEnabledVerticals = async () => {
+            setIsVerticalsLoading(true);
             try {
-                // Get enabled verticals (respects region, subscription, rollout)
                 const { data: verticals, error } = await supabase
                     .rpc('get_enabled_verticals', {
                         p_user_id: profile?.id,
-                        p_region: 'POS' // TODO: Detect from GPS or profile
+                        p_region: 'POS'
                     });
                 
                 if (error) throw error;
@@ -195,6 +163,7 @@ export function HomeScreen({ navigation, route }: any) {
                     merchant: verticals?.some((v: any) => v.vertical_name === 'merchant_delivery') || false,
                     kiosk: false,
                 };
+                setFeatureFlags(flags);
                 const { data: sysKiosk } = await supabase
                     .from('system_feature_flags')
                     .select('is_active')
@@ -205,24 +174,23 @@ export function HomeScreen({ navigation, route }: any) {
             } catch (err) {
                 console.warn('Failed to fetch verticals:', err);
                 setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false });
+            } finally {
+                setIsVerticalsLoading(false);
             }
         };
         fetchEnabledVerticals();
 
-        // Subscribe to vertical settings changes
         const verticalsChannel = supabase
             .channel('verticals-realtime')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'vertical_settings' },
                 () => {
-                    console.log('Vertical settings updated. Re-fetching...');
                     fetchEnabledVerticals();
                 }
             )
             .subscribe();
 
-        // Fetch System Status (Diagnostics)
         const fetchStatus = async () => {
             try {
                 const { data, error } = await supabase.functions.invoke('get_system_status');
@@ -235,7 +203,6 @@ export function HomeScreen({ navigation, route }: any) {
         };
         fetchStatus();
 
-        // --- AI PREFERENCE FETCH ---
         const fetchAiPrefs = async () => {
             if (!profile?.id) return;
             const { data, error } = await supabase
@@ -253,15 +220,12 @@ export function HomeScreen({ navigation, route }: any) {
         };
         fetchAiPrefs();
 
-        // --- 100% READY AI: PERSISTENT BRAIN (Truth Layer) ---
-        // Cache TTL: 4 hours (per wiring directive rules)
         const AI_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
         const AI_CACHE_KEY = `ai_greeting_cache_${profile?.id}`;
 
         const fetchAIGreeting = async () => {
             if (!profile?.id || !aiSuggestionsEnabled) return;
 
-            // Check client-side cache first (4-hour TTL)
             try {
                 const cached = await AsyncStorage.getItem(AI_CACHE_KEY);
                 if (cached) {
@@ -269,7 +233,6 @@ export function HomeScreen({ navigation, route }: any) {
                     const age = Date.now() - timestamp;
                     if (age < AI_CACHE_TTL_MS) {
                         setAiGreeting(message);
-                        console.log('[AI Greeting] Using client cache');
                         return;
                     }
                 }
@@ -277,7 +240,6 @@ export function HomeScreen({ navigation, route }: any) {
                 console.warn('[AI Greeting] Cache read failed:', e);
             }
 
-            // Cache miss - call AI edge function
             setIsAiThinking(true);
             try {
                 const firstName = profile?.name?.split(' ')[0] || 'Partner';
@@ -289,9 +251,7 @@ export function HomeScreen({ navigation, route }: any) {
 
                 if (data?.greeting) {
                     setAiGreeting(data.greeting);
-                    console.log('[AI Greeting] From edge function:', data.cached ? 'cached' : 'fresh');
 
-                    // Save to client cache
                     try {
                         await AsyncStorage.setItem(AI_CACHE_KEY, JSON.stringify({
                             message: data.greeting,
@@ -305,7 +265,6 @@ export function HomeScreen({ navigation, route }: any) {
                 }
             } catch (err: any) {
                 console.error('[AI Greeting] Edge function failed:', err.message);
-                // Fallback to time-based greeting
                 const now = new Date();
                 const hour = now.getHours();
                 const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -337,8 +296,7 @@ export function HomeScreen({ navigation, route }: any) {
             fetchProactiveSuggestion();
         }
 
-        // Animations
-        panelY.value = withSpring(0, { damping: 18, stiffness: 120 });
+        panelY.value = withSpring(0, ANIMATION.spring);
         mapPitch.value = withDelay(1000, withTiming(30, { duration: 1500 }));
 
         return () => {
@@ -346,7 +304,6 @@ export function HomeScreen({ navigation, route }: any) {
         };
     }, []);
 
-    // NFC Tag Listener — geofenced, deduplicated, idempotent
     useEffect(() => {
         const { nfcTagId, nfcLat, nfcLng, nfcLocation } = route?.params || {};
         if (!nfcTagId) return;
@@ -354,14 +311,11 @@ export function HomeScreen({ navigation, route }: any) {
         const now = Date.now();
         const cache = nfcDedupCache.current;
 
-        // Clean expired entries (>30s)
         for (const [key, ts] of cache.entries()) {
             if (now - ts > 30000) cache.delete(key);
         }
 
-        // Dedup check: if same node_id tapped within 30s, ignore
         if (cache.has(nfcTagId)) {
-            console.log(`[NFC] Dedup: ${nfcTagId} already processed within 30s`);
             return;
         }
         cache.set(nfcTagId, now);
@@ -392,7 +346,6 @@ export function HomeScreen({ navigation, route }: any) {
                 return;
             }
             if (!withinSoft) {
-                console.log(`[NFC] Tag within soft zone: ${driftMeters.toFixed(0)}m — flagging drift`);
             }
         }
 
@@ -421,8 +374,6 @@ export function HomeScreen({ navigation, route }: any) {
     const currentLng = location?.coords.longitude || DEFAULT_LOCATION.longitude;
     const { drivers: realtimeDrivers } = useNearbyDrivers(currentLat, currentLng);
 
-    // BUG_FIX 1: Sidebar uses profile?.name correctly (already handled in prop)
-    // BUG_FIX 2: Real geocoding in save
     const handleSavePlace = async (label: string, address: string) => {
         try {
             const { data, error } = await supabase.functions.invoke("geocode", { body: { address } });
@@ -457,7 +408,6 @@ export function HomeScreen({ navigation, route }: any) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
                 if (data.intent === 'book_ride' && data.destination) {
-                    // FIX #1: Show fare estimate first, then navigate
                     await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
                     setTimeout(() => {
                         navigation.navigate('RideConfirmation', {
@@ -473,7 +423,7 @@ export function HomeScreen({ navigation, route }: any) {
                             }
                         });
                         clearFarePreview();
-                    }, 2000); // Slightly longer delay to show estimate
+                    }, 2000);
                 }
             } else {
                 setAiGreeting("Sorry, I couldn't process that command.");
@@ -521,7 +471,6 @@ export function HomeScreen({ navigation, route }: any) {
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             
-            // Navigate to RideConfirmation
             navigation.navigate('RideConfirmation', {
                 destination: { 
                     latitude: data.refined_lat, 
@@ -543,7 +492,6 @@ export function HomeScreen({ navigation, route }: any) {
         }
     };
 
-    // FIX #1: Fetch fare estimate when destination is selected
     const fetchFareEstimate = async (destLat: number, destLng: number, destAddress: string) => {
         setSelectedDestinationPreview({ lat: destLat, lng: destLng, address: destAddress });
         setIsEstimatingFare(true);
@@ -569,7 +517,6 @@ export function HomeScreen({ navigation, route }: any) {
         }
     };
     
-    // FIX #1: Clear fare preview
     const clearFarePreview = () => {
         setSelectedDestinationPreview(null);
         setEstimatedFare(null);
@@ -580,9 +527,7 @@ export function HomeScreen({ navigation, route }: any) {
         if (label === 'Home' || label === 'Work') {
             const place = savedPlaces.find(p => p.label === label);
             if (place) {
-                // FIX #1: Show fare estimate first, then navigate
                 await fetchFareEstimate(place.lat, place.lng, place.address);
-                // Auto-navigate after brief delay to show estimate
                 setTimeout(() => {
                     navigation.navigate('RideConfirmation', {
                         destination: { latitude: place.lat, longitude: place.lng, address: place.address },
@@ -605,10 +550,9 @@ export function HomeScreen({ navigation, route }: any) {
     }));
 
     return (
-        <View style={s.root}>
+        <View style={s.root} pointerEvents="box-none">
             <StatusBar style="light" />
 
-            {/* MAP: Full screen with Blueberry Luxe dark styling */}
             <MapView
                 style={s.map}
                 provider={PROVIDER_DEFAULT}
@@ -640,7 +584,6 @@ export function HomeScreen({ navigation, route }: any) {
                     </Marker>
                 ))}
 
-                {/* Saved Places Markers */}
                 {savedPlaces.map((place) => (
                     <Marker
                         key={`saved-${place.id}`}
@@ -654,11 +597,11 @@ export function HomeScreen({ navigation, route }: any) {
                         }}
                     >
                         <View style={{
-                            backgroundColor: 'rgba(123, 92, 240, 0.9)',
+                            backgroundColor: 'rgba(0, 255, 255, 0.9)',
                             borderRadius: 20,
                             padding: 8,
                             borderWidth: 2,
-                            borderColor: COLORS.cyan,
+                            borderColor: '#00FFFF',
                             alignItems: 'center',
                             justifyContent: 'center'
                         }}>
@@ -668,24 +611,21 @@ export function HomeScreen({ navigation, route }: any) {
                 ))}
             </MapView>
 
-            {/* Top Bar: Floating Glass Card */}
             <View style={[s.topBarContainer, { top: insets.top + 12 }, width > 600 && { alignItems: 'center' }]}>
-                <BlurView intensity={20} tint="dark" style={[s.topBarBlur, width > 600 && { maxWidth: 600 }]}>
+                <GlassCard style={[s.topBarBlur, width > 600 && { maxWidth: 600 }]}>
                     <View style={s.topBar}>
-                        {/* G-Taxi Logo */}
                         <Image 
                             source={require('../../assets/logo.png')} 
                             style={s.topBarLogo}
                             resizeMode="contain"
                         />
                         
-                        {/* Right Side: Notification + Profile */}
                         <View style={s.topBarRight}>
                             <TouchableOpacity 
                                 style={s.iconButton}
                                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
                             >
-                                <Ionicons name="notifications-outline" size={22} color={COLORS.white} />
+                                <Ionicons name="notifications-outline" size={22} color="#FFF" />
                                 <View style={s.notificationBadge} />
                             </TouchableOpacity>
                             
@@ -697,16 +637,15 @@ export function HomeScreen({ navigation, route }: any) {
                                     <Image source={{ uri: profile.avatar_url }} style={s.avatarImage} />
                                 ) : (
                                     <View style={s.avatarPlaceholder}>
-                                        <Ionicons name="person" size={18} color={COLORS.purple} />
+                                        <Ionicons name="person" size={18} color={VOICES.rider.accent} />
                                     </View>
                                 )}
                             </TouchableOpacity>
                         </View>
                     </View>
-                </BlurView>
+                </GlassCard>
             </View>
 
-            {/* System Maintenance Banner */}
             {!systemStatus.stripe_ready && (
                 <View style={[s.maintenanceBanner, { top: insets.top + 80 }]}>
                     <Ionicons name="warning" size={16} color="#F59E0B" />
@@ -716,30 +655,26 @@ export function HomeScreen({ navigation, route }: any) {
                 </View>
             )}
 
-            {/* SIDEBAR */}
             <Sidebar
                 visible={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
                 navigation={navigation}
                 user={{
-                    name: profile?.name || 'Rider', // BUG_FIX 1
+                    name: profile?.name || 'Rider',
                     rating: 5.0,
                     photo_url: profile?.avatar_url ?? undefined,
                 }}
             />
 
-            {/* BOTTOM PANEL (Reanimated y+120→0, BlurView) */}
-            {/* BOTTOM PANEL (Reanimated y+120→0, BlurView) */}
-            {/* AI HUD Bubble (Truth Layer) */}
             {(aiGreeting || isAiThinking || visionLoading) && (
                 <Reanimated.View 
                     entering={FadeIn}
                     exiting={FadeOut}
                     style={[s.aiBubbleContainer, { bottom: 330 }]}
                 >
-                    <BlurView intensity={80} tint="dark" style={s.aiBlur}>
+                    <GlassCard style={s.aiBlur}>
                         <View style={s.aiAvatar}>
-                            <LinearGradient colors={['#BF40FF', '#06B6D4']} style={StyleSheet.absoluteFillObject} />
+                            <LinearGradient colors={['#00FFFF', '#7F00FF']} style={StyleSheet.absoluteFillObject} />
                             <Ionicons name={visionLoading ? "scan" : "sparkles"} size={16} color="#FFF" />
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
@@ -763,11 +698,10 @@ export function HomeScreen({ navigation, route }: any) {
                                 <Ionicons name="mic" size={20} color="#00FFFF" />
                             </TouchableOpacity>
                         )}
-                    </BlurView>
+                    </GlassCard>
                 </Reanimated.View>
             )}
 
-            {/* VISION FAB: Holographic Scanner */}
             <TouchableOpacity 
                 style={[s.visionFab, { bottom: 330 + 74 }]} 
                 onPress={handleVisionSighting}
@@ -775,19 +709,18 @@ export function HomeScreen({ navigation, route }: any) {
             >
                 <View style={s.visionGlass}>
                     <LinearGradient 
-                        colors={['rgba(0, 229, 255, 0.2)', 'rgba(123, 92, 240, 0.2)']} 
+                        colors={['rgba(0, 255, 255, 0.2)', 'rgba(127, 0, 255, 0.2)']} 
                         style={StyleSheet.absoluteFillObject}
                     />
-                    <Ionicons name="scan-outline" size={28} color={COLORS.cyan} />
+                    <Ionicons name="scan-outline" size={28} color={VOICES.rider.accent} />
                     <Text style={s.visionText}>VISION</Text>
                 </View>
             </TouchableOpacity>
 
             <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20 }, width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300 }]}>
-                <BlurView intensity={20} tint="dark" style={s.glassPanel}>
+                <GlassCard style={{ borderRadius: 24, ...elevationGlow(8) }}>
                     <View style={s.cardInner}>
                         
-                        {/* AI GREETING */}
                         <View style={s.aiGreetingContainer}>
                             <Text style={s.aiGreetingText}>
                                 {aiGreeting?.split(',')[0] || 'Good day'},
@@ -795,17 +728,16 @@ export function HomeScreen({ navigation, route }: any) {
                             <Text style={s.aiSubGreeting}>Where to?</Text>
                         </View>
 
-                        {/* PROACTIVE AI INSIGHT */}
                         {proactiveAction && (
                             <Reanimated.View entering={FadeIn} style={s.proactiveHud}>
                                 <LinearGradient 
-                                    colors={[COLORS.purple, COLORS.purpleDark]} 
+                                    colors={[VOICES.rider.accent, '#004444']} 
                                     style={s.proactiveGradient} 
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                 >
                                     <View style={s.aiIndicator}>
-                                        <Ionicons name="sparkles" size={14} color={COLORS.cyan} />
+                                        <Ionicons name="sparkles" size={14} color={VOICES.rider.accent} />
                                     </View>
                                     <Text style={s.proactiveText}>{proactiveAction}</Text>
                                     <TouchableOpacity onPress={() => setProactiveAction(null)}>
@@ -815,7 +747,6 @@ export function HomeScreen({ navigation, route }: any) {
                             </Reanimated.View>
                         )}
 
-                        {/* SEARCH BAR */}
                         <TouchableOpacity
                             style={s.searchBarContainer}
                             onPress={() => {
@@ -833,152 +764,148 @@ export function HomeScreen({ navigation, route }: any) {
                             }}
                         >
                             <View style={s.searchBarInner}>
-                                <Ionicons name="search" size={20} color={COLORS.cyan} style={s.searchIcon} />
+                                <Ionicons name="search" size={20} color={VOICES.rider.accent} style={s.searchIcon} />
                                 <Text style={s.searchPlaceholder}>Where are you going?</Text>
-                                <Ionicons name="chevron-forward" size={20} color={COLORS.purple} style={s.searchChevron} />
+                                <Ionicons name="chevron-forward" size={20} color={VOICES.rider.accent} style={s.searchChevron} />
                             </View>
                         </TouchableOpacity>
 
-                        {/* SERVICE CARDS - Horizontal snap carousel */}
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            snapToInterval={CARD_WIDTH + CARD_GAP}
-                            decelerationRate="fast"
-                            contentContainerStyle={{ paddingHorizontal: 16, gap: CARD_GAP, paddingBottom: 8 }}
-                        >
-                            {/* RIDE - Purple #BF40FF */}
-                            <TouchableOpacity
-                                activeOpacity={0.85}
-                                style={[s.serviceCard, { width: CARD_WIDTH }]}
-                                onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-                            >
-                                <BlurView intensity={40} tint="dark" style={s.cardBlur}>
-                                    <LinearGradient
-                                        colors={['rgba(191,64,255,0.2)', 'rgba(191,64,255,0.05)']}
-                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                        style={s.cardGradient}
-                                    >
-                                        <View style={[s.cardIconWrap, { backgroundColor: 'rgba(191,64,255,0.2)' }]}>
-                                            <Ionicons name="car" size={32} color={COLORS.purple} />
-                                        </View>
-                                        <Text style={s.cardTitle}>Ride</Text>
-                                        <Text style={s.cardSub}>Get a taxi anywhere</Text>
-                                    </LinearGradient>
-                                </BlurView>
-                            </TouchableOpacity>
-
-                            {/* MARKET - Gold #F59E0B */}
-                            <TouchableOpacity
-                                activeOpacity={0.85}
-                                style={[s.serviceCard, { width: CARD_WIDTH }]}
-                                onPress={() => {
-                                    if (featureFlags.grocery) {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        navigation.navigate('GroceryStorefront');
-                                    } else {
-                                        Alert.alert('Coming Soon', 'Market is being built. Stay tuned!');
-                                    }
-                                }}
-                            >
-                                <BlurView intensity={40} tint="dark" style={s.cardBlur}>
-                                    <LinearGradient
-                                        colors={['rgba(245,158,11,0.2)', 'rgba(245,158,11,0.05)']}
-                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                        style={s.cardGradient}
-                                    >
-                                        <View style={[s.cardIconWrap, { backgroundColor: 'rgba(245,158,11,0.2)' }]}>
-                                            <Ionicons name="bag" size={32} color={COLORS.gold} />
-                                        </View>
-                                        <Text style={s.cardTitle}>Market</Text>
-                                        <Text style={s.cardSub}>Groceries delivered</Text>
-                                    </LinearGradient>
-                                </BlurView>
-                            </TouchableOpacity>
-
-                            {/* LAUNDRY - Teal #06B6D4 */}
-                            <TouchableOpacity
-                                activeOpacity={0.85}
-                                style={[s.serviceCard, { width: CARD_WIDTH }]}
-                                onPress={() => {
-                                    if (featureFlags.laundry) {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        navigation.navigate('LaundryLanding');
-                                    } else {
-                                        Alert.alert('Coming Soon', 'Laundry is being built. Stay tuned!');
-                                    }
-                                }}
-                            >
-                                <BlurView intensity={40} tint="dark" style={s.cardBlur}>
-                                    <LinearGradient
-                                        colors={['rgba(6,182,212,0.2)', 'rgba(6,182,212,0.05)']}
-                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                        style={s.cardGradient}
-                                    >
-                                        <View style={[s.cardIconWrap, { backgroundColor: 'rgba(6,182,212,0.2)' }]}>
-                                            <Ionicons name="shirt" size={32} color={COLORS.teal} />
-                                        </View>
-                                        <Text style={s.cardTitle}>Laundry</Text>
-                                        <Text style={s.cardSub}>Fresh & folded</Text>
-                                    </LinearGradient>
-                                </BlurView>
-                            </TouchableOpacity>
-
-                            {/* PHARMA - Obsidian + Crimson #DC2626 border */}
-                            <TouchableOpacity
-                                activeOpacity={0.85}
-                                style={[s.serviceCard, { width: CARD_WIDTH }]}
-                                onPress={() => Alert.alert('Coming Soon', 'Pharma is being built. Stay tuned!')}
-                            >
-                                <BlurView intensity={40} tint="dark" style={s.cardBlur}>
-                                    <LinearGradient
-                                        colors={['rgba(220,38,38,0.15)', 'rgba(0,0,0,0.3)']}
-                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                        style={[s.cardGradient, { borderColor: COLORS.crimson, borderWidth: 1 }]}
-                                    >
-                                        <View style={[s.cardIconWrap, { backgroundColor: 'rgba(220,38,38,0.2)' }]}>
-                                            <Ionicons name="medical" size={32} color={COLORS.crimson} />
-                                        </View>
-                                        <Text style={s.cardTitle}>Pharma</Text>
-                                        <Text style={s.cardSub}>Medicine fast</Text>
-                                    </LinearGradient>
-                                </BlurView>
-                            </TouchableOpacity>
-
-                            {/* TAP (NFC/QR) - Purple, only when kiosk enabled */}
-                            {!!featureFlags.kiosk && (
+                        {isVerticalsLoading ? (
+                            <View style={s.skeletonContainer}>
+                                <Skeleton width="100%" height={140} borderRadius={20} style={{ marginBottom: 12 }} />
+                                <View style={s.skeletonGrid}>
+                                    <Skeleton width="48%" height={140} borderRadius={20} />
+                                    <Skeleton width="48%" height={140} borderRadius={20} />
+                                </View>
+                            </View>
+                        ) : (
+                            <View style={s.serviceBentoBox}>
                                 <TouchableOpacity
                                     activeOpacity={0.85}
-                                    style={[s.serviceCard, { width: CARD_WIDTH }]}
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        navigation.navigate('NfcScan');
-                                    }}
+                                    style={s.heroCard}
+                                    onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
                                 >
-                                    <BlurView intensity={40} tint="dark" style={s.cardBlur}>
-                                        <LinearGradient
-                                            colors={['rgba(191,64,255,0.2)', 'rgba(191,64,255,0.05)']}
-                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={s.cardGradient}
-                                        >
-                                            <View style={[s.cardIconWrap, { backgroundColor: 'rgba(191,64,255,0.2)' }]}>
-                                                <Ionicons name="radio" size={32} color={COLORS.purple} />
-                                            </View>
-                                            <Text style={s.cardTitle}>Tap</Text>
-                                            <Text style={s.cardSub}>Scan a puck</Text>
-                                        </LinearGradient>
-                                    </BlurView>
+                                    <LinearGradient
+                                        colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
+                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                        style={s.heroCardGradient}
+                                    >
+                                        <View style={[s.heroCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.2)' }]}>
+                                            <Ionicons name="car-sport-sharp" size={36} color={VOICES.rider.accent} />
+                                        </View>
+                                        <View style={s.heroCardContent}>
+                                            <Text style={s.heroCardTitle}>Ride</Text>
+                                            <Text style={s.heroCardSub}>Get a taxi anywhere</Text>
+                                        </View>
+                                        <View style={s.heroTag}>
+                                            <Text style={s.heroTagText}>BOOK NOW</Text>
+                                        </View>
+                                    </LinearGradient>
                                 </TouchableOpacity>
-                            )}
-                        </ScrollView>
 
-                        {/* FIX #1: Fare Estimate Preview - shows upfront fare before ride request */}
+                                <View style={s.serviceGrid}>
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
+                                        onPress={() => {
+                                            if (featureFlags.grocery) {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                navigation.navigate('GroceryStorefront');
+                                            } else {
+                                                Alert.alert('Coming Soon', 'Market is being built. Stay tuned!');
+                                            }
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(245,158,11,0.2)', 'rgba(245,158,11,0.05)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.gridCardGradient}
+                                        >
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(245,158,11,0.2)' }]}>
+                                                <Ionicons name="cart-sharp" size={28} color="#F59E0B" />
+                                            </View>
+                                            <Text style={s.gridCardTitle}>Market</Text>
+                                            <Text style={s.gridCardSub}>Groceries delivered</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
+                                        onPress={() => {
+                                            if (featureFlags.laundry) {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                navigation.navigate('LaundryLanding');
+                                            } else {
+                                                Alert.alert('Coming Soon', 'Laundry is being built. Stay tuned!');
+                                            }
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.gridCardGradient}
+                                        >
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.2)' }]}>
+                                                <Ionicons name="shirt-sharp" size={28} color={VOICES.rider.accent} />
+                                            </View>
+                                            <Text style={s.gridCardTitle}>Laundry</Text>
+                                            <Text style={s.gridCardSub}>Fresh & folded</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
+                                        onPress={() => Alert.alert('Coming Soon', 'Pharma is being built. Stay tuned!')}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(220,38,38,0.15)', 'rgba(0,0,0,0.3)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={[s.gridCardGradient, { borderColor: '#DC2626', borderWidth: 1 }]}
+                                        >
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(220,38,38,0.2)' }]}>
+                                                <Ionicons name="medkit-sharp" size={28} color="#DC2626" />
+                                            </View>
+                                            <Text style={s.gridCardTitle}>Pharma</Text>
+                                            <Text style={s.gridCardSub}>Medicine fast</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+
+                                    {featureFlags.kiosk ? (
+                                        <TouchableOpacity
+                                            activeOpacity={0.85}
+                                            style={s.gridCard}
+                                            onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                (navigation.navigate as any)('NfcScan');
+                                            }}
+                                        >
+                                            <LinearGradient
+                                                colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
+                                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                                style={s.gridCardGradient}
+                                            >
+                                                <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.2)' }]}>
+                                                    <Ionicons name="radio-sharp" size={28} color={VOICES.rider.accent} />
+                                                </View>
+                                                <Text style={s.gridCardTitle}>Tap</Text>
+                                                <Text style={s.gridCardSub}>Scan a puck</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <View style={s.gridCardPlaceholder} />
+                                    )}
+                                </View>
+                            </View>
+                        )}
+
                         {(selectedDestinationPreview || isEstimatingFare) && (
                             <Reanimated.View entering={FadeIn} exiting={FadeOut} style={s.farePreviewContainer}>
-                                <BlurView intensity={60} tint="dark" style={s.farePreviewBlur}>
+                                <View style={s.farePreviewBlur}>
                                     <View style={s.farePreviewContent}>
                                         <View style={s.fareIconContainer}>
-                                            <Ionicons name="wallet-outline" size={20} color={COLORS.cyan} />
+                                            <Ionicons name="wallet-outline" size={20} color={VOICES.rider.accent} />
                                         </View>
                                         <View style={s.fareTextContainer}>
                                             <Text style={s.fareAddress}>
@@ -986,7 +913,7 @@ export function HomeScreen({ navigation, route }: any) {
                                             </Text>
                                             <View style={s.fareRow}>
                                                 {isEstimatingFare ? (
-                                                    <Text style={{ color: COLORS.cyan, fontWeight: '700' }}>Calculating...</Text>
+                                                    <Text style={{ color: VOICES.rider.accent, fontWeight: '700' }}>Calculating...</Text>
                                                 ) : estimatedFare ? (
                                                     <>
                                                         <Text style={s.fareAmount}>
@@ -997,7 +924,7 @@ export function HomeScreen({ navigation, route }: any) {
                                                         </Text>
                                                     </>
                                                 ) : (
-                                                    <Text style={{ color: COLORS.textMuted }}>Fare unavailable</Text>
+                                                    <Text style={{ color: 'rgba(255,255,255,0.6)' }}>Fare unavailable</Text>
                                                 )}
                                             </View>
                                         </View>
@@ -1006,35 +933,32 @@ export function HomeScreen({ navigation, route }: any) {
                                                 <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
                                             </TouchableOpacity>
                                         )}
-                                    </View>
-                                </BlurView>
-                            </Reanimated.View>
+                        </View>
+                    </View>
+                </Reanimated.View>
                         )}
 
-                        {/* Quick pills */}
                         <View style={s.pills}>
                             <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Home')}>
-                                <Ionicons name="home-outline" size={18} color={COLORS.purple} />
+                                <Ionicons name="home-outline" size={18} color={VOICES.rider.accent} />
                                 <Text style={s.pillLabel}>Home</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Work')}>
-                                <Ionicons name="briefcase-outline" size={18} color={COLORS.purple} />
+                                <Ionicons name="briefcase-outline" size={18} color={VOICES.rider.accent} />
                                 <Text style={s.pillLabel}>Work</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.recentPill} onPress={() => handleQuickAction('Recent')}>
-                                <Ionicons name="time-outline" size={22} color={COLORS.cyan} />
+                                <Ionicons name="time-outline" size={22} color={VOICES.rider.accent} />
                             </TouchableOpacity>
                         </View>
 
                     </View>
-                </BlurView>
+                </GlassCard>
             </Reanimated.View>
 
-            {/* Modals */}
             <SavedPlaceModal visible={!!activeModalLabel} defaultLabel={activeModalLabel || ''} onClose={() => setActiveModalLabel(null)} onSave={handleSavePlace} />
             <RecentRidesModal visible={showRecentModal} onClose={() => setShowRecentModal(false)} recentLocations={recentRides} onSelect={async (loc) => {
                 setShowRecentModal(false);
-                // FIX #1: Show fare estimate first, then navigate
                 await fetchFareEstimate(loc.latitude, loc.longitude, loc.address || 'Selected Location');
                 setTimeout(() => {
                     navigation.navigate('RideConfirmation', {
@@ -1045,17 +969,16 @@ export function HomeScreen({ navigation, route }: any) {
                 }, 1500);
             }} />
 
-            {/* --- FORCED UPDATE / MAINTENANCE OVERLAYS --- */}
             {systemStatus.config?.maintenance_mode === 'true' && (
                 <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
-                    <BlurView tint="dark" intensity={100} style={s.lockBlur}>
+                    <View style={[glassSurface(100), s.lockBlur]}>
                         <View style={s.hudLockRing} />
-                        <Ionicons name="flash" size={64} color={COLORS.cyan} />
+                                <Ionicons name="flash" size={64} color={VOICES.rider.accent} />
                         <Text style={s.lockTitle}>SYSTEM LOCK</Text>
                         <Text style={s.lockSubtitle}>
                             MAINTENANCE PROTOCOL ACTIVE. ENCRYPTED LINK STANDBY.
                         </Text>
-                    </BlurView>
+                    </View>
                 </View>
             )}
 
@@ -1072,16 +995,16 @@ export function HomeScreen({ navigation, route }: any) {
                     if (needsUpdate) {
                         return (
                             <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
-                                <BlurView tint="dark" intensity={100} style={s.lockBlur}>
-                                    <Ionicons name="cloud-download" size={64} color={COLORS.purple} />
-                                    <Text style={[s.lockTitle, { color: COLORS.white }]}>Update Required</Text>
+                                <View style={[glassSurface(100), s.lockBlur]}>
+                                    <Ionicons name="cloud-download" size={64} color={VOICES.rider.accent} />
+                                    <Text style={[s.lockTitle, { color: '#FFF' }]}>Update Required</Text>
                                     <Text style={s.lockSubtitle}>
                                         A critical security update is available. Please update your app to continue using G-TAXI.
                                     </Text>
                                     <TouchableOpacity style={s.updateBtn} onPress={() => Alert.alert("Update", "Please check the App Store or Google Play for the latest version.")}>
                                         <Text style={s.updateBtnText}>Update Now</Text>
                                     </TouchableOpacity>
-                                </BlurView>
+                                </View>
                             </View>
                         );
                     }
@@ -1091,9 +1014,9 @@ export function HomeScreen({ navigation, route }: any) {
 
             {showLocationConfirm && (
                 <View style={[StyleSheet.absoluteFill, s.locationConfirmOverlay]}>
-                    <BlurView intensity={40} tint="dark" style={[s.locationConfirmBlur, { width: width - 40 }]}>
+                    <View style={[glassSurface(40), s.locationConfirmBlur, { width: width - 40 }]}>
                         <View style={s.locationConfirmCard}>
-                            <Ionicons name="location-outline" size={48} color={COLORS.warning} style={{ marginBottom: 16 }} />
+                            <Ionicons name="location-outline" size={48} color="#F59E0B" style={{ marginBottom: 16 }} />
                             <Text style={s.locationConfirmTitle}>Your location may not be precise</Text>
                             <Text style={s.locationConfirmSubtitle}>
                                 GPS accuracy: {Math.round(locationAccuracy || 0)} meters.{'\n'}
@@ -1149,12 +1072,10 @@ export function HomeScreen({ navigation, route }: any) {
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    </BlurView>
+                    </View>
                 </View>
             )}
 
-            {/* ── CROSS-PLATFORM VOICE COMMAND MODAL ──────────────────────────── */}
-            {/* Replaces iOS-only Alert.prompt — works on Android, iOS, and Web   */}
             <Modal
                 visible={voiceModalVisible}
                 transparent
@@ -1168,7 +1089,7 @@ export function HomeScreen({ navigation, route }: any) {
                     <View style={s.voiceModalCard}>
                         <View style={s.voiceModalHeader}>
                             <View style={s.voiceModalAiDot}>
-                                <Ionicons name="mic" size={18} color={COLORS.cyan} />
+                                <Ionicons name="mic" size={18} color={VOICES.rider.accent} />
                             </View>
                             <Text style={s.voiceModalTitle}>AI Voice Command</Text>
                         </View>
@@ -1204,12 +1125,12 @@ export function HomeScreen({ navigation, route }: any) {
                                 }}
                             >
                                 <LinearGradient
-                                    colors={[COLORS.purple, COLORS.cyan]}
+                                    colors={[VOICES.rider.accent, '#00FFFF']}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={s.voiceModalSendGradient}
                                 >
-                                    <Ionicons name="send" size={16} color={COLORS.white} />
+                                    <Ionicons name="send" size={16} color="#FFF" />
                                     <Text style={s.voiceModalSendText}>Send</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
@@ -1222,24 +1143,21 @@ export function HomeScreen({ navigation, route }: any) {
 }
 
 const s = StyleSheet.create({
-    // Root & Map
-    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     map: { width: '100%', height: '100%' },
 
-    // ── Voice Command Modal Styles (cross-platform Alert.prompt replacement) ──
     voiceModalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
         backgroundColor: 'rgba(0,0,0,0.6)',
     },
     voiceModalCard: {
-        backgroundColor: '#160B32',
+        backgroundColor: SURFACE.base,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 28,
         paddingBottom: 40,
-        borderWidth: 1,
-        borderColor: 'rgba(123,92,240,0.3)',
+        ...ghostBorder(),
     },
     voiceModalHeader: {
         flexDirection: 'row',
@@ -1251,32 +1169,30 @@ const s = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: 'rgba(0,229,255,0.12)',
+        backgroundColor: 'rgba(0,255,255,0.12)',
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(0,229,255,0.3)',
+        ...ghostBorder(0.3),
     },
     voiceModalTitle: {
         fontSize: 18,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFF',
     },
     voiceModalSubtitle: {
         fontSize: 13,
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         marginBottom: 20,
         marginLeft: 46,
     },
     voiceModalInput: {
         backgroundColor: 'rgba(255,255,255,0.06)',
-        borderWidth: 1,
-        borderColor: 'rgba(123,92,240,0.4)',
+        ...ghostBorder(0.4),
         borderRadius: 16,
         paddingHorizontal: 18,
         paddingVertical: 14,
         fontSize: 16,
-        color: COLORS.white,
+        color: '#FFF',
         marginBottom: 20,
     },
     voiceModalButtons: {
@@ -1290,13 +1206,12 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.06)',
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
     },
     voiceModalCancelText: {
         fontSize: 15,
         fontWeight: '700',
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
     },
     voiceModalSend: {
         flex: 1,
@@ -1314,20 +1229,18 @@ const s = StyleSheet.create({
     voiceModalSendText: {
         fontSize: 15,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFF',
     },
     
-    // Car Marker with Cyan Glow
     carMarker: { 
         width: 44, 
         height: 44, 
-        shadowColor: COLORS.cyan, 
+        shadowColor: VOICES.rider.accent, 
         shadowRadius: 12, 
         shadowOpacity: 0.8,
         shadowOffset: { width: 0, height: 0 },
     },
 
-    // Top Bar - Floating Glass Card
     topBarContainer: {
         position: 'absolute',
         left: 20,
@@ -1344,9 +1257,8 @@ const s = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: 'rgba(22, 11, 50, 0.7)',
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
+        backgroundColor: 'rgba(5, 5, 5, 0.7)',
+        ...ghostBorder(),
     },
     topBarLogo: {
         width: 48,
@@ -1364,8 +1276,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.08)',
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
     },
     notificationBadge: {
         position: 'absolute',
@@ -1374,7 +1285,7 @@ const s = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: COLORS.cyan,
+        backgroundColor: VOICES.rider.accent,
     },
     avatarButton: {
         width: 40,
@@ -1383,8 +1294,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.08)',
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
         overflow: 'hidden',
     },
     avatarImage: {
@@ -1396,12 +1306,11 @@ const s = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 12,
-        backgroundColor: 'rgba(123,92,240,0.2)',
+        backgroundColor: 'rgba(0,255,255,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
     },
 
-    // Maintenance Banner
     maintenanceBanner: {
         position: 'absolute',
         left: 20,
@@ -1420,46 +1329,38 @@ const s = StyleSheet.create({
         color: '#856404',
     },
 
-    // Bottom Panel
     panel: { 
         position: 'absolute', 
-        bottom: 10, 
-        left: 10, 
-        right: 10,
+        bottom: 12, 
+        left: 12, 
+        right: 12,
         maxHeight: '60%',
     },
     glassPanel: { 
-        backgroundColor: COLORS.glassBg, 
-        borderWidth: 1, 
-        borderColor: COLORS.glassBorder, 
+        backgroundColor: 'rgba(255,255,255,0.03)', 
+        ...ghostBorder(), 
         borderRadius: 24, 
         overflow: 'hidden',
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
+        ...elevationGlow(8),
     },
     cardInner: { padding: 20 },
 
-    // AI Greeting
     aiGreetingContainer: {
         marginBottom: 20,
     },
     aiGreetingText: {
         fontSize: 22,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFF',
         letterSpacing: -0.5,
     },
     aiSubGreeting: {
         fontSize: 15,
         fontWeight: '500',
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         marginTop: 4,
     },
 
-    // Search Bar
     searchBarContainer: {
         marginBottom: 20,
     },
@@ -1470,8 +1371,7 @@ const s = StyleSheet.create({
         borderRadius: 16, 
         paddingHorizontal: 18,
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
     },
     searchIcon: {
         marginRight: 12,
@@ -1480,55 +1380,117 @@ const s = StyleSheet.create({
         flex: 1, 
         fontSize: 16, 
         fontWeight: '500', 
-        color: COLORS.cyan,
+        color: VOICES.rider.accent,
     },
     searchChevron: {
         marginLeft: 8,
     },
 
-    // Service Cards - Horizontal snap carousel
-    serviceCard: {
-        height: 170,
+    skeletonContainer: {
+        marginBottom: 20,
+    },
+    skeletonGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+
+    serviceBentoBox: {
+        marginBottom: 20,
+        gap: 12,
+    },
+    heroCard: {
+        width: '100%',
+        height: 120,
         borderRadius: 24,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        ...elevationGlow(),
     },
-    cardBlur: {
+    heroCardGradient: {
         flex: 1,
-        borderRadius: 24,
-        overflow: 'hidden',
-    },
-    cardGradient: {
-        flex: 1,
-        padding: 20,
-        justifyContent: 'center',
+        flexDirection: 'row',
         alignItems: 'center',
-        borderRadius: 24,
+        padding: 20,
     },
-    cardIconWrap: {
-        width: 60,
-        height: 60,
+    heroCardIconWrap: {
+        width: 64,
+        height: 64,
         borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 12,
     },
-    cardTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+    heroCardContent: {
+        flex: 1,
+        marginLeft: 16,
+    },
+    heroCardTitle: {
+        fontSize: 22,
+        fontWeight: '800',
         color: '#FFFFFF',
-        fontFamily: 'SpaceGrotesk',
+        letterSpacing: -0.5,
     },
-    cardSub: {
-        fontSize: 12,
+    heroCardSub: {
+        fontSize: 13,
         fontWeight: '500',
         color: 'rgba(255,255,255,0.5)',
         marginTop: 4,
-        fontFamily: 'Manrope',
+    },
+    heroTag: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: VOICES.rider.accent,
+    },
+    heroTagText: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: SURFACE.base,
+        letterSpacing: 0.5,
+    },
+    serviceGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    gridCard: {
+        width: '48%',
+        height: 130,
+        borderRadius: 20,
+        overflow: 'hidden',
+        ...elevationGlow(),
+    },
+    gridCardGradient: {
+        flex: 1,
+        padding: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 20,
+    },
+    gridCardIconWrap: {
+        width: 52,
+        height: 52,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 10,
+    },
+    gridCardTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        textAlign: 'center',
+    },
+    gridCardSub: {
+        fontSize: 11,
+        fontWeight: '500',
+        color: 'rgba(255,255,255,0.5)',
+        marginTop: 2,
+        textAlign: 'center',
+    },
+    gridCardPlaceholder: {
+        width: '48%',
+        height: 0,
     },
 
-    // Fare Preview
     farePreviewContainer: { 
         marginBottom: 16, 
         borderRadius: 16, 
@@ -1537,9 +1499,8 @@ const s = StyleSheet.create({
     farePreviewBlur: { 
         borderRadius: 16, 
         overflow: 'hidden', 
-        backgroundColor: 'rgba(0, 229, 255, 0.08)', 
-        borderWidth: 1, 
-        borderColor: 'rgba(0, 229, 255, 0.3)' 
+        backgroundColor: 'rgba(0, 255, 255, 0.08)', 
+        ...ghostBorder(0.3),
     },
     farePreviewContent: { 
         flexDirection: 'row', 
@@ -1550,7 +1511,7 @@ const s = StyleSheet.create({
         width: 40, 
         height: 40, 
         borderRadius: 20, 
-        backgroundColor: 'rgba(0, 229, 255, 0.15)', 
+        backgroundColor: 'rgba(0, 255, 255, 0.15)', 
         alignItems: 'center', 
         justifyContent: 'center', 
         marginRight: 12 
@@ -1558,7 +1519,7 @@ const s = StyleSheet.create({
     fareTextContainer: { flex: 1 },
     fareAddress: {
         fontSize: 13,
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
     },
     fareRow: { 
         flexDirection: 'row', 
@@ -1568,16 +1529,15 @@ const s = StyleSheet.create({
     fareAmount: {
         fontSize: 20,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFF',
     },
     fareLabel: {
         fontSize: 13,
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         marginLeft: 6,
     },
     fareCloseBtn: { padding: 4 },
 
-    // Quick Pills
     pills: { 
         flexDirection: 'row', 
         gap: 10, 
@@ -1591,14 +1551,13 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.05)', 
         borderRadius: 14, 
         paddingHorizontal: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        ...ghostBorder(0.08),
     },
     pillLabel: { 
         marginLeft: 8, 
         fontSize: 14, 
         fontWeight: '600', 
-        color: COLORS.white 
+        color: '#FFF' 
     },
     recentPill: { 
         width: 48, 
@@ -1607,11 +1566,9 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.05)', 
         alignItems: 'center', 
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
+        ...ghostBorder(0.08),
     },
 
-    // AI Bubble
     aiBubbleContainer: { 
         position: 'absolute', 
         left: 20, 
@@ -1625,9 +1582,8 @@ const s = StyleSheet.create({
         padding: 14, 
         borderRadius: 20, 
         overflow: 'hidden', 
-        backgroundColor: 'rgba(22, 11, 50, 0.85)',
-        borderWidth: 1, 
-        borderColor: COLORS.glassBorder,
+        backgroundColor: 'rgba(5, 5, 5, 0.85)',
+        ...ghostBorder(),
     },
     aiAvatar: { 
         width: 36, 
@@ -1636,34 +1592,32 @@ const s = StyleSheet.create({
         overflow: 'hidden', 
         alignItems: 'center', 
         justifyContent: 'center',
-        backgroundColor: 'rgba(123, 92, 240, 0.3)',
+        backgroundColor: 'rgba(0, 255, 255, 0.15)',
     },
     aiMessage: {
         flex: 1,
         marginLeft: 12,
         fontSize: 14,
         fontWeight: '500',
-        color: COLORS.white,
+        color: '#FFF',
     },
     aiThinking: {
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
     },
     aiCyan: {
-        color: COLORS.cyan,
+        color: VOICES.rider.accent,
     },
     voiceBtn: { 
         width: 40, 
         height: 40, 
         borderRadius: 20, 
-        backgroundColor: 'rgba(0,229,255,0.1)', 
+        backgroundColor: 'rgba(0,255,255,0.1)', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        borderWidth: 1, 
-        borderColor: 'rgba(0,229,255,0.3)',
+        ...ghostBorder(0.3),
         marginLeft: 8,
     },
 
-    // Proactive HUD
     proactiveHud: { 
         marginBottom: 16 
     },
@@ -1672,16 +1626,15 @@ const s = StyleSheet.create({
         alignItems: 'center', 
         padding: 14, 
         borderRadius: 16, 
-        borderWidth: 1, 
-        borderColor: 'rgba(123,92,240,0.3)',
-        backgroundColor: 'rgba(123,92,240,0.15)',
+        ...ghostBorder(0.3),
+        backgroundColor: 'rgba(0,255,255,0.15)',
     },
     proactiveText: { 
         flex: 1, 
         marginLeft: 10, 
         fontSize: 13, 
         fontWeight: '500', 
-        color: COLORS.white 
+        color: '#FFF' 
     },
     aiIndicator: { 
         width: 28, 
@@ -1692,7 +1645,6 @@ const s = StyleSheet.create({
         justifyContent: 'center' 
     },
 
-    // Vision FAB
     visionFab: { 
         position: 'absolute', 
         right: 20, 
@@ -1705,27 +1657,23 @@ const s = StyleSheet.create({
         paddingHorizontal: 16, 
         paddingVertical: 12, 
         borderRadius: 20, 
-        borderWidth: 1, 
-        borderColor: 'rgba(0, 229, 255, 0.4)',
-        backgroundColor: 'rgba(22, 11, 50, 0.8)',
+        ...ghostBorder(0.4),
+        backgroundColor: 'rgba(5, 5, 5, 0.8)',
     },
     visionText: {
         marginLeft: 8,
         fontSize: 13,
         fontWeight: '700',
-        color: COLORS.cyan,
+        color: VOICES.rider.accent,
         letterSpacing: 0.5,
     },
 
-    // Lock Overlays
     lockOverlay: { 
         zIndex: 9999, 
         justifyContent: 'center', 
         alignItems: 'center',
-        ...StyleSheet.absoluteFillObject,
     },
     lockBlur: { 
-        ...StyleSheet.absoluteFillObject, 
         justifyContent: 'center', 
         alignItems: 'center', 
         padding: 20,
@@ -1737,27 +1685,27 @@ const s = StyleSheet.create({
         height: 250, 
         borderRadius: 125, 
         borderWidth: 2, 
-        borderColor: 'rgba(123, 92, 240, 0.2)' 
+        borderColor: 'rgba(0, 255, 255, 0.2)' 
     },
     lockTitle: {
         fontSize: 28,
         fontWeight: '800',
-        color: COLORS.cyan,
-        marginTop: 24,
+        color: VOICES.rider.accent,
         textAlign: 'center',
         letterSpacing: 2,
     },
     lockSubtitle: {
         fontSize: 14,
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         marginTop: 12,
         textAlign: 'center',
         paddingHorizontal: 40,
         lineHeight: 20,
     },
+
     updateBtn: { 
         marginTop: 32, 
-        backgroundColor: COLORS.purple, 
+        backgroundColor: VOICES.rider.accent, 
         paddingHorizontal: 40, 
         paddingVertical: 16, 
         borderRadius: 16,
@@ -1765,11 +1713,10 @@ const s = StyleSheet.create({
     updateBtnText: {
         fontSize: 16,
         fontWeight: '700',
-        color: COLORS.white,
+        color: '#FFF',
     },
 
     locationConfirmOverlay: {
-        ...StyleSheet.absoluteFillObject,
         zIndex: 99999,
         justifyContent: 'center',
         alignItems: 'center',
@@ -1786,13 +1733,13 @@ const s = StyleSheet.create({
     locationConfirmTitle: {
         fontSize: 20,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFF',
         marginBottom: 8,
         textAlign: 'center',
     },
     locationConfirmSubtitle: {
         fontSize: 14,
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         marginBottom: 20,
         textAlign: 'center',
         lineHeight: 20,
@@ -1804,7 +1751,7 @@ const s = StyleSheet.create({
         overflow: 'hidden',
         marginBottom: 20,
         borderWidth: 2,
-        borderColor: COLORS.warning,
+        borderColor: '#F59E0B',
     },
     miniMap: {
         width: '100%',
@@ -1824,37 +1771,36 @@ const s = StyleSheet.create({
         width: 16,
         height: 16,
         borderRadius: 8,
-        backgroundColor: COLORS.warning,
+        backgroundColor: '#F59E0B',
         borderWidth: 3,
-        borderColor: COLORS.white,
+        borderColor: '#FFF',
     },
     locationConfirmButtons: {
         width: '100%',
         gap: 12,
     },
     locationConfirmBtnPrimary: {
-        backgroundColor: COLORS.success,
+        backgroundColor: VOICES.rider.accent,
         paddingVertical: 16,
         paddingHorizontal: 24,
         borderRadius: 16,
         alignItems: 'center',
     },
     locationConfirmBtnPrimaryText: {
-        color: COLORS.bgPrimary,
+        color: SURFACE.base,
         fontSize: 16,
         fontWeight: '800',
     },
     locationConfirmBtnSecondary: {
-        backgroundColor: COLORS.glassBg,
+        backgroundColor: 'rgba(255,255,255,0.03)',
         paddingVertical: 16,
         paddingHorizontal: 24,
         borderRadius: 16,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
+        ...ghostBorder(),
     },
     locationConfirmBtnSecondaryText: {
-        color: COLORS.white,
+        color: '#FFF',
         fontSize: 16,
         fontWeight: '700',
     },

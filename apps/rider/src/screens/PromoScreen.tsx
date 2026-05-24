@@ -5,7 +5,6 @@ import {
     KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -13,19 +12,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
-import { tokens } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
+    border: 'rgba(255,255,255,0.15)',
+    purple: VOICES.rider.accent,
+    purpleLight: CYAN,
     gold: '#F59E0B',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.7)',
 };
 
 export function PromoScreen({ navigation }: any) {
@@ -42,7 +42,6 @@ export function PromoScreen({ navigation }: any) {
     }, []);
 
     const fetchPromos = async () => {
-        // BUG_FIX: Ensure Promo codes exist in admin_promos table
         const { data } = await supabase
             .from('admin_promos')
             .select('*')
@@ -65,7 +64,6 @@ export function PromoScreen({ navigation }: any) {
         if (error || !data) {
             Alert.alert("Invalid Code", "This promo code doesn't exist or is inactive.");
         } else {
-            // Logic to link user_promos could go here if implemented
             Alert.alert("Success!", `Promo ${data.code} applied! Enjoy ${data.discount_percent}% off your next ride.`);
         }
         setLoading(false);
@@ -88,8 +86,6 @@ export function PromoScreen({ navigation }: any) {
             >
             <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}>
 
-                {/* Layout: Glassmorphism input card at top */}
-                {/* Layout: Glassmorphism input card at top */}
                 <View style={s.inputCard}>
                     <TextInput
                         style={s.input}
@@ -106,7 +102,6 @@ export function PromoScreen({ navigation }: any) {
 
                 <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 20 }}>Available Offers</Txt>
 
-                {/* List: Available promos in a ScrollView (Vertical stack of cards) */}
                 {promos.length === 0 ? (
                     <View style={s.empty}>
                         <Txt variant="bodyReg" color={R.muted}>No active promotions</Txt>
@@ -114,9 +109,9 @@ export function PromoScreen({ navigation }: any) {
                 ) : (
                     promos.map((p, idx) => (
                         <View key={idx} style={s.promoCard}>
-                            <LinearGradient 
-                                colors={['rgba(124,58,237,0.1)', 'transparent']} 
-                                style={s.promoGradient} 
+                            <LinearGradient
+                                colors={[`${VOICES.rider.accent}1A`, 'transparent']}
+                                style={s.promoGradient}
                             />
                             <View style={s.promoContent}>
                                 <View style={s.promoTop}>
@@ -125,8 +120,8 @@ export function PromoScreen({ navigation }: any) {
                                         <Txt variant="small" color={R.muted} style={{ marginTop: 4 }}>{p.description}</Txt>
                                     </View>
                                     <View style={s.discountBadge}>
-                                        <Txt variant="headingM" weight="heavy" color={tokens.colors.primary.cyan}>{p.discount_percent}%</Txt>
-                                        <Txt variant="caption" weight="heavy" color={tokens.colors.primary.cyan}>OFF</Txt>
+                                        <Txt variant="headingM" weight="heavy" color={CYAN}>{p.discount_percent}%</Txt>
+                                        <Txt variant="caption" weight="heavy" color={CYAN}>OFF</Txt>
                                     </View>
                                 </View>
 
@@ -134,7 +129,7 @@ export function PromoScreen({ navigation }: any) {
 
                                 <View style={s.promoFooter}>
                                     <Txt variant="caption" color={R.muted}>Expires: {new Date(p.expires_at).toLocaleDateString()}</Txt>
-                                    <View style={[s.activeDot, { backgroundColor: tokens.colors.primary.cyan }]} />
+                                    <View style={[s.activeDot, { backgroundColor: CYAN }]} />
                                 </View>
                             </View>
                         </View>
@@ -152,11 +147,11 @@ const s = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
-    inputCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 8, marginBottom: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
+    inputCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 8, marginBottom: 32, ...ghostBorder(0.05), overflow: 'hidden' },
     input: { flex: 1, height: 56, color: '#FFF', paddingHorizontal: 20, fontSize: 16, fontWeight: '700', letterSpacing: 2 },
-    applyBtn: { paddingHorizontal: 24, height: 56, borderRadius: 18, backgroundColor: tokens.colors.primary.purple, alignItems: 'center', justifyContent: 'center' },
+    applyBtn: { paddingHorizontal: 24, height: 56, borderRadius: 18, backgroundColor: VOICES.rider.accent, alignItems: 'center', justifyContent: 'center' },
 
-    promoCard: { borderRadius: 32, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)', marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    promoCard: { borderRadius: 32, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)', marginBottom: 16, ...ghostBorder(0.05) },
     promoGradient: { ...StyleSheet.absoluteFillObject },
     promoContent: { padding: 24 },
     promoTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -165,7 +160,7 @@ const s = StyleSheet.create({
     dashDivider: { height: 1, width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 20 },
 
     promoFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    activeDot: { width: 8, height: 8, borderRadius: 4, shadowColor: tokens.colors.primary.cyan, shadowRadius: 10, shadowOpacity: 1 },
+    activeDot: { width: 8, height: 8, borderRadius: 4, ...elevationGlow() },
 
     empty: { marginTop: 40, alignItems: 'center', padding: 40, backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 32 },
 });

@@ -1,0 +1,19 @@
+import React from 'react';
+import { render } from '@testing-library/react-native';
+import { TagMarkerScreen } from '../TagMarkerScreen';
+
+jest.mock('@gtaxi/core', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ single: jest.fn() }), maybeSingle: jest.fn() }), insert: () => ({ single: jest.fn() }) }), functions: { invoke: jest.fn() } }, ENV: {} }));
+jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'admin-1' } }) }));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
+jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
+jest.mock('@gtaxi/design-system', () => ({ SURFACE: { base: '#141122' }, VOICES: { admin: { accent: '#3b374a', accentDark: '#2d2938', textMuted: 'rgba(174,169,181,0.65)' } }, ANIMATION: { spring: { damping: 20, stiffness: 100 } } }));
+jest.mock('@gtaxi/design-system/utils/style-rules', () => ({ elevationGlow: () => ({}), glassSurface: () => ({}), ghostBorder: () => ({}) }));
+
+describe('Admin TagMarkerScreen', () => {
+  it('renders without crashing', () => {
+    const navigation = { navigate: jest.fn() };
+    const { getByText } = render(<TagMarkerScreen navigation={navigation as any} />);
+    expect(getByText(/Tag/i)).toBeTruthy();
+  });
+});

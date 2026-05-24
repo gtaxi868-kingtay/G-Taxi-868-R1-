@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity, StyleSheet,
     ActivityIndicator, useWindowDimensions, ScrollView, RefreshControl,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +10,10 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { LoadingOverlay } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+
+const CYAN = '#06B6D4';
 
 interface Merchant {
     id: string;
@@ -47,7 +50,11 @@ export function GroceryStorefrontScreen({ navigation }: any) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
-    const [categories, setCategories] = useState<string[]>([]);
+
+    const categories = useMemo(
+        () => Array.from(new Set(merchants.map(m => m.category))),
+        [merchants]
+    );
 
     const fetchMerchants = useCallback(async () => {
         try {
@@ -62,16 +69,11 @@ export function GroceryStorefrontScreen({ navigation }: any) {
             const list = (data || []) as Merchant[];
             setMerchants(list);
 
-            // Derive unique categories
-            const cats = Array.from(new Set(list.map(m => m.category)));
-            setCategories(cats);
-
-            // Fetch Regulars (Frequents)
             if (user?.id) {
                 const { data: orders } = await supabase
                     .from('order_items')
                     .select('product_name, product_id, merchant_id, merchants(name)')
-                    .limit(100); // Sample 100 items to find regulars
+                    .limit(100);
 
                 if (orders && orders.length > 0) {
                     const counts: Record<string, any> = {};
@@ -126,7 +128,6 @@ export function GroceryStorefrontScreen({ navigation }: any) {
             onPress={() => handleMerchantPress(item)}
             activeOpacity={0.85}
         >
-            <BlurView intensity={30} style={StyleSheet.absoluteFillObject} tint="dark" />
             <View style={s.merchantIcon}>
                 <Text style={s.iconEmoji}>
                     {CATEGORY_ICONS[item.category] || CATEGORY_ICONS.default}
@@ -139,13 +140,12 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     {item.address ? `  •  ${item.address}` : ''}
                 </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#7C3AED" />
+            <Ionicons name="chevron-forward" size={20} color={VOICES.rider.accent} />
         </TouchableOpacity>
     );
 
     return (
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
-            {/* Header */}
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
@@ -157,7 +157,6 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                 <View style={{ width: 38 }} />
             </View>
 
-            {/* Category Filter */}
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -177,11 +176,10 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                 ))}
             </ScrollView>
 
-            {/* THE REGULARS: Frictionless Hero */}
             {regularItems.length > 0 && (
                 <View style={s.regularsContainer}>
                     <View style={s.sectionHeader}>
-                        <Ionicons name="flash" size={14} color="#00FFFF" />
+                        <Ionicons name="flash" size={14} color={CYAN} />
                         <Text style={s.sectionTitle}>THE REGULARS</Text>
                     </View>
                     <ScrollView 
@@ -201,7 +199,6 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                                     });
                                 }}
                             >
-                                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFillObject} />
                                 <View style={s.itemIcon}>
                                     <Text style={{ fontSize: 20 }}>📦</Text>
                                 </View>
@@ -213,8 +210,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                 </View>
             )}
 
-            {/* Merchant list */}
-            {loading && <LoadingOverlay message="SCANNING LOGISTICS..." color="#00FFFF" />}
+            {loading && <LoadingOverlay message="SCANNING LOGISTICS..." color={CYAN} />}
             
             {!loading && filteredMerchants.length === 0 ? (
                 <View style={s.center}>
@@ -233,7 +229,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={onRefresh}
-                            tintColor="#00FFFF"
+                            tintColor={CYAN}
                         />
                     }
                 />
@@ -264,11 +260,11 @@ const s = StyleSheet.create({
     catChip: {
         paddingHorizontal: 18, paddingVertical: 8, borderRadius: 50,
         backgroundColor: 'rgba(255,255,255,0.08)',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+        ...ghostBorder(0.12),
     },
     catChipActive: {
-        backgroundColor: '#7C3AED',
-        borderColor: '#7C3AED',
+        backgroundColor: VOICES.rider.accent,
+        borderColor: VOICES.rider.accent,
     },
     catChipText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '300' },
     catChipTextActive: { color: '#FFF', fontWeight: '700' },
@@ -276,13 +272,13 @@ const s = StyleSheet.create({
     merchantCard: {
         flexDirection: 'row', alignItems: 'center',
         borderRadius: 20, overflow: 'hidden',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+        ...ghostBorder(0.12),
         padding: 16, gap: 14,
         backgroundColor: 'rgba(255,255,255,0.05)',
     },
     merchantIcon: {
         width: 52, height: 52, borderRadius: 16,
-        backgroundColor: 'rgba(123,97,255,0.2)',
+        backgroundColor: `${VOICES.rider.accent}33`,
         alignItems: 'center', justifyContent: 'center',
     },
     iconEmoji: { fontSize: 26 },
@@ -297,9 +293,9 @@ const s = StyleSheet.create({
 
     regularsContainer: { marginTop: 12, marginBottom: 24 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12, gap: 6 },
-    sectionTitle: { fontSize: 11, fontWeight: '900', color: '#00FFFF', letterSpacing: 2 },
+    sectionTitle: { fontSize: 11, fontWeight: '900', color: CYAN, letterSpacing: 2 },
     regularsScroll: { paddingHorizontal: 20, gap: 12 },
-    regularCard: { width: 140, padding: 16, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.03)' },
+    regularCard: { width: 140, padding: 16, borderRadius: 20, overflow: 'hidden', ...ghostBorder(0.2), backgroundColor: 'rgba(255,255,255,0.03)' },
     itemIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(0,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
     itemName: { fontSize: 14, fontWeight: '700', color: '#FFF' },
     itemMerchant: { fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2, fontWeight: '300' },

@@ -3,12 +3,10 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-// Blueberry Luxe — Gold Edition (Driver)
-const COLORS = {
-    textMuted: 'rgba(255,255,255,0.4)',
-};
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
-export function LegalScreen({ navigation }: any) {
+export function LegalScreen({ navigation }: { navigation: any }) {
     const insets = useSafeAreaInsets();
 
     return (
@@ -27,14 +25,14 @@ export function LegalScreen({ navigation }: any) {
                 <Text style={{ marginBottom: 12, fontSize: 16, fontWeight: '700', color: '#FFF' }}>
                     Privacy & Telemetry Policy
                 </Text>
-                <Text style={{ marginBottom: 24, lineHeight: 24, fontSize: 14, fontWeight: '400', color: COLORS.textMuted }}>
+                <Text style={{ marginBottom: 24, lineHeight: 24, fontSize: 14, fontWeight: '400', color: 'rgba(255,255,255,0.6)' }}>
                     As an operator, G-Taxi requires persistent background location tracking while you are online to dispatch trips effectively. We log ride events for dispute resolution. You may terminate your account and erase your telemetry data permanently via the Profile Settings.
                 </Text>
 
                 <Text style={{ marginBottom: 12, fontSize: 16, fontWeight: '700', color: '#FFF' }}>
                     Platform Terms of Service
                 </Text>
-                <Text style={{ lineHeight: 24, fontSize: 14, fontWeight: '400', color: COLORS.textMuted }}>
+                <Text style={{ lineHeight: 24, fontSize: 14, fontWeight: '400', color: 'rgba(255,255,255,0.6)' }}>
                      You are acting as an independent contractor. Financial payouts are handled via the Platform Ledger minus the automated routing fee (19% Pioneer / 22% Standard). Indebted operators below the threshold will face automated dispatch lockouts until the balance is resolved.
                 </Text>
             </ScrollView>

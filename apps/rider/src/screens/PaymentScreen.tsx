@@ -5,7 +5,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -13,19 +12,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 
-import { tokens } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
+    border: 'rgba(191,64,255,0.2)',
+    purple: VOICES.rider.accent,
+    purpleLight: VOICES.rider.accent,
     gold: '#F59E0B',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    white: '#FFFFFF',
+    muted: '#AEA9B5',
 };
 
 type PaymentMethod = 'cash' | 'wallet' | 'card';
@@ -50,7 +50,6 @@ export function PaymentScreen({ navigation, route }: any) {
     const [loading, setLoading] = useState(false);
     const [userId, setUserId] = useState('');
     const isProcessingRef = useRef(false);
-    // FIX F8: Payment retry state
     const [showPaymentRetry, setShowPaymentRetry] = useState(false);
     const [paymentAttempts, setPaymentAttempts] = useState(0);
     const MAX_PAYMENT_ATTEMPTS = 3;
@@ -85,8 +84,8 @@ export function PaymentScreen({ navigation, route }: any) {
 
             const { error: initError } = await stripe.initPaymentSheet({
                 paymentIntentClientSecret: data.clientSecret,
-                customerId: data.customer,              // NEW: Link to saved cards
-                customerEphemeralKeySecret: data.ephemeralKey, // NEW: Security handshake
+                customerId: data.customer,
+                customerEphemeralKeySecret: data.ephemeralKey,
                 merchantDisplayName: 'G-Taxi 868',
                 style: 'alwaysDark',
                 appearance: {
@@ -108,7 +107,6 @@ export function PaymentScreen({ navigation, route }: any) {
 
             const { error: presentError } = await stripe.presentPaymentSheet();
             if (presentError && presentError.code !== 'Canceled') {
-                // FIX F8: Payment retry logic
                 const attempts = paymentAttempts + 1;
                 setPaymentAttempts(attempts);
 
@@ -169,7 +167,7 @@ export function PaymentScreen({ navigation, route }: any) {
 
                 {fareCents && (
                     <View style={s.fareDisplay}>
-                        <Txt variant="caption" weight="heavy" color={tokens.colors.primary.cyan} style={{ letterSpacing: 2 }}>AMOUNT DUE</Txt>
+                        <Txt variant="caption" weight="heavy" color={CYAN} style={{ letterSpacing: 2 }}>AMOUNT DUE</Txt>
                         <Txt variant="displayXL" weight="heavy" color="#FFF">${(fareCents / 100).toFixed(2)}</Txt>
                     </View>
                 )}
@@ -184,15 +182,15 @@ export function PaymentScreen({ navigation, route }: any) {
                             style={[s.methodCard, isActive && s.methodCardActive]}
                             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelected(opt.id as any); }}
                         >
-                            <View style={[s.iconWrap, isActive && { backgroundColor: tokens.colors.primary.purple }]}>
+                            <View style={[s.iconWrap, isActive && { backgroundColor: VOICES.rider.accent }]}>
                                 <Ionicons name={opt.icon as any} size={24} color={isActive ? "#FFF" : R.muted} />
                             </View>
                             <View style={{ flex: 1, marginLeft: 16 }}>
                                 <Txt variant="bodyBold" color={isActive ? "#FFF" : R.muted}>{opt.label}</Txt>
-                                <Txt variant="small" color={isActive ? tokens.colors.primary.cyan : R.muted}>{opt.subtitle}</Txt>
+                                <Txt variant="small" color={isActive ? CYAN : R.muted}>{opt.subtitle}</Txt>
                             </View>
                             <View style={[s.radio, isActive && s.radioActive]}>
-                                {isActive && <View style={[s.radioDot, { backgroundColor: tokens.colors.primary.cyan }]} />}
+                                {isActive && <View style={[s.radioDot, { backgroundColor: CYAN }]} />}
                             </View>
                         </TouchableOpacity>
                     );
@@ -206,7 +204,7 @@ export function PaymentScreen({ navigation, route }: any) {
                 {rideId && (
                     <TouchableOpacity style={s.payBtn} onPress={handleConfirm} disabled={loading}>
                         <LinearGradient 
-                            colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                            colors={[VOICES.rider.accent, CYAN]} 
                             start={{x: 0, y: 0}} 
                             end={{x: 1, y: 0}}
                             style={s.btnGradient}
@@ -222,7 +220,6 @@ export function PaymentScreen({ navigation, route }: any) {
 
             </ScrollView>
 
-            {/* FIX F8: Payment Retry Toast */}
             {showPaymentRetry && (
                 <View style={s.retryToast}>
                     <ActivityIndicator size="small" color="#0D0B1E" style={{ marginRight: 12 }} />
@@ -241,21 +238,20 @@ const s = StyleSheet.create({
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
     scroll: { paddingHorizontal: 20 },
-    fareDisplay: { alignItems: 'center', marginBottom: 40, backgroundColor: 'rgba(255,255,255,0.03)', padding: 40, borderRadius: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    fareDisplay: { alignItems: 'center', marginBottom: 40, backgroundColor: 'rgba(255,255,255,0.03)', padding: 40, borderRadius: 40, ...ghostBorder(0.15) },
 
-    methodCard: { flexDirection: 'row', alignItems: 'center', padding: 24, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.03)', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
-    methodCardActive: { borderColor: tokens.colors.primary.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
+    methodCard: { flexDirection: 'row', alignItems: 'center', padding: 24, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.03)', marginBottom: 12, ...ghostBorder(0.15), overflow: 'hidden' },
+    methodCardActive: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(124,58,237,0.05)' },
     iconWrap: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
     radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    radioActive: { borderColor: tokens.colors.primary.cyan },
+    radioActive: { borderColor: CYAN },
     radioDot: { width: 12, height: 12, borderRadius: 6 },
 
     securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 32 },
     payBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 40 },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-    // FIX F8: Payment Retry Toast
     retryToast: {
         position: 'absolute',
         bottom: 100,

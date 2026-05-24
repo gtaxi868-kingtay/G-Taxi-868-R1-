@@ -1,19 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, useWindowDimensions, Alert } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Reanimated, { FadeInUp, ZoomIn } from 'react-native-reanimated';
-// NFC is not currently available — stub for compilation until native module is re-integrated
+import Reanimated, { FadeInUp } from 'react-native-reanimated';
 const Nfc = {
     requestTechnologyAsync: async (): Promise<{ id: string } | null> => {
-        console.warn('[Nfc] NFC hardware not available');
         return null;
     },
 };
 import { Txt } from '@/design-system/primitives';
-import { tokens } from '@/design-system/tokens';
 import { supabase } from '@gtaxi/core';
+import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+
+const CYAN = '#06B6D4';
 
 export function NfcHandshakeScreen({ route, navigation }: any) {
     const { width } = useWindowDimensions();
@@ -26,7 +26,6 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
         if (tagUid) {
             handleHandshake();
         } else {
-            // No tag provided, start NFC scanning
             scanNfcTag();
         }
         
@@ -41,7 +40,6 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
                 handleHandshakeWithTag(tag.id);
             }
         } catch (ex) {
-            console.warn('NFC Scan cancelled or failed', ex);
             setLoading(false);
         }
     };
@@ -131,7 +129,7 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
     if (loading) {
         return (
             <View style={s.container}>
-                <ActivityIndicator size="large" color={tokens.colors.primary.purple} />
+                <ActivityIndicator size="large" color={VOICES.rider.accent} />
                 <Txt style={s.loadingText}>Establishing Unified Handshake...</Txt>
             </View>
         );
@@ -140,10 +138,10 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
     if (!handshake || handshake.type !== 'KIOSK_HANDSHAKE') {
         return (
             <View style={s.container}>
-                <Ionicons name="warning" size={64} color={tokens.colors.status.error} />
+                <Ionicons name="warning" size={64} color="#FF6E84" />
                 <Txt style={s.errorText}>Invalid G-Taxi Node</Txt>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Txt style={{ color: tokens.colors.text.inverse }}>Back</Txt>
+                    <Txt style={{ color: '#FFFFFF' }}>Back</Txt>
                 </TouchableOpacity>
             </View>
         );
@@ -151,10 +149,11 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
 
     return (
         <View style={s.container}>
-            <LinearGradient colors={tokens.colors.primary.gradient} style={StyleSheet.absoluteFillObject} />
+            <LinearGradient colors={[VOICES.rider.accent, CYAN]} style={StyleSheet.absoluteFillObject} />
             
             <Reanimated.View entering={FadeInUp} style={s.content}>
-                <BlurView intensity={40} tint="light" style={s.glassCard}>
+                <View style={s.glassCard}>
+                    <View style={[StyleSheet.absoluteFillObject, glassSurface(40, 0.2)]} />
                     <Txt style={s.welcomeTitle}>Unified Handshake Success</Txt>
                     <Txt style={s.aiMessage}>{handshake.welcomeMessage}</Txt>
                     
@@ -171,7 +170,7 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
                                 <Ionicons 
                                     name={service.icon} 
                                     size={32} 
-                                    color={selectedServices.includes(service.id) ? tokens.colors.primary.purple : tokens.colors.text.tertiary} 
+                                    color={selectedServices.includes(service.id) ? VOICES.rider.accent : 'rgba(174, 169, 181, 0.45)'} 
                                 />
                                 <Txt style={s.serviceName}>{service.name}</Txt>
                                 <Txt style={s.serviceCategory}>{service.category.toUpperCase()}</Txt>
@@ -180,33 +179,33 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
                     </View>
 
                     <TouchableOpacity onPress={confirmRide} style={s.confirmBtn}>
-                        <LinearGradient colors={tokens.colors.primary.gradient} style={s.btnGradient}>
+                        <LinearGradient colors={[VOICES.rider.accent, CYAN]} style={s.btnGradient}>
                             <Txt style={s.confirmText}>Confirm & Book Ride</Txt>
                         </LinearGradient>
                     </TouchableOpacity>
-                </BlurView>
+                </View>
             </Reanimated.View>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    container: { flex: 1, backgroundColor: tokens.colors.background.base, justifyContent: 'center', alignItems: 'center' },
-    loadingText: { marginTop: 20, color: tokens.colors.text.secondary },
+    container: { flex: 1, backgroundColor: SURFACE.base, justifyContent: 'center', alignItems: 'center' },
+    loadingText: { marginTop: 20, color: '#AEA9B5' },
     content: { width: '90%', alignItems: 'center' },
-    glassCard: { width: '100%', borderRadius: 32, padding: 24, overflow: 'hidden', borderWidth: 1, borderColor: tokens.colors.glass.stroke },
+    glassCard: { width: '100%', borderRadius: 32, padding: 24, overflow: 'hidden', ...ghostBorder(0.2), backgroundColor: 'rgba(255,255,255,0.04)' },
     welcomeTitle: { fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 12 },
-    aiMessage: { fontSize: 18, color: tokens.colors.text.secondary, textAlign: 'center', lineHeight: 28 },
-    divider: { height: 1, backgroundColor: tokens.colors.border.subtle, marginVertical: 24 },
-    sectionLabel: { fontSize: 14, fontWeight: '600', color: tokens.colors.text.tertiary, marginBottom: 16 },
+    aiMessage: { fontSize: 18, color: '#AEA9B5', textAlign: 'center', lineHeight: 28 },
+    divider: { height: 1, backgroundColor: 'rgba(119, 116, 127, 0.15)', marginVertical: 24 },
+    sectionLabel: { fontSize: 14, fontWeight: '600', color: 'rgba(174, 169, 181, 0.45)', marginBottom: 16 },
     serviceGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-    serviceItem: { width: '48%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: 'transparent' },
-    serviceItemActive: { borderColor: tokens.colors.primary.purple, backgroundColor: 'rgba(79, 134, 247, 0.1)' },
+    serviceItem: { width: '48%', backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 12, ...ghostBorder(0) },
+    serviceItemActive: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(79, 134, 247, 0.1)' },
     serviceName: { fontSize: 14, fontWeight: '700', marginTop: 8 },
-    serviceCategory: { fontSize: 10, color: tokens.colors.text.tertiary, marginTop: 4 },
+    serviceCategory: { fontSize: 10, color: 'rgba(174, 169, 181, 0.45)', marginTop: 4 },
     confirmBtn: { width: '100%', height: 64, borderRadius: 32, marginTop: 24, overflow: 'hidden' },
     btnGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    confirmText: { color: tokens.colors.text.inverse, fontSize: 18, fontWeight: '800' },
-    errorText: { marginTop: 20, fontSize: 20, color: tokens.colors.status.error },
+    confirmText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
+    errorText: { marginTop: 20, fontSize: 20, color: '#FF6E84' },
     backBtn: { marginTop: 24, padding: 16 },
 });

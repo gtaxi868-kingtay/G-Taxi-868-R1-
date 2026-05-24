@@ -1,29 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { initializeSupabaseClient } from '@gtaxi/core';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 const { supabase } = initializeSupabaseClient('native');
 
-const COLORS = {
-  bg: '#0A0A0F',
-  surface: 'rgba(255,255,255,0.06)',
-  gold: '#F59E0B',
-  goldDark: '#B45309',
-  text: '#FFFFFF',
-  textMuted: 'rgba(255,255,255,0.5)',
-  border: 'rgba(245,158,11,0.2)',
-  glassBorder: 'rgba(255,255,255,0.08)',
-  warning: '#F59E0B',
-  danger: '#EF4444',
-  indigo: '#818CF8',
+type MerchantStackParamList = {
+  Dashboard: undefined;
+  Orders: undefined;
 };
 
-export function DashboardScreen({ navigation }: any) {
+export function DashboardScreen({ navigation }: { navigation: NativeStackNavigationProp<MerchantStackParamList> }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { user, signOut } = useAuth();
@@ -59,7 +52,7 @@ export function DashboardScreen({ navigation }: any) {
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
-      <LinearGradient colors={['#0A0A0F', '#1C1510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
 
       <View style={s.header}>
         <View>
@@ -67,67 +60,55 @@ export function DashboardScreen({ navigation }: any) {
           <Text style={s.merchantName}>{merchantName || 'Merchant'}</Text>
         </View>
         <TouchableOpacity style={s.logoutBtn} onPress={signOut}>
-          <Ionicons name="log-out-outline" size={22} color={COLORS.danger} />
+          <Ionicons name="log-out-outline" size={22} color="#EF4444" />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={s.scrollContent}>
         <View style={s.statsRow}>
-          <BlurView intensity={60} tint="dark" style={s.statBlur}>
-            <View style={s.statCard}>
-              <Text style={s.statNumber}>{orderCount}</Text>
-              <Text style={s.statLabel}>Active Orders</Text>
-            </View>
-          </BlurView>
-          <BlurView intensity={60} tint="dark" style={s.statBlur}>
-            <View style={s.statCard}>
-              <Text style={s.statNumber}>0</Text>
-              <Text style={s.statLabel}>Today's Sales</Text>
-            </View>
-          </BlurView>
+          <View style={[s.statCard, glassSurface(0.15)]}>
+            <Text style={s.statNumber}>{orderCount}</Text>
+            <Text style={s.statLabel}>Active Orders</Text>
+          </View>
+          <View style={[s.statCard, glassSurface(0.15)]}>
+            <Text style={s.statNumber}>0</Text>
+            <Text style={s.statLabel}>Today's Sales</Text>
+          </View>
         </View>
 
         <Text style={s.sectionTitle}>Quick Actions</Text>
         <View style={s.tileGrid}>
-          <BlurView intensity={60} tint="dark" style={[s.tileBlur, { width: tileWidth }]}>
-            <TouchableOpacity style={s.tile} onPress={() => navigation.navigate('Orders')}>
-              <View style={[s.tileIcon, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
-                <Ionicons name="receipt" size={28} color={COLORS.gold} />
-              </View>
-              <Text style={s.tileLabel}>Orders</Text>
-              <Text style={s.tileDesc}>Manage incoming orders</Text>
-            </TouchableOpacity>
-          </BlurView>
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Orders')}>
+            <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
+              <Ionicons name="receipt" size={28} color={VOICES.merchant.accent} />
+            </View>
+            <Text style={s.tileLabel}>Orders</Text>
+            <Text style={s.tileDesc}>Manage incoming orders</Text>
+          </TouchableOpacity>
 
-          <BlurView intensity={60} tint="dark" style={[s.tileBlur, { width: tileWidth }]}>
-            <TouchableOpacity style={s.tile} onPress={() => {}}>
-              <View style={[s.tileIcon, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
-                <Ionicons name="cube" size={28} color={COLORS.gold} />
-              </View>
-              <Text style={s.tileLabel}>Products</Text>
-              <Text style={s.tileDesc}>Manage inventory</Text>
-            </TouchableOpacity>
-          </BlurView>
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => {}}>
+            <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
+              <Ionicons name="cube" size={28} color={VOICES.merchant.accent} />
+            </View>
+            <Text style={s.tileLabel}>Products</Text>
+            <Text style={s.tileDesc}>Manage inventory</Text>
+          </TouchableOpacity>
 
-          <BlurView intensity={60} tint="dark" style={[s.tileBlur, { width: tileWidth }]}>
-            <TouchableOpacity style={s.tile} onPress={() => {}}>
-              <View style={[s.tileIcon, { backgroundColor: 'rgba(129,140,248,0.15)' }]}>
-                <Ionicons name="trending-up" size={28} color={COLORS.indigo} />
-              </View>
-              <Text style={s.tileLabel}>Analytics</Text>
-              <Text style={s.tileDesc}>View sales data</Text>
-            </TouchableOpacity>
-          </BlurView>
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => {}}>
+            <View style={[s.tileIcon, { backgroundColor: 'rgba(129,140,248,0.15)' }]}>
+              <Ionicons name="trending-up" size={28} color="#818CF8" />
+            </View>
+            <Text style={s.tileLabel}>Analytics</Text>
+            <Text style={s.tileDesc}>View sales data</Text>
+          </TouchableOpacity>
 
-          <BlurView intensity={60} tint="dark" style={[s.tileBlur, { width: tileWidth }]}>
-            <TouchableOpacity style={s.tile} onPress={() => {}}>
-              <View style={[s.tileIcon, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-                <Ionicons name="settings" size={28} color={COLORS.danger} />
-              </View>
-              <Text style={s.tileLabel}>Settings</Text>
-              <Text style={s.tileDesc}>Account & preferences</Text>
-            </TouchableOpacity>
-          </BlurView>
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => {}}>
+            <View style={[s.tileIcon, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+              <Ionicons name="settings" size={28} color="#EF4444" />
+            </View>
+            <Text style={s.tileLabel}>Settings</Text>
+            <Text style={s.tileDesc}>Account & preferences</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -135,22 +116,20 @@ export function DashboardScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1, backgroundColor: SURFACE.base },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16 },
-  greeting: { fontSize: 14, color: COLORS.textMuted, fontFamily: 'Manrope' },
-  merchantName: { fontSize: 22, fontWeight: '800', color: COLORS.text, fontFamily: 'SpaceGrotesk' },
-  logoutBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: COLORS.glassBorder },
+  greeting: { fontSize: 14, color: VOICES.merchant.textMuted, fontFamily: 'Manrope' },
+  merchantName: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  logoutBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center', ...ghostBorder(0.15) },
   scrollContent: { padding: 24, paddingBottom: 48 },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 32 },
-  statBlur: { flex: 1, borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.glassBorder },
-  statCard: { padding: 20 },
-  statNumber: { fontSize: 32, fontWeight: '800', color: COLORS.gold, fontFamily: 'SpaceGrotesk' },
-  statLabel: { fontSize: 13, color: COLORS.textMuted, marginTop: 4, fontFamily: 'Manrope' },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 16, fontFamily: 'SpaceGrotesk' },
+  statCard: { flex: 1, borderRadius: 20, padding: 20 },
+  statNumber: { fontSize: 32, fontWeight: '800', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
+  statLabel: { fontSize: 13, color: VOICES.merchant.textMuted, marginTop: 4, fontFamily: 'Manrope' },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginBottom: 16, fontFamily: 'SpaceGrotesk' },
   tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  tileBlur: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.glassBorder },
-  tile: { padding: 20 },
+  tile: { borderRadius: 20, padding: 20 },
   tileIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  tileLabel: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 4, fontFamily: 'SpaceGrotesk' },
-  tileDesc: { fontSize: 12, color: COLORS.textMuted, lineHeight: 16, fontFamily: 'Manrope' },
+  tileLabel: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 4, fontFamily: 'SpaceGrotesk' },
+  tileDesc: { fontSize: 12, color: VOICES.merchant.textMuted, lineHeight: 16, fontFamily: 'Manrope' },
 });

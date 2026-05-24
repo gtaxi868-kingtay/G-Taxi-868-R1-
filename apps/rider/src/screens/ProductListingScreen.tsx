@@ -3,14 +3,15 @@ import {
     View, Text, FlatList, TouchableOpacity, StyleSheet,
     ActivityIndicator, useWindowDimensions, Alert,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
-
+const CYAN = '#06B6D4';
 
 interface Product {
     id: string;
@@ -89,8 +90,6 @@ export function ProductListingScreen({ navigation, route }: any) {
                     navigation.navigate('ProductDetail', { product: item, onAddToCart: addToCart });
                 }}
             >
-                <BlurView intensity={20} style={StyleSheet.absoluteFillObject} tint="dark" />
-                {/* Product image placeholder with emoji based on name */}
                 <View style={s.productImageBox}>
                     <Text style={s.productEmoji}>
                         {item.name.toLowerCase().includes('drink') ? '🥤'
@@ -117,7 +116,6 @@ export function ProductListingScreen({ navigation, route }: any) {
 
     return (
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
-            {/* Header */}
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
@@ -131,7 +129,6 @@ export function ProductListingScreen({ navigation, route }: any) {
                         {merchant.category.charAt(0).toUpperCase() + merchant.category.slice(1)}
                     </Text>
                 </View>
-                {/* Cart button */}
                 <TouchableOpacity
                     style={s.cartBtn}
                     onPress={() => {
@@ -140,7 +137,7 @@ export function ProductListingScreen({ navigation, route }: any) {
                     }}
                     disabled={cartCount === 0}
                 >
-                    <Ionicons name="cart-outline" size={22} color={cartCount > 0 ? '#00FFFF' : 'rgba(255,255,255,0.3)'} />
+                    <Ionicons name="cart-outline" size={22} color={cartCount > 0 ? CYAN : 'rgba(255,255,255,0.3)'} />
                     {cartCount > 0 && (
                         <View style={s.cartBadge}>
                             <Text style={s.cartBadgeText}>{cartCount}</Text>
@@ -151,7 +148,7 @@ export function ProductListingScreen({ navigation, route }: any) {
 
             {loading ? (
                 <View style={s.center}>
-                    <ActivityIndicator size="large" color="#00FFFF" />
+                    <ActivityIndicator size="large" color={CYAN} />
                     <Text style={s.loadingText}>Loading products...</Text>
                 </View>
             ) : products.length === 0 ? (
@@ -171,7 +168,6 @@ export function ProductListingScreen({ navigation, route }: any) {
                 />
             )}
 
-            {/* Sticky cart bar */}
             {cartCount > 0 && (
                 <TouchableOpacity
                     style={s.cartBar}
@@ -180,7 +176,6 @@ export function ProductListingScreen({ navigation, route }: any) {
                         navigation.navigate('GroceryCart', { cart, merchant });
                     }}
                 >
-                    <BlurView intensity={40} style={StyleSheet.absoluteFillObject} tint="dark" />
                     <Text style={s.cartBarLeft}>{cartCount} item{cartCount !== 1 ? 's' : ''}</Text>
                     <Text style={s.cartBarCenter}>View Cart</Text>
                     <Text style={s.cartBarRight}>${(cartTotal / 100).toFixed(2)} TTD</Text>
@@ -212,31 +207,31 @@ const s = StyleSheet.create({
     cartBadge: {
         position: 'absolute', top: -2, right: -2,
         width: 16, height: 16, borderRadius: 8,
-        backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center',
+        backgroundColor: VOICES.rider.accent, alignItems: 'center', justifyContent: 'center',
     },
     cartBadgeText: { fontSize: 10, color: '#FFF', fontWeight: '800' },
     grid: { padding: 20, gap: 12, paddingBottom: 100 },
     productCard: {
         borderRadius: 20, overflow: 'hidden',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+        ...ghostBorder(0.12),
         padding: 14, backgroundColor: 'rgba(255,255,255,0.05)',
     },
     productImageBox: {
         height: 90, borderRadius: 14,
-        backgroundColor: 'rgba(123,97,255,0.15)',
+        backgroundColor: `${VOICES.rider.accent}26`,
         alignItems: 'center', justifyContent: 'center',
         marginBottom: 10,
     },
     productEmoji: { fontSize: 40 },
     productMeta: { gap: 4, marginBottom: 10 },
     productName: { fontSize: 14, fontWeight: '600', color: '#FFF', lineHeight: 19 },
-    productPrice: { fontSize: 15, fontWeight: '800', color: '#7C3AED' },
+    productPrice: { fontSize: 15, fontWeight: '800', color: VOICES.rider.accent },
     addBtn: {
         alignSelf: 'flex-end', width: 32, height: 32, borderRadius: 16,
-        backgroundColor: 'rgba(123,97,255,0.3)',
+        backgroundColor: `${VOICES.rider.accent}4D`,
         alignItems: 'center', justifyContent: 'center',
     },
-    addBtnActive: { backgroundColor: '#7C3AED' },
+    addBtnActive: { backgroundColor: VOICES.rider.accent },
     addBtnText: { fontSize: 18, color: '#FFF', fontWeight: '700', lineHeight: 22 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
     loadingText: { color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 14 },
@@ -246,9 +241,10 @@ const s = StyleSheet.create({
         position: 'absolute', bottom: 24, left: 20, right: 20,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         borderRadius: 20, overflow: 'hidden', padding: 18,
-        borderWidth: 1, borderColor: 'rgba(0,255,255,0.3)',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        ...ghostBorder(0.3),
     },
     cartBarLeft: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
-    cartBarCenter: { fontSize: 16, color: '#00FFFF', fontWeight: '800' },
+    cartBarCenter: { fontSize: 16, color: CYAN, fontWeight: '800' },
     cartBarRight: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
 });

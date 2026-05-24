@@ -3,6 +3,7 @@ import { View, Text as RNText, TouchableOpacity, StyleSheet, ViewStyle, TextStyl
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { tokens } from './tokens';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 // --- PRIMITIVES ---
 
@@ -66,8 +67,7 @@ interface SurfaceProps {
 export const Surface = ({ children, style, intensity = 40, noBorder = false }: SurfaceProps) => {
     // Checklist #2: Material - Soft, Diffused
     const borderStyle = noBorder ? {} : {
-        borderColor: tokens.colors.glass.stroke,
-        borderWidth: 1,
+        ...ghostBorder(0.15),
         borderTopColor: tokens.colors.glass.strokeHighlight,
     };
 

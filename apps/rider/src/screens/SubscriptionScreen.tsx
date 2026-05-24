@@ -10,28 +10,11 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { AppScreenProps } from '../navigation/types';
 
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#160B32',
-    gradientStart: '#1A0533',
-    gradientEnd: '#0D1B4B',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    purpleLight: '#9B7CF0',
-    cyan: '#00E5FF',
-    cyanDark: '#0099BB',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.5)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
-    gold: '#FFD700',
-    goldDark: '#B8860B',
-    silver: '#C0C0C0',
-    silverDark: '#808080',
-    success: '#00FF94',
-};
+const CYAN = '#06B6D4';
 
 const TIERS = [
     {
@@ -39,7 +22,7 @@ const TIERS = [
         name: 'FREE',
         price: 0,
         period: '',
-        color: ['#7C3AED', '#4C1D95'],
+        color: [VOICES.rider.accent, VOICES.rider.accentDark],
         icon: 'person',
         features: ['Standard pricing', '3 min wait grace', 'Regular matching'],
         unavailable: ['Priority matching', 'Extra discounts', 'VIP support']
@@ -68,7 +51,7 @@ const TIERS = [
     }
 ];
 
-export function SubscriptionScreen({ navigation }: any) {
+export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'>) {
     const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
@@ -89,7 +72,6 @@ export function SubscriptionScreen({ navigation }: any) {
                 .single();
             if (data) setCurrentTier(data.subscription_tier || 'free');
         } catch (e) {
-            console.warn('Failed to fetch tier:', e);
         } finally {
             setLoading(false);
         }
@@ -106,7 +88,6 @@ export function SubscriptionScreen({ navigation }: any) {
             return;
         }
 
-        // TODO: Implement Stripe Billing when ready
         Alert.alert(
             'Coming Soon',
             'Subscription billing will be available soon. Stay tuned for Plus and Pro plans!',
@@ -118,8 +99,8 @@ export function SubscriptionScreen({ navigation }: any) {
         return (
             <View style={[s.root, { justifyContent: 'center', alignItems: 'center' }]}>
                 <StatusBar style="light" />
-                <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} />
-                <ActivityIndicator color={COLORS.cyan} />
+                <LinearGradient colors={['#1A0533', '#0D1B4B']} style={StyleSheet.absoluteFillObject} />
+                <ActivityIndicator color={CYAN} />
             </View>
         );
     }
@@ -127,9 +108,8 @@ export function SubscriptionScreen({ navigation }: any) {
     return (
         <View style={s.root}>
             <StatusBar style="light" />
-            <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={StyleSheet.absoluteFillObject} />
+            <LinearGradient colors={['#1A0533', '#0D1B4B']} style={StyleSheet.absoluteFillObject} />
 
-            {/* Header */}
             <View style={[s.header, { paddingTop: insets.top + 20 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
                     <Ionicons name="chevron-back" size={28} color="#FFF" />
@@ -164,13 +144,13 @@ export function SubscriptionScreen({ navigation }: any) {
                             <View style={s.features}>
                                 {tier.features.map((feature, i) => (
                                     <View key={i} style={s.featureRow}>
-                                        <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
+                                        <Ionicons name="checkmark-circle" size={18} color="#10B981" />
                                         <Text style={s.featureText}>{feature}</Text>
                                     </View>
                                 ))}
                                 {tier.unavailable.map((feature, i) => (
                                     <View key={`u${i}`} style={[s.featureRow, s.unavailable]}>
-                                        <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+                                        <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.6)" />
                                         <Text style={[s.featureText, s.unavailableText]}>{feature}</Text>
                                     </View>
                                 ))}
@@ -198,7 +178,7 @@ export function SubscriptionScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     header: {
         paddingHorizontal: 20,
         paddingBottom: 20,
@@ -219,7 +199,7 @@ const s = StyleSheet.create({
     },
     headerSubtitle: {
         fontSize: 14,
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         marginTop: 4,
     },
     scroll: {
@@ -233,13 +213,13 @@ const s = StyleSheet.create({
     },
     popularCard: {
         borderWidth: 2,
-        borderColor: COLORS.gold,
+        borderColor: '#FFD700',
     },
     popularBadge: {
         position: 'absolute',
         top: 0,
         right: 0,
-        backgroundColor: COLORS.gold,
+        backgroundColor: '#FFD700',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderBottomLeftRadius: 12,
@@ -248,7 +228,7 @@ const s = StyleSheet.create({
     popularText: {
         fontSize: 11,
         fontWeight: '800',
-        color: COLORS.bgPrimary,
+        color: SURFACE.base,
     },
     tierGradient: {
         padding: 20,
@@ -304,7 +284,7 @@ const s = StyleSheet.create({
         opacity: 0.6,
     },
     unavailableText: {
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         textDecorationLine: 'line-through',
     },
     subscribeBtn: {
@@ -312,12 +292,11 @@ const s = StyleSheet.create({
         paddingVertical: 14,
         borderRadius: 12,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
+        ...ghostBorder(),
     },
     currentBtn: {
-        backgroundColor: 'rgba(0,255,148,0.2)',
-        borderColor: COLORS.success,
+        backgroundColor: 'rgba(16,185,129,0.2)',
+        borderColor: '#10B981',
     },
     subscribeText: {
         fontSize: 15,
@@ -330,7 +309,7 @@ const s = StyleSheet.create({
     },
     footerText: {
         fontSize: 12,
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         textAlign: 'center',
     },
 });

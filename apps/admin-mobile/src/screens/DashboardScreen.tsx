@@ -5,13 +5,22 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 const { supabase } = initializeSupabaseClient('native');
+
+type RootStackParamList = {
+  Dashboard: undefined;
+  TagMarker: undefined;
+};
+
+type DashboardNavProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 
 interface KioskNode {
   id: string;
@@ -26,7 +35,9 @@ interface KioskNode {
   merchants: { id: string; name: string; category: string } | null;
 }
 
-export function DashboardScreen({ navigation }: any) {
+const ACCENT = VOICES.admin.accent;
+
+export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }) {
   const insets = useSafeAreaInsets();
   const { signOut, user } = useAuth();
   const [nodes, setNodes] = useState<KioskNode[]>([]);
@@ -43,8 +54,8 @@ export function DashboardScreen({ navigation }: any) {
       if (data?.success) {
         setNodes(data.nodes || []);
       }
-    } catch (err: any) {
-      console.error('[Dashboard] fetch error:', err);
+    } catch (err) {
+      // silent
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -72,8 +83,9 @@ export function DashboardScreen({ navigation }: any) {
         setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, is_active: data.node.is_active } : n));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to toggle node');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to toggle node';
+      Alert.alert('Error', message);
     } finally {
       setTogglingId(null);
     }
@@ -98,8 +110,9 @@ export function DashboardScreen({ navigation }: any) {
                 setNodes(prev => prev.filter(n => n.id !== nodeId));
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to delete node');
+            } catch (err) {
+              const message = err instanceof Error ? err.message : 'Failed to delete node';
+              Alert.alert('Error', message);
             }
           },
         },
@@ -108,16 +121,16 @@ export function DashboardScreen({ navigation }: any) {
   };
 
   const getNodeTypeLabel = (node: KioskNode) => {
-    if (node.merchant_id) return { label: 'Business Spot', icon: 'storefront' as const, color: '#F59E0B' };
-    return { label: 'Taxi Stand', icon: 'car' as const, color: '#06B6D4' };
+    if (node.merchant_id) return { label: 'Business Spot', icon: 'storefront' as const, color: ACCENT };
+    return { label: 'Taxi Stand', icon: 'car' as const, color: ACCENT };
   };
 
   const renderNode = ({ item }: { item: KioskNode }) => {
     const typeInfo = getNodeTypeLabel(item);
     return (
-      <BlurView intensity={15} tint="dark" style={styles.nodeCard}>
+      <View style={[styles.nodeCard, glassSurface(0.1)]}>
         <View style={styles.nodeHeader}>
-          <View style={[styles.typeBadge, { backgroundColor: `${typeInfo.color}15`, borderColor: `${typeInfo.color}30` }]}>
+          <View style={[styles.typeBadge, { backgroundColor: `${typeInfo.color}15`, ...ghostBorder(0.15) }]}>
             <Ionicons name={typeInfo.icon} size={14} color={typeInfo.color} />
             <Text style={[styles.typeLabel, { color: typeInfo.color }]}>{typeInfo.label}</Text>
           </View>
@@ -162,15 +175,15 @@ export function DashboardScreen({ navigation }: any) {
         <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteNode(item.id)}>
           <Ionicons name="trash-outline" size={16} color="#FF4D4D" />
         </TouchableOpacity>
-      </BlurView>
+      </View>
     );
   };
 
   if (loading) {
     return (
-      <LinearGradient colors={['#0A0A0F', '#1A0A0A']} style={styles.container}>
+      <LinearGradient colors={[SURFACE.base, '#1A0A0A']} style={styles.container}>
         <View style={[styles.center, { paddingTop: insets.top + 80 }]}>
-          <ActivityIndicator size="large" color="#DC2626" />
+          <ActivityIndicator size="large" color={ACCENT} />
           <Text style={styles.loadingText}>Scanning network...</Text>
         </View>
       </LinearGradient>
@@ -178,7 +191,7 @@ export function DashboardScreen({ navigation }: any) {
   }
 
   return (
-    <LinearGradient colors={['#0A0A0F', '#1A0A0A']} style={styles.container}>
+    <LinearGradient colors={[SURFACE.base, '#1A0A0A']} style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View>
           <Text style={styles.headerTitle}>Kiosk Nodes</Text>
@@ -197,7 +210,7 @@ export function DashboardScreen({ navigation }: any) {
         renderItem={renderNode}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#DC2626" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -213,7 +226,7 @@ export function DashboardScreen({ navigation }: any) {
         onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('TagMarker'); }}
         activeOpacity={0.85}
       >
-        <LinearGradient colors={['#DC2626', '#B91C1C']} style={styles.fabGradient}>
+        <LinearGradient colors={[ACCENT, ACCENT + 'CC']} style={styles.fabGradient}>
           <Ionicons name="add" size={28} color="#FFF" />
         </LinearGradient>
       </TouchableOpacity>
@@ -228,7 +241,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+    ...ghostBorder(0.15),
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#F1F5F9' },
   headerCount: { fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
@@ -237,14 +250,11 @@ const styles = StyleSheet.create({
   list: { padding: 16, gap: 12 },
   nodeCard: {
     borderRadius: 20, overflow: 'hidden', padding: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   nodeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   typeBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
-    borderWidth: 1,
   },
   typeLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   activeToggle: {
@@ -267,6 +277,6 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 8 },
   emptyText: { fontSize: 16, color: 'rgba(255,255,255,0.3)', fontWeight: '600' },
   emptySubtext: { fontSize: 13, color: 'rgba(255,255,255,0.2)' },
-  fab: { position: 'absolute', right: 24, width: 56, height: 56, borderRadius: 28, elevation: 8, shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  fab: { position: 'absolute', right: 24, width: 56, height: 56, borderRadius: 28, ...elevationGlow() },
   fabGradient: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
 });

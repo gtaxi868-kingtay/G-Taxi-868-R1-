@@ -2,21 +2,20 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
+import Reanimated, { FadeIn } from 'react-native-reanimated';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
-const COLORS = {
-  bg: '#0A0A0F',
-  surface: 'rgba(255,255,255,0.06)',
-  gold: '#F59E0B',
-  goldDark: '#B45309',
-  text: '#FFFFFF',
-  textMuted: 'rgba(255,255,255,0.5)',
-  border: 'rgba(245,158,11,0.2)',
-  glassBorder: 'rgba(255,255,255,0.08)',
+type AuthStackParamList = {
+  Login: undefined;
+  Register: undefined;
 };
 
-export function RegisterScreen({ navigation }: any) {
+type RegisterNavProp = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
+
+export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) {
   const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -38,8 +37,8 @@ export function RegisterScreen({ navigation }: any) {
       Alert.alert('Check Email', 'Please check your email for a confirmation link.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch (err: any) {
-      Alert.alert('Registration Failed', err.message);
+    } catch (err: unknown) {
+      Alert.alert('Registration Failed', err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -47,22 +46,22 @@ export function RegisterScreen({ navigation }: any) {
 
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <LinearGradient colors={['#0A0A0F', '#1C1510']} style={StyleSheet.absoluteFillObject} />
-      <View style={s.content}>
+      <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+      <Reanimated.View entering={FadeIn.springify().mass(ANIMATION.spring.mass).stiffness(ANIMATION.spring.stiffness).damping(ANIMATION.spring.damping)} style={s.content}>
         <Text style={s.title}>Create Account</Text>
         <Text style={s.subtitle}>Register your merchant business</Text>
 
         <BlurView intensity={60} tint="dark" style={s.cardBlur}>
           <View style={s.card}>
-            <TextInput style={s.input} placeholder="Business Name" value={name} onChangeText={setName} placeholderTextColor={COLORS.textMuted} />
-            <TextInput style={s.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor={COLORS.textMuted} />
-            <TextInput style={s.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor={COLORS.textMuted} />
+            <TextInput style={s.input} placeholder="Business Name" value={name} onChangeText={setName} placeholderTextColor="rgba(255,255,255,0.6)" />
+            <TextInput style={s.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="rgba(255,255,255,0.6)" />
+            <TextInput style={s.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="rgba(255,255,255,0.6)" />
 
             {loading ? (
-              <ActivityIndicator size="large" color={COLORS.gold} style={{ marginTop: 16 }} />
+              <ActivityIndicator size="large" color={VOICES.merchant.accent} style={{ marginTop: 16 }} />
             ) : (
               <TouchableOpacity style={s.registerBtn} onPress={handleRegister}>
-                <LinearGradient colors={[COLORS.gold, COLORS.goldDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.registerGradient}>
+                <LinearGradient colors={[VOICES.merchant.accent, VOICES.merchant.accentDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.registerGradient}>
                   <Text style={s.registerBtnText}>Register</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -73,7 +72,7 @@ export function RegisterScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         </BlurView>
-      </View>
+      </Reanimated.View>
     </KeyboardAvoidingView>
   );
 }
@@ -81,14 +80,14 @@ export function RegisterScreen({ navigation }: any) {
 const s = StyleSheet.create({
   container: { flex: 1 },
   content: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: COLORS.text, textAlign: 'center', marginBottom: 4, fontFamily: 'SpaceGrotesk' },
-  subtitle: { fontSize: 14, color: COLORS.textMuted, textAlign: 'center', marginBottom: 32, fontFamily: 'Manrope' },
-  cardBlur: { borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.glassBorder },
+  title: { fontSize: 28, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 4, fontFamily: 'SpaceGrotesk' },
+  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 32, fontFamily: 'Manrope' },
+  cardBlur: { borderRadius: 24, overflow: 'hidden', ...ghostBorder(0.15) },
   card: { padding: 24 },
-  input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, fontSize: 16, color: COLORS.text, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border, fontFamily: 'Manrope' },
+  input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, fontSize: 16, color: '#FFF', marginBottom: 12, ...ghostBorder(0.15), fontFamily: 'Manrope' },
   registerBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 8 },
   registerGradient: { padding: 16, alignItems: 'center' },
-  registerBtnText: { color: '#0A0A0F', fontSize: 16, fontWeight: '700', fontFamily: 'SpaceGrotesk' },
+  registerBtnText: { color: SURFACE.base, fontSize: 16, fontWeight: '700', fontFamily: 'SpaceGrotesk' },
   loginLink: { alignItems: 'center', marginTop: 20 },
-  loginText: { color: COLORS.gold, fontSize: 14, fontWeight: '600', fontFamily: 'Manrope' },
+  loginText: { color: VOICES.merchant.accent, fontSize: 14, fontWeight: '600', fontFamily: 'Manrope' },
 });

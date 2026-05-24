@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity, SafeAreaView,
+    View, StyleSheet, TouchableOpacity,
     ScrollView, Switch, ActivityIndicator, Alert, useWindowDimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,20 +12,21 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
-import { tokens } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
     surfaceHigh: 'rgba(255,255,255,0.1)',
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
+    border: 'rgba(255,255,255,0.15)',
+    purple: VOICES.rider.accent,
+    purpleLight: CYAN,
     gold: '#F59E0B',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.7)',
 };
 
 export function AISettingsScreen({ navigation }: any) {
@@ -59,8 +60,6 @@ export function AISettingsScreen({ navigation }: any) {
                     ai_suggestions_enabled: data.ai_suggestions_enabled,
                     pace_priority: data.pace_priority
                 });
-            } else if (error && error.code === 'PGRST116') {
-                // No prefs yet, create them via upsert later
             }
         } catch (err) {
             console.error(err);
@@ -70,7 +69,6 @@ export function AISettingsScreen({ navigation }: any) {
     };
 
     const updatePref = async (key: string, value: any) => {
-        const oldValue = prefs[key as keyof typeof prefs];
         const newPrefs = { ...prefs, [key]: value };
         setPrefs(newPrefs);
         setSaving(true);
@@ -86,12 +84,10 @@ export function AISettingsScreen({ navigation }: any) {
 
             if (error) throw error;
 
-            // Clear AI cache when re-enabling suggestions (force fresh fetch)
-            if (key === 'ai_suggestions_enabled' && oldValue === false && value === true) {
+            if (key === 'ai_suggestions_enabled' && value === true) {
                 const cacheKey = `ai_insight_cache_${user?.id}`;
                 try {
                     await AsyncStorage.removeItem(cacheKey);
-                    console.log('[AISettings] Cache cleared - will fetch fresh on next open');
                 } catch (e) {
                     console.warn('[AISettings] Cache clear failed:', e);
                 }
@@ -155,7 +151,6 @@ export function AISettingsScreen({ navigation }: any) {
 
                     <View style={s.divider} />
 
-                    {/* FIX 4: Predictive Grocery — Coming Soon (not yet live, do not enable) */}
                     <View style={[s.row, { opacity: 0.45 }]}>
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -218,14 +213,14 @@ const s = StyleSheet.create({
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     
     scroll: { paddingHorizontal: 20, paddingBottom: 40 },
-    section: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 24, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    section: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 24, marginBottom: 20, ...ghostBorder(0.05) },
     sectionTitle: { marginBottom: 16, letterSpacing: 2, fontWeight: '800' },
     
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 20 },
     
     paceGrid: { flexDirection: 'row', gap: 12 },
-    paceItem: { flex: 1, height: 80, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
+    paceItem: { flex: 1, height: 80, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0) },
     paceItemActive: { backgroundColor: R.purple, borderColor: R.purpleLight },
 
     savingIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 }

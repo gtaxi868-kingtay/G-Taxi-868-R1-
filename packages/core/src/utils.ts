@@ -1,4 +1,5 @@
-import { withRetry, RetryOptions } from './retryWrapper';
+import { withRetry } from './retryWrapper';
+import type { RetryOptions } from './retryWrapper';
 
 /**
  * Robust helper for retrying idempotent operations with exponential backoff.

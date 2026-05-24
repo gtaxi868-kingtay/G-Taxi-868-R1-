@@ -1,26 +1,50 @@
-import { BRAND, SEMANTIC, VOICES } from '@gtaxi/design-system-native';
-
 export const tokens = {
   colors: {
     background: {
-      base: VOICES.driver.bg,
-      ambient: '#1A1823',
+      base: '#050505',
+      ambient: '#050505',
     },
     text: {
-      primary: VOICES.driver.text,
-      secondary: '#AEA9B5',
-      inverse: BRAND.deepViolet,
+      primary: '#FFFFFF',
+      secondary: 'rgba(255,255,255,0.5)',
+      tertiary: 'rgba(255,255,255,0.3)',
+      inverse: '#FFFFFF',
     },
     border: {
-      subtle: 'rgba(119, 116, 127, 0.15)',
+      subtle: 'rgba(255,255,255,0.15)',
     },
     primary: {
-      purple: BRAND.purple,
+      cyan: '#00FFFF',
+      purple: '#7F00FF',
+      gradient: ['#00FFFF', '#7F00FF'] as [string, string],
     },
     status: {
       error: '#FF6E84',
     },
+    glass: {
+      fill: 'rgba(0,255,255,0.06)',
+      strokeHighlight: 'rgba(255,255,255,0.08)',
+    },
   },
+};
+
+export const SURFACE = {
+  base: '#050505',
+  containerLow: '#0A0A0A',
+  containerHigh: '#1A1A1A',
+  containerHighest: '#2A2A2A',
+};
+
+export const SHADOW_PROFILE = {
+  shadowColor: '#00FFFF',
+  shadowOffset: { width: 0, height: 8 } as const,
+  shadowOpacity: 0.08,
+  shadowRadius: 24,
+};
+
+export const ANIMATION = {
+  easing: [0.16, 1, 0.3, 1] as const,
+  spring: { damping: 18, stiffness: 150, mass: 1 },
 };
 
 export * from '@gtaxi/design-system-native';

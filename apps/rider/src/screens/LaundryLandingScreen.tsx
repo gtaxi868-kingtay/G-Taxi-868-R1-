@@ -3,7 +3,6 @@ import {
     View, Text, TouchableOpacity, StyleSheet,
     Alert, Dimensions, FlatList, ActivityIndicator
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +10,10 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@gtaxi/core';
 import { LoadingOverlay } from '@gtaxi/design-system';
+import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+
+const CYAN = '#06B6D4';
 
 const SERVICES = [
     { id: 'wash_fold', label: 'Wash & Fold', icon: '🫧', baseRate: 500 },
@@ -103,10 +106,10 @@ export function LaundryLandingScreen({ navigation }: any) {
             style={[s.mCard, selectedMerchant?.id === item.id && s.mCardActive]}
             onPress={() => { setSelectedMerchant(item); Haptics.selectionAsync(); }}
         >
-            <BlurView intensity={20} style={StyleSheet.absoluteFillObject} tint="dark" />
+            <View style={[StyleSheet.absoluteFillObject, glassSurface(20, 0.2)]} />
             <Text style={s.mName}>{item.name}</Text>
             <Text style={s.mSub}>{item.address.split(',')[0]}</Text>
-            {selectedMerchant?.id === item.id && <Ionicons name="checkmark-circle" size={16} color="#00FFFF" style={s.mCheck} />}
+            {selectedMerchant?.id === item.id && <Ionicons name="checkmark-circle" size={16} color={CYAN} style={s.mCheck} />}
         </TouchableOpacity>
     );
 
@@ -123,11 +126,10 @@ export function LaundryLandingScreen({ navigation }: any) {
                 <View style={{ width: 38 }} />
             </View>
 
-            {/* Merchant Selection */}
             <View style={s.section}>
                 <Text style={s.sectionTitle}>SELECT PROVIDER</Text>
                 {loadingMerchants ? (
-                    <ActivityIndicator color="#00FFFF" style={{ height: 100 }} />
+                    <ActivityIndicator color={CYAN} style={{ height: 100 }} />
                 ) : (
                     <FlatList
                         horizontal
@@ -140,7 +142,6 @@ export function LaundryLandingScreen({ navigation }: any) {
                 )}
             </View>
 
-            {/* Service selector */}
             <View style={s.section}>
                 <Text style={s.sectionTitle}>SERVICE TYPE</Text>
                 <View style={s.serviceGrid}>
@@ -153,7 +154,7 @@ export function LaundryLandingScreen({ navigation }: any) {
                                 onPress={() => { setSelectedService(service); Haptics.selectionAsync(); }}
                                 activeOpacity={0.85}
                             >
-                                <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
+                                <View style={[StyleSheet.absoluteFillObject, glassSurface(25, 0.2)]} />
                                 <Text style={s.serviceIcon}>{service.icon}</Text>
                                 <Text style={[s.serviceLabel, active && s.serviceLabelActive]}>{service.label}</Text>
                             </TouchableOpacity>
@@ -162,7 +163,6 @@ export function LaundryLandingScreen({ navigation }: any) {
                 </View>
             </View>
 
-            {/* Features */}
             <View style={s.featureRow}>
                 {['Pickup Today', '24h Return', 'Pro Handling'].map(feat => (
                     <View key={feat} style={s.featurePill}>
@@ -171,20 +171,19 @@ export function LaundryLandingScreen({ navigation }: any) {
                 ))}
             </View>
 
-            {/* CTA */}
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 20 }]}>
-                {isProcessingAI && <LoadingOverlay message="AI ANALYZING..." color="#00FFFF" />}
+                {isProcessingAI && <LoadingOverlay message="AI ANALYZING..." color={CYAN} />}
                 
                 {!isProcessingAI && (
                     <>
                         <TouchableOpacity style={s.aiButton} onPress={handleAITakePhoto} activeOpacity={0.88}>
-                            <Ionicons name="camera" size={20} color="#00FFFF" />
+                            <Ionicons name="camera" size={20} color={CYAN} />
                             <Text style={s.aiButtonText}>AI Smart Scan</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity style={s.ctaButton} onPress={handleNext} activeOpacity={0.88}>
                             <LinearGradient
-                                colors={['#7C3AED', '#5A2DDE']}
+                                colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
                                 style={s.ctaGradient}
                             >
                                 <Text style={s.ctaText}>Continue to Estimate →</Text>
@@ -213,21 +212,21 @@ const s = StyleSheet.create({
     sectionTitle: { fontSize: 10, fontWeight: '900', color: 'rgba(255,255,255,0.4)', letterSpacing: 2, paddingHorizontal: 24 },
     mCard: {
         width: 160, height: 100, borderRadius: 20, overflow: 'hidden', padding: 16,
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
         backgroundColor: 'rgba(255,255,255,0.04)',
     },
-    mCardActive: { borderColor: '#00FFFF', backgroundColor: 'rgba(0,255,255,0.05)' },
+    mCardActive: { borderColor: CYAN, backgroundColor: 'rgba(0,255,255,0.05)' },
     mName: { fontSize: 14, fontWeight: '700', color: '#FFF' },
     mSub: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 },
     mCheck: { position: 'absolute', top: 12, right: 12 },
     serviceGrid: { flexDirection: 'row', gap: 12, paddingHorizontal: 20 },
     serviceCard: {
         flex: 1, borderRadius: 22, overflow: 'hidden',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
         padding: 18, alignItems: 'center', gap: 8,
         backgroundColor: 'rgba(255,255,255,0.04)',
     },
-    serviceCardActive: { borderColor: '#7C3AED' },
+    serviceCardActive: { borderColor: VOICES.rider.accent },
     serviceIcon: { fontSize: 36 },
     serviceLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
     serviceLabelActive: { color: '#FFF' },
@@ -237,9 +236,9 @@ const s = StyleSheet.create({
     featurePill: {
         paddingHorizontal: 14, paddingVertical: 6, borderRadius: 50,
         backgroundColor: 'rgba(0,255,255,0.1)',
-        borderWidth: 1, borderColor: 'rgba(0,255,255,0.25)',
+        ...ghostBorder(0.25),
     },
-    featureText: { fontSize: 12, color: '#00FFFF', fontWeight: '600' },
+    featureText: { fontSize: 12, color: CYAN, fontWeight: '600' },
     ctaContainer: { paddingHorizontal: 20, paddingTop: 8, marginTop: 'auto' },
     ctaButton: { borderRadius: 20, overflow: 'hidden' },
     ctaGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 18 },
@@ -248,8 +247,8 @@ const s = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         paddingVertical: 18, borderRadius: 20,
         backgroundColor: 'rgba(0,255,255,0.05)',
-        borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)',
+        ...ghostBorder(0.2),
         marginBottom: 12, gap: 10,
     },
-    aiButtonText: { fontSize: 17, fontWeight: '800', color: '#00FFFF' },
+    aiButtonText: { fontSize: 17, fontWeight: '800', color: CYAN },
 });

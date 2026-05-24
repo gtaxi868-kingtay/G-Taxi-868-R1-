@@ -3,28 +3,18 @@ import {
     View, Text, StyleSheet, TouchableOpacity, TextInput,
     useWindowDimensions, ActivityIndicator, Alert, ScrollView, Platform,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@gtaxi/core';
-
-const COLORS = {
-    bg: '#0D0B1E',
-    purple: '#7B5CF0',
-    cyan: '#00E5FF',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
-    success: '#00FF94',
-    error: '#FF4D6D',
-};
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { AppScreenProps } from '../navigation/types';
 
 type NodeType = 'merchant' | 'taxi_stand';
 
-export function TagMarkerScreen({ navigation, route }: any) {
+export function TagMarkerScreen({ navigation, route }: AppScreenProps<'TagMarker'>) {
     const { width } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const tagUid = route?.params?.tagUid || '';
@@ -109,13 +99,13 @@ export function TagMarkerScreen({ navigation, route }: any) {
             <LinearGradient colors={['#1A0533', '#0D1B4B']} style={StyleSheet.absoluteFillObject} />
 
             <TouchableOpacity style={[s.backBtn, { top: insets.top + 8 }]} onPress={() => navigation.goBack()}>
-                <Ionicons name="close" size={28} color={COLORS.white} />
+                <Ionicons name="close" size={28} color="#FFF" />
             </TouchableOpacity>
 
             <ScrollView contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled">
                 <View style={s.header}>
                     <View style={s.badgeIcon}>
-                        <Ionicons name="pricetag" size={32} color={COLORS.cyan} />
+                        <Ionicons name="pricetag" size={32} color="#06B6D4" />
                     </View>
                     <Text style={s.headerTitle}>New Tag Detected</Text>
                     <Text style={s.tagCode}>{tagUid}</Text>
@@ -124,7 +114,7 @@ export function TagMarkerScreen({ navigation, route }: any) {
                     </Text>
                 </View>
 
-                <BlurView intensity={40} tint="dark" style={s.card}>
+                <View style={[glassSurface(40), s.card]}>
                     <Text style={s.sectionTitle}>Tag Type</Text>
                     <View style={s.typeRow}>
                         <TouchableOpacity
@@ -134,7 +124,7 @@ export function TagMarkerScreen({ navigation, route }: any) {
                             <Ionicons
                                 name="storefront"
                                 size={24}
-                                color={nodeType === 'merchant' ? COLORS.purple : COLORS.textSecondary}
+                                color={nodeType === 'merchant' ? VOICES.rider.accent : 'rgba(255,255,255,0.6)'}
                             />
                             <Text style={[s.typeLabel, nodeType === 'merchant' && s.typeLabelActive]}>
                                 Merchant
@@ -147,7 +137,7 @@ export function TagMarkerScreen({ navigation, route }: any) {
                             <Ionicons
                                 name="flag"
                                 size={24}
-                                color={nodeType === 'taxi_stand' ? COLORS.purple : COLORS.textSecondary}
+                                color={nodeType === 'taxi_stand' ? VOICES.rider.accent : 'rgba(255,255,255,0.6)'}
                             />
                             <Text style={[s.typeLabel, nodeType === 'taxi_stand' && s.typeLabelActive]}>
                                 Taxi Stand
@@ -178,39 +168,39 @@ export function TagMarkerScreen({ navigation, route }: any) {
                     )}
 
                     {submitting ? (
-                        <ActivityIndicator size="large" color={COLORS.purple} style={{ marginTop: 24 }} />
+                        <ActivityIndicator size="large" color={VOICES.rider.accent} style={{ marginTop: 24 }} />
                     ) : (
                         <TouchableOpacity style={s.submitBtn} onPress={handleProvision}>
-                            <LinearGradient colors={[COLORS.purple, COLORS.cyan]} style={s.submitGradient}>
-                                <Ionicons name="checkmark-circle" size={22} color={COLORS.white} />
+                            <LinearGradient colors={[VOICES.rider.accent, '#06B6D4']} style={s.submitGradient}>
+                                <Ionicons name="checkmark-circle" size={22} color="#FFF" />
                                 <Text style={s.submitText}>Register Tag</Text>
                             </LinearGradient>
                         </TouchableOpacity>
                     )}
-                </BlurView>
+                </View>
             </ScrollView>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.bg },
+    container: { flex: 1, backgroundColor: SURFACE.base },
     backBtn: { position: 'absolute', left: 16, zIndex: 10, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
     scrollContent: { padding: 24, paddingTop: 80, paddingBottom: 48 },
     header: { alignItems: 'center', marginBottom: 24 },
-    badgeIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.glassBg, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-    headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.white, marginBottom: 8 },
-    tagCode: { fontSize: 14, color: COLORS.cyan, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8, marginBottom: 12, letterSpacing: 2 },
-    headerSubtitle: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 },
-    card: { width: '100%', borderRadius: 32, padding: 24, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.glassBorder },
-    sectionTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12, marginTop: 8 },
+    badgeIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.03)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFF', marginBottom: 8 },
+    tagCode: { fontSize: 14, color: '#06B6D4', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8, marginBottom: 12, letterSpacing: 2 },
+    headerSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 20 },
+    card: { width: '100%', borderRadius: 32, padding: 24, ...ghostBorder() },
+    sectionTitle: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12, marginTop: 8 },
     typeRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-    typeOption: { flex: 1, padding: 20, borderRadius: 20, backgroundColor: COLORS.glassBg, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', gap: 8 },
-    typeOptionActive: { borderColor: COLORS.purple, backgroundColor: 'rgba(123,92,240,0.15)' },
-    typeLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
-    typeLabelActive: { color: COLORS.purple },
-    input: { width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, fontSize: 16, color: COLORS.white, marginBottom: 16, borderWidth: 1, borderColor: COLORS.glassBorder },
+    typeOption: { flex: 1, padding: 20, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', ...ghostBorder(0), alignItems: 'center', gap: 8 },
+    typeOptionActive: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(123,92,240,0.15)' },
+    typeLabel: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+    typeLabelActive: { color: VOICES.rider.accent },
+    input: { width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, fontSize: 16, color: '#FFF', marginBottom: 16, ...ghostBorder() },
     submitBtn: { width: '100%', height: 56, borderRadius: 28, marginTop: 16, overflow: 'hidden' },
     submitGradient: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-    submitText: { color: COLORS.white, fontSize: 17, fontWeight: '800' },
+    submitText: { color: '#FFF', fontSize: 17, fontWeight: '800' },
 });

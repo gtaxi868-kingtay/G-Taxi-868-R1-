@@ -15,34 +15,23 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { ENV } from '@gtaxi/shared/env';
 import { supabase } from '@gtaxi/core';
 import { cancelRide } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
 
-// Blueberry Luxe Color System
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#160B32',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    cyan: '#00E5FF',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.5)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
-    error: '#FF4D6D',
-    warning: '#F59E0B',
-};
+const WARNING = '#F59E0B';
+const ERROR = '#FF4D6D';
+const CYAN = '#00E5FF';
 
-// Custom Dark Map Style for Blueberry Luxe
 const DARK_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: '#0d0b1e' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#7B5CF0' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#0d0b1e' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1040' }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#7B5CF0', weight: 0.5 }] },
+    { elementType: 'geometry', stylers: [{ color: SURFACE.base }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: VOICES.rider.accent }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: SURFACE.base }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: SURFACE.containerLow }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: VOICES.rider.accent, weight: 0.5 }] },
     { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00E5FF', lightness: -80 }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] }
 ];
@@ -297,7 +286,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
     };
 
     return (
-        <View style={s.root}>
+        <View style={s.root} pointerEvents="box-none">
             <StatusBar style="light" />
 
             {/* Background: Full Screen Map with Blueberry Luxe Dark Style */}
@@ -340,7 +329,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                             style={StyleSheet.absoluteFillObject} 
                         />
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                            <Ionicons name="star" size={24} color={COLORS.warning} />
+                            <Ionicons name="star" size={24} color={WARNING} />
                             <View>
                                 <Text style={s.priorityTitle}>CONTACTING PREFERRED DRIVER</Text>
                                 <Text style={s.prioritySubtitle}>{preferredDriver?.name} is nearby</Text>
@@ -403,7 +392,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                         <View style={[s.negotiationCard, { width: width * 0.85 }]}>
                             <View style={s.aiAvatar}>
                                 <LinearGradient 
-                                    colors={[COLORS.purple, COLORS.cyan]} 
+                                    colors={[VOICES.rider.accent, CYAN]} 
                                     style={StyleSheet.absoluteFillObject} 
                                 />
                                 <Ionicons name="star" size={24} color="#FFF" />
@@ -456,7 +445,7 @@ function Radar({ animation, opacity }: any) {
         borderRadius: animation.value / 2,
         opacity: opacity.value,
         borderWidth: 2,
-        borderColor: COLORS.cyan,
+        borderColor: CYAN,
     }));
     
     const ring2Style = useAnimatedStyle(() => ({
@@ -465,7 +454,7 @@ function Radar({ animation, opacity }: any) {
         borderRadius: (animation.value * 0.7) / 2,
         opacity: opacity.value * 0.7,
         borderWidth: 1.5,
-        borderColor: COLORS.purple,
+        borderColor: VOICES.rider.accent,
     }));
     
     const ring3Style = useAnimatedStyle(() => ({
@@ -474,7 +463,7 @@ function Radar({ animation, opacity }: any) {
         borderRadius: (animation.value * 0.4) / 2,
         opacity: opacity.value * 0.4,
         borderWidth: 1,
-        borderColor: COLORS.cyan,
+        borderColor: CYAN,
     }));
 
     return (
@@ -484,7 +473,7 @@ function Radar({ animation, opacity }: any) {
             <Reanimated.View style={[s.radarRing, ring3Style]} />
             <View style={s.radarCore}>
                 <LinearGradient 
-                    colors={[COLORS.purple, COLORS.purpleDark]} 
+                    colors={[VOICES.rider.accent, VOICES.rider.accentDark]} 
                     style={StyleSheet.absoluteFillObject} 
                 />
                 <Image 
@@ -500,9 +489,8 @@ function Radar({ animation, opacity }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     
-    // Radar Animation
     radarContainer: { 
         ...StyleSheet.absoluteFillObject, 
         alignItems: 'center', 
@@ -516,15 +504,11 @@ const s = StyleSheet.create({
         width: 80, 
         height: 80, 
         borderRadius: 40, 
-        backgroundColor: COLORS.purple, 
+        backgroundColor: VOICES.rider.accent, 
         alignItems: 'center', 
         justifyContent: 'center', 
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 0 },
-        shadowRadius: 30, 
-        shadowOpacity: 0.8,
+        ...elevationGlow(10),
         overflow: 'hidden',
-        elevation: 10,
     },
     radarLogo: {
         width: 50,
@@ -536,11 +520,10 @@ const s = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: COLORS.purple,
+        backgroundColor: VOICES.rider.accent,
         opacity: 0.3,
     },
 
-    // Content Positioning
     content: { 
         position: 'absolute', 
         left: 24, 
@@ -548,67 +531,58 @@ const s = StyleSheet.create({
         alignItems: 'center' 
     },
     
-    // Priority Card
     priorityCard: { 
         width: '100%', 
         padding: 18, 
         borderRadius: 20, 
         marginBottom: 16, 
         overflow: 'hidden', 
-        borderWidth: 1, 
-        borderColor: 'rgba(245, 158, 11, 0.3)',
+        ...ghostBorder(0.3),
         backgroundColor: 'rgba(245, 158, 11, 0.05)',
     },
     priorityTitle: {
         fontSize: 13,
         fontWeight: '800',
-        color: COLORS.warning,
+        color: WARNING,
         letterSpacing: 0.5,
     },
     prioritySubtitle: {
         fontSize: 13,
-        color: COLORS.textSecondary,
+        color: VOICES.rider.textMuted,
         marginTop: 2,
     },
     
-    // Status Card - Glassmorphism
     statusCard: { 
-        backgroundColor: COLORS.glassBg, 
+        backgroundColor: SURFACE.containerLow, 
         borderRadius: 28, 
         padding: 28, 
         width: '100%', 
-        borderWidth: 1, 
-        borderColor: COLORS.glassBorder,
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 6,
+        ...ghostBorder(0.2),
+        ...elevationGlow(6),
     },
     statusTitle: {
         fontSize: 26,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFFFFF',
         textAlign: 'center',
         letterSpacing: -0.5,
     },
     queueTitle: {
         fontSize: 24,
         fontWeight: '800',
-        color: COLORS.warning,
+        color: WARNING,
         textAlign: 'center',
         letterSpacing: -0.5,
     },
     statusSubtitle: {
         fontSize: 15,
         fontWeight: '500',
-        color: COLORS.textSecondary,
+        color: VOICES.rider.textMuted,
         textAlign: 'center',
         marginTop: 12,
         lineHeight: 22,
     },
 
-    // Cancel Button
     cancelWrap: { 
         marginTop: 32, 
         width: '100%' 
@@ -619,36 +593,29 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,77,109,0.1)', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        borderWidth: 1, 
-        borderColor: 'rgba(255,77,109,0.25)',
+        ...ghostBorder(0.25),
     },
     cancelText: {
         fontSize: 15,
         fontWeight: '700',
-        color: COLORS.error,
+        color: ERROR,
         letterSpacing: 0.5,
     },
 
-    // Negotiation Overlay
     lockBlur: { 
         ...StyleSheet.absoluteFillObject, 
         justifyContent: 'center', 
         alignItems: 'center', 
         padding: 20,
-        backgroundColor: 'rgba(13,11,30,0.95)',
+        backgroundColor: 'rgba(20,17,34,0.95)',
     },
     negotiationCard: { 
         padding: 28, 
         borderRadius: 32, 
-        backgroundColor: COLORS.glassBg, 
-        borderWidth: 1, 
-        borderColor: COLORS.glassBorder, 
+        backgroundColor: SURFACE.containerLow, 
+        ...ghostBorder(0.2), 
         alignItems: 'center',
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-        elevation: 10,
+        ...elevationGlow(10),
     },
     aiAvatar: { 
         width: 56, 
@@ -657,15 +624,12 @@ const s = StyleSheet.create({
         overflow: 'hidden', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        shadowColor: COLORS.cyan,
-        shadowOffset: { width: 0, height: 0 },
-        shadowRadius: 15, 
-        shadowOpacity: 0.5,
+        ...elevationGlow(15),
     },
     negotiationTitle: {
         fontSize: 18,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFFFFF',
         marginTop: 20,
         textAlign: 'center',
         letterSpacing: 1,
@@ -673,34 +637,29 @@ const s = StyleSheet.create({
     negotiationText: {
         fontSize: 15,
         fontWeight: '400',
-        color: COLORS.textSecondary,
+        color: VOICES.rider.textMuted,
         marginTop: 12,
         textAlign: 'center',
         lineHeight: 22,
     },
     negotiationHighlight: {
         fontWeight: '700',
-        color: COLORS.cyan,
+        color: CYAN,
     },
     
-    // Buttons
     waitBtn: { 
         width: '100%', 
         height: 56, 
         borderRadius: 16, 
-        backgroundColor: COLORS.cyan, 
+        backgroundColor: CYAN, 
         alignItems: 'center', 
         justifyContent: 'center',
-        shadowColor: COLORS.cyan,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
+        ...elevationGlow(4),
     },
     waitBtnText: {
         fontSize: 16,
         fontWeight: '800',
-        color: COLORS.bgPrimary,
+        color: SURFACE.base,
     },
     skipBtn: { 
         width: '100%', 
@@ -709,16 +668,14 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.05)', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        borderWidth: 1, 
-        borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
     },
     skipBtnText: {
         fontSize: 16,
         fontWeight: '700',
-        color: COLORS.white,
+        color: '#FFFFFF',
     },
 
-    // FIX F6: Rejection Toast
     rejectionToast: {
         position: 'absolute',
         bottom: 200,
@@ -730,7 +687,7 @@ const s = StyleSheet.create({
         zIndex: 100,
     },
     rejectionToastText: {
-        color: '#0D0B1E',
+        color: SURFACE.base,
         fontSize: 14, fontWeight: '700', flex: 1,
     },
 });

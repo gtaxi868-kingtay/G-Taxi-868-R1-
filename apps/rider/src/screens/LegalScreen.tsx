@@ -5,8 +5,10 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Txt } from '@/design-system/primitives';
-import { GlassCard } from '@gtaxi/design-system';
-import { tokens } from '@/design-system/tokens';
+import { GlassCard, SURFACE, VOICES } from '@gtaxi/design-system';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+
+const CYAN = '#06B6D4';
 
 export function LegalScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
@@ -15,21 +17,19 @@ export function LegalScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
             
-            {/* Ambient Background */}
             <LinearGradient
                 colors={['#0F172A', '#1E1B4B', '#312E81']}
                 style={StyleSheet.absoluteFillObject}
             />
 
-            {/* Header */}
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity 
                     style={s.backBtn} 
                     onPress={() => navigation.goBack()}
                 >
-                    <Ionicons name="chevron-back" size={22} color={tokens.colors.text.primary} />
+                    <Ionicons name="chevron-back" size={22} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color={tokens.colors.text.primary} style={s.headerTitle}>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={s.headerTitle}>
                     LEGAL PROTOCOL
                 </Txt>
             </View>
@@ -39,31 +39,31 @@ export function LegalScreen({ navigation }: any) {
                 showsVerticalScrollIndicator={false}
             >
                 <GlassCard style={s.card}>
-                    <Txt variant="headingM" weight="heavy" color={tokens.colors.text.primary} style={s.sectionTitle}>
+                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
                         DATA SECURITY & PRIVACY
                     </Txt>
-                    <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={s.bodyText}>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
                         G-Taxi utilizes state-of-the-art encryption to safeguard your movement data. We collect location telemetry exclusively for driver matching and security auditing. Your biometric and payment data is handled through decentralized encrypted gateways and never touches our core servers.
                     </Txt>
-                    <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={s.bodyText}>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
                         You retain total sovereignty over your dataset and may trigger a permanent "Right to be Forgotten" wipe through the Executive Settings at any time.
                     </Txt>
                 </GlassCard>
 
                 <GlassCard style={s.card}>
-                    <Txt variant="headingM" weight="heavy" color={tokens.colors.text.primary} style={s.sectionTitle}>
+                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
                         NETWORK CONDUCT
                     </Txt>
-                    <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={s.bodyText}>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
                         By engaging with the G-Taxi ecosystem, you agree to our standard of Professionalism and Safety. Operators (Drivers) are independent nodes in the logistics mesh.
                     </Txt>
-                    <Txt variant="bodyReg" color={tokens.colors.text.secondary} style={s.bodyText}>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
                         Platform fees are dynamically calculated based on network load and computational overhead, typically ranging from 18% to 22.5%. Any violation of the Network Trust Protocol will result in immediate and permanent revocation of access.
                     </Txt>
                 </GlassCard>
 
                 <View style={s.footer}>
-                    <Txt variant="caption" color={tokens.colors.text.secondary} center style={{ opacity: 0.3 }}>
+                    <Txt variant="caption" color="#AEA9B5" center style={{ opacity: 0.3 }}>
                         G-TAXI EMPIRE v1.0.0 • SYSTEM ACTIVE
                     </Txt>
                 </View>
@@ -92,8 +92,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.05)', 
         alignItems: 'center', 
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
     },
     scrollContent: { 
         paddingHorizontal: 20,

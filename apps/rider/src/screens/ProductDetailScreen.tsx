@@ -3,11 +3,14 @@ import {
     View, Text, TouchableOpacity, StyleSheet,
     ScrollView, useWindowDimensions, Alert,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+
+const CYAN = '#06B6D4';
 
 interface Product {
     id: string;
@@ -32,7 +35,7 @@ function getProductIcon(name: string): string {
 }
 
 const NUTRIENT_PILLS = [
-    { label: 'Water', value: '8oz', color: '#00FFFF' },
+    { label: 'Water', value: '8oz', color: CYAN },
     { label: 'Calories', value: '120', color: '#F59E0B' },
     { label: 'Fat', value: '0g', color: '#EF4444' },
     { label: 'Protein', value: '2g', color: '#10B981' },
@@ -69,7 +72,6 @@ export function ProductDetailScreen({ navigation, route }: any) {
 
     return (
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
-            {/* Header */}
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
@@ -82,26 +84,21 @@ export function ProductDetailScreen({ navigation, route }: any) {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
-                {/* Hero product image */}
                 <View style={s.heroBox}>
                     <Text style={s.heroEmoji}>{getProductIcon(product.name)}</Text>
-                    {/* Glow ring */}
                     <View style={s.glowRing} />
                 </View>
 
-                {/* Nutrient pills */}
                 <View style={s.pillRow}>
                     {NUTRIENT_PILLS.map(pill => (
-                        <BlurView key={pill.label} intensity={25} style={[s.pill, { borderColor: pill.color + '44' }]} tint="dark">
+                        <View key={pill.label} style={[s.pill, { borderColor: pill.color + '44' }]}>
                             <Text style={[s.pillValue, { color: pill.color }]}>{pill.value}</Text>
                             <Text style={s.pillLabel}>{pill.label}</Text>
-                        </BlurView>
+                        </View>
                     ))}
                 </View>
 
-                {/* Product info card */}
                 <View style={s.infoCard}>
-                    <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
                     <Text style={s.productName}>{product.name}</Text>
                     {product.description ? (
                         <Text style={s.productDesc}>{product.description}</Text>
@@ -112,7 +109,6 @@ export function ProductDetailScreen({ navigation, route }: any) {
                         <Text style={s.perUnit}>per unit</Text>
                     </View>
 
-                    {/* Quantity selector */}
                     <View style={s.qtyRow}>
                         <Text style={s.qtyLabel}>Quantity</Text>
                         <View style={s.qtyControl}>
@@ -126,7 +122,6 @@ export function ProductDetailScreen({ navigation, route }: any) {
                         </View>
                     </View>
 
-                    {/* Total line */}
                     <View style={s.totalRow}>
                         <Text style={s.totalLabel}>Total</Text>
                         <Text style={s.totalValue}>${(totalCents / 100).toFixed(2)} TTD</Text>
@@ -134,11 +129,10 @@ export function ProductDetailScreen({ navigation, route }: any) {
                 </View>
             </ScrollView>
 
-            {/* Add to cart CTA */}
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 16 }]}>
                 <TouchableOpacity style={s.ctaButton} onPress={handleAddToCart} activeOpacity={0.88}>
                     <LinearGradient
-                        colors={['#7C3AED', '#00FFFF']}
+                        colors={[VOICES.rider.accent, CYAN]}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                         style={s.ctaGradient}
                     >
@@ -170,38 +164,38 @@ const s = StyleSheet.create({
     heroEmoji: { fontSize: 120, zIndex: 2 },
     glowRing: {
         position: 'absolute', width: 200, height: 200, borderRadius: 100,
-        backgroundColor: 'rgba(124,58,237,0.1)',
-        shadowColor: '#7C3AED', shadowOpacity: 0.3, shadowRadius: 40, elevation: 0,
+        backgroundColor: `${VOICES.rider.accent}1A`,
+        ...elevationGlow(),
     },
     pillRow: {
         flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 20, paddingHorizontal: 16,
     },
     pill: {
         alignItems: 'center', paddingVertical: 10, paddingHorizontal: 14,
-        borderRadius: 16, borderWidth: 1, overflow: 'hidden',
+        borderRadius: 16, ...ghostBorder(), overflow: 'hidden',
         backgroundColor: 'rgba(255,255,255,0.05)',
     },
     pillValue: { fontSize: 15, fontWeight: '800' },
     pillLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
     infoCard: {
         marginHorizontal: 20, borderRadius: 24, overflow: 'hidden',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+        ...ghostBorder(0.12),
         padding: 22, backgroundColor: 'rgba(255,255,255,0.05)',
     },
     productName: { fontSize: 22, fontWeight: '800', color: '#FFF', marginBottom: 8 },
     productDesc: { fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 20, marginBottom: 16 },
     priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 24 },
-    price: { fontSize: 30, fontWeight: '900', color: '#7C3AED' },
+    price: { fontSize: 30, fontWeight: '900', color: VOICES.rider.accent },
     perUnit: { fontSize: 13, color: 'rgba(255,255,255,0.4)' },
     qtyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
     qtyLabel: { fontSize: 16, fontWeight: '600', color: '#FFF' },
     qtyControl: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     qtyBtn: {
         width: 36, height: 36, borderRadius: 18,
-        backgroundColor: 'rgba(124,58,237,0.2)',
+        backgroundColor: `${VOICES.rider.accent}33`,
         alignItems: 'center', justifyContent: 'center',
     },
-    qtyBtnActive: { backgroundColor: '#7C3AED' },
+    qtyBtnActive: { backgroundColor: VOICES.rider.accent },
     qtyBtnText: { fontSize: 22, color: '#FFF', fontWeight: '700', lineHeight: 26 },
     qtyValue: { fontSize: 22, fontWeight: '800', color: '#FFF', minWidth: 30, textAlign: 'center' },
     totalRow: {
@@ -209,7 +203,7 @@ const s = StyleSheet.create({
         paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)',
     },
     totalLabel: { fontSize: 16, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-    totalValue: { fontSize: 22, color: '#00FFFF', fontWeight: '900' },
+    totalValue: { fontSize: 22, color: CYAN, fontWeight: '900' },
     ctaContainer: { paddingHorizontal: 20, paddingTop: 12 },
     ctaButton: { borderRadius: 20, overflow: 'hidden' },
     ctaGradient: {

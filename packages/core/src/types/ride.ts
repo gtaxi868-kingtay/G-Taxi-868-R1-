@@ -15,15 +15,19 @@ export type RideStatus =
 export interface Ride {
     id: string;
     rider_id: string;
+    driver_id?: string;
     pickup_lat: number;
     pickup_lng: number;
     dropoff_lat: number;
     dropoff_lng: number;
     status: RideStatus;
     total_fare_cents: number | null;
+    driver_payout_cents: number | null;
     distance_meters: number | null;
     duration_seconds: number | null;
     created_at: string;
+    vehicle_type?: string;
+    service_type?: string;
     source?: string;
     source_metadata?: any;
     taxi_stand_id?: string;
@@ -31,6 +35,12 @@ export interface Ride {
     guest_name?: string;
     guest_phone?: string;
     payment_method?: string;
+    pickup_address?: string;
+    dropoff_address?: string;
+    route_geometry?: string;
+    arrived_at?: string;
+    pickup_wait_seconds?: number;
+    order_id?: string;
 }
 
 export interface FareEstimate {

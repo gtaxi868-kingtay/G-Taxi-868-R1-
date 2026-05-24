@@ -4,6 +4,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '@gtaxi/shared/design-system/theme';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 export { BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC };
 
@@ -57,8 +58,7 @@ const s = StyleSheet.create({
     glassBase: {
         borderRadius: RADIUS.lg,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        ...ghostBorder(0.1),
     },
     chip: {
         alignItems: 'center',

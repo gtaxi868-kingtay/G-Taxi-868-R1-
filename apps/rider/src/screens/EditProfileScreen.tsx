@@ -6,27 +6,27 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@/design-system/primitives';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
 import { decode } from 'base64-arraybuffer';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
-import { tokens } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
+    border: 'rgba(255,255,255,0.15)',
+    purple: VOICES.rider.accent,
+    purpleLight: CYAN,
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.7)',
 };
 
 export function EditProfileScreen({ navigation }: any) {
@@ -145,11 +145,10 @@ export function EditProfileScreen({ navigation }: any) {
                             />
                         </View>
 
-                        {/* Save Button */}
                         <TouchableOpacity style={s.saveBtn} onPress={handleSave} disabled={saving}>
-                            <LinearGradient 
-                                colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
-                                start={{x: 0, y: 0}} 
+                            <LinearGradient
+                                colors={[VOICES.rider.accent, CYAN]}
+                                start={{x: 0, y: 0}}
                                 end={{x: 1, y: 0}}
                                 style={s.btnGradient}
                             >
@@ -181,8 +180,8 @@ const s = StyleSheet.create({
     form: { paddingHorizontal: 20 },
     inputWrapper: { marginBottom: 24, gap: 10 },
     label: { marginLeft: 8, opacity: 0.8 },
-    input: { height: 60, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 24, color: '#FFF', fontSize: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    input: { height: 60, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 24, color: '#FFF', fontSize: 16, ...ghostBorder(0.05) },
 
-    saveBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 32, shadowColor: '#00FFFF', shadowRadius: 15, shadowOpacity: 0.3 },
+    saveBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 32, ...elevationGlow() },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

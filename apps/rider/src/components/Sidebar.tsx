@@ -1,20 +1,18 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
     Image, View, StyleSheet, TouchableOpacity,
-    Animated, useWindowDimensions, Pressable, Alert
+    useWindowDimensions, Pressable, Alert
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
-import { tokens } from '@/design-system/tokens';
-import { Logo } from '@gtaxi/design-system';
+import { Logo, SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
-
-
-// --- Blueberry Luxe Protocol ---
+const CYAN = '#06B6D4';
 
 interface SidebarProps {
     visible: boolean;
@@ -30,23 +28,27 @@ interface SidebarProps {
 export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
     const { width } = useWindowDimensions();
     const SIDEBAR_WIDTH = width * 0.8;
-    const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useSharedValue(-SIDEBAR_WIDTH);
+    const fadeAnim = useSharedValue(0);
 
     useEffect(() => {
         if (visible) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            Animated.parallel([
-                Animated.spring(slideAnim, { toValue: 0, tension: 50, friction: 8, useNativeDriver: true }),
-                Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-            ]).start();
+            slideAnim.value = withSpring(0, ANIMATION.spring);
+            fadeAnim.value = withTiming(1, { duration: 300 });
         } else {
-            Animated.parallel([
-                Animated.timing(slideAnim, { toValue: -SIDEBAR_WIDTH, duration: 250, useNativeDriver: true }),
-                Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-            ]).start();
+            slideAnim.value = withTiming(-SIDEBAR_WIDTH, { duration: 250 });
+            fadeAnim.value = withTiming(0, { duration: 250 });
         }
     }, [visible]);
+
+    const backdropStyle = useAnimatedStyle(() => ({
+        opacity: fadeAnim.value,
+    }));
+
+    const panelStyle = useAnimatedStyle(() => ({
+        transform: [{ translateX: slideAnim.value }],
+    }));
 
     if (!visible) return null;
 
@@ -72,16 +74,15 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
     return (
         <View style={s.overlay}>
-            <Animated.View style={[s.backdrop, { opacity: fadeAnim }]}>
+            <Animated.View style={[s.backdrop, backdropStyle]}>
                 <Pressable style={{ flex: 1 }} onPress={onClose} />
             </Animated.View>
 
-            <Animated.View style={[s.panel, { width: SIDEBAR_WIDTH, transform: [{ translateX: slideAnim }] }]}>
-                <BlurView tint="dark" intensity={100} style={s.blur}>
+            <Animated.View style={[s.panel, { width: SIDEBAR_WIDTH }, panelStyle]}>
+                <View style={[s.blur, glassSurface(100, 0.2)]}>
 
-                    {/* Profile Header */}
                     <TouchableOpacity style={s.header} onPress={() => navigateTo('Profile')}>
-                        <LinearGradient colors={[tokens.colors.primary.purple, '#7C3AED']} style={s.avatarBorder}>
+                        <LinearGradient colors={[VOICES.rider.accent, VOICES.rider.accentDark]} style={s.avatarBorder}>
                             <View style={s.avatarInner}>
                                 {user?.photo_url ? (
                                     <Image source={{ uri: user.photo_url }} style={s.image} />
@@ -101,7 +102,6 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                         </View>
                     </TouchableOpacity>
 
-                    {/* Navigation Menu */}
                     <View style={s.menu}>
                         <MenuItem icon="car" label="Your Trips" onPress={() => navigateTo('Trips')} />
                         <MenuItem icon="wallet" label="Wallet" onPress={() => navigateTo('Wallet')} />
@@ -119,13 +119,13 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
                         <View style={s.footerLogo}>
                             <Logo size={24} variant="full" />
-                            <Txt variant="small" color={tokens.colors.text.secondary} style={{ marginTop: 12 }}>
+                            <Txt variant="small" color="#AEA9B5" style={{ marginTop: 12 }}>
                                 EMPIRE OS • V3.2 PREMIUM
                             </Txt>
                         </View>
                     </View>
 
-                </BlurView>
+                </View>
             </Animated.View>
         </View>
     );
@@ -134,7 +134,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 const MenuItem = ({ icon, label, onPress }: any) => (
     <TouchableOpacity style={s.menuItem} onPress={onPress}>
         <View style={s.menuIcon}>
-            <Ionicons name={icon as any} size={22} color={tokens.colors.primary.purple} />
+            <Ionicons name={icon as any} size={22} color={VOICES.rider.accent} />
         </View>
         <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 16 }}>{label.toUpperCase()}</Txt>
     </TouchableOpacity>
@@ -146,7 +146,7 @@ const s = StyleSheet.create({
     panel: { height: '100%', backgroundColor: 'transparent' },
     blur: { flex: 1, paddingHorizontal: 20 },
 
-    header: { flexDirection: 'row', alignItems: 'center', marginTop: 80, marginBottom: 40, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+    header: { flexDirection: 'row', alignItems: 'center', marginTop: 80, marginBottom: 40, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, ...ghostBorder(0.08) },
     avatarBorder: { width: 62, height: 62, borderRadius: 31, padding: 2, alignItems: 'center', justifyContent: 'center' },
     avatarInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#1A1823', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
     image: { width: '100%', height: '100%' },
@@ -155,7 +155,7 @@ const s = StyleSheet.create({
 
     menu: { flex: 1, gap: 4 },
     menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16 },
-    menuIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(191, 64, 255, 0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+    menuIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: `${VOICES.rider.accent}0D`, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
 
     footer: { paddingVertical: 32, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
     logoutBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: 'rgba(239,68,68,0.05)', marginBottom: 24 },

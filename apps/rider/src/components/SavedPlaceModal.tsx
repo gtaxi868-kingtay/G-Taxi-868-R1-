@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, KeyboardAvo
 import { theme } from '../theme';
 import { GlassView } from './GlassView';
 import { GlassButton } from './GlassButton';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface SavedPlaceModalProps {
     visible: boolean;
@@ -101,7 +102,7 @@ const styles = StyleSheet.create({
     modalContainer: { borderRadius: theme.borderRadius.xl, padding: theme.spacing.xl },
     title: { fontSize: theme.typography.sizes.xl, fontWeight: theme.typography.weights.bold, color: theme.colors.text.primary, marginBottom: theme.spacing.lg, textAlign: 'center' },
     label: { color: theme.colors.text.secondary, fontSize: theme.typography.sizes.sm, marginBottom: theme.spacing.xs, marginLeft: theme.spacing.xs },
-    inputContainer: { backgroundColor: theme.colors.glass.backgroundLight, borderRadius: theme.borderRadius.lg, paddingHorizontal: theme.spacing.md, paddingVertical: Platform.OS === 'ios' ? theme.spacing.md : theme.spacing.sm, marginBottom: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.glass.border },
+    inputContainer: { backgroundColor: theme.colors.glass.backgroundLight, borderRadius: theme.borderRadius.lg, paddingHorizontal: theme.spacing.md, paddingVertical: Platform.OS === 'ios' ? theme.spacing.md : theme.spacing.sm, marginBottom: theme.spacing.lg, ...ghostBorder(0.15) },
     input: { color: theme.colors.text.primary, fontSize: theme.typography.sizes.md },
     buttonRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: theme.spacing.md },
     cancelButton: { padding: theme.spacing.md },

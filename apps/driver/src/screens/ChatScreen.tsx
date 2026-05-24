@@ -5,21 +5,14 @@ import {
     Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-// Blueberry Luxe — Gold Edition (Driver)
-const COLORS = {
-    bgPrimary: '#0A0718',
-    gold: '#FFD700',
-    goldDark: '#B8860B',
-    textMuted: 'rgba(255,255,255,0.4)',
-};
-
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
 interface Message {
     id: string;
@@ -30,7 +23,7 @@ interface Message {
     created_at: string;
 }
 
-export function ChatScreen({ route, navigation }: any) {
+export function ChatScreen({ route, navigation }: { route: any; navigation: any }) {
     const { rideId, rider } = route.params;
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -100,7 +93,7 @@ export function ChatScreen({ route, navigation }: any) {
             <View style={[s.msgRow, isSelf ? s.msgSelf : s.msgOther]}>
                 {!isSelf && (
                     <View style={s.msgAvatar}>
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: COLORS.gold }}>RI</Text>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: VOICES.driver.gold }}>RI</Text>
                     </View>
                 )}
                 <View style={[s.bubble, isSelf ? s.bubbleSelf : s.bubbleOther]}>
@@ -114,7 +107,7 @@ export function ChatScreen({ route, navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <BlurView tint="dark" intensity={90} style={[s.header, { paddingTop: insets.top }]}>
+            <View style={[s.header, { paddingTop: insets.top }, glassSurface()]}>
                 <View style={s.headerInner}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
@@ -123,14 +116,14 @@ export function ChatScreen({ route, navigation }: any) {
                         <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{rider?.name?.toUpperCase() || 'RIDER'}</Text>
                         <View style={s.statusRow}>
                             <View style={s.statusDot} />
-                            <Text style={{fontSize: 11, fontWeight: '700', color: COLORS.textMuted}}>LIVE TELEMETRY</Text>
+                            <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}}>LIVE TELEMETRY</Text>
                         </View>
                     </View>
                     <TouchableOpacity style={s.headerBtn}>
-                        <Ionicons name="call" size={20} color={COLORS.gold} />
+                        <Ionicons name="call" size={20} color={VOICES.driver.gold} />
                     </TouchableOpacity>
                 </View>
-            </BlurView>
+            </View>
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -172,7 +165,7 @@ export function ChatScreen({ route, navigation }: any) {
                             multiline
                         />
                         <TouchableOpacity style={s.sendBtn} onPress={() => handleSend()}>
-                            <LinearGradient colors={[COLORS.gold, COLORS.goldDark]} style={s.sendGrad}>
+                            <LinearGradient colors={[VOICES.driver.gold, SURFACE.base]} style={s.sendGrad}>
                                 <Ionicons name="send" size={18} color="#0A0718" />
                             </LinearGradient>
                         </TouchableOpacity>
@@ -185,28 +178,28 @@ export function ChatScreen({ route, navigation }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#0A0718' },
-    header: { zIndex: 20, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    header: { zIndex: 20, ...ghostBorder() },
     headerInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16 },
     headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { flex: 1, marginLeft: 16 },
     statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.gold, marginRight: 6 },
+    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: VOICES.driver.gold, marginRight: 6 },
 
     list: { padding: 16, gap: 16 },
     msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
     msgSelf: { justifyContent: 'flex-end' },
     msgOther: { justifyContent: 'flex-start' },
-    msgAvatar: { width: 28, height: 28, borderRadius: 10, backgroundColor: 'rgba(0,255,194,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(0,255,194,0.1)' },
+    msgAvatar: { width: 28, height: 28, borderRadius: 10, backgroundColor: VOICES.driver.accent + '0D', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.1) },
     bubble: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20 },
-    bubbleSelf: { backgroundColor: COLORS.gold, borderBottomRightRadius: 4 },
-    bubbleOther: { backgroundColor: 'rgba(255,255,255,0.03)', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    bubbleSelf: { backgroundColor: VOICES.driver.gold, borderBottomRightRadius: 4 },
+    bubbleOther: { backgroundColor: 'rgba(255,255,255,0.03)', borderBottomLeftRadius: 4, ...ghostBorder(0.05) },
     msgText: { fontSize: 15, fontWeight: '600' },
 
     quickReplies: { paddingVertical: 12 },
-    chip: { backgroundColor: 'rgba(255,255,255,0.03)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    chip: { backgroundColor: 'rgba(255,255,255,0.03)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, marginRight: 10, ...ghostBorder(0.05) },
 
     inputArea: { paddingHorizontal: 16, paddingTop: 8 },
-    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 30, paddingLeft: 20, paddingRight: 6, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 30, paddingLeft: 20, paddingRight: 6, paddingVertical: 6, ...ghostBorder(0.05) },
     input: { flex: 1, color: '#FFF', fontSize: 16, maxHeight: 100, paddingVertical: 8, fontWeight: '600' },
     sendBtn: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' },
     sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },

@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@gtaxi/core';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 
 interface Props {
@@ -105,7 +106,7 @@ const s = StyleSheet.create({
     modal: {
         borderRadius: 32, overflow: 'hidden',
         padding: 32, alignItems: 'center',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+        ...ghostBorder(0.1),
     },
     iconWrap: {
         width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)',

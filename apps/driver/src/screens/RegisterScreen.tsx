@@ -5,23 +5,20 @@ import {
     Alert, ScrollView, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import * as ImagePicker from 'expo-image-picker';
-import { decode } from 'base64-arraybuffer';
+import { VOICES } from '@gtaxi/design-system';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
+interface NavigationProp {
+    navigate: (screen: string, params?: object) => void;
+    goBack: () => void;
+}
 
-// Blueberry Luxe — Gold Edition (Driver)
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    gold: '#FFD700',
-    textMuted: 'rgba(255,255,255,0.4)',
-};
-
-export function RegisterScreen({ navigation }: any) {
+export function RegisterScreen({ navigation, onBack }: { navigation?: NavigationProp; onBack?: () => void }) {
     const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState<1 | 2>(1);
@@ -81,15 +78,6 @@ export function RegisterScreen({ navigation }: any) {
     };
 
     const uploadImage = async (uri: string, path: string) => {
-        const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            // Native fix: convert file:// uri to blob/base64 if needed, 
-            // but expo-image-picker base64: true is easier if available
-        });
-        
-        // Simpler approach for React Native with Supabase:
         const response = await fetch(uri);
         const blob = await response.blob();
         const arrayBuffer = await new Promise<ArrayBuffer>((resolve) => {
@@ -178,42 +166,43 @@ export function RegisterScreen({ navigation }: any) {
                     'Your application is submitted. Please verify your email to activate your account.\n\nDidn\'t get the code?',
                     [
                         { text: 'Verify via WhatsApp', onPress: () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(email)) },
-                        { text: 'OK', onPress: () => navigation.goBack() }
+                        { text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }
                     ]
                 );
             } else {
                 Alert.alert(
                     'Application Submitted',
                     'Your application is under review. You will be notified once approved.',
-                    [{ text: 'OK', onPress: () => navigation.goBack() }]
+                    [{ text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }]
                 );
             }
-        } catch (err: any) {
+        } catch (err) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            if (err?.message?.includes("already registered as a rider") ||
-                err?.message?.includes("already registered as a driver")) {
+            const message = err instanceof Error ? err.message : String(err);
+            if (message.includes("already registered as a rider") ||
+                message.includes("already registered as a driver")) {
                 Alert.alert(
                     "Phone Already Registered",
                     "This phone number is already linked to a G-Taxi account. " +
                     "Each phone number can only be used for one account."
                 );
             } else {
-                Alert.alert('Error', err.message);
+                Alert.alert('Error', message);
             }
         } finally {
             setLoading(false);
         }
     };
 
-    const renderInput = (placeholder: string, value: string, setter: (t: string) => void, opts: any = {}) => (
+    const renderInput = (placeholder: string, value: string, setter: (t: string) => void, opts: object = {}) => (
         <View style={s.inputWrap}>
             <TextInput
                 style={s.input}
                 placeholder={placeholder}
-                placeholderTextColor={COLORS.textMuted}
+                placeholderTextColor="rgba(255,255,255,0.6)"
                 value={value}
                 onChangeText={setter}
-                selectionColor={COLORS.gold}
+                selectionColor={VOICES.driver.accent}
                 {...opts}
             />
         </View>
@@ -227,11 +216,11 @@ export function RegisterScreen({ navigation }: any) {
 
                     {/* Header: [← back] | ["Become a Driver" centered] | step indicator (1 of 2) */}
                     <View style={s.headerRow}>
-                        <TouchableOpacity style={s.backBtn} onPress={step === 2 ? () => setStep(1) : () => navigation.goBack()}>
+                        <TouchableOpacity style={s.backBtn} onPress={step === 2 ? () => setStep(1) : () => { onBack?.(); navigation?.goBack(); }}>
                             <Ionicons name="chevron-back" size={24} color="#FFF" />
                         </TouchableOpacity>
                         <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Become a Driver</Text>
-                        <Text style={{fontSize: 14, fontWeight: '600', color: COLORS.gold}}>{step} of 2</Text>
+                        <Text style={{fontSize: 14, fontWeight: '600', color: VOICES.driver.accent}}>{step} of 2</Text>
                     </View>
 
                     {step === 1 ? (
@@ -253,17 +242,17 @@ export function RegisterScreen({ navigation }: any) {
                                 <View style={{
                                     width: 24, height: 24, borderRadius: 6,
                                     borderWidth: 2,
-                                    borderColor: termsAccepted ? COLORS.gold : 'rgba(255,255,255,0.2)',
-                                    backgroundColor: termsAccepted ? COLORS.gold : 'transparent',
+                                    borderColor: termsAccepted ? VOICES.driver.accent : 'rgba(255,255,255,0.2)',
+                                    backgroundColor: termsAccepted ? VOICES.driver.accent : 'transparent',
                                     alignItems: 'center', justifyContent: 'center',
                                 }}>
                                     {termsAccepted && <Ionicons name="checkmark" size={14} color="#0F0D16" />}
                                 </View>
                                 <Text style={{ flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' }}>
                                     I accept the{' '}
-                                    <Text style={{ color: COLORS.gold, fontWeight: '700' }}>Terms of Service</Text>
-                                    {' '}and{' '}
-                                    <Text style={{ color: COLORS.gold, fontWeight: '700' }}>Privacy Policy</Text>
+                                    <Text style={{ color: VOICES.driver.accent, fontWeight: '700' }}>Terms of Service</Text>
+                                        {' '}and{' '}
+                                    <Text style={{ color: VOICES.driver.accent, fontWeight: '700' }}>Privacy Policy</Text>
                                 </Text>
                             </TouchableOpacity>
 
@@ -278,7 +267,7 @@ export function RegisterScreen({ navigation }: any) {
                             {renderInput('Plate Number', licensePlate, setLicensePlate, { autoCapitalize: 'characters' })}
 
                             {/* Vehicle type selector: 3 pill options [Standard] [XL] [Premium] */}
-                            <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: COLORS.textMuted}]}>VEHICLE CLASS</Text>
+                            <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}]}>VEHICLE CLASS</Text>
                             <View style={s.typeSelector}>
                                 {['Standard', 'XL', 'Premium'].map(type => (
                                     <TouchableOpacity
@@ -289,25 +278,25 @@ export function RegisterScreen({ navigation }: any) {
                                             setVehicleType(type);
                                         }}
                                     >
-                                        <Text style={{fontSize: 14, fontWeight: '600', color: vehicleType === type ? "#FFF" : COLORS.textMuted}}>{type}</Text>
+                                        <Text style={{fontSize: 14, fontWeight: '600', color: vehicleType === type ? "#FFF" : 'rgba(255,255,255,0.6)'}}>{type}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
 
-                            <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: COLORS.textMuted}]}>KYC DOCUMENTS</Text>
+                            <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}]}>KYC DOCUMENTS</Text>
                                                      <View style={s.docGrid}>
                             <TouchableOpacity style={[s.docCard, licenseFront && s.docCardActive]} onPress={() => pickImage(setLicenseFront)}>
-                                <Ionicons name={licenseFront ? "checkmark-circle" : "card-outline"} size={24} color={licenseFront ? COLORS.gold : COLORS.textMuted} />
+                                <Ionicons name={licenseFront ? "checkmark-circle" : "card-outline"} size={24} color={licenseFront ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
                                 <Text style={{fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8}}>License Front</Text>
                             </TouchableOpacity>
  
                             <TouchableOpacity style={[s.docCard, licenseBack && s.docCardActive]} onPress={() => pickImage(setLicenseBack)}>
-                                <Ionicons name={licenseBack ? "checkmark-circle" : "card-outline"} size={24} color={licenseBack ? COLORS.gold : COLORS.textMuted} />
+                                <Ionicons name={licenseBack ? "checkmark-circle" : "card-outline"} size={24} color={licenseBack ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
                                 <Text style={{fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8}}>License Back</Text>
                             </TouchableOpacity>
  
                             <TouchableOpacity style={[s.docCard, vehiclePhoto && s.docCardActive]} onPress={() => pickImage(setVehiclePhoto)}>
-                                <Ionicons name={vehiclePhoto ? "checkmark-circle" : "car-outline"} size={24} color={vehiclePhoto ? COLORS.gold : COLORS.textMuted} />
+                                <Ionicons name={vehiclePhoto ? "checkmark-circle" : "car-outline"} size={24} color={vehiclePhoto ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
                                 <Text style={{fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8}}>Vehicle Photo</Text>
                             </TouchableOpacity>
                         </View>
@@ -332,18 +321,18 @@ const s = StyleSheet.create({
     container: { width: '100%' },
     title: { marginBottom: 32, letterSpacing: -1 },
  
-    inputWrap: { height: 64, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    inputWrap: { height: 64, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginBottom: 16, ...ghostBorder(0.15) },
     input: { flex: 1, color: '#FFF', fontSize: 16 },
  
     label: { marginTop: 16, marginBottom: 12, marginLeft: 4, letterSpacing: 1 },
     typeSelector: { flexDirection: 'row', gap: 10, marginBottom: 40 },
-    typePill: { flex: 1, height: 50, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    typePillActive: { backgroundColor: COLORS.gold, borderColor: COLORS.gold },
+    typePill: { flex: 1, height: 50, borderRadius: 15, ...ghostBorder(0.15), alignItems: 'center', justifyContent: 'center' },
+    typePillActive: { backgroundColor: VOICES.driver.accent, borderColor: VOICES.driver.accent },
  
-    primaryBtn: { height: 64, backgroundColor: COLORS.gold, borderRadius: 32, alignItems: 'center', justifyContent: 'center', shadowColor: COLORS.gold, shadowRadius: 15, shadowOpacity: 0.3, elevation: 8, marginTop: 10 },
+    primaryBtn: { height: 64, backgroundColor: VOICES.driver.accent, borderRadius: 32, alignItems: 'center', justifyContent: 'center', shadowColor: VOICES.driver.accent, shadowRadius: 15, shadowOpacity: 0.3, elevation: 8, marginTop: 10 },
     disabled: { opacity: 0.7 },
  
     docGrid: { flexDirection: 'row', gap: 10, marginBottom: 30 },
-    docCard: { flex: 1, height: 90, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    docCardActive: { borderColor: COLORS.gold, backgroundColor: 'rgba(255, 215, 0, 0.05)' },
+    docCard: { flex: 1, height: 90, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 15, alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.15) },
+    docCardActive: { borderColor: VOICES.driver.accent, backgroundColor: VOICES.driver.accent + '0D' },
 });

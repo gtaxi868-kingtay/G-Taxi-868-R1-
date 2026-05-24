@@ -10,6 +10,7 @@ import {
     ViewStyle,
     useWindowDimensions,
 } from 'react-native';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 // RAINBOW GLASS CARD - The frosted card with rainbow edge on left (like driver card in mockup)
 interface RainbowGlassCardProps {
@@ -251,8 +252,7 @@ const styles = StyleSheet.create({
     rainbowCardBody: {
         backgroundColor: 'rgba(40, 40, 60, 0.85)',
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.15)',
+        ...ghostBorder(0.15),
         overflow: 'hidden',
     },
     cardTopShine: {
@@ -360,8 +360,7 @@ const styles = StyleSheet.create({
         height: 48,
         borderRadius: 24,
         backgroundColor: 'rgba(168, 85, 247, 0.25)',
-        borderWidth: 1,
-        borderColor: 'rgba(168, 85, 247, 0.4)',
+        ...ghostBorder(0.4),
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#A855F7',
@@ -383,8 +382,7 @@ const styles = StyleSheet.create({
         paddingVertical: 20,
         paddingHorizontal: 24,
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        ...ghostBorder(0.1),
     },
     fareAmount: {
         color: '#FFFFFF',

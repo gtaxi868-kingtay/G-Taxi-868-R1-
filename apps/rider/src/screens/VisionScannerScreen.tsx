@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    Alert, Animated, useWindowDimensions,
+    Alert, useWindowDimensions,
 } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { supabase } from '@gtaxi/core';
 import { AIGateway } from '@gtaxi/shared';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
+const CYAN = '#06B6D4';
 const RETICLE = 240;
 
 export function VisionScannerScreen({ navigation }: any) {
@@ -19,17 +23,22 @@ export function VisionScannerScreen({ navigation }: any) {
     const [permission, requestPermission] = useCameraPermissions();
     const [scanning, setScanning] = useState(false);
     const [result, setResult] = useState<{ name: string; price_cents: number; id: string } | null>(null);
-    const scanAnim = useRef(new Animated.Value(0)).current;
+    const scanAnim = useSharedValue(0);
 
-    // Animate scan line
     useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(scanAnim, { toValue: RETICLE - 4, duration: 1800, useNativeDriver: true }),
-                Animated.timing(scanAnim, { toValue: 0, duration: 1800, useNativeDriver: true }),
-            ])
-        ).start();
+        scanAnim.value = withRepeat(
+            withSequence(
+                withTiming(RETICLE - 4, { duration: 1800 }),
+                withTiming(0, { duration: 1800 })
+            ),
+            -1,
+            true
+        );
     }, []);
+
+    const scanLineStyle = useAnimatedStyle(() => ({
+        transform: [{ translateY: scanAnim.value }],
+    }));
 
     const cameraRef = useRef<any>(null);
 
@@ -40,15 +49,13 @@ export function VisionScannerScreen({ navigation }: any) {
         setResult(null);
 
         try {
-            // 1. Capture image
             const photo = await cameraRef.current.takePictureAsync({
                 base64: true,
                 quality: 0.5,
                 skipProcessing: true
             });
 
-            // 2. Call AI Edge Function with REAL image (Shadow Wrapped)
-            const { data, error } = await AIGateway.identifyProduct(photo.base64, (img: string) => 
+            const { data, error } = await AIGateway.identifyProduct(photo.base64, (img: string) =>
                 supabase.functions.invoke('identify_product', {
                     body: { image: img, trigger: 'camera_scan' },
                 })
@@ -91,16 +98,11 @@ export function VisionScannerScreen({ navigation }: any) {
         <View style={s.container}>
             <CameraView style={StyleSheet.absoluteFillObject} facing="back" />
 
-            {/* Dark overlay with reticle cutout effect */}
             <View style={StyleSheet.absoluteFillObject}>
-                {/* Top overlay */}
                 <View style={[s.overlay, { height: (height - RETICLE) / 2 - 40 }]} />
-                {/* Middle row */}
                 <View style={{ flexDirection: 'row', height: RETICLE }}>
                     <View style={[s.overlay, { flex: 1 }]} />
-                    {/* Reticle */}
                     <View style={s.reticle}>
-                        {/* Corner brackets */}
                         {['TL', 'TR', 'BL', 'BR'].map(corner => (
                             <View key={corner} style={[s.corner, {
                                 top: corner.startsWith('T') ? 0 : undefined,
@@ -113,20 +115,17 @@ export function VisionScannerScreen({ navigation }: any) {
                                 borderRightWidth: corner.endsWith('R') ? 3 : 0,
                             }]} />
                         ))}
-                        {/* Scan line */}
                         {scanning && (
                             <Animated.View
-                                style={[s.scanLine, { transform: [{ translateY: scanAnim }] }]}
+                                style={[s.scanLine, scanLineStyle]}
                             />
                         )}
                     </View>
                     <View style={[s.overlay, { flex: 1 }]} />
                 </View>
-                {/* Bottom overlay */}
                 <View style={[s.overlay, { flex: 1 }]} />
             </View>
 
-            {/* Header */}
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
                     <Ionicons name="close" size={22} color="#FFF" />
@@ -137,7 +136,6 @@ export function VisionScannerScreen({ navigation }: any) {
 
             <Text style={s.hint}>Point camera at a product and tap Scan</Text>
 
-            {/* Scan Button */}
             <View style={[s.scanBtnContainer, { bottom: insets.bottom + 60 }]}>
                 <TouchableOpacity
                     style={[s.scanBtn, scanning && s.scanBtnActive]}
@@ -146,7 +144,7 @@ export function VisionScannerScreen({ navigation }: any) {
                     activeOpacity={0.85}
                 >
                     <LinearGradient
-                        colors={scanning ? ['#00FFFF', '#0099CC'] : ['#7C3AED', '#5A2DDE']}
+                        colors={scanning ? [CYAN, '#0099CC'] : [VOICES.rider.accent, VOICES.rider.accentDark]}
                         style={s.scanBtnGrad}
                     >
                         <Ionicons name={scanning ? 'scan-outline' : 'camera-outline'} size={28} color="#FFF" />
@@ -155,7 +153,6 @@ export function VisionScannerScreen({ navigation }: any) {
                 </TouchableOpacity>
             </View>
 
-            {/* Result card */}
             {result && (
                 <View style={[s.resultCard, { bottom: insets.bottom + 150 }]}>
                     <View style={StyleSheet.absoluteFillObject}>
@@ -179,7 +176,7 @@ export function VisionScannerScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#000' },
+    container: { flex: 1, backgroundColor: SURFACE.base },
     overlay: { backgroundColor: 'rgba(0,0,0,0.6)' },
     reticle: {
         width: RETICLE, height: RETICLE,
@@ -187,12 +184,13 @@ const s = StyleSheet.create({
     },
     corner: {
         position: 'absolute', width: 28, height: 28,
-        borderColor: '#00FFFF',
+        borderColor: CYAN,
     },
     scanLine: {
         position: 'absolute', left: 4, right: 4, height: 2,
-        backgroundColor: '#00FFFF',
-        shadowColor: '#00FFFF', shadowOpacity: 0.8, shadowRadius: 6, elevation: 4,
+        backgroundColor: CYAN,
+        ...elevationGlow(),
+        shadowColor: CYAN, shadowOpacity: 0.8, shadowRadius: 6,
     },
     header: {
         position: 'absolute', top: 0, left: 0, right: 0,
@@ -223,15 +221,15 @@ const s = StyleSheet.create({
     resultCard: {
         position: 'absolute', left: 20, right: 20,
         borderRadius: 24, padding: 20, overflow: 'hidden',
-        borderWidth: 1, borderColor: 'rgba(0,255,255,0.4)',
+        ...ghostBorder(0.4),
         alignItems: 'center', gap: 6,
     },
     resultBg: { backgroundColor: 'rgba(0,0,0,0.85)' },
     resultName: { fontSize: 18, fontWeight: '700', color: '#FFF', textAlign: 'center' },
-    resultPrice: { fontSize: 24, fontWeight: '900', color: '#7C3AED' },
+    resultPrice: { fontSize: 24, fontWeight: '900', color: VOICES.rider.accent },
     resultBtn: {
         marginTop: 10, paddingVertical: 10, paddingHorizontal: 28,
-        borderRadius: 50, backgroundColor: '#7C3AED',
+        borderRadius: 50, backgroundColor: VOICES.rider.accent,
     },
     resultBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
     permCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
@@ -239,7 +237,7 @@ const s = StyleSheet.create({
     permTitle: { fontSize: 20, fontWeight: '700', color: '#FFF', marginBottom: 10 },
     permSub: { fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 21, marginBottom: 30 },
     permBtn: {
-        backgroundColor: '#7C3AED', borderRadius: 20,
+        backgroundColor: VOICES.rider.accent, borderRadius: 20,
         paddingVertical: 14, paddingHorizontal: 32,
     },
     permBtnText: { fontSize: 16, fontWeight: '700', color: '#FFF' },

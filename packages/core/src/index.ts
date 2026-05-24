@@ -12,3 +12,4 @@ export * from './types/profile';
 export * from './types/marketplace';
 export * from './services/geofencing';
 export * from './outbox';
+export { installCrashReporter } from './CrashReporter';

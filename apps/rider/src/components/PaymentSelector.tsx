@@ -10,6 +10,7 @@ import { GlassView } from './GlassView';
 import { tokens } from '@/design-system/tokens';
 import { Txt, Surface } from '@/design-system/primitives';
 import { Ionicons } from '@expo/vector-icons';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 export type PaymentMethod = 'cash' | 'card' | 'wallet';
 
@@ -110,8 +111,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderRadius: tokens.layout.radius.m,
         backgroundColor: tokens.colors.glass.fill,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        ...ghostBorder(0.05),
     },
     optionSelected: {
         borderColor: tokens.colors.primary.purple,

@@ -5,26 +5,26 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 
-import { tokens } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
+    border: 'rgba(191,64,255,0.2)',
+    purple: VOICES.rider.accent,
+    purpleLight: VOICES.rider.accent,
     gold: '#F59E0B',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    white: '#FFFFFF',
+    muted: '#AEA9B5',
 };
 
 export function SettingsScreen({ navigation }: any) {
@@ -162,7 +162,7 @@ const s = StyleSheet.create({
 
     scroll: { paddingHorizontal: 20 },
     sectionLabel: { marginLeft: 16, marginBottom: 12, marginTop: 32, letterSpacing: 2 },
-    card: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    card: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 32, padding: 12, ...elevationGlow(8) },
     row: { flexDirection: 'row', alignItems: 'center', padding: 20 },
     divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 20 },
 });

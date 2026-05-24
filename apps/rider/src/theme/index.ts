@@ -1,22 +1,22 @@
 export const theme = {
     colors: {
         background: {
-            primary: '#0A0A15',
-            secondary: '#0D0D1A',
-            tertiary: '#121220',
-            elevated: '#1A1A2E',
+            primary: '#050505',
+            secondary: '#080808',
+            tertiary: '#0A0A0A',
+            elevated: '#121212',
         },
 
         brand: {
-            primary: '#BF40FF',
-            secondary: '#9333EA',
-            tertiary: '#4D0070',
-            accent: '#06B6D4',
-            accentSecondary: '#0099BB',
-            glow: 'rgba(191, 64, 255, 0.5)',
-            glowLight: 'rgba(191, 64, 255, 0.25)',
-            glowSubtle: 'rgba(191, 64, 255, 0.1)',
-            tealGlow: 'rgba(6, 182, 212, 0.5)',
+            primary: '#00FFFF',
+            secondary: '#00CCCC',
+            tertiary: '#008888',
+            accent: '#00FFFF',
+            accentSecondary: '#00CCCC',
+            glow: 'rgba(0, 255, 255, 0.5)',
+            glowLight: 'rgba(0, 255, 255, 0.25)',
+            glowSubtle: 'rgba(0, 255, 255, 0.1)',
+            tealGlow: 'rgba(0, 255, 255, 0.5)',
         },
 
         text: {
@@ -24,35 +24,35 @@ export const theme = {
             secondary: 'rgba(255, 255, 255, 0.7)',
             tertiary: 'rgba(255, 255, 255, 0.4)',
             inverse: '#000000',
-            brand: '#BF40FF',
-            accent: '#06B6D4',
+            brand: '#00FFFF',
+            accent: '#00FFFF',
         },
 
         status: {
-            success: '#06B6D4',
+            success: '#00FF94',
             warning: '#F59E0B',
             error: '#FF6B6B',
-            info: '#60A5FA',
+            info: '#00FFFF',
         },
 
         glass: {
-            background: 'rgba(255, 255, 255, 0.08)',
-            backgroundLight: 'rgba(255, 255, 255, 0.12)',
-            backgroundDark: 'rgba(0, 0, 0, 0.4)',
-            backgroundPurple: 'rgba(191, 64, 255, 0.1)',
-            border: 'rgba(255, 255, 255, 0.15)',
-            borderLight: 'rgba(255, 255, 255, 0.25)',
-            borderBrand: 'rgba(191, 64, 255, 0.4)',
-            borderTeal: 'rgba(6, 182, 212, 0.4)',
-            highlight: 'rgba(255, 255, 255, 0.2)',
-            highlightTop: 'rgba(255, 255, 255, 0.1)',
+            background: 'rgba(255, 255, 255, 0.04)',
+            backgroundLight: 'rgba(255, 255, 255, 0.08)',
+            backgroundDark: 'rgba(0, 0, 0, 0.5)',
+            backgroundPurple: 'rgba(0, 255, 255, 0.06)',
+            border: 'rgba(255, 255, 255, 0.12)',
+            borderLight: 'rgba(255, 255, 255, 0.2)',
+            borderBrand: 'rgba(0, 255, 255, 0.4)',
+            borderTeal: 'rgba(0, 255, 255, 0.4)',
+            highlight: 'rgba(255, 255, 255, 0.15)',
+            highlightTop: 'rgba(255, 255, 255, 0.08)',
         },
 
         accent: {
-            purple: '#BF40FF',
-            blue: '#3B82F6',
-            pink: '#EC4899',
-            teal: '#06B6D4',
+            purple: '#7F00FF',
+            blue: '#00FFFF',
+            pink: '#00FFFF',
+            teal: '#00FFFF',
             gold: '#F59E0B',
         },
     },
@@ -113,14 +113,14 @@ export const theme = {
             elevation: 8,
         },
         glow: {
-            shadowColor: '#06B6D4',
+            shadowColor: '#00FFFF',
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.5,
             shadowRadius: 20,
             elevation: 10,
         },
         glowStrong: {
-            shadowColor: '#06B6D4',
+            shadowColor: '#00FFFF',
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.7,
             shadowRadius: 40,
@@ -136,21 +136,21 @@ export const theme = {
     },
 
     glassCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.12)',
+    },
+
+    glassCardLight: {
         backgroundColor: 'rgba(255, 255, 255, 0.08)',
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.15)',
     },
 
-    glassCardLight: {
-        backgroundColor: 'rgba(255, 255, 255, 0.12)',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-    },
-
     glassButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.06)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        borderColor: 'rgba(255, 255, 255, 0.15)',
     },
 } as const;
 

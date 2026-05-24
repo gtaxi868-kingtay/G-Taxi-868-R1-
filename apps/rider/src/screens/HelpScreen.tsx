@@ -1,28 +1,28 @@
 import React, { useState } from 'react';
 import {
     View, StyleSheet, FlatList, TouchableOpacity,
-    SafeAreaView, useWindowDimensions, Linking, ScrollView
+    useWindowDimensions, Linking, ScrollView
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { Txt } from '@/design-system/primitives';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
-import { tokens } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
+    border: 'rgba(255,255,255,0.15)',
+    purple: VOICES.rider.accent,
+    purpleLight: CYAN,
     gold: '#F59E0B',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.7)',
 };
 
 const FAQ_ITEMS = [
@@ -106,9 +106,9 @@ export function HelpScreen({ navigation }: any) {
                     <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>Need more help?</Txt>
 
                     <TouchableOpacity style={s.supportBtn} onPress={handleEmail}>
-                        <LinearGradient 
-                            colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
-                            start={{x: 0, y: 0}} 
+                        <LinearGradient
+                            colors={[VOICES.rider.accent, CYAN]}
+                            start={{x: 0, y: 0}}
                             end={{x: 1, y: 0}}
                             style={s.btnGradient}
                         >
@@ -133,8 +133,8 @@ const s = StyleSheet.create({
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
     scroll: { paddingHorizontal: 20 },
-    faqCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', overflow: 'hidden' },
-    faqCardActive: { borderColor: R.purple, backgroundColor: 'rgba(124,58,237,0.05)' },
+    faqCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, padding: 20, marginBottom: 12, ...ghostBorder(0.05), overflow: 'hidden' },
+    faqCardActive: { borderColor: R.purple, backgroundColor: 'rgba(210,187,255,0.05)' },
     faqHeader: { flexDirection: 'row', alignItems: 'center' },
     faqIconWrap: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     faqBody: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
@@ -142,5 +142,5 @@ const s = StyleSheet.create({
     contactSection: { marginTop: 40 },
     supportBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginBottom: 16 },
     btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    callBtn: { height: 64, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)' },
+    callBtn: { height: 64, borderRadius: 24, ...ghostBorder(0.05), alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)' },
 });

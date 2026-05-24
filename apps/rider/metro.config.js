@@ -30,8 +30,8 @@ config.resolver.blockList = [
   /(\/__tests__\/.*)$/,
 ];
 
-// Retain ws stub from original config
+// ws stub for Supabase Realtime (avoids node:ws resolution failure in RN)
 if (!config.resolver.extraNodeModules) config.resolver.extraNodeModules = {};
-config.resolver.extraNodeModules.ws = path.resolve(projectRoot, 'node_modules/.ws-stub');
+config.resolver.extraNodeModules.ws = path.resolve(projectRoot, 'ws-stub');
 
 module.exports = config;

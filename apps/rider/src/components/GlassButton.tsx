@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, TouchableOpacityProps, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { theme } from '../theme';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface GlassButtonProps extends TouchableOpacityProps {
     title?: string;
@@ -79,13 +80,11 @@ const styles = StyleSheet.create({
     },
     secondary: {
         backgroundColor: theme.colors.background.tertiary,
-        borderWidth: 1,
-        borderColor: theme.colors.brand.primary,
+        ...ghostBorder(0.15),
     },
     glass: {
         backgroundColor: theme.colors.glass.backgroundLight,
-        borderWidth: 1,
-        borderColor: theme.colors.glass.border,
+        ...ghostBorder(0.15),
     },
     disabled: {
         opacity: 0.6,

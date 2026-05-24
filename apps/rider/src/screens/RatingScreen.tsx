@@ -5,7 +5,6 @@ import {
     KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -13,19 +12,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { processTip, formatCurrency } from '../services/api';
 import { Txt } from '@/design-system/primitives';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
 
-import { tokens } from '@/design-system/tokens';
+const CYAN = '#06B6D4';
 
-// --- Rider Design Tokens (Deprecated local, using tokens) ---
 const R = {
-    bg: tokens.colors.background.base,
-    surface: tokens.colors.background.surface,
-    border: tokens.colors.glass.stroke,
-    purple: tokens.colors.primary.purple,
-    purpleLight: tokens.colors.primary.cyan,
+    bg: SURFACE.base,
+    surface: 'rgba(255,255,255,0.08)',
+    border: 'rgba(191,64,255,0.2)',
+    purple: VOICES.rider.accent,
+    purpleLight: CYAN,
     gold: '#F59E0B',
-    white: tokens.colors.text.primary,
-    muted: tokens.colors.text.secondary,
+    white: '#FFF',
+    muted: '#AEA9B5',
 };
 
 export function RatingScreen({ navigation, route }: any) {
@@ -46,7 +46,6 @@ export function RatingScreen({ navigation, route }: any) {
         try {
             const { data: { user } } = await supabase.auth.getUser();
 
-            // WIRING_RULE: Save to ratings table AND update rides
             const ratingPromise = supabase.from('ratings').insert({
                 ride_id: rideId,
                 driver_id: driver.id,
@@ -86,7 +85,6 @@ export function RatingScreen({ navigation, route }: any) {
     const handleViewReceipt = async () => {
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            // Fetch the real ride record so the receipt shows live addresses + distances
             const { data: rideData, error } = await supabase
                 .from('rides')
                 .select('pickup_address, dropoff_address, distance_meters, duration_seconds, created_at')
@@ -125,17 +123,14 @@ export function RatingScreen({ navigation, route }: any) {
                 style={{ flex: 1 }}
             >
             <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}>
-
-                {/* Hero: Driver name + "Rate your ride" */}
                 <View style={s.hero}>
-                    <View style={[s.avatar, { backgroundColor: tokens.colors.primary.purple }]}>
+                    <View style={[s.avatar, { backgroundColor: VOICES.rider.accent }]}>
                         <Txt variant="headingM" color="#FFF" weight="heavy">{driver?.name?.charAt(0)}</Txt>
                     </View>
                     <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginTop: 24 }}>{driver?.name}</Txt>
                     <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 8, letterSpacing: 1 }}>HOW WAS YOUR ENGAGEMENT?</Txt>
                 </View>
 
-                {/* Star Rating: 5 stars (Gold when active) */}
                 <View style={s.starsRow}>
                     {[1, 2, 3, 4, 5].map(sVal => (
                         <TouchableOpacity
@@ -152,7 +147,6 @@ export function RatingScreen({ navigation, route }: any) {
                     ))}
                 </View>
 
-                {/* Input: Multiline TextInput, dark surface */}
                 <View style={s.inputBox}>
                     <TextInput
                         style={s.textInput}
@@ -165,7 +159,6 @@ export function RatingScreen({ navigation, route }: any) {
                     />
                 </View>
 
-                {/* Tip Selector */}
                 <View style={s.tipSection}>
                     <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>Add a Tip</Txt>
                     <View style={s.tipRow}>
@@ -183,10 +176,9 @@ export function RatingScreen({ navigation, route }: any) {
 
                 <View style={{ flex: 1 }} />
 
-                {/* Submit button: Large purple gradient button */}
                 <TouchableOpacity style={s.submitBtn} onPress={handleSubmit} disabled={submitting}>
                     <LinearGradient 
-                        colors={[tokens.colors.primary.purple, tokens.colors.primary.cyan]} 
+                        colors={[VOICES.rider.accent, CYAN]} 
                         start={{x: 0, y: 0}} 
                         end={{x: 1, y: 0}}
                         style={s.btnGradient}
@@ -212,18 +204,18 @@ const s = StyleSheet.create({
     scroll: { flexGrow: 1, paddingHorizontal: 20 },
 
     hero: { alignItems: 'center', marginBottom: 40 },
-    avatar: { width: 96, height: 96, borderRadius: 32, alignItems: 'center', justifyContent: 'center', shadowColor: tokens.colors.primary.purple, shadowRadius: 30, shadowOpacity: 0.5 },
+    avatar: { width: 96, height: 96, borderRadius: 32, alignItems: 'center', justifyContent: 'center', ...elevationGlow() },
 
     starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 48 },
     star: { shadowColor: R.gold, shadowRadius: 15, shadowOpacity: 0.4 },
 
-    inputBox: { height: 140, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 20, marginBottom: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+    inputBox: { height: 140, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 20, marginBottom: 32, ...ghostBorder(0.05) },
     textInput: { flex: 1, color: '#FFF', fontSize: 16, textAlignVertical: 'top' },
 
     tipSection: { marginBottom: 48 },
     tipRow: { flexDirection: 'row', gap: 12 },
-    tipBtn: { flex: 1, height: 56, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    tipBtnActive: { backgroundColor: tokens.colors.primary.purple, borderColor: tokens.colors.primary.cyan },
+    tipBtn: { flex: 1, height: 56, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.05) },
+    tipBtnActive: { backgroundColor: VOICES.rider.accent, borderColor: CYAN },
 
     submitBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 20 },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },

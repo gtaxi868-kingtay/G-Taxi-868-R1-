@@ -3,7 +3,6 @@ import {
     View, Text, TouchableOpacity, StyleSheet,
     Alert, Dimensions,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,12 +10,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+
+const CYAN = '#06B6D4';
 
 interface ServiceType {
     id: string;
     label: string;
     icon: string;
-    baseRate: number; // cents per lb
+    baseRate: number;
 }
 
 export function LaundryEstimatorScreen({ navigation, route }: any) {
@@ -24,7 +27,7 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
 
-    const [weight, setWeight] = useState(5); // lbs
+    const [weight, setWeight] = useState(5);
     const [loading, setLoading] = useState(false);
 
     const priceCents = Math.round(service.baseRate * weight);
@@ -42,7 +45,6 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                     total_cents: priceCents,
                     status: 'pending',
                     delivery_method: 'laundry_pickup',
-                    // Metadata stored in merchant note for now
                     merchant_id: null,
                 })
                 .select('id')
@@ -79,14 +81,12 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
             </View>
 
             <View style={s.content}>
-                {/* Visual scale */}
                 <View style={s.scaleBox}>
-                    <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
+                    <View style={[StyleSheet.absoluteFillObject, glassSurface(25, 0.2)]} />
                     <Text style={s.scaleEmoji}>⚖️</Text>
                     <Text style={s.weightDisplay}>{weight} lbs</Text>
                     <Text style={s.weightSub}>Estimated weight</Text>
 
-                    {/* Slider */}
                     <View style={s.sliderContainer}>
                         {Slider && (
                             <Slider
@@ -99,9 +99,9 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                                     setWeight(val as number);
                                     Haptics.selectionAsync();
                                 }}
-                                minimumTrackTintColor="#7B61FF"
+                                minimumTrackTintColor={VOICES.rider.accent}
                                 maximumTrackTintColor="rgba(255,255,255,0.15)"
-                                thumbTintColor="#00FFFF"
+                                thumbTintColor={CYAN}
                             />
                         )}
                         <View style={s.sliderLabels}>
@@ -111,9 +111,8 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                     </View>
                 </View>
 
-                {/* Price card */}
                 <View style={s.priceCard}>
-                    <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
+                    <View style={[StyleSheet.absoluteFillObject, glassSurface(25, 0.2)]} />
                     <Text style={s.priceBreakdown}>
                         {weight} lbs  ×  ${(service.baseRate / 100).toFixed(2)}/lb
                     </Text>
@@ -121,7 +120,6 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                     <Text style={s.priceNote}>Including express handling</Text>
                 </View>
 
-                {/* Features */}
                 <View style={s.features}>
                     {['Same-day pickup', 'Hypoallergenic detergent', 'Sealed & returned fresh'].map(f => (
                         <View key={f} style={s.featureRow}>
@@ -135,7 +133,7 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 20 }]}>
                 <TouchableOpacity style={s.ctaButton} onPress={handleSchedule} disabled={loading} activeOpacity={0.88}>
                     <LinearGradient
-                        colors={['#7B61FF', '#5A2DDE']}
+                        colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                         style={s.ctaGradient}
                     >
@@ -163,11 +161,11 @@ const s = StyleSheet.create({
     content: { flex: 1, padding: 20, gap: 16 },
     scaleBox: {
         borderRadius: 28, overflow: 'hidden', padding: 28, alignItems: 'center',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+        ...ghostBorder(0.12),
         backgroundColor: 'rgba(255,255,255,0.04)',
     },
     scaleEmoji: { fontSize: 72, marginBottom: 12 },
-    weightDisplay: { fontSize: 56, fontWeight: '900', color: '#7B61FF' },
+    weightDisplay: { fontSize: 56, fontWeight: '900', color: VOICES.rider.accent },
     weightSub: { fontSize: 14, color: 'rgba(255,255,255,0.4)', marginTop: 4, marginBottom: 24 },
     sliderContainer: { width: '100%' },
     slider: { width: '100%', height: 40 },
@@ -175,11 +173,11 @@ const s = StyleSheet.create({
     sliderLabel: { fontSize: 11, color: 'rgba(255,255,255,0.35)' },
     priceCard: {
         borderRadius: 24, overflow: 'hidden', padding: 22, alignItems: 'center', gap: 4,
-        borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)',
+        ...ghostBorder(0.2),
         backgroundColor: 'rgba(0,255,255,0.04)',
     },
     priceBreakdown: { fontSize: 14, color: 'rgba(255,255,255,0.5)' },
-    priceTotal: { fontSize: 36, fontWeight: '900', color: '#00FFFF' },
+    priceTotal: { fontSize: 36, fontWeight: '900', color: CYAN },
     priceNote: { fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 },
     features: { gap: 12, paddingVertical: 8 },
     featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

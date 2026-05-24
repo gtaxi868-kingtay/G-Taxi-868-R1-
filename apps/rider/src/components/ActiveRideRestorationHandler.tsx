@@ -5,7 +5,6 @@ import { useRide } from '../context/RideContext';
 import { supabase } from '@gtaxi/core';
 import { Location, FareEstimate } from '@gtaxi/core';
 
-// Ride TTL: 30 minutes of no activity = stale
 const RIDE_TTL_MINUTES = 30;
 
 export function ActiveRideRestorationHandler() {
@@ -17,14 +16,12 @@ export function ActiveRideRestorationHandler() {
             if (loading || !activeRide) return;
 
             const ride = activeRide;
-            console.log('Restoration Check:', ride.status, 'updated:', ride.updated_at);
 
             const updatedAt = new Date(ride.updated_at || ride.created_at || Date.now());
             const now = new Date();
             const minutesSinceUpdate = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
 
             if (minutesSinceUpdate > RIDE_TTL_MINUTES) {
-                console.log(`Ride is stale (${minutesSinceUpdate.toFixed(0)} min old). Auto-cancelling...`);
                 const { error } = await supabase.rpc('expire_ride', { p_ride_id: ride.ride_id });
                 if (error) console.error('Failed to expire stale ride:', error);
                 return;
@@ -52,7 +49,6 @@ export function ActiveRideRestorationHandler() {
                     }],
                 });
             } else if (ride.status === 'assigned') {
-                // FIX 1: Show driver found confirmation before active ride
                 navigation.reset({
                     index: 0,
                     routes: [{
@@ -65,7 +61,6 @@ export function ActiveRideRestorationHandler() {
                     }],
                 });
             } else if (ride.status === 'arrived' || ride.status === 'in_progress') {
-                // If we're already on ActiveRide, don't reset (to avoid component flicker)
                 const currentRoute = navigation.getState()?.routes[navigation.getState()?.index];
                 if (currentRoute?.name === 'ActiveRide' && currentRoute?.params?.rideId === ride.ride_id) {
                     return;
@@ -85,7 +80,6 @@ export function ActiveRideRestorationHandler() {
                     });
                 }
             } else if (ride.status === 'completed') {
-                // FIX 2: Navigate to receipt after ride completion
                 navigation.reset({
                     index: 0,
                     routes: [{
@@ -102,7 +96,6 @@ export function ActiveRideRestorationHandler() {
                     }],
                 });
             } else if (ride.status === 'cancelled') {
-                // FIX 3: Return home after cancellation
                 navigation.reset({
                     index: 0,
                     routes: [{ name: 'Home' }],
@@ -123,4 +116,3 @@ export function ActiveRideRestorationHandler() {
 
     return null;
 }
-

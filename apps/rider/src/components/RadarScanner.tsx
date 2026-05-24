@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Easing } from 'react-native';
 import { theme } from '../theme';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 export function RadarScanner() {
     const rotateAnim = useRef(new Animated.Value(0)).current;
@@ -10,7 +11,9 @@ export function RadarScanner() {
     const pulse2 = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        // Rotation (Scanner Beam)
+        const animationLoops: Animated.CompositeAnimation[] = [];
+        const timers: NodeJS.Timeout[] = [];
+
         Animated.loop(
             Animated.timing(rotateAnim, {
                 toValue: 1,
@@ -20,28 +23,35 @@ export function RadarScanner() {
             })
         ).start();
 
-        // Pulse 1
-        Animated.loop(
+        const p1 = Animated.loop(
             Animated.timing(pulse1, {
                 toValue: 1,
                 duration: 2500,
                 easing: Easing.out(Easing.ease),
                 useNativeDriver: true,
             })
-        ).start();
+        );
+        p1.start();
+        animationLoops.push(p1);
 
-        // Pulse 2 (Delayed)
-        setTimeout(() => {
-            Animated.loop(
+        const timer = setTimeout(() => {
+            const p2 = Animated.loop(
                 Animated.timing(pulse2, {
                     toValue: 1,
                     duration: 2500,
                     easing: Easing.out(Easing.ease),
                     useNativeDriver: true,
                 })
-            ).start();
+            );
+            p2.start();
+            animationLoops.push(p2);
         }, 1250);
+        timers.push(timer);
 
+        return () => {
+            timers.forEach(clearTimeout);
+            animationLoops.forEach(loop => loop.stop());
+        };
     }, []);
 
     const spin = rotateAnim.interpolate({
@@ -99,8 +109,7 @@ const styles = StyleSheet.create({
         width: 60,
         height: 60,
         borderRadius: 30,
-        borderWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.3)', // Cyan
+        ...ghostBorder(0.3),
     },
     circleMd: {
         width: 120,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
     Alert, ScrollView, useWindowDimensions, Platform, Linking
@@ -13,32 +13,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { initializeSupabaseClient, ENV } from '@gtaxi/core';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
-import { Txt } from '@/design-system/primitives';
-import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS, SEMANTIC } from '@gtaxi/design-system';
+import { SURFACE, VOICES, ANIMATION, GlassCard } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { formatTTDDollars } from '../utils/currency';
 
 const { supabase, getSupabase } = initializeSupabaseClient('native');
 
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#160B32',
-    gradientStart: '#1A0533',
-    gradientEnd: '#0D1B4B',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    purpleLight: '#9B7CF0',
-    cyan: '#00E5FF',
-    cyanDark: '#0099BB',
-    cyanSoft: 'rgba(0,229,255,0.1)',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.4)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
-    success: '#00FF94',
-    warning: '#F59E0B',
-    error: '#EF4444',
-};
+const CYAN = '#00E5FF';
+const CYAN_SOFT = 'rgba(0,229,255,0.1)';
+const WARNING = '#F59E0B';
+const ERROR = '#EF4444';
+const SUCCESS = '#00FF94';
 
 interface StopSuggestion {
     place_name: string;
@@ -71,7 +56,6 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const [loading, setLoading] = useState(true);
     const [fare, setFare] = useState<any>(null);
     const [selectedType, setSelectedType] = useState<VehicleType>('Standard');
-    const [multiplier, setMultiplier] = useState(1.0);
     const [confirming, setConfirming] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet'>('cash');
     const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -93,8 +77,13 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
     const pickupLoc = pickup || { latitude: 10.66, longitude: -61.51, address: 'Current Location' };
 
+    const fitMapTimeout = useRef<NodeJS.Timeout | null>(null);
+
     useEffect(() => {
         fetchData();
+        return () => {
+            if (fitMapTimeout.current) clearTimeout(fitMapTimeout.current);
+        };
     }, []);
 
     const fetchData = async () => {
@@ -137,7 +126,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 setStopSuggestions(stopsRes.data.suggestions);
             }
 
-            setTimeout(() => {
+            fitMapTimeout.current = setTimeout(() => {
                 mapRef.current?.fitToCoordinates([pickupLoc, destination], {
                     edgePadding: { top: 80, right: 80, bottom: 80, left: 80 },
                     animated: true,
@@ -325,12 +314,16 @@ export function RideConfirmationScreen({ navigation, route }: any) {
         return total + stopBase + waitFee;
     }, 0);
 
+    const multiplier = useMemo(
+        () => VEHICLES.find(v => v.type === selectedType)?.multiplier ?? 1.0,
+        [selectedType]
+    );
     const baseFareCents = fare ? fare.total_fare_cents : 0;
     const displayFareCents = Math.round((baseFareCents + stopsAddedCents) * multiplier);
     const finalFare = fare ? (displayFareCents / 100).toFixed(2) : '--';
 
     return (
-        <View style={s.root}>
+        <View style={s.root} pointerEvents="box-none">
             <StatusBar style="dark" />
 
             <View style={{ height: height * 0.35 }}>
@@ -376,7 +369,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                     style={[s.backBtn, { top: insets.top + 10 }]}
                     onPress={() => navigation.goBack()}
                 >
-                    <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
             </View>
 
@@ -422,11 +415,11 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                 <TouchableOpacity
                                     key={v.type}
                                     style={[s.vehicleCard, selectedType === v.type && s.vehicleCardActive]}
-                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.type); setMultiplier(v.multiplier); }}
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.type); }}
                                 >
-                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.type ? COLORS.white : COLORS.purple} />
-                                    <Text style={[s.vehicleType, { color: selectedType === v.type ? COLORS.white : COLORS.white }]}>{v.type}</Text>
-                                    <Text style={[s.vehicleMultiplier, { color: selectedType === v.type ? 'rgba(255,255,255,0.7)' : COLORS.textMuted }]}>{v.multiplier}x</Text>
+                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.type ? '#FFFFFF' : VOICES.rider.accent} />
+                                    <Text style={[s.vehicleType, { color: selectedType === v.type ? '#FFFFFF' : '#FFFFFF' }]}>{v.type}</Text>
+                                    <Text style={[s.vehicleMultiplier, { color: selectedType === v.type ? 'rgba(255,255,255,0.7)' : VOICES.rider.textMuted }]}>{v.multiplier}x</Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
@@ -455,12 +448,12 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                                 {stop.is_network_partner ? (
                                                     <TouchableOpacity 
                                                         onPress={() => handleBookService(stop)}
-                                                        style={{ backgroundColor: COLORS.cyanSoft, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 4 }}
+                                                        style={{ backgroundColor: CYAN_SOFT, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 4 }}
                                                     >
                                                         <Text style={s.bookServiceText}>BOOK SERVICE</Text>
                                                     </TouchableOpacity>
                                                 ) : (
-                                                    <Text style={[s.stopPrice, { color: isSelected ? COLORS.cyan : COLORS.textMuted }]}>
+                                                    <Text style={[s.stopPrice, { color: isSelected ? CYAN : VOICES.rider.textMuted }]}>
                                                         +${(((stop.stop_type === 'grocery' ? 3500 : stop.stop_type === 'pharmacy' ? 2500 : 1500) + Math.round((stop.estimated_wait_minutes || 0) * 95)) / 100).toFixed(2)}
                                                     </Text>
                                                 )}
@@ -477,13 +470,13 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                         </View>
 
                         <View style={s.identityShield}>
-                            <Ionicons name="shield-checkmark" size={20} color={COLORS.cyan} />
+                            <Ionicons name="shield-checkmark" size={20} color={CYAN} />
                             <Text style={s.identityText}>G-TAXI IDENTITY SHIELD ACTIVE</Text>
                         </View>
 
                         {selfieError && (
                             <View style={s.selfieErrorContainer}>
-                                <Ionicons name="alert-circle" size={16} color={COLORS.error} />
+                                <Ionicons name="alert-circle" size={16} color={ERROR} />
                                 <Text style={s.selfieErrorText}>{selfieError}</Text>
                             </View>
                         )}
@@ -503,15 +496,15 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             }}
                         >
                             {selfieUploading ? (
-                                <ActivityIndicator color={COLORS.cyan} size="small" />
+                                <ActivityIndicator color={CYAN} size="small" />
                             ) : (
                                 <Ionicons
                                     name={selfieVerified ? 'checkmark-circle' : 'camera-outline'}
                                     size={20}
-                                    color={selfieVerified ? COLORS.success : COLORS.cyan}
+                                    color={selfieVerified ? SUCCESS : CYAN}
                                 />
                             )}
-                            <Text style={[s.selfieBtnText, selfieVerified && { color: COLORS.success }]}>
+                            <Text style={[s.selfieBtnText, selfieVerified && { color: SUCCESS }]}>
                                 {selfieUploading ? 'UPLOADING...' : selfieVerified ? 'PASSENGER VERIFIED' : 'VERIFY IDENTITY'}
                             </Text>
                         </TouchableOpacity>
@@ -562,14 +555,14 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                                 <TouchableOpacity
                                                     onPress={handleSelfieCapture}
                                                     disabled={selfieUploading}
-                                                    style={{ flex: 2, height: 48, borderRadius: 24, backgroundColor: COLORS.cyan, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
+                                                    style={{ flex: 2, height: 48, borderRadius: 24, backgroundColor: CYAN, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
                                                 >
                                                     {selfieUploading ? (
-                                                        <ActivityIndicator color={COLORS.bgPrimary} size="small" />
+                                                        <ActivityIndicator color={SURFACE.base} size="small" />
                                                     ) : (
                                                         <>
-                                                            <Ionicons name="camera" size={18} color={COLORS.bgPrimary} />
-                                                            <Text style={{ color: COLORS.bgPrimary, fontWeight: '900', fontSize: 13 }}>CAPTURE & VERIFY</Text>
+                                                            <Ionicons name="camera" size={18} color={SURFACE.base} />
+                                                            <Text style={{ color: SURFACE.base, fontWeight: '900', fontSize: 13 }}>CAPTURE & VERIFY</Text>
                                                         </>
                                                     )}
                                                 </TouchableOpacity>
@@ -586,12 +579,12 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             disabled={confirming || !selfieVerified || !selfieUri}
                         >
                             <LinearGradient
-                                colors={[COLORS.purple, COLORS.cyan]}
+                                colors={[VOICES.rider.accent, CYAN]}
                                 style={s.btnGradient}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                             >
-                                {confirming ? <ActivityIndicator color={COLORS.white} /> : (
+                                {confirming ? <ActivityIndicator color={'#FFFFFF'} /> : (
                                     <Text style={s.confirmBtnText}>CONFIRM {selectedType.toUpperCase()}</Text>
                                 )}
                             </LinearGradient>
@@ -604,57 +597,57 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
-    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+    root: { flex: 1, backgroundColor: SURFACE.base },
+    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', ...elevationGlow(3) },
     
     bottomContainer: { flex: 1, marginTop: -30 },
     panel: { flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 0, overflow: 'hidden' },
     handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginBottom: 24 },
 
-    routeBox: { backgroundColor: COLORS.glassBg, borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: COLORS.glassBorder },
+    routeBox: { backgroundColor: SURFACE.containerLow, borderRadius: 20, padding: 20, marginBottom: 20, ...ghostBorder(0.2) },
     routeRow: { flexDirection: 'row', alignItems: 'center' },
-    routeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.purple },
-    routeSquare: { width: 8, height: 8, borderRadius: 2, backgroundColor: COLORS.warning },
-    routeLine: { width: 1.5, height: 15, backgroundColor: COLORS.glassBorder, marginLeft: 3.25, marginVertical: 4 },
-    addrLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textMuted, letterSpacing: 1, marginBottom: 4 },
-    addrText: { fontSize: 15, fontWeight: '600', color: COLORS.white },
+    routeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: VOICES.rider.accent },
+    routeSquare: { width: 8, height: 8, borderRadius: 2, backgroundColor: WARNING },
+    routeLine: { width: 1.5, height: 15, backgroundColor: SURFACE.containerHigh, marginLeft: 3.25, marginVertical: 4 },
+    addrLabel: { fontSize: 11, fontWeight: '700', color: VOICES.rider.textMuted, letterSpacing: 1, marginBottom: 4 },
+    addrText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
 
     statsRow: { marginBottom: 24, alignItems: 'center' },
-    logisticsText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, letterSpacing: 0.5 },
+    logisticsText: { fontSize: 13, fontWeight: '600', color: VOICES.rider.textMuted, letterSpacing: 0.5 },
     
     vehicleScroll: { marginBottom: 32 },
-    vehicleCard: { width: 110, height: 120, backgroundColor: COLORS.glassBg, borderRadius: 20, padding: 16, marginRight: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.glassBorder },
-    vehicleCardActive: { backgroundColor: COLORS.purple, borderColor: COLORS.cyan },
+    vehicleCard: { width: 110, height: 120, backgroundColor: SURFACE.containerLow, borderRadius: 20, padding: 16, marginRight: 12, alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.2) },
+    vehicleCardActive: { backgroundColor: VOICES.rider.accent, borderColor: CYAN },
     vehicleType: { marginTop: 8, fontSize: 14, fontWeight: '700' },
     vehicleMultiplier: { fontSize: 12, fontWeight: '600' },
 
     stopsSection: { marginBottom: 32 },
-    sectionTitle: { fontSize: 12, fontWeight: '800', color: COLORS.purple, letterSpacing: 1, marginBottom: 12 },
-    stopItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.02)', marginBottom: 10, borderWidth: 1, borderColor: 'transparent' },
-    stopItemActive: { borderColor: COLORS.purple, backgroundColor: 'rgba(123,92,240,0.05)' },
-    stopEmojiWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center' },
-    stopName: { fontSize: 15, fontWeight: '700', color: COLORS.white },
-    stopSubtext: { fontSize: 13, fontWeight: '500', color: COLORS.textMuted },
+    sectionTitle: { fontSize: 12, fontWeight: '800', color: VOICES.rider.accent, letterSpacing: 1, marginBottom: 12 },
+    stopItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.02)', marginBottom: 10, ...ghostBorder(0) },
+    stopItemActive: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(210,187,255,0.05)' },
+    stopEmojiWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+    stopName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+    stopSubtext: { fontSize: 13, fontWeight: '500', color: VOICES.rider.textMuted },
     stopPrice: { fontSize: 15, fontWeight: '700' },
-    bookServiceText: { fontSize: 12, fontWeight: '800', color: COLORS.cyan, letterSpacing: 0.5 },
+    bookServiceText: { fontSize: 12, fontWeight: '800', color: CYAN, letterSpacing: 0.5 },
 
     fareDisplay: { alignItems: 'center', marginBottom: 24 },
-    fareLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textMuted, letterSpacing: 1, marginBottom: 4 },
-    fareValue: { fontSize: 36, fontWeight: '900', color: COLORS.purple },
+    fareLabel: { fontSize: 12, fontWeight: '600', color: VOICES.rider.textMuted, letterSpacing: 1, marginBottom: 4 },
+    fareValue: { fontSize: 36, fontWeight: '900', color: VOICES.rider.accent },
     
-    identityShield: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.cyanSoft, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 100, marginBottom: 12, alignSelf: 'center' },
-    identityText: { marginLeft: 8, fontSize: 12, fontWeight: '800', color: COLORS.cyan, letterSpacing: 1 },
-    selfieBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.glassBg, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 16, marginBottom: 24, borderWidth: 1, borderColor: COLORS.glassBorder, gap: 8 },
-    selfieBtnVerified: { backgroundColor: 'rgba(0,255,148,0.08)', borderColor: 'rgba(0,255,148,0.3)' },
-    selfieBtnText: { fontSize: 12, fontWeight: '800', color: COLORS.cyan, letterSpacing: 0.5 },
+    identityShield: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: CYAN_SOFT, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 100, marginBottom: 12, alignSelf: 'center' },
+    identityText: { marginLeft: 8, fontSize: 12, fontWeight: '800', color: CYAN, letterSpacing: 1 },
+    selfieBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE.containerLow, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 16, marginBottom: 24, ...ghostBorder(0.2), gap: 8 },
+    selfieBtnVerified: { backgroundColor: 'rgba(0,255,148,0.08)', ...ghostBorder(0.3) },
+    selfieBtnText: { fontSize: 12, fontWeight: '800', color: CYAN, letterSpacing: 0.5 },
     selfieErrorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(239,68,68,0.1)', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, marginBottom: 12, gap: 8 },
-    selfieErrorText: { fontSize: 12, fontWeight: '700', color: COLORS.error, flex: 1 },
+    selfieErrorText: { fontSize: 12, fontWeight: '700', color: ERROR, flex: 1 },
 
-    confirmBtn: { height: 60, borderRadius: 30, overflow: 'hidden', shadowColor: COLORS.cyan, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+    confirmBtn: { height: 60, borderRadius: 30, overflow: 'hidden', ...elevationGlow(6) },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    confirmBtnText: { fontSize: 16, fontWeight: '900', color: COLORS.white, letterSpacing: 0.5 },
-    markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: COLORS.cyan, borderWidth: 2, borderColor: COLORS.white },
-    markerDropoff: { width: 14, height: 14, borderRadius: 7, backgroundColor: COLORS.purple, borderWidth: 2, borderColor: COLORS.white },
+    confirmBtnText: { fontSize: 16, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.5 },
+    markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: CYAN, borderWidth: 2, borderColor: '#FFFFFF' },
+    markerDropoff: { width: 14, height: 14, borderRadius: 7, backgroundColor: VOICES.rider.accent, borderWidth: 2, borderColor: '#FFFFFF' },
 
     statusBanner: {
         backgroundColor: 'rgba(245, 158, 11, 0.15)',
@@ -662,12 +655,11 @@ const s = StyleSheet.create({
         paddingHorizontal: 20,
         borderRadius: 12,
         marginBottom: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(245, 158, 11, 0.3)',
+        ...ghostBorder(0.2),
         alignItems: 'center'
     },
     statusTextAmber: {
-        color: '#F59E0B',
+        color: WARNING,
         fontSize: 14,
         fontWeight: '700'
     },
@@ -676,12 +668,11 @@ const s = StyleSheet.create({
         padding: 20,
         borderRadius: 16,
         marginBottom: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.3)',
+        ...ghostBorder(0.2),
         alignItems: 'center'
     },
     failureTitle: {
-        color: COLORS.white,
+        color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '700',
         marginBottom: 16,
@@ -692,13 +683,13 @@ const s = StyleSheet.create({
         gap: 12
     },
     retryBtn: {
-        backgroundColor: COLORS.purple,
+        backgroundColor: VOICES.rider.accent,
         paddingVertical: 12,
         paddingHorizontal: 24,
         borderRadius: 12
     },
     retryBtnText: {
-        color: COLORS.white,
+        color: '#FFFFFF',
         fontSize: 14,
         fontWeight: '800'
     },
@@ -709,7 +700,7 @@ const s = StyleSheet.create({
         borderRadius: 12
     },
     whatsappBtnText: {
-        color: COLORS.white,
+        color: '#FFFFFF',
         fontSize: 14,
         fontWeight: '800'
     }

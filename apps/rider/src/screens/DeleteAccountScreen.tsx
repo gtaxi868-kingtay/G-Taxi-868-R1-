@@ -3,7 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Scr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
-import { BlurView } from 'expo-blur';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+
+const CYAN = '#06B6D4';
 
 export function DeleteAccountScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
@@ -18,12 +21,10 @@ export function DeleteAccountScreen({ navigation }: any) {
 
         setLoading(true);
         try {
-            // Call the GDPR deletion Edge Function
             const { error } = await supabase.functions.invoke('delete_account');
             
             if (error) throw error;
 
-            // Sign out locally
             await supabase.auth.signOut();
             
             Alert.alert("Account Deleted", "Your data has been scheduled for deletion. We're sorry to see you go.");
@@ -94,7 +95,7 @@ export function DeleteAccountScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0D0B1E' },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
     backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFF', marginLeft: 16 },
@@ -105,7 +106,7 @@ const s = StyleSheet.create({
     bulletPoints: { alignSelf: 'flex-start', marginTop: 24 },
     bullet: { fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 8 },
     confirmRow: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', marginBottom: 32 },
-    confirmRowActive: { backgroundColor: 'rgba(0,255,148,0.05)', borderColor: '#00FF94', borderWidth: 1 },
+    confirmRowActive: { backgroundColor: 'rgba(0,255,148,0.05)', ...ghostBorder() },
     confirmText: { flex: 1, marginLeft: 12, color: '#FFF', fontSize: 14 },
     deleteBtn: { height: 64, borderRadius: 20, backgroundColor: '#FF4D6D', alignItems: 'center', justifyContent: 'center' },
     deleteBtnDisabled: { opacity: 0.3 },

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, Platform, StyleProp } from 'react-native';
 import { theme } from '../theme';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface GlassViewProps {
     children: React.ReactNode;
@@ -20,8 +21,7 @@ export const GlassView = ({ children, style, intensity = 'medium' }: GlassViewPr
 const styles = StyleSheet.create({
     glass: {
         backgroundColor: theme.colors.glass.background,
-        borderWidth: 1,
-        borderColor: theme.colors.glass.border,
+        ...ghostBorder(0.15),
         overflow: 'hidden',
         ...(Platform.OS === 'web' ? {
             backdropFilter: 'blur(30px)',

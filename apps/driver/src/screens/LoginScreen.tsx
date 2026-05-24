@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Alert, Image
+    Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -17,28 +17,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { RegisterScreen } from './RegisterScreen';
 import { supabase } from '@gtaxi/core';
-
-
-// Blueberry Luxe — Gold Edition (Driver)
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#1A1508',
-    gradientStart: '#1A1200',
-    gradientEnd: '#0D0B1E',
-    gold: '#FFD700',
-    goldDark: '#B8860B',
-    goldLight: '#FFEC8B',
-    amber: '#FFB000',
-    amberSoft: 'rgba(255,176,0,0.1)',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.4)',
-    glassBg: 'rgba(255,215,0,0.06)',
-    glassBorder: 'rgba(255,176,0,0.3)',
-    error: '#EF4444',
-};
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 export function LoginScreen() {
     const [email, setEmail] = useState('');
@@ -65,7 +45,7 @@ export function LoginScreen() {
         fetchFlag();
 
         contentOpacity.value = withTiming(1, { duration: 800 });
-        contentScale.value = withSpring(1);
+        contentScale.value = withSpring(1, ANIMATION.spring);
     }, []);
 
     const handleLogin = async () => {
@@ -101,7 +81,7 @@ export function LoginScreen() {
             <StatusBar style="light" />
 
             <LinearGradient
-                colors={[COLORS.gradientStart, COLORS.bgPrimary]}
+                colors={['#1A1200', SURFACE.base]}
                 style={StyleSheet.absoluteFillObject}
                 start={{ x: 0.5, y: 0 }}
                 end={{ x: 0.5, y: 1 }}
@@ -152,7 +132,7 @@ export function LoginScreen() {
                                     <Ionicons
                                         name={showPassword ? "eye-off-outline" : "eye-outline"}
                                         size={20}
-                                        color={COLORS.gold}
+                                        color={VOICES.driver.accent}
                                     />
                                 </TouchableOpacity>
                             </View>
@@ -164,7 +144,7 @@ export function LoginScreen() {
                             disabled={loading}
                         >
                             {loading ? (
-                                <ActivityIndicator color={COLORS.bgPrimary} />
+                                <ActivityIndicator color={SURFACE.base} />
                             ) : (
                                 <Text style={s.loginBtnText}>AUTHORIZE DEVICE</Text>
                             )}
@@ -191,40 +171,39 @@ export function LoginScreen() {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     content: { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
     header: { alignItems: 'center', marginBottom: 48 },
-    logoText: { fontSize: 28, fontWeight: '900', color: COLORS.gold, letterSpacing: 3 },
-    form: { width: '100%', padding: 24, borderRadius: 24, overflow: 'hidden', backgroundColor: COLORS.glassBg, borderWidth: 1, borderColor: COLORS.glassBorder },
+    logoText: { fontSize: 28, fontWeight: '900', color: VOICES.driver.accent, letterSpacing: 3 },
+    form: { width: '100%', padding: 24, borderRadius: 24, overflow: 'hidden', backgroundColor: SURFACE.containerLow, ...ghostBorder(0.15) },
     inputContainer: { width: '100%' },
-    inputLabel: { fontSize: 12, fontWeight: '800', color: COLORS.textMuted, letterSpacing: 1 },
+    inputLabel: { fontSize: 12, fontWeight: '800', color: 'rgba(255,255,255,0.6)', letterSpacing: 1 },
     inputWrap: {
         height: 60,
         backgroundColor: 'rgba(255,255,255,0.03)',
         borderRadius: 16,
         paddingHorizontal: 20,
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
+        ...ghostBorder(0.15),
     },
     passwordWrap: { flexDirection: 'row', alignItems: 'center' },
-    input: { flex: 1, color: COLORS.white, fontSize: 16, fontWeight: '600' },
+    input: { flex: 1, color: '#FFF', fontSize: 16, fontWeight: '600' },
     loginBtn: {
         height: 60,
-        backgroundColor: COLORS.gold,
+        backgroundColor: VOICES.driver.accent,
         borderRadius: 30,
         marginTop: 32,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: COLORS.gold,
+        shadowColor: VOICES.driver.accent,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
         shadowRadius: 12,
         elevation: 8,
     },
-    loginBtnText: { fontSize: 18, fontWeight: '900', color: COLORS.bgPrimary, letterSpacing: 1 },
+    loginBtnText: { fontSize: 18, fontWeight: '900', color: SURFACE.base, letterSpacing: 1 },
     disabled: { opacity: 0.5 },
     registerLink: { marginTop: 40, alignSelf: 'center', padding: 10 },
-    registerText: { fontSize: 14, fontWeight: '500', color: COLORS.textMuted },
-    registerHighlight: { fontSize: 14, fontWeight: '800', color: COLORS.gold },
+    registerText: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.6)' },
+    registerHighlight: { fontSize: 14, fontWeight: '800', color: VOICES.driver.accent },
 });

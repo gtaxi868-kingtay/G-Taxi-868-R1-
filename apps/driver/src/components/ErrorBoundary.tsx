@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { tokens } from '@gtaxi/design-system/tokens';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface Props {
     children: ReactNode;
@@ -104,8 +105,7 @@ const styles = StyleSheet.create({
         width: '100%',
         maxHeight: 200,
         marginBottom: 24,
-        borderWidth: 1,
-        borderColor: tokens.colors.border.subtle,
+        ...ghostBorder(0.15),
     },
     errorText: {
         color: tokens.colors.status.error,

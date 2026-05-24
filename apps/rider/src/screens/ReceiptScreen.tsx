@@ -4,32 +4,14 @@ import {
     useWindowDimensions, Platform, ActivityIndicator, Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
-
-// Blueberry Luxe Color System
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#160B32',
-    gradientStart: '#1A0533',
-    gradientEnd: '#0D1B4B',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    purpleLight: '#9B7CF0',
-    cyan: '#00E5FF',
-    cyanDark: '#0099BB',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.5)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
-    success: '#00FF94',
-    warning: '#F59E0B',
-};
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { AppScreenProps } from '../navigation/types';
 
 interface RideData {
     id: string;
@@ -44,7 +26,7 @@ interface RideData {
     cash_payment_cents?: number;
 }
 
-export function ReceiptScreen({ navigation, route }: any) {
+export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) {
     const { width, height } = useWindowDimensions();
     const { ride: initialRide, rideId } = route.params;
     const insets = useSafeAreaInsets();
@@ -52,7 +34,6 @@ export function ReceiptScreen({ navigation, route }: any) {
     const [loading, setLoading] = useState(!initialRide);
     const [error, setError] = useState<string | null>(null);
 
-    // Fetch ride data if only rideId provided (from restoration handler)
     useEffect(() => {
         if (initialRide) return;
 
@@ -88,34 +69,32 @@ export function ReceiptScreen({ navigation, route }: any) {
         navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     };
 
-    // Loading state
     if (loading) {
         return (
             <View style={[s.root, { justifyContent: 'center', alignItems: 'center' }]}>
                 <StatusBar style="light" />
                 <LinearGradient
-                    colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                    colors={['#1A0533', '#0D1B4B']}
                     style={StyleSheet.absoluteFillObject}
                 />
-                <ActivityIndicator size="large" color={COLORS.cyan} />
-                <Text style={{ marginTop: 16, color: COLORS.textMuted, fontSize: 15 }}>Loading receipt...</Text>
+                <ActivityIndicator size="large" color="#00E5FF" />
+                <Text style={{ marginTop: 16, color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>Loading receipt...</Text>
             </View>
         );
     }
 
-    // Error state
     if (error || !ride) {
         return (
             <View style={[s.root, { justifyContent: 'center', alignItems: 'center', padding: 40 }]}>
                 <StatusBar style="light" />
                 <LinearGradient
-                    colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                    colors={['#1A0533', '#0D1B4B']}
                     style={StyleSheet.absoluteFillObject}
                 />
                 <View style={s.errorIcon}>
-                    <Ionicons name="receipt-outline" size={48} color={COLORS.textMuted} />
+                    <Ionicons name="receipt-outline" size={48} color="rgba(255,255,255,0.6)" />
                 </View>
-                <Text style={{ marginTop: 20, textAlign: 'center', color: COLORS.textMuted, fontSize: 15 }}>
+                <Text style={{ marginTop: 20, textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>
                     {error || 'Receipt not found'}
                 </Text>
                 <TouchableOpacity style={[s.doneBtnFull, { marginTop: 32 }]} onPress={handleDone}>
@@ -137,15 +116,13 @@ export function ReceiptScreen({ navigation, route }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
             
-            {/* Deep Gradient Background */}
             <LinearGradient
-                colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                colors={['#1A0533', '#0D1B4B']}
                 style={StyleSheet.absoluteFillObject}
             />
 
             <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}>
 
-                {/* Header: Logo */}
                 <View style={s.header}>
                     <Image 
                         source={require('../../assets/logo.png')} 
@@ -154,15 +131,13 @@ export function ReceiptScreen({ navigation, route }: any) {
                     />
                 </View>
 
-                {/* Central Card with Dashed Divider */}
                 <View style={s.receiptWrapper}>
-                    <BlurView intensity={20} tint="dark" style={s.cardBlur}>
+                    <View style={[glassSurface(20), s.cardBlur]}>
                         <View style={s.cardInner}>
 
-                            {/* Success Header */}
                             <View style={s.statusHeader}>
                                 <View style={s.checkCircle}>
-                                    <Ionicons name="checkmark" size={32} color={COLORS.white} />
+                                    <Ionicons name="checkmark" size={32} color="#FFF" />
                                 </View>
                                 <Text style={s.paidText}>PAID SUCCESS</Text>
                                 <Text style={s.dateText}>{dateStr} · {timeStr}</Text>
@@ -170,7 +145,6 @@ export function ReceiptScreen({ navigation, route }: any) {
 
                             <View style={s.dashDivider} />
 
-                            {/* Stats Row */}
                             <View style={s.statsRow}>
                                 <View style={s.stat}>
                                     <Text style={s.statValue}>{distanceKm}</Text>
@@ -185,7 +159,6 @@ export function ReceiptScreen({ navigation, route }: any) {
 
                             <View style={s.dashDivider} />
 
-                            {/* Fare Breakdown */}
                             <View style={s.breakdown}>
                                 <View style={s.row}>
                                     <Text style={s.rowLabel}>Base Fare</Text>
@@ -199,7 +172,6 @@ export function ReceiptScreen({ navigation, route }: any) {
                                     </View>
                                 )}
                                 
-                                {/* Split Payment Breakdown */}
                                 {(ride.wallet_deduction_cents ?? 0) > 0 && (
                                     <View style={s.splitItem}>
                                         <View style={s.row}>
@@ -229,14 +201,13 @@ export function ReceiptScreen({ navigation, route }: any) {
 
                             <View style={s.dashDivider} />
 
-                            {/* Address Summary */}
                             <View style={s.addresses}>
                                 <View style={s.addrRow}>
-                                    <View style={[s.marker, { backgroundColor: COLORS.purple }]} />
+                                    <View style={[s.marker, { backgroundColor: VOICES.rider.accent }]} />
                                     <Text style={s.addrText} numberOfLines={1}>{ride.pickup_address}</Text>
                                 </View>
                                 <View style={s.addrRow}>
-                                    <View style={[s.marker, { backgroundColor: COLORS.cyan }]} />
+                                    <View style={[s.marker, { backgroundColor: '#00E5FF' }]} />
                                     <Text style={s.addrText} numberOfLines={1}>{ride.dropoff_address}</Text>
                                 </View>
                             </View>
@@ -246,13 +217,12 @@ export function ReceiptScreen({ navigation, route }: any) {
                             </View>
 
                         </View>
-                    </BlurView>
+                    </View>
                 </View>
 
-                {/* Done Button */}
                 <TouchableOpacity style={s.doneBtnFull} onPress={handleDone}>
                     <LinearGradient
-                        colors={[COLORS.purple, COLORS.purpleDark]}
+                        colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
                         style={s.doneBtnGradient}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
@@ -267,11 +237,9 @@ export function ReceiptScreen({ navigation, route }: any) {
 }
 
 const s = StyleSheet.create({
-    // Root & Layout
-    root: { flex: 1, backgroundColor: COLORS.bgPrimary },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     scroll: { flexGrow: 1, paddingHorizontal: 24 },
 
-    // Header with Logo
     header: { 
         alignItems: 'center', 
         marginBottom: 24,
@@ -282,35 +250,29 @@ const s = StyleSheet.create({
         height: 60,
     },
 
-    // Error State
     errorIcon: {
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: COLORS.glassBg,
+        backgroundColor: 'rgba(255,255,255,0.03)',
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
+        ...ghostBorder(),
     },
 
-    // Receipt Card
     receiptWrapper: { 
         flex: 1, 
         justifyContent: 'center',
     },
     cardBlur: {
         borderRadius: 32,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
+        ...ghostBorder(),
     },
     cardInner: { 
         backgroundColor: 'rgba(22,11,50,0.6)', 
         padding: 28,
     },
 
-    // Success Header
     statusHeader: { 
         alignItems: 'center', 
         marginBottom: 32,
@@ -319,40 +281,33 @@ const s = StyleSheet.create({
         width: 72, 
         height: 72, 
         borderRadius: 36, 
-        backgroundColor: COLORS.cyan,
+        backgroundColor: '#00E5FF',
         alignItems: 'center', 
         justifyContent: 'center', 
-        shadowColor: COLORS.cyan,
-        shadowOffset: { width: 0, height: 0 },
-        shadowRadius: 20, 
-        shadowOpacity: 0.5,
-        elevation: 8,
+        ...elevationGlow(8),
     },
     paidText: {
         fontSize: 18,
         fontWeight: '800',
-        color: COLORS.cyan,
+        color: '#00E5FF',
         marginTop: 20,
         letterSpacing: 3,
     },
     dateText: {
         fontSize: 14,
         fontWeight: '500',
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         marginTop: 8,
     },
 
-    // Dash Divider
     dashDivider: { 
         height: 1, 
         width: '100%', 
         borderStyle: 'dashed', 
-        borderWidth: 1, 
-        borderColor: 'rgba(123,92,240,0.2)', 
+        ...ghostBorder(0.2),
         marginVertical: 24,
     },
 
-    // Stats Row
     statsRow: { 
         flexDirection: 'row', 
         justifyContent: 'space-around', 
@@ -366,13 +321,13 @@ const s = StyleSheet.create({
     statValue: {
         fontSize: 28,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFF',
         letterSpacing: -0.5,
     },
     statLabel: {
         fontSize: 11,
         fontWeight: '700',
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         letterSpacing: 1,
         marginTop: 4,
     },
@@ -382,7 +337,6 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
     },
 
-    // Breakdown
     breakdown: { 
         gap: 14,
     },
@@ -394,49 +348,48 @@ const s = StyleSheet.create({
     rowLabel: {
         fontSize: 15,
         fontWeight: '500',
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
     },
     rowValue: {
         fontSize: 16,
         fontWeight: '700',
-        color: COLORS.white,
+        color: '#FFF',
     },
     rowLabelWarning: {
         fontSize: 15,
         fontWeight: '500',
-        color: COLORS.warning,
+        color: '#F59E0B',
     },
     rowValueWarning: {
         fontSize: 16,
         fontWeight: '700',
-        color: COLORS.warning,
+        color: '#F59E0B',
     },
     splitItem: { 
         backgroundColor: 'rgba(255,255,255,0.03)', 
         padding: 12, 
         borderRadius: 12, 
-        borderWidth: 1, 
-        borderColor: 'rgba(255,255,255,0.05)',
+        ...ghostBorder(),
     },
     splitLabel: {
         fontSize: 13,
         fontWeight: '500',
-        color: COLORS.cyan,
+        color: '#00E5FF',
     },
     splitValue: {
         fontSize: 13,
         fontWeight: '700',
-        color: COLORS.cyan,
+        color: '#00E5FF',
     },
     splitLabelWarning: {
         fontSize: 13,
         fontWeight: '500',
-        color: COLORS.warning,
+        color: '#F59E0B',
     },
     splitValueWarning: {
         fontSize: 13,
         fontWeight: '700',
-        color: COLORS.warning,
+        color: '#F59E0B',
     },
     totalRow: {
         flexDirection: 'row',
@@ -450,16 +403,15 @@ const s = StyleSheet.create({
     totalLabel: {
         fontSize: 18,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFF',
     },
     totalValue: {
         fontSize: 22,
         fontWeight: '800',
-        color: COLORS.warning,
+        color: '#F59E0B',
         letterSpacing: 0.5,
     },
 
-    // Addresses
     addresses: { 
         gap: 14,
     },
@@ -475,12 +427,11 @@ const s = StyleSheet.create({
     addrText: {
         fontSize: 13,
         fontWeight: '500',
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         flex: 1,
         marginLeft: 12,
     },
 
-    // Footer
     footer: { 
         marginTop: 28,
         paddingTop: 20,
@@ -490,12 +441,11 @@ const s = StyleSheet.create({
     footerText: {
         fontSize: 13,
         fontWeight: '500',
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         textAlign: 'center',
         letterSpacing: 0.5,
     },
 
-    // Done Button
     doneBtn: { 
         alignSelf: 'center', 
         marginTop: 32,
@@ -504,11 +454,7 @@ const s = StyleSheet.create({
         marginTop: 32,
         borderRadius: 18,
         overflow: 'hidden',
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 6,
+        ...elevationGlow(6),
     },
     doneBtnGradient: {
         paddingVertical: 18,
@@ -518,7 +464,7 @@ const s = StyleSheet.create({
     doneBtnText: {
         fontSize: 16,
         fontWeight: '800',
-        color: COLORS.white,
+        color: '#FFF',
         letterSpacing: 1,
     },
 });

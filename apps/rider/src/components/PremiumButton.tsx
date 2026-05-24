@@ -13,6 +13,7 @@ import {
     TextStyle,
     useWindowDimensions,
 } from 'react-native';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface PremiumButtonProps {
     title: string;
@@ -244,8 +245,7 @@ const styles = StyleSheet.create({
     primaryBody: {
         backgroundColor: '#1C2A35',
         borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(0, 255, 209, 0.3)',
+        ...ghostBorder(0.3),
         overflow: 'hidden',
         position: 'relative',
     },
@@ -341,8 +341,7 @@ const styles = StyleSheet.create({
     // SECONDARY BUTTON (glass outline)
     secondaryContainer: {
         borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.25)',
+        ...ghostBorder(0.25),
         backgroundColor: 'rgba(255, 255, 255, 0.08)',
     },
     secondaryInner: {
@@ -364,8 +363,7 @@ const styles = StyleSheet.create({
     },
     glassInner: {
         backgroundColor: 'rgba(168, 85, 247, 0.2)',
-        borderWidth: 1,
-        borderColor: 'rgba(168, 85, 247, 0.4)',
+        ...ghostBorder(0.4),
         borderRadius: 16,
         paddingVertical: 16,
         paddingHorizontal: 24,
@@ -397,8 +395,7 @@ const styles = StyleSheet.create({
         height: '100%',
         borderRadius: 26,
         backgroundColor: 'rgba(168, 85, 247, 0.25)',
-        borderWidth: 1,
-        borderColor: 'rgba(168, 85, 247, 0.4)',
+        ...ghostBorder(0.4),
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',

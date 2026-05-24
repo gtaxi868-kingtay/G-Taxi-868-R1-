@@ -4,13 +4,15 @@ import {
     ActivityIndicator, Alert, useWindowDimensions, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
-import { GlassCard, BRAND, VOICES, RADIUS, GRADIENTS } from '@gtaxi/design-system';
+import { GlassCard, SURFACE, VOICES } from '@gtaxi/design-system';
 import { formatTTDDollars } from '../utils/currency';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+
+const CYAN = '#06B6D4';
 
 interface Service {
     id: string;
@@ -92,7 +94,6 @@ export function ServiceBookingScreen({ navigation, route }: any) {
         }
     };
 
-    // Generate upcoming time slots (simple 1-hr increments)
     const timeSlots = [];
     let now = new Date();
     now.setMinutes(0, 0, 0);
@@ -117,9 +118,9 @@ export function ServiceBookingScreen({ navigation, route }: any) {
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 100 }}>
-                <Txt variant="caption" weight="heavy" color={BRAND.purple} style={s.sectionTitle}>SELECT SERVICE</Txt>
+                <Txt variant="caption" weight="heavy" color={VOICES.rider.accent} style={s.sectionTitle}>SELECT SERVICE</Txt>
                 {loading ? (
-                    <ActivityIndicator color={BRAND.purple} style={{ marginTop: 20 }} />
+                    <ActivityIndicator color={VOICES.rider.accent} style={{ marginTop: 20 }} />
                 ) : (
                     services.map(svc => (
                         <TouchableOpacity 
@@ -131,12 +132,12 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                                 <Txt variant="bodyBold" weight="heavy" color="#FFF">{svc.name}</Txt>
                                 <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">{svc.duration_minutes} mins</Txt>
                             </View>
-                            <Txt variant="bodyReg" weight="heavy" color={BRAND.cyan}>{formatTTDDollars(svc.price_cents / 100)}</Txt>
+                            <Txt variant="bodyReg" weight="heavy" color={CYAN}>{formatTTDDollars(svc.price_cents / 100)}</Txt>
                         </TouchableOpacity>
                     ))
                 )}
 
-                <Txt variant="caption" weight="heavy" color={BRAND.purple} style={[s.sectionTitle, { marginTop: 32 }]}>SELECT TIME</Txt>
+                <Txt variant="caption" weight="heavy" color={VOICES.rider.accent} style={[s.sectionTitle, { marginTop: 32 }]}>SELECT TIME</Txt>
                 <View style={s.timeGrid}>
                     {timeSlots.map(time => {
                         const isSelected = selectedTime?.getTime() === time.getTime();
@@ -155,12 +156,12 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                 </View>
 
                 <GlassCard variant="rider" style={s.logisticsCard}>
-                    <Ionicons name="car" size={24} color={BRAND.purple} />
+                    <Ionicons name="car" size={24} color={VOICES.rider.accent} />
                     <View style={{ flex: 1, marginLeft: 16 }}>
                         <Txt variant="bodyBold" weight="heavy" color="#FFF">Include G-Taxi Ride</Txt>
                         <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Coordinated pickup 15m before</Txt>
                     </View>
-                    <Ionicons name="checkbox" size={24} color={BRAND.cyan} />
+                    <Ionicons name="checkbox" size={24} color={CYAN} />
                 </GlassCard>
             </ScrollView>
 
@@ -171,10 +172,10 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                     disabled={!selectedService || !selectedTime || submitting}
                 >
                     <LinearGradient 
-                        colors={[BRAND.purple, BRAND.purpleDark]} 
+                        colors={[VOICES.rider.accent, VOICES.rider.accentDark]} 
                         style={s.btnGradient}
-                        start={GRADIENTS.primaryStart}
-                        end={GRADIENTS.primaryEnd}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
                     >
                         {submitting ? <ActivityIndicator color="#FFF" /> : (
                             <Txt variant="bodyReg" weight="heavy" color="#FFF">REQUEST APPOINTMENT</Txt>
@@ -187,17 +188,17 @@ export function ServiceBookingScreen({ navigation, route }: any) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0A1F' },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 20 },
     backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     sectionTitle: { letterSpacing: 1, marginBottom: 16 },
-    serviceCard: { flexDirection: 'row', alignItems: 'center', padding: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.lg, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    activeCard: { borderColor: BRAND.purple, backgroundColor: 'rgba(124, 58, 237, 0.1)' },
+    serviceCard: { flexDirection: 'row', alignItems: 'center', padding: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 28, marginBottom: 12, ...ghostBorder(0.05) },
+    activeCard: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(124, 58, 237, 0.1)' },
     timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    timeSlot: { paddingVertical: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
-    activeTime: { backgroundColor: BRAND.purple, borderColor: BRAND.purpleLight },
+    timeSlot: { paddingVertical: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, ...ghostBorder(0.05) },
+    activeTime: { backgroundColor: VOICES.rider.accent, borderColor: CYAN },
     logisticsCard: { marginTop: 32, flexDirection: 'row', alignItems: 'center', padding: 20 },
     footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(10,10,31,0.8)' },
-    submitBtn: { height: 60, borderRadius: RADIUS.pill, overflow: 'hidden' },
+    submitBtn: { height: 60, borderRadius: 999, overflow: 'hidden' },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

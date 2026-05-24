@@ -51,6 +51,7 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
         pulse.start();
 
         // 3. Tagline Animation (Looped)
+        let taglineTimer: NodeJS.Timeout | null = null;
         const startTagline = () => {
             taglineProgress.setValue(0);
             Animated.timing(taglineProgress, {
@@ -58,14 +59,17 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
                 duration: TAGLINE_DURATION,
                 easing: Easing.inOut(Easing.ease),
                 useNativeDriver: false,
-            }).start(() => {
-                setTimeout(startTagline, 500);
+            }).start(({ finished }) => {
+                if (finished) {
+                    taglineTimer = setTimeout(startTagline, 500);
+                }
             });
         };
         startTagline();
 
         return () => {
             pulse.stop();
+            if (taglineTimer) clearTimeout(taglineTimer);
         };
     }, []);
 

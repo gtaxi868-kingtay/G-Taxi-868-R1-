@@ -14,25 +14,8 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../context/AuthContext';
-
-// Blueberry Luxe Color System
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#160B32',
-    gradientStart: '#1A0533',
-    gradientEnd: '#0D1B4B',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    cyan: '#00E5FF',
-    cyanDark: '#0099BB',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.5)',
-    glassBg: 'rgba(255,255,255,0.06)',
-    glassBorder: 'rgba(123,92,240,0.3)',
-    glassBorderFocus: 'rgba(0,229,255,0.5)',
-    error: '#FF4D6D',
-};
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 
 export function LoginScreen({ navigation }: any) {
     const { width, height } = useWindowDimensions();
@@ -105,7 +88,7 @@ export function LoginScreen({ navigation }: any) {
 
             {/* Deep Gradient Background */}
             <LinearGradient
-                colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                colors={['#1A0533', '#0D1B4B']}
                 style={StyleSheet.absoluteFillObject}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 0, y: 1 }}
@@ -116,7 +99,7 @@ export function LoginScreen({ navigation }: any) {
                 enabled={Platform.OS === 'ios'}
                 style={s.container}
             >
-                <Reanimated.View entering={FadeIn.duration(1000)} style={[s.content, { paddingTop: height * 0.08 }]}>
+                <Reanimated.View entering={FadeIn.springify().mass(ANIMATION.spring.mass).stiffness(ANIMATION.spring.stiffness).damping(ANIMATION.spring.damping)} style={[s.content, { paddingTop: height * 0.08 }]}>
 
                     {/* Logo Section - Top Third */}
                     <View style={s.logoSection}>
@@ -151,7 +134,7 @@ export function LoginScreen({ navigation }: any) {
                                         <TextInput
                                             style={s.input}
                                             placeholder="you@email.com"
-                                            placeholderTextColor={COLORS.textMuted}
+                                            placeholderTextColor={'rgba(255,255,255,0.6)'}
                                             value={email}
                                             onChangeText={setEmail}
                                             autoCapitalize="none"
@@ -172,7 +155,7 @@ export function LoginScreen({ navigation }: any) {
                                         <TextInput
                                             style={s.input}
                                             placeholder="••••••••"
-                                            placeholderTextColor={COLORS.textMuted}
+                                            placeholderTextColor={'rgba(255,255,255,0.6)'}
                                             value={password}
                                             onChangeText={setPassword}
                                             secureTextEntry
@@ -190,7 +173,7 @@ export function LoginScreen({ navigation }: any) {
                                     activeOpacity={0.8}
                                 >
                                     <LinearGradient
-                                        colors={[COLORS.purple, COLORS.purpleDark]}
+                                        colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
                                         style={s.buttonGradient}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
@@ -212,11 +195,11 @@ export function LoginScreen({ navigation }: any) {
                                     }}
                                 >
                                     <Text style={s.linkText}>
-                                        Forgot password? <Text style={s.linkTextCyan}>Reset</Text>
+                                        Forgot password? <Text style={s.linkTextAccent}>Reset</Text>
                                     </Text>
                                 </TouchableOpacity>
 
-                                {/* Create Account Link - Cyan */}
+                                {/* Create Account Link */}
                                 <TouchableOpacity 
                                     style={[s.linkContainer, { marginTop: 20 }]}
                                     onPress={() => { 
@@ -225,7 +208,7 @@ export function LoginScreen({ navigation }: any) {
                                     }}
                                 >
                                     <Text style={s.linkText}>
-                                        Don't have an account? <Text style={s.linkTextCyan}>Create Account</Text>
+                                        Don't have an account? <Text style={s.linkTextAccent}>Create Account</Text>
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -247,7 +230,7 @@ export function LoginScreen({ navigation }: any) {
 const s = StyleSheet.create({
     root: { 
         flex: 1, 
-        backgroundColor: COLORS.bgPrimary 
+        backgroundColor: SURFACE.base 
     },
     container: { 
         flex: 1 
@@ -270,7 +253,7 @@ const s = StyleSheet.create({
         width: 300,
         height: 300,
         borderRadius: 150,
-        backgroundColor: 'rgba(123,92,240,0.15)',
+        backgroundColor: VOICES.rider.accent + '26',
         alignSelf: 'center',
     },
     logoContainer: {
@@ -292,22 +275,16 @@ const s = StyleSheet.create({
         overflow: 'hidden',
     },
     glassCard: {
-        backgroundColor: COLORS.glassBg,
+        backgroundColor: SURFACE.containerLow,
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
         padding: 28,
         gap: 20,
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
+        ...ghostBorder(0.15),
     },
 
     // Error
     errorText: {
-        color: COLORS.error,
+        color: '#FF4D4D',
         fontSize: 14,
         fontWeight: '600',
         textAlign: 'center',
@@ -319,7 +296,7 @@ const s = StyleSheet.create({
         gap: 8,
     },
     label: {
-        color: COLORS.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 12,
         fontWeight: '700',
         letterSpacing: 1.5,
@@ -329,20 +306,14 @@ const s = StyleSheet.create({
         height: 58,
         backgroundColor: 'rgba(255,255,255,0.04)',
         borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
         paddingHorizontal: 18,
         justifyContent: 'center',
     },
     inputContainerFocused: {
-        borderColor: COLORS.glassBorderFocus,
-        shadowColor: COLORS.cyan,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 8,
+        ...elevationGlow(),
     },
     input: {
-        color: COLORS.white,
+        color: '#FFF',
         fontSize: 16,
         fontWeight: '500',
     },
@@ -352,11 +323,7 @@ const s = StyleSheet.create({
         height: 58,
         borderRadius: 16,
         overflow: 'hidden',
-        shadowColor: COLORS.purple,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.6,
-        shadowRadius: 16,
-        elevation: 10,
+        ...elevationGlow(10),
         marginTop: 8,
     },
     buttonGradient: {
@@ -365,7 +332,7 @@ const s = StyleSheet.create({
         alignItems: 'center',
     },
     buttonText: {
-        color: COLORS.white,
+        color: '#FFF',
         fontSize: 17,
         fontWeight: '700',
         letterSpacing: 0.5,
@@ -377,12 +344,12 @@ const s = StyleSheet.create({
         marginTop: 4,
     },
     linkText: {
-        color: COLORS.textSecondary,
+        color: 'rgba(255,255,255,0.6)',
         fontSize: 14,
         fontWeight: '500',
     },
-    linkTextCyan: {
-        color: COLORS.cyan,
+    linkTextAccent: {
+        color: VOICES.rider.accent,
         fontWeight: '700',
     },
 
@@ -394,13 +361,13 @@ const s = StyleSheet.create({
         opacity: 0.3,
     },
     watermarkText: {
-        color: COLORS.white,
+        color: '#FFF',
         fontSize: 18,
         fontWeight: '900',
         letterSpacing: 4,
     },
     watermarkSubtext: {
-        color: COLORS.cyan,
+        color: VOICES.rider.accent,
         fontSize: 10,
         fontWeight: '800',
         letterSpacing: 6,

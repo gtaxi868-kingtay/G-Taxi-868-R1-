@@ -11,36 +11,17 @@ import Reanimated, {
     useSharedValue, withSpring, withTiming, withSequence,
     useAnimatedStyle, Easing,
 } from 'react-native-reanimated';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { useAuth } from '../context/AuthContext';
 import { acceptRide, declineRide } from '../services/api';
 import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
 import { Ride } from '@gtaxi/core';
 
-
-// Blueberry Luxe — Gold Edition (Driver)
-const COLORS = {
-    bgPrimary: '#0D0B1E',
-    bgSecondary: '#1A1508',
-    gradientStart: '#1A1200',
-    gradientEnd: '#0D0B1E',
-    purple: '#7B5CF0',
-    purpleDark: '#5B3FD0',
-    purpleLight: '#9B7CF0',
-    gold: '#FFD700',
-    goldDark: '#B8860B',
-    goldLight: '#FFEC8B',
-    amber: '#FFB000',
-    amberSoft: 'rgba(255,176,0,0.1)',
-    white: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.4)',
-    glassBg: 'rgba(255,215,0,0.06)',
-    glassBorder: 'rgba(255,176,0,0.3)',
-    success: '#00FF94',
-    warning: '#F59E0B',
-    error: '#EF4444',
-};
+const WARNING = '#F59E0B';
+const ERROR = '#EF4444';
+const SUCCESS = '#00FF94';
 
 const DEFAULT_DRIVER_SHARE = 0.78; // 22% commission (Standard)
 const ARC_SIZE = 180;
@@ -98,10 +79,11 @@ export function TripRequestScreen({ navigation, route }: any) {
         );
         pickupX.value = withSpring(0, { damping: 14, stiffness: 120 });
         pickupOp.value = withTiming(1, { duration: 300 });
-        setTimeout(() => {
+        const dropoffTimer = setTimeout(() => {
             dropoffX.value = withSpring(0, { damping: 14, stiffness: 120 });
             dropoffOp.value = withTiming(1, { duration: 300 });
         }, 120);
+        return () => clearTimeout(dropoffTimer);
     }, []);
 
     useEffect(() => {
@@ -183,24 +165,24 @@ export function TripRequestScreen({ navigation, route }: any) {
         ? (offer.driver_payout_cents / 100) 
         : (rideDetail?.total_fare_cents || offer?.fare_cents || 0) * DEFAULT_DRIVER_SHARE / 100;
     const distanceKm = offer?.distance_meters ? (offer.distance_meters / 1000).toFixed(1) : '?';
-    const arcColor = timeLeft > 5 ? COLORS.gold : timeLeft > 2 ? COLORS.warning : COLORS.error;
+    const arcColor = timeLeft > 5 ? VOICES.driver.accent : timeLeft > 2 ? WARNING : ERROR;
 
     const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetY.value }, { translateX: shakeX.value }] }));
     const fareStyle = useAnimatedStyle(() => ({ transform: [{ scale: fareScale.value }] }));
 
     return (
-        <View style={s.root}>
+        <View style={s.root} pointerEvents="box-none">
             {/* Deep Gradient Background */}
             <LinearGradient
-                colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-                style={StyleSheet.absoluteFillObject}
-            />
-            
-            {/* Glass Overlay */}
-            <BlurView tint="dark" intensity={20} style={StyleSheet.absoluteFillObject} />
+                colors={[SURFACE.containerLow, SURFACE.base]}
+                                style={StyleSheet.absoluteFillObject}
+                            />
+                            
+                            {/* Glass Overlay */}
+                            <BlurView tint="dark" intensity={60} style={[StyleSheet.absoluteFillObject, glassSurface(60, 0.2)]} />
             
             <Reanimated.View style={[s.sheet, { paddingBottom: insets.bottom + 20 }, sheetStyle]}>
-                <BlurView intensity={30} tint="dark" style={s.cardBlur}>
+                <BlurView intensity={60} tint="dark" style={[s.cardBlur, glassSurface(60, 0.2)]}>
                     <View style={s.cardInner}>
                         <View style={s.handle} />
                         
@@ -214,7 +196,7 @@ export function TripRequestScreen({ navigation, route }: any) {
                             <View style={s.badgeRow}>
                                 {isPreferred && (
                                     <View style={s.prefBadge}>
-                                        <Ionicons name="star" size={12} color={COLORS.gold} />
+                                        <Ionicons name="star" size={12} color={VOICES.driver.accent} />
                                         <Text style={s.prefBadgeText}>PREFERRED</Text>
                                     </View>
                                 )}
@@ -226,7 +208,7 @@ export function TripRequestScreen({ navigation, route }: any) {
                                 )}
                                 {identityVerified && (
                                     <View style={s.verifiedBadge}>
-                                        <Ionicons name="shield-checkmark" size={12} color={COLORS.success} />
+                                        <Ionicons name="shield-checkmark" size={12} color={SUCCESS} />
                                         <Text style={s.verifiedBadgeText}>VERIFIED</Text>
                                     </View>
                                 )}
@@ -236,7 +218,7 @@ export function TripRequestScreen({ navigation, route }: any) {
                         {/* Earnings Circle with Countdown */}
                         <View style={s.timerOuter}>
                             <LinearGradient
-                                colors={[COLORS.amberSoft, 'transparent']}
+                                colors={['rgba(0,229,255,0.05)', 'transparent']}
                                 style={[s.arc, { borderColor: arcColor }]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
@@ -251,7 +233,7 @@ export function TripRequestScreen({ navigation, route }: any) {
 
                         {/* Address Details */}
                         {detailLoading ? (
-                            <ActivityIndicator color={COLORS.gold} style={{ marginVertical: 40 }} />
+                            <ActivityIndicator color={VOICES.driver.accent} style={{ marginVertical: 40 }} />
                         ) : (
                             <View style={s.addressLayer}>
                                 <Reanimated.View style={[s.addrRow, useAnimatedStyle(() => ({ transform: [{ translateX: pickupX.value }], opacity: pickupOp.value }))]}>
@@ -275,15 +257,15 @@ export function TripRequestScreen({ navigation, route }: any) {
                         {/* Stats Grid */}
                         <View style={s.statsGrid}>
                             <View style={s.statPill}>
-                                <Ionicons name="navigate-outline" size={16} color={COLORS.gold} />
+                                <Ionicons name="navigate-outline" size={16} color={VOICES.driver.accent} />
                                 <Text style={s.statPillText}>{distanceKm} KM</Text>
                             </View>
                             <View style={s.statPill}>
-                                <Ionicons name="time-outline" size={16} color={COLORS.gold} />
+                                <Ionicons name="time-outline" size={16} color={VOICES.driver.accent} />
                                 <Text style={s.statPillText}>{offer?.duration_min || '?'} MIN</Text>
                             </View>
                             <View style={s.statPill}>
-                                <Ionicons name={paymentIcon(rideDetail?.payment_method || 'cash') as any} size={16} color={COLORS.gold} />
+                                <Ionicons name={paymentIcon(rideDetail?.payment_method || 'cash') as any} size={16} color={VOICES.driver.accent} />
                                 <Text style={s.statPillText}>{paymentLabel(rideDetail?.payment_method || 'cash')}</Text>
                             </View>
                         </View>
@@ -296,14 +278,14 @@ export function TripRequestScreen({ navigation, route }: any) {
                             
                             <TouchableOpacity style={s.acceptBtn} onPress={handleAccept} disabled={isHandling} activeOpacity={0.9}>
                                 <LinearGradient 
-                                    colors={[COLORS.gold, COLORS.goldDark]} 
+                                    colors={[VOICES.driver.accent, VOICES.driver.accentDark]} 
                                     style={s.acceptGradient}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                 >
-                                    {isHandling ? <ActivityIndicator color={COLORS.bgPrimary} /> : (
+                                    {isHandling ? <ActivityIndicator color={SURFACE.base} /> : (
                                         <>
-                                            <Ionicons name="flash" size={20} color={COLORS.bgPrimary} />
+                                            <Ionicons name="flash" size={20} color={SURFACE.base} />
                                             <Text style={s.acceptText}>ACCEPT TRIP</Text>
                                         </>
                                     )}
@@ -318,30 +300,26 @@ export function TripRequestScreen({ navigation, route }: any) {
 }
 
 const s = StyleSheet.create({
-    // Root & Layout
     root: { 
         flex: 1, 
-        backgroundColor: COLORS.bgPrimary,
+        backgroundColor: SURFACE.base,
         justifyContent: 'flex-end',
     },
     sheet: { 
         paddingHorizontal: 16,
     },
 
-    // Card with Blur
     cardBlur: {
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: COLORS.glassBorder,
+        ...ghostBorder(0.2),
     },
     cardInner: { 
         padding: 24, 
-        backgroundColor: 'rgba(22,11,50,0.5)',
+        backgroundColor: SURFACE.containerLow,
     },
 
-    // Handle
     handle: { 
         width: 44, 
         height: 5, 
@@ -351,7 +329,6 @@ const s = StyleSheet.create({
         marginBottom: 24,
     },
 
-    // Header
     headerRow: { 
         flexDirection: 'row', 
         justifyContent: 'space-between', 
@@ -374,14 +351,13 @@ const s = StyleSheet.create({
         paddingHorizontal: 12, 
         paddingVertical: 6, 
         borderRadius: 16, 
-        borderWidth: 1, 
-        borderColor: 'rgba(0,229,255,0.2)',
+        ...ghostBorder(0.2),
         gap: 6,
     },
     prefBadgeText: {
         fontSize: 11,
         fontWeight: '800',
-        color: COLORS.gold,
+        color: VOICES.driver.accent,
         letterSpacing: 0.5,
     },
     premiumBadge: {
@@ -391,8 +367,7 @@ const s = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(123,92,240,0.3)',
+        ...ghostBorder(0.3),
         gap: 6,
     },
     premiumBadgeText: {
@@ -408,25 +383,20 @@ const s = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(0,255,148,0.25)',
+        ...ghostBorder(0.25),
         gap: 6,
     },
     verifiedBadgeText: {
         fontSize: 10,
         fontWeight: '800',
-        color: COLORS.success,
+        color: SUCCESS,
         letterSpacing: 0.5,
     },
     
-    // Earnings Circle
     timerOuter: { 
         alignItems: 'center', 
         marginBottom: 32, 
-        shadowColor: COLORS.gold, 
-        shadowOffset: { width: 0, height: 0 },
-        shadowRadius: 20, 
-        shadowOpacity: 0.2,
+        ...elevationGlow(20),
     },
     arc: { 
         width: ARC_SIZE, 
@@ -444,14 +414,14 @@ const s = StyleSheet.create({
     earningsLabel: {
         fontSize: 11,
         fontWeight: '600',
-        color: COLORS.textMuted,
+        color: VOICES.driver.textMuted,
         letterSpacing: 1.5,
         marginBottom: 4,
     },
     earningsValue: {
         fontSize: 42,
         fontWeight: '800',
-        color: COLORS.gold,
+        color: VOICES.driver.accent,
         letterSpacing: -1,
         marginBottom: 4,
     },
@@ -461,14 +431,12 @@ const s = StyleSheet.create({
         letterSpacing: 1,
     },
     
-    // Address Layer
     addressLayer: { 
-        backgroundColor: COLORS.glassBg, 
+        backgroundColor: SURFACE.containerLow, 
         borderRadius: 20, 
         padding: 20, 
         marginBottom: 28, 
-        borderWidth: 1, 
-        borderColor: COLORS.glassBorder,
+        ...ghostBorder(0.2),
     },
     addrRow: { 
         flexDirection: 'row', 
@@ -477,36 +445,28 @@ const s = StyleSheet.create({
     addrLabel: {
         fontSize: 11,
         fontWeight: '600',
-        color: COLORS.textMuted,
+        color: VOICES.driver.textMuted,
         letterSpacing: 0.5,
         marginBottom: 2,
     },
     addrText: {
         fontSize: 15,
         fontWeight: '700',
-        color: COLORS.white,
+        color: '#FFFFFF',
     },
     dot: { 
         width: 12, 
         height: 12, 
         borderRadius: 6, 
-        backgroundColor: COLORS.gold, 
-        marginRight: 14, 
-        shadowColor: COLORS.gold, 
-        shadowOffset: { width: 0, height: 0 },
-        shadowRadius: 6, 
-        shadowOpacity: 0.5,
+        backgroundColor: VOICES.driver.accent, 
+        marginRight: 14,
     },
     square: { 
         width: 12, 
         height: 12, 
         borderRadius: 3, 
-        backgroundColor: COLORS.warning, 
-        marginRight: 14, 
-        shadowColor: COLORS.warning, 
-        shadowOffset: { width: 0, height: 0 },
-        shadowRadius: 6, 
-        shadowOpacity: 0.5,
+        backgroundColor: WARNING, 
+        marginRight: 14,
     },
     line: { 
         width: 2, 
@@ -516,7 +476,6 @@ const s = StyleSheet.create({
         marginVertical: 4,
     },
 
-    // Stats Grid
     statsGrid: { 
         flexDirection: 'row', 
         gap: 10, 
@@ -527,20 +486,18 @@ const s = StyleSheet.create({
         flexDirection: 'row', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        backgroundColor: COLORS.glassBg, 
+        backgroundColor: SURFACE.containerLow, 
         paddingVertical: 12, 
         borderRadius: 14, 
-        borderWidth: 1, 
-        borderColor: COLORS.glassBorder,
+        ...ghostBorder(0.2),
         gap: 6,
     },
     statPillText: {
         fontSize: 14,
         fontWeight: '700',
-        color: COLORS.white,
+        color: '#FFFFFF',
     },
 
-    // Action Buttons
     actionRow: { 
         flexDirection: 'row', 
         gap: 12,
@@ -551,14 +508,13 @@ const s = StyleSheet.create({
         alignItems: 'center', 
         justifyContent: 'center', 
         borderRadius: 16, 
-        borderWidth: 1, 
-        borderColor: 'rgba(239,68,68,0.3)', 
+        ...ghostBorder(0.3),
         backgroundColor: 'rgba(239,68,68,0.08)',
     },
     declineText: {
         fontSize: 15,
         fontWeight: '800',
-        color: COLORS.error,
+        color: ERROR,
         letterSpacing: 0.5,
     },
     acceptBtn: { 
@@ -566,11 +522,7 @@ const s = StyleSheet.create({
         height: 56, 
         borderRadius: 16, 
         overflow: 'hidden', 
-        shadowColor: COLORS.gold, 
-        shadowOffset: { width: 0, height: 4 },
-        shadowRadius: 12, 
-        shadowOpacity: 0.3, 
-        elevation: 6,
+        ...elevationGlow(6),
     },
     acceptGradient: { 
         flex: 1, 
@@ -582,7 +534,7 @@ const s = StyleSheet.create({
     acceptText: {
         fontSize: 15,
         fontWeight: '800',
-        color: COLORS.bgPrimary,
+        color: SURFACE.base,
         letterSpacing: 0.5,
     },
 });

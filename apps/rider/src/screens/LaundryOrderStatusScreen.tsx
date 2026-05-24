@@ -1,15 +1,19 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Animated,
+    ActivityIndicator,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
+import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+
+const CYAN = '#06B6D4';
 
 const STATUS_STEPS = ['pending', 'picked_up', 'processing', 'ready', 'delivered'];
 const STATUS_LABELS: Record<string, string> = {
@@ -34,23 +38,26 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
     const [pins, setPins] = useState<any>(null);
     const [intakeLog, setIntakeLog] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const pulseAnim = useRef(new Animated.Value(1)).current;
+    const pulseAnim = useSharedValue(1);
 
-    // Pulse animation for active step
     useEffect(() => {
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseAnim, { toValue: 1.1, duration: 900, useNativeDriver: true }),
-                Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-            ])
-        ).start();
+        pulseAnim.value = withRepeat(
+            withSequence(
+                withTiming(1.1, { duration: 900 }),
+                withTiming(1, { duration: 900 })
+            ),
+            -1,
+            true
+        );
     }, []);
 
-    // Fetch current order status
+    const pulseStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: pulseAnim.value }],
+    }));
+
     useEffect(() => {
         const fetchStatus = async () => {
             try {
-                // Fetch status and intake logs
                 const { data, error } = await supabase
                     .from('orders')
                     .select('status, merchant_intake_logs(*), order_handoff_pins(*)')
@@ -73,7 +80,6 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
 
         fetchStatus();
 
-        // Real-time subscription
         const channel = supabase
             .channel(`order_status_${orderId}`)
             .on('postgres_changes', {
@@ -104,19 +110,17 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                 <View style={{ width: 38 }} />
             </View>
 
-            {/* Order summary card */}
             <View style={s.summaryCard}>
-                <BlurView intensity={25} style={StyleSheet.absoluteFillObject} tint="dark" />
+                <View style={[StyleSheet.absoluteFillObject, glassSurface(25, 0.2)]} />
                 <Text style={s.summaryId}>#{orderId.slice(0, 8).toUpperCase()}</Text>
                 <Text style={s.summaryDetail}>
                     {service?.label}  ·  {weight} lbs  ·  ${((priceCents || 0) / 100).toFixed(2)} TTD
                 </Text>
             </View>
 
-            {/* Status steps */}
             {loading ? (
                 <View style={s.center}>
-                    <ActivityIndicator size="large" color="#00FFFF" />
+                    <ActivityIndicator size="large" color={CYAN} />
                 </View>
             ) : (
                 <View style={s.steps}>
@@ -125,23 +129,21 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                         const active = idx === currentStep;
                         return (
                             <View key={step} style={s.stepRow}>
-                                {/* Connector line */}
                                 {idx < STATUS_STEPS.length - 1 && (
                                     <View style={[s.connector, done && s.connectorDone]} />
                                 )}
-                                {/* Step icon */}
                                 <Animated.View
                                     style={[
                                         s.stepIconBox,
                                         done && s.stepDone,
                                         active && s.stepActive,
-                                        active && { transform: [{ scale: pulseAnim }] },
+                                        active && pulseStyle,
                                     ]}
                                 >
                                     <Ionicons
                                         name={STATUS_ICONS[step] as any}
                                         size={20}
-                                        color={active ? '#0A0A1F' : done ? '#10B981' : 'rgba(255,255,255,0.3)'}
+                                        color={active ? SURFACE.base : done ? '#10B981' : 'rgba(255,255,255,0.3)'}
                                     />
                                 </Animated.View>
                                 <View style={s.stepLabel}>
@@ -159,26 +161,26 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                 </View>
             )}
 
-            {/* --- NEW: PIN HUD (Truth Layer) --- */}
             {status === 'pending' && pins && (
                 <View style={s.pinSection}>
-                    <BlurView intensity={20} tint="dark" style={s.pinCard}>
+                    <View style={s.pinCard}>
+                        <View style={[StyleSheet.absoluteFillObject, glassSurface(20, 0.2)]} />
                         <Txt variant="caption" color="rgba(255,255,255,0.4)">PICKUP PIN</Txt>
-                        <Txt variant="headingL" color="#00FFFF" style={{ letterSpacing: 8 }}>{pins.pickup_pin}</Txt>
+                        <Txt variant="headingL" color={CYAN} style={{ letterSpacing: 8 }}>{pins.pickup_pin}</Txt>
                         <Txt variant="small" color="rgba(255,255,255,0.4)" style={{ textAlign: 'center', marginTop: 8 }}>
                             Give this 4-digit code to the driver upon arrival.
                         </Txt>
-                    </BlurView>
+                    </View>
                 </View>
             )}
 
-            {/* --- NEW: INTAKE APPROVAL MODAL --- */}
             {status === 'awaiting_approval' && intakeLog && (
                 <View style={StyleSheet.absoluteFillObject}>
-                    <BlurView intensity={100} tint="dark" style={s.approvalOverlay}>
+                    <View style={s.approvalOverlay}>
+                        <View style={[StyleSheet.absoluteFillObject, glassSurface(100, 0.2)]} />
                         <View style={s.approvalCard}>
-                            <LinearGradient colors={['rgba(124, 58, 237, 0.2)', 'rgba(0, 255, 255, 0.1)']} style={StyleSheet.absoluteFillObject} />
-                            <Ionicons name="shield-checkmark" size={44} color="#00FFFF" style={{ alignSelf: 'center', marginBottom: 16 }} />
+                            <LinearGradient colors={[`${VOICES.rider.accent}33`, `${CYAN}1A`]} style={StyleSheet.absoluteFillObject} />
+                            <Ionicons name="shield-checkmark" size={44} color={CYAN} style={{ alignSelf: 'center', marginBottom: 16 }} />
                             <Txt variant="headingM" color="#FFF" style={{ textAlign: 'center' }}>Verify Your Items</Txt>
                             <Txt variant="bodyReg" color="rgba(255,255,255,0.6)" style={{ textAlign: 'center', marginBottom: 24 }}>
                                 The merchant has received your order. Please confirm the inventory count to begin cleaning.
@@ -188,7 +190,7 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                                 {Object.entries(intakeLog.items).map(([key, val]: [string, any]) => (
                                     <View key={key} style={s.itemRow}>
                                         <Txt variant="bodyBold" color="#FFF">{key.toUpperCase()}</Txt>
-                                        <Txt variant="bodyBold" color="#00FFFF">{val} units</Txt>
+                                        <Txt variant="bodyBold" color={CYAN}>{val} units</Txt>
                                     </View>
                                 ))}
                             </View>
@@ -204,11 +206,11 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                                     await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
                                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                                 }}>
-                                    <Txt variant="bodyBold" color="#0A0A1F">APPROVE</Txt>
+                                    <Txt variant="bodyBold" color={SURFACE.base}>APPROVE</Txt>
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    </BlurView>
+                    </View>
                 </View>
             )}
 
@@ -219,7 +221,7 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                     activeOpacity={0.88}
                 >
                     <LinearGradient
-                        colors={['rgba(123,97,255,0.3)', 'rgba(0,255,255,0.1)']}
+                        colors={[`${VOICES.rider.accent}4D`, `${CYAN}1A`]}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                         style={s.ctaGradient}
                     >
@@ -245,10 +247,10 @@ const s = StyleSheet.create({
     headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
     summaryCard: {
         marginHorizontal: 20, borderRadius: 20, overflow: 'hidden',
-        padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+        padding: 18, ...ghostBorder(0.1),
         backgroundColor: 'rgba(255,255,255,0.04)', marginBottom: 28, alignItems: 'center',
     },
-    summaryId: { fontSize: 22, fontWeight: '900', color: '#00FFFF', letterSpacing: 2 },
+    summaryId: { fontSize: 22, fontWeight: '900', color: CYAN, letterSpacing: 2 },
     summaryDetail: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     steps: { paddingHorizontal: 40, gap: 0 },
@@ -262,28 +264,28 @@ const s = StyleSheet.create({
     stepIconBox: {
         width: 40, height: 40, borderRadius: 20,
         backgroundColor: 'rgba(255,255,255,0.07)',
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+        ...ghostBorder(),
         alignItems: 'center', justifyContent: 'center',
     },
     stepDone: { backgroundColor: 'rgba(74,222,128,0.15)', borderColor: '#10B981' },
-    stepActive: { backgroundColor: '#00FFFF', borderColor: '#00FFFF' },
+    stepActive: { backgroundColor: CYAN, borderColor: CYAN },
     stepLabel: { flex: 1 },
     stepText: { fontSize: 15, color: 'rgba(255,255,255,0.35)', fontWeight: '300' },
     stepTextDone: { color: '#10B981' },
     stepTextActive: { color: '#FFF', fontWeight: '700' },
     ctaContainer: { padding: 20, marginTop: 'auto' },
-    ctaButton: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(123,97,255,0.3)' },
+    ctaButton: { borderRadius: 20, overflow: 'hidden', ...ghostBorder(0.3) },
     ctaGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
     ctaText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
 
     pinSection: { paddingHorizontal: 40, marginTop: 40 },
-    pinCard: { padding: 24, borderRadius: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,255,255,0.2)', overflow: 'hidden' },
+    pinCard: { padding: 24, borderRadius: 24, alignItems: 'center', ...ghostBorder(0.2), overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.04)' },
 
     approvalOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', padding: 20 },
-    approvalCard: { borderRadius: 32, padding: 32, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,255,255,0.3)', backgroundColor: 'rgba(10, 10, 31, 0.8)' },
+    approvalCard: { borderRadius: 32, padding: 32, overflow: 'hidden', ...ghostBorder(0.3), backgroundColor: 'rgba(10, 10, 31, 0.8)' },
     itemList: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 20, marginBottom: 32 },
     itemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     btnRow: { flexDirection: 'row', gap: 12 },
-    rejectBtn: { flex: 1, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,77,77,0.1)', borderWidth: 1, borderColor: 'rgba(255,77,77,0.2)' },
-    approveBtn: { flex: 2, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#00FFFF' },
+    rejectBtn: { flex: 1, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,77,77,0.1)', ...ghostBorder(0.2) },
+    approveBtn: { flex: 2, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: CYAN },
 });

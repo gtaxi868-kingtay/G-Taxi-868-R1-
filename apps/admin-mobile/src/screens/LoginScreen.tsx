@@ -5,8 +5,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 export function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -33,14 +36,17 @@ export function LoginScreen() {
   };
 
   return (
-    <LinearGradient colors={['#0A0A0F', '#1A0A0A']} style={styles.container}>
+    <LinearGradient colors={[SURFACE.base, '#1A0A0A']} style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.inner}
       >
-        <View style={[styles.content, { paddingTop: insets.top + 60 }]}>
+        <Reanimated.View
+          entering={FadeIn.springify().mass(ANIMATION.spring.mass).stiffness(ANIMATION.spring.stiffness).damping(ANIMATION.spring.damping)}
+          style={[styles.content, { paddingTop: insets.top + 60 }]}
+        >
           <View style={styles.iconContainer}>
-            <Ionicons name="shield-checkmark" size={48} color="#DC2626" />
+            <Ionicons name="shield-checkmark" size={48} color={VOICES.admin.accent} />
           </View>
           <Text style={styles.title}>G-Taxi Command</Text>
           <Text style={styles.subtitle}>Admin Terminal</Text>
@@ -92,7 +98,7 @@ export function LoginScreen() {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </Reanimated.View>
 
         <Text style={styles.version}>v1.0.0 · Private APK</Text>
       </KeyboardAvoidingView>
@@ -106,10 +112,10 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: 24 },
   iconContainer: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(220,38,38,0.1)',
-    borderWidth: 1, borderColor: 'rgba(220,38,38,0.3)',
+    backgroundColor: VOICES.admin.accent + '1A',
     alignItems: 'center', justifyContent: 'center',
     alignSelf: 'center', marginBottom: 20,
+    ...ghostBorder(0.15),
   },
   title: { fontSize: 28, fontWeight: '800', color: '#F1F5F9', textAlign: 'center' },
   subtitle: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.35)', textAlign: 'center', marginBottom: 48, letterSpacing: 2, textTransform: 'uppercase' },
@@ -117,7 +123,7 @@ const styles = StyleSheet.create({
   inputGroup: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
     paddingHorizontal: 16, height: 52,
   },
   inputIcon: { marginRight: 12 },
@@ -126,12 +132,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: 'rgba(255,77,77,0.1)',
     borderRadius: 10, padding: 12,
-    borderWidth: 1, borderColor: 'rgba(255,77,77,0.2)',
+    ...ghostBorder(0.15),
   },
   errorText: { color: '#FF6B6B', fontSize: 13, flex: 1 },
   loginBtn: {
     height: 52, borderRadius: 14,
-    backgroundColor: '#DC2626',
+    backgroundColor: VOICES.admin.accent,
     alignItems: 'center', justifyContent: 'center',
     marginTop: 8,
   },

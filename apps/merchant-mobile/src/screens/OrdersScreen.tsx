@@ -1,27 +1,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { initializeSupabaseClient } from '@gtaxi/core';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
 const { supabase } = initializeSupabaseClient('native');
 
-const COLORS = {
-  bg: '#0A0A0F',
-  surface: 'rgba(255,255,255,0.06)',
-  gold: '#F59E0B',
-  goldDark: '#B45309',
-  text: '#FFFFFF',
-  textMuted: 'rgba(255,255,255,0.5)',
-  glassBorder: 'rgba(255,255,255,0.08)',
-  warning: '#F59E0B',
-  accent: '#06B6D4',
-  danger: '#EF4444',
-  indigo: '#818CF8',
-  success: '#10B981',
-};
+const ERROR = '#FF4D4D';
 
 interface Order {
   id: string;
@@ -30,30 +19,32 @@ interface Order {
   total: number;
 }
 
+type OrdersScreenNavigationProp = NativeStackNavigationProp<Record<string, undefined>>;
+
 const STATUS_META: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Pending', color: COLORS.warning },
-  confirmed: { label: 'Accepted', color: COLORS.accent },
-  preparing: { label: 'Preparing', color: COLORS.gold },
-  ready_for_pickup: { label: 'Ready for Pickup', color: COLORS.success },
-  handed_off: { label: 'Handed Off', color: COLORS.textMuted },
-  delivered: { label: 'Delivered', color: COLORS.textMuted },
-  cancelled: { label: 'Cancelled', color: COLORS.danger },
+  pending: { label: 'Pending', color: VOICES.merchant.accent },
+  confirmed: { label: 'Accepted', color: VOICES.merchant.accent },
+  preparing: { label: 'Preparing', color: VOICES.merchant.accent },
+  ready_for_pickup: { label: 'Ready for Pickup', color: '#10B981' },
+  handed_off: { label: 'Handed Off', color: 'rgba(255,255,255,0.6)' },
+  delivered: { label: 'Delivered', color: 'rgba(255,255,255,0.6)' },
+  cancelled: { label: 'Cancelled', color: ERROR },
 };
 
 const ACTION_BUTTONS: Record<string, { label: string; nextStatus: string; color: string }[]> = {
   pending: [
-    { label: 'Accept Order', nextStatus: 'confirmed', color: COLORS.gold },
-    { label: 'Reject', nextStatus: 'cancelled', color: COLORS.danger },
+    { label: 'Accept Order', nextStatus: 'confirmed', color: VOICES.merchant.accent },
+    { label: 'Reject', nextStatus: 'cancelled', color: ERROR },
   ],
   confirmed: [
-    { label: 'Start Prep', nextStatus: 'preparing', color: COLORS.gold },
+    { label: 'Start Prep', nextStatus: 'preparing', color: VOICES.merchant.accent },
   ],
   preparing: [
-    { label: 'Ready for Pickup', nextStatus: 'ready_for_pickup', color: COLORS.success },
+    { label: 'Ready for Pickup', nextStatus: 'ready_for_pickup', color: '#10B981' },
   ],
 };
 
-export function OrdersScreen({ navigation }: any) {
+export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigationProp }) {
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,8 +62,8 @@ export function OrdersScreen({ navigation }: any) {
         .order('created_at', { ascending: false });
 
       if (data) setOrders(data);
-    } catch (err) {
-      console.warn('Failed to load orders:', err);
+    } catch {
+      // silently fail
     } finally {
       setLoading(false);
     }
@@ -96,8 +87,9 @@ export function OrdersScreen({ navigation }: any) {
       }
 
       await loadOrders();
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Something went wrong.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Something went wrong.';
+      Alert.alert('Error', message);
     } finally {
       setActingOrders(prev => {
         const next = new Set(prev);
@@ -119,12 +111,12 @@ export function OrdersScreen({ navigation }: any) {
   };
 
   const renderOrder = ({ item }: { item: Order }) => {
-    const meta = STATUS_META[item.status] || { label: item.status, color: COLORS.textMuted };
+    const meta = STATUS_META[item.status] || { label: item.status, color: 'rgba(255,255,255,0.6)' };
     const actions = ACTION_BUTTONS[item.status] || [];
     const isActing = actingOrders.has(item.id);
 
     return (
-      <BlurView intensity={60} tint="dark" style={s.cardBlur}>
+      <View style={[s.cardBlur, glassSurface()]}>
         <View style={s.orderCard}>
           <View style={s.orderHeader}>
             <View style={[s.statusDot, { backgroundColor: meta.color }]} />
@@ -154,7 +146,7 @@ export function OrdersScreen({ navigation }: any) {
                   disabled={isActing}
                 >
                   {isActing ? (
-                    <ActivityIndicator size="small" color={action.nextStatus === 'cancelled' ? COLORS.danger : '#0A0A0F'} />
+                    <ActivityIndicator size="small" color={action.nextStatus === 'cancelled' ? ERROR : '#0A0A0F'} />
                   ) : (
                     <Text style={[s.actionBtnText, action.nextStatus === 'cancelled' && s.actionBtnTextOutline]}>
                       {action.label}
@@ -165,7 +157,7 @@ export function OrdersScreen({ navigation }: any) {
             </View>
           )}
         </View>
-      </BlurView>
+      </View>
     );
   };
 
@@ -174,19 +166,19 @@ export function OrdersScreen({ navigation }: any) {
       <LinearGradient colors={['#0A0A0F', '#1C1510']} style={StyleSheet.absoluteFillObject} />
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={s.title}>Orders</Text>
         <TouchableOpacity onPress={loadOrders}>
-          <Ionicons name="refresh" size={22} color={COLORS.gold} />
+          <Ionicons name="refresh" size={22} color={VOICES.merchant.accent} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color={COLORS.gold} style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color={VOICES.merchant.accent} style={{ marginTop: 40 }} />
       ) : orders.length === 0 ? (
         <View style={s.emptyState}>
-          <Ionicons name="receipt-outline" size={64} color={COLORS.textMuted} />
+          <Ionicons name="receipt-outline" size={64} color="rgba(255,255,255,0.6)" />
           <Text style={s.emptyText}>No orders yet</Text>
         </View>
       ) : (
@@ -204,23 +196,23 @@ export function OrdersScreen({ navigation }: any) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
+  container: { flex: 1, backgroundColor: SURFACE.base },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  title: { fontSize: 18, fontWeight: '700', color: COLORS.text, fontFamily: 'SpaceGrotesk' },
+  title: { fontSize: 18, fontWeight: '700', color: '#FFF', fontFamily: 'SpaceGrotesk' },
   list: { padding: 16 },
-  cardBlur: { borderRadius: 16, marginBottom: 12, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.glassBorder },
+  cardBlur: { borderRadius: 16, marginBottom: 12, overflow: 'hidden', ...ghostBorder(0.15) },
   orderCard: { padding: 16 },
   orderHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-  orderId: { fontSize: 14, fontWeight: '600', color: COLORS.text, flex: 1, fontFamily: 'Manrope' },
+  orderId: { fontSize: 14, fontWeight: '600', color: '#FFF', flex: 1, fontFamily: 'Manrope' },
   orderStatus: { fontSize: 12, fontWeight: '600', textTransform: 'capitalize', fontFamily: 'Manrope' },
-  orderTotal: { fontSize: 20, fontWeight: '800', color: COLORS.gold, fontFamily: 'SpaceGrotesk' },
-  orderDate: { fontSize: 12, color: COLORS.textMuted, marginTop: 4, fontFamily: 'Manrope' },
+  orderTotal: { fontSize: 20, fontWeight: '800', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
+  orderDate: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4, fontFamily: 'Manrope' },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 16, color: COLORS.textMuted, marginTop: 16, fontFamily: 'Manrope' },
+  emptyText: { fontSize: 16, color: 'rgba(255,255,255,0.6)', marginTop: 16, fontFamily: 'Manrope' },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
   actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center', minHeight: 40 },
-  actionBtnOutline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.danger },
+  actionBtnOutline: { backgroundColor: 'transparent', ...ghostBorder(), borderColor: ERROR },
   actionBtnText: { fontSize: 13, fontWeight: '700', color: '#0A0A0F', fontFamily: 'SpaceGrotesk' },
-  actionBtnTextOutline: { color: COLORS.danger },
+  actionBtnTextOutline: { color: ERROR },
 });
