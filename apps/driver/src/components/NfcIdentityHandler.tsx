@@ -7,9 +7,10 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '@gtaxi/core';
+import { supabase, OutboxService } from '@gtaxi/core';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
+const OUTBOX = OutboxService.getInstance();
 
 interface Props {
     visible: boolean;
@@ -23,30 +24,52 @@ export function NfcIdentityHandler({ visible, onClose, rideId, onSuccess }: Prop
     const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
     const [msg, setMsg] = useState('Hold keychain near back of phone');
 
-    const simulateNfcScan = async () => {
+    const scanNfcTag = async () => {
         setStatus('scanning');
         setMsg('Reading Universal Key...');
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            // In a real build, we'd use react-native-nfc-manager here.
-            // Simulating a successful scan of a tag UID: "GTAXI_868_9912"
-            const mockTagUid = "GTAXI_868_9912";
-            
-            const { data: tag, error } = await supabase
+            const mod = require('react-native-nfc-manager');
+            const NfcManager = mod.default || mod;
+            NfcManager.start();
+            await NfcManager.requestTechnology(NfcManager.Tech.NfcA);
+            const tag = await NfcManager.getTag();
+
+            if (!tag?.id) {
+                throw new Error('Could not read tag. Hold the keychain closer.');
+            }
+
+            const tagUid = tag.id;
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (session) {
+                await OUTBOX.enqueueProofEvent({
+                    eventType: 'TAP_EVENT',
+                    tagUid,
+                    userId: session.user.id,
+                    rideId,
+                    nonce: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+                    timestamp: new Date().toISOString(),
+                });
+            }
+
+            const { data: tagRecord, error } = await supabase
                 .from('identity_tags')
                 .select('*, profiles(*)')
-                .eq('tag_uid', mockTagUid)
+                .eq('tag_uid', tagUid)
                 .single();
 
-            if (error || !tag) throw new Error("Universal Key not recognized.");
+            NfcManager.cancelTechnologyRequest();
+
+            if (error || !tagRecord) throw new Error('Universal Key not recognized.');
 
             setStatus('success');
-            setMsg('Identity Verified: ' + tag.profiles.full_name);
+            setMsg('Identity Verified: ' + tagRecord.profiles.full_name);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
             setTimeout(() => {
-                onSuccess(tag.profiles);
+                onSuccess(tagRecord.profiles);
                 onClose();
                 setStatus('idle');
             }, 1500);
@@ -67,7 +90,7 @@ export function NfcIdentityHandler({ visible, onClose, rideId, onSuccess }: Prop
                         colors={['#161632', '#0A0A1F']}
                         style={StyleSheet.absoluteFillObject}
                     />
-                    
+
                     <View style={s.iconWrap}>
                         {status === 'idle' && <Ionicons name="radio-outline" size={48} color="#00FFFF" />}
                         {status === 'scanning' && <ActivityIndicator color="#00FFFF" size="large" />}
@@ -81,7 +104,7 @@ export function NfcIdentityHandler({ visible, onClose, rideId, onSuccess }: Prop
                     <Text style={s.sub}>{msg}</Text>
 
                     {status === 'idle' && (
-                        <TouchableOpacity style={s.btn} onPress={simulateNfcScan}>
+                        <TouchableOpacity style={s.btn} onPress={scanNfcTag}>
                             <Text style={s.btnText}>TAP KEYCHAIN</Text>
                         </TouchableOpacity>
                     )}

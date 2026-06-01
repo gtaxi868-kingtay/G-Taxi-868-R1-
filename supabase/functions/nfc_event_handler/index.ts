@@ -1,42 +1,56 @@
-// Supabase Edge Function: nfc_event_handler
-// The Intelligence behind the G-Taxi Unified Handshake.
-// Interprets Stationary Kiosk Taps & Personal Key Actions.
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { requireAuth } from '../_shared/auth.ts';
+import { checkRateLimit } from '../_shared/rateLimit.ts';
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { requireAuth } from "../_shared/auth.ts";
-
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { tag_uid, profile_id, lat, lng } = await req.json();
+    const { tag_uid, profile_id, lat, lng, nonce } = await req.json();
     const user = await requireAuth(req);
+
     if (profile_id && profile_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Profile does not match authenticated user" }), {
+      return new Response(JSON.stringify({ error: 'Profile does not match authenticated user' }), {
         status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
     if (!tag_uid) {
-      return new Response(JSON.stringify({ error: "tag_uid required" }), {
+      return new Response(JSON.stringify({ error: 'tag_uid required' }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // 1. Resolve the Kiosk Node
+    await checkRateLimit(supabase, user.id, 'nfc_event_handler');
+
+    if (nonce) {
+      const { data: existingEvent } = await supabase
+        .from('nfc_event_logs')
+        .select('id')
+        .eq('nonce', nonce)
+        .maybeSingle();
+
+      if (existingEvent) {
+        return new Response(JSON.stringify({ error: 'Duplicate event — nonce already used' }), {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const { data: kiosk } = await supabase
       .from('kiosk_nodes')
       .select('*, merchant:merchant_id(*)')
@@ -45,74 +59,117 @@ serve(async (req) => {
       .single();
 
     if (!kiosk) {
-       // If not a stationary kiosk, check if it's a personal tag for restore/ID logic
-       return new Response(JSON.stringify({ 
-         type: 'PERSONAL_TAG', 
-         message: "Personal Identity Tag detected. No Kiosk context found." 
-       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({
+          type: 'PERSONAL_TAG',
+          message: 'Personal Identity Tag detected. No Kiosk context found.',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
-    // 2. Fetch Nearby Logistics Partners (Simple choice: Grocery/Laundry)
+    const { data: activeRide } = await supabase
+      .from('rides')
+      .select('id, status')
+      .eq('rider_id', user.id)
+      .in('status', ['requested', 'searching', 'assigned', 'arrived', 'in_progress'])
+      .maybeSingle();
+
+    if (activeRide && !['searching', 'assigned'].includes(activeRide.status)) {
+      return new Response(
+        JSON.stringify({
+          error: 'Cannot use kiosk during an active ride.',
+          active_ride_id: activeRide.id,
+        }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    await supabase
+      .from('nfc_event_logs')
+      .insert({
+        tag_uid,
+        user_id: user.id,
+        kiosk_id: kiosk.id,
+        event_type: 'kiosk_tap',
+        nonce: nonce || null,
+        lat: lat || kiosk.lat,
+        lng: lng || kiosk.lng,
+      })
+      .maybeSingle();
+
+    const defaultService = (kiosk.default_services || ['transport'])[0];
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        merchant_id: kiosk.merchant_id,
+        puck_id: tag_uid,
+        task_type: defaultService,
+        status: 'pending',
+      })
+      .select('id, merchant_id, puck_id, task_type, status, created_at')
+      .single();
+
+    if (orderError) {
+      console.error('Failed to create order on kiosk tap:', orderError.message);
+    }
+
+    if (order) {
+      broadcastTask(kiosk.id, order);
+    }
+
     const { data: partners } = await supabase
       .from('merchants')
       .select('id, name, category')
       .in('category', ['grocery', 'laundry'])
       .limit(5);
 
-    // 3. Get personalized AI greeting via Gemini
-    const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
-    
-    const prompt = `
-      User: ${profile?.full_name || 'Guest'}
-      Location: ${kiosk.location_name} (a G-Taxi Kiosk at ${kiosk.merchant?.name || 'a major hub'})
-      Partners: ${partners?.map(p => `${p.name} (${p.category})`).join(', ') || 'None found'}
-      
-      TASK: Write a 10-word greeting that welcomes them to the hub and mentions that they can add grocery or laundry to their ride with "ONE TAP".
-      Example: "Welcome to Piarco! Add Grocery or Laundry to your ride in ONE TAP."
-    `;
+    const welcomeMessage = `Welcome to ${kiosk.location_name}. Add Grocery or Laundry to your ride in ONE TAP.`;
 
-    let welcomeMessage = `Welcome to ${kiosk.location_name}. Add Grocery or Laundry to your ride in ONE TAP.`;
-    if (GEMINI_API_KEY) {
-      try {
-        const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 60 }
-          })
-        });
-
-        if (geminiRes.ok) {
-          const geminiData = await geminiRes.json();
-          welcomeMessage = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || welcomeMessage;
-        } else {
-          console.warn("Gemini greeting failed:", geminiRes.status, await geminiRes.text());
-        }
-      } catch (geminiError) {
-        console.warn("Gemini greeting unavailable:", geminiError);
-      }
-    }
-
-    // 4. Return the Unified Handshake Payload
-    return new Response(JSON.stringify({
-      type: 'KIOSK_HANDSHAKE',
-      welcomeMessage,
-      kioskId: kiosk.id,
-      locationName: kiosk.location_name,
-      pickupCoords: { lat: kiosk.lat ?? lat, lng: kiosk.lng ?? lng },
-      availableServices: partners?.map(p => ({
-        id: p.id,
-        name: p.name,
-        category: p.category,
-        icon: p.category === 'grocery' ? 'cart' : 'shirt'
-      })) || []
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
+    return new Response(
+      JSON.stringify({
+        type: 'KIOSK_HANDSHAKE',
+        welcomeMessage,
+        kioskId: kiosk.id,
+        locationName: kiosk.location_name,
+        pickupCoords: { lat: kiosk.lat ?? lat, lng: kiosk.lng ?? lng },
+        availableServices: partners?.map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          icon: p.category === 'grocery' ? 'cart' : 'shirt',
+        })) || [],
+        order_id: order?.id || null,
+        task_type: defaultService,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
   } catch (err: any) {
     if (err instanceof Response) return err;
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 });
+
+function broadcastTask(kioskId: string, order: Record<string, unknown>): void {
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const channel = supabase.channel(`puck:${kioskId}`);
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel.send({
+          type: 'broadcast',
+          event: 'new_task',
+          payload: order,
+        });
+        supabase.removeChannel(channel);
+      }
+    });
+  } catch (e) {
+    console.error('Broadcast failed (non-fatal):', e);
+  }
+}

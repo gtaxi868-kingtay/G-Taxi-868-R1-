@@ -23,11 +23,11 @@ CREATE TABLE IF NOT EXISTS public.merchant_api_keys (
 -- RLS for API Keys
 ALTER TABLE public.merchant_api_keys ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Merchants can view their own API keys" 
-    ON public.merchant_api_keys FOR SELECT 
+DROP POLICY IF EXISTS "Merchants can view their own API keys" ON public.merchant_api_keys;
+CREATE POLICY "Merchants can view their own API keys" ON public.merchant_api_keys FOR SELECT 
     USING (auth.uid() = merchant_id);
 
 -- System Service Role has full access (for Edge Functions to verify Keys)
-CREATE POLICY "Service Role full access to keys" 
-    ON public.merchant_api_keys FOR ALL
+DROP POLICY IF EXISTS "Service Role full access to keys" ON public.merchant_api_keys;
+CREATE POLICY "Service Role full access to keys" ON public.merchant_api_keys FOR ALL
     USING (auth.jwt()->>'role' = 'service_role');

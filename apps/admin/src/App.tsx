@@ -12,8 +12,9 @@ import { LOGO_B64 } from './logoUrl';
 import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle } from 'lucide-react';
 
 // ── AdminSecurityGate ──────────────────────────────────────────────────────────
-// Blocks all rendering unless the user has a verified Supabase session with
-// a JWT containing role = 'admin'. Uses onAuthStateChange for real-time sync.
+// Blocks all rendering unless the user has a verified Supabase session AND
+// the profiles table confirms admin role (checked via edge function).
+// Uses onAuthStateChange for real-time sync.
 function AdminSecurityGate({ children }: { children: React.ReactNode }) {
     const [gateState, setGateState] = useState<'loading' | 'unauthorized' | 'authorized'>('loading');
     const [user, setUser] = useState<User | null>(null);
@@ -31,17 +32,18 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 
         setUser(session.user);
 
-        // Check JWT claims for admin role
-        const role = session.user.app_metadata?.role ||
-                     session.user.user_metadata?.role ||
-                     '';
-
-        if (role !== 'admin') {
+        // Server-side admin check via edge function
+        // The edge function calls requireAdmin() which queries the
+        // profiles table to confirm admin role. FastPath: admin_get_flags
+        // is the lightest admin-gated endpoint.
+        try {
+            await supabase.functions.invoke('admin_get_flags', {
+                headers: { Authorization: `Bearer ${session.access_token}` }
+            });
+            setGateState('authorized');
+        } catch {
             setGateState('unauthorized');
-            return;
         }
-
-        setGateState('authorized');
     }, []);
 
     useEffect(() => {

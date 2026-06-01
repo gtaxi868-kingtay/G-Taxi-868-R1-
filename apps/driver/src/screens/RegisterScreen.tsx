@@ -72,7 +72,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             base64: true,
         });
 
-        if (!result.canceled && result.assets[0].uri) {
+        if (!result.canceled && result.assets?.[0]?.uri) {
             setter(result.assets[0].uri);
         }
     };

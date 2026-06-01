@@ -1,31 +1,72 @@
-// supabase/functions/mirror_ride/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 serve(async (req: Request) => {
-  const url = new URL(req.url);
-  const rideId = url.searchParams.get("ride_id");
-
-  if (!rideId) {
-    return new Response("Ride ID required", { status: 400 });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { data: ride } = await supabase
-    .from("rides")
-    .select("*, drivers!inner(id, name, vehicle_model, plate_number, lat, lng)")
-    .eq("id", rideId)
-    .single();
+  try {
+    const user = await requireAuth(req);
+    const url = new URL(req.url);
+    const rideId = url.searchParams.get("ride_id");
 
-  if (!ride) {
-    return new Response("Ride not found", { status: 404 });
-  }
+    if (!rideId) {
+      return new Response(JSON.stringify({ error: "Ride ID required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-  const html = `
+    const supabaseAdmin = createClient(
+      SUPABASE_URL,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    await checkRateLimit(supabaseAdmin, user.id, "mirror_ride");
+
+    const { data: ride } = await supabaseAdmin
+      .from("rides")
+      .select("*, drivers!inner(id, name, vehicle_model, plate_number, lat, lng)")
+      .eq("id", rideId)
+      .single();
+
+    if (!ride) {
+      return new Response(JSON.stringify({ error: "Ride not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const isRider = ride.rider_id === user.id;
+    const isDriver = ride.drivers?.user_id === user.id;
+    const isAdmin = profile?.role === "admin";
+
+    if (!isRider && !isDriver && !isAdmin) {
+      return new Response(JSON.stringify({ error: "Not authorized to view this ride" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const authHeader = req.headers.get("Authorization");
+    const userJwt = authHeader?.replace("Bearer ", "") || "";
+
+    const html = `
     <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -66,9 +107,9 @@ serve(async (req: Request) => {
         </div>
 
         <script>
-            // Note: In local simulation withsupabase-js we'd need to properly feed credentials
-            // For production, the URL and ANON KEY are baked into the Deno environment
-            const supabaseClient = supabase.createClient('${SUPABASE_URL}', '${SUPABASE_ANON_KEY}');
+            const supabaseClient = supabase.createClient('${SUPABASE_URL}', '${SUPABASE_ANON_KEY}', {
+                global: { headers: { Authorization: 'Bearer ${userJwt}' } }
+            });
             mapboxgl.accessToken = '${MAPBOX_TOKEN}';
             
             const map = new mapboxgl.Map({
@@ -83,7 +124,6 @@ serve(async (req: Request) => {
                 .setLngLat([${ride.drivers?.lng ?? ride.pickup_lng}, ${ride.drivers?.lat ?? ride.pickup_lat}])
                 .addTo(map);
 
-            // Subscribe to real-time location updates for this ride
             const channel = supabaseClient
                 .channel('ride-mirror-${rideId}')
                 .on('postgres_changes', { 
@@ -117,9 +157,17 @@ serve(async (req: Request) => {
         </script>
     </body>
     </html>
-  `;
+    `;
 
-  return new Response(html, {
-    headers: { "Content-Type": "text/html" },
-  });
+    return new Response(html, {
+      headers: { "Content-Type": "text/html" },
+    });
+
+  } catch (err: any) {
+    if (err instanceof Response) return err;
+    return new Response(
+      JSON.stringify({ error: err.message || "Internal error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 });

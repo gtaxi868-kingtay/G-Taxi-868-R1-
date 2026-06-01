@@ -1,0 +1,100 @@
+export default {
+  expo: {
+    name: "GTaxi Driver",
+    slug: "gtaxi-driver",
+    version: "1.0.0",
+    orientation: "default",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "dark",
+    splash: {
+      image: "./assets/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#05050A",
+    },
+    assetBundlePatterns: ["**/*"],
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.gtaxi.driver",
+      config: {
+        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+      },
+      infoPlist: {
+        UIBackgroundModes: ["location", "fetch", "remote-notification"],
+        NSLocationWhenInUseUsageDescription:
+          "GTaxi Driver needs your location to receive ride offers and navigate to riders.",
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          "GTaxi Driver tracks your location in the background to send you nearby ride offers even when the app is minimized.",
+        NSLocationAlwaysUsageDescription:
+          "GTaxi Driver tracks your location in the background to send you nearby ride offers even when the app is minimized.",
+      },
+    },
+    android: {
+      supportsTablet: true,
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#05050A",
+      },
+      package: "com.gtaxi.driver",
+      permissions: [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+      ],
+      allowBackup: false,
+      config: {
+        googleMaps: {
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+        },
+      },
+    },
+    web: {},
+    plugins: [
+      [
+        "expo-build-properties",
+        {
+          android: {
+            compileSdkVersion: 35,
+            targetSdkVersion: 34,
+            kotlinVersion: "1.9.25",
+            enableProguardInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+          },
+        },
+      ],
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission:
+            "Allow GTaxi Driver to track your location in the background to receive local ride offers.",
+          locationAlwaysPermission:
+            "Allow GTaxi Driver to track your location in the background to receive local ride offers.",
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
+        },
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          organization: "g-taxi",
+          project: "driver",
+        },
+      ],
+    ],
+    owner: "gtaxi",
+    extra: {
+      EXPO_USE_METRO_WORKSPACE_ROOT: "1",
+      eas: {
+        projectId: "33335543-47a2-4dc4-96ff-baffe6fc5132",
+      },
+    },
+  },
+}

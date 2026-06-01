@@ -18,7 +18,14 @@ export type AppStackParamList = {
   Wallet: undefined;
   ScheduledRides: undefined;
   Profile: undefined;
-  Chat: undefined;
+  Chat: {
+    rideId?: string;
+    rider?: {
+      id: string;
+      name: string;
+      phone?: string;
+    };
+  };
   StrategySettings: undefined;
   Legal: undefined;
   ReportIssue: undefined;

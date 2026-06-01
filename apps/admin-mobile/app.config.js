@@ -1,0 +1,59 @@
+export default {
+  expo: {
+    name: "G-Taxi Admin",
+    slug: "gtaxi-admin",
+    version: "1.0.0",
+    orientation: "default",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "dark",
+    splash: {
+      image: "./assets/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#0F172A",
+    },
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.gtaxi.admin",
+      infoPlist: {
+        NFCReaderUsageDescription:
+          "G-Taxi Admin uses NFC to scan and provision physical pucks at merchant locations and taxi stands.",
+      },
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#0F172A",
+      },
+      package: "com.gtaxi.admin",
+      permissions: ["android.permission.NFC", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+    },
+    plugins: [
+      [
+        "expo-build-properties",
+        {
+          android: {
+            compileSdkVersion: 35,
+            targetSdkVersion: 34,
+            kotlinVersion: "1.9.25",
+            enableProguardInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+          },
+        },
+      ],
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission:
+            "Allow G-Taxi Admin to capture GPS coordinates when registering public taxi stands.",
+        },
+      ],
+    ],
+    owner: "gtaxi",
+    extra: {
+      EXPO_USE_METRO_WORKSPACE_ROOT: "1",
+      eas: {
+        projectId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      },
+    },
+  },
+}

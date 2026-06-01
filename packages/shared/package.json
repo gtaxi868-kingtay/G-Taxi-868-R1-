@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
-    "@gtaxi/core": "*"
+    "@gtaxi/core": "*",
+    "@supabase/supabase-js": "2.48.1"
   }
 }

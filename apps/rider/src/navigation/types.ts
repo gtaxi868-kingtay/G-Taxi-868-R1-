@@ -23,6 +23,7 @@ export type RideConfirmationParams = {
   kioskId?: string;
   taxiStandId?: string;
   editPickupMode?: boolean;
+  stop?: { name: string; latitude: number; longitude: number };
 };
 
 export type ActiveRideParams = {
@@ -107,7 +108,21 @@ export type AppStackParamList = {
     editPickupMode?: boolean;
   };
   RideConfirmation: RideConfirmationParams;
-  SearchingDriver: undefined;
+  RideReview: {
+    stops: Array<{ type: 'pickup' | 'stop' | 'dropoff'; address: string; lat: number; lng: number }>;
+    service_type: string;
+    estimated_fare_cents: number;
+    total_duration_seconds: number;
+    total_distance_meters: number;
+    validation_required: boolean;
+    raw_query: string;
+  };
+  SearchingDriver: {
+    rideId: string;
+    destination?: { latitude: number; longitude: number; address: string };
+    fare?: { total_fare_cents: number };
+    pickup?: { latitude: number; longitude: number; address: string };
+  };
   ActiveRide: ActiveRideParams;
   Rating: RatingParams;
   Trips: undefined;
@@ -147,7 +162,9 @@ export type AppStackParamList = {
   LaundryEstimator: undefined;
   LaundryOrderStatus: LaundryOrderStatusParams;
   DriverFound: DriverFoundParams;
-  NfcHandshake: undefined;
+  NfcHandshake: {
+    tagUid?: string;
+  };
   NfcScan: NfcScanParams;
   TagMarker: TagMarkerParams;
   ServiceBooking: {

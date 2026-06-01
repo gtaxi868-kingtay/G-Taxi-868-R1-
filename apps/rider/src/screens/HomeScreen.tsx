@@ -23,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
+import { AIAssistantWidget } from '../components/home/AIAssistantWidget';
 import { ANIMATION, SURFACE, VOICES, GlassCard, Skeleton } from '@gtaxi/design-system';
 import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
@@ -62,6 +63,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [showRecentModal, setShowRecentModal] = useState(false);
     const [aiGreeting, setAiGreeting] = useState<string | null>(null);
     const [isAiThinking, setIsAiThinking] = useState(false);
+    const [aiLoading, setAiLoading] = useState(false);
     const [proactiveAction, setProactiveAction] = useState<string | null>(null);
     const [proactiveData, setProactiveData] = useState<{type?: string, merchant_id?: string, merchant_name?: string, text?: string} | null>(null);
     const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
@@ -79,6 +81,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
     const [isEstimatingFare, setIsEstimatingFare] = useState(false);
+    const [stopSuggestions, setStopSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
     const panelY = useSharedValue(120);
     const mapPitch = useSharedValue(45);
@@ -349,20 +352,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             }
         }
 
-        navigation.navigate('DestinationSearch', {
-            currentLocation: {
-                latitude: tagLat || currentLat,
-                longitude: tagLng || currentLng,
-                address: tagAddress,
-            },
-            source: 'nfc_kiosk',
-            sourceMetadata: {
-                kioskId: nfcTagId,
-                locationName: tagAddress,
-                lat: tagLat,
-                lng: tagLng,
-            },
-        });
+        navigation.navigate('NfcHandshake', { tagUid: nfcTagId });
     }, [route?.params?.nfcTagId]);
 
     const fetchPlaces = async () => {
@@ -450,7 +440,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 base64: true,
             });
 
-            if (result.canceled || !result.assets[0].base64) return;
+            if (result.canceled || !result.assets?.[0]?.base64) return;
 
             setVisionLoading(true);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -509,6 +499,13 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             } else {
                 setEstimatedFare(null);
             }
+
+            const { data: stops } = await supabase.functions.invoke('suggest_stops', {
+                body: { pickup: { lat: currentLat, lng: currentLng }, dropoff: { lat: destLat, lng: destLng } }
+            });
+            if (stops?.stops?.length) {
+                setStopSuggestions(stops.stops);
+            }
         } catch (err) {
             console.warn('Fare estimate failed:', err);
             setEstimatedFare(null);
@@ -520,6 +517,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const clearFarePreview = () => {
         setSelectedDestinationPreview(null);
         setEstimatedFare(null);
+        setStopSuggestions([]);
     };
 
     const handleQuickAction = async (label: string) => {
@@ -666,7 +664,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 }}
             />
 
-            {(aiGreeting || isAiThinking || visionLoading) && (
+            {(isAiThinking || visionLoading) && (
                 <Reanimated.View 
                     entering={FadeIn}
                     exiting={FadeOut}
@@ -674,30 +672,15 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 >
                     <GlassCard style={s.aiBlur}>
                         <View style={s.aiAvatar}>
-                            <LinearGradient colors={['#00FFFF', '#7F00FF']} style={StyleSheet.absoluteFillObject} />
-                            <Ionicons name={visionLoading ? "scan" : "sparkles"} size={16} color="#FFF" />
+                            <Ionicons name={visionLoading ? "scan" : "sparkles"} size={16} color={VOICES.rider.accent} />
                         </View>
                         <View style={{ flex: 1, marginLeft: 12 }}>
                             {visionLoading ? (
                                 <Text style={s.aiCyan}>Analyzing your sight...</Text>
-                            ) : isAiThinking ? (
-                                <Text style={s.aiThinking}>AI is thinking...</Text>
                             ) : (
-                                <Text style={s.aiMessage}>{aiGreeting}</Text>
+                                <Text style={s.aiThinking}>AI is thinking...</Text>
                             )}
                         </View>
-                        {!visionLoading && (
-                            <TouchableOpacity 
-                                style={s.voiceBtn} 
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                    setVoiceInputText('');
-                                    setVoiceModalVisible(true);
-                                }}
-                            >
-                                <Ionicons name="mic" size={20} color="#00FFFF" />
-                            </TouchableOpacity>
-                        )}
                     </GlassCard>
                 </Reanimated.View>
             )}
@@ -708,10 +691,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 activeOpacity={0.7}
             >
                 <View style={s.visionGlass}>
-                    <LinearGradient 
-                        colors={['rgba(0, 255, 255, 0.2)', 'rgba(127, 0, 255, 0.2)']} 
-                        style={StyleSheet.absoluteFillObject}
-                    />
                     <Ionicons name="scan-outline" size={28} color={VOICES.rider.accent} />
                     <Text style={s.visionText}>VISION</Text>
                 </View>
@@ -721,12 +700,54 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 <GlassCard style={{ borderRadius: 24, ...elevationGlow(8) }}>
                     <View style={s.cardInner}>
                         
-                        <View style={s.aiGreetingContainer}>
-                            <Text style={s.aiGreetingText}>
-                                {aiGreeting?.split(',')[0] || 'Good day'},
-                            </Text>
-                            <Text style={s.aiSubGreeting}>Where to?</Text>
-                        </View>
+                        <AIAssistantWidget
+                            greeting={aiGreeting ?? undefined}
+                            isLoading={aiLoading}
+                            onSubmitText={async (query: string) => {
+                                setAiLoading(true);
+                                try {
+                                    const { data, error } = await supabase.functions.invoke('parse_natural_language', {
+                                        body: { query, current_lat: currentLat, current_lng: currentLng }
+                                    });
+                                    if (error) throw new Error(error);
+                                    if (data?.stops?.length >= 2) {
+                                        setAiLoading(false);
+                                        navigation.navigate('RideReview', {
+                                            stops: data.stops,
+                                            service_type: data.service_type,
+                                            estimated_fare_cents: data.estimated_fare_cents,
+                                            total_duration_seconds: data.total_duration_seconds || 0,
+                                            total_distance_meters: data.total_distance_meters || 0,
+                                            validation_required: data.validation_required,
+                                            raw_query: query,
+                                        });
+                                    } else {
+                                        Alert.alert('Could not understand', 'Please rephrase your request with a pickup and dropoff location.');
+                                        setAiLoading(false);
+                                    }
+                                } catch (err: any) {
+                                    Alert.alert('Error', err.message || 'Failed to parse request. Please try again.');
+                                    setAiLoading(false);
+                                }
+                            }}
+                            onSearchPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                const accuracy = location?.coords?.accuracy;
+                                if (accuracy && accuracy > 50) {
+                                    setLocationAccuracy(accuracy);
+                                    setShowLocationConfirm(true);
+                                } else {
+                                    navigation.navigate('DestinationSearch', {
+                                        currentLocation: { latitude: currentLat, longitude: currentLng }
+                                    });
+                                }
+                            }}
+                            onMicPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                setVoiceInputText('');
+                                setVoiceModalVisible(true);
+                            }}
+                        />
 
                         {proactiveAction && (
                             <Reanimated.View entering={FadeIn} style={s.proactiveHud}>
@@ -746,29 +767,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                 </LinearGradient>
                             </Reanimated.View>
                         )}
-
-                        <TouchableOpacity
-                            style={s.searchBarContainer}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-                                const accuracy = location?.coords?.accuracy;
-                                if (accuracy && accuracy > 50) {
-                                    setLocationAccuracy(accuracy);
-                                    setShowLocationConfirm(true);
-                                } else {
-                                    navigation.navigate('DestinationSearch', {
-                                        currentLocation: { latitude: currentLat, longitude: currentLng }
-                                    });
-                                }
-                            }}
-                        >
-                            <View style={s.searchBarInner}>
-                                <Ionicons name="search" size={20} color={VOICES.rider.accent} style={s.searchIcon} />
-                                <Text style={s.searchPlaceholder}>Where are you going?</Text>
-                                <Ionicons name="chevron-forward" size={20} color={VOICES.rider.accent} style={s.searchChevron} />
-                            </View>
-                        </TouchableOpacity>
 
                         {isVerticalsLoading ? (
                             <View style={s.skeletonContainer}>
@@ -804,16 +802,13 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                 </TouchableOpacity>
 
                                 <View style={s.serviceGrid}>
+                                    {featureFlags.grocery && (
                                     <TouchableOpacity
                                         activeOpacity={0.85}
                                         style={s.gridCard}
                                         onPress={() => {
-                                            if (featureFlags.grocery) {
-                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                                navigation.navigate('GroceryStorefront');
-                                            } else {
-                                                Alert.alert('Coming Soon', 'Market is being built. Stay tuned!');
-                                            }
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('GroceryStorefront');
                                         }}
                                     >
                                         <LinearGradient
@@ -828,17 +823,15 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             <Text style={s.gridCardSub}>Groceries delivered</Text>
                                         </LinearGradient>
                                     </TouchableOpacity>
+                                    )}
 
+                                    {featureFlags.laundry && (
                                     <TouchableOpacity
                                         activeOpacity={0.85}
                                         style={s.gridCard}
                                         onPress={() => {
-                                            if (featureFlags.laundry) {
-                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                                navigation.navigate('LaundryLanding');
-                                            } else {
-                                                Alert.alert('Coming Soon', 'Laundry is being built. Stay tuned!');
-                                            }
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('LaundryLanding');
                                         }}
                                     >
                                         <LinearGradient
@@ -853,24 +846,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             <Text style={s.gridCardSub}>Fresh & folded</Text>
                                         </LinearGradient>
                                     </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        activeOpacity={0.85}
-                                        style={s.gridCard}
-                                        onPress={() => Alert.alert('Coming Soon', 'Pharma is being built. Stay tuned!')}
-                                    >
-                                        <LinearGradient
-                                            colors={['rgba(220,38,38,0.15)', 'rgba(0,0,0,0.3)']}
-                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={[s.gridCardGradient, { borderColor: '#DC2626', borderWidth: 1 }]}
-                                        >
-                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(220,38,38,0.2)' }]}>
-                                                <Ionicons name="medkit-sharp" size={28} color="#DC2626" />
-                                            </View>
-                                            <Text style={s.gridCardTitle}>Pharma</Text>
-                                            <Text style={s.gridCardSub}>Medicine fast</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
+                                    )}
 
                                     {featureFlags.kiosk ? (
                                         <TouchableOpacity
@@ -935,6 +911,25 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                         )}
                         </View>
                     </View>
+                    {stopSuggestions.length > 0 && selectedDestinationPreview && (
+                        <View style={s.stopSuggestionsStrip}>
+                            <Text style={s.stopSuggestionsTitle}>Suggested stops</Text>
+                            <View style={s.stopSuggestionRow}>
+                                {stopSuggestions.map((stop, i) => (
+                                    <TouchableOpacity key={i} style={s.stopSuggestionChip} onPress={() => {
+                                        navigation.navigate('RideConfirmation', {
+                                            destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
+                                            pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
+                                            stop: { name: stop.name, latitude: stop.lat, longitude: stop.lng }
+                                        });
+                                        clearFarePreview();
+                                    }}>
+                                        <Text style={s.stopSuggestionLabel}>{stop.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    )}
                 </Reanimated.View>
                         )}
 
@@ -1345,47 +1340,6 @@ const s = StyleSheet.create({
     },
     cardInner: { padding: 20 },
 
-    aiGreetingContainer: {
-        marginBottom: 20,
-    },
-    aiGreetingText: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#FFF',
-        letterSpacing: -0.5,
-    },
-    aiSubGreeting: {
-        fontSize: 15,
-        fontWeight: '500',
-        color: 'rgba(255,255,255,0.6)',
-        marginTop: 4,
-    },
-
-    searchBarContainer: {
-        marginBottom: 20,
-    },
-    searchBarInner: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        height: 58, 
-        borderRadius: 16, 
-        paddingHorizontal: 18,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        ...ghostBorder(0.1),
-    },
-    searchIcon: {
-        marginRight: 12,
-    },
-    searchPlaceholder: { 
-        flex: 1, 
-        fontSize: 16, 
-        fontWeight: '500', 
-        color: VOICES.rider.accent,
-    },
-    searchChevron: {
-        marginLeft: 8,
-    },
-
     skeletonContainer: {
         marginBottom: 20,
     },
@@ -1537,6 +1491,34 @@ const s = StyleSheet.create({
         marginLeft: 6,
     },
     fareCloseBtn: { padding: 4 },
+    stopSuggestionsStrip: {
+        paddingHorizontal: 14,
+        paddingBottom: 14,
+    },
+    stopSuggestionsTitle: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.5)',
+        marginBottom: 8,
+        fontWeight: '600',
+    },
+    stopSuggestionRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    stopSuggestionChip: {
+        backgroundColor: 'rgba(0, 255, 255, 0.12)',
+        borderRadius: 20,
+        paddingVertical: 6,
+        paddingHorizontal: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(0, 255, 255, 0.2)',
+    },
+    stopSuggestionLabel: {
+        color: '#FFF',
+        fontSize: 13,
+        fontWeight: '600',
+    },
 
     pills: { 
         flexDirection: 'row', 
@@ -1594,28 +1576,11 @@ const s = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: 'rgba(0, 255, 255, 0.15)',
     },
-    aiMessage: {
-        flex: 1,
-        marginLeft: 12,
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#FFF',
-    },
     aiThinking: {
         color: 'rgba(255,255,255,0.6)',
     },
     aiCyan: {
         color: VOICES.rider.accent,
-    },
-    voiceBtn: { 
-        width: 40, 
-        height: 40, 
-        borderRadius: 20, 
-        backgroundColor: 'rgba(0,255,255,0.1)', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        ...ghostBorder(0.3),
-        marginLeft: 8,
     },
 
     proactiveHud: { 

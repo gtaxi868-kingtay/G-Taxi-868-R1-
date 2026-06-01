@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>G</string>
+	<string>com.gtaxi.driver</string>
 	<key>PROJECT_ID</key>
 	<string>g-taxi-868-46007</string>
 	<key>STORAGE_BUCKET</key>

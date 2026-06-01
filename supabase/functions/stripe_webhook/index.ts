@@ -128,6 +128,12 @@ Deno.serve(async (req: Request) => {
 
             if (walletError) {
                 console.error('stripe_webhook: wallet credit failed:', walletError);
+                // Rollback Step A so idempotency check doesn't swallow retry
+                await supabaseAdmin
+                    .from('payment_ledger')
+                    .delete()
+                    .eq('stripe_event_id', event.id)
+                    .catch((e: unknown) => console.error('rollback failed:', e));
                 return new Response('Wallet credit failed', { status: 500 });
             }
 
@@ -246,16 +252,44 @@ Deno.serve(async (req: Request) => {
                 stripe_event_id: event.id,
                 errors: errors.join(', '),
             });
-            // Return 500 so Stripe retries the webhook event.
-            // Idempotency (stripe_event_id UNIQUE on payment_ledger) ensures
-            // that Step A (already committed) blocks duplicate inserts on retry.
-            // The retry will hit "already_processed" early return if Step A
-            // was the only successful step.
+
+            // ROLLBACK Step A: Delete the payment_ledger row so the idempotency
+            // check on retry does NOT return 200 "already_processed".
+            // Without this, Stripe retries would see the stripe_event_id exists,
+            // early-return 200, and never execute Steps B-F.
+            await supabaseAdmin
+                .from("payment_ledger")
+                .delete()
+                .eq("stripe_event_id", event.id)
+                .catch((rollbackErr: unknown) =>
+                    console.error("stripe_webhook: Step A rollback failed (alert required):", rollbackErr)
+                );
+
+            // Write to system_alerts for human review
+            await supabaseAdmin
+                .from("system_alerts")
+                .insert({
+                    type: "PAYMENT_ANOMALY",
+                    severity: "CRITICAL",
+                    title: `Partial settlement failure on ride ${rideId}`,
+                    details: {
+                        stripe_event_id: event.id,
+                        ride_id: rideId,
+                        amount_cents: totalCents,
+                        errors: errors,
+                        committed_steps: 6 - errors.length,
+                    },
+                })
+                .catch((alertErr: unknown) =>
+                    console.error("stripe_webhook: system_alert insert failed:", alertErr)
+                );
+
             return new Response(
                 JSON.stringify({
                     received: false,
                     error: `Partial settlement failure: ${errors.join('; ')}`,
                     committed_steps: 6 - errors.length,
+                    rollback: "Step A deleted for clean retry",
                 }),
                 { status: 500, headers: { "Content-Type": "application/json" } }
             );

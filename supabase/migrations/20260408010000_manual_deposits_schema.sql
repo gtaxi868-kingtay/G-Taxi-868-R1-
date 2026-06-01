@@ -21,14 +21,17 @@ CREATE TABLE IF NOT EXISTS public.manual_deposits (
 ALTER TABLE public.manual_deposits ENABLE ROW LEVEL SECURITY;
 
 -- Drivers can only see their own deposits.
+DROP POLICY IF EXISTS "Users view own deposits" ON public.manual_deposits;
 CREATE POLICY "Users view own deposits" ON public.manual_deposits
     FOR SELECT USING (auth.uid() = user_id);
 
 -- Drivers can insert their own deposits.
+DROP POLICY IF EXISTS "Users insert own deposits" ON public.manual_deposits;
 CREATE POLICY "Users insert own deposits" ON public.manual_deposits
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Admins can do everything (assumes 'admin' role logic already exists in profiles)
+DROP POLICY IF EXISTS "Admins full access to deposits" ON public.manual_deposits;
 CREATE POLICY "Admins full access to deposits" ON public.manual_deposits
     FOR ALL USING (
         EXISTS (
@@ -45,12 +48,12 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Storage Policies
 -- Allow authenticated users to upload to the receipts bucket
-CREATE POLICY "Public Access"
-ON storage.objects FOR SELECT
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT
 USING ( bucket_id = 'receipts' );
 
-CREATE POLICY "Authenticated Upload"
-ON storage.objects FOR INSERT
+DROP POLICY IF EXISTS "Authenticated Upload" ON storage.objects;
+CREATE POLICY "Authenticated Upload" ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK ( bucket_id = 'receipts' );
 
@@ -80,6 +83,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_deposit_approved ON public.manual_deposits;
 CREATE TRIGGER on_deposit_approved
     AFTER UPDATE ON public.manual_deposits
     FOR EACH ROW

@@ -1,9 +1,13 @@
 -- Enable Realtime for ride_events to support persistent AI Insights
-ALTER PUBLICATION supabase_realtime ADD TABLE ride_events;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE ride_events;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Ensure RLS allows authenticated users to see events for their rides
 ALTER TABLE public.ride_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users see events for their rides" ON public.ride_events;
 CREATE POLICY "Users see events for their rides" ON public.ride_events
 FOR SELECT TO authenticated
 USING (

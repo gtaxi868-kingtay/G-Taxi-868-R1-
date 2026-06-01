@@ -12,14 +12,21 @@ CREATE TABLE IF NOT EXISTS public.blacklists (
 );
 
 -- 2. Indexes for fast lookup
-CREATE INDEX idx_blacklists_user ON public.blacklists(user_id);
-CREATE INDEX idx_blacklists_blocked ON public.blacklists(blocked_user_id);
+CREATE INDEX IF NOT EXISTS idx_blacklists_user ON public.blacklists(user_id);
+CREATE INDEX IF NOT EXISTS idx_blacklists_blocked ON public.blacklists(blocked_user_id);
 
 -- 3. RLS Policies
 ALTER TABLE public.blacklists ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own blacklist" ON public.blacklists 
-    FOR ALL USING (user_id = auth.uid());
 
-CREATE POLICY "Service role full access blacklists" ON public.blacklists 
-    FOR ALL TO service_role USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  CREATE POLICY "Users can manage own blacklist" ON public.blacklists 
+      FOR ALL USING (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "Service role full access blacklists" ON public.blacklists 
+      FOR ALL TO service_role USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

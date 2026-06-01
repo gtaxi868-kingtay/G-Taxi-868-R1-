@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { useTaskListener } from '../hooks/useTaskListener';
 
 const { supabase } = initializeSupabaseClient('native');
 
@@ -49,21 +50,52 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingOrders, setActingOrders] = useState<Set<string>>(new Set());
+  const [puckId, setPuckId] = useState<string | null>(null);
+
+  useTaskListener(puckId, () => { loadOrders(); });
+
+  const resolvePuckId = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('created_by', session.user.id)
+      .maybeSingle();
+    if (!merchant) return;
+
+    const { data: nodes } = await supabase
+      .from('kiosk_nodes')
+      .select('tag_uid')
+      .eq('merchant_id', merchant.id)
+      .eq('is_active', true);
+    if (nodes && nodes.length > 0) {
+      setPuckId(nodes[0].tag_uid);
+    }
+  }, []);
 
   const loadOrders = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('merchant_orders')
         .select('id, status, created_at, total')
         .eq('merchant_id', session.user.id)
         .order('created_at', { ascending: false });
 
+      if (error) {
+        console.warn('Failed to load orders:', error.message);
+        Alert.alert('Connection Issue', 'Could not load your orders. Please try again.');
+        return;
+      }
+
       if (data) setOrders(data);
-    } catch {
-      // silently fail
+    } catch (err: any) {
+      console.error('Failed to load orders:', err?.message || err);
+      Alert.alert('Connection Issue', 'Could not load your orders. Please check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -71,7 +103,8 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
 
   useEffect(() => {
     loadOrders();
-  }, [loadOrders]);
+    resolvePuckId();
+  }, [loadOrders, resolvePuckId]);
 
   const handleAction = async (orderId: string, newStatus: string) => {
     setActingOrders(prev => new Set(prev).add(orderId));

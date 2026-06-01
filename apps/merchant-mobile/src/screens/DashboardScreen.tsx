@@ -30,22 +30,24 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
 
   const loadMerchantProfile = async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('merchants')
       .select('name')
       .eq('created_by', user.id)
       .maybeSingle();
+    if (error) { console.warn('Failed to load merchant profile:', error.message); return; }
     if (data) setMerchantName(data.name);
   };
 
   const loadOrderCount = async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { count, error } = await supabase
       .from('merchant_orders')
       .select('id', { count: 'exact', head: true })
       .eq('merchant_id', user.id)
       .in('status', ['pending', 'confirmed']);
-    if (data) setOrderCount(data.length);
+    if (error) { console.warn('Failed to load order count:', error.message); return; }
+    setOrderCount(count ?? 0);
   };
 
   const tileWidth = (width - 72) / 2;

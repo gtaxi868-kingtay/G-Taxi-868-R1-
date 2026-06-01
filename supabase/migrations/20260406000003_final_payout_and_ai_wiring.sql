@@ -72,8 +72,8 @@ ALTER TABLE public.ride_events ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Only systemic access for now (Service Role)
 -- Riders/Drivers can see events in future phases
-CREATE POLICY "Service role only for ride_events" 
-    ON public.ride_events FOR ALL 
+DROP POLICY IF EXISTS "Service role only for ride_events" ON public.ride_events;
+CREATE POLICY "Service role only for ride_events" ON public.ride_events FOR ALL 
     USING (true); -- Managed by Edge/Cron (Service Role)
 
 -- Realtime Support (Idempotent)

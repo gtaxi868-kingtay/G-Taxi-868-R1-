@@ -6,6 +6,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
+import { captureException } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -248,6 +249,7 @@ serve(async (req: Request) => {
 
     } catch (error) {
         console.error("Cancel ride error:", error);
+        await captureException(error, { function: "cancel_ride" });
         return new Response(
             JSON.stringify({ success: false, error: "Internal server error", data: null }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

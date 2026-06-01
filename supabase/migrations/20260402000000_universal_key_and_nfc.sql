@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS identity_tags (
     last_tapped_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_identity_tags_uid ON identity_tags(tag_uid);
-CREATE INDEX idx_identity_tags_profile ON identity_tags(profile_id);
+CREATE INDEX IF NOT EXISTS idx_identity_tags_uid ON identity_tags(tag_uid);
+CREATE INDEX IF NOT EXISTS idx_identity_tags_profile ON identity_tags(profile_id);
 
 -- 3. MERCHANT API KEYS (The Digital Glue)
 CREATE TABLE IF NOT EXISTS merchant_api_keys (
@@ -33,17 +33,19 @@ CREATE TABLE IF NOT EXISTS merchant_api_keys (
     last_used_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_merchant_keys_merchant ON merchant_api_keys(merchant_id);
+CREATE INDEX IF NOT EXISTS idx_merchant_keys_merchant ON merchant_api_keys(merchant_id);
 
 -- 4. RLS SEMANTIC LOCKDOWN
 ALTER TABLE identity_tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE merchant_api_keys ENABLE ROW LEVEL SECURITY;
 
 -- Profiles can see their own tags
+DROP POLICY IF EXISTS "Users can view own identity tags" ON identity_tags;
 CREATE POLICY "Users can view own identity tags" ON identity_tags
     FOR SELECT USING (auth.uid() = profile_id);
 
 -- Merchants can see their own API keys
+DROP POLICY IF EXISTS "Merchants can view own API keys" ON merchant_api_keys;
 CREATE POLICY "Merchants can view own API keys" ON merchant_api_keys
     FOR SELECT USING (
         EXISTS (
@@ -71,10 +73,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply to rides and orders
+DROP TRIGGER IF EXISTS tr_check_debt_on_ride ON rides;
 CREATE TRIGGER tr_check_debt_on_ride 
 BEFORE INSERT ON rides 
 FOR EACH ROW EXECUTE FUNCTION check_global_debt_blocking();
 
+DROP TRIGGER IF EXISTS tr_check_debt_on_order ON orders;
 CREATE TRIGGER tr_check_debt_on_order 
 BEFORE INSERT ON orders 
 FOR EACH ROW EXECUTE FUNCTION check_global_debt_blocking();

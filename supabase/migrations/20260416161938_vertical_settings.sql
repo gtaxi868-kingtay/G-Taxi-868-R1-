@@ -35,8 +35,8 @@ BEGIN
         AND tablename = 'vertical_settings' 
         AND policyname = 'Allow public read of enabled verticals'
     ) THEN
-        CREATE POLICY "Allow public read of enabled verticals"
-        ON vertical_settings FOR SELECT
+        DROP POLICY IF EXISTS "Allow public read of enabled verticals" ON vertical_settings;
+CREATE POLICY "Allow public read of enabled verticals" ON vertical_settings FOR SELECT
         TO public
         USING (is_enabled = true);
     END IF;
@@ -48,8 +48,8 @@ BEGIN
         AND tablename = 'vertical_settings' 
         AND policyname = 'Allow admin modify'
     ) THEN
-        CREATE POLICY "Allow admin modify"
-        ON vertical_settings FOR ALL
+        DROP POLICY IF EXISTS "Allow admin modify" ON vertical_settings;
+CREATE POLICY "Allow admin modify" ON vertical_settings FOR ALL
         TO authenticated
         USING (
             EXISTS (

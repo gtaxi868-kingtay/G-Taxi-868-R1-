@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:981047346046:android:562e43d58e163bd39e692f",
         "android_client_info": {
-          "package_name": "g_taxi_868.gtaxi.com"
+          "package_name": "com.gtaxi.driver"
         }
       },
       "oauth_client": [],

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS order_substitutions (
 
 -- 3. RLS FOR PICKING
 -- Merchants can write to order_items for orders they own
+DROP POLICY IF EXISTS "Merchants can update own order items" ON order_items;
 CREATE POLICY "Merchants can update own order items" ON order_items
     FOR UPDATE USING (
         EXISTS (

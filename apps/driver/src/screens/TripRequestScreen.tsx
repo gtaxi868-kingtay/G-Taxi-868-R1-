@@ -145,9 +145,13 @@ export function TripRequestScreen({ navigation, route }: any) {
         if (!offer?.ride_id || !driver?.id || isHandling) return;
         setIsHandling(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const { error } = await acceptRide(offer?.ride_id, driver?.id);
-        if (error) { Alert.alert('Offer Expired', 'This trip is no longer available.'); navigation.goBack(); }
-        else navigation.replace('ActiveTrip', { rideId: offer?.ride_id });
+        const { error, statusCode } = await acceptRide(offer?.ride_id, driver?.id);
+        if (error) {
+            if (statusCode === 429) Alert.alert('Too Many Requests', 'Please slow down and try again.');
+            else if (statusCode === 401) Alert.alert('Session Expired', 'Please log in again.');
+            else Alert.alert('Offer Expired', 'This trip is no longer available.');
+            navigation.goBack();
+        } else navigation.replace('ActiveTrip', { rideId: offer?.ride_id });
     };
 
     const handleDecline = async (auto = false) => {

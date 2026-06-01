@@ -48,9 +48,11 @@ serve(async (req: Request) => {
 
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // 3. Get active ride
+        // 3. Get active ride — try rider path first, then driver fallback
         const activeStatuses = ["requested", "searching", "assigned", "arrived", "in_progress"];
-        const { data: ride, error: rideError } = await supabaseAdmin
+        let ride = null;
+
+        const { data: riderRide, error: riderError } = await supabaseAdmin
             .from("rides")
             .select("*")
             .eq("rider_id", userId)
@@ -58,12 +60,45 @@ serve(async (req: Request) => {
             .order("created_at", { ascending: false })
             .maybeSingle();
 
-        if (rideError) {
-            console.error("Query error:", rideError);
+        if (riderError) {
+            console.error("Rider query error:", riderError);
             return new Response(
                 JSON.stringify({ success: false, error: "Failed to fetch ride", data: null }),
                 { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
+        }
+
+        if (riderRide) {
+            ride = riderRide;
+        } else {
+            // Driver fallback — resolve driver record from auth.uid()
+            const { data: driverRecord, error: driverRecordError } = await supabaseAdmin
+                .from("drivers")
+                .select("id")
+                .eq("user_id", userId)
+                .maybeSingle();
+
+            if (driverRecordError) {
+                console.error("Driver record query error:", driverRecordError);
+            }
+
+            if (driverRecord) {
+                const { data: driverRide, error: driverRideError } = await supabaseAdmin
+                    .from("rides")
+                    .select("*")
+                    .eq("driver_id", driverRecord.id)
+                    .in("status", activeStatuses)
+                    .order("created_at", { ascending: false })
+                    .maybeSingle();
+
+                if (driverRideError) {
+                    console.error("Driver ride query error:", driverRideError);
+                }
+
+                if (driverRide) {
+                    ride = driverRide;
+                }
+            }
         }
 
         // No active ride

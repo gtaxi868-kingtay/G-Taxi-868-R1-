@@ -11,11 +11,17 @@ CREATE TABLE IF NOT EXISTS public.system_config (
 
 -- 2. RLS Policies
 ALTER TABLE public.system_config ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Anyone can read system config" ON public.system_config;
-CREATE POLICY "Anyone can read system config" ON public.system_config FOR SELECT USING (true);
 
-DROP POLICY IF EXISTS "Service role manages system config" ON public.system_config;
-CREATE POLICY "Service role manages system config" ON public.system_config FOR ALL TO service_role USING (true) WITH CHECK (true);
+DO $$ BEGIN
+  CREATE POLICY "Anyone can read system config" ON public.system_config FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+
+DO $$ BEGIN
+  CREATE POLICY "Service role manages system config" ON public.system_config FOR ALL TO service_role USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 3. Initial Configuration
 INSERT INTO public.system_config (key, value, description) VALUES

@@ -231,7 +231,7 @@ $$;
 -- STEP 3: Add comment for documentation
 -- =============================================================================
 
-COMMENT ON FUNCTION public.process_wallet_payment_hardened IS 
+COMMENT ON FUNCTION public.process_wallet_payment_hardened(UUID, INTEGER, TEXT) IS 
 'Hardened wallet payment with:
 - Advisory locks on ride and rider (prevents double-spend)
 - Unique constraint on wallet transactions (prevents duplicates)

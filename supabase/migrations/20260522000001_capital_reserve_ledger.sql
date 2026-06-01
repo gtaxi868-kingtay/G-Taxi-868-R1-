@@ -51,8 +51,8 @@ COMMENT ON TABLE public.capital_reserve_ledger IS
 -- RLS: No user access — service_role only
 ALTER TABLE public.capital_reserve_ledger ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Reserve ledger is service_role only"
-    ON public.capital_reserve_ledger
+DROP POLICY IF EXISTS "Reserve ledger is service_role only" ON public.capital_reserve_ledger;
+CREATE POLICY "Reserve ledger is service_role only" ON public.capital_reserve_ledger
     FOR ALL
     TO service_role
     USING (true)
@@ -93,6 +93,8 @@ ALTER TABLE public.wallet_transactions
 -- 4. THE SETTLEMENT MATH — SINGLE SOURCE OF TRUTH
 -- =============================================================================
 
+DROP FUNCTION IF EXISTS public.calculate_settlement(INTEGER);
+
 CREATE OR REPLACE FUNCTION public.calculate_settlement(
     p_gross_cents INTEGER
 ) RETURNS TABLE (
@@ -119,7 +121,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.calculate_settlement IS
+COMMENT ON FUNCTION public.calculate_settlement(INTEGER) IS
     'Uniform settlement math used by ALL payment paths:
      reserve = round(gross * 0.015)
      net = gross - reserve
@@ -127,11 +129,13 @@ COMMENT ON FUNCTION public.calculate_settlement IS
      driver_payout = net - platform_fee
      Invariant: reserve + platform_fee + driver_payout = gross';
 
-GRANT EXECUTE ON FUNCTION public.calculate_settlement TO service_role;
+GRANT EXECUTE ON FUNCTION public.calculate_settlement(INTEGER) TO service_role;
 
 -- =============================================================================
 -- 5. process_wallet_payment_hardened — New settlement math + reserve
 -- =============================================================================
+
+DROP FUNCTION IF EXISTS public.process_wallet_payment_hardened(UUID, INTEGER);
 
 CREATE OR REPLACE FUNCTION public.process_wallet_payment_hardened(
     p_ride_id   UUID,
@@ -307,7 +311,7 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION public.process_wallet_payment_hardened IS
+COMMENT ON FUNCTION public.process_wallet_payment_hardened(UUID, INTEGER) IS
     'Hardened wallet payment with 1.5% Capital Reserve deduction.
      Settlement: reserve(1.5%) + platform_fee(18.5% of net) + driver(remainder).
      Capital reserve is recorded in capital_reserve_ledger (status=locked).
@@ -370,11 +374,11 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.log_platform_revenue IS
+COMMENT ON FUNCTION public.log_platform_revenue(UUID, UUID, UUID, INTEGER, INTEGER, INTEGER, INTEGER) IS
     'Logs platform revenue with reserve_cents separation.
      platform_fee = gross - payout - merchant_earnings - reserve';
 
-GRANT EXECUTE ON FUNCTION public.log_platform_revenue TO service_role;
+GRANT EXECUTE ON FUNCTION public.log_platform_revenue(UUID, UUID, UUID, INTEGER, INTEGER, INTEGER, INTEGER) TO service_role;
 
 -- =============================================================================
 -- 7. AUTO-INSERT TRIGGER — Failsafe for any completed ride
@@ -406,6 +410,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_auto_capital_reserve ON public.rides;
 CREATE TRIGGER trg_auto_capital_reserve
     AFTER UPDATE OF status ON public.rides
     FOR EACH ROW

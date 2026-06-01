@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { TagMarkerScreen } from './src/screens/TagMarkerScreen';
+import { RegisterPuckScreen } from './src/screens/RegisterPuckScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -26,6 +27,7 @@ function AppNavigator() {
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Dashboard" component={DashboardScreen} />
       <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
+      <AppStack.Screen name="RegisterPuck" component={RegisterPuckScreen} />
     </AppStack.Navigator>
   );
 }

@@ -49,7 +49,7 @@ export function EditProfileScreen({ navigation }: any) {
             base64: true,
         });
 
-        if (!result.canceled && result.assets[0].base64 && user) {
+        if (!result.canceled && result.assets?.[0]?.base64 && user) {
             try {
                 setUploading(true);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

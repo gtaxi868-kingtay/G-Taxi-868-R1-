@@ -36,7 +36,6 @@ import { WalletScreen } from './src/screens/WalletScreen';
 import { WalletTopUpScreen } from './src/screens/WalletTopUpScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { AISettingsScreen } from './src/screens/AISettingsScreen';
-import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { GroceryStorefrontScreen } from './src/screens/GroceryStorefrontScreen';
 import { ProductListingScreen } from './src/screens/ProductListingScreen';
 import { ProductDetailScreen } from './src/screens/ProductDetailScreen';
@@ -50,6 +49,7 @@ import { DriverFoundScreen } from './src/screens/DriverFoundScreen';
 import { NfcHandshakeScreen } from './src/screens/NfcHandshakeScreen';
 import { NfcScanScreen } from './src/screens/NfcScanScreen';
 import { TagMarkerScreen } from './src/screens/TagMarkerScreen';
+import RideReviewScreen from './src/screens/RideReviewScreen';
 import { ServiceBookingScreen } from './src/screens/ServiceBookingScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
@@ -112,6 +112,7 @@ function AppNavigator() {
                 <AppStack.Screen name="Profile" component={ProfileScreen} />
                 <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} />
                 <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} />
+                <AppStack.Screen name="RideReview" component={RideReviewScreen} />
                 <AppStack.Screen name="SearchingDriver" component={SearchingDriverScreen} />
                 <AppStack.Screen name="ActiveRide" component={ActiveRideScreen} />
                 <AppStack.Screen name="Rating" component={RatingScreen} />
@@ -127,7 +128,6 @@ function AppNavigator() {
                 <AppStack.Screen name="Promo" component={PromoScreen} />
                 <AppStack.Screen name="Chat" component={ChatScreen} />
                 <AppStack.Screen name="AISettings" component={AISettingsScreen} />
-                <AppStack.Screen name="Subscription" component={SubscriptionScreen} />
                 <AppStack.Screen name="GroceryStorefront" component={GroceryStorefrontScreen} />
                 <AppStack.Screen name="ProductListing" component={ProductListingScreen} />
                 <AppStack.Screen name="ProductDetail" component={ProductDetailScreen} />

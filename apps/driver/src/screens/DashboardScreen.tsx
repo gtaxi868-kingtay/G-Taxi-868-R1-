@@ -232,7 +232,12 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             <NfcIdentityHandler 
                 visible={nfcVisible} 
                 onClose={() => setNfcVisible(false)} 
-                onSuccess={(profile) => { Alert.alert("Key Recognized", `Linked to: ${profile.full_name}\nBalance: $${(profile.balance_cents/100).toFixed(2)}`); }}
+                onSuccess={(profile) => {
+                    if (!profile) { Alert.alert("Key Error", "Could not read profile data."); return; }
+                    const name = profile.full_name || "Unknown Driver";
+                    const balance = ((profile.balance_cents ?? 0) / 100).toFixed(2);
+                    Alert.alert("Key Recognized", `Linked to: ${name}\nBalance: $${balance}`);
+                }}
             />
 
             <View style={[s.mapContainer, { height: mapHeightLocal }]} pointerEvents="box-none">

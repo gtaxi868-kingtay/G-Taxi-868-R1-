@@ -7,8 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { routeNfcTag, RoutedNode } from '@gtaxi/core';
-import { supabase } from '@gtaxi/core';
+import { routeNfcTag, RoutedNode, OutboxService, supabase } from '@gtaxi/core';
+
+const OUTBOX = OutboxService.getInstance();
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { AppScreenProps } from '../navigation/types';
@@ -29,6 +30,17 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
         setLoading(true);
         setError(null);
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                await OUTBOX.enqueueProofEvent({
+                    eventType: 'TAP_EVENT',
+                    tagUid: token,
+                    userId: session.user.id,
+                    nonce: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+                    timestamp: new Date().toISOString(),
+                });
+            }
+
             const node: RoutedNode = await routeNfcTag(supabase, token);
 
             if (node.type === 'merchant') {
@@ -75,11 +87,15 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
 
     const scanNfc = async () => {
         try {
-            const { NfcTechnology } = require('expo-nfc');
-            const tag = await NfcTechnology.requestTechnologyAsync();
+            const mod = require('react-native-nfc-manager');
+            const NfcManager = mod.default || mod;
+            NfcManager.start();
+            await NfcManager.requestTechnology(NfcManager.Tech.NfcA);
+            const tag = await NfcManager.getTag();
             if (tag?.id) {
                 await handleRoute(tag.id);
             }
+            NfcManager.cancelTechnologyRequest();
         } catch {
             Alert.alert(
                 'NFC Unavailable',

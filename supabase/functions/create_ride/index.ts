@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { checkRateLimit } from "./_shared/rateLimit.ts";
-import { calculateFare, calculateStopsFee } from "./_shared/pricing.ts";
-import { captureException } from "./_shared/sentry.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
+import { calculateFare, calculateStopsFee } from "../_shared/pricing.ts";
+import { captureException } from "../_shared/sentry.ts";
+import { sendPushNotification } from "../_shared/push.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -369,6 +370,26 @@ serve(async (req: Request) => {
                 has_stops: stops.length > 0
             }
         });
+
+        // ── Push Notification to Rider ─────────────────────────────────────
+        try {
+            const { data: riderProfile } = await adminClient
+                .from("profiles")
+                .select("push_token, notification_enabled")
+                .eq("id", rider_id)
+                .single();
+
+            if (riderProfile?.push_token && riderProfile?.notification_enabled !== false) {
+                sendPushNotification(
+                    riderProfile.push_token,
+                    '🚖 Ride Requested',
+                    `Your ${vehicle_type} ride to ${dropoff_address} is being searched.`,
+                    { type: 'RIDE_CREATED', ride_id: newRideId, status: rideStatus }
+                ).catch(err => console.error("Rider push failed:", err));
+            }
+        } catch (err) {
+            console.error("Failed to send ride creation push (non-fatal):", err);
+        }
 
         console.log("Ride created (atomic):", newRideId);
 

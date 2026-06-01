@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS public.platform_revenue_logs (
 -- Enable RLS (Admin Only)
 ALTER TABLE public.platform_revenue_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admins can view all revenue logs" 
-ON public.platform_revenue_logs 
+DROP POLICY IF EXISTS "Admins can view all revenue logs" ON public.platform_revenue_logs;
+CREATE POLICY "Admins can view all revenue logs" ON public.platform_revenue_logs 
 FOR SELECT 
 USING (EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'));
 
@@ -60,4 +60,4 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant access to service role for edge functions
-GRANT EXECUTE ON FUNCTION public.log_platform_revenue TO service_role;
+GRANT EXECUTE ON FUNCTION public.log_platform_revenue(UUID, UUID, UUID, INTEGER, INTEGER, INTEGER) TO service_role;

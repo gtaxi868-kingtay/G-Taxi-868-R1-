@@ -7,6 +7,7 @@ export * from './realtime';
 export * from './native';
 export * from './nfcRouter';
 export * from './featureFlags';
+export { AppError, secureApiCall } from './api';
 export * from './types/ride';
 export * from './types/profile';
 export * from './types/marketplace';

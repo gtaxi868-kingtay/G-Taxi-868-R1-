@@ -28,21 +28,21 @@ DROP POLICY IF EXISTS "Rider sees active driver"      ON public.profiles;
 DROP POLICY IF EXISTS "Service role full access profiles" ON public.profiles;
 
 -- Own profile: read
-CREATE POLICY "Own profile read"
-    ON public.profiles
+DROP POLICY IF EXISTS "Own profile read" ON public.profiles;
+CREATE POLICY "Own profile read" ON public.profiles
     FOR SELECT
     USING (id = auth.uid());
 
 -- Own profile: update
-CREATE POLICY "Own profile update"
-    ON public.profiles
+DROP POLICY IF EXISTS "Own profile update" ON public.profiles;
+CREATE POLICY "Own profile update" ON public.profiles
     FOR UPDATE
     USING (id = auth.uid())
     WITH CHECK (id = auth.uid());
 
 -- Driver can read their currently assigned rider's profile
-CREATE POLICY "Driver sees active rider"
-    ON public.profiles
+DROP POLICY IF EXISTS "Driver sees active rider" ON public.profiles;
+CREATE POLICY "Driver sees active rider" ON public.profiles
     FOR SELECT
     USING (
         EXISTS (
@@ -54,8 +54,8 @@ CREATE POLICY "Driver sees active rider"
     );
 
 -- Rider can read their currently assigned driver's profile
-CREATE POLICY "Rider sees active driver"
-    ON public.profiles
+DROP POLICY IF EXISTS "Rider sees active driver" ON public.profiles;
+CREATE POLICY "Rider sees active driver" ON public.profiles
     FOR SELECT
     USING (
         EXISTS (
@@ -67,8 +67,8 @@ CREATE POLICY "Rider sees active driver"
     );
 
 -- Service role full access
-CREATE POLICY "Service role full access profiles"
-    ON public.profiles
+DROP POLICY IF EXISTS "Service role full access profiles" ON public.profiles;
+CREATE POLICY "Service role full access profiles" ON public.profiles
     FOR ALL
     TO service_role
     USING (true)
@@ -88,8 +88,8 @@ DROP POLICY IF EXISTS "Riders view events"               ON public.ride_events;
 DROP POLICY IF EXISTS "Service role only for ride_events" ON public.ride_events;
 
 -- SELECT: own rides only (rider or driver)
-CREATE POLICY "Users see events for their rides"
-    ON public.ride_events
+DROP POLICY IF EXISTS "Users see events for their rides" ON public.ride_events;
+CREATE POLICY "Users see events for their rides" ON public.ride_events
     FOR SELECT
     TO authenticated
     USING (
@@ -102,8 +102,8 @@ CREATE POLICY "Users see events for their rides"
     );
 
 -- INSERT: service_role only
-CREATE POLICY "Service role only for ride_events"
-    ON public.ride_events
+DROP POLICY IF EXISTS "Service role only for ride_events" ON public.ride_events;
+CREATE POLICY "Service role only for ride_events" ON public.ride_events
     FOR ALL
     TO service_role
     USING (true)
@@ -117,15 +117,15 @@ DROP POLICY IF EXISTS "Users view own ledger entries" ON public.payment_ledger;
 DROP POLICY IF EXISTS "No direct inserts by users"     ON public.payment_ledger;
 
 -- SELECT: own records only
-CREATE POLICY "Users view own ledger entries"
-    ON public.payment_ledger
+DROP POLICY IF EXISTS "Users view own ledger entries" ON public.payment_ledger;
+CREATE POLICY "Users view own ledger entries" ON public.payment_ledger
     FOR SELECT
     TO authenticated
     USING (auth.uid() = user_id);
 
 -- INSERT: explicitly denied for authenticated (service_role only)
-CREATE POLICY "No direct inserts by users"
-    ON public.payment_ledger
+DROP POLICY IF EXISTS "No direct inserts by users" ON public.payment_ledger;
+CREATE POLICY "No direct inserts by users" ON public.payment_ledger
     FOR INSERT
     TO authenticated
     WITH CHECK (false);

@@ -58,30 +58,33 @@ ALTER TABLE public.merchant_appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_service_history ENABLE ROW LEVEL SECURITY;
 
 -- 6. RLS Policies
-CREATE POLICY "Everyone can view services" 
-    ON public.merchant_services FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Everyone can view services" ON public.merchant_services;
+CREATE POLICY "Everyone can view services" ON public.merchant_services FOR SELECT USING (true);
 
-CREATE POLICY "Merchants manage their own services" 
-    ON public.merchant_services FOR ALL 
+DROP POLICY IF EXISTS "Merchants manage their own services" ON public.merchant_services;
+CREATE POLICY "Merchants manage their own services" ON public.merchant_services FOR ALL 
     USING (EXISTS (
         SELECT 1 FROM public.profiles 
         WHERE profiles.id = auth.uid() AND profiles.merchant_id = merchant_services.merchant_id
     ));
 
-CREATE POLICY "Riders can see their own appointments" 
-    ON public.merchant_appointments FOR SELECT 
+DROP POLICY IF EXISTS "Riders can see their own appointments" ON public.merchant_appointments;
+CREATE POLICY "Riders can see their own appointments" ON public.merchant_appointments FOR SELECT 
     USING (auth.uid() = rider_id);
 
-CREATE POLICY "Riders can create appointments" 
-    ON public.merchant_appointments FOR INSERT 
+DROP POLICY IF EXISTS "Riders can create appointments" ON public.merchant_appointments;
+CREATE POLICY "Riders can create appointments" ON public.merchant_appointments FOR INSERT 
     WITH CHECK (auth.uid() = rider_id);
 
-CREATE POLICY "Merchants manage appointments for their business" 
-    ON public.merchant_appointments FOR ALL 
+DROP POLICY IF EXISTS "Merchants manage appointments for their business" ON public.merchant_appointments;
+CREATE POLICY "Merchants manage appointments for their business" ON public.merchant_appointments FOR ALL 
     USING (EXISTS (
         SELECT 1 FROM public.profiles 
         WHERE profiles.id = auth.uid() AND profiles.merchant_id = merchant_appointments.merchant_id
     ));
 
 -- 7. Realtime Support
-ALTER PUBLICATION supabase_realtime ADD TABLE public.merchant_appointments;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.merchant_appointments;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

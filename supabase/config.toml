@@ -16,7 +16,7 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.match_driver]
-verify_jwt = false
+verify_jwt = true
 
 [functions.cancel_ride]
 verify_jwt = true
@@ -40,7 +40,10 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.mirror_ride]
-verify_jwt = false
+verify_jwt = true
+
+[functions.parse_natural_language]
+verify_jwt = true
 
 [functions.update_ride_status]
 enabled = true

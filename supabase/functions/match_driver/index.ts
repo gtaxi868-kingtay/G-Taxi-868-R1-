@@ -137,7 +137,8 @@ serve(async (req: Request) => {
             await supabaseAdmin
                 .from("rides")
                 .update({ status: "waiting_queue" })
-                .eq("id", ride_id);
+                .eq("id", ride_id)
+                .in("status", ["searching", "requested"]);
             return new Response(
                 JSON.stringify({ success: false, error: "No drivers available", data: null }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -190,7 +191,7 @@ serve(async (req: Request) => {
         }
 
         // Ensure ride is strictly "searching", pulling it out of the queue if it was stuck
-        await supabaseAdmin.from("rides").update({ status: "searching" }).eq("id", ride_id);
+        await supabaseAdmin.from("rides").update({ status: "searching" }).eq("id", ride_id).in("status", ["requested", "searching", "waiting_queue", "expired"]);
 
         // ── Phase 5 Fix 5.6: Push notification to the matched driver ─────────
         // Fire-and-forget — push failure must never block the offer creation.

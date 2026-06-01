@@ -3,7 +3,7 @@ export async function captureException(
     context?: Record<string, unknown>
 ): Promise<void> {
     try {
-        const SENTRY_DSN = 'https://97cd39592148cc3b6e1d004e6b713f3a@o4510426117767168.ingest.us.sentry.io/4510970071285760';
+        const SENTRY_DSN = Deno.env.get('SENTRY_DSN') || 'https://97cd39592148cc3b6e1d004e6b713f3a@o4510426117767168.ingest.us.sentry.io/4510970071285760';
 
         // Parse DSN into components needed for the Sentry envelope API
         const url = new URL(SENTRY_DSN);

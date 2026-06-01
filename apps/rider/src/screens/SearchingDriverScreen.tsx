@@ -186,11 +186,13 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                         setRejectionCount(prev => prev + 1);
                         setShowRejectionToast(true);
 
-                        // Auto-trigger match_driver after 10 seconds
+                        // Auto-retry matching via server-owned RPC after 10 seconds
                         setTimeout(() => {
-                            supabase.functions.invoke('match_driver', {
-                                body: { ride_id: rideId }
-                            });
+                            try {
+                                supabase.rpc('retry_ride_matching', {
+                                    p_ride_id: rideId
+                                });
+                            } catch (_) {}
                             setShowRejectionToast(false);
                         }, 10000);
                     }

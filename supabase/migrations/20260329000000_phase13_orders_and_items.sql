@@ -29,24 +29,24 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 
 -- Riders can manage their own orders
-CREATE POLICY "Riders can view their own orders"
-    ON public.orders FOR SELECT
+DROP POLICY IF EXISTS "Riders can view their own orders" ON public.orders;
+CREATE POLICY "Riders can view their own orders" ON public.orders FOR SELECT
     USING (auth.uid() = rider_id);
 
-CREATE POLICY "Riders can create orders"
-    ON public.orders FOR INSERT
+DROP POLICY IF EXISTS "Riders can create orders" ON public.orders;
+CREATE POLICY "Riders can create orders" ON public.orders FOR INSERT
     WITH CHECK (auth.uid() = rider_id);
 
-CREATE POLICY "Riders can view their own order items"
-    ON public.order_items FOR SELECT
+DROP POLICY IF EXISTS "Riders can view their own order items" ON public.order_items;
+CREATE POLICY "Riders can view their own order items" ON public.order_items FOR SELECT
     USING (
         order_id IN (
             SELECT id FROM public.orders WHERE rider_id = auth.uid()
         )
     );
 
-CREATE POLICY "Riders can insert order items for their orders"
-    ON public.order_items FOR INSERT
+DROP POLICY IF EXISTS "Riders can insert order items for their orders" ON public.order_items;
+CREATE POLICY "Riders can insert order items for their orders" ON public.order_items FOR INSERT
     WITH CHECK (
         order_id IN (
             SELECT id FROM public.orders WHERE rider_id = auth.uid()
@@ -62,6 +62,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_orders_updated_at ON public.orders;
 CREATE TRIGGER trigger_orders_updated_at
 BEFORE UPDATE ON public.orders
 FOR EACH ROW EXECUTE FUNCTION update_orders_updated_at();

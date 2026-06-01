@@ -1,18 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { verifyMerchantKey, corsHeaders } from "../_shared/merchant_auth.ts"
+import { checkRateLimit } from "../_shared/rateLimit.ts"
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
     const { merchantId } = await verifyMerchantKey(req, 'order:read')
-    const { action, order_id, item_id, status, substitution_id } = await req.json()
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    await checkRateLimit(supabaseAdmin, `merchant_${merchantId}`, "merchant_order_picker")
+
+    const { action, order_id, item_id, status, substitution_id } = await req.json()
 
     // 1. Verify Order Ownership
     const { data: order, error: orderError } = await supabaseAdmin

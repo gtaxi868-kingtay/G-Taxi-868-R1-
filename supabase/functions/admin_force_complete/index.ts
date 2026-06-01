@@ -15,6 +15,7 @@
 
 import { requireAdmin } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { captureException } from '../_shared/sentry.ts'
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -324,6 +325,7 @@ Deno.serve(async (req) => {
 
     } catch (err: any) {
         console.error('admin_force_complete error:', err)
+        await captureException(err, { function: 'admin_force_complete' })
         return new Response(
             JSON.stringify({ success: false, error: err.message || 'Internal error' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

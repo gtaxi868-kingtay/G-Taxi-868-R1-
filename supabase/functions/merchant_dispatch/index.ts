@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { checkRateLimit } from "../_shared/rateLimit.ts"
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +33,8 @@ serve(async (req) => {
     if (mError || !merchant) {
       throw new Error("Invalid Merchant API Key")
     }
+
+    await checkRateLimit(supabase, `merchant_${merchant.id}`, "merchant_dispatch")
 
     // 2. Parse Dispatch Payload
     const { pickup_address, dropoff_address, customer_name, customer_phone, service_type } = await req.json()

@@ -34,9 +34,11 @@ ALTER TABLE public.taxi_stands ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.flight_bookings ENABLE ROW LEVEL SECURITY;
 
 -- Policies
+DROP POLICY IF EXISTS "Public can read active stands" ON public.taxi_stands;
 CREATE POLICY "Public can read active stands" ON public.taxi_stands
     FOR SELECT USING (is_active = true);
 
+DROP POLICY IF EXISTS "Users can manage their own flight bookings" ON public.flight_bookings;
 CREATE POLICY "Users can manage their own flight bookings" ON public.flight_bookings
     for all using (auth.uid() = user_id);
 

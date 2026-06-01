@@ -30,8 +30,8 @@ BEGIN
         AND tablename = 'demand_patterns' 
         AND policyname = 'Allow drivers to read demand patterns'
     ) THEN
-        CREATE POLICY "Allow drivers to read demand patterns"
-        ON demand_patterns FOR SELECT
+        DROP POLICY IF EXISTS "Allow drivers to read demand patterns" ON demand_patterns;
+CREATE POLICY "Allow drivers to read demand patterns" ON demand_patterns FOR SELECT
         TO authenticated
         USING (true);
     END IF;

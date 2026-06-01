@@ -3,6 +3,7 @@
 
 -- 1. LOCK DOWN MERCHANT CATEGORIES
 -- Expanding from basic 'grocery/laundry' to 'airline/hotel/logistics'
+ALTER TABLE public.merchants DROP CONSTRAINT IF EXISTS check_merchant_category;
 ALTER TABLE public.merchants ADD CONSTRAINT check_merchant_category 
     CHECK (category IN ('grocery', 'laundry', 'pharmacy', 'airline', 'hotel', 'logistics_hub'));
 
@@ -68,7 +69,11 @@ ALTER TABLE public.airline_flights ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hotel_bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.nfc_event_logs ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public read kiosk nodes" ON public.kiosk_nodes;
 CREATE POLICY "Public read kiosk nodes" ON public.kiosk_nodes FOR SELECT USING (is_active = true);
+DROP POLICY IF EXISTS "Public read airline status" ON public.airline_flights;
 CREATE POLICY "Public read airline status" ON public.airline_flights FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Guests can view own hotel sync" ON public.hotel_bookings;
 CREATE POLICY "Guests can view own hotel sync" ON public.hotel_bookings FOR SELECT USING (true); -- Filtered by name/res in app logic
+DROP POLICY IF EXISTS "Users can view own nfc logs" ON public.nfc_event_logs;
 CREATE POLICY "Users can view own nfc logs" ON public.nfc_event_logs FOR SELECT USING (auth.uid() = profile_id);

@@ -33,6 +33,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_generate_order_pins ON public.orders;
 CREATE TRIGGER trigger_generate_order_pins
 AFTER INSERT ON public.orders
 FOR EACH ROW EXECUTE FUNCTION handle_new_order_pins();

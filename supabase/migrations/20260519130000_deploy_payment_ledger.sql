@@ -23,20 +23,29 @@ CREATE TABLE IF NOT EXISTS payment_ledger (
 -- 2. RLS on payment_ledger
 ALTER TABLE payment_ledger ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users view own ledger entries" ON payment_ledger;
-CREATE POLICY "Users view own ledger entries" ON payment_ledger
-    FOR SELECT
-    USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "No direct inserts by users" ON payment_ledger;
-CREATE POLICY "No direct inserts by users" ON payment_ledger
-    FOR INSERT
-    WITH CHECK (false);
+DO $$ BEGIN
+  CREATE POLICY "Users view own ledger entries" ON payment_ledger
+      FOR SELECT
+      USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-DROP POLICY IF EXISTS "Service role manages ledger" ON payment_ledger;
-CREATE POLICY "Service role manages ledger" ON payment_ledger
-    FOR ALL
-    USING (auth.jwt() ->> 'role' = 'service_role');
+
+DO $$ BEGIN
+  CREATE POLICY "No direct inserts by users" ON payment_ledger
+      FOR INSERT
+      WITH CHECK (false);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+
+DO $$ BEGIN
+  CREATE POLICY "Service role manages ledger" ON payment_ledger
+      FOR ALL
+      USING (auth.jwt() ->> 'role' = 'service_role');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 3. Indexes
 CREATE INDEX IF NOT EXISTS idx_payment_ledger_ride ON payment_ledger(ride_id);

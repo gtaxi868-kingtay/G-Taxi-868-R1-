@@ -62,8 +62,8 @@ export function WalletTopUpScreen({ navigation }: any) {
 
     const handleAddFunds = async () => {
         const amt = customAmount ? parseFloat(customAmount) : selectedAmount;
-        if (isNaN(amt) || amt < 10) {
-            Alert.alert('Invalid Amount', 'Minimum top-up is $10 TTD.');
+        if (isNaN(amt) || amt < 20) {
+            Alert.alert('Invalid Amount', 'Minimum top-up is $20 TTD.');
             return;
         }
 
@@ -79,7 +79,7 @@ export function WalletTopUpScreen({ navigation }: any) {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
-            if (!token) throw new Error('No session');
+            if (!token) throw new Error('Your session has expired. Please log in again.');
 
             const functionsUrl = `${ENV.SUPABASE_URL}/functions/v1/create_wallet_topup`;
             const response = await fetch(functionsUrl, {
@@ -87,6 +87,13 @@ export function WalletTopUpScreen({ navigation }: any) {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ amount_ttd: amt })
             });
+
+            if (!response.ok) {
+                if (response.status === 429) throw new Error('Traffic is high right now. Please wait a moment and try again.');
+                if (response.status === 401) throw new Error('Your session has expired. Please log in again.');
+                const errorBody = await response.text().catch(() => '');
+                throw new Error(errorBody || `Server error (${response.status}). Please try again.`);
+            }
 
             const { clientSecret } = await response.json();
             if (!clientSecret) throw new Error('Setup failed');

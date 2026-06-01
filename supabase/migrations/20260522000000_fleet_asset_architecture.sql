@@ -15,6 +15,15 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 BEGIN;
 
+-- Drop empty tables that have obsolete schemas so they get recreated properly
+DROP TABLE IF EXISTS dealer_partners CASCADE;
+DROP TABLE IF EXISTS vehicle_inventory CASCADE;
+DROP TABLE IF EXISTS vehicle_sales CASCADE;
+DROP TABLE IF EXISTS fleet_vehicles CASCADE;
+DROP TABLE IF EXISTS fleet_leases CASCADE;
+DROP TABLE IF EXISTS lease_payments CASCADE;
+DROP TABLE IF EXISTS region_settings CASCADE;
+
 -- =============================================================================
 -- MODULE 3: REGIONAL SETTINGS (created first because it's a FK target)
 -- =============================================================================
@@ -115,8 +124,8 @@ CREATE TABLE IF NOT EXISTS dealer_partners (
     updated_at          TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_dealer_partners_region ON dealer_partners(region_id);
-CREATE INDEX idx_dealer_partners_active ON dealer_partners(is_active);
+CREATE INDEX IF NOT EXISTS idx_dealer_partners_region ON dealer_partners(region_id);
+CREATE INDEX IF NOT EXISTS idx_dealer_partners_active ON dealer_partners(is_active);
 
 -- Vehicle Inventory: each vehicle listed by a dealer
 CREATE TABLE IF NOT EXISTS vehicle_inventory (
@@ -139,8 +148,8 @@ CREATE TABLE IF NOT EXISTS vehicle_inventory (
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_vehicle_inventory_dealer ON vehicle_inventory(dealer_id);
-CREATE INDEX idx_vehicle_inventory_status ON vehicle_inventory(status);
+CREATE INDEX IF NOT EXISTS idx_vehicle_inventory_dealer ON vehicle_inventory(dealer_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_inventory_status ON vehicle_inventory(status);
 
 -- Vehicle Sales: lead-to-sale lifecycle tracking
 CREATE TABLE IF NOT EXISTS vehicle_sales (
@@ -184,9 +193,14 @@ CREATE TABLE IF NOT EXISTS vehicle_sales (
     updated_at              TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_vehicle_sales_dealer ON vehicle_sales(dealer_id);
-CREATE INDEX idx_vehicle_sales_driver ON vehicle_sales(driver_id);
-CREATE INDEX idx_vehicle_sales_status ON vehicle_sales(status);
+CREATE INDEX IF NOT EXISTS idx_vehicle_sales_dealer ON vehicle_sales(dealer_id);
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='vehicle_sales' AND column_name='driver_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_vehicle_sales_driver ON vehicle_sales(driver_id);
+    END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_vehicle_sales_status ON vehicle_sales(status);
 
 -- =============================================================================
 -- MODULE 2: FLEET LEASING ENGINE
@@ -229,8 +243,8 @@ CREATE TABLE IF NOT EXISTS fleet_vehicles (
     updated_at              TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_fleet_vehicles_status ON fleet_vehicles(status);
-CREATE INDEX idx_fleet_vehicles_region ON fleet_vehicles(region_id);
+CREATE INDEX IF NOT EXISTS idx_fleet_vehicles_status ON fleet_vehicles(status);
+CREATE INDEX IF NOT EXISTS idx_fleet_vehicles_region ON fleet_vehicles(region_id);
 
 -- Fleet Leases: lease agreements between us and drivers
 CREATE TABLE IF NOT EXISTS fleet_leases (
@@ -264,9 +278,9 @@ CREATE TABLE IF NOT EXISTS fleet_leases (
     updated_at              TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_fleet_leases_driver ON fleet_leases(driver_id);
-CREATE INDEX idx_fleet_leases_vehicle ON fleet_leases(fleet_vehicle_id);
-CREATE INDEX idx_fleet_leases_status ON fleet_leases(status);
+CREATE INDEX IF NOT EXISTS idx_fleet_leases_driver ON fleet_leases(driver_id);
+CREATE INDEX IF NOT EXISTS idx_fleet_leases_vehicle ON fleet_leases(fleet_vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_fleet_leases_status ON fleet_leases(status);
 
 -- Lease Payments: individual deductions (daily, mileage, or hybrid)
 CREATE TABLE IF NOT EXISTS lease_payments (
@@ -304,9 +318,9 @@ CREATE TABLE IF NOT EXISTS lease_payments (
     updated_at              TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_lease_payments_lease ON lease_payments(lease_id);
-CREATE INDEX idx_lease_payments_ride ON lease_payments(ride_id);
-CREATE INDEX idx_lease_payments_status ON lease_payments(status);
+CREATE INDEX IF NOT EXISTS idx_lease_payments_lease ON lease_payments(lease_id);
+CREATE INDEX IF NOT EXISTS idx_lease_payments_ride ON lease_payments(ride_id);
+CREATE INDEX IF NOT EXISTS idx_lease_payments_status ON lease_payments(status);
 
 -- =============================================================================
 -- ALTER EXISTING TABLES: Add fleet & region columns to core tables
@@ -380,7 +394,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_or_create_region_settings IS
+COMMENT ON FUNCTION get_or_create_region_settings(TEXT, TEXT, TEXT) IS
     'Upserts a region by code. Returns full row as JSONB.';
 
 -- =============================================================================
@@ -430,7 +444,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION calculate_lease_daily_fee IS
+COMMENT ON FUNCTION calculate_lease_daily_fee(UUID, DATE) IS
     'Checks if a driver has an active lease and whether daily fee was already charged for a given date.';
 
 -- =============================================================================
@@ -529,7 +543,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION apply_lease_daily_fees IS
+COMMENT ON FUNCTION apply_lease_daily_fees(DATE) IS
     'Batch applies daily lease fees for all active daily/hybrid leases. Intended for cron invocation.';
 
 -- =============================================================================
@@ -568,7 +582,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_dealer_brokerage_report IS
+COMMENT ON FUNCTION get_dealer_brokerage_report(UUID, DATE, DATE) IS
     'Brokerage financial report for a dealer partner over a date range.';
 
 -- =============================================================================
@@ -617,13 +631,15 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION get_fleet_lease_report IS
+COMMENT ON FUNCTION get_fleet_lease_report(UUID, UUID, DATE, DATE) IS
     'Fleet lease financial report aggregated by lease over a date range.';
 
 -- =============================================================================
 -- RPC: clone_region_settings
 -- Clones an existing region's settings to create a new region.
 -- =============================================================================
+
+DROP FUNCTION IF EXISTS clone_region_settings(TEXT, TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION clone_region_settings(
     p_source_code     TEXT,
@@ -679,7 +695,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION clone_region_settings IS
+COMMENT ON FUNCTION clone_region_settings(TEXT, TEXT, TEXT) IS
     'Clones all settings from an existing region to create a new region with identical config.';
 
 -- =============================================================================
@@ -689,98 +705,98 @@ COMMENT ON FUNCTION clone_region_settings IS
 -- region_settings: Readable by all authenticated users, writable only by service_role
 ALTER TABLE region_settings ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can read region settings"
-    ON region_settings FOR SELECT TO authenticated
+DROP POLICY IF EXISTS "Anyone can read region settings" ON region_settings;
+CREATE POLICY "Anyone can read region settings" ON region_settings FOR SELECT TO authenticated
     USING (true);
 
-CREATE POLICY "Service role manages region settings"
-    ON region_settings FOR ALL TO service_role
+DROP POLICY IF EXISTS "Service role manages region settings" ON region_settings;
+CREATE POLICY "Service role manages region settings" ON region_settings FOR ALL TO service_role
     USING (true) WITH CHECK (true);
 
 -- dealer_partners: Admin + service_role only (sensitive financial data)
 ALTER TABLE dealer_partners ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admins and service role can read dealer partners"
-    ON dealer_partners FOR SELECT TO authenticated
+DROP POLICY IF EXISTS "Admins and service role can read dealer partners" ON dealer_partners;
+CREATE POLICY "Admins and service role can read dealer partners" ON dealer_partners FOR SELECT TO authenticated
     USING (auth.jwt() ->> 'role' IN ('admin', 'service_role'));
 
-CREATE POLICY "Service role manages dealer partners"
-    ON dealer_partners FOR ALL TO service_role
+DROP POLICY IF EXISTS "Service role manages dealer partners" ON dealer_partners;
+CREATE POLICY "Service role manages dealer partners" ON dealer_partners FOR ALL TO service_role
     USING (true) WITH CHECK (true);
 
 -- vehicle_inventory: Drivers can browse available, service_role manages
 ALTER TABLE vehicle_inventory ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Drivers can browse available inventory"
-    ON vehicle_inventory FOR SELECT TO authenticated
+DROP POLICY IF EXISTS "Drivers can browse available inventory" ON vehicle_inventory;
+CREATE POLICY "Drivers can browse available inventory" ON vehicle_inventory FOR SELECT TO authenticated
     USING (status = 'available');
 
-CREATE POLICY "Service role manages inventory"
-    ON vehicle_inventory FOR ALL TO service_role
+DROP POLICY IF EXISTS "Service role manages inventory" ON vehicle_inventory;
+CREATE POLICY "Service role manages inventory" ON vehicle_inventory FOR ALL TO service_role
     USING (true) WITH CHECK (true);
 
 -- vehicle_sales: Driver sees own, dealer sees own leads, service_role manages
 ALTER TABLE vehicle_sales ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Driver sees own vehicle sales"
-    ON vehicle_sales FOR SELECT
+DROP POLICY IF EXISTS "Driver sees own vehicle sales" ON vehicle_sales;
+CREATE POLICY "Driver sees own vehicle sales" ON vehicle_sales FOR SELECT
     USING (driver_id IN (SELECT id FROM drivers WHERE user_id = auth.uid()));
 
-CREATE POLICY "Dealer sees own sales"
-    ON vehicle_sales FOR SELECT
+DROP POLICY IF EXISTS "Dealer sees own sales" ON vehicle_sales;
+CREATE POLICY "Dealer sees own sales" ON vehicle_sales FOR SELECT
     USING (dealer_id IN (SELECT id FROM dealer_partners WHERE id = dealer_id));
 
-CREATE POLICY "Service role manages vehicle sales"
-    ON vehicle_sales FOR ALL TO service_role
+DROP POLICY IF EXISTS "Service role manages vehicle sales" ON vehicle_sales;
+CREATE POLICY "Service role manages vehicle sales" ON vehicle_sales FOR ALL TO service_role
     USING (true) WITH CHECK (true);
 
 -- fleet_vehicles: Drivers can browse available, service_role manages
 ALTER TABLE fleet_vehicles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Drivers can browse available fleet vehicles"
-    ON fleet_vehicles FOR SELECT TO authenticated
+DROP POLICY IF EXISTS "Drivers can browse available fleet vehicles" ON fleet_vehicles;
+CREATE POLICY "Drivers can browse available fleet vehicles" ON fleet_vehicles FOR SELECT TO authenticated
     USING (status = 'available' OR status = 'leased');
 
-CREATE POLICY "Service role manages fleet vehicles"
-    ON fleet_vehicles FOR ALL TO service_role
+DROP POLICY IF EXISTS "Service role manages fleet vehicles" ON fleet_vehicles;
+CREATE POLICY "Service role manages fleet vehicles" ON fleet_vehicles FOR ALL TO service_role
     USING (true) WITH CHECK (true);
 
 -- fleet_leases: Driver sees own lease, service_role manages
 ALTER TABLE fleet_leases ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Driver sees own lease"
-    ON fleet_leases FOR SELECT
+DROP POLICY IF EXISTS "Driver sees own lease" ON fleet_leases;
+CREATE POLICY "Driver sees own lease" ON fleet_leases FOR SELECT
     USING (driver_id IN (SELECT id FROM drivers WHERE user_id = auth.uid()));
 
-CREATE POLICY "Service role manages leases"
-    ON fleet_leases FOR ALL TO service_role
+DROP POLICY IF EXISTS "Service role manages leases" ON fleet_leases;
+CREATE POLICY "Service role manages leases" ON fleet_leases FOR ALL TO service_role
     USING (true) WITH CHECK (true);
 
 -- lease_payments: Driver sees own, service_role manages
 ALTER TABLE lease_payments ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Driver sees own lease payments"
-    ON lease_payments FOR SELECT
+DROP POLICY IF EXISTS "Driver sees own lease payments" ON lease_payments;
+CREATE POLICY "Driver sees own lease payments" ON lease_payments FOR SELECT
     USING (lease_id IN (
         SELECT fl.id FROM fleet_leases fl
         JOIN drivers d ON d.id = fl.driver_id
         WHERE d.user_id = auth.uid()
     ));
 
-CREATE POLICY "Service role manages lease payments"
-    ON lease_payments FOR ALL TO service_role
+DROP POLICY IF EXISTS "Service role manages lease payments" ON lease_payments;
+CREATE POLICY "Service role manages lease payments" ON lease_payments FOR ALL TO service_role
     USING (true) WITH CHECK (true);
 
 -- =============================================================================
 -- GRANT EXECUTE on new RPCs to service_role
 -- =============================================================================
 
-GRANT EXECUTE ON FUNCTION get_or_create_region_settings TO service_role;
-GRANT EXECUTE ON FUNCTION calculate_lease_daily_fee TO service_role;
-GRANT EXECUTE ON FUNCTION apply_lease_daily_fees TO service_role;
-GRANT EXECUTE ON FUNCTION get_dealer_brokerage_report TO service_role;
-GRANT EXECUTE ON FUNCTION get_fleet_lease_report TO service_role;
-GRANT EXECUTE ON FUNCTION clone_region_settings TO service_role;
+GRANT EXECUTE ON FUNCTION get_or_create_region_settings(TEXT, TEXT, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION calculate_lease_daily_fee(UUID, DATE) TO service_role;
+GRANT EXECUTE ON FUNCTION apply_lease_daily_fees(DATE) TO service_role;
+GRANT EXECUTE ON FUNCTION get_dealer_brokerage_report(UUID, DATE, DATE) TO service_role;
+GRANT EXECUTE ON FUNCTION get_fleet_lease_report(UUID, UUID, DATE, DATE) TO service_role;
+GRANT EXECUTE ON FUNCTION clone_region_settings(TEXT, TEXT, TEXT) TO service_role;
 
 -- =============================================================================
 -- SEED: Insert Trinidad and Tobago as the default region

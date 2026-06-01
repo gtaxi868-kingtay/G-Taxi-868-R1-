@@ -42,8 +42,8 @@ BEGIN
         AND tablename = 'subscription_benefits' 
         AND policyname = 'Allow public read of subscription benefits'
     ) THEN
-        CREATE POLICY "Allow public read of subscription benefits"
-        ON subscription_benefits FOR SELECT
+        DROP POLICY IF EXISTS "Allow public read of subscription benefits" ON subscription_benefits;
+CREATE POLICY "Allow public read of subscription benefits" ON subscription_benefits FOR SELECT
         TO public
         USING (true);
     END IF;
@@ -55,8 +55,8 @@ BEGIN
         AND tablename = 'profiles' 
         AND policyname = 'Allow users to read own subscription tier'
     ) THEN
-        CREATE POLICY "Allow users to read own subscription tier"
-        ON profiles FOR SELECT
+        DROP POLICY IF EXISTS "Allow users to read own subscription tier" ON profiles;
+CREATE POLICY "Allow users to read own subscription tier" ON profiles FOR SELECT
         TO authenticated
         USING (auth.uid() = id);
     END IF;

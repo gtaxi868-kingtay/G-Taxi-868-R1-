@@ -23,6 +23,10 @@ function App() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [soundEnabled, setSoundEnabled] = useState(localStorage.getItem('g_taxi_merchant_sound') !== 'false');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   const checkSession = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -100,20 +104,44 @@ function App() {
         </div>
         <h1 className="text-4xl font-black text-slate-900 mb-2 italic">G-TAXI</h1>
         <p className="text-purple-600 font-black text-[10px] uppercase tracking-[0.3em] mb-12">Universal Partner Terminal</p>
-        <button 
-          onClick={async () => {
-            const email = window.prompt("Partner Email:");
-            const pass = window.prompt("Security Key:");
-            if (email && pass) {
-              const { error } = await supabase.auth.signInWithPassword({ email, password: pass });
-              if (error) alert(error.message); else checkSession();
-            }
-          }}
-          className="w-full h-20 bg-slate-950 text-white rounded-[1.5rem] font-black text-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-4"
-        >
-          <Scan size={24} />
-          AUTHORIZE SESSION
-        </button>
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          setLoginError('');
+          setLoginLoading(true);
+          const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+          setLoginLoading(false);
+          if (error) setLoginError(error.message);
+          else checkSession();
+        }} className="space-y-4">
+          <input
+            type="email"
+            value={loginEmail}
+            onChange={e => setLoginEmail(e.target.value)}
+            placeholder="Partner Email"
+            required
+            autoFocus
+            className="w-full h-14 px-5 bg-slate-950 text-white rounded-[1.5rem] text-base placeholder-slate-500 border border-slate-800 focus:border-purple-500 focus:outline-none transition-colors"
+          />
+          <input
+            type="password"
+            value={loginPassword}
+            onChange={e => setLoginPassword(e.target.value)}
+            placeholder="Security Key"
+            required
+            className="w-full h-14 px-5 bg-slate-950 text-white rounded-[1.5rem] text-base placeholder-slate-500 border border-slate-800 focus:border-purple-500 focus:outline-none transition-colors"
+          />
+          {loginError && (
+            <p className="text-red-400 text-sm text-left px-1">{loginError}</p>
+          )}
+          <button
+            type="submit"
+            disabled={loginLoading}
+            className="w-full h-20 bg-slate-950 text-white rounded-[1.5rem] font-black text-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:hover:scale-100"
+          >
+            <Scan size={24} />
+            {loginLoading ? 'SIGNING IN...' : 'AUTHORIZE SESSION'}
+          </button>
+        </form>
       </div>
     </div>
   );

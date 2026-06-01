@@ -4,6 +4,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -81,6 +82,8 @@ serve(async (req: Request) => {
         await adminClient.from("merchant_api_keys")
              .update({ last_used_at: new Date().toISOString() })
              .eq("hashed_key", hashedKey);
+
+        await checkRateLimit(adminClient, `merchant_${apiKeyRef.merchant_id}`, "merchant_gateway");
 
         // 4. Fetch the Merchant Info
         const { data: merchant, error: merchantError } = await adminClient

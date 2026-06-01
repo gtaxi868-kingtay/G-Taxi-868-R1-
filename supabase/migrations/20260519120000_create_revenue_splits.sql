@@ -21,38 +21,47 @@ CREATE INDEX IF NOT EXISTS idx_revenue_splits_driver_id ON revenue_splits(driver
 
 ALTER TABLE revenue_splits ENABLE ROW LEVEL SECURITY;
 
--- Merchant sees own rows via node_id
-CREATE POLICY merchant_select_revenue_splits ON revenue_splits
-    FOR SELECT
-    USING (
-        node_id IN (
-            SELECT id FROM kiosk_nodes WHERE merchant_id = auth.uid()
-        )
-    );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='revenue_splits' AND policyname='merchant_select_revenue_splits') THEN
+    CREATE POLICY merchant_select_revenue_splits ON revenue_splits
+      FOR SELECT USING (node_id IN (SELECT id FROM kiosk_nodes WHERE merchant_id = auth.uid()));
+  END IF;
+END $$;
 
--- Driver sees own rows
-CREATE POLICY driver_select_revenue_splits ON revenue_splits
-    FOR SELECT
-    USING (driver_id = auth.uid());
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='revenue_splits' AND policyname='driver_select_revenue_splits') THEN
+    CREATE POLICY driver_select_revenue_splits ON revenue_splits
+      FOR SELECT USING (driver_id = auth.uid());
+  END IF;
+END $$;
 
--- Admin sees all
-CREATE POLICY admin_select_revenue_splits ON revenue_splits
-    FOR SELECT
-    USING (auth.jwt() ->> 'role' = 'admin');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='revenue_splits' AND policyname='admin_select_revenue_splits') THEN
+    CREATE POLICY admin_select_revenue_splits ON revenue_splits
+      FOR SELECT USING (auth.jwt() ->> 'role' = 'admin');
+  END IF;
+END $$;
 
--- INSERT only via service role (edge functions)
-CREATE POLICY service_insert_revenue_splits ON revenue_splits
-    FOR INSERT
-    WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='revenue_splits' AND policyname='service_insert_revenue_splits') THEN
+    CREATE POLICY service_insert_revenue_splits ON revenue_splits
+      FOR INSERT WITH CHECK (auth.jwt() ->> 'role' = 'service_role');
+  END IF;
+END $$;
 
--- No UPDATE/DELETE for non-admin
-CREATE POLICY admin_update_revenue_splits ON revenue_splits
-    FOR UPDATE
-    USING (auth.jwt() ->> 'role' = 'admin');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='revenue_splits' AND policyname='admin_update_revenue_splits') THEN
+    CREATE POLICY admin_update_revenue_splits ON revenue_splits
+      FOR UPDATE USING (auth.jwt() ->> 'role' = 'admin');
+  END IF;
+END $$;
 
-CREATE POLICY admin_delete_revenue_splits ON revenue_splits
-    FOR DELETE
-    USING (auth.jwt() ->> 'role' = 'admin');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='revenue_splits' AND policyname='admin_delete_revenue_splits') THEN
+    CREATE POLICY admin_delete_revenue_splits ON revenue_splits
+      FOR DELETE USING (auth.jwt() ->> 'role' = 'admin');
+  END IF;
+END $$;
 
 -- Atomic ride creation + revenue split insertion
 -- Called from create_ride edge function to guarantee no partial writes

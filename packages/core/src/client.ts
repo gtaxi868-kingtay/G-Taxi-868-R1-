@@ -14,10 +14,14 @@ function getStorage(platform: RuntimePlatform): any {
     if (platform === 'native') {
         try {
             if (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative') {
-                const AsyncStorageModule = require('@react-native-async-storage/async-storage');
-                const storage = AsyncStorageModule.default || AsyncStorageModule;
-                if (storage && typeof storage.getItem === 'function') {
-                    return storage;
+                const SecureStore = require('expo-secure-store');
+                const store = SecureStore.default || SecureStore;
+                if (store && typeof store.getItemAsync === 'function') {
+                    return {
+                        getItem: (key: string) => store.getItemAsync(key),
+                        setItem: (key: string, value: string) => store.setItemAsync(key, value),
+                        removeItem: (key: string) => store.deleteItemAsync(key),
+                    };
                 }
             }
         } catch {

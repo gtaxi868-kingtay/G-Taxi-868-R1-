@@ -159,11 +159,11 @@ serve(async (req: Request) => {
       );
     }
 
-    if (ride.status !== "in_progress" && ride.status !== "assigned") {
+    if (ride.status !== "in_progress") {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Ride cannot be completed from status '${ride.status}'. Ride must be 'in_progress' or 'assigned'.`,
+          error: `Ride cannot be completed from status '${ride.status}'. Ride must be 'in_progress'.`,
           data: { current_status: ride.status },
         }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -290,6 +290,16 @@ serve(async (req: Request) => {
         status: "locked",
         notes: "Cash ride — reserve locked via shadow ledger",
       });
+
+      // Write payment_ledger entry for cash ride
+      await supabaseAdmin.from("payment_ledger").insert({
+        ride_id: ride_id,
+        user_id: ride.rider_id,
+        amount: effectiveFare / 100,
+        currency: "TTD",
+        status: "captured",
+        provider: "cash",
+      }).catch((err) => console.error("Cash payment_ledger insert failed:", err));
 
     } else if (ride.payment_method === "card") {
       if (ride.payment_status !== "captured") {

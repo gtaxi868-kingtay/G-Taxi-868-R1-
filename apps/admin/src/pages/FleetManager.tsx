@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, adminFetch } from '../lib/supabase';
-import { Users, Truck, AlertCircle, Shield, Ban, CheckCircle2 } from 'lucide-react';
+import { Users, Truck, AlertCircle, Shield, Ban, CheckCircle2, Activity } from 'lucide-react';
 
 export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
     const [tab, setTab] = useState<'personnel' | 'operations' | 'logistics'>('operations');
@@ -27,7 +27,7 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* SUB-NAVIGATION */}
             <div className="flex gap-4 p-1 bg-white/5 rounded-2xl w-fit border border-white/5">
-                <SubTab active={tab === 'operations'} onClick={() => setTab('operations')} icon={<Activity size={14}/>} label="Operations" />
+                <SubTab active={tab === 'operations'} onClick={() => setTab('operations')} icon={<ActivityIcon size={14}/>} label="Operations" />
                 <SubTab active={tab === 'personnel'} onClick={() => setTab('personnel')} icon={<Users size={14}/>} label="Personnel" />
                 <SubTab active={tab === 'logistics'} onClick={() => setTab('logistics')} icon={<Truck size={14}/>} label="Logistics" />
             </div>
@@ -141,4 +141,4 @@ const StatusBadge = ({ status }: any) => {
     );
 };
 
-const Activity = ({ size }: any) => <Activity size={size} />;
+const ActivityIcon = ({ size }: any) => <Activity size={size} />;

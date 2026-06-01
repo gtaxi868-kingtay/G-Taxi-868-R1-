@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { AppState } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useNetInfo } from '@react-native-community/netinfo';
 import { useRide } from '../context/RideContext';
 import { supabase } from '@gtaxi/core';
 import { Location, FareEstimate } from '@gtaxi/core';
@@ -9,11 +10,13 @@ const RIDE_TTL_MINUTES = 30;
 
 export function ActiveRideRestorationHandler() {
     const navigation = useNavigation<any>();
+    const netInfo = useNetInfo();
     const { activeRide, loading, checkActiveRide } = useRide();
 
     useEffect(() => {
         const handleRestoration = async () => {
             if (loading || !activeRide) return;
+            if (!netInfo.isConnected) return;
 
             const ride = activeRide;
 
@@ -21,7 +24,7 @@ export function ActiveRideRestorationHandler() {
             const now = new Date();
             const minutesSinceUpdate = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
 
-            if (minutesSinceUpdate > RIDE_TTL_MINUTES) {
+            if (ride.status !== 'in_progress' && minutesSinceUpdate > RIDE_TTL_MINUTES) {
                 const { error } = await supabase.rpc('expire_ride', { p_ride_id: ride.ride_id });
                 if (error) console.error('Failed to expire stale ride:', error);
                 return;

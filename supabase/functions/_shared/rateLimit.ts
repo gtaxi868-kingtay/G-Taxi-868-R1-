@@ -7,15 +7,28 @@ interface RateLimitConfig {
 
 // Rate limit configs per endpoint
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
-    create_ride: { maxRequests: 5, windowSeconds: 60 },  // 5 rides per minute
-    estimate_fare: { maxRequests: 30, windowSeconds: 60 },  // 30 estimates per minute
-    match_driver: { maxRequests: 10, windowSeconds: 60 },  // 10 dispatches per minute
-    accept_ride: { maxRequests: 10, windowSeconds: 60 },  // 10 accepts per minute
-    cancel_ride: { maxRequests: 5, windowSeconds: 300 },  // 5 cancels per 5 minutes
-    complete_ride: { maxRequests: 5, windowSeconds: 60 },  // 5 completions per minute
-    create_payment_intent: { maxRequests: 5, windowSeconds: 60 },  // 5 payment attempts per minute
-    update_driver_location: { maxRequests: 60, windowSeconds: 60 },  // 1 per second max
-    geocode: { maxRequests: 20, windowSeconds: 60 },  // 20 geocodes per minute
+    create_ride: { maxRequests: 5, windowSeconds: 60 },
+    estimate_fare: { maxRequests: 30, windowSeconds: 60 },
+    match_driver: { maxRequests: 10, windowSeconds: 60 },
+    accept_ride: { maxRequests: 10, windowSeconds: 60 },
+    cancel_ride: { maxRequests: 5, windowSeconds: 300 },
+    complete_ride: { maxRequests: 5, windowSeconds: 60 },
+    create_payment_intent: { maxRequests: 5, windowSeconds: 60 },
+    update_driver_location: { maxRequests: 60, windowSeconds: 60 },
+    geocode: { maxRequests: 20, windowSeconds: 60 },
+    parse_natural_language: { maxRequests: 10, windowSeconds: 60 },
+    mirror_ride: { maxRequests: 10, windowSeconds: 60 },
+    nfc_event_handler: { maxRequests: 10, windowSeconds: 60 },
+    nfc_restore_session: { maxRequests: 5, windowSeconds: 300 },
+    send_push_notification: { maxRequests: 30, windowSeconds: 60 },
+    update_ride_status: { maxRequests: 10, windowSeconds: 60 },
+    merchant_dispatch: { maxRequests: 20, windowSeconds: 60 },
+    merchant_gateway: { maxRequests: 30, windowSeconds: 60 },
+    merchant_order_picker: { maxRequests: 20, windowSeconds: 60 },
+    merchant_update_order_status: { maxRequests: 10, windowSeconds: 60 },
+    update_order_price: { maxRequests: 10, windowSeconds: 60 },
+    process_merchant_consent: { maxRequests: 10, windowSeconds: 60 },
+    create_wallet_topup: { maxRequests: 5, windowSeconds: 60 },
 };
 
 export async function checkRateLimit(

@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.user_memories (
 );
 
 -- Index for fast semantic search (HNSW is best for large datasets, IVFFlat for smaller. We use HNSW)
-CREATE INDEX ON public.user_memories USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_user_memories_embedding ON public.user_memories USING hnsw (embedding vector_cosine_ops);
 
 -- 3. Enhance Identity Shield / Link Awareness in Rides
 ALTER TABLE public.rides 

@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
     const { data: merchant, error: mErr } = await supabaseAdmin
       .from('merchants')
-      .insert({ name: full_name })
+      .insert({ name: full_name, created_by: authUser.user.id })
       .select('id')
       .single()
 

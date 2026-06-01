@@ -4,7 +4,7 @@ import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY")!;
 
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
@@ -69,7 +69,7 @@ serve(async (req: Request) => {
     const patternsData = await patternsRes.json();
     const patterns = patternsData.patterns;
 
-    const greeting = await generateGreetingWithGemini(user_name, patterns);
+    const greeting = await generateGreetingWithAI(user_name, patterns);
 
     const newMetadata = {
       ...prefs?.metadata,
@@ -102,31 +102,36 @@ serve(async (req: Request) => {
   }
 });
 
-async function generateGreetingWithGemini(name: string, patterns: any): Promise<string> {
+async function generateGreetingWithAI(name: string, patterns: any): Promise<string> {
   const prompt = buildPrompt(name, patterns);
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      "https://api.groq.com/openai/v1/chat/completions",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Authorization": `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            maxOutputTokens: 50,
-            temperature: 0.8,
-          },
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: "You are a friendly Trinidadian ride-hailing assistant. Generate warm, casual greetings under 15 words. Use local phrasing. No quotes. No markdown." },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.8,
+          max_tokens: 50,
         }),
       }
     );
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
+      throw new Error(`Groq API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const text = data.choices?.[0]?.message?.content || "";
     
     const clean = text.replace(/["']/g, "").trim();
     const words = clean.split(/\s+/);
@@ -136,7 +141,7 @@ async function generateGreetingWithGemini(name: string, patterns: any): Promise<
     return clean || buildFallback(name, patterns);
 
   } catch (err) {
-    console.error("Gemini call failed:", err);
+    console.error("Groq call failed:", err);
     return buildFallback(name, patterns);
   }
 }
