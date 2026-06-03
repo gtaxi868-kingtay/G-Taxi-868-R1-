@@ -256,14 +256,16 @@
 
         function updateTrackingUI(ride) {
             const statusMap = {
+                'requested': { title: 'Waiting for Confirmation', sub: 'Your request is being processed', emoji: '⏳' },
                 'searching': { title: 'Searching...', sub: 'Finding your driver near ' + ride.pickup_address, emoji: '🔎' },
-                'accepted': { title: 'Driver Arriving', sub: `${ride.driver?.full_name} is on the way in a ${ride.driver?.car_model}`, emoji: '🚗' },
-                'arrived': { title: 'Driver is Outside', sub: `Look for ${ride.driver?.car_model} - ${ride.driver?.car_number}`, emoji: '📍' },
-                'active': { title: 'Ride in Progress', sub: 'Heading to ' + ride.dropoff_address, emoji: '⚡' },
-                'completed': { title: 'Ride Completed', sub: 'Hope you enjoyed your G-Taxi trip!', emoji: '✅' }
+                'assigned': { title: 'Driver Dispatched', sub: `${ride.driver?.full_name || 'A driver'} is on the way in a ${ride.driver?.car_model || 'vehicle'}`, emoji: '🚗' },
+                'arrived': { title: 'Driver is Outside', sub: `Look for ${ride.driver?.car_model || 'the vehicle'} - ${ride.driver?.car_number || ''}`, emoji: '📍' },
+                'in_progress': { title: 'Ride in Progress', sub: 'Heading to ' + ride.dropoff_address, emoji: '⚡' },
+                'completed': { title: 'Ride Completed', sub: 'Hope you enjoyed your G-Taxi trip!', emoji: '✅' },
+                'cancelled': { title: 'Ride Cancelled', sub: 'This ride has been cancelled', emoji: '❌' }
             };
 
-            const info = statusMap[ride.status] || statusMap.searching;
+            const info = statusMap[ride.status] || { title: 'Processing...', sub: 'Updating ride status', emoji: '🔄' };
             document.getElementById('statusTitle').textContent = info.title;
             document.getElementById('statusSub').textContent = info.sub;
             document.getElementById('statusEmoji').textContent = info.emoji;

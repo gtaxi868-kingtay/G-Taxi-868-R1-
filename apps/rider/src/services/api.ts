@@ -28,6 +28,12 @@ interface FareEstimate {
     duration_seconds: number;
     total_fare_cents: number;
     route_polyline: string;
+    pricing_constants?: {
+        stop_base_grocery_cents: number;
+        stop_base_pharmacy_cents: number;
+        stop_base_other_cents: number;
+        wait_fee_per_minute_cents: number;
+    };
 }
 
 interface CreateRideParams {
@@ -165,6 +171,12 @@ export async function estimateFare(
         duration_seconds: number;
         vehicle_type: string;
         multiplier: number;
+        pricing_constants?: {
+            stop_base_grocery_cents: number;
+            stop_base_pharmacy_cents: number;
+            stop_base_other_cents: number;
+            wait_fee_per_minute_cents: number;
+        };
     }>(
         `${FUNCTIONS_URL}/estimate_fare`,
         {
@@ -174,7 +186,6 @@ export async function estimateFare(
         }
     );
 
-    // Transform Edge Function response to expected format
     if (response.success && response.data) {
         return {
             success: true,
@@ -183,7 +194,8 @@ export async function estimateFare(
                 distance_meters: response.data.distance_meters,
                 duration_seconds: response.data.duration_seconds,
                 total_fare_cents: response.data.estimated_fare_cents,
-                route_polyline: '', // Not returned by estimate_fare
+                route_polyline: '',
+                pricing_constants: response.data.pricing_constants,
             }
         };
     }

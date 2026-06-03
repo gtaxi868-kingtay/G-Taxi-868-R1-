@@ -23,7 +23,7 @@ const WARNING = '#F59E0B';
 const ERROR = '#EF4444';
 const SUCCESS = '#00FF94';
 
-const DEFAULT_DRIVER_SHARE = 0.78; // 22% commission (Standard)
+const DEFAULT_DRIVER_SHARE = 0.81; // 19% commission (Standard)
 const ARC_SIZE = 180;
 
 function paymentLabel(method: string | null): string {
@@ -363,6 +363,7 @@ const s = StyleSheet.create({
         fontWeight: '800',
         color: VOICES.driver.accent,
         letterSpacing: 0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     premiumBadge: {
         flexDirection: 'row',
@@ -379,6 +380,7 @@ const s = StyleSheet.create({
         fontWeight: '800',
         color: '#FFF',
         letterSpacing: 0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     verifiedBadge: {
         flexDirection: 'row',
@@ -395,6 +397,7 @@ const s = StyleSheet.create({
         fontWeight: '800',
         color: SUCCESS,
         letterSpacing: 0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     
     timerOuter: { 
@@ -421,6 +424,7 @@ const s = StyleSheet.create({
         color: VOICES.driver.textMuted,
         letterSpacing: 1.5,
         marginBottom: 4,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     earningsValue: {
         fontSize: 42,
@@ -428,11 +432,13 @@ const s = StyleSheet.create({
         color: VOICES.driver.accent,
         letterSpacing: -1,
         marginBottom: 4,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     countdownText: {
         fontSize: 13,
         fontWeight: '800',
         letterSpacing: 1,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     
     addressLayer: { 
@@ -452,11 +458,13 @@ const s = StyleSheet.create({
         color: VOICES.driver.textMuted,
         letterSpacing: 0.5,
         marginBottom: 2,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     addrText: {
         fontSize: 15,
         fontWeight: '700',
         color: '#FFFFFF',
+        fontFamily: 'Manrope-Medium',
     },
     dot: { 
         width: 12, 
@@ -500,6 +508,7 @@ const s = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         color: '#FFFFFF',
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 
     actionRow: { 
@@ -520,6 +529,7 @@ const s = StyleSheet.create({
         fontWeight: '800',
         color: ERROR,
         letterSpacing: 0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     acceptBtn: { 
         flex: 2, 
@@ -540,5 +550,6 @@ const s = StyleSheet.create({
         fontWeight: '800',
         color: SURFACE.base,
         letterSpacing: 0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 });

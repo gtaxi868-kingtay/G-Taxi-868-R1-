@@ -15,7 +15,7 @@ import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
 import { VEHICLE_MULTIPLIERS, calculateFare, calculateStopsFee } from "../_shared/pricing.ts";
@@ -139,6 +139,12 @@ serve(async (req: Request) => {
                     vehicle_type,
                     multiplier,
                     surge_multiplier: surgeMultiplier,
+                    pricing_constants: {
+                        stop_base_grocery_cents: PRICING.STOP_BASE_GROCERY_CENTS,
+                        stop_base_pharmacy_cents: PRICING.STOP_BASE_PHARMACY_CENTS,
+                        stop_base_other_cents: PRICING.STOP_BASE_OTHER_CENTS,
+                        wait_fee_per_minute_cents: PRICING.PER_MIN_CENTS,
+                    },
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -151,7 +151,6 @@ export type AppStackParamList = {
   Promo: undefined;
   Chat: ChatParams;
   AISettings: undefined;
-  Subscription: undefined;
   GroceryStorefront: undefined;
   ProductListing: ProductListingParams;
   ProductDetail: ProductDetailParams;

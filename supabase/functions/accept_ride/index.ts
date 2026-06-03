@@ -81,6 +81,28 @@ serve(async (req: Request) => {
             );
         }
 
+        // ── WALLET DEBT CHECK ─────────────────────────────────────
+        const { data: walletBalance, error: balanceError } = await supabaseAdmin
+            .rpc('get_wallet_balance', { p_user_id: user.id });
+
+        if (balanceError) {
+            console.error("Wallet balance check failed:", balanceError);
+            return new Response(
+                JSON.stringify({ success: false, error: "Balance check unavailable. Try again." }),
+                { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        } else if (walletBalance !== null && walletBalance < -30000) {
+            console.error(`Driver ${driver.id} blocked by debt lock. Balance: ${walletBalance}`);
+            return new Response(
+                JSON.stringify({
+                    success: false,
+                    error: "Debt limit exceeded. Please settle your outstanding balance before accepting new rides.",
+                    details: { balance_cents: walletBalance }
+                }),
+                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // 1. ATOMIC OFFER LOCK
         // Verify this driver actually holds a 'pending' offer for this ride.
         const { data: offer, error: offerError } = await supabaseAdmin

@@ -3,6 +3,9 @@ export const PRICING = {
     PER_KM_CENTS: 175,
     PER_MIN_CENTS: 95,
     MIN_FARE_CENTS: 2200,
+    STOP_BASE_GROCERY_CENTS: 3500,
+    STOP_BASE_PHARMACY_CENTS: 2500,
+    STOP_BASE_OTHER_CENTS: 1500,
 };
 
 export const VEHICLE_MULTIPLIERS: Record<string, number> = {
@@ -13,9 +16,9 @@ export const VEHICLE_MULTIPLIERS: Record<string, number> = {
 
 export function calculateStopsFee(stops: Array<{ stop_type?: string; estimated_wait_minutes?: number }> = []): number {
     return stops.reduce((total, stop) => {
-        let stopBase = 1500;
-        if (stop.stop_type === "grocery") stopBase = 3500;
-        if (stop.stop_type === "pharmacy") stopBase = 2500;
+        let stopBase = PRICING.STOP_BASE_OTHER_CENTS;
+        if (stop.stop_type === "grocery") stopBase = PRICING.STOP_BASE_GROCERY_CENTS;
+        if (stop.stop_type === "pharmacy") stopBase = PRICING.STOP_BASE_PHARMACY_CENTS;
 
         const waitFee = Math.round((stop.estimated_wait_minutes || 0) * PRICING.PER_MIN_CENTS);
         return total + stopBase + waitFee;

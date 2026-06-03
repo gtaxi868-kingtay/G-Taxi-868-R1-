@@ -47,12 +47,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name, role: 'merchant' } },
+    const { data, error } = await supabase.functions.invoke('merchant_signup', {
+      body: { email, password, full_name: name },
     });
     if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || 'Registration failed');
   };
 
   const signOut = async () => {

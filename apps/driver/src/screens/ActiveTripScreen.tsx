@@ -233,7 +233,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
             if (json.routes && json.routes[0]) {
                 const newCoords = decodePolyline(json.routes[0].geometry);
                 setRouteCoords(newCoords);
-                await supabase.from('rides').update({ route_geometry: json.routes[0].geometry }).eq('id', rideId);
+                await supabase.functions.invoke('update_ride_status', { body: { ride_id: rideId, route_geometry: json.routes[0].geometry } });
             }
         } catch (err) {
             console.error("Reroute fetch failed:", err);
@@ -277,10 +277,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
             return true;
         }
 
-        const { error } = await supabase
-            .from('rides')
-            .update(payload)
-            .eq('id', rideId);
+        const { error } = await supabase.functions.invoke('update_ride_status', { body: { ride_id: rideId, ...payload } });
 
         if (!error) {
             setRide((prev: any) => ({ ...prev, ...payload }));
@@ -322,10 +319,13 @@ export function ActiveTripScreen({ route, navigation }: any) {
         Alert.alert('Confirm Pickup', 'Collected all items from merchant?', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Confirm', onPress: async () => {
-                const { error } = await supabase
-                    .from('rides')
-                    .update({ status: 'in_progress' })
-                    .eq('id', rideId);
+                const lat = (location as any)?.coords?.latitude;
+                const lng = (location as any)?.coords?.longitude;
+                if (!lat || !lng) {
+                    Alert.alert('GPS Required', 'Location required to start trip');
+                    return;
+                }
+                const { error } = await updateRideStatus(rideId, 'in_progress', lat, lng);
                 if (error) {
                     Alert.alert('Error', error.message);
                     return;
@@ -530,6 +530,7 @@ const s = StyleSheet.create({
         color: tokens.colors.text,
         textAlign: 'center',
         marginTop: 16,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     earningsLabelSmall: {
         fontSize: 12,
@@ -537,12 +538,14 @@ const s = StyleSheet.create({
         color: tokens.colors.cyan,
         letterSpacing: 1.5,
         marginBottom: 8,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     earningsValueLarge: {
         fontSize: 42,
         fontWeight: '800',
         color: tokens.colors.cyan,
         letterSpacing: -0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     dashBtn: {
         width: '100%',
@@ -560,6 +563,7 @@ const s = StyleSheet.create({
         fontWeight: '800',
         color: tokens.colors.bg,
         letterSpacing: 0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 
     driverMarker: {
@@ -598,6 +602,7 @@ const s = StyleSheet.create({
         color: tokens.colors.text,
         textAlign: 'center',
         marginBottom: 20,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     pinInput: {
         width: '100%',
@@ -607,7 +612,7 @@ const s = StyleSheet.create({
         color: tokens.colors.cyan,
         marginVertical: 20,
         letterSpacing: 12,
-        fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'sans-serif',
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     modalActions: {
         flexDirection: 'row',
@@ -627,6 +632,7 @@ const s = StyleSheet.create({
         fontSize: 15,
         fontWeight: '700',
         color: tokens.colors.textMuted,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     modalConfirm: {
         flex: 1,
@@ -641,6 +647,7 @@ const s = StyleSheet.create({
         fontSize: 15,
         fontWeight: '800',
         color: tokens.colors.bg,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     successCircle: {
         width: 80, height: 80, borderRadius: 40,

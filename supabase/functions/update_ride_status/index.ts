@@ -59,16 +59,18 @@ serve(async (req: Request) => {
 
     const userId = user.id;
 
-    const { ride_id, status, driver_lat, driver_lng, pin } = await req.json();
+    const { ride_id, status, driver_lat, driver_lng, pin, entertainment_status, route_geometry } = await req.json();
 
-    if (!ride_id || !status) {
+    if (!ride_id) {
       return new Response(
-        JSON.stringify({ success: false, error: "ride_id and status required", data: null }),
+        JSON.stringify({ success: false, error: "ride_id required", data: null }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (status !== 'arrived' && status !== 'in_progress') {
+    const isMetadataOnly = !status && (entertainment_status !== undefined || route_geometry !== undefined);
+
+    if (status && status !== 'arrived' && status !== 'in_progress') {
       return new Response(
         JSON.stringify({ success: false, error: "Invalid status for this function. Use complete_ride for completion.", data: null }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -90,79 +92,92 @@ serve(async (req: Request) => {
       );
     }
 
-    // Only the assigned driver can update the status
+    // Only the assigned driver can update the ride
     if (ride.driver_id !== userId) {
       return new Response(
-        JSON.stringify({ success: false, error: "Not authorized. Only the assigned driver can update status.", data: null }),
+        JSON.stringify({ success: false, error: "Not authorized. Only the assigned driver can update this ride.", data: null }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // --- GPS TRUTH ENFORCEMENT ---
-    if (status === 'arrived') {
-      if (!driver_lat || !driver_lng) {
-        return new Response(
-          JSON.stringify({ success: false, error: "GPS coordinates required to mark arrived", data: null }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    if (!isMetadataOnly) {
+      // --- GPS TRUTH ENFORCEMENT ---
+      if (status === 'arrived') {
+        if (!driver_lat || !driver_lng) {
+          return new Response(
+            JSON.stringify({ success: false, error: "GPS coordinates required to mark arrived", data: null }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const distMeters = getDistanceMeters(
+          driver_lat, driver_lng,
+          ride.pickup_lat, ride.pickup_lng
         );
+
+        // Cannot tap "Arrived" if more than 120m away from pickup
+        if (distMeters > 120) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Too far from pickup. You are ${Math.round(distMeters)}m away (max 120m).`,
+              data: { distance: distMeters }
+            }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
-      const distMeters = getDistanceMeters(
-        driver_lat, driver_lng,
-        ride.pickup_lat, ride.pickup_lng
-      );
+      // --- PIN VERIFICATION ---
+      if (status === 'in_progress') {
+        if (!pin) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Rider PIN required to start trip", data: null }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
 
-      // Cannot tap "Arrived" if more than 120m away from pickup
-      if (distMeters > 120) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `Too far from pickup. You are ${Math.round(distMeters)}m away (max 120m).`,
-            data: { distance: distMeters }
-          }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
+        if (ride.ride_pin !== pin) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Invalid PIN. Please ask the rider for their 4-digit code.", data: null }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
 
-    // --- PIN VERIFICATION ---
-    if (status === 'in_progress') {
-      if (!pin) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Rider PIN required to start trip", data: null }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (ride.ride_pin !== pin) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Invalid PIN. Please ask the rider for their 4-digit code.", data: null }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // --- MERCHANT TRUST LAYER: PHOTO ENFORCEMENT ---
-      if (ride.order_id) {
-          const { data: log, error: logError } = await supabaseAdmin
-              .from('merchant_intake_logs')
-              .select('photo_urls')
-              .eq('order_id', ride.order_id)
-              .maybeSingle();
-          
-          if (!log || !log.photo_urls || log.photo_urls.length === 0) {
-              return new Response(
-                  JSON.stringify({ success: false, error: "PHOTO_REQUIRED: Merchant photo proof required before pickup.", data: null }),
-                  { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-              );
-          }
+        // --- MERCHANT TRUST LAYER: PHOTO ENFORCEMENT ---
+        if (ride.order_id) {
+            const { data: log, error: logError } = await supabaseAdmin
+                .from('merchant_intake_logs')
+                .select('photo_urls')
+                .eq('order_id', ride.order_id)
+                .maybeSingle();
+            
+            if (!log || !log.photo_urls || log.photo_urls.length === 0) {
+                return new Response(
+                    JSON.stringify({ success: false, error: "PHOTO_REQUIRED: Merchant photo proof required before pickup.", data: null }),
+                    { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+        }
       }
     }
 
     // ATOMIC RECORD UPDATE
     const updatePayload: any = {
-      status: status,
       updated_at: new Date().toISOString(),
     };
+
+    if (status) {
+      updatePayload.status = status;
+    }
+
+    if (entertainment_status !== undefined) {
+      updatePayload.entertainment_status = entertainment_status;
+    }
+
+    if (route_geometry !== undefined) {
+      updatePayload.route_geometry = route_geometry;
+    }
 
     if (status === 'arrived') {
       updatePayload.arrived_at = new Date().toISOString();
@@ -177,21 +192,24 @@ serve(async (req: Request) => {
         const waitMinutes = (now - arrivalTime) / (1000 * 60);
         
         if (waitMinutes > 0) {
-            // $1.00 per minute for logistics stops (Fairer than $1.10)
             updatePayload.wait_fee_cents = Math.floor(waitMinutes * 100);
-            updatePayload.is_stationary = true; // Signals the frontend to pause the travel meter
+            updatePayload.is_stationary = true;
         }
       }
     }
 
-    // Determine the valid previous state
-    const validPreviousStates = status === 'arrived' ? ['assigned'] : ['arrived'];
-
-    const { error: updateError, count } = await supabaseAdmin
+    // Determine the valid previous state (only for status transitions)
+    let query = supabaseAdmin
       .from("rides")
       .update(updatePayload)
-      .eq("id", ride_id)
-      .in("status", validPreviousStates); // ATOMIC GUARD
+      .eq("id", ride_id);
+
+    if (status) {
+      const validPreviousStates = status === 'arrived' ? ['assigned'] : ['arrived'];
+      query = query.in("status", validPreviousStates);
+    }
+
+    const { error: updateError, count } = await query;
 
     // ── Push Notification to Rider on Arrival ────────────────────────────
     if (status === 'arrived' && ride.rider_id) {
@@ -211,7 +229,7 @@ serve(async (req: Request) => {
         }
     }
 
-    if (updateError || count === 0) {
+    if (updateError || (status && count === 0)) {
       return new Response(
         JSON.stringify({ success: false, error: "Failed to update ride: invalid current state", data: null }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -222,7 +240,7 @@ serve(async (req: Request) => {
       JSON.stringify({
         success: true,
         error: null,
-        data: { ride_id, status },
+        data: { ride_id, status: status || ride.status },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

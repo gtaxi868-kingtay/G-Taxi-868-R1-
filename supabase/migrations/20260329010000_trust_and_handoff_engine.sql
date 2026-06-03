@@ -94,10 +94,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Assuming there is a triggers check on drivers.is_online
--- CREATE TRIGGER trigger_enforce_debt
--- BEFORE UPDATE OF is_online ON public.drivers
--- FOR EACH ROW WHEN (NEW.is_online = true)
--- EXECUTE FUNCTION enforce_driver_debt_limit();
+CREATE TRIGGER trigger_enforce_debt
+BEFORE UPDATE OF is_online ON public.drivers
+FOR EACH ROW WHEN (NEW.is_online = true)
+EXECUTE FUNCTION enforce_driver_debt_limit();
 
 -- ==========================================
 -- 5. RIDERS TABLES UPDATES (Extension)

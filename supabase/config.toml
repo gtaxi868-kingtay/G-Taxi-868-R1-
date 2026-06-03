@@ -56,5 +56,8 @@ entrypoint = "./functions/update_ride_status/index.ts"
 [functions.whatsapp_webhook]
 verify_jwt = false
 
+[functions.stripe_webhook]
+verify_jwt = false
+
 [functions.ai_concierge_proactive]
 verify_jwt = true

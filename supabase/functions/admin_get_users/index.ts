@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     }))
 
     const lockedDrivers = users
-      .filter(u => u.is_driver && u.balance_cents <= -60000)
+      .filter(u => u.is_driver && u.balance_cents <= -30000)
       .map(u => ({ user_id: u.id, name: u.name, balance: u.balance_cents }))
 
     return new Response(

@@ -115,27 +115,33 @@ Deno.serve(async (req: Request) => {
                 return new Response('Ledger insert failed', { status: 500 });
             }
 
-            const { error: walletError } = await supabaseAdmin
-                .from('wallet_transactions')
-                .insert({
-                    user_id: userId,
-                    ride_id: null,
-                    amount: topupAmountCents,
-                    transaction_type: 'topup',
-                    description: `Wallet top-up via card — $${(topupAmountCents / 100).toFixed(2)} TTD`,
-                    status: 'completed',
-                });
+            const { data: creditSuccess, error: creditError } = await supabaseAdmin.rpc(
+                'process_wallet_credit_idempotent',
+                {
+                    p_user_id: userId,
+                    p_amount_cents: topupAmountCents,
+                    p_reference_id: event.id,
+                    p_provider: 'stripe',
+                }
+            );
 
-            if (walletError) {
-                console.error('stripe_webhook: wallet credit failed:', walletError);
-                // Rollback Step A so idempotency check doesn't swallow retry
-                await supabaseAdmin
-                    .from('payment_ledger')
-                    .delete()
-                    .eq('stripe_event_id', event.id)
-                    .catch((e: unknown) => console.error('rollback failed:', e));
+            if (creditError) {
+                console.error('stripe_webhook: wallet credit RPC failed:', creditError);
                 return new Response('Wallet credit failed', { status: 500 });
             }
+
+            if (creditSuccess === false) {
+                console.log(`stripe_webhook: Duplicate topup blocked for event ${event.id}`);
+                return new Response(JSON.stringify({ status: 'ignored_duplicate' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            }
+
+            await supabaseAdmin
+                .from('payment_ledger')
+                .update({ processing_status: 'completed' })
+                .eq('stripe_event_id', event.id);
 
             return new Response(JSON.stringify({ status: 'wallet_topup_processed' }), {
                 status: 200,

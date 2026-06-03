@@ -78,13 +78,29 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const pickupLoc = pickup || { latitude: 10.66, longitude: -61.51, address: 'Current Location' };
 
     const fitMapTimeout = useRef<NodeJS.Timeout | null>(null);
+    const stopsTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         fetchData();
         return () => {
             if (fitMapTimeout.current) clearTimeout(fitMapTimeout.current);
+            if (stopsTimerRef.current) clearTimeout(stopsTimerRef.current);
         };
     }, []);
+
+    const fetchFare = async (stops: StopSuggestion[]) => {
+        const res = await estimateFare({
+            pickup_lat: pickupLoc.latitude,
+            pickup_lng: pickupLoc.longitude,
+            dropoff_lat: destination.latitude,
+            dropoff_lng: destination.longitude,
+            stops: stops.map(s => ({
+                stop_type: s.stop_type,
+                estimated_wait_minutes: s.estimated_wait_minutes,
+            })),
+        });
+        if (res.success) setFare(res.data);
+    };
 
     const fetchData = async () => {
         if (!destination?.latitude || !destination?.longitude) {
@@ -239,7 +255,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 pickup_lat: pickupLoc.latitude,
                 pickup_lng: pickupLoc.longitude,
                 pickup_address: source === 'nfc_kiosk' ? (sourceMetadata?.locationName || 'NFC Kiosk') :
-                                source === 'qr_stand' ? (sourceMetadata?.standName || 'Taxi Stand') :
+                                source === 'qr_stand' ? (sourceMetadata?.stand || sourceMetadata?.standName || 'Taxi Stand') :
                                 pickupLoc.address,
                 dropoff_lat: destination.latitude,
                 dropoff_lng: destination.longitude,
@@ -306,20 +322,24 @@ export function RideConfirmationScreen({ navigation, route }: any) {
         };
     }, []);
 
-    const stopsAddedCents = selectedStops.reduce((total, stop) => {
-        let stopBase = 1500;
-        if (stop.stop_type === 'grocery') stopBase = 3500;
-        if (stop.stop_type === 'pharmacy') stopBase = 2500;
-        const waitFee = Math.round((stop.estimated_wait_minutes || 0) * 95);
-        return total + stopBase + waitFee;
-    }, 0);
+    useEffect(() => {
+        if (selectedStops.length > 0) {
+            if (stopsTimerRef.current) clearTimeout(stopsTimerRef.current);
+            stopsTimerRef.current = setTimeout(() => {
+                fetchFare(selectedStops);
+            }, 400);
+        }
+        return () => {
+            if (stopsTimerRef.current) clearTimeout(stopsTimerRef.current);
+        };
+    }, [selectedStops]);
 
     const multiplier = useMemo(
         () => VEHICLES.find(v => v.type === selectedType)?.multiplier ?? 1.0,
         [selectedType]
     );
     const baseFareCents = fare ? fare.total_fare_cents : 0;
-    const displayFareCents = Math.round((baseFareCents + stopsAddedCents) * multiplier);
+    const displayFareCents = Math.round(baseFareCents * multiplier);
     const finalFare = fare ? (displayFareCents / 100).toFixed(2) : '--';
 
     return (
@@ -385,7 +405,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                     <Text style={s.addrLabel}>PICKUP</Text>
                                     <Text style={s.addrText} numberOfLines={1}>
                                         {source === 'nfc_kiosk' ? (sourceMetadata?.locationName || 'NFC Kiosk') :
-                                         source === 'qr_stand' ? (sourceMetadata?.standName || 'Taxi Stand') :
+                                         source === 'qr_stand' ? (sourceMetadata?.stand || sourceMetadata?.standName || 'Taxi Stand') :
                                          pickupLoc?.address || 'Current Location'}
                                     </Text>
                                 </View>
@@ -454,7 +474,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                                     </TouchableOpacity>
                                                 ) : (
                                                     <Text style={[s.stopPrice, { color: isSelected ? CYAN : VOICES.rider.textMuted }]}>
-                                                        +${(((stop.stop_type === 'grocery' ? 3500 : stop.stop_type === 'pharmacy' ? 2500 : 1500) + Math.round((stop.estimated_wait_minutes || 0) * 95)) / 100).toFixed(2)}
+                                                        +${(((stop.stop_type === 'grocery' ? (fare?.pricing_constants?.stop_base_grocery_cents ?? 3500) : stop.stop_type === 'pharmacy' ? (fare?.pricing_constants?.stop_base_pharmacy_cents ?? 2500) : (fare?.pricing_constants?.stop_base_other_cents ?? 1500)) + Math.round((stop.estimated_wait_minutes || 0) * (fare?.pricing_constants?.wait_fee_per_minute_cents ?? 95))) / 100).toFixed(2)}
                                                     </Text>
                                                 )}
                                             </View>

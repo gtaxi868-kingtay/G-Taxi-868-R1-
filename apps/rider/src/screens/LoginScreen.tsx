@@ -289,6 +289,7 @@ const s = StyleSheet.create({
         fontWeight: '600',
         textAlign: 'center',
         marginBottom: 4,
+        fontFamily: 'Manrope-Medium',
     },
 
     // Input
@@ -301,6 +302,7 @@ const s = StyleSheet.create({
         fontWeight: '700',
         letterSpacing: 1.5,
         textTransform: 'uppercase',
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     inputContainer: {
         height: 58,
@@ -316,6 +318,7 @@ const s = StyleSheet.create({
         color: '#FFF',
         fontSize: 16,
         fontWeight: '500',
+        fontFamily: 'Manrope-Medium',
     },
 
     // Button
@@ -336,6 +339,7 @@ const s = StyleSheet.create({
         fontSize: 17,
         fontWeight: '700',
         letterSpacing: 0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 
     // Link
@@ -347,10 +351,12 @@ const s = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)',
         fontSize: 14,
         fontWeight: '500',
+        fontFamily: 'Manrope-Medium',
     },
     linkTextAccent: {
         color: VOICES.rider.accent,
         fontWeight: '700',
+        fontFamily: 'Manrope-Bold',
     },
 
     // Watermark
@@ -365,6 +371,7 @@ const s = StyleSheet.create({
         fontSize: 18,
         fontWeight: '900',
         letterSpacing: 4,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     watermarkSubtext: {
         color: VOICES.rider.accent,
@@ -372,5 +379,6 @@ const s = StyleSheet.create({
         fontWeight: '800',
         letterSpacing: 6,
         marginTop: 2,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 });

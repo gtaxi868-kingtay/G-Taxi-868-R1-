@@ -850,6 +850,7 @@ const s = StyleSheet.create({
         fontWeight: '800',
         color: '#FFFFFF',
         letterSpacing: 1,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 
     aiInsightHud: { 
@@ -874,6 +875,7 @@ const s = StyleSheet.create({
         fontWeight: '800', 
         color: '#FFFFFF', 
         letterSpacing: 1,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     aiMessage: { 
         fontSize: 13, 
@@ -881,6 +883,7 @@ const s = StyleSheet.create({
         color: '#FFFFFF', 
         lineHeight: 18,
         marginTop: 2,
+        fontFamily: 'Manrope-Medium',
     },
     aiActionBtn: { 
         flexDirection: 'row', 
@@ -936,18 +939,21 @@ const s = StyleSheet.create({
         fontSize: 24, 
         fontWeight: '800', 
         color: SURFACE.base,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     driverName: { 
         fontSize: 20, 
         fontWeight: '800', 
         color: '#FFFFFF',
         letterSpacing: -0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     vehicleInfo: { 
         fontSize: 13, 
         fontWeight: '500', 
         color: VOICES.rider.textMuted,
         marginTop: 2,
+        fontFamily: 'Manrope-Medium',
     },
 
     pinBadge: { 
@@ -964,6 +970,7 @@ const s = StyleSheet.create({
         fontWeight: '600', 
         color: VOICES.rider.textMuted, 
         letterSpacing: 1,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     pinValue: { 
         fontSize: 28, 
@@ -971,6 +978,7 @@ const s = StyleSheet.create({
         color: CYAN, 
         letterSpacing: 3,
         marginTop: 2,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 
     sosBtn: { 
@@ -987,6 +995,7 @@ const s = StyleSheet.create({
         fontWeight: '800', 
         color: '#FFFFFF',
         letterSpacing: 0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
     sosRing: { 
         position: 'absolute', 
@@ -1057,6 +1066,7 @@ const s = StyleSheet.create({
         fontWeight: '700', 
         color: VOICES.rider.accent,
         letterSpacing: 0.5,
+        fontFamily: 'SpaceGrotesk-Bold',
     },
 
     waitClockRow: {

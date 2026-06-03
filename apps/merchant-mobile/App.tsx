@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { ErrorBoundary } from '@gtaxi/shared';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
@@ -46,14 +47,16 @@ function RootNavigator() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <View style={{ flex: 1 }}>
-          <NavigationContainer>
-            <RootNavigator />
-          </NavigationContainer>
-        </View>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary moduleName="MerchantMobile">
+      <SafeAreaProvider>
+        <AuthProvider>
+          <View style={{ flex: 1 }}>
+            <NavigationContainer>
+              <RootNavigator />
+            </NavigationContainer>
+          </View>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

@@ -44,7 +44,7 @@ serve(async (req) => {
 
     if (profileError || !profile) throw new Error("Profile resolution failed.");
     if (profile.is_suspended) throw new Error("Account Suspended. Contact G-Taxi Admin.");
-    if (profile.balance_cents < -5000) throw new Error("Global Debt Block: Level 1 Debt Detected. Settle balance to use Tap-to-Restore.");
+    if (profile.balance_cents < -30000) throw new Error("Global Debt Block: Level 1 Debt Detected. Settle balance to use Tap-to-Restore.");
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',

@@ -40,7 +40,7 @@ serve(async (req) => {
       const { data: existingEvent } = await supabase
         .from('nfc_event_logs')
         .select('id')
-        .eq('nonce', nonce)
+        .eq('location_context->>nonce', nonce)
         .maybeSingle();
 
       if (existingEvent) {
@@ -89,12 +89,13 @@ serve(async (req) => {
       .from('nfc_event_logs')
       .insert({
         tag_uid,
-        user_id: user.id,
-        kiosk_id: kiosk.id,
+        profile_id: user.id,
         event_type: 'kiosk_tap',
-        nonce: nonce || null,
-        lat: lat || kiosk.lat,
-        lng: lng || kiosk.lng,
+        location_context: {
+          lat: lat || kiosk.lat,
+          lng: lng || kiosk.lng,
+          kiosk_id: kiosk.id,
+        },
       })
       .maybeSingle();
 

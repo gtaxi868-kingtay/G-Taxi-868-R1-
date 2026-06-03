@@ -156,11 +156,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                     <Text style={[s.emailText, { marginTop: 4 }]}>{user?.email}</Text>
                 </View>
 
-                <TouchableOpacity
-                    style={s.subscriptionCard}
-                    onPress={() => navigation.navigate('Subscription')}
-                    activeOpacity={0.8}
-                >
+                <View style={s.subscriptionCard}>
                     <LinearGradient 
                         colors={subscription.tier === 'pro' ? ['#FFD700', '#FFA500'] : 
                                 subscription.tier === 'plus' ? ['#C0C0C0', '#808080'] : 
@@ -185,14 +181,9 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                                     {subscription.benefits.priority_matching ? ' • Priority' : ''}
                                 </Text>
                             </View>
-                            {subscription.tier === 'free' && (
-                                <View style={s.upgradeHint}>
-                                    <Text style={s.upgradeText}>Tap to upgrade →</Text>
-                                </View>
-                            )}
                         </View>
                     </LinearGradient>
-                </TouchableOpacity>
+                </View>
 
                 <View style={s.grid}>
                     <View style={s.gridItem}>
@@ -251,39 +242,39 @@ const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 32 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.15) },
-    headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFF' },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
 
     hero: { alignItems: 'center', marginBottom: 40 },
     avatarWrap: { width: 100, height: 100, borderRadius: 32, alignItems: 'center', justifyContent: 'center', ...elevationGlow(0.12) },
-    avatarLetter: { fontSize: 36, fontWeight: '900', color: '#FFF' },
-    displayName: { fontSize: 22, fontWeight: '700', color: '#FFF' },
-    emailText: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.6)' },
+    avatarLetter: { fontSize: 36, fontWeight: '900', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
+    displayName: { fontSize: 22, fontWeight: '700', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
+    emailText: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.6)', fontFamily: 'Manrope-Medium' },
 
     grid: { flexDirection: 'row', backgroundColor: SURFACE.containerLow, marginHorizontal: 20, borderRadius: 32, paddingVertical: 24, ...elevationGlow(0.12), marginBottom: 32 },
     gridItem: { flex: 1, alignItems: 'center' },
     gridDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
-    gridValue: { fontSize: 18, fontWeight: '800', color: '#FFF', marginBottom: 4 },
-    gridLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1 },
+    gridValue: { fontSize: 18, fontWeight: '800', color: '#FFF', marginBottom: 4, fontFamily: 'SpaceGrotesk-Bold' },
+    gridLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, fontFamily: 'SpaceGrotesk-Bold' },
 
     menu: { marginHorizontal: 20, backgroundColor: SURFACE.containerLow, borderRadius: 32, padding: 12, ...elevationGlow(0.12) },
     menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18 },
     menuItemLeft: { flexDirection: 'row', alignItems: 'center' },
     iconWrapper: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-    menuLabel: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+    menuLabel: { fontSize: 17, fontWeight: '700', color: '#FFF', fontFamily: 'Manrope-Bold' },
 
     logoutBtn: { marginHorizontal: 20, marginTop: 40, height: 64, borderRadius: 24, ...ghostBorder(0.15), backgroundColor: 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center' },
-    logoutText: { fontSize: 16, fontWeight: '800', color: '#FF4D4D' },
+    logoutText: { fontSize: 16, fontWeight: '800', color: '#FF4D4D', fontFamily: 'SpaceGrotesk-Bold' },
     footerBranding: { alignItems: 'center', marginTop: 32, opacity: 0.8 },
-    logoText: { fontSize: 18, fontWeight: '900', color: VOICES.rider.accent, letterSpacing: 2 },
-    footerText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5 },
+    logoText: { fontSize: 18, fontWeight: '900', color: VOICES.rider.accent, letterSpacing: 2, fontFamily: 'SpaceGrotesk-Bold' },
+    footerText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.6)', letterSpacing: 0.5, fontFamily: 'Manrope-Medium' },
     
     subscriptionCard: { marginHorizontal: 20, marginBottom: 24, borderRadius: 24, overflow: 'hidden' },
     subscriptionGradient: { borderRadius: 24 },
     subscriptionContent: { padding: 20 },
     subscriptionBadge: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-    tierText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
+    tierText: { fontSize: 16, fontWeight: '800', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
     subscriptionPerks: { marginTop: 4 },
-    perksText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.9)' },
+    perksText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.9)', fontFamily: 'Manrope-Medium' },
     upgradeHint: { marginTop: 12, alignSelf: 'flex-end' },
-    upgradeText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+    upgradeText: { fontSize: 13, fontWeight: '700', color: '#FFF', fontFamily: 'Manrope-Medium' },
 });

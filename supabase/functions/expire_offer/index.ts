@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { requireAuth } from "../_shared/auth.ts";
+import { requireDriver } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -16,15 +16,14 @@ serve(async (req: Request) => {
     }
 
     try {
-        const user = await requireAuth(req);
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { user, driver } = await requireDriver(req, supabaseAdmin);
 
         const { offer_id } = await req.json();
 
         if (!offer_id) {
             return new Response(JSON.stringify({ success: false, error: "offer_id required" }), { status: 400, headers: corsHeaders });
         }
-
-        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         const { data: offer } = await supabaseAdmin
             .from("ride_offers")
@@ -36,7 +35,7 @@ serve(async (req: Request) => {
             return new Response(JSON.stringify({ success: false, error: "Offer not found" }), { status: 404, headers: corsHeaders });
         }
 
-        if (offer.driver_id !== user.id) {
+        if (offer.driver_id !== driver.id) {
             return new Response(JSON.stringify({ success: false, error: "Forbidden" }), { status: 403, headers: corsHeaders });
         }
 

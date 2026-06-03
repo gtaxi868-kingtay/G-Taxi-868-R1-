@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { requireAuth } from "../_shared/auth.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,19 +13,26 @@ serve(async (req) => {
   }
 
   try {
+    const user = await requireAuth(req)
     const { ride_id } = await req.json()
-    const supabaseClient = createClient(
+
+    const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    const { data: ride, error: rideError } = await supabaseClient
+    const { data: ride, error: rideError } = await supabaseAdmin
       .from('rides')
       .select('id, origin_lat, origin_lng, dest_lat, dest_lng, rider_id')
       .eq('id', ride_id)
       .single()
 
     if (rideError || !ride) throw new Error('Target ride coordinates missing.')
+    if (ride.rider_id !== user.id) {
+      return new Response(JSON.stringify({ error: 'Forbidden: you do not own this ride.' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const groqPayload = {
       model: "llama-3.1-70b-versatile",
@@ -56,11 +64,11 @@ serve(async (req) => {
     const rawContent = aiData.choices[0].message.content.trim()
     const parsedSuggestions = JSON.parse(rawContent)
 
-    await supabaseClient
+    await supabaseAdmin
       .from('ride_suggestions')
       .insert({ ride_id, suggestions: parsedSuggestions })
 
-    await supabaseClient.functions.invoke('send_push_notification', {
+    await supabaseAdmin.functions.invoke('send_push_notification', {
       body: {
         user_id: ride.rider_id,
         title: "TaxiG Smart Suggestion ✨",

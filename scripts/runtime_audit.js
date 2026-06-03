@@ -9,8 +9,10 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
-const SUPABASE_URL = 'https://kdatihgcxrosuwcqtjsi.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtkYXRpaGdjeHJvc3V3Y3F0anNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyOTMxNzMsImV4cCI6MjA4NDg2OTE3M30.dQ6Fm4DrKdkWHPlMGr82fPr6mWtzRVYkJ8SnLnDrTLQ';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+if (!SUPABASE_URL) { console.error('FATAL: SUPABASE_URL env var required'); process.exit(1); }
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+if (!SUPABASE_ANON_KEY) { console.error('FATAL: SUPABASE_ANON_KEY env var required'); process.exit(1); }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
