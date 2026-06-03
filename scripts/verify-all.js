@@ -285,6 +285,25 @@ function checkTypeScript() {
   }
 }
 
+function checkSecrets() {
+  console.log(`\n${COLORS.INFO} Edge Function Secrets`);
+
+  try {
+    const proc = execSync('node scripts/verify-secrets.js 2>&1', {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: 'pipe'
+    });
+    console.log(proc.stdout);
+    log(COLORS.PASS, 'secrets', 'All required secrets are set');
+  } catch (err) {
+    if (err.stderr || err.stdout) {
+      console.log(err.stdout || err.stderr);
+    }
+    log(COLORS.FAIL, 'secrets', 'One or more required secrets missing');
+  }
+}
+
 function checkLint() {
   console.log(`\n${COLORS.INFO} Lint Check`);
   
@@ -368,6 +387,7 @@ checkNoDuplicateNodeModules();
 checkRootOverrides();
 checkTypeScript();
 checkLint();
+checkSecrets();
 
 // Summary
 console.log('\n========================================');

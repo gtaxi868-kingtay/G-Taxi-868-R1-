@@ -68,14 +68,12 @@ const STOP_LABELS: Record<string, string> = {
 
 export default function RideReviewScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
-  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+  const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const params: RideReviewParams = route.params;
   const [isCreating, setIsCreating] = useState(false);
   const [stops, setStops] = useState<Stop[]>(params.stops);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const dragY = useSharedValue(0);
-
-  const isTablet = SCREEN_WIDTH > 600;
 
   const fareDollars = (params.estimated_fare_cents / 100).toFixed(2);
   const totalDurationMin = params.stops.length >= 2 ? Math.round(params.total_duration_seconds / 60) : 0;

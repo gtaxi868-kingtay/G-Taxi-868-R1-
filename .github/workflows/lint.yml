@@ -1,14 +1,23 @@
-name: Lint
+name: CI
 
 on: [push, pull_request]
 
 jobs:
-  lint:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+          cache: npm
+
+      - run: npm ci --legacy-peer-deps
       - run: npm run lint
+        if: always()
+      - run: npm run typecheck
+        if: always()
+      - run: npm test
+        if: always()
+      - run: npx turbo run build
+        continue-on-error: true

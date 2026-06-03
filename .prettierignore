@@ -1,0 +1,15 @@
+node_modules
+dist
+.expo
+.git
+*.md
+*.yml
+*.yaml
+*.json
+supabase/migrations
+supabase/functions/_shared/sentry.ts
+stitch_ride_confirmation_screen
+superpowers
+_agents
+agent
+ui-ux-pro-max-skill

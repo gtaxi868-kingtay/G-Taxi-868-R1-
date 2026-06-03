@@ -119,6 +119,30 @@ const styles = StyleSheet.create({
     },
 });
 
+// Adaptive Container — tablet-aware responsive wrapper
+// Centers content with max-width on tablets, full-width on phones
+interface AdaptiveContainerProps {
+    children: React.ReactNode;
+    style?: ViewStyle;
+}
+
+export function AdaptiveContainer({ children, style }: AdaptiveContainerProps) {
+    const { width } = useScreenDimensions();
+    const isTablet = width > 600;
+
+    return (
+        <View style={[{
+            flex: 1,
+            paddingHorizontal: isTablet ? 32 : 16,
+            maxWidth: isTablet ? 800 : '100%' as any,
+            alignSelf: isTablet ? 'center' : 'stretch',
+            width: '100%',
+        }, style]}>
+            {children}
+        </View>
+    );
+}
+
 // Get screen dimensions accounting for safe areas
 export function useScreenDimensions() {
     const { width, height } = Dimensions.get('window');
