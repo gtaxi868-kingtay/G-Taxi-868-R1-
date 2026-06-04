@@ -5,6 +5,13 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "build/**"]
     },
+    "build:development": {
+      "cache": false,
+      "persistent": false
+    },
+    "lint": {
+      "cache": true
+    },
     "typecheck": {
       "cache": true
     },

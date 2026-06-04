@@ -2,6 +2,21 @@ import importPlugin from "eslint-plugin-import";
 
 export default [
   {
+    ignores: [
+      "_agents/**",
+      "superpowers/**",
+      "tools/**",
+      "ui-ux-pro-max-skill/**",
+      "**/node_modules/**",
+      "**/.expo/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.turbo/**",
+      "**/.vercel/**",
+      "**/out/**",
+    ],
+  },
+  {
     files: ["**/*.{ts,tsx,js,jsx}"],
 
     plugins: {

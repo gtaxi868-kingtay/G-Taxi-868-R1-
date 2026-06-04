@@ -97,8 +97,8 @@ function App() {
   useEffect(() => { checkSession(); }, []);
 
   if (view === 'login') return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-900">
-      <div className="w-full max-w-md bg-white rounded-[3.5rem] p-12 text-center shadow-2xl border border-slate-100">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 overflow-y-auto text-slate-900">
+      <div className="w-full max-w-md bg-white rounded-[3.5rem] p-8 sm:p-12 text-center shadow-2xl border border-slate-100">
         <div className="w-24 h-24 bg-purple-600 rounded-[2rem] mx-auto flex items-center justify-center shadow-xl mb-12 rotate-3">
           <ShieldCheck size={48} color="white" />
         </div>
@@ -211,7 +211,7 @@ function App() {
           </div>
       </div>
 
-      <main className="lg:pl-80 p-4 sm:p-6 lg:p-12 pt-20 lg:pt-12 min-h-screen">
+      <main className="lg:pl-80 p-4 sm:p-6 lg:p-12 pt-20 lg:pt-12 min-h-screen pb-20">
           <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-16">
               <div>
                   <h1 className="text-3xl sm:text-4xl font-black tracking-tight">{merchant?.name}</h1>
@@ -305,7 +305,7 @@ function App() {
 
           {selectedOrder && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center sm:justify-end p-4 sm:p-6">
-                  <div className="bg-white w-full sm:max-w-xl h-full max-h-screen sm:max-h-[calc(100vh-3rem)] rounded-[2.5rem] sm:rounded-[3.5rem] p-8 sm:p-12 shadow-2xl relative overflow-y-auto animate-in slide-in-from-right duration-500">
+                  <div className="bg-white w-full sm:max-w-xl h-full max-h-screen sm:max-h-[calc(100vh-3rem)] rounded-[2.5rem] sm:rounded-[3.5rem] p-8 sm:p-12 pb-8 shadow-2xl relative overflow-y-auto animate-in slide-in-from-right duration-500">
                       <button onClick={() => setSelectedOrder(null)} className="absolute top-8 sm:top-12 right-8 sm:right-12 text-slate-300 hover:text-slate-900 transition-colors"><CheckCircle size={28} /></button>
                       <h2 className="text-3xl sm:text-4xl font-black mb-2 italic">MANIFEST</h2>
                       <p className="text-slate-400 text-sm font-bold mb-12 uppercase tracking-widest">Order #{selectedOrder.id.toUpperCase()}</p>
@@ -369,10 +369,10 @@ function App() {
 
           {selectedAppointment && (
               <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 sm:p-6">
-                  <div className="bg-white w-full max-w-md rounded-[3rem] sm:rounded-[3.5rem] p-8 sm:p-12 text-center shadow-2xl relative animate-in zoom-in-95">
+                  <div className="bg-white w-full max-w-md max-h-[80vh] overflow-y-auto rounded-[3rem] sm:rounded-[3.5rem] p-8 sm:p-12 text-center shadow-2xl relative animate-in zoom-in-95">
                       <h3 className="text-2xl sm:text-3xl font-black mb-4 italic">APPOINTMENT</h3>
                       <p className="text-slate-400 font-bold mb-10">{selectedAppointment.rider?.full_name} for {selectedAppointment.service?.name}</p>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <button onClick={() => updateAppointment(selectedAppointment.id, 'rejected')} className="h-16 border border-slate-100 text-slate-400 font-black rounded-2xl uppercase tracking-widest text-xs hover:bg-red-50 hover:text-red-500 transition-all">Decline</button>
                           <button onClick={() => updateAppointment(selectedAppointment.id, 'approved')} className="h-16 bg-purple-600 text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-xl shadow-purple-500/20">Approve</button>
                       </div>
@@ -451,7 +451,7 @@ const DispatchModal = ({ merchant, onClose, onSuccess, result }: any) => {
 
     return (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 sm:p-6">
-            <div className="bg-white w-full max-w-xl rounded-[2.5rem] sm:rounded-[3rem] p-8 sm:p-12 shadow-2xl animate-in zoom-in-95 duration-300 relative">
+            <div className="bg-white w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-[2.5rem] sm:rounded-[3rem] p-8 sm:p-12 shadow-2xl animate-in zoom-in-95 duration-300 relative">
                 <button onClick={onClose} className="absolute top-6 sm:top-8 right-6 sm:right-8 text-slate-300 hover:text-slate-900"><AlertTriangle size={24} /></button>
                 
                 {!result ? (

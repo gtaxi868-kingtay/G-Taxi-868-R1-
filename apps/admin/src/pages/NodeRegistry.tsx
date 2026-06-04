@@ -255,7 +255,7 @@ export function NodeRegistry() {
             {/* Register / Edit Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-                    <div className="bg-[#0D0B1E] w-full max-w-xl rounded-[2rem] border border-white/10 p-8 shadow-2xl">
+                    <div className="bg-[#0D0B1E] w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[2rem] border border-white/10 p-8 shadow-2xl">
                         <div className="flex items-center justify-between mb-8">
                             <h3 className="text-xl font-black text-white italic">
                                 {editNode?.id ? 'Edit Node' : 'Register New Node'}
@@ -284,7 +284,7 @@ export function NodeRegistry() {
                                     className="w-full h-14 px-5 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm focus:border-cyan-500/30 focus:outline-none placeholder-white/20"
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">Latitude</label>
                                     <input

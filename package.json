@@ -5,6 +5,7 @@
     "apps/*",
     "packages/*"
   ],
+  "packageManager": "npm@10.9.4",
   "scripts": {
     "dev:rider": "npm --workspace apps/rider run start",
     "dev:driver": "npm --workspace apps/driver run start",

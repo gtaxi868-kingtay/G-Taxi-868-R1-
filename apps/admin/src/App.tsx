@@ -145,7 +145,7 @@ function App() {
                 {/* SIDEBAR NAVIGATION */}
                 <aside className={`
                     fixed lg:sticky top-0 left-0 z-50 h-screen
-                    w-80 border-r border-white/5 bg-black/20 backdrop-blur-3xl flex flex-col p-8
+                    w-72 lg:w-80 border-r border-white/5 bg-black/20 backdrop-blur-3xl flex flex-col p-8 overflow-y-auto
                     transition-transform duration-300
                     ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
                     lg:translate-x-0
@@ -191,7 +191,7 @@ function App() {
                 </aside>
 
                 {/* MAIN CONTENT AREA */}
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-12 pt-20 lg:pt-12">
+                <main className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-6 lg:p-12 pt-20 lg:pt-12">
                     <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-12">
                         <div>
                             <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight">{activeTab.toUpperCase()}</h2>

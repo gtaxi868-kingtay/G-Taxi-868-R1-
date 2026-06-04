@@ -39,3 +39,50 @@ allprojects {
         maven { url 'https://www.jitpack.io' }
     }
 }
+
+// G-Taxi One Engine: Kill broken maps interfaces
+allprojects { project ->
+    def fixMaps = {
+        if (project.name.contains('react-native-maps')) {
+            def brokenFolder = file("${project.projectDir}/src/main/java/com/facebook/react/viewmanagers")
+            if (brokenFolder.exists()) {
+                println "G-Taxi: Deleting broken ViewManager interfaces in ${project.name}"
+                brokenFolder.deleteDir()
+            }
+        }
+    }
+    if (project.state.executed) {
+        fixMaps()
+    } else {
+        project.afterEvaluate { fixMaps() }
+    }
+}
+
+// G-Taxi One Engine: Patch react-native-nfc-manager for Android API 33+
+allprojects { p ->
+    if (p.name.contains('react-native-nfc-manager')) {
+        p.afterEvaluate {
+            def patchTask = tasks.register('patchNfcForApi33') {
+                doLast {
+                    def nfcFile = file("${projectDir}/src/main/java/community/revteltech/nfc/NfcManager.java")
+                    if (nfcFile.exists()) {
+                        def content = nfcFile.text
+                        def patched = content.replaceAll(
+                            /nfcAdapter\.setNdefPushMessage\(msgToPush, currentActivity\);/,
+                            'if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {\n' +
+                            '    nfcAdapter.setNdefPushMessage(msgToPush, currentActivity);\n' +
+                            '}'
+                        )
+                        if (content != patched) {
+                            nfcFile.text = patched
+                            println "G-Taxi: Patched NfcManager.java for API 33+"
+                        }
+                    }
+                }
+            }
+            tasks.matching { it.name == 'preBuild' }.configureEach {
+                dependsOn patchTask
+            }
+        }
+    }
+}

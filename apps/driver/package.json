@@ -7,6 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
+    "build:development": "eas build --profile development --platform android",
     "test": "jest"
   },
   "dependencies": {
