@@ -4,7 +4,7 @@ import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY")!;
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
@@ -16,6 +16,15 @@ const corsHeaders = {
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (!GROQ_API_KEY) {
+    const hour = new Date().getHours();
+    const fallback = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+    return new Response(
+      JSON.stringify({ greeting: `${fallback}! Ready to roll?`, cached: false, fallback: true }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {

@@ -70,14 +70,19 @@ let Sentry = SentryMock;
 
 if (!isExpoGo && !isWeb) {
     try {
-        Sentry = require('@sentry/react-native');
-        Sentry.init({
-            dsn: ENV.SENTRY_DSN || 'https://placeholder@sentry.io/123456',
-            enabled: process.env.APP_ENV === 'production',
-            enableInExpoDevelopment: true,
-            debug: __DEV__,
-            environment: process.env.APP_ENV || 'development',
-        });
+        const dsn = ENV.SENTRY_DSN || process.env.EXPO_PUBLIC_SENTRY_DSN;
+        if (!dsn || dsn.includes('placeholder')) {
+            console.warn('[Sentry] SENTRY_DSN is missing or still set to placeholder. Crash reporting disabled.');
+        } else {
+            Sentry = require('@sentry/react-native');
+            Sentry.init({
+                dsn,
+                enabled: process.env.APP_ENV === 'production',
+                enableInExpoDevelopment: true,
+                debug: __DEV__,
+                environment: process.env.APP_ENV || 'development',
+            });
+        }
     } catch (_e) { /* silent */ }
 }
 

@@ -83,13 +83,13 @@ type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval' | 'nodes' | '
 function App() {
     const [activeTab, setActiveTab] = useState<AdminView>('dashboard');
     const [sidebarOpen, setSidebarOpen] = useState(false);
-
-    // GLOBAL DATA STATE
-    const [rides, setRides] = useState<any[]>([]);
-    const [allUsers, setAllUsers] = useState<any[]>([]);
-    const [orders, setOrders] = useState<any[]>([]);
+    const [syncError, setSyncError] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        setSyncError(null);
         try {
             const { data: rideData } = await adminFetch('admin_get_rides');
             setRides(rideData || []);
@@ -103,20 +103,25 @@ function App() {
                 .order('created_at', { ascending: false });
             setOrders(orderData || []);
         } catch (err) {
-            console.error('Data Sync Error:', err);
+            const msg = err instanceof Error ? err.message : JSON.stringify(err);
+            console.error('Data Sync Error:', msg);
+            setSyncError(msg);
         }
     }, []);
 
     useEffect(() => {
-        if (document.readyState) {
-            fetchData();
-            const channel = supabase
-                .channel('admin-sync')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, fetchData)
-                .subscribe();
-            return () => { supabase.removeChannel(channel); };
-        }
+        fetchData();
+        const channel = supabase
+            .channel('admin-sync')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'rides' }, fetchData)
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
     }, [fetchData]);
+
+    // GLOBAL DATA STATE
+    const [rides, setRides] = useState<any[]>([]);
+    const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [orders, setOrders] = useState<any[]>([]);
 
     const handleNav = (tab: AdminView) => {
         setActiveTab(tab);
@@ -205,6 +210,17 @@ function App() {
                         </div>
                     </header>
 
+                    {syncError && (
+                        <div className="mb-6 p-4 bg-red-900/30 border border-red-500/40 rounded-xl flex items-center justify-between">
+                            <span className="text-red-300 text-sm font-mono">{syncError}</span>
+                            <button
+                                onClick={fetchData}
+                                className="px-4 py-2 bg-red-500/20 border border-red-500/40 rounded-lg text-red-300 text-xs font-black uppercase tracking-widest hover:bg-red-500/30"
+                            >
+                                Retry
+                            </button>
+                        </div>
+                    )}
                     <div className="max-w-7xl">
                         {activeTab === 'dashboard' && <Dashboard rides={rides} />}
                         {activeTab === 'fleet' && <FleetManager rides={rides} allUsers={allUsers} orders={orders} onRefresh={fetchData} />}

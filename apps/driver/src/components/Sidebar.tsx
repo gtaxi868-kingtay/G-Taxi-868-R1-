@@ -147,6 +147,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 
                         <View style={styles.navSection}>
                             {navItem('Settings', 'settings-outline', 'Profile')}
+                            {navItem('Report Issue', 'warning-outline', 'ReportIssue', true)}
                         </View>
 
                         <View style={{ flex: 1 }} />

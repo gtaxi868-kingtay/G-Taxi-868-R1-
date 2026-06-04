@@ -43,7 +43,7 @@ export function PaymentSelector({ selected, onSelect, walletBalance, requiredAmo
 
     const handlePress = (option: typeof OPTIONS[0]) => {
         if (option.disabled) {
-            Alert.alert('Coming Soon', `${option.label} payments are not yet available.`);
+            Alert.alert('Insufficient Balance', `Your G-Coin balance is too low. Top up in Wallet to use this method.`);
             return;
         }
         onSelect(option.id);

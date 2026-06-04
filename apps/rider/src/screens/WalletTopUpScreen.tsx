@@ -36,8 +36,7 @@ export function WalletTopUpScreen({ navigation }: any) {
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-    const isWeb = Platform.OS === 'web';
-    const stripe = (isExpoGo || isWeb) ? null : useStripe();
+    const stripe = isExpoGo ? null : useStripe();
 
     const [balance, setBalance] = useState<number | null>(null);
     const [selectedAmount, setSelectedAmount] = useState<number>(100);

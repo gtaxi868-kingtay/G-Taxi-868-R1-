@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView,
-    Alert, ActivityIndicator, useWindowDimensions, Platform
+    Alert, ActivityIndicator, useWindowDimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -43,8 +43,7 @@ export function PaymentScreen({ navigation, route }: any) {
     const fareCents = route?.params?.fare_cents;
     const insets = useSafeAreaInsets();
     const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-    const isWeb = Platform.OS === 'web';
-    const stripe = (isExpoGo || isWeb) ? null : useStripe();
+    const stripe = isExpoGo ? null : useStripe();
 
     const [selected, setSelected] = useState<PaymentMethod>(initialMethod);
     const [loading, setLoading] = useState(false);
