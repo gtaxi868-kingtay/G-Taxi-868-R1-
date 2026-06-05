@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
+import { aiFetch, secureFetch } from "../_shared/networkUtility.ts";
 
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
@@ -84,7 +85,7 @@ Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned loc
       };
 
       try {
-        const groqRes = await fetch(
+        const groqRes = await aiFetch(
           "https://api.groq.com/openai/v1/chat/completions",
           { method: "POST", headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(groqBody) }
         );
@@ -118,7 +119,7 @@ Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned loc
         }
 
         try {
-          const geoRes = await fetch(
+          const geoRes = await secureFetch(
             `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(stop.search_term)}.json?` +
             `access_token=${MAPBOX_TOKEN}&proximity=${current_lng},${current_lat}&${TT_BBOX}&limit=1`
           );
@@ -153,7 +154,7 @@ Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned loc
     if (validStops.length >= 2 && MAPBOX_TOKEN) {
       const coords = validStops.map(s => `${s.lng},${s.lat}`).join(";");
       try {
-        const dirRes = await fetch(
+        const dirRes = await secureFetch(
           `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?` +
           `access_token=${MAPBOX_TOKEN}&geometries=geojson&overview=simplified&steps=false`
         );
@@ -190,7 +191,7 @@ Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned loc
         const categories = ["restaurant", "cafe", "supermarket", "gas_station", "atm", "pharmacy"];
         for (const category of categories) {
           try {
-            const poiRes = await fetch(
+            const poiRes = await secureFetch(
               `https://api.mapbox.com/geocoding/v5/mapbox.places/${category}.json?` +
               `proximity=${stop.lng},${stop.lat}&types=poi&limit=2&access_token=${MAPBOX_TOKEN}`
             );

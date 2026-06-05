@@ -2,6 +2,8 @@
 // G-TAXI HARDENING: Fix 9 - SMS Fallback
 // Provides resilient messaging for drivers in low-data (edge) regions.
 
+import { secureFetch } from "./networkUtility.ts";
+
 const TWILIO_SID = Deno.env.get("TWILIO_ACCOUNT_SID");
 const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN");
 const TWILIO_FROM = Deno.env.get("TWILIO_PHONE_NUMBER");
@@ -25,13 +27,14 @@ export async function sendSMS(to: string, message: string) {
         body.set("From", TWILIO_FROM);
         body.set("Body", message);
 
-        const response = await fetch(url, {
+        const response = await secureFetch(url, {
             method: "POST",
             headers: {
                 "Authorization": `Basic ${auth}`,
                 "Content-Type": "application/x-www-form-urlencoded",
             },
             body: body.toString(),
+            timeoutMs: 10000,
         });
 
         const data = await response.json();

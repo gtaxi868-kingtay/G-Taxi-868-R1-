@@ -1,6 +1,5 @@
-// Relay: @gtaxi/design-system/primitives
-// Metro resolves this sub-path to packages/design-system/primitives.ts (filesystem)
-// Actual Txt component lives in design-system-native/src/components.tsx
-// but the canonical local definition is in apps/rider/src/design-system/primitives.tsx
-// This relay covers the workspace-package import side.
+// @gtaxi/design-system/primitives — native component relay
+// This file is resolved when packages import from @gtaxi/design-system/primitives.
+// In the app bundle it re-exports native components for RN/Metro.
+// For web (Vite), this path should never be reached — imports should use @gtaxi/design-system/tokens.
 export * from '@gtaxi/design-system-native';

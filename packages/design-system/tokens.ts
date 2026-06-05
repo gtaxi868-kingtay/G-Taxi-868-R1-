@@ -1,3 +1,6 @@
+// @gtaxi/design-system/tokens — design tokens (platform-agnostic)
+// No native imports here — this file must be safe for web (Vite) bundling.
+
 export const tokens = {
   colors: {
     background: {
@@ -46,5 +49,3 @@ export const ANIMATION = {
   easing: [0.16, 1, 0.3, 1] as const,
   spring: { damping: 18, stiffness: 150, mass: 1 },
 };
-
-export * from '@gtaxi/design-system-native';

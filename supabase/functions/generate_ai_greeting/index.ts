@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
+import { aiFetch, internalFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -66,7 +67,7 @@ serve(async (req: Request) => {
       }
     }
 
-    const patternsRes = await fetch(`${SUPABASE_URL}/functions/v1/get_user_patterns`, {
+    const patternsRes = await internalFetch(`${SUPABASE_URL}/functions/v1/get_user_patterns`, {
       method: "POST",
       headers: {
         "Authorization": req.headers.get("Authorization") || "",
@@ -115,7 +116,7 @@ async function generateGreetingWithAI(name: string, patterns: any): Promise<stri
   const prompt = buildPrompt(name, patterns);
 
   try {
-    const response = await fetch(
+    const response = await aiFetch(
       "https://api.groq.com/openai/v1/chat/completions",
       {
         method: "POST",

@@ -4,6 +4,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiFetch, internalFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -71,7 +72,7 @@ serve(async (req: Request) => {
     for (const riderId of uniqueRiderIds) {
       try {
         // A. Get user patterns
-        const patternsRes = await fetch(`${SUPABASE_URL}/functions/v1/get_user_patterns`, {
+        const patternsRes = await internalFetch(`${SUPABASE_URL}/functions/v1/get_user_patterns`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -120,7 +121,7 @@ serve(async (req: Request) => {
         const message = await generatePushMessage(patterns);
 
         // E. Send push notification
-        await fetch(`${SUPABASE_URL}/functions/v1/send_push_notification`, {
+        await internalFetch(`${SUPABASE_URL}/functions/v1/send_push_notification`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -197,7 +198,7 @@ async function generatePushMessage(patterns: any): Promise<string> {
 
   // Try Groq first
   try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const response = await aiFetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${GROQ_API_KEY}`,

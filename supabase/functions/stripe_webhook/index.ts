@@ -1,6 +1,4 @@
-// Supabase Edge Function: stripe_webhook
-// ============================================================
-// CAPITAL RESERVE LOCK — Stripe Payment Path (2026-05-22)
+// Supabase Edge Function: stripe_webhook — ATOMIC SETTLEMENT (2026-06-04)
 // ============================================================
 // Settlement math (server-side only):
 //   reserve      = round(gross * 0.015)     → capital_reserve_ledger
@@ -8,44 +6,36 @@
 //   platform_fee = round(net * 0.185)       → platform wallet credit
 //   driver_payout = net - platform_fee       → driver wallet credit
 //
-// Security rules (CLAUDE.md rule 5):
+// Security rules:
 //   - req.text() is called FIRST — before any JSON parsing.
 //   - Stripe signature verified using raw body string.
-//   - Idempotency enforced via payment_ledger.stripe_event_id UNIQUE.
-//   - On ANY partial failure, returns HTTP 500 so Stripe retries.
+//   - Idempotency enforced via processed_stripe_events table + advisory lock.
+//   - Settlement uses a single Postgres RPC (atomic transaction).
 // ============================================================
 
 import Stripe from "https://esm.sh/stripe@13";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { captureException } from "../_shared/sentry.ts";
+import { secureFetch } from "../_shared/networkUtility.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY")!;
-const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
-
-if (!STRIPE_WEBHOOK_SECRET) {
-    throw new Error("Missing STRIPE_WEBHOOK_SECRET environment variable");
+// ── ENV VAR GUARDS ───────────────────────────────────────────
+function requireEnv(key: string): string {
+    const value = Deno.env.get(key);
+    if (!value) {
+        throw new Error(`Missing required environment variable: ${key}`);
+    }
+    return value;
 }
+
+const SUPABASE_URL = requireEnv("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY");
+const STRIPE_WEBHOOK_SECRET = requireEnv("STRIPE_WEBHOOK_SECRET");
 
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
     apiVersion: "2023-10-16",
     httpClient: Stripe.createFetchHttpClient(),
 });
-
-const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
-
-function computeSettlement(grossCents: number): {
-    reserveCents: number;
-    platformFeeCents: number;
-    driverNetCents: number;
-} {
-    const reserveCents = Math.round(grossCents * 0.015);
-    const net = grossCents - reserveCents;
-    const platformFeeCents = Math.round(net * 0.185);
-    const driverNetCents = net - platformFeeCents;
-    return { reserveCents, platformFeeCents, driverNetCents };
-}
 
 Deno.serve(async (req: Request) => {
     const rawBody = await req.text();
@@ -67,9 +57,8 @@ Deno.serve(async (req: Request) => {
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // ── IDEMPOTENCY CHECK ──────────────────────────────────────────────
-    // stripe_event_id UNIQUE constraint on payment_ledger prevents duplicates.
-    // If event already processed, return 200 (idempotent success).
+    // ── IDEMPOTENCY CHECK (layer 1) ──────────────────────────
+    // Both processed_stripe_events + payment_ledger stripe_event_id UNIQUE prevent duplicates.
     const { data: existing } = await supabaseAdmin
         .from("payment_ledger")
         .select("id")
@@ -88,7 +77,7 @@ Deno.serve(async (req: Request) => {
         const pi = event.data.object as Stripe.PaymentIntent;
         const eventType = pi.metadata?.type;
 
-        // ── WALLET TOPUP ────────────────────────────────────────────────
+        // ── WALLET TOPUP ──────────────────────────────────────
         if (eventType === 'wallet_topup') {
             const userId = pi.metadata?.user_id;
             if (!userId) {
@@ -149,7 +138,7 @@ Deno.serve(async (req: Request) => {
             });
         }
 
-        // ── RIDE PAYMENT ────────────────────────────────────────────────
+        // ── RIDE PAYMENT (ATOMIC SETTLEMENT) ──────────────────
         const rideId = pi.metadata?.ride_id;
         const userId = pi.metadata?.user_id;
 
@@ -171,145 +160,55 @@ Deno.serve(async (req: Request) => {
 
         const totalCents = pi.amount;
 
-        const { reserveCents, platformFeeCents, driverNetCents } = computeSettlement(totalCents);
+        console.log(`stripe_webhook: Processing ride ${rideId}`, { gross: totalCents, ride });
 
-        console.log(`stripe_webhook: Processing ride ${rideId}`, {
-            gross: totalCents, reserve: reserveCents, platform: platformFeeCents, driver: driverNetCents,
-        });
+        // ── SINGLE ATOMIC RPC CALL ────────────────────────────
+        // All 6 settlement steps execute inside a single Postgres transaction
+        // with advisory lock protection. If anything fails, EVERYTHING rolls back.
+        const { data: result, error: settlementError } = await supabaseAdmin.rpc(
+            'process_driver_settlement_atomic',
+            {
+                p_event_id: event.id,
+                p_ride_id: rideId,
+                p_driver_id: ride.driver_id,
+                p_rider_id: ride.rider_id,
+                p_gross_cents: totalCents,
+                p_currency: pi.currency.toUpperCase(),
+                p_provider_ref: pi.id,
+            }
+        );
 
-        // ── ATOMIC 6-STEP SETTLEMENT ───────────────────────────────────
-        // All-or-nothing: if ANY step fails, return 500 so Stripe retries.
-        // Idempotency (stripe_event_id UNIQUE) prevents duplicates on retry.
-
-        const errors: string[] = [];
-
-        // Step A: Write canonical ledger entry
-        const { error: aErr } = await supabaseAdmin
-            .from("payment_ledger")
-            .insert({
-                ride_id: rideId, user_id: userId,
-                amount: totalCents / 100.0, currency: pi.currency.toUpperCase(),
-                status: "captured", provider: "stripe",
-                provider_ref: pi.id, stripe_event_id: event.id,
-            });
-        if (aErr) errors.push(`payment_ledger: ${aErr.message}`);
-
-        // Step B: Credit driver wallet
-        const { error: bErr } = await supabaseAdmin
-            .from("wallet_transactions")
-            .insert({
-                user_id: ride.driver_id, ride_id: rideId,
-                amount: driverNetCents, transaction_type: "driver_payout",
-                description: "Card ride earnings", status: "completed",
-            });
-        if (bErr) errors.push(`driver_wallet: ${bErr.message}`);
-
-        // Step C: Credit platform — operational fee
-        const { error: cErr } = await supabaseAdmin
-            .from("wallet_transactions")
-            .insert({
-                user_id: PLATFORM_ACCOUNT, ride_id: rideId,
-                amount: platformFeeCents, transaction_type: "ride_payment",
-                description: "Platform commission on card ride", status: "completed",
-            });
-        if (cErr) errors.push(`platform_fee_wallet: ${cErr.message}`);
-
-        // Step D: Credit platform — capital reserve
-        const { data: reserveTxn, error: dErr } = await supabaseAdmin
-            .from("wallet_transactions")
-            .insert({
-                user_id: PLATFORM_ACCOUNT, ride_id: rideId,
-                amount: reserveCents, transaction_type: "capital_reserve",
-                description: "1.5% Capital Reserve (War Chest) on card ride",
-                status: "completed",
-            })
-            .select("id")
-            .single();
-        if (dErr) errors.push(`reserve_wallet: ${dErr.message}`);
-
-        // Step E: Write to capital_reserve_ledger
-        const { error: eErr } = await supabaseAdmin
-            .from("capital_reserve_ledger")
-            .insert({
-                ride_id: rideId, amount_cents: reserveCents,
-                status: "locked", wallet_transaction_id: reserveTxn?.id || null,
-                notes: "Card ride — reserve locked via Stripe settlement",
-            });
-        if (eErr) errors.push(`capital_reserve_ledger: ${eErr.message}`);
-
-        // Step F: Mark ride as captured + store settlement breakdown
-        const { error: fErr } = await supabaseAdmin
-            .from("rides")
-            .update({
-                payment_status: "captured",
-                driver_payout_cents: driverNetCents,
-                reserve_cents: reserveCents,
-                platform_fee_cents: platformFeeCents,
-            })
-            .eq("id", rideId);
-        if (fErr) errors.push(`ride_update: ${fErr.message}`);
-
-        // ── DECIDE: SUCCESS OR RETRY ───────────────────────────────────
-        if (errors.length > 0) {
-            console.error(`stripe_webhook: PARTIAL FAILURE for ride ${rideId}. ${errors.length}/6 steps failed.`, errors);
-            await captureException(new Error(`Stripe settlement partial failure: ${errors.join('; ')}`), {
-                function: 'stripe_webhook',
-                ride_id: rideId,
-                stripe_event_id: event.id,
-                errors: errors.join(', '),
-            });
-
-            // ROLLBACK Step A: Delete the payment_ledger row so the idempotency
-            // check on retry does NOT return 200 "already_processed".
-            // Without this, Stripe retries would see the stripe_event_id exists,
-            // early-return 200, and never execute Steps B-F.
-            await supabaseAdmin
-                .from("payment_ledger")
-                .delete()
-                .eq("stripe_event_id", event.id)
-                .catch((rollbackErr: unknown) =>
-                    console.error("stripe_webhook: Step A rollback failed (alert required):", rollbackErr)
-                );
-
-            // Write to system_alerts for human review
-            await supabaseAdmin
-                .from("system_alerts")
-                .insert({
-                    type: "PAYMENT_ANOMALY",
-                    severity: "CRITICAL",
-                    title: `Partial settlement failure on ride ${rideId}`,
-                    details: {
-                        stripe_event_id: event.id,
-                        ride_id: rideId,
-                        amount_cents: totalCents,
-                        errors: errors,
-                        committed_steps: 6 - errors.length,
-                    },
-                })
-                .catch((alertErr: unknown) =>
-                    console.error("stripe_webhook: system_alert insert failed:", alertErr)
-                );
-
+        if (settlementError) {
+            console.error(`stripe_webhook: Atomic settlement RPC failed for ride ${rideId}:`, settlementError);
+            await captureException(
+                new Error(`Atomic settlement RPC failed: ${settlementError.message}`),
+                { function: 'stripe_webhook', ride_id: rideId, stripe_event_id: event.id }
+            );
             return new Response(
-                JSON.stringify({
-                    received: false,
-                    error: `Partial settlement failure: ${errors.join('; ')}`,
-                    committed_steps: 6 - errors.length,
-                    rollback: "Step A deleted for clean retry",
-                }),
+                JSON.stringify({ received: false, error: `Settlement failed: ${settlementError.message}` }),
                 { status: 500, headers: { "Content-Type": "application/json" } }
             );
         }
 
-        console.log(`stripe_webhook: ALL 6 STEPS COMMITTED for ride ${rideId}`, {
-            gross: totalCents, reserve: reserveCents, platform: platformFeeCents, driver: driverNetCents,
-        });
+        if (result?.status === 'SUCCESS') {
+            console.log(`stripe_webhook: Atomic settlement SUCCESS for ride ${rideId}`, result);
+            return new Response(JSON.stringify({ received: true, settlement: result }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+
+        // CONFLICT or other status — treat as failure so Stripe retries
+        console.error(`stripe_webhook: Settlement result unexpected for ride ${rideId}:`, result);
+        return new Response(
+            JSON.stringify({ received: false, error: result?.error || 'Unknown settlement error' }),
+            { status: 500, headers: { "Content-Type": "application/json" } }
+        );
     }
 
     if (event.type === "payment_intent.payment_failed") {
         const pi = event.data.object as Stripe.PaymentIntent;
         const rideId = pi.metadata?.ride_id;
-
         console.error(`stripe_webhook: payment_intent.payment_failed for ride ${rideId ?? "unknown"}, PI: ${pi.id}`);
 
         if (rideId) {

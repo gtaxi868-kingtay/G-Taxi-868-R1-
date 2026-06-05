@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { requireAuth } from "../_shared/auth.ts"
+import { aiFetch } from "../_shared/networkUtility.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,7 +50,14 @@ serve(async (req) => {
       temperature: 0.3
     }
 
-    const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    if (!Deno.env.get('GROQ_API_KEY')) {
+      return new Response(JSON.stringify({ suggestions: [], fallback: true, message: 'AI unavailable' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const aiResponse = await aiFetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`,
@@ -61,8 +69,21 @@ serve(async (req) => {
     const aiData = await aiResponse.json()
     if (!aiResponse.ok) throw new Error(aiData.error?.message || 'Groq API returned an error status.')
 
-    const rawContent = aiData.choices[0].message.content.trim()
-    const parsedSuggestions = JSON.parse(rawContent)
+    const rawContent = aiData?.choices?.[0]?.message?.content?.trim()
+    let parsedSuggestions: any[] = []
+    if (rawContent) {
+      try {
+        parsedSuggestions = JSON.parse(rawContent.replace(/```(?:json)?\n?/g, ''))
+      } catch {
+        console.warn('[AISuggest] Failed to parse Groq response:', rawContent)
+      }
+    }
+
+    if (parsedSuggestions.length === 0) {
+      return new Response(JSON.stringify({ success: true, suggestions: [], fallback: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      })
+    }
 
     await supabaseAdmin
       .from('ride_suggestions')
@@ -72,7 +93,7 @@ serve(async (req) => {
       body: {
         user_id: ride.rider_id,
         title: "TaxiG Smart Suggestion ✨",
-        body: `Passing near ${parsedSuggestions[0].name}? Tap to adjust your path!`,
+        body: `Passing near ${parsedSuggestions[0]?.name}? Tap to adjust your path!`,
         payload: { route: "RideSuggestions", datasets: parsedSuggestions }
       }
     })

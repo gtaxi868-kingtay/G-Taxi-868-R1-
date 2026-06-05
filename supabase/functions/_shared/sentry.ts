@@ -1,3 +1,5 @@
+import { secureFetch } from "./networkUtility.ts";
+
 export async function captureException(
     error: Error | unknown,
     context?: Record<string, unknown>
@@ -46,13 +48,14 @@ export async function captureException(
             })
         ].join('\n');
 
-        await fetch(endpoint, {
+        await secureFetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-sentry-envelope',
                 'X-Sentry-Auth': `Sentry sentry_version=7, sentry_key=${publicKey}`,
             },
             body: envelope,
+            timeoutMs: 5000,
         });
     } catch (sentryError) {
         // Never let Sentry errors break the main function

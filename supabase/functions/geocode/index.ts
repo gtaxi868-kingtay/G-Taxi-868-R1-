@@ -6,6 +6,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { secureFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -110,7 +111,7 @@ serve(async (req: Request) => {
             // Limit to Trinidad and Tobago (tt)
             const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encodedQuery}&countrycodes=tt&format=json&limit=${limit}`;
 
-            const nominatimResponse = await fetch(nominatimUrl, {
+            const nominatimResponse = await secureFetch(nominatimUrl, {
                 headers: {
                     'User-Agent': 'GTaxi-RiderApp/1.0' // Required by Nominatim Policy
                 }

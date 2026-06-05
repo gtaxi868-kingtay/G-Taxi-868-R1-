@@ -4,6 +4,7 @@ import { checkRateLimit } from "../_shared/rateLimit.ts";
 import { calculateFare, calculateStopsFee } from "../_shared/pricing.ts";
 import { captureException } from "../_shared/sentry.ts";
 import { sendPushNotification } from "../_shared/push.ts";
+import { secureFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -198,7 +199,7 @@ serve(async (req: Request) => {
         if (MAPBOX_TOKEN) {
             try {
                 const mapboxUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${pickup_lng},${pickup_lat};${dropoff_lng},${dropoff_lat}?access_token=${MAPBOX_TOKEN}&geometries=polyline&overview=full`;
-                const mapboxResponse = await fetch(mapboxUrl);
+                const mapboxResponse = await secureFetch(mapboxUrl);
                 const mapboxData = await mapboxResponse.json();
 
                 if (mapboxData.routes && mapboxData.routes.length > 0) {

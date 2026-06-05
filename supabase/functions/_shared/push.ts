@@ -1,3 +1,5 @@
+import { secureFetch } from "./networkUtility.ts";
+
 // supabase/functions/_shared/push.ts
 // Phase 5 Fix 5.5 — Shared push notification helper using Firebase FCM HTTP v1 API.
 //
@@ -74,13 +76,14 @@ async function getGoogleAccessToken(serviceAccount: {
     const jwt = `${signingInput}.${signature}`;
 
     // Exchange JWT for short-lived access token
-    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    const tokenRes = await secureFetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
             grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
             assertion: jwt,
         }),
+        timeoutMs: 10000,
     });
 
     if (!tokenRes.ok) {
@@ -96,11 +99,15 @@ async function getGoogleAccessToken(serviceAccount: {
  * Interface for cleanup - needs supabaseAdmin context.
  */
 async function invalidateToken(pushToken: string): Promise<void> {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+        console.warn('[Push] Cannot invalidate token — SUPABASE_URL or SERVICE_ROLE_KEY not set.');
+        return;
+    }
     // Use a fresh client for background cleanup to avoid passing complex objects
     const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const admin = createClient(supabaseUrl, serviceRoleKey);
     
     console.log(`🧹 Cleaning up invalid push token: ${pushToken.substring(0, 20)}...`);
     await admin
@@ -158,10 +165,11 @@ export async function sendPushNotification(
     if (pushToken.startsWith('ExponentPushToken')) {
         // ── Route via Expo Push Service ──────────────────────────────────────
         // Expo wraps FCM for us so we don't need to manage the access token.
-        const expoRes = await fetch('https://exp.host/--/api/v2/push/send', {
+        const expoRes = await secureFetch('https://exp.host/--/api/v2/push/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ to: pushToken, title, body, data, priority: 'high', sound: 'default' }),
+            timeoutMs: 8000,
         });
         if (!expoRes.ok) {
             console.error('Expo push failed:', await expoRes.text());
@@ -172,7 +180,7 @@ export async function sendPushNotification(
     // ── Route via FCM HTTP v1 directly (native FCM token) ────────────────────
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
 
-    const fcmRes = await fetch(fcmUrl, {
+    const fcmRes = await secureFetch(fcmUrl, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -191,6 +199,7 @@ export async function sendPushNotification(
                 },
             },
         }),
+        timeoutMs: 10000,
     });
 
     if (!fcmRes.ok) {

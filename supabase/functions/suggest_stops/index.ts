@@ -5,6 +5,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { captureException } from "../_shared/sentry.ts";
+import { secureFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -90,7 +91,7 @@ serve(async (req: Request) => {
             if (!MAPBOX_TOKEN) return [];
             const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(cat.category)}.json?proximity=${searchLng},${searchLat}&types=poi&limit=2&country=TT&access_token=${MAPBOX_TOKEN}`;
             try {
-                const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+                const res = await secureFetch(url);
                 if (!res.ok) return [];
                 const json = await res.json();
                 return (json.features || []).map((f: any) => ({

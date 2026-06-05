@@ -4,6 +4,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -29,7 +30,7 @@ serve(async (req: Request) => {
     // --- REAL GEMINI VISION CALL ---
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     
-    const response = await fetch(geminiUrl, {
+    const response = await aiFetch(geminiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -53,7 +54,8 @@ serve(async (req: Request) => {
     // Clean potential markdown from AI response
     aiText = aiText.replace(/```json|```/g, "").trim();
     
-    const aiResult = JSON.parse(aiText);
+    let aiResult: any = {};
+    try { aiResult = JSON.parse(aiText); } catch { aiResult = {}; }
 
     return new Response(
       JSON.stringify({

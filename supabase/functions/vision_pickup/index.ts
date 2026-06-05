@@ -1,6 +1,7 @@
 // supabase/functions/vision_pickup/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aiFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -45,7 +46,7 @@ serve(async (req: Request) => {
       If you cannot identify the location, return success: false.
     `;
 
-    const response = await fetch(geminiUrl, {
+    const response = await aiFetch(geminiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -67,7 +68,8 @@ serve(async (req: Request) => {
     let aiText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     aiText = aiText.replace(/```json|```/g, "").trim();
     
-    const result = JSON.parse(aiText);
+    let result: any = {};
+    try { result = JSON.parse(aiText); } catch { result = { success: false }; }
 
     // If coordinates are missing from AI, use the hints provided
     if (result.success && (!result.refined_lat || result.refined_lat === 0)) {
