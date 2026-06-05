@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { LoadingOverlay } from '@gtaxi/design-system';
+import { LoadingOverlay } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 

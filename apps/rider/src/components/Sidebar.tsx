@@ -9,7 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
-import { Logo, SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { Logo } from '@gtaxi/design-system/native';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
 const CYAN = '#06B6D4';

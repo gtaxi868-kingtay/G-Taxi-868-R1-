@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { initializeSupabaseClient, ENV } from '@gtaxi/core';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
-import { SURFACE, VOICES, ANIMATION, GlassCard } from '@gtaxi/design-system';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { GlassCard } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { formatTTDDollars } from '../utils/currency';
 

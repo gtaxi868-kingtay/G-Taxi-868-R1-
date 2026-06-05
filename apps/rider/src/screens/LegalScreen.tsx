@@ -5,7 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Txt } from '@/design-system/primitives';
-import { GlassCard, SURFACE, VOICES } from '@gtaxi/design-system';
+import { GlassCard } from '@gtaxi/design-system/native';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 const CYAN = '#06B6D4';

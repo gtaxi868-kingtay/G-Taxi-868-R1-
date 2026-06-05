@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@gtaxi/core';
-import { LoadingOverlay } from '@gtaxi/design-system';
+import { LoadingOverlay } from '@gtaxi/design-system/native';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 

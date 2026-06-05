@@ -11,7 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
-import { SURFACE, VOICES, ANIMATION, GlassCard } from '@gtaxi/design-system';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { GlassCard } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
 const CYAN = '#06B6D4';

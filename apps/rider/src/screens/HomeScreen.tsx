@@ -24,7 +24,8 @@ import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
 import { AIAssistantWidget } from '../components/home/AIAssistantWidget';
-import { ANIMATION, SURFACE, VOICES, GlassCard, Skeleton } from '@gtaxi/design-system';
+import { GlassCard, Skeleton } from '@gtaxi/design-system/native';
+import { ANIMATION, SURFACE, VOICES } from '@gtaxi/design-system';
 import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 const { supabase } = initializeSupabaseClient('native');

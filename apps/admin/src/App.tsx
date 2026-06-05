@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { User } from '@supabase/supabase-js';
+import type { Session } from '@supabase/auth-js';
 import { supabase, adminFetch } from './lib/supabase';
 import Login from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -49,7 +50,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         checkAccess();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
             if (!session) {
                 setGateState('unauthorized');
                 setUser(null);

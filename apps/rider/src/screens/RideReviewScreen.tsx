@@ -11,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 import Reanimated, {
   useSharedValue, useAnimatedStyle, withSpring,
 } from 'react-native-reanimated';
-import { GlassCard } from '@gtaxi/design-system';
+import { GlassCard } from '@gtaxi/design-system/native';
 import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 import { supabase } from '@gtaxi/core';
 

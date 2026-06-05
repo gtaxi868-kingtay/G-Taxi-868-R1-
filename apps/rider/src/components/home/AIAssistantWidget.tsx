@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Reanimated, {
   useSharedValue, withRepeat, withTiming, useAnimatedStyle, withSpring,
 } from 'react-native-reanimated';
-import { GlassCard, VOICES } from '@gtaxi/design-system';
+import { GlassCard } from '@gtaxi/design-system/native';
+import { VOICES } from '@gtaxi/design-system';
 
 const ReanimatedTouchable = Reanimated.createAnimatedComponent(TouchableOpacity);
 

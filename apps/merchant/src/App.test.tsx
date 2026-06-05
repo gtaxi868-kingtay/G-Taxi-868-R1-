@@ -8,7 +8,7 @@ describe('Merchant App', () => {
 
   it('should have a React element type as default export', async () => {
     const mod = await import('./App');
-    const AppComponent = mod.default as React.ComponentType<unknown>;
+    const AppComponent: React.ComponentType<any> = mod.default;
     expect(typeof AppComponent).toBe('function');
   });
 });
