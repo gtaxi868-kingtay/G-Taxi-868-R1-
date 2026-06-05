@@ -8,7 +8,7 @@ describe('Sidebar', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn() };
     const onClose = jest.fn();
-    const { getByText } = render(<Sidebar visible={true} onClose={onClose} navigation={navigation as any} user={{ name: 'Test', rating: 5.0 }} />);
-    expect(getByText(/WALLET/i)).toBeTruthy();
+    const { getAllByText } = render(<Sidebar visible={true} onClose={onClose} navigation={navigation as any} user={{ name: 'Test', rating: 5.0 }} />);
+    expect(getAllByText(/WALLET/i).length).toBeGreaterThanOrEqual(1);
   });
 });

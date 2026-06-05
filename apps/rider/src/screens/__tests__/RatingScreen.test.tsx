@@ -7,8 +7,12 @@ jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 't
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), notificationAsync: jest.fn(), ImpactFeedbackStyle: { Light: 'Light' }, NotificationFeedbackType: { Success: 'Success' }, selectionAsync: jest.fn() }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
-jest.mock('@/design-system/primitives', () => ({ Txt: 'Txt' }));
-jest.mock('../services/api', () => ({ processTip: jest.fn(), formatCurrency: jest.fn() }));
+jest.mock('@/design-system/primitives', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return { Txt: ({ children }: any) => React.createElement(Text, null, children) };
+});
+jest.mock('../../services/api', () => ({ processTip: jest.fn(), formatCurrency: jest.fn() }));
 
 describe('RatingScreen', () => {
   it('renders without crashing', () => {

@@ -27,8 +27,8 @@ describe('LoginScreen', () => {
             <LoginScreen navigation={mockNavigation} />
         );
 
-        expect(getByPlaceholderText('Enter your email')).toBeTruthy();
-        expect(getByPlaceholderText('Enter your password')).toBeTruthy();
+        expect(getByPlaceholderText('you@email.com')).toBeTruthy();
+        expect(getByPlaceholderText('••••••••')).toBeTruthy();
         expect(getByText('Sign In')).toBeTruthy();
     });
 
@@ -37,7 +37,7 @@ describe('LoginScreen', () => {
 
         fireEvent.press(getByText('Sign In'));
 
-        expect(getByText('⚠️ Please fill in all fields')).toBeTruthy();
+        expect(getByText('Enter your email and password')).toBeTruthy();
         expect(mockSignIn).not.toHaveBeenCalled();
     });
 
@@ -46,8 +46,8 @@ describe('LoginScreen', () => {
             <LoginScreen navigation={mockNavigation} />
         );
 
-        fireEvent.changeText(getByPlaceholderText('Enter your email'), 'test@example.com');
-        fireEvent.changeText(getByPlaceholderText('Enter your password'), 'password123');
+        fireEvent.changeText(getByPlaceholderText('you@email.com'), 'test@example.com');
+        fireEvent.changeText(getByPlaceholderText('••••••••'), 'password123');
 
         fireEvent.press(getByText('Sign In'));
 

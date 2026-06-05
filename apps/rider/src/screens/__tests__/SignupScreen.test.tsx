@@ -14,6 +14,6 @@ describe('SignupScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const { getByText } = render(<SignupScreen navigation={navigation as any} route={{} as any} />);
-    expect(getByText(/Sign Up/i)).toBeTruthy();
+    expect(getByText(/Create Account/i)).toBeTruthy();
   });
 });

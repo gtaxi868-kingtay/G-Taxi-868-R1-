@@ -9,7 +9,7 @@ describe('ChatScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: { rideId: 'test', rider: { name: 'Rider' } } };
-    const { getByText } = render(<ChatScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/TRANSMIT TO RIDER/i)).toBeTruthy();
+    const { getByPlaceholderText } = render(<ChatScreen navigation={navigation as any} route={route as any} />);
+    expect(getByPlaceholderText(/TRANSMIT TO RIDER/i)).toBeTruthy();
   });
 });

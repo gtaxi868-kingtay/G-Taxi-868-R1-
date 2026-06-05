@@ -15,6 +15,6 @@ describe('GroceryCartScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: { merchant: { id: 'test-merchant', name: 'Test Store' }, cart: [] } };
     const { getByText } = render(<GroceryCartScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/Your Cart/i)).toBeTruthy();
+    expect(getByText('Your Cart')).toBeTruthy();
   });
 });

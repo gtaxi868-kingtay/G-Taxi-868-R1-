@@ -13,7 +13,7 @@ jest.mock('@gtaxi/design-system/utils/style-rules', () => ({ ghostBorder: () => 
 describe('DriverFoundScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn(), reset: jest.fn() };
-    const route = { params: { rideId: 'test-ride', driver: { name: 'Test Driver', phone: '555-0100', photo: '', vehicle: { make: 'Toyata', model: 'Camry', color: 'White', plate: 'ABC 123' } }, destination: {}, fare: { distance_meters: 5000, duration_seconds: 600, total_fare_cents: 2500 } } };
+    const route = { params: { rideId: 'test-ride', driver: { name: 'Test Driver', phone: '555-0100', photo: '', vehicle: 'Toyota Camry', plate: 'ABC 123', rating: 4.8 }, destination: {}, fare: { distance_meters: 5000, duration_seconds: 600, total_fare_cents: 2500 } } };
     const { getByText } = render(<DriverFoundScreen navigation={navigation as any} route={route as any} />);
     expect(getByText(/Driver Found!/i)).toBeTruthy();
   });
