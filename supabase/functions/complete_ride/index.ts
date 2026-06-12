@@ -314,7 +314,7 @@ serve(async (req: Request) => {
       }
     }
 
-    // ── UPDATE RIDE RECORD ─────────────────────────────────────────────────
+    // ── UPDATE RIDE RECORD (atomic guard) ─────────────────────────────────
     const { error: updateError, count } = await supabaseAdmin
       .from("rides")
       .update({
@@ -328,7 +328,43 @@ serve(async (req: Request) => {
       .in("status", ["in_progress"]);
 
     if (updateError || count === 0) {
-      console.error("Ride status update failed:", updateError);
+      console.error("Ride status update failed — reversing payment mutations:", updateError);
+
+      // Compensating rollback: reverse wallet debit if wallet path was used
+      if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
+        await supabaseAdmin
+          .from("wallet_transactions")
+          .insert({
+            user_id: ride.rider_id,
+            ride_id: ride_id,
+            amount: effectiveFare,
+            transaction_type: "reversal",
+            description: `COMPENSATING REVERSAL: ride ${ride_id} status update failed after wallet debit`,
+            status: "completed",
+          })
+          .catch((err) => console.error("Compensating reversal also failed:", err));
+      } else if (ride.payment_method === "cash") {
+        // Cash path: remove any shadow-ledger entries atomically
+        await supabaseAdmin
+          .from("wallet_transactions")
+          .delete()
+          .eq("ride_id", ride_id)
+          .eq("transaction_type", "commission_fee")
+          .catch((err) => console.error("Cash reversal: wallet_txn delete failed:", err));
+        await supabaseAdmin
+          .from("capital_reserve_ledger")
+          .delete()
+          .eq("ride_id", ride_id)
+          .eq("status", "locked")
+          .catch((err) => console.error("Cash reversal: reserve delete failed:", err));
+        await supabaseAdmin
+          .from("payment_ledger")
+          .delete()
+          .eq("ride_id", ride_id)
+          .eq("provider", "cash")
+          .catch((err) => console.error("Cash reversal: payment_ledger delete failed:", err));
+      }
+
       return new Response(
         JSON.stringify({ success: false, error: "Failed to complete ride: status unexpectedly changed", data: null }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
