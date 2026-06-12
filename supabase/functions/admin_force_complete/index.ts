@@ -23,7 +23,7 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const VALID_STATES_FOR_COMPLETION = ['in_progress', 'arrived', 'assigned', 'searching']
+const VALID_STATES_FOR_COMPLETION = ['in_progress', 'arrived']
 
 /**
  * Server-side settlement calculation — single source of truth.
