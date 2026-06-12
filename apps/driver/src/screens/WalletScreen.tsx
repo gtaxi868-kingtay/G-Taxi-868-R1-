@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, StyleSheet, ScrollView, TouchableOpacity,
-    ActivityIndicator, Linking, Text, Alert, RefreshControl
+    ActivityIndicator, Linking, Text, Alert, RefreshControl,
+    Modal, TextInput, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -67,8 +68,28 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
 
     const [refreshing, setRefreshing] = useState(false);
 
+    const [bankModalVisible, setBankModalVisible] = useState(false);
+    const [bankName, setBankName] = useState('');
+    const [accountHolder, setAccountHolder] = useState('');
+    const [accountNumber, setAccountNumber] = useState('');
+    const [savingBank, setSavingBank] = useState(false);
+    const [hasBankDetails, setHasBankDetails] = useState(false);
+
     const fetchData = useCallback(async () => {
         if (!driver?.id) return;
+
+        const { data: driverRow } = await supabase
+            .from('drivers')
+            .select('bank_details')
+            .eq('id', driver.id)
+            .single();
+        const bank = driverRow?.bank_details;
+        if (bank?.bank_name && bank?.account_number) {
+            setHasBankDetails(true);
+            setBankName(bank.bank_name);
+            setAccountHolder(bank.account_holder || '');
+            setAccountNumber(bank.account_number);
+        }
 
         const { data: balanceCents, error: balanceError } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
         const dollars = (balanceCents || 0) / 100;
@@ -100,28 +121,61 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         fetchData();
     }, [fetchData]);
 
+    const handleSaveBankDetails = async () => {
+        if (!driver?.id) return;
+        if (!bankName.trim() || !accountNumber.trim() || !accountHolder.trim()) {
+            Alert.alert("Incomplete", "Please fill in bank name, account holder and account number.");
+            return;
+        }
+        setSavingBank(true);
+        const { error } = await supabase
+            .from('drivers')
+            .update({
+                bank_details: {
+                    bank_name: bankName.trim(),
+                    account_holder: accountHolder.trim(),
+                    account_number: accountNumber.trim(),
+                },
+            })
+            .eq('id', driver.id);
+        setSavingBank(false);
+
+        if (error) {
+            Alert.alert("Error", "Could not save bank details. Please try again.");
+        } else {
+            setHasBankDetails(true);
+            setBankModalVisible(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert("Saved", "Bank details saved. You can now request payouts.");
+        }
+    };
+
     const handlePayoutRequest = async () => {
         if (!balance || balance <= 0) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
+        if (!hasBankDetails) {
+            setBankModalVisible(true);
+            return;
+        }
+
         Alert.alert(
             "Request Payout",
-            `Would you like to request a payout of $${balance.toFixed(2)} TTD?`,
+            `Would you like to request a payout of $${balance.toFixed(2)} TTD to ${bankName} ····${accountNumber.slice(-4)}?`,
             [
                 { text: "Cancel", style: "cancel" },
                 {
                     text: "Request",
                     onPress: async () => {
-                        const { error } = await supabase
-                            .from('payout_requests')
-                            .insert({
-                                driver_id: driver?.id,
-                                amount_cents: Math.round(balance * 100),
-                                status: 'pending'
-                            });
+                        const { data, error } = await supabase.functions.invoke('request_payout', {
+                            body: { amount_cents: Math.round(balance * 100) },
+                        });
 
-                        if (error) {
-                            Alert.alert("Error", "Could not submit payout request. Please try again.");
+                        if (error || data?.error) {
+                            const message = data?.error
+                                || (error as { context?: { json?: { error?: string } } })?.context?.json?.error
+                                || "Could not submit payout request. Please try again.";
+                            Alert.alert("Payout Failed", message);
                         } else {
                             Alert.alert("Success", "Payout request submitted! Admin will process this within 24-48 hours.");
                         }
@@ -332,6 +386,19 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                             </Text>
                         </TouchableOpacity>
                     )}
+
+                    <TouchableOpacity
+                        style={s.bankLink}
+                        onPress={() => setBankModalVisible(true)}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="business-outline" size={14} color="rgba(255,255,255,0.7)" />
+                        <Text style={s.bankLinkText}>
+                            {hasBankDetails
+                                ? `Payout account: ${bankName} ····${accountNumber.slice(-4)}`
+                                : 'Add bank details for payouts'}
+                        </Text>
+                    </TouchableOpacity>
                 </LinearGradient>
 
                 <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 12 }}>
@@ -411,6 +478,69 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
 
                 <View style={{ height: insets.bottom + 32 }} />
             </ScrollView>
+
+            <Modal
+                visible={bankModalVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setBankModalVisible(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    style={s.modalOverlay}
+                >
+                    <View style={s.modalCard}>
+                        <Text style={s.modalTitle}>Payout Bank Account</Text>
+                        <Text style={s.modalSubtitle}>
+                            Local T&T bank transfers. Payouts are sent to this account after admin approval.
+                        </Text>
+
+                        <TextInput
+                            style={s.modalInput}
+                            placeholder="Bank name (e.g. Republic Bank)"
+                            placeholderTextColor="rgba(255,255,255,0.4)"
+                            value={bankName}
+                            onChangeText={setBankName}
+                        />
+                        <TextInput
+                            style={s.modalInput}
+                            placeholder="Account holder name"
+                            placeholderTextColor="rgba(255,255,255,0.4)"
+                            value={accountHolder}
+                            onChangeText={setAccountHolder}
+                        />
+                        <TextInput
+                            style={s.modalInput}
+                            placeholder="Account number"
+                            placeholderTextColor="rgba(255,255,255,0.4)"
+                            value={accountNumber}
+                            onChangeText={setAccountNumber}
+                            keyboardType="number-pad"
+                        />
+
+                        <TouchableOpacity
+                            style={[s.settleBtn, { backgroundColor: VOICES.driver.accent, marginTop: 16 }]}
+                            onPress={handleSaveBankDetails}
+                            disabled={savingBank}
+                            activeOpacity={0.85}
+                        >
+                            {savingBank ? (
+                                <ActivityIndicator size="small" color={SURFACE.base} />
+                            ) : (
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: SURFACE.base }}>
+                                    Save Bank Details
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={{ alignItems: 'center', paddingVertical: 14 }}
+                            onPress={() => setBankModalVisible(false)}
+                        >
+                            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
         </View>
     );
 }
@@ -455,6 +585,41 @@ const s = StyleSheet.create({
         backgroundColor: '#25D366',
         paddingHorizontal: 22, paddingVertical: 12,
         borderRadius: 50, marginTop: 18, gap: 6,
+    },
+
+    bankLink: {
+        flexDirection: 'row', alignItems: 'center',
+        marginTop: 14, gap: 6,
+    },
+    bankLinkText: {
+        fontSize: 12, fontWeight: '600',
+        color: 'rgba(255,255,255,0.7)',
+        textDecorationLine: 'underline',
+    },
+
+    modalOverlay: {
+        flex: 1, justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+    },
+    modalCard: {
+        backgroundColor: SURFACE.containerLow,
+        borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        padding: 24, paddingBottom: 40,
+        ...ghostBorder(0.15),
+    },
+    modalTitle: {
+        fontSize: 18, fontWeight: '800', color: '#FFF',
+        marginBottom: 6,
+    },
+    modalSubtitle: {
+        fontSize: 13, color: 'rgba(255,255,255,0.6)',
+        marginBottom: 18, lineHeight: 18,
+    },
+    modalInput: {
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
+        fontSize: 15, color: '#FFF', marginBottom: 12,
+        ...ghostBorder(0.12),
     },
 
     txList: {

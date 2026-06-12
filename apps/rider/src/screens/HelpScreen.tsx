@@ -105,6 +105,14 @@ export function HelpScreen({ navigation }: any) {
                 <View style={s.contactSection}>
                     <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>Need more help?</Txt>
 
+                    <TouchableOpacity style={s.callBtn} onPress={() => navigation.navigate('ReportProblem')}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Ionicons name="flag-outline" size={18} color="#FFF" style={{ marginRight: 10 }} />
+                            <Txt variant="bodyBold" color={R.white}>Report a Problem / Request Refund</Txt>
+                        </View>
+                    </TouchableOpacity>
+                    <View style={{ height: 16 }} />
+
                     <TouchableOpacity style={s.supportBtn} onPress={handleEmail}>
                         <LinearGradient
                             colors={[VOICES.rider.accent, CYAN]}

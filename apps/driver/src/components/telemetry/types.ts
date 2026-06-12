@@ -62,6 +62,7 @@ export interface NavigationAndStatusControlProps {
   onSOS?: () => void;
   onOpenNavigation?: () => void;
   onChat?: () => void;
+  onCall?: () => void;
   onDeliveryConfirmPickup?: () => void;
   onEntertainmentAccept?: () => void;
   onEntertainmentReject?: () => void;
