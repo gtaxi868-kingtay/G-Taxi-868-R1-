@@ -148,6 +148,14 @@ export type AppStackParamList = {
     };
     rideId?: string;
   };
+  ReportProblem: {
+    ride?: {
+      id: string;
+      pickup_address?: string;
+      dropoff_address?: string;
+      total_fare_cents?: number;
+    } | null;
+  } | undefined;
   Promo: undefined;
   Chat: ChatParams;
   AISettings: undefined;

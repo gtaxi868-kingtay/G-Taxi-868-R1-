@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, Switch,
-    ScrollView, Alert, useWindowDimensions
+    ScrollView, Alert, useWindowDimensions, TextInput, ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -36,6 +36,10 @@ export function SettingsScreen({ navigation }: any) {
     const [notifyPromos, setNotifyPromos] = useState(true);
     const [aiRouting, setAiRouting] = useState(false);
 
+    const [contactName, setContactName] = useState('');
+    const [contactPhone, setContactPhone] = useState('');
+    const [savingContact, setSavingContact] = useState(false);
+
     useEffect(() => {
         if (!user) return;
         supabase.from('notification_settings').select('*').eq('user_id', user.id).single()
@@ -45,8 +49,38 @@ export function SettingsScreen({ navigation }: any) {
                     setNotifyPromos(data.promotions);
                 }
             });
+        supabase.from('profiles').select('emergency_contact_name, emergency_contact_phone').eq('id', user.id).single()
+            .then(({ data }) => {
+                if (data) {
+                    setContactName(data.emergency_contact_name || '');
+                    setContactPhone(data.emergency_contact_phone || '');
+                }
+            });
         AsyncStorage.getItem('@ai_routing_opt_in').then(val => setAiRouting(val === 'true'));
     }, [user]);
+
+    const saveEmergencyContact = async () => {
+        if (!user) return;
+        if (!contactName.trim() || !contactPhone.trim()) {
+            Alert.alert('Incomplete', 'Please enter both a name and phone number.');
+            return;
+        }
+        setSavingContact(true);
+        const { error } = await supabase
+            .from('profiles')
+            .update({
+                emergency_contact_name: contactName.trim(),
+                emergency_contact_phone: contactPhone.trim(),
+            })
+            .eq('id', user.id);
+        setSavingContact(false);
+        if (error) {
+            Alert.alert('Error', 'Could not save emergency contact. Please try again.');
+        } else {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert('Saved', 'Your emergency contact will be notified by SMS if you press SOS during a ride.');
+        }
+    };
 
     const toggleSetting = async (field: 'ride_updates' | 'promotions' | 'ai_routing', value: boolean) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -95,6 +129,37 @@ export function SettingsScreen({ navigation }: any) {
                         value={notifyPromos}
                         onToggle={(v: boolean) => toggleSetting('promotions', v)}
                     />
+                </View>
+
+                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>EMERGENCY CONTACT</Txt>
+                <View style={s.card}>
+                    <View style={{ padding: 20, paddingBottom: 8 }}>
+                        <Txt variant="small" color={R.muted}>
+                            Notified by SMS with your live location if you press SOS during a ride.
+                        </Txt>
+                    </View>
+                    <TextInput
+                        style={s.input}
+                        placeholder="Contact name"
+                        placeholderTextColor={R.muted}
+                        value={contactName}
+                        onChangeText={setContactName}
+                    />
+                    <TextInput
+                        style={s.input}
+                        placeholder="Phone number (e.g. +1868...)"
+                        placeholderTextColor={R.muted}
+                        value={contactPhone}
+                        onChangeText={setContactPhone}
+                        keyboardType="phone-pad"
+                    />
+                    <TouchableOpacity style={s.saveBtn} onPress={saveEmergencyContact} disabled={savingContact}>
+                        {savingContact ? (
+                            <ActivityIndicator size="small" color="#FFF" />
+                        ) : (
+                            <Txt variant="bodyBold" color="#FFF">Save Emergency Contact</Txt>
+                        )}
+                    </TouchableOpacity>
                 </View>
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>PRIVACY & SECURITY</Txt>
@@ -165,4 +230,14 @@ const s = StyleSheet.create({
     card: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 32, padding: 12, ...elevationGlow(8) },
     row: { flexDirection: 'row', alignItems: 'center', padding: 20 },
     divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 20 },
+    input: {
+        backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16,
+        paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: '#FFF',
+        marginHorizontal: 12, marginTop: 10, ...ghostBorder(0.12),
+    },
+    saveBtn: {
+        backgroundColor: VOICES.rider.accent, borderRadius: 16,
+        alignItems: 'center', justifyContent: 'center', paddingVertical: 14,
+        margin: 12, marginTop: 14,
+    },
 });

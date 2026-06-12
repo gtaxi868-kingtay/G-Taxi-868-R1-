@@ -9,8 +9,9 @@ import { Financials } from './pages/Financials';
 import { DriverApproval } from './pages/DriverApproval';
 import { NodeRegistry } from './pages/NodeRegistry';
 import { RescueScreen } from './pages/RescueScreen';
+import { Support } from './pages/Support';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, HeadphonesIcon } from 'lucide-react';
 
 // ── AdminSecurityGate ──────────────────────────────────────────────────────────
 // Blocks all rendering unless the user has a verified Supabase session AND
@@ -79,7 +80,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval' | 'nodes' | 'rescue';
+type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'support';
 
 function App() {
     const [activeTab, setActiveTab] = useState<AdminView>('dashboard');
@@ -176,6 +177,7 @@ function App() {
                         <NavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Index" />
                         <NavItem active={activeTab === 'nodes'} onClick={() => handleNav('nodes')} icon={<Radio size={20}/>} label="Node Registry" />
                         <NavItem active={activeTab === 'rescue'} onClick={() => handleNav('rescue')} icon={<AlertTriangle size={20}/>} label="Rescue Command" />
+                        <NavItem active={activeTab === 'support'} onClick={() => handleNav('support')} icon={<HeadphonesIcon size={20}/>} label="Support & Payouts" />
                     </nav>
 
                     <div className="pt-8 mt-8 border-t border-white/5">
@@ -229,6 +231,7 @@ function App() {
                         {activeTab === 'financials' && <Financials />}
                         {activeTab === 'nodes' && <NodeRegistry />}
                         {activeTab === 'rescue' && <RescueScreen />}
+                        {activeTab === 'support' && <Support />}
                     </div>
                 </main>
 

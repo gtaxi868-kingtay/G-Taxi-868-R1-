@@ -12,7 +12,7 @@ import type { NavigationAndStatusControlProps } from './telemetry/types';
 
 export function NavigationAndStatusControl(props: NavigationAndStatusControlProps) {
   const { ride, rider, location, orderItems = [], isQuietRide, hasMerchantPhoto,
-    onArrived, onVerifyPickup, onComplete, onCancel, onSOS, onOpenNavigation, onChat,
+    onArrived, onVerifyPickup, onComplete, onCancel, onSOS, onOpenNavigation, onChat, onCall,
     onDeliveryConfirmPickup, onEntertainmentAccept, onEntertainmentReject,
   } = props;
   const insets = useSafeAreaInsets();
@@ -50,7 +50,7 @@ export function NavigationAndStatusControl(props: NavigationAndStatusControlProp
           {ride?.entertainment_url && ride?.entertainment_status === 'pending' && (
             <EntertainmentHUD url={ride.entertainment_url} onAccept={onEntertainmentAccept} onReject={onEntertainmentReject} />
           )}
-          <RiderInfoCard name={riderDisplayName(rider)} paymentMethod={ride?.payment_method} onChat={onChat} />
+          <RiderInfoCard name={riderDisplayName(rider)} paymentMethod={ride?.payment_method} onChat={onChat} onCall={onCall} />
           <ActionFooter
             status={ride?.status || ''} hasDelivery={!!ride?.order_id} hasMerchantPhoto={!!hasMerchantPhoto}
             onOpenNavigation={onOpenNavigation} onArrived={onArrived} onVerifyPickup={onVerifyPickup}

@@ -231,6 +231,13 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
                     </LinearGradient>
                 </TouchableOpacity>
 
+                <TouchableOpacity
+                    style={s.reportBtn}
+                    onPress={() => (navigation as any).navigate('ReportProblem', { ride })}
+                >
+                    <Text style={s.reportBtnText}>Report a problem with this trip</Text>
+                </TouchableOpacity>
+
             </ScrollView>
         </View>
     );
@@ -466,5 +473,16 @@ const s = StyleSheet.create({
         fontWeight: '800',
         color: '#FFF',
         letterSpacing: 1,
+    },
+    reportBtn: {
+        alignItems: 'center',
+        paddingVertical: 18,
+        marginBottom: 24,
+    },
+    reportBtnText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: 'rgba(255,255,255,0.55)',
+        textDecorationLine: 'underline',
     },
 });

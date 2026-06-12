@@ -8,9 +8,10 @@ interface RiderInfoCardProps {
   name: string;
   paymentMethod: string | null | undefined;
   onChat?: () => void;
+  onCall?: () => void;
 }
 
-export function RiderInfoCard({ name, paymentMethod, onChat }: RiderInfoCardProps) {
+export function RiderInfoCard({ name, paymentMethod, onChat, onCall }: RiderInfoCardProps) {
   const initial = (name || 'R').charAt(0).toUpperCase();
   const paymentLabel = paymentMethod === 'cash' ? 'CASH' : 'CARD';
 
@@ -25,6 +26,11 @@ export function RiderInfoCard({ name, paymentMethod, onChat }: RiderInfoCardProp
           <Ionicons name="star" size={12} color="#F59E0B" /> 5.0 · {paymentLabel}
         </Text>
       </View>
+      {onCall && (
+        <ScalePress style={s.chatBtn} onPress={onCall}>
+          <Ionicons name="call-outline" size={20} color="#FFF" />
+        </ScalePress>
+      )}
       {onChat && (
         <ScalePress style={s.chatBtn} onPress={onChat}>
           <Ionicons name="chatbubble-outline" size={20} color="#FFF" />

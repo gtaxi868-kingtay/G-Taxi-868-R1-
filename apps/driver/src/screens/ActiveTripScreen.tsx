@@ -483,6 +483,13 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 onSOS={handleSOS}
                 onOpenNavigation={openNavigation}
                 onChat={() => navigation.navigate('Chat', { rideId, rider })}
+                onCall={() => {
+                    if (rider?.phone_number) {
+                        Linking.openURL(`tel:${rider.phone_number}`);
+                    } else {
+                        Alert.alert('No Number', 'This rider has no phone number on file. Use chat instead.');
+                    }
+                }}
                 onDeliveryConfirmPickup={handleDeliveryConfirmPickup}
                 onEntertainmentAccept={handleEntertainmentAccept}
                 onEntertainmentReject={handleEntertainmentReject}
