@@ -53,6 +53,11 @@ import { TagMarkerScreen } from './src/screens/TagMarkerScreen';
 import RideReviewScreen from './src/screens/RideReviewScreen';
 import { ServiceBookingScreen } from './src/screens/ServiceBookingScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
+import { TravelStorefrontScreen } from './src/screens/TravelStorefrontScreen';
+import { TravelPackageDetailScreen } from './src/screens/TravelPackageDetailScreen';
+import { TravelBookingConfirmationScreen } from './src/screens/TravelBookingConfirmationScreen';
+import { TravelMyBookingsScreen } from './src/screens/TravelMyBookingsScreen';
+import { TravelWaitlistScreen } from './src/screens/TravelWaitlistScreen';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
@@ -151,6 +156,11 @@ function AppNavigator() {
                 <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
                 <AppStack.Screen name="Legal" component={LegalScreen} />
                 <AppStack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
+                <AppStack.Screen name="TravelStorefront" component={TravelStorefrontScreen} />
+                <AppStack.Screen name="TravelPackageDetail" component={TravelPackageDetailScreen} />
+                <AppStack.Screen name="TravelBookingConfirmation" component={TravelBookingConfirmationScreen} />
+                <AppStack.Screen name="TravelMyBookings" component={TravelMyBookingsScreen} />
+                <AppStack.Screen name="TravelWaitlist" component={TravelWaitlistScreen} />
             </AppStack.Navigator>
         </>
     );

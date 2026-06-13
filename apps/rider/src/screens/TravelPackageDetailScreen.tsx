@@ -1,0 +1,284 @@
+import React, { useState, useEffect } from 'react';
+import {
+    View, Text, StyleSheet, TouchableOpacity, ScrollView,
+    ActivityIndicator, Alert,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { supabase } from '@gtaxi/core';
+import { useAuth } from '../context/AuthContext';
+import type { AppScreenProps } from '../navigation/types';
+
+function fmtPrice(cents: number) {
+    return `TTD $${(cents / 100).toLocaleString('en-TT', { minimumFractionDigits: 0 })}`;
+}
+function fmtDate(iso: string) {
+    return new Date(iso).toLocaleDateString('en-TT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<'TravelPackageDetail'>) {
+    const { packageId } = route.params;
+    const insets = useSafeAreaInsets();
+    const { user } = useAuth();
+
+    const [pkg, setPkg] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [travelerCount, setTravelerCount] = useState(1);
+    const [booking, setBooking] = useState(false);
+    const [walletBalance, setWalletBalance] = useState<number | null>(null);
+
+    useEffect(() => {
+        const fetchPkg = async () => {
+            const { data } = await supabase.functions.invoke('get_travel_packages', {
+                body: {},
+            });
+            const found = data?.packages?.find((p: any) => p.id === packageId);
+            if (found) setPkg(found);
+            setLoading(false);
+        };
+
+        const fetchWallet = async () => {
+            if (!user) return;
+            const { data } = await supabase
+                .from('wallets')
+                .select('balance_cents')
+                .eq('user_id', user.id)
+                .single();
+            if (data) setWalletBalance(data.balance_cents);
+        };
+
+        fetchPkg();
+        fetchWallet();
+    }, [packageId, user]);
+
+    const totalCents = pkg ? pkg.price_per_person_cents * travelerCount : 0;
+    const canAfford = walletBalance !== null ? walletBalance >= totalCents : false;
+
+    const handleBook = async () => {
+        if (!pkg || !user) return;
+
+        Alert.alert(
+            'Confirm Booking',
+            `${travelerCount} traveler${travelerCount > 1 ? 's' : ''} to ${pkg.destination_name}\n\nTotal: ${fmtPrice(totalCents)}\n\nPaid from wallet.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Book Now',
+                    onPress: async () => {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        setBooking(true);
+                        try {
+                            const { data, error } = await supabase.functions.invoke('book_travel_package', {
+                                body: {
+                                    package_id: packageId,
+                                    traveler_count: travelerCount,
+                                    payment_method: 'wallet',
+                                },
+                            });
+                            if (error || data?.error) throw new Error(error?.message || data?.error);
+                            navigation.replace('TravelBookingConfirmation', {
+                                bookingId: data.booking_id,
+                                packageTitle: pkg.title,
+                                totalCents,
+                                travelerCount,
+                                departureAt: pkg.departure_at,
+                                airportTransferRideId: data.airport_transfer_ride_id,
+                            });
+                        } catch (err: any) {
+                            const code = err.message?.includes('SOLD_OUT') ? 'This package just sold out.' :
+                                err.message?.includes('INSUFFICIENT') ? 'Insufficient wallet balance. Please top up.' :
+                                err.message || 'Booking failed. Please try again.';
+                            Alert.alert('Booking Failed', code);
+                        } finally {
+                            setBooking(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    if (loading) {
+        return (
+            <View style={[styles.root, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center' }]}>
+                <ActivityIndicator size="large" color="#3B82F6" />
+            </View>
+        );
+    }
+
+    if (!pkg) {
+        return (
+            <View style={[styles.root, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ color: '#FFF' }}>Package not found.</Text>
+            </View>
+        );
+    }
+
+    const flightInfo = pkg.flight_info || {};
+    const hotelInfo = pkg.hotel_info || {};
+
+    return (
+        <View style={[styles.root, { paddingTop: insets.top }]}>
+            <StatusBar style="light" />
+
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>{pkg.origin_code} → {pkg.destination_code}</Text>
+            </View>
+
+            <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 120 }]}>
+                {/* Title card */}
+                <LinearGradient
+                    colors={['rgba(59,130,246,0.2)', 'rgba(59,130,246,0.05)']}
+                    style={styles.titleCard}
+                >
+                    <Text style={styles.title}>{pkg.title}</Text>
+                    <Text style={styles.destination}>{pkg.destination_name}</Text>
+                    <View style={styles.departurePill}>
+                        <Ionicons name="calendar-outline" size={14} color="#3B82F6" />
+                        <Text style={styles.departureText}>Departs {fmtDate(pkg.departure_at)}</Text>
+                    </View>
+                    <Text style={styles.seatsLeft}>{pkg.seats_remaining} seats remaining</Text>
+                </LinearGradient>
+
+                {/* Flight info */}
+                {(flightInfo.airline || flightInfo.flight_number) && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>FLIGHT</Text>
+                        <View style={styles.infoCard}>
+                            <InfoRow icon="airplane-outline" label="Airline" value={flightInfo.airline || 'Caribbean Airlines'} />
+                            {flightInfo.flight_number && <InfoRow icon="barcode-outline" label="Flight" value={flightInfo.flight_number} />}
+                            <InfoRow icon="layers-outline" label="Class" value={flightInfo.cabin || 'Economy'} />
+                            {flightInfo.return_flight && <InfoRow icon="airplane-outline" label="Return" value={flightInfo.return_flight} />}
+                        </View>
+                    </View>
+                )}
+
+                {/* Hotel info */}
+                {(hotelInfo.name || hotelInfo.nights) && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>ACCOMMODATION</Text>
+                        <View style={styles.infoCard}>
+                            {hotelInfo.name && <InfoRow icon="bed-outline" label="Hotel" value={hotelInfo.name} />}
+                            {hotelInfo.nights && <InfoRow icon="moon-outline" label="Nights" value={`${hotelInfo.nights} nights`} />}
+                            {hotelInfo.room_type && <InfoRow icon="key-outline" label="Room" value={hotelInfo.room_type} />}
+                            {hotelInfo.board && <InfoRow icon="restaurant-outline" label="Board" value={hotelInfo.board} />}
+                        </View>
+                    </View>
+                )}
+
+                {/* What's included */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>WHAT'S INCLUDED</Text>
+                    <View style={styles.infoCard}>
+                        <IncludeRow icon="airplane" label="Return flights from POS" />
+                        <IncludeRow icon="bed" label="Hotel accommodation" />
+                        {pkg.includes_airport_transfer && <IncludeRow icon="car" label="G-Taxi airport transfer" />}
+                        <IncludeRow icon="shield-checkmark" label="G-Taxi booking guarantee" />
+                    </View>
+                </View>
+
+                {/* Traveler count */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>TRAVELERS</Text>
+                    <View style={[styles.infoCard, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 }]}>
+                        <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 15 }}>Number of travelers</Text>
+                        <View style={styles.counter}>
+                            <TouchableOpacity
+                                onPress={() => { if (travelerCount > 1) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTravelerCount(t => t - 1); } }}
+                                style={styles.counterBtn}
+                            >
+                                <Ionicons name="remove" size={18} color="#FFF" />
+                            </TouchableOpacity>
+                            <Text style={styles.counterVal}>{travelerCount}</Text>
+                            <TouchableOpacity
+                                onPress={() => { if (travelerCount < Math.min(pkg.seats_remaining, 10)) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTravelerCount(t => t + 1); } }}
+                                style={styles.counterBtn}
+                            >
+                                <Ionicons name="add" size={18} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Wallet balance info */}
+                {walletBalance !== null && (
+                    <View style={{ paddingHorizontal: 20, marginBottom: 8 }}>
+                        <Text style={{ color: walletBalance >= totalCents ? 'rgba(255,255,255,0.4)' : '#EF4444', fontSize: 13 }}>
+                            Wallet balance: {fmtPrice(walletBalance)}
+                            {walletBalance < totalCents ? '  — insufficient, please top up' : ''}
+                        </Text>
+                    </View>
+                )}
+            </ScrollView>
+
+            {/* Book CTA */}
+            <View style={[styles.ctaBar, { paddingBottom: insets.bottom + 16 }]}>
+                <View>
+                    <Text style={styles.ctaLabel}>Total for {travelerCount} traveler{travelerCount > 1 ? 's' : ''}</Text>
+                    <Text style={styles.ctaPrice}>{fmtPrice(totalCents)}</Text>
+                </View>
+                <TouchableOpacity
+                    style={[styles.ctaBtn, (!canAfford || booking) && { opacity: 0.5 }]}
+                    onPress={handleBook}
+                    disabled={!canAfford || booking}
+                >
+                    {booking ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                        <Text style={styles.ctaBtnText}>Book Now</Text>
+                    )}
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+}
+
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}>
+            <Ionicons name={icon as any} size={18} color="rgba(255,255,255,0.4)" />
+            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, flex: 1 }}>{label}</Text>
+            <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 13 }}>{value}</Text>
+        </View>
+    );
+}
+
+function IncludeRow({ icon, label }: { icon: string; label: string }) {
+    return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}>
+            <Ionicons name={icon as any} size={18} color="#22C55E" />
+            <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 14 }}>{label}</Text>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    root: { flex: 1, backgroundColor: '#0A0A0F' },
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, gap: 12 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { color: 'rgba(255,255,255,0.6)', fontWeight: '700', fontSize: 16 },
+    scroll: { paddingTop: 8 },
+    titleCard: { marginHorizontal: 20, borderRadius: 24, padding: 24, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(59,130,246,0.2)' },
+    title: { color: '#FFF', fontWeight: '800', fontSize: 22 },
+    destination: { color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 4 },
+    departurePill: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, backgroundColor: 'rgba(59,130,246,0.12)', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
+    departureText: { color: '#3B82F6', fontSize: 13, fontWeight: '600' },
+    seatsLeft: { color: 'rgba(255,255,255,0.35)', fontSize: 13, marginTop: 8 },
+    section: { marginBottom: 20, paddingHorizontal: 20 },
+    sectionTitle: { color: 'rgba(255,255,255,0.3)', fontWeight: '700', fontSize: 11, letterSpacing: 2, marginBottom: 8 },
+    infoCard: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', overflow: 'hidden' },
+    counter: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+    counterBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+    counterVal: { color: '#FFF', fontWeight: '700', fontSize: 18, minWidth: 28, textAlign: 'center' },
+    ctaBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 20, backgroundColor: 'rgba(10,10,15,0.95)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+    ctaLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
+    ctaPrice: { color: '#FFF', fontWeight: '800', fontSize: 22 },
+    ctaBtn: { backgroundColor: '#3B82F6', borderRadius: 20, paddingHorizontal: 32, paddingVertical: 16 },
+    ctaBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16 },
+});

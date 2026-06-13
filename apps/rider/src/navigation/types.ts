@@ -160,13 +160,13 @@ export type AppStackParamList = {
   Chat: ChatParams;
   AISettings: undefined;
   GroceryStorefront: undefined;
-  ProductListing: ProductListingParams;
+  ProductListing: { merchant: { id: string; name: string; category: string; [key: string]: any } };
   ProductDetail: ProductDetailParams;
-  GroceryCart: undefined;
+  GroceryCart: { cart: any[]; merchant: { id: string; name: string; [key: string]: any } };
   GroceryOrderStatus: GroceryOrderStatusParams;
   VisionScanner: undefined;
   LaundryLanding: undefined;
-  LaundryEstimator: undefined;
+  LaundryEstimator: { service: { id: string; label: string; icon: string; baseRate: number } };
   LaundryOrderStatus: LaundryOrderStatusParams;
   DriverFound: DriverFoundParams;
   NfcHandshake: {
@@ -183,6 +183,11 @@ export type AppStackParamList = {
   };
   Legal: undefined;
   DeleteAccount: undefined;
+  TravelStorefront: undefined;
+  TravelPackageDetail: { packageId: string };
+  TravelBookingConfirmation: { bookingId: string; packageTitle: string; totalCents: number; travelerCount: number; departureAt: string; airportTransferRideId?: string };
+  TravelMyBookings: undefined;
+  TravelWaitlist: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;

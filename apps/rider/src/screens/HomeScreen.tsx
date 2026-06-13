@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, Image,
+    View, Text, StyleSheet, TouchableOpacity, Image, ScrollView,
     useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -58,7 +58,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false });
+    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
     const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -82,6 +82,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
     const [isEstimatingFare, setIsEstimatingFare] = useState(false);
+    const [nearbyVendors, setNearbyVendors] = useState<Array<{ id: string; name: string; store_type: string; address: string; delivery_fee_cents: number; avg_delivery_minutes: number; is_open: boolean; distance_meters: number }>>([]);
     const [stopSuggestions, setStopSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
     const panelY = useSharedValue(120);
@@ -307,6 +308,15 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             verticalsChannel?.unsubscribe();
         };
     }, []);
+
+    useEffect(() => {
+        const lat = location?.coords?.latitude || DEFAULT_LOCATION.latitude;
+        const lng = location?.coords?.longitude || DEFAULT_LOCATION.longitude;
+        if (!featureFlags.grocery) return;
+        supabase
+            .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
+            .then(({ data }) => setNearbyVendors(data || []));
+    }, [location, featureFlags.grocery]);
 
     useEffect(() => {
         const { nfcTagId, nfcLat, nfcLng, nfcLocation } = route?.params || {};
@@ -849,6 +859,29 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                     </TouchableOpacity>
                                     )}
 
+                                    {featureFlags.grocery && (
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('VisionScanner');
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(139,92,246,0.2)', 'rgba(139,92,246,0.05)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.gridCardGradient}
+                                        >
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(139,92,246,0.2)' }]}>
+                                                <Ionicons name="scan-sharp" size={28} color="#8B5CF6" />
+                                            </View>
+                                            <Text style={s.gridCardTitle}>Scan</Text>
+                                            <Text style={s.gridCardSub}>AI product search</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                    )}
+
                                     {featureFlags.kiosk ? (
                                         <TouchableOpacity
                                             activeOpacity={0.85}
@@ -873,7 +906,65 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                     ) : (
                                         <View style={s.gridCardPlaceholder} />
                                     )}
+
+                                    {featureFlags.caribbean_travel && (
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('TravelStorefront');
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(59,130,246,0.2)', 'rgba(59,130,246,0.05)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.gridCardGradient}
+                                        >
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(59,130,246,0.2)' }]}>
+                                                <Ionicons name="airplane-sharp" size={28} color="#3B82F6" />
+                                            </View>
+                                            <Text style={s.gridCardTitle}>Escapes</Text>
+                                            <Text style={s.gridCardSub}>Caribbean packages</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                    )}
                                 </View>
+                            </View>
+                        )}
+
+                        {nearbyVendors.length > 0 && (
+                            <View style={{ marginTop: 20 }}>
+                                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 18, paddingHorizontal: 20, marginBottom: 12 }}>Nearby Merchants</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+                                    {nearbyVendors.map(v => (
+                                        <TouchableOpacity
+                                            key={v.id}
+                                            activeOpacity={0.88}
+                                            onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
+                                            }}
+                                            style={{ width: 160, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                                        >
+                                            <LinearGradient colors={['rgba(139,92,246,0.15)', 'rgba(6,182,212,0.08)']} style={{ padding: 16 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                                    <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.25)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                                                        <Ionicons name="storefront-outline" size={18} color="#8B5CF6" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{v.name}</Text>
+                                                        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{v.is_open ? 'Open' : 'Closed'}</Text>
+                                                    </View>
+                                                </View>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{Math.round(v.distance_meters)} m</Text>
+                                                    <Text style={{ color: VOICES.rider.accent, fontSize: 11, fontWeight: '600' }}>~{v.avg_delivery_minutes} min</Text>
+                                                </View>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
                             </View>
                         )}
 
