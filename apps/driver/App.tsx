@@ -26,6 +26,8 @@ import { ChatScreen } from './src/screens/ChatScreen';
 import { StrategySettingsScreen } from './src/screens/StrategySettingsScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
 import { ReportIssueScreen } from './src/screens/ReportIssueScreen';
+import { RatingsScreen } from './src/screens/RatingsScreen';
+import { ScoutReferralScreen } from './src/screens/ScoutReferralScreen';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { DriverActiveRideRestorationHandler } from './src/components/DriverActiveRideRestorationHandler';
@@ -167,6 +169,8 @@ function AppNavigator() {
             <AppStack.Screen name="StrategySettings" component={StrategySettingsScreen} />
             <AppStack.Screen name="Legal" component={LegalScreen} />
             <AppStack.Screen name="ReportIssue" component={ReportIssueScreen} />
+            <AppStack.Screen name="Ratings" component={RatingsScreen} />
+            <AppStack.Screen name="ScoutReferral" component={ScoutReferralScreen} />
         </AppStack.Navigator>
         </>);
 }

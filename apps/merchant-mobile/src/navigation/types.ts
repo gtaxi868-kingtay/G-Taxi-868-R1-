@@ -8,6 +8,10 @@ export type AuthStackParamList = {
 export type AppStackParamList = {
   Dashboard: undefined;
   Orders: undefined;
+  Dispatch: undefined;
+  Earnings: undefined;
+  PropertyManagement: { merchant_id?: string };
+  EquityProgress: { contract_id?: string };
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;

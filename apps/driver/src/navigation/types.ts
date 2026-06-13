@@ -29,6 +29,8 @@ export type AppStackParamList = {
   StrategySettings: undefined;
   Legal: undefined;
   ReportIssue: undefined;
+  Ratings: undefined;
+  ScoutReferral: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;

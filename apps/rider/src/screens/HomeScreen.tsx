@@ -162,11 +162,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 
                 if (error) throw error;
                 
-                const flags = { 
+                const flags = {
                     grocery: verticals?.some((v: any) => v.vertical_name === 'grocery') || false,
                     laundry: verticals?.some((v: any) => v.vertical_name === 'laundry') || false,
                     merchant: verticals?.some((v: any) => v.vertical_name === 'merchant_delivery') || false,
                     kiosk: false,
+                    caribbean_travel: verticals?.some((v: any) => v.vertical_name === 'caribbean_travel') || false,
                 };
                 setFeatureFlags(flags);
                 const { data: sysKiosk } = await supabase
@@ -178,7 +179,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 setFeatureFlags(flags);
             } catch (err) {
                 console.warn('Failed to fetch verticals:', err);
-                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false });
+                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
             } finally {
                 setIsVerticalsLoading(false);
             }

@@ -10,6 +10,10 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { OrdersScreen } from './src/screens/OrdersScreen';
+import { DispatchScreen } from './src/screens/DispatchScreen';
+import { EarningsScreen } from './src/screens/EarningsScreen';
+import { PropertyManagementScreen } from './src/screens/PropertyManagementScreen';
+import { EquityProgressScreen } from './src/screens/EquityProgressScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -29,6 +33,10 @@ function AppNavigator() {
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Dashboard" component={DashboardScreen} />
       <AppStack.Screen name="Orders" component={OrdersScreen} />
+      <AppStack.Screen name="Dispatch" component={DispatchScreen} />
+      <AppStack.Screen name="Earnings" component={EarningsScreen} />
+      <AppStack.Screen name="PropertyManagement" component={PropertyManagementScreen} />
+      <AppStack.Screen name="EquityProgress" component={EquityProgressScreen} />
     </AppStack.Navigator>
   );
 }
