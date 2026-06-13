@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity, Switch,
+    View, Text, StyleSheet, TouchableOpacity, Switch,
     ScrollView, Alert, useWindowDimensions, TextInput, ActivityIndicator
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,6 +40,10 @@ export function SettingsScreen({ navigation }: any) {
     const [contactPhone, setContactPhone] = useState('');
     const [savingContact, setSavingContact] = useState(false);
 
+    const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'plus' | 'pro'>('free');
+    const [subscriptionExpiry, setSubscriptionExpiry] = useState<string | null>(null);
+    const [upgradingTier, setUpgradingTier] = useState<string | null>(null);
+
     useEffect(() => {
         if (!user) return;
         supabase.from('notification_settings').select('*').eq('user_id', user.id).single()
@@ -49,15 +53,40 @@ export function SettingsScreen({ navigation }: any) {
                     setNotifyPromos(data.promotions);
                 }
             });
-        supabase.from('profiles').select('emergency_contact_name, emergency_contact_phone').eq('id', user.id).single()
+        supabase.from('profiles').select('emergency_contact_name, emergency_contact_phone, subscription_tier, subscription_expires_at').eq('id', user.id).single()
             .then(({ data }) => {
                 if (data) {
                     setContactName(data.emergency_contact_name || '');
                     setContactPhone(data.emergency_contact_phone || '');
+                    setSubscriptionTier((data.subscription_tier as any) || 'free');
+                    setSubscriptionExpiry(data.subscription_expires_at || null);
                 }
             });
         AsyncStorage.getItem('@ai_routing_opt_in').then(val => setAiRouting(val === 'true'));
     }, [user]);
+
+    const handleUpgradeTier = async (tier: 'plus' | 'pro') => {
+        if (!user) return;
+        setUpgradingTier(tier);
+        try {
+            const expiresAt = new Date();
+            expiresAt.setMonth(expiresAt.getMonth() + 1);
+            const { error } = await supabase.from('profiles').update({
+                subscription_tier: tier,
+                subscription_started_at: new Date().toISOString(),
+                subscription_expires_at: expiresAt.toISOString(),
+            }).eq('id', user.id);
+            if (error) throw error;
+            setSubscriptionTier(tier);
+            setSubscriptionExpiry(expiresAt.toISOString());
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert('Upgraded!', `You are now on G-Taxi ${tier.charAt(0).toUpperCase() + tier.slice(1)}. Your benefits are active immediately.`);
+        } catch (err: any) {
+            Alert.alert('Upgrade Failed', err.message || 'Please try again.');
+        } finally {
+            setUpgradingTier(null);
+        }
+    };
 
     const saveEmergencyContact = async () => {
         if (!user) return;
@@ -177,6 +206,70 @@ export function SettingsScreen({ navigation }: any) {
                             <Txt variant="small" color={R.muted}>Refresh local storage</Txt>
                         </View>
                         <Ionicons name="trash-outline" size={20} color={R.muted} />
+                    </TouchableOpacity>
+                </View>
+
+                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>G-TAXI PASS</Txt>
+                <View style={s.card}>
+                    <View style={{ padding: 20, paddingBottom: 4 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                            <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 99, backgroundColor: subscriptionTier === 'pro' ? '#F59E0B' : subscriptionTier === 'plus' ? R.purple : 'rgba(255,255,255,0.12)' }}>
+                                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 12, textTransform: 'uppercase' }}>{subscriptionTier}</Text>
+                            </View>
+                            {subscriptionExpiry && subscriptionTier !== 'free' && (
+                                <Text style={{ color: R.muted, fontSize: 12 }}>Renews {new Date(subscriptionExpiry).toLocaleDateString('en-TT', { day: 'numeric', month: 'short' })}</Text>
+                            )}
+                        </View>
+                        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, lineHeight: 18 }}>
+                            {subscriptionTier === 'free' && 'Upgrade to save on every ride and unlock priority matching.'}
+                            {subscriptionTier === 'plus' && '10% discount on every ride. Your discount is applied automatically.'}
+                            {subscriptionTier === 'pro' && '15% discount + priority driver matching. Top-tier benefits active.'}
+                        </Text>
+                    </View>
+
+                    {subscriptionTier !== 'plus' && subscriptionTier !== 'pro' && (
+                        <>
+                            <View style={s.divider} />
+                            <TouchableOpacity
+                                style={s.row}
+                                onPress={() => handleUpgradeTier('plus')}
+                                disabled={upgradingTier === 'plus'}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>G-Taxi Plus</Text>
+                                    <Text style={{ color: R.muted, fontSize: 12, marginTop: 2 }}>10% off every ride · TTD $9.99/mo</Text>
+                                </View>
+                                {upgradingTier === 'plus' ? <ActivityIndicator size="small" color={R.purple} /> : <Ionicons name="chevron-forward" size={18} color={R.purple} />}
+                            </TouchableOpacity>
+                        </>
+                    )}
+
+                    {subscriptionTier !== 'pro' && (
+                        <>
+                            <View style={s.divider} />
+                            <TouchableOpacity
+                                style={s.row}
+                                onPress={() => handleUpgradeTier('pro')}
+                                disabled={upgradingTier === 'pro'}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>G-Taxi Pro</Text>
+                                    <Text style={{ color: R.muted, fontSize: 12, marginTop: 2 }}>15% off + priority matching · TTD $19.99/mo</Text>
+                                </View>
+                                {upgradingTier === 'pro' ? <ActivityIndicator size="small" color={R.gold} /> : <Ionicons name="chevron-forward" size={18} color={R.gold} />}
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
+
+                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>EARN</Txt>
+                <View style={s.card}>
+                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); (navigation as any).navigate('Referral'); }}>
+                        <View style={{ flex: 1 }}>
+                            <Txt variant="bodyBold" color="#FFF">Refer & Earn</Txt>
+                            <Txt variant="small" color={R.muted}>Give TTD $15, get TTD $15</Txt>
+                        </View>
+                        <Ionicons name="gift-outline" size={20} color={R.purple} />
                     </TouchableOpacity>
                 </View>
 

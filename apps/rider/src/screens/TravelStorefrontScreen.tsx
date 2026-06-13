@@ -42,16 +42,26 @@ export function TravelStorefrontScreen({ navigation }: AppScreenProps<'TravelSto
     const [packages, setPackages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [destFilter, setDestFilter] = useState('ALL');
 
     const load = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
+        setError(null);
         try {
-            const { data, error } = await supabase.functions.invoke('get_travel_packages', {
+            const { data, error: fnError } = await supabase.functions.invoke('get_travel_packages', {
                 body: destFilter !== 'ALL' ? { destination_code: destFilter } : {},
             });
-            if (!error && data?.packages) setPackages(data.packages);
-        } catch (_) {}
+            if (fnError) {
+                setError(fnError.message || 'Failed to load packages');
+            } else if (data?.packages) {
+                setPackages(data.packages);
+            } else {
+                setPackages([]);
+            }
+        } catch (err: any) {
+            setError(err?.message || 'Something went wrong. Pull down to retry.');
+        }
         setLoading(false);
         setRefreshing(false);
     }, [destFilter]);
@@ -182,6 +192,15 @@ export function TravelStorefrontScreen({ navigation }: AppScreenProps<'TravelSto
             {loading ? (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color="#3B82F6" />
+                </View>
+            ) : error ? (
+                <View style={styles.center}>
+                    <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+                    <Text style={[styles.emptyTitle, { color: '#EF4444' }]}>Failed to load</Text>
+                    <Text style={styles.emptySub}>{error}</Text>
+                    <TouchableOpacity style={styles.waitlistBtn} onPress={() => load()}>
+                        <Text style={styles.waitlistBtnText}>Retry →</Text>
+                    </TouchableOpacity>
                 </View>
             ) : packages.length === 0 ? (
                 <View style={styles.center}>

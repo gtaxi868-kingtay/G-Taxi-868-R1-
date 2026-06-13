@@ -58,6 +58,7 @@ import { TravelPackageDetailScreen } from './src/screens/TravelPackageDetailScre
 import { TravelBookingConfirmationScreen } from './src/screens/TravelBookingConfirmationScreen';
 import { TravelMyBookingsScreen } from './src/screens/TravelMyBookingsScreen';
 import { TravelWaitlistScreen } from './src/screens/TravelWaitlistScreen';
+import { ReferralScreen } from './src/screens/ReferralScreen';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
@@ -161,6 +162,7 @@ function AppNavigator() {
                 <AppStack.Screen name="TravelBookingConfirmation" component={TravelBookingConfirmationScreen} />
                 <AppStack.Screen name="TravelMyBookings" component={TravelMyBookingsScreen} />
                 <AppStack.Screen name="TravelWaitlist" component={TravelWaitlistScreen} />
+                <AppStack.Screen name="Referral" component={ReferralScreen} />
             </AppStack.Navigator>
         </>
     );

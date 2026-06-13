@@ -12,8 +12,9 @@ import { RescueScreen } from './pages/RescueScreen';
 import { WarChest } from './pages/WarChest';
 import { PlatformControl } from './pages/PlatformControl';
 import { TravelPackages } from './pages/TravelPackages';
+import { DealerBrokerage } from './pages/DealerBrokerage';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car } from 'lucide-react';
 
 // ── AdminSecurityGate ──────────────────────────────────────────────────────────
 // Blocks all rendering unless the user has a verified Supabase session AND
@@ -82,7 +83,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel';
+type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'dealer';
 
 function App() {
     const [activeTab, setActiveTab] = useState<AdminView>('dashboard');
@@ -182,6 +183,7 @@ function App() {
                         <NavItem active={activeTab === 'warchest'} onClick={() => handleNav('warchest')} icon={<Vault size={20}/>} label="War Chest" />
                         <NavItem active={activeTab === 'platformcontrol'} onClick={() => handleNav('platformcontrol')} icon={<SlidersHorizontal size={20}/>} label="Platform Control" />
                         <NavItem active={activeTab === 'travel'} onClick={() => handleNav('travel')} icon={<Plane size={20}/>} label="Travel Packages" />
+                        <NavItem active={activeTab === 'dealer'} onClick={() => handleNav('dealer')} icon={<Car size={20}/>} label="Dealer Brokerage" />
                     </nav>
 
                     <div className="pt-8 mt-8 border-t border-white/5">
@@ -238,6 +240,7 @@ function App() {
                         {activeTab === 'warchest' && <WarChest />}
                         {activeTab === 'platformcontrol' && <PlatformControl />}
                         {activeTab === 'travel' && <TravelPackages />}
+                        {activeTab === 'dealer' && <DealerBrokerage />}
                     </div>
                 </main>
 

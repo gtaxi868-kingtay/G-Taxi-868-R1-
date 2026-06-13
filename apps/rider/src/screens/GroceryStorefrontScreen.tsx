@@ -49,6 +49,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
     const [regularItems, setRegularItems] = useState<RegularItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
     const categories = useMemo(
@@ -98,8 +99,9 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     setRegularItems(sorted as RegularItem[]);
                 }
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('[GroceryStorefront] fetch error:', err);
+            setFetchError(err?.message || 'Could not load stores. Pull down to retry.');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -211,8 +213,14 @@ export function GroceryStorefrontScreen({ navigation }: any) {
             )}
 
             {loading && <LoadingOverlay message="SCANNING LOGISTICS..." color={CYAN} />}
-            
-            {!loading && filteredMerchants.length === 0 ? (
+
+            {!loading && fetchError ? (
+                <View style={s.center}>
+                    <Text style={s.emptyEmoji}>⚠️</Text>
+                    <Text style={[s.emptyText, { color: '#EF4444' }]}>Failed to load stores</Text>
+                    <Text style={s.emptySubtext}>{fetchError}</Text>
+                </View>
+            ) : !loading && filteredMerchants.length === 0 ? (
                 <View style={s.center}>
                     <Text style={s.emptyEmoji}>🏪</Text>
                     <Text style={s.emptyText}>No stores available right now.</Text>

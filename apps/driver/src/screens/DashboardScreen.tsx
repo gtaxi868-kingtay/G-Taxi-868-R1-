@@ -219,6 +219,8 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         { icon: 'person-outline', label: 'Profile', screen: 'Profile' },
         { icon: 'warning-outline', label: 'Report', screen: 'ReportIssue' },
         { icon: 'home-outline', label: 'Scout $500', screen: 'ScoutReferral' },
+        { icon: 'people-outline', label: 'Refer Driver', screen: 'DriverReferral' },
+        { icon: 'car-sport-outline', label: 'Buy Vehicle', screen: 'VehicleSales' },
     ];
 
     const rootOpacity = useSharedValue(0);

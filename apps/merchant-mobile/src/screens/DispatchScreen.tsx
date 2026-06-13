@@ -46,6 +46,7 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
   const [result, setResult] = useState<DispatchResult | null>(null);
   const [recent, setRecent] = useState<RecentDispatch[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
+  const [recentError, setRecentError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRecent();
@@ -72,8 +73,9 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
           status: r.status,
         }))
       );
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Failed to load recent dispatches:', err);
+      setRecentError(err?.message || 'Could not load dispatch history.');
     } finally {
       setLoadingRecent(false);
     }
@@ -205,6 +207,8 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
           <Text style={s.sectionTitle}>Recent Dispatches</Text>
           {loadingRecent ? (
             <ActivityIndicator color={VOICES.merchant.accent} style={{ marginTop: 16 }} />
+          ) : recentError ? (
+            <Text style={[s.emptyText, { color: '#EF4444' }]}>{recentError}</Text>
           ) : recent.length === 0 ? (
             <Text style={s.emptyText}>No dispatches yet.</Text>
           ) : (

@@ -28,6 +28,8 @@ import { LegalScreen } from './src/screens/LegalScreen';
 import { ReportIssueScreen } from './src/screens/ReportIssueScreen';
 import { RatingsScreen } from './src/screens/RatingsScreen';
 import { ScoutReferralScreen } from './src/screens/ScoutReferralScreen';
+import { DriverReferralScreen } from './src/screens/DriverReferralScreen';
+import { VehicleSalesScreen } from './src/screens/VehicleSalesScreen';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { DriverActiveRideRestorationHandler } from './src/components/DriverActiveRideRestorationHandler';
@@ -171,6 +173,8 @@ function AppNavigator() {
             <AppStack.Screen name="ReportIssue" component={ReportIssueScreen} />
             <AppStack.Screen name="Ratings" component={RatingsScreen} />
             <AppStack.Screen name="ScoutReferral" component={ScoutReferralScreen} />
+            <AppStack.Screen name="DriverReferral" component={DriverReferralScreen} />
+            <AppStack.Screen name="VehicleSales" component={VehicleSalesScreen} />
         </AppStack.Navigator>
         </>);
 }
