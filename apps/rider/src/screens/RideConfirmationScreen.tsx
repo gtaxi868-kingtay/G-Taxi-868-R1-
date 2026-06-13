@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { initializeSupabaseClient, ENV } from '@gtaxi/core';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
+import { PaymentSelector, PaymentMethod } from '../components/PaymentSelector';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { GlassCard } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
@@ -58,7 +59,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const [fare, setFare] = useState<any>(null);
     const [selectedType, setSelectedType] = useState<VehicleType>('Standard');
     const [confirming, setConfirming] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet'>('cash');
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [walletBalance, setWalletBalance] = useState<number>(0);
 
     const [requestStatus, setRequestStatus] = useState<'idle' | 'connecting' | 'still_trying' | 'failed'>('idle');
@@ -222,6 +223,11 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
     const handleConfirm = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+        if (paymentMethod === 'card') {
+            Alert.alert('Card Payments Coming Soon', 'Card payments via WiPay are launching soon. Please use Cash or G-Coin for this ride.');
+            return;
+        }
 
         if (!selfieVerified || !selfieUri) {
             setSelfieError('Identity verification required before confirming ride.');
@@ -489,6 +495,13 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             <Text style={s.fareLabel}>TOTAL ESTIMATE</Text>
                             <Text style={s.fareValue}>{formatTTDDollars(parseFloat(finalFare))}</Text>
                         </View>
+
+                        <PaymentSelector
+                            selected={paymentMethod}
+                            onSelect={setPaymentMethod}
+                            walletBalance={walletBalance / 100}
+                            requiredAmount={displayFareCents / 100}
+                        />
 
                         <View style={s.identityShield}>
                             <Ionicons name="shield-checkmark" size={20} color={CYAN} />

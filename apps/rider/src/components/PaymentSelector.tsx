@@ -5,10 +5,10 @@ import {
     TouchableOpacity,
     Alert,
     Image,
+    Text,
 } from 'react-native';
-import { GlassView } from './GlassView';
 import { tokens } from '@/design-system/tokens';
-import { Txt, Surface } from '@/design-system/primitives';
+import { Txt } from '@/design-system/primitives';
 import { Ionicons } from '@expo/vector-icons';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
@@ -21,12 +21,11 @@ interface PaymentSelectorProps {
     requiredAmount?: number;
 }
 
-// NOTE: Ensure this asset exists at this path!
 const G_COIN_LOGO = require('../../assets/images/g_coin_logo.png');
 
 export function PaymentSelector({ selected, onSelect, walletBalance, requiredAmount }: PaymentSelectorProps) {
 
-    const OPTIONS: { id: PaymentMethod; icon?: string; image?: any; label: string; disabled?: boolean }[] = [
+    const OPTIONS: { id: PaymentMethod; icon?: string; image?: any; label: string; disabled?: boolean; comingSoon?: boolean }[] = [
         { id: 'cash', icon: 'cash-outline', label: 'Cash' },
         {
             id: 'wallet',
@@ -36,14 +35,22 @@ export function PaymentSelector({ selected, onSelect, walletBalance, requiredAmo
                 : 'G-Coin',
             disabled: (walletBalance !== undefined && requiredAmount !== undefined)
                 ? walletBalance < requiredAmount
-                : false
-        }, // Branding Update
-        { id: 'card', icon: 'card-outline', label: 'Card' },
+                : false,
+        },
+        { id: 'card', icon: 'card-outline', label: 'Card', comingSoon: true },
     ];
 
     const handlePress = (option: typeof OPTIONS[0]) => {
         if (option.disabled) {
-            Alert.alert('Insufficient Balance', `Your G-Coin balance is too low. Top up in Wallet to use this method.`);
+            Alert.alert('Insufficient Balance', 'Your G-Coin balance is too low. Top up in Wallet to use this method.');
+            return;
+        }
+        if (option.comingSoon) {
+            Alert.alert(
+                'Card Payments Coming Soon',
+                'Card payments via WiPay are launching soon for Trinidad & Tobago. Please use Cash or G-Coin for this ride.',
+                [{ text: 'OK', style: 'default' }],
+            );
             return;
         }
         onSelect(option.id);
@@ -57,17 +64,23 @@ export function PaymentSelector({ selected, onSelect, walletBalance, requiredAmo
             <View style={styles.optionsRow}>
                 {OPTIONS.map((opt) => {
                     const isSelected = selected === opt.id;
+                    const muted = opt.disabled || opt.comingSoon;
                     return (
                         <TouchableOpacity
                             key={opt.id}
                             style={[
                                 styles.option,
                                 isSelected && styles.optionSelected,
-                                opt.disabled && styles.optionDisabled
+                                muted && styles.optionMuted,
                             ]}
                             onPress={() => handlePress(opt)}
                             activeOpacity={0.7}
                         >
+                            {opt.comingSoon && (
+                                <View style={styles.soonBadge}>
+                                    <Text style={styles.soonText}>SOON</Text>
+                                </View>
+                            )}
                             {opt.image ? (
                                 <Image
                                     source={opt.image}
@@ -75,7 +88,12 @@ export function PaymentSelector({ selected, onSelect, walletBalance, requiredAmo
                                     resizeMode="contain"
                                 />
                             ) : (
-                                <Ionicons name={opt.icon as any} size={20} color={isSelected ? tokens.colors.text.primary : tokens.colors.text.secondary} style={{ marginBottom: 4 }} />
+                                <Ionicons
+                                    name={opt.icon as any}
+                                    size={20}
+                                    color={isSelected ? tokens.colors.text.primary : tokens.colors.text.secondary}
+                                    style={{ marginBottom: 4 }}
+                                />
                             )}
                             <Txt
                                 variant="bodyBold"
@@ -112,12 +130,28 @@ const styles = StyleSheet.create({
         borderRadius: tokens.layout.radius.m,
         backgroundColor: tokens.colors.glass.fill,
         ...ghostBorder(0.05),
+        position: 'relative',
     },
     optionSelected: {
         borderColor: tokens.colors.primary.purple,
         backgroundColor: 'rgba(123, 97, 255, 0.15)',
     },
-    optionDisabled: {
+    optionMuted: {
         opacity: 0.5,
+    },
+    soonBadge: {
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        backgroundColor: 'rgba(245, 158, 11, 0.85)',
+        borderRadius: 4,
+        paddingHorizontal: 4,
+        paddingVertical: 1,
+    },
+    soonText: {
+        fontSize: 8,
+        fontWeight: '900',
+        color: '#FFFFFF',
+        letterSpacing: 0.5,
     },
 });
