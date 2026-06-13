@@ -48,6 +48,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
   const [pendingCents, setPendingCents] = useState(0);
   const [staffEarnings, setStaffEarnings] = useState<StaffEarning[]>([]);
   const [recentCommissions, setRecentCommissions] = useState<Commission[]>([]);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'history'>('overview');
 
   useEffect(() => {
@@ -58,6 +59,14 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
     if (!user) return;
     setLoading(true);
     try {
+      // Fetch spendable wallet balance
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('balance_cents')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setWalletBalance(wallet?.balance_cents ?? 0);
+
       // Resolve merchant (owner or staff)
       const { data: merchant } = await supabase
         .from('merchants')
@@ -164,6 +173,18 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
         <ActivityIndicator color={VOICES.merchant.accent} style={{ marginTop: 40 }} size="large" />
       ) : (
         <>
+          {/* Wallet balance hero */}
+          <View style={[s.walletHero, glassSurface(0.18)]}>
+            <View style={s.walletHeroLeft}>
+              <Text style={s.walletHeroLabel}>Spendable Balance</Text>
+              <Text style={s.walletHeroValue}>{ttd(walletBalance)}</Text>
+              <Text style={s.walletHeroCurrency}>TTD</Text>
+            </View>
+            <View style={s.walletHeroIcon}>
+              <Ionicons name="wallet-outline" size={32} color={VOICES.merchant.accent} />
+            </View>
+          </View>
+
           <View style={s.summaryRow}>
             <View style={[s.summaryCard, glassSurface(0.15)]}>
               <Text style={s.summaryLabel}>Total Earned</Text>
@@ -274,6 +295,12 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  walletHero: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, marginBottom: 12, borderRadius: 24, padding: 24 },
+  walletHeroLeft: { flex: 1 },
+  walletHeroLabel: { fontSize: 12, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', textTransform: 'uppercase', letterSpacing: 1 },
+  walletHeroValue: { fontSize: 38, fontWeight: '800', color: '#FFFFFF', fontFamily: 'SpaceGrotesk', marginTop: 4 },
+  walletHeroCurrency: { fontSize: 12, color: VOICES.merchant.accent, fontFamily: 'Manrope', marginTop: 2 },
+  walletHeroIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: VOICES.merchant.accent + '18', justifyContent: 'center', alignItems: 'center' },
   summaryRow: { flexDirection: 'row', gap: 12, marginHorizontal: 20, marginBottom: 16 },
   summaryCard: { flex: 1, borderRadius: 20, padding: 20 },
   summaryLabel: { fontSize: 12, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', textTransform: 'uppercase', letterSpacing: 0.5 },
