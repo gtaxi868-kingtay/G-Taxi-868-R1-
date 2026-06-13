@@ -65,6 +65,14 @@ serve(async (req: Request) => {
             return new Response(JSON.stringify({ success: false, error: "Ride not found" }), { status: 404, headers: corsHeaders });
         }
 
+        // Verify caller owns this ride
+        if (ride.rider_id !== userId) {
+            return new Response(
+                JSON.stringify({ success: false, error: "Forbidden: you can only match drivers to your own rides" }),
+                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // --- Fix 4.7: Skip rides that have admin override active ---
         if (ride.admin_override === true) {
             console.log(`Skipping match for ride ${ride_id} - admin_override is ON.`);

@@ -97,6 +97,7 @@ Deno.serve(async (req: Request) => {
                     provider: 'stripe',
                     provider_ref: pi.id,
                     stripe_event_id: event.id,
+                    processing_status: 'processing',
                 });
 
             if (ledgerError) {
@@ -115,12 +116,22 @@ Deno.serve(async (req: Request) => {
             );
 
             if (creditError) {
+                await supabaseAdmin
+                    .from('payment_ledger')
+                    .update({ processing_status: 'failed' })
+                    .eq('stripe_event_id', event.id)
+                    .catch(err => console.error('Failed to mark ledger as failed:', err));
                 console.error('stripe_webhook: wallet credit RPC failed:', creditError);
                 return new Response('Wallet credit failed', { status: 500 });
             }
 
             if (creditSuccess === false) {
                 console.log(`stripe_webhook: Duplicate topup blocked for event ${event.id}`);
+                await supabaseAdmin
+                    .from('payment_ledger')
+                    .update({ processing_status: 'completed' })
+                    .eq('stripe_event_id', event.id)
+                    .catch(err => console.error('Failed to mark duplicate ledger as completed:', err));
                 return new Response(JSON.stringify({ status: 'ignored_duplicate' }), {
                     status: 200,
                     headers: { 'Content-Type': 'application/json' },
@@ -192,7 +203,23 @@ Deno.serve(async (req: Request) => {
 
         if (result?.status === 'SUCCESS') {
             console.log(`stripe_webhook: Atomic settlement SUCCESS for ride ${rideId}`, result);
-            return new Response(JSON.stringify({ received: true, settlement: result }), {
+
+            // Confirm processing_status was set by the RPC
+            const { data: ledgerConfirm } = await supabaseAdmin
+                .from('payment_ledger')
+                .select('processing_status')
+                .eq('stripe_event_id', event.id)
+                .maybeSingle();
+
+            if (ledgerConfirm && ledgerConfirm.processing_status !== 'completed') {
+                console.warn(`stripe_webhook: processing_status is '${ledgerConfirm.processing_status}', correcting to 'completed'`);
+                await supabaseAdmin
+                    .from('payment_ledger')
+                    .update({ processing_status: 'completed' })
+                    .eq('stripe_event_id', event.id);
+            }
+
+            return new Response(JSON.stringify({ received: true, settlement: result, processing_status: 'completed' }), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
             });
