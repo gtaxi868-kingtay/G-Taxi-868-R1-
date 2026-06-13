@@ -30,6 +30,7 @@ export function SignupScreen({ navigation }: any) {
         email: '',
         phone: '',
         password: '',
+        referralCode: '',
         aiEnabled: true,
         termsAccepted: false,
     });
@@ -77,6 +78,17 @@ export function SignupScreen({ navigation }: any) {
                     .from('profiles')
                     .update({ phone_number: formData.phone.trim() })
                     .eq('id', authData.user.id);
+            }
+
+            // Step 3: Apply referral code if provided — TTD $15 credit for both parties
+            if (formData.referralCode.trim()) {
+                try {
+                    await supabase.rpc('apply_referral_code', {
+                        p_referee_id: authData.user.id,
+                        p_code: formData.referralCode.trim().toUpperCase(),
+                        p_type: 'rider',
+                    });
+                } catch { /* non-fatal — bonus is a perk, not a requirement */ }
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -194,6 +206,16 @@ export function SignupScreen({ navigation }: any) {
                                         isFocused={focusedField === 'password'}
                                         onFocus={() => setFocusedField('password')}
                                         onBlur={() => setFocusedField(null)}
+                                    />
+                                    <Input
+                                        label="REFERRAL CODE"
+                                        placeholder="e.g. ABC123"
+                                        value={formData.referralCode}
+                                        onChange={(v: string) => setFormData({ ...formData, referralCode: v })}
+                                        isFocused={focusedField === 'referral'}
+                                        onFocus={() => setFocusedField('referral')}
+                                        onBlur={() => setFocusedField(null)}
+                                        optional
                                     />
 
                                     {/* AI Toggle */}

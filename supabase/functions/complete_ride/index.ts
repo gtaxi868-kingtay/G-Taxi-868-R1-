@@ -1,11 +1,12 @@
 // Supabase Edge Function: complete_ride
 // ============================================================
-// CAPITAL RESERVE LOCK — Settlement Engine (2026-05-22)
+// CAPITAL RESERVE LOCK — Settlement Engine (2026-06-12)
 // ============================================================
 // Settlement math (server-side only — app is purely display):
 //   reserve      = round(gross * 0.015)     → capital_reserve_ledger
 //   net          = gross - reserve
-//   platform_fee = round(net * 0.185)       → platform_revenue_logs
+//   platform_fee = round(net * rate)        → platform_revenue_logs
+//                  rate = 0.185 standard / 0.16 loyalty (balance ≥ TTD$500)
 //   driver_payout = net - platform_fee       → wallet / cash
 //   Invariant: reserve + platform_fee + driver_payout = gross
 //
@@ -68,19 +69,20 @@ const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
 /**
  * Server-side settlement calculation — single source of truth.
  * No client-supplied values are used in this computation.
- * Must match the calculate_settlement() RPC exactly (p_gross_cents * 0.015).
+ * platformRate: 0.185 standard, 0.16 for loyalty drivers (balance ≥ TTD $500).
  */
-function computeSettlement(grossCents: number): {
+function computeSettlement(grossCents: number, platformRate = 0.185): {
   reserveCents: number;
   netFare: number;
   platformFee: number;
   driverPayoutCents: number;
+  platformRate: number;
 } {
   const reserveCents = Math.round(grossCents * 0.015);
   const netFare = grossCents - reserveCents;
-  const platformFee = Math.round(netFare * 0.185);
+  const platformFee = Math.round(netFare * platformRate);
   const driverPayoutCents = netFare - platformFee;
-  return { reserveCents, netFare, platformFee, driverPayoutCents };
+  return { reserveCents, netFare, platformFee, driverPayoutCents, platformRate };
 }
 
 serve(async (req: Request) => {
@@ -216,12 +218,29 @@ serve(async (req: Request) => {
     const effectiveFare =
       (ride.total_fare_cents || 0) + totalWaitFareCents + gridlockSurchargeCents;
 
+    // ── LOYALTY RATE TIER ───────────────────────────────────────────────────
+    // Drivers with wallet balance ≥ TTD $500 get 16% instead of 18.5%.
+    const driverUserIdForLoyalty = await resolveDriverAuthUserId(supabaseAdmin, driverRecord, ride.driver_id);
+    let platformRate = 0.185;
+    let loyaltyApplied = false;
+
+    if (driverUserIdForLoyalty) {
+      const { data: qualifies } = await supabaseAdmin
+        .rpc("driver_qualifies_loyalty_rate", { p_driver_user_id: driverUserIdForLoyalty })
+        .catch(() => ({ data: false }));
+
+      if (qualifies === true) {
+        platformRate = 0.16;
+        loyaltyApplied = true;
+        console.log(`[LOYALTY_TIER] Driver ${driverUserIdForLoyalty} qualifies — 16% rate applied`);
+      }
+    }
+
     // ── SETTLEMENT MATH (single source of truth — server only) ──────────────
-    const { reserveCents, platformFee, driverPayoutCents } = computeSettlement(effectiveFare);
+    const { reserveCents, platformFee, driverPayoutCents } = computeSettlement(effectiveFare, platformRate);
 
     // ── PAYMENT PROCESSING ──────────────────────────────────────────────────
     if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
-      // Wallet path: RPC handles the new math internally + reserve insert
       const { data: walletSuccess, error: payError } = await supabaseAdmin.rpc(
         "process_wallet_payment",
         { p_ride_id: ride_id, p_amount: effectiveFare }
@@ -235,7 +254,7 @@ serve(async (req: Request) => {
         );
       }
     } else if (ride.payment_method === "cash") {
-      // ── CASH PATH: Shadow ledger with new settlement math ──────────────────
+      // ── CASH PATH: Shadow ledger with settlement math ──────────────────────
       const { error: cashError } = await supabaseAdmin
         .from("rides")
         .update({ cash_confirmed: true })
@@ -250,7 +269,7 @@ serve(async (req: Request) => {
         );
       }
 
-      const driverUserId = await resolveDriverAuthUserId(supabaseAdmin, driverRecord, ride.driver_id);
+      const driverUserId = driverUserIdForLoyalty ?? await resolveDriverAuthUserId(supabaseAdmin, driverRecord, ride.driver_id);
 
       if (!driverUserId) {
         console.error("Cash settlement: could not resolve driver auth user_id", { ride_id, driver_id: ride.driver_id });
@@ -260,8 +279,6 @@ serve(async (req: Request) => {
         );
       }
 
-      // Cash driver owes platform: platformFee + reserve (they collected the full fare)
-      // reserve and platform_fee are deducted as a single commission entry
       const totalPlatformCents = platformFee + reserveCents;
 
       console.log("[SHADOW_LEDGER][completeRide]", {
@@ -270,6 +287,8 @@ serve(async (req: Request) => {
         reserve_cents: reserveCents,
         platform_fee: platformFee,
         driver_payout: driverPayoutCents,
+        platform_rate: platformRate,
+        loyalty_applied: loyaltyApplied,
         payment_method: "cash",
         driver_user_id: driverUserId,
       });
@@ -279,11 +298,10 @@ serve(async (req: Request) => {
         ride_id: ride_id,
         amount: -totalPlatformCents,
         transaction_type: "commission_fee",
-        description: `Platform (${((platformFee / effectiveFare) * 100).toFixed(1)}%) + War Chest (1.5%) on cash ride`,
+        description: `Platform (${(platformRate * 100).toFixed(1)}%${loyaltyApplied ? " loyalty" : ""}) + War Chest (1.5%) on cash ride`,
         status: "completed",
       });
 
-      // Write the capital reserve directly
       await supabaseAdmin.from("capital_reserve_ledger").insert({
         ride_id: ride_id,
         amount_cents: reserveCents,
@@ -291,7 +309,6 @@ serve(async (req: Request) => {
         notes: "Cash ride — reserve locked via shadow ledger",
       });
 
-      // Write payment_ledger entry for cash ride
       await supabaseAdmin.from("payment_ledger").insert({
         ride_id: ride_id,
         user_id: ride.rider_id,
@@ -330,7 +347,6 @@ serve(async (req: Request) => {
     if (updateError || count === 0) {
       console.error("Ride status update failed — reversing payment mutations:", updateError);
 
-      // Compensating rollback: reverse wallet debit if wallet path was used
       if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
         await supabaseAdmin
           .from("wallet_transactions")
@@ -344,7 +360,6 @@ serve(async (req: Request) => {
           })
           .catch((err) => console.error("Compensating reversal also failed:", err));
       } else if (ride.payment_method === "cash") {
-        // Cash path: remove any shadow-ledger entries atomically
         await supabaseAdmin
           .from("wallet_transactions")
           .delete()
@@ -385,6 +400,60 @@ serve(async (req: Request) => {
         p_reserve_cents: reserveCents,
       })
       .catch((err) => console.error("Ledger logging failed:", err));
+
+    // ── VENDOR COMMISSION (3% to kiosk merchant/staff when ride from a node) ─
+    if (ride.vendor_node_id) {
+      try {
+        const { data: kiosk } = await supabaseAdmin
+          .from("kiosk_nodes")
+          .select("id, merchant_id, staff_member_id")
+          .eq("id", ride.vendor_node_id)
+          .single();
+
+        if (kiosk) {
+          const { data: merchant } = await supabaseAdmin
+            .from("merchants")
+            .select("commission_rate")
+            .eq("id", kiosk.merchant_id)
+            .single();
+
+          const rate = merchant?.commission_rate ?? 0.03;
+          const commissionCents = Math.floor(effectiveFare * rate);
+
+          await supabaseAdmin.from("vendor_commissions").insert({
+            ride_id: ride_id,
+            kiosk_node_id: kiosk.id,
+            merchant_id: kiosk.merchant_id,
+            staff_member_id: kiosk.staff_member_id || null,
+            commission_rate: rate,
+            commission_cents: commissionCents,
+            status: "pending",
+          });
+
+          // Credit merchant wallet immediately (Bug Fix #2)
+          await supabaseAdmin
+            .rpc("credit_merchant_commission", {
+              p_merchant_id: kiosk.merchant_id,
+              p_ride_id: ride_id,
+              p_amount_cents: commissionCents,
+            })
+            .catch((err) => console.error("Merchant wallet credit failed (non-fatal):", err));
+        }
+      } catch (err) {
+        console.error("Vendor commission recording failed (non-fatal):", err);
+      }
+    }
+
+    // ── DRIVER REFERRAL COMMISSION (1% of platform fee to referrer for 90 days) ─
+    if (driverUserIdForLoyalty && platformFee > 0) {
+      await supabaseAdmin
+        .rpc("check_driver_referral_commission", {
+          p_driver_user_id: driverUserIdForLoyalty,
+          p_ride_id: ride_id,
+          p_platform_fee_cents: platformFee,
+        })
+        .catch((err) => console.error("Driver referral commission failed (non-fatal):", err));
+    }
 
     // ── FLEET LEASE DEDUCTION ─────────────────────────────────────────────
     let leaseDeductionCents = 0;
@@ -450,6 +519,8 @@ serve(async (req: Request) => {
             driver_net_payout_cents: driverPayoutCents - leaseDeductionCents,
             lease_deduction_cents: leaseDeductionCents,
             lease_status: leaseDeductionStatus,
+            platform_rate: platformRate,
+            loyalty_rate_applied: loyaltyApplied,
           },
         },
       }),
