@@ -142,6 +142,14 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileLabel}>Equity</Text>
             <Text style={s.tileDesc}>Ownership milestones</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('ProductCatalog')}>
+            <View style={[s.tileIcon, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
+              <Ionicons name="storefront" size={28} color="#10B981" />
+            </View>
+            <Text style={s.tileLabel}>Catalog</Text>
+            <Text style={s.tileDesc}>Add & manage products</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
