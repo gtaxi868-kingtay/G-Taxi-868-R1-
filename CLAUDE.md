@@ -3,7 +3,7 @@
 # Do not skip sections. Do not assume you know the state of any file.
 # Do not fix multiple phases in one session unless explicitly told to.
 
-# Last updated: 2026-05-30
+# Last updated: 2026-06-13
 # Plain English summary (based on code in this repo):
 # This repository implements a two-sided ride-hailing system for Trinidad
 # and Tobago: a Rider app, a Driver app, an Admin dashboard, and Supabase
@@ -72,27 +72,46 @@ confirmed resolved by reading the actual source code on 2026-05-30.
 
 ---
 
-## GENUINE REMAINING GAPS (verified against source code)
+## EDGE FUNCTION SECRETS — STATUS AS OF 2026-06-13
 
-1. SUPABASE EDGE FUNCTION SECRETS NOT CONFIGURED
-   These must be set in the Supabase project dashboard. Without them:
-   - FIREBASE_SERVICE_ACCOUNT_JSON  → push silently fails (push.ts:134)
-   - STRIPE_SECRET_KEY              → webhook signing fails
-   - STRIPE_WEBHOOK_SECRET          → webhook signature verify fails (stripe_webhook:61)
-   - TWILIO_ACCOUNT_SID / TOKEN     → SMS fails
-   - UPSTASH_REDIS_REST_URL / TOKEN → driver Redis cache fails (non-fatal)
-   - SENTRY_DSN                     → error reporting fails
+  SET IN SUPABASE DASHBOARD (confirmed 2026-06-13):
+  - FIREBASE_SERVICE_ACCOUNT_JSON  ✅ SET — base64 encoded service account for g-taxi-868-584a4
+  - GROQ_API_KEY                   ✅ SET — llama-3.3-70b-versatile (unblocks ai-gateway + platform_intelligence)
 
-2. NFC DISPATCH LAYER NOT YET DEPLOYED
-   - supabase/migrations/20260530000005_nfc_dispatch_layer.sql — unapplied
-   - supabase/functions/nfc_event_handler/index.ts — updated but undeployed
-   - packages/core/src/service_bus.ts + apps/merchant-mobile/src/hooks/useTaskListener.ts
-     — written but untested in production
+  NOT YET SET — will crash on first invocation:
+  - SUPABASE_SERVICE_ROLE_KEY      ❌ CRITICAL — ~60 functions fail without this
+  - STRIPE_SECRET_KEY              ❌ CRITICAL — all card payments fail
+  - STRIPE_WEBHOOK_SECRET          ❌ CRITICAL — webhook signature verify fails (stripe_webhook:61)
+  - TWILIO_ACCOUNT_SID / TOKEN     ❌ SMS fails silently
+  - UPSTASH_REDIS_REST_URL / TOKEN ❌ Redis cache fails (non-fatal)
+  - SENTRY_DSN                     ❌ Error reporting silent (non-fatal)
 
-3. RIDER APP CONFIG — MISSING expo-notifications PLUGIN
-   apps/rider/app.config.js does not list "expo-notifications" in its plugins
-   array. apps/driver/app.config.js does (line 72). This affects Android
-   notification icon assets but does not break runtime push delivery.
+## DEPLOYED EDGE FUNCTIONS — STATUS AS OF 2026-06-13
+
+  NEWLY DEPLOYED (2026-06-13):
+  - platform_intelligence  — AI agent using Groq llama-3.3-70b; verify_jwt: false (cron-callable)
+  - submit_dispute         — Rider/driver dispute filing; verify_jwt: true
+  - admin_process_payout   — Admin payout approve/reject; verify_jwt: true
+  - estimate_fare          — Redeployed with dynamic pricing from platform_config table
+
+## GENUINE REMAINING GAPS (verified against source code 2026-06-13)
+
+1. SUPABASE_SERVICE_ROLE_KEY NOT SET — highest priority
+   Without this, every edge function that uses the admin client fails silently.
+   Set at: supabase.com/dashboard/project/ffbbuafgeypvkpcuvdnv/settings/functions
+
+2. STRIPE KEYS NOT SET — blocks all card payments
+   STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET both required.
+
+3. MOBILE APPS NEVER BUILT — no APK/IPA for distribution
+   EAS config is in place (apps/rider/eas.json). Run:
+     cd apps/rider && eas build --profile preview --platform android
+     cd apps/driver && eas build --profile preview --platform android
+     cd apps/merchant-mobile && eas build --profile preview --platform android
+
+4. RIDER APP CONFIG — expo-notifications ALREADY PRESENT
+   apps/rider/app.config.js line 103 already includes "expo-notifications".
+   CLAUDE.md previously said it was missing — that claim was stale.
 
 ---
 
