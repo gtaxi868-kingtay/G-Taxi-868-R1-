@@ -1,5 +1,5 @@
 // Supabase Edge Function: platform_intelligence
-// AI agent (claude-sonnet-4-6 with tool_use) that runs every 15 min via pg_cron.
+// AI agent (Groq llama-3.3-70b with tool_use) that runs every 15 min via pg_cron.
 // Reads demand data, unmatched orders, and flight inventory.
 // Makes decisions: activate surge, dispatch orders, create package drafts.
 // Logs all decisions + reasoning to agent_decision_log.
@@ -10,7 +10,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -307,9 +307,9 @@ serve(async (req) => {
         return new Response("ok", { headers: corsHeaders });
     }
 
-    if (!ANTHROPIC_API_KEY) {
-        console.error("[platform_intelligence] ANTHROPIC_API_KEY not set");
-        return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+    if (!GROQ_API_KEY) {
+        console.error("[platform_intelligence] GROQ_API_KEY not set");
+        return new Response(JSON.stringify({ error: "GROQ_API_KEY not configured" }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -350,49 +350,60 @@ Context:
         while (continueLoop && iterations < MAX_ITERATIONS) {
             iterations++;
 
-            const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+            // Build Groq tools (OpenAI function-calling format)
+            const groqTools = TOOLS.map(t => ({
+                type: "function",
+                function: {
+                    name: t.name,
+                    description: t.description,
+                    parameters: t.input_schema,
+                },
+            }));
+
+            const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
+                    "Authorization": `Bearer ${GROQ_API_KEY}`,
                 },
                 body: JSON.stringify({
-                    model: "claude-sonnet-4-6",
+                    model: "llama-3.3-70b-versatile",
                     max_tokens: 4096,
-                    system: systemPrompt,
-                    tools: TOOLS,
-                    messages,
+                    tools: groqTools,
+                    tool_choice: "auto",
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        ...messages,
+                    ],
                 }),
             });
 
-            if (!anthropicRes.ok) {
-                const errText = await anthropicRes.text();
-                throw new Error(`Anthropic API error ${anthropicRes.status}: ${errText}`);
+            if (!groqRes.ok) {
+                const errText = await groqRes.text();
+                throw new Error(`Groq API error ${groqRes.status}: ${errText}`);
             }
 
-            const claudeResponse = await anthropicRes.json();
+            const groqResponse = await groqRes.json();
+            const choice = groqResponse.choices?.[0];
+            if (!choice) throw new Error("Groq returned no choices");
 
-            // Add assistant message to conversation
-            messages.push({ role: "assistant", content: claudeResponse.content });
+            const assistantMsg = choice.message;
+            messages.push(assistantMsg);
 
-            if (claudeResponse.stop_reason === "end_turn") {
+            if (choice.finish_reason === "stop" || !assistantMsg.tool_calls?.length) {
                 continueLoop = false;
-            } else if (claudeResponse.stop_reason === "tool_use") {
-                const toolResults: Array<{ type: string; tool_use_id: string; content: string }> = [];
+            } else if (choice.finish_reason === "tool_calls" || assistantMsg.tool_calls?.length) {
+                for (const toolCall of assistantMsg.tool_calls ?? []) {
+                    let parsedInput: Record<string, unknown> = {};
+                    try { parsedInput = JSON.parse(toolCall.function.arguments); } catch { /* empty args */ }
 
-                for (const block of claudeResponse.content) {
-                    if (block.type !== "tool_use") continue;
-
-                    const result = await executeTool(block.name, block.input ?? {}, supabase, runId);
-                    toolResults.push({
-                        type: "tool_result",
-                        tool_use_id: block.id,
+                    const result = await executeTool(toolCall.function.name, parsedInput, supabase, runId);
+                    messages.push({
+                        role: "tool",
+                        tool_call_id: toolCall.id,
                         content: JSON.stringify(result),
                     });
                 }
-
-                messages.push({ role: "user", content: toolResults });
             } else {
                 continueLoop = false;
             }
