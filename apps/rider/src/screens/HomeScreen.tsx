@@ -88,6 +88,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
     const [isEstimatingFare, setIsEstimatingFare] = useState(false);
     const [nearbyVendors, setNearbyVendors] = useState<Array<{ id: string; name: string; store_type: string; address: string; delivery_fee_cents: number; avg_delivery_minutes: number; is_open: boolean; distance_meters: number }>>([]);
+    const [merchantMapPins, setMerchantMapPins] = useState<Array<{ kiosk_id: string; merchant_id: string; merchant_name: string; category: string; location_name: string; lat: number; lng: number; default_services: string[]; is_open: boolean }>>([]);
     const [stopSuggestions, setStopSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
     const panelY = useSharedValue(120);
@@ -339,6 +340,14 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
             .then(({ data }) => setNearbyVendors(data || []));
     }, [location, featureFlags.grocery]);
+
+    useEffect(() => {
+        const lat = location?.coords?.latitude || DEFAULT_LOCATION.latitude;
+        const lng = location?.coords?.longitude || DEFAULT_LOCATION.longitude;
+        supabase
+            .rpc('get_merchant_map_pins', { p_lat: lat, p_lng: lng, p_radius_km: 20 })
+            .then(({ data }) => setMerchantMapPins(data || []));
+    }, [location]);
 
     useEffect(() => {
         const { nfcTagId, nfcLat, nfcLng, nfcLocation } = route?.params || {};
@@ -640,6 +649,62 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         </View>
                     </Marker>
                 ))}
+
+                {merchantMapPins.map((pin) => {
+                    const iconName = pin.category === 'grocery' ? 'basket-outline'
+                        : pin.category === 'laundry' ? 'shirt-outline'
+                        : pin.category === 'restaurant' ? 'restaurant-outline'
+                        : pin.category === 'pharmacy' ? 'medkit-outline'
+                        : 'storefront-outline';
+                    return (
+                        <Marker
+                            key={`merchant-${pin.kiosk_id}`}
+                            coordinate={{ latitude: pin.lat, longitude: pin.lng }}
+                            anchor={{ x: 0.5, y: 1 }}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                navigation.navigate('ProductListing', {
+                                    merchant: {
+                                        id: pin.merchant_id,
+                                        name: pin.merchant_name,
+                                        category: pin.category,
+                                        address: pin.location_name,
+                                        is_open: pin.is_open,
+                                    }
+                                });
+                            }}
+                        >
+                            <View style={{ alignItems: 'center' }}>
+                                <View style={{
+                                    backgroundColor: pin.is_open ? '#BF40FF' : 'rgba(100,100,120,0.9)',
+                                    borderRadius: 12,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 5,
+                                    borderWidth: 1.5,
+                                    borderColor: pin.is_open ? '#E090FF' : 'rgba(180,180,200,0.4)',
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    shadowColor: '#BF40FF',
+                                    shadowOpacity: pin.is_open ? 0.5 : 0,
+                                    shadowRadius: 6,
+                                    shadowOffset: { width: 0, height: 2 },
+                                }}>
+                                    <Ionicons name={iconName as any} size={13} color="#FFF" />
+                                    <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }} numberOfLines={1}>
+                                        {pin.merchant_name.length > 14 ? pin.merchant_name.slice(0, 13) + '…' : pin.merchant_name}
+                                    </Text>
+                                </View>
+                                <View style={{
+                                    width: 0, height: 0,
+                                    borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 6,
+                                    borderLeftColor: 'transparent', borderRightColor: 'transparent',
+                                    borderTopColor: pin.is_open ? '#BF40FF' : 'rgba(100,100,120,0.9)',
+                                }} />
+                            </View>
+                        </Marker>
+                    );
+                })}
             </MapView>
 
             <View style={[s.topBarContainer, { top: insets.top + 12 }, width > 600 && { alignItems: 'center' }]}>
