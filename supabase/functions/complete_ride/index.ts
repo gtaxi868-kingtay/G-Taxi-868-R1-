@@ -402,12 +402,15 @@ serve(async (req: Request) => {
       })
       .catch((err) => console.error("Ledger logging failed:", err));
 
-    // ── VENDOR COMMISSION (3% to kiosk merchant/staff when ride from a node) ─
+    // ── VENDOR COMMISSION (5% to kiosk merchant when ride from a node) ─────────
+    // Vendor 5% comes FROM the platform's 19% cut — not added on top.
+    // Net platform on merchant rides = 19% - 5% = 14%.
+    // Per-kiosk dispatch_premium_pct controls the fare uplift applied at estimate_fare.
     if (ride.vendor_node_id) {
       try {
         const { data: kiosk } = await supabaseAdmin
           .from("kiosk_nodes")
-          .select("id, merchant_id, staff_member_id")
+          .select("id, merchant_id, staff_member_id, dispatch_premium_pct")
           .eq("id", ride.vendor_node_id)
           .single();
 
