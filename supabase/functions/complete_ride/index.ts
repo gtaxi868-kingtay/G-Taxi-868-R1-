@@ -302,12 +302,11 @@ serve(async (req: Request) => {
         status: "completed",
       });
 
-      await supabaseAdmin.from("capital_reserve_ledger").insert({
-        ride_id: ride_id,
-        amount_cents: reserveCents,
-        status: "locked",
-        notes: "Cash ride — reserve locked via shadow ledger",
-      });
+      await supabaseAdmin.rpc("post_reserve_contribution", {
+        p_source_id: ride_id,
+        p_amount_cents: reserveCents,
+        p_source_type: "ride",
+      }).catch((err) => console.error("post_reserve_contribution (cash) failed:", err));
 
       await supabaseAdmin.from("payment_ledger").insert({
         ride_id: ride_id,
@@ -461,7 +460,7 @@ serve(async (req: Request) => {
 
     if (ride.driver_id) {
       const { data: leaseResult } = await supabaseAdmin
-        .rpc("deduct_lease_for_ride", { p_ride_id: ride_id })
+        .rpc("deduct_lease_installment_for_ride", { p_ride_id: ride_id })
         .catch((err) => {
           console.error("Lease deduction failed (non-blocking):", err);
           return { data: null };
@@ -502,6 +501,78 @@ serve(async (req: Request) => {
           { type: "RIDE_COMPLETED", ride_id: ride.id }
         ).catch((err) => console.error("Rider push failed:", err));
       }
+    }
+
+    // ── PROGRESSION: record activity + check level-up (non-blocking) ─────────
+    if (ride.rider_id) {
+      supabaseAdmin
+        .rpc("record_rider_activity", {
+          p_rider_id: ride.rider_id,
+          p_event_type: "ride_completed",
+          p_amount_cents: effectiveFare,
+          p_ride_id: ride_id,
+          p_metadata: { fare_cents: effectiveFare, payment_method: ride.payment_method },
+        })
+        .then(async ({ data }) => {
+          const result = Array.isArray(data) ? data[0] : data;
+          if (result?.leveled_up && result?.new_unlock) {
+            const { data: profile } = await supabaseAdmin
+              .from("profiles")
+              .select("push_token")
+              .eq("id", ride.rider_id)
+              .single()
+              .catch(() => ({ data: null }));
+            const { data: levelCfg } = await supabaseAdmin
+              .from("progression_config")
+              .select("push_title, push_body")
+              .eq("level", result.level_after)
+              .single()
+              .catch(() => ({ data: null }));
+            if (profile?.push_token && levelCfg) {
+              sendPushNotification(
+                profile.push_token,
+                levelCfg.push_title,
+                levelCfg.push_body,
+                { type: "LEVEL_UP", level: result.level_after, unlock: result.new_unlock }
+              ).catch(() => {});
+            }
+          }
+        })
+        .catch((err) => console.error("record_rider_activity failed (non-fatal):", err));
+    }
+
+    // ── DRIVER LEASE ELIGIBILITY: refresh active-day count (non-blocking) ────
+    if (ride.driver_id) {
+      supabaseAdmin
+        .rpc("refresh_driver_lease_eligibility", { p_driver_id: ride.driver_id })
+        .then(async ({ data }) => {
+          const result = Array.isArray(data) ? data[0] : data;
+          if (result?.newly_qualified) {
+            const { data: driverUser } = await supabaseAdmin
+              .from("drivers")
+              .select("user_id")
+              .eq("id", ride.driver_id)
+              .single()
+              .catch(() => ({ data: null }));
+            if (driverUser?.user_id) {
+              const { data: driverProfile } = await supabaseAdmin
+                .from("profiles")
+                .select("push_token")
+                .eq("id", driverUser.user_id)
+                .single()
+                .catch(() => ({ data: null }));
+              if (driverProfile?.push_token) {
+                sendPushNotification(
+                  driverProfile.push_token,
+                  "BYD Lease Unlocked",
+                  "You've driven 90 active days. You now qualify for a G-Taxi BYD lease. Check your app to apply.",
+                  { type: "LEASE_ELIGIBLE" }
+                ).catch(() => {});
+              }
+            }
+          }
+        })
+        .catch((err) => console.error("refresh_driver_lease_eligibility failed (non-fatal):", err));
     }
 
     return new Response(

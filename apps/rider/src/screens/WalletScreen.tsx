@@ -43,6 +43,7 @@ export function WalletScreen({ navigation }: any) {
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [balanceError, setBalanceError] = useState(false);
 
     const animatedBalance = useSharedValue(0);
 
@@ -79,7 +80,9 @@ export function WalletScreen({ navigation }: any) {
             const { data: balData, error: balError } = await supabase.rpc('get_wallet_balance', { p_user_id: user?.id });
             if (balError) {
                 console.error('[WalletScreen] get_wallet_balance failed:', balError.message);
+                setBalanceError(true);
             } else {
+                setBalanceError(false);
                 const realBal = (balData || 0) / 100;
                 setBalance(realBal);
                 animatedBalance.value = withTiming(realBal, { duration: 1500 });
@@ -165,10 +168,17 @@ export function WalletScreen({ navigation }: any) {
                     <>
                         <LinearGradient colors={[VOICES.rider.accent, '#a88be0']} style={s.hero}>
                             <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">AVAILABLE FUNDS</Txt>
-                            <View style={s.balanceRow}>
-                                <Txt variant="headingL" weight="heavy" color="#FFF" style={{ fontSize: 48 }}>${balance.toFixed(2)}</Txt>
-                                <Txt variant="bodyBold" color="rgba(255,255,255,0.7)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
-                            </View>
+                            {balanceError ? (
+                                <TouchableOpacity onPress={fetchWalletData} style={{ marginVertical: 12, backgroundColor: 'rgba(255,100,100,0.2)', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <Ionicons name="alert-circle-outline" size={18} color="#FFA0A0" />
+                                    <Txt variant="bodyReg" color="#FFA0A0">Balance unavailable — tap to retry</Txt>
+                                </TouchableOpacity>
+                            ) : (
+                                <View style={s.balanceRow}>
+                                    <Txt variant="headingL" weight="heavy" color="#FFF" style={{ fontSize: 48 }}>${balance.toFixed(2)}</Txt>
+                                    <Txt variant="bodyBold" color="rgba(255,255,255,0.7)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
+                                </View>
+                            )}
                             <View style={s.gCoinBadge}>
                                 <Ionicons name="flash" size={12} color="#F59E0B" />
                                 <Txt variant="caption" weight="heavy" color="#F59E0B" style={{ marginLeft: 4 }}>G-COIN ACTIVE</Txt>

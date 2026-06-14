@@ -48,6 +48,8 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
     const [pins, setPins] = useState<any>(null);
     const [intakeLog, setIntakeLog] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(false);
+    const [retryKey, setRetryKey] = useState(0);
     const [merchantLocation, setMerchantLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
     const [driverId, setDriverId] = useState<string | null>(null);
@@ -69,6 +71,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
 
     useEffect(() => {
         const fetchStatus = async () => {
+            setFetchError(false);
             try {
                 const { data, error } = await supabase
                     .from('orders')
@@ -99,6 +102,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                 }
             } catch (err) {
                 console.error('[GroceryOrderStatus] fetch error:', err);
+                setFetchError(true);
             } finally {
                 setLoading(false);
             }
@@ -125,7 +129,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
             .subscribe();
 
         return () => { channel.unsubscribe(); };
-    }, [orderId]);
+    }, [orderId, retryKey]);
 
     useEffect(() => {
         if (!driverId) return;
@@ -232,6 +236,19 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
             {loading ? (
                 <View style={s.center}>
                     <ActivityIndicator size="large" color={CYAN} />
+                </View>
+            ) : fetchError ? (
+                <View style={[s.center, { paddingHorizontal: 32 }]}>
+                    <Ionicons name="cloud-offline-outline" size={44} color="rgba(255,255,255,0.25)" />
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, fontWeight: '700', marginTop: 16, textAlign: 'center' }}>
+                        Could not load order status
+                    </Text>
+                    <TouchableOpacity
+                        onPress={() => { setLoading(true); setRetryKey(k => k + 1); }}
+                        style={{ marginTop: 20, paddingHorizontal: 28, paddingVertical: 13, backgroundColor: CYAN, borderRadius: 16 }}
+                    >
+                        <Text style={{ color: SURFACE.base, fontWeight: '700', fontSize: 15 }}>Try Again</Text>
+                    </TouchableOpacity>
                 </View>
             ) : (
                 <View style={s.steps}>

@@ -26,18 +26,35 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
 
     const [pkg, setPkg] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [travelerCount, setTravelerCount] = useState(1);
     const [booking, setBooking] = useState(false);
     const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
-    useEffect(() => {
-        const fetchPkg = async () => {
-            const { data } = await supabase.functions.invoke('get_travel_packages', {
+    const fetchPkg = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const { data, error: fnErr } = await supabase.functions.invoke('get_travel_packages', {
                 body: {},
             });
+            if (fnErr) throw fnErr;
             const found = data?.packages?.find((p: any) => p.id === packageId);
-            if (found) setPkg(found);
+            if (found) {
+                setPkg(found);
+            } else {
+                setError('This package is no longer available.');
+            }
+        } catch (err: any) {
+            setError(err?.message || 'Could not load package details. Check your connection.');
+        } finally {
             setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        const fetchPkgOnMount = async () => {
+            await fetchPkg();
         };
 
         const fetchWallet = async () => {
@@ -50,7 +67,7 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
             if (data) setWalletBalance(data.balance_cents);
         };
 
-        fetchPkg();
+        fetchPkgOnMount();
         fetchWallet();
     }, [packageId, user]);
 
@@ -109,10 +126,22 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
         );
     }
 
-    if (!pkg) {
+    if (error || !pkg) {
         return (
-            <View style={[styles.root, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={{ color: '#FFF' }}>Package not found.</Text>
+            <View style={[styles.root, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }]}>
+                <Ionicons name="cloud-offline-outline" size={48} color="rgba(255,255,255,0.3)" />
+                <Text style={{ color: '#FFF', fontSize: 17, fontWeight: '700', marginTop: 16, textAlign: 'center' }}>
+                    {error || 'Package not found'}
+                </Text>
+                <TouchableOpacity
+                    onPress={fetchPkg}
+                    style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#3B82F6', borderRadius: 12 }}
+                >
+                    <Text style={{ color: '#FFF', fontWeight: '700' }}>Try Again</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Go Back</Text>
+                </TouchableOpacity>
             </View>
         );
     }

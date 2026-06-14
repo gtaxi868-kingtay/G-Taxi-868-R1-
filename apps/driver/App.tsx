@@ -30,6 +30,7 @@ import { RatingsScreen } from './src/screens/RatingsScreen';
 import { ScoutReferralScreen } from './src/screens/ScoutReferralScreen';
 import { DriverReferralScreen } from './src/screens/DriverReferralScreen';
 import { VehicleSalesScreen } from './src/screens/VehicleSalesScreen';
+import LeaseScreen from './src/screens/LeaseScreen';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { DriverActiveRideRestorationHandler } from './src/components/DriverActiveRideRestorationHandler';
@@ -175,6 +176,7 @@ function AppNavigator() {
             <AppStack.Screen name="ScoutReferral" component={ScoutReferralScreen} />
             <AppStack.Screen name="DriverReferral" component={DriverReferralScreen} />
             <AppStack.Screen name="VehicleSales" component={VehicleSalesScreen} />
+            <AppStack.Screen name="Lease" component={LeaseScreen} />
         </AppStack.Navigator>
         </>);
 }

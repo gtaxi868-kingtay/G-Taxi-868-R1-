@@ -49,6 +49,7 @@ export default function EscapeStorefrontScreen() {
   const [packages, setPackages] = useState<EscapePackageCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<EscapePackageCard | null>(null);
   const [guestCount, setGuestCount] = useState(1);
   const [showGuestPicker, setShowGuestPicker] = useState(false);
@@ -66,6 +67,7 @@ export default function EscapeStorefrontScreen() {
   }, []);
 
   const loadPackages = useCallback(async () => {
+    setLoadError(null);
     try {
       const { data, error } = await supabase
         .from('escape_packages')
@@ -106,6 +108,7 @@ export default function EscapeStorefrontScreen() {
       }
     } catch (err) {
       console.error('EscapeStorefront load error:', err);
+      setLoadError('Could not load packages. Check your connection and try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -250,6 +253,14 @@ export default function EscapeStorefrontScreen() {
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#C8A96E" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.centered}>
+          <Text style={[styles.emptyTitle, { color: '#F87171' }]}>Connection Error</Text>
+          <Text style={styles.emptySub}>{loadError}</Text>
+          <TouchableOpacity onPress={loadPackages} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#C8A96E', borderRadius: 12 }}>
+            <Text style={{ color: '#000', fontWeight: '700' }}>Try Again</Text>
+          </TouchableOpacity>
         </View>
       ) : packages.length === 0 ? (
         <View style={styles.centered}>

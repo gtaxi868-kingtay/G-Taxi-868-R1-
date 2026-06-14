@@ -58,7 +58,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
+    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, g_escape: false });
+    const [progression, setProgression] = useState<{
+        level: number; level_label: string; unlocked_verticals: string[];
+        total_rides: number; next_unlock: { level: number; vertical: string; progress: number; required: number; label: string } | null;
+    } | null>(null);
+    const [suggestion, setSuggestion] = useState<{ cta_text: string; vertical: string; reason_code: string } | null>(null);
     const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -179,12 +184,28 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 setFeatureFlags(flags);
             } catch (err) {
                 console.warn('Failed to fetch verticals:', err);
-                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
+                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, g_escape: false });
             } finally {
                 setIsVerticalsLoading(false);
             }
         };
         fetchEnabledVerticals();
+
+        // Fetch rider progression + contextual suggestion
+        const fetchProgression = async () => {
+            try {
+                const { data, error } = await supabase.functions.invoke('get_rider_progress');
+                if (!error && data?.success) {
+                    setProgression(data.data);
+                    setSuggestion(data.data.suggestion ?? null);
+                    const hasEscape = data.data.unlocked_verticals?.includes('g_escape');
+                    setFeatureFlags((prev: any) => ({ ...prev, g_escape: hasEscape }));
+                }
+            } catch (err) {
+                console.warn('[Progression] fetch failed:', err);
+            }
+        };
+        fetchProgression();
 
         const verticalsChannel = supabase
             .channel('verticals-realtime')
@@ -790,6 +811,59 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             </View>
                         ) : (
                             <View style={s.serviceBentoBox}>
+                                {/* ── PROGRESSION MINI-BAR ─────────────────────── */}
+                                {progression && (
+                                    <TouchableOpacity
+                                        activeOpacity={0.88}
+                                        style={s.progressionBar}
+                                        onPress={() => {
+                                            if (progression.next_unlock) {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            }
+                                        }}
+                                    >
+                                        <View style={s.progressionLeft}>
+                                            <Text style={s.progressionLevel}>{progression.level_label}</Text>
+                                            {progression.next_unlock && (
+                                                <Text style={s.progressionCarrot}>
+                                                    {`${progression.next_unlock.progress}/${progression.next_unlock.required} rides to unlock ${progression.next_unlock.vertical.replace('_', ' ')}`}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        <View style={s.progressionDots}>
+                                            {[1,2,3,4,5].map((l) => (
+                                                <View
+                                                    key={l}
+                                                    style={[
+                                                        s.progressionDot,
+                                                        l <= progression.level && s.progressionDotActive,
+                                                    ]}
+                                                />
+                                            ))}
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
+
+                                {/* ── CONTEXTUAL SUGGESTION BANNER ──────────────── */}
+                                {suggestion && suggestion.reason_code !== 'default' && (
+                                    <TouchableOpacity
+                                        activeOpacity={0.88}
+                                        style={s.suggestionBanner}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        }}
+                                    >
+                                        <Ionicons
+                                            name={suggestion.vertical === 'grocery' ? 'cart-sharp' : suggestion.vertical === 'g_escape' ? 'airplane-sharp' : 'sparkles-sharp'}
+                                            size={16}
+                                            color="#F59E0B"
+                                            style={{ marginRight: 8 }}
+                                        />
+                                        <Text style={s.suggestionText}>{suggestion.cta_text}</Text>
+                                        <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.4)" style={{ marginLeft: 'auto' }} />
+                                    </TouchableOpacity>
+                                )}
+
                                 <TouchableOpacity
                                     activeOpacity={0.85}
                                     style={s.heroCard}
@@ -927,6 +1001,29 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             </View>
                                             <Text style={s.gridCardTitle}>Escapes</Text>
                                             <Text style={s.gridCardSub}>Caribbean packages</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                    )}
+
+                                    {featureFlags.g_escape && (
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                            navigation.navigate('EscapeStorefront');
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(212,175,55,0.25)', 'rgba(212,175,55,0.05)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.gridCardGradient}
+                                        >
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(212,175,55,0.2)' }]}>
+                                                <Ionicons name="diamond-sharp" size={28} color="#D4AF37" />
+                                            </View>
+                                            <Text style={[s.gridCardTitle, { color: '#D4AF37' }]}>G-Escape</Text>
+                                            <Text style={s.gridCardSub}>Members only</Text>
                                         </LinearGradient>
                                     </TouchableOpacity>
                                     )}
@@ -1444,6 +1541,62 @@ const s = StyleSheet.create({
     serviceBentoBox: {
         marginBottom: 20,
         gap: 12,
+    },
+    progressionBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    progressionLeft: {
+        flex: 1,
+    },
+    progressionLevel: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#00FFFF',
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+    },
+    progressionCarrot: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.5)',
+        marginTop: 2,
+    },
+    progressionDots: {
+        flexDirection: 'row',
+        gap: 6,
+        marginLeft: 12,
+    },
+    progressionDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+    },
+    progressionDotActive: {
+        backgroundColor: '#00FFFF',
+    },
+    suggestionBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(245,158,11,0.08)',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(245,158,11,0.2)',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+    },
+    suggestionText: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.85)',
+        fontWeight: '500',
+        flex: 1,
     },
     heroCard: {
         width: '100%',
