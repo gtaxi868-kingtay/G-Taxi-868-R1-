@@ -189,6 +189,8 @@ export type AppStackParamList = {
   TravelMyBookings: undefined;
   TravelWaitlist: undefined;
   Referral: undefined;
+  EscapeCheckout: { packageId: string; guestCount: number; userLocation: { latitude: number; longitude: number } };
+  ActivePass: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;
