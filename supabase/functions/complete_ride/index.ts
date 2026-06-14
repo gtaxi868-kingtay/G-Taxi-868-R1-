@@ -418,6 +418,10 @@ serve(async (req: Request) => {
 
           const rate = merchant?.commission_rate ?? 0.03;
           const commissionCents = Math.floor(effectiveFare * rate);
+          // Staff earn 1% of ride fare (sub-commission under the merchant's umbrella)
+          const staffAmountCents = kiosk.staff_member_id
+            ? Math.floor(effectiveFare * 0.01)
+            : 0;
 
           await supabaseAdmin.from("vendor_commissions").insert({
             ride_id: ride_id,
@@ -429,14 +433,16 @@ serve(async (req: Request) => {
             status: "pending",
           });
 
-          // Credit merchant wallet immediately (Bug Fix #2)
+          // Credit merchant + staff wallets immediately
           await supabaseAdmin
             .rpc("credit_merchant_commission", {
               p_merchant_id: kiosk.merchant_id,
               p_ride_id: ride_id,
               p_amount_cents: commissionCents,
+              p_staff_member_id: kiosk.staff_member_id || null,
+              p_staff_amount_cents: staffAmountCents,
             })
-            .catch((err) => console.error("Merchant wallet credit failed (non-fatal):", err));
+            .catch((err) => console.error("Merchant/staff wallet credit failed (non-fatal):", err));
         }
       } catch (err) {
         console.error("Vendor commission recording failed (non-fatal):", err);

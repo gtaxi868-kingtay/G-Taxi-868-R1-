@@ -4,6 +4,11 @@
 // Makes decisions: activate surge, dispatch orders, create package drafts.
 // Logs all decisions + reasoning to agent_decision_log.
 // Self-contained — no _shared/ imports.
+//
+// DETERMINISTIC PRE-STEPS (run before the AI loop, every invocation):
+//  1. activateScheduledTransfers — flip rides status='scheduled' → 'searching' 45 min before departure
+//  2. sendTravelReminders — push 48h and 24h departure reminders for confirmed travel_bookings
+//  3. sendMerchantOverdueWarnings — push day-4 overdue warning to merchant owners before suspension
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -17,7 +22,175 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Tool definitions for Claude ───────────────────────────────────────────────
+// ── Expo push helper (self-contained, no _shared/push.ts) ────────────────────
+async function sendExpoPush(token: string | null, title: string, body: string, data: Record<string, unknown> = {}) {
+    if (!token || !token.startsWith("ExponentPushToken[")) return;
+    try {
+        await fetch("https://exp.host/--/api/v2/push/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: token, title, body, data, sound: "default" }),
+        });
+    } catch (_) { /* non-fatal */ }
+}
+
+// ── PRE-STEP 1: Activate scheduled transfers ─────────────────────────────────
+// Rides with status='scheduled' that depart in ≤45 min → flip to 'searching'
+// so the match engine can assign a driver in time.
+async function activateScheduledTransfers(supabase: ReturnType<typeof createClient>) {
+    const windowCutoff = new Date(Date.now() + 45 * 60 * 1000).toISOString();
+
+    const { data: rides, error } = await supabase
+        .from("rides")
+        .select("id, rider_id")
+        .eq("status", "scheduled")
+        .lte("scheduled_for", windowCutoff);
+
+    if (error || !rides?.length) return;
+
+    for (const ride of rides) {
+        await supabase
+            .from("rides")
+            .update({ status: "searching" })
+            .eq("id", ride.id)
+            .eq("status", "scheduled");
+
+        // Notify the rider their transfer is being matched
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("push_token, name")
+            .eq("id", ride.rider_id)
+            .single();
+
+        await sendExpoPush(
+            profile?.push_token ?? null,
+            "Your driver is being matched",
+            "We're finding you a driver for your scheduled transfer.",
+            { ride_id: ride.id, type: "transfer_searching" },
+        );
+
+        console.log(`[activateScheduledTransfers] ride ${ride.id} → searching`);
+    }
+}
+
+// ── PRE-STEP 2: Travel departure reminders (48h and 24h) ─────────────────────
+// Deduped via agent_decision_log sentinel key `travel_reminder_{booking_id}_{hours}h`.
+async function sendTravelReminders(supabase: ReturnType<typeof createClient>) {
+    const now = Date.now();
+    const windows = [
+        { hours: 48, label: "48h" },
+        { hours: 24, label: "24h" },
+    ];
+
+    for (const w of windows) {
+        const windowStart = new Date(now + (w.hours - 1) * 60 * 60 * 1000).toISOString();
+        const windowEnd   = new Date(now + (w.hours + 1) * 60 * 60 * 1000).toISOString();
+
+        const { data: bookings } = await supabase
+            .from("travel_bookings")
+            .select("id, user_id, package_id, travel_packages(title, departure_at)")
+            .eq("status", "confirmed")
+            .gte("travel_packages.departure_at", windowStart)
+            .lte("travel_packages.departure_at", windowEnd);
+
+        if (!bookings?.length) continue;
+
+        for (const booking of bookings) {
+            const sentinelKey = `travel_reminder_${booking.id}_${w.label}`;
+
+            const { data: existing } = await supabase
+                .from("agent_decision_log")
+                .select("id")
+                .eq("decision_type", "travel_reminder_sent")
+                .contains("payload", { sentinel: sentinelKey })
+                .maybeSingle();
+
+            if (existing) continue;
+
+            const { data: profile } = await supabase
+                .from("profiles")
+                .select("push_token, name")
+                .eq("id", booking.user_id)
+                .single();
+
+            const pkgTitle = (booking as any).travel_packages?.title ?? "your trip";
+            await sendExpoPush(
+                profile?.push_token ?? null,
+                `${w.label} until departure`,
+                `${pkgTitle} departs in ${w.hours} hours. Check your details.`,
+                { booking_id: booking.id, type: "travel_reminder" },
+            );
+
+            await supabase.from("agent_decision_log").insert({
+                decision_type: "travel_reminder_sent",
+                reasoning: `${w.label} reminder for booking ${booking.id}`,
+                tool_used: "sendTravelReminders",
+                payload: { sentinel: sentinelKey, booking_id: booking.id },
+                outcome: "push sent",
+            });
+        }
+    }
+}
+
+// ── PRE-STEP 3: Merchant overdue warnings (day 4) ────────────────────────────
+// Merchants overdue for 3–5 days get one warning push: "your map pin disappears in 3 days."
+// Deduped via agent_decision_log sentinel key `merchant_overdue_warning_{merchant_id}`.
+async function sendMerchantOverdueWarnings(supabase: ReturnType<typeof createClient>) {
+    const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Merchants overdue between 3 and 5 days (warning window)
+    const { data: subs } = await supabase
+        .from("merchant_subscriptions")
+        .select("id, merchant_id, overdue_since, merchants(name, created_by)")
+        .eq("status", "overdue")
+        .gte("overdue_since", fourDaysAgo)
+        .lte("overdue_since", threeDaysAgo);
+
+    if (!subs?.length) return;
+
+    for (const sub of subs) {
+        const merchantName = (sub as any).merchants?.name ?? "your store";
+        const ownerId      = (sub as any).merchants?.created_by;
+        if (!ownerId) continue;
+
+        const sentinelKey = `merchant_overdue_warning_${sub.merchant_id}`;
+
+        const { data: existing } = await supabase
+            .from("agent_decision_log")
+            .select("id")
+            .eq("decision_type", "merchant_overdue_warning")
+            .contains("payload", { sentinel: sentinelKey })
+            .maybeSingle();
+
+        if (existing) continue;
+
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("push_token")
+            .eq("id", ownerId)
+            .single();
+
+        await sendExpoPush(
+            profile?.push_token ?? null,
+            "Your map pin disappears in 3 days",
+            `${merchantName}: top up your G-Taxi wallet to stay visible on the map.`,
+            { merchant_id: sub.merchant_id, type: "merchant_overdue_warning" },
+        );
+
+        await supabase.from("agent_decision_log").insert({
+            decision_type: "merchant_overdue_warning",
+            reasoning: `Day-4 overdue warning for merchant ${sub.merchant_id}`,
+            tool_used: "sendMerchantOverdueWarnings",
+            payload: { sentinel: sentinelKey, merchant_id: sub.merchant_id },
+            outcome: "push sent",
+        });
+
+        console.log(`[sendMerchantOverdueWarnings] warning sent for merchant ${sub.merchant_id}`);
+    }
+}
+
+// ── Tool definitions for Groq AI loop ────────────────────────────────────────
 
 const TOOLS = [
     {
@@ -158,7 +331,6 @@ async function executeTool(
             });
 
             if (error) {
-                // Fallback: direct insert
                 const { data: inserted, error: insertErr } = await supabase
                     .from("pricing_zones")
                     .insert({
@@ -207,7 +379,6 @@ async function executeTool(
                 reasoning: string;
             };
 
-            // Fetch the flight to get destination_code and wholesale cost
             const { data: flight } = await supabase
                 .from("flight_inventory")
                 .select("destination_code, departure_at, wholesale_price_cents, retail_price_cents")
@@ -257,12 +428,10 @@ async function executeTool(
                 .update({
                     status: "dispatched",
                     last_attempted: new Date().toISOString(),
-                    attempts: supabase.rpc ? undefined : 1,
                 })
                 .eq("order_id", order_id)
                 .eq("status", "pending");
 
-            // Increment attempts regardless
             await supabase.rpc("sql", {
                 query: `UPDATE dispatch_queue SET attempts = attempts + 1, last_attempted = now() WHERE order_id = $1`,
                 params: [order_id],
@@ -319,6 +488,14 @@ serve(async (req) => {
     const runId = crypto.randomUUID();
 
     try {
+        // ── DETERMINISTIC PRE-STEPS (run every invocation before the AI loop) ──
+        await Promise.allSettled([
+            activateScheduledTransfers(supabase),
+            sendTravelReminders(supabase),
+            sendMerchantOverdueWarnings(supabase),
+        ]);
+
+        // ── GROQ AI LOOP ────────────────────────────────────────────────────────
         const systemPrompt = `You are the G-Taxi Platform Intelligence Agent for Trinidad and Tobago.
 Your job: run every 15 minutes, check system state, make targeted interventions.
 
@@ -350,7 +527,6 @@ Context:
         while (continueLoop && iterations < MAX_ITERATIONS) {
             iterations++;
 
-            // Build Groq tools (OpenAI function-calling format)
             const groqTools = TOOLS.map(t => ({
                 type: "function",
                 function: {
@@ -417,7 +593,6 @@ Context:
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[platform_intelligence] error:", msg);
 
-        // Log the failure
         await supabase.from("agent_decision_log").insert({
             run_id: runId,
             decision_type: "no_action",
