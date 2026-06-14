@@ -17,6 +17,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
+const PLATFORM_CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -532,6 +533,35 @@ async function executeTool(
 serve(async (req) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
+    }
+
+    // Guard: pg_cron passes x-cron-secret header; admins may also call via JWT.
+    // Set PLATFORM_CRON_SECRET in Supabase dashboard secrets and update the
+    // pg_cron job to include: headers := '{"x-cron-secret":"<value>"}'
+    const cronHeader = req.headers.get("x-cron-secret");
+    const authHeader = req.headers.get("Authorization");
+    let authorized = false;
+
+    if (PLATFORM_CRON_SECRET && cronHeader === PLATFORM_CRON_SECRET) {
+        authorized = true;
+    } else if (authHeader) {
+        const anonClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "");
+        const { data: { user }, error: authErr } = await anonClient.auth.getUser(
+            authHeader.replace("Bearer ", "")
+        );
+        if (!authErr && user) {
+            const svcClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+            const { data: profile } = await svcClient
+                .from("profiles").select("role").eq("id", user.id).single();
+            if (profile?.role === "admin") authorized = true;
+        }
+    }
+
+    if (!authorized) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
     }
 
     if (!GROQ_API_KEY) {

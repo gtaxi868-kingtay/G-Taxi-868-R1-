@@ -52,6 +52,24 @@ serve(async (req) => {
       });
     }
 
+    // Validate that the property exists and belongs to the stated merchant.
+    // Prevents an admin from accidentally (or maliciously) mismatching IDs.
+    const { data: propertyCheck, error: propCheckErr } = await supabase
+      .from('travel_properties')
+      .select('merchant_id')
+      .eq('id', property_id)
+      .single();
+    if (propCheckErr || !propertyCheck) {
+      return new Response(JSON.stringify({ error: 'property_id not found' }), {
+        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (propertyCheck.merchant_id !== merchant_id) {
+      return new Response(JSON.stringify({ error: 'merchant_id does not match the property owner' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     let capital_reserve_entry_id: string | null = null;
     if (capital_deployed_cents > 0) {
       const { data: reserveRow, error: reserveErr } = await supabase
