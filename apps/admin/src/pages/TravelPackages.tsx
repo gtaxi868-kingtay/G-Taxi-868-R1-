@@ -1,12 +1,21 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Plane, Plus, Edit2, Trash2, Eye, EyeOff, Users, TrendingUp, DollarSign, RefreshCw, X } from 'lucide-react';
+import { Plane, Plus, Edit2, Trash2, Eye, EyeOff, Users, TrendingUp, DollarSign, RefreshCw, X, AlertTriangle, Clock } from 'lucide-react';
 
 function fmtTTD(cents: number) {
     return `TTD $${(cents / 100).toLocaleString('en-TT', { minimumFractionDigits: 0 })}`;
 }
 function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-TT', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function fmtDatetime(iso: string) {
+    return new Date(iso).toLocaleString('en-TT', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function isExpired(iso: string) {
+    return new Date(iso) < new Date();
+}
+function expiresInDays(iso: string) {
+    return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
 }
 
 const STATUSES = ['draft', 'active', 'sold_out', 'expired', 'cancelled'] as const;
@@ -19,6 +28,13 @@ const DEST_OPTS = [
     { code: 'SLU', label: 'St Lucia' },
     { code: 'SXM', label: 'St Maarten' },
     { code: 'HAV', label: 'Havana' },
+];
+
+const DEAL_PHASES = [
+    { value: '', label: '— None —' },
+    { value: 'phase_1', label: 'Phase 1 — 10% group desk discount' },
+    { value: 'phase_2', label: 'Phase 2 — 50% last-seat block' },
+    { value: 'phase_3', label: 'Phase 3 — IATA consolidator' },
 ];
 
 const EMPTY_FORM = {
@@ -41,6 +57,10 @@ const EMPTY_FORM = {
     hotel_name: '',
     hotel_nights: 2,
     hotel_room_type: '',
+    deal_phase: '',
+    rate_expiry_at: '',
+    rate_contact: '',
+    rate_source: '',
 };
 
 export function TravelPackages() {
@@ -95,6 +115,10 @@ export function TravelPackages() {
             hotel_name: pkg.hotel_info?.name || '',
             hotel_nights: pkg.hotel_info?.nights || 2,
             hotel_room_type: pkg.hotel_info?.room_type || '',
+            deal_phase: pkg.deal_phase || '',
+            rate_expiry_at: pkg.rate_expiry_at ? pkg.rate_expiry_at.slice(0, 16) : '',
+            rate_contact: pkg.rate_contact || '',
+            rate_source: pkg.rate_source || '',
         });
         setError(null);
         setShowForm(true);
@@ -134,6 +158,10 @@ export function TravelPackages() {
                 nights: Number(form.hotel_nights),
                 ...(form.hotel_room_type && { room_type: form.hotel_room_type }),
             },
+            deal_phase: form.deal_phase || null,
+            rate_expiry_at: form.rate_expiry_at ? new Date(form.rate_expiry_at).toISOString() : null,
+            rate_contact: form.rate_contact || null,
+            rate_source: form.rate_source || null,
         };
         if (form.id) body.id = form.id;
 
@@ -168,6 +196,10 @@ export function TravelPackages() {
 
     const pkgBookings = (id: string) => bookings.filter(b => b.package_id === id && b.status === 'confirmed');
 
+    const rateAlertsCount = packages.filter(p =>
+        p.rate_expiry_at && (isExpired(p.rate_expiry_at) || expiresInDays(p.rate_expiry_at) <= 7)
+    ).length;
+
     return (
         <div className="space-y-8">
             {/* KPI strip */}
@@ -177,6 +209,16 @@ export function TravelPackages() {
                 <KpiCard icon={<DollarSign size={18} />} label="Gross Revenue" value={fmtTTD(totalRevenue)} color="yellow" />
                 <KpiCard icon={<TrendingUp size={18} />} label="Platform Margin" value={fmtTTD(totalMargin)} color="purple" />
             </div>
+
+            {/* Rate expiry alerts */}
+            {rateAlertsCount > 0 && (
+                <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl">
+                    <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+                    <p className="text-amber-300 text-sm font-semibold">
+                        {rateAlertsCount} package{rateAlertsCount > 1 ? 's have' : ' has'} a rate expiring within 7 days or already expired. Review and renegotiate before the rate lapses.
+                    </p>
+                </div>
+            )}
 
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -209,12 +251,15 @@ export function TravelPackages() {
                         const bkgs = pkgBookings(pkg.id);
                         const pkgMargin = marginPct(pkg);
                         const totalPkgMargin = bkgs.reduce((s: number, b: any) => s + b.platform_margin_cents, 0);
+                        const rateExpired = pkg.rate_expiry_at && isExpired(pkg.rate_expiry_at);
+                        const rateDaysLeft = pkg.rate_expiry_at && !rateExpired ? expiresInDays(pkg.rate_expiry_at) : null;
                         return (
-                            <div key={pkg.id} className="bg-white/5 border border-white/8 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center gap-4">
+                            <div key={pkg.id} className={`bg-white/5 border rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center gap-4 ${rateExpired ? 'border-red-500/30' : rateDaysLeft !== null && rateDaysLeft <= 7 ? 'border-amber-500/30' : 'border-white/8'}`}>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-3 flex-wrap">
                                         <span className="text-white font-bold text-base">{pkg.title}</span>
                                         <StatusBadge status={pkg.status} />
+                                        {pkg.deal_phase && <DealPhaseBadge phase={pkg.deal_phase} />}
                                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pkgMargin >= 20 ? 'bg-green-500/20 text-green-400' : pkgMargin >= 10 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}`}>
                                             {pkgMargin}% margin
                                         </span>
@@ -227,6 +272,17 @@ export function TravelPackages() {
                                         <span className="text-white/60">Wholesale: {fmtTTD(pkg.wholesale_cost_cents)}</span>
                                         {totalPkgMargin > 0 && <span className="text-green-400">Margin earned: {fmtTTD(totalPkgMargin)}</span>}
                                     </div>
+                                    {/* Rate intelligence row */}
+                                    {pkg.rate_expiry_at && (
+                                        <div className={`flex items-center gap-2 mt-2 text-xs ${rateExpired ? 'text-red-400' : rateDaysLeft !== null && rateDaysLeft <= 7 ? 'text-amber-400' : 'text-white/30'}`}>
+                                            <Clock size={11} />
+                                            {rateExpired
+                                                ? `Rate EXPIRED ${fmtDate(pkg.rate_expiry_at)} — renegotiate now`
+                                                : `Rate expires in ${rateDaysLeft}d (${fmtDate(pkg.rate_expiry_at)})`
+                                            }
+                                            {pkg.rate_contact && <span className="text-white/30">· Contact: {pkg.rate_contact}</span>}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <button
@@ -248,6 +304,17 @@ export function TravelPackages() {
                     })}
                 </div>
             )}
+
+            {/* Equity Contract Pipeline */}
+            <div className="border-t border-white/8 pt-8">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Equity Pipeline</h3>
+                        <p className="text-xs text-white/30 mt-1">150 room-nights = 5% equity · 400 room-nights = 10% · Capital reserve funds deployment</p>
+                    </div>
+                </div>
+                <EquityPipeline />
+            </div>
 
             {/* Create / Edit Modal */}
             {showForm && (
@@ -322,6 +389,36 @@ export function TravelPackages() {
                                 </div>
                             </div>
 
+                            {/* ── RATE INTELLIGENCE (Rockefeller) ─────────────────── */}
+                            <div className="border-t border-amber-500/20 pt-4">
+                                <p className="text-xs font-black text-amber-400/70 uppercase tracking-widest mb-1">Rate Intelligence</p>
+                                <p className="text-xs text-white/25 mb-3">Track deal phase, rate expiry, and who to call when the rate lapses.</p>
+                                <div className="space-y-4">
+                                    <FormRow label="Deal Phase">
+                                        <select value={form.deal_phase} onChange={e => setForm(f => ({ ...f, deal_phase: e.target.value }))} className={inputCls}>
+                                            {DEAL_PHASES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                                        </select>
+                                    </FormRow>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormRow label="Rate Expiry Date">
+                                            <input type="datetime-local" value={form.rate_expiry_at} onChange={e => setForm(f => ({ ...f, rate_expiry_at: e.target.value }))} className={inputCls} />
+                                            {form.rate_expiry_at && (
+                                                <p className={`text-xs mt-1 ${isExpired(form.rate_expiry_at) ? 'text-red-400' : expiresInDays(form.rate_expiry_at) <= 7 ? 'text-amber-400' : 'text-white/30'}`}>
+                                                    {isExpired(form.rate_expiry_at) ? 'EXPIRED' : `Expires in ${expiresInDays(form.rate_expiry_at)} days`}
+                                                </p>
+                                            )}
+                                        </FormRow>
+                                        <FormRow label="Rate Source">
+                                            <input value={form.rate_source} onChange={e => setForm(f => ({ ...f, rate_source: e.target.value }))} className={inputCls} placeholder="CAL group quote / iCal / API" />
+                                        </FormRow>
+                                    </div>
+                                    <FormRow label="Rate Contact (name, phone, or email)">
+                                        <input value={form.rate_contact} onChange={e => setForm(f => ({ ...f, rate_contact: e.target.value }))} className={inputCls} placeholder="groupsales@caribbean-airlines.com" />
+                                    </FormRow>
+                                </div>
+                            </div>
+                            {/* ──────────────────────────────────────────────────────── */}
+
                             <div className="flex items-center gap-3">
                                 <input type="checkbox" checked={form.includes_airport_transfer} onChange={e => setForm(f => ({ ...f, includes_airport_transfer: e.target.checked }))} id="transfer" className="w-4 h-4 accent-blue-500" />
                                 <label htmlFor="transfer" className="text-white/60 text-sm">Include G-Taxi airport transfer</label>
@@ -347,6 +444,75 @@ export function TravelPackages() {
     );
 }
 
+function EquityPipeline() {
+    const [contracts, setContracts] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        supabase
+            .from('equity_contracts')
+            .select('*, travel_properties(name, destination_name)')
+            .order('created_at', { ascending: false })
+            .then(({ data }) => { setContracts(data || []); setLoading(false); });
+    }, []);
+
+    if (loading) return <div className="text-white/30 text-sm animate-pulse">Loading equity contracts…</div>;
+
+    if (contracts.length === 0) {
+        return (
+            <div className="bg-white/3 border border-white/6 rounded-2xl p-8 text-center">
+                <p className="text-white/20 text-sm">No equity contracts yet.</p>
+                <p className="text-white/12 text-xs mt-1">Once you deliver 150 room-nights to a partner property, an equity contract is triggered automatically.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-3">
+            {contracts.map(c => {
+                const tier1Pct = Math.min(c.current_room_nights_delivered / c.tier_1_rooms, 1) * 100;
+                const tier2Pct = Math.min(c.current_room_nights_delivered / c.tier_2_rooms, 1) * 100;
+                return (
+                    <div key={c.id} className="bg-white/5 border border-white/8 rounded-2xl p-5">
+                        <div className="flex items-start justify-between flex-wrap gap-3">
+                            <div>
+                                <p className="text-white font-bold">{c.travel_properties?.name || 'Property'}</p>
+                                <p className="text-white/40 text-xs mt-0.5">{c.travel_properties?.destination_name} · {c.status}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-white font-black text-xl">{c.current_equity_pct}%</p>
+                                <p className="text-white/30 text-xs">equity vested</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                            <ProgressBar label={`Tier 1: ${c.current_room_nights_delivered}/${c.tier_1_rooms} nights → ${c.tier_1_equity_pct}%`} pct={tier1Pct} color="green" />
+                            <ProgressBar label={`Tier 2: ${c.current_room_nights_delivered}/${c.tier_2_rooms} nights → ${c.tier_2_equity_pct}%`} pct={tier2Pct} color="blue" />
+                        </div>
+                        {c.capital_deployed_cents > 0 && (
+                            <p className="text-white/30 text-xs mt-3">Capital deployed: {fmtTTD(c.capital_deployed_cents)}</p>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function ProgressBar({ label, pct, color }: { label: string; pct: number; color: 'green' | 'blue' }) {
+    const fill = color === 'green' ? 'bg-green-500' : 'bg-blue-500';
+    return (
+        <div>
+            <div className="flex justify-between text-xs text-white/40 mb-1">
+                <span>{label}</span>
+                <span>{Math.round(pct)}%</span>
+            </div>
+            <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
+                <div className={`h-full ${fill} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+            </div>
+        </div>
+    );
+}
+
 function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color: string }) {
     const bg: Record<string, string> = { blue: 'rgba(59,130,246,0.1)', green: 'rgba(34,197,94,0.1)', yellow: 'rgba(245,158,11,0.1)', purple: 'rgba(139,92,246,0.1)' };
     const text: Record<string, string> = { blue: '#3B82F6', green: '#22C55E', yellow: '#F59E0B', purple: '#8B5CF6' };
@@ -361,6 +527,17 @@ function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: 
 function StatusBadge({ status }: { status: string }) {
     const cfg: Record<string, string> = { active: 'bg-green-500/20 text-green-400 border-green-500/30', draft: 'bg-white/5 text-white/40 border-white/10', sold_out: 'bg-orange-500/20 text-orange-400 border-orange-500/30', expired: 'bg-red-500/20 text-red-400 border-red-500/30', cancelled: 'bg-red-900/30 text-red-300 border-red-900/30' };
     return <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${cfg[status] || cfg.draft} capitalize`}>{status}</span>;
+}
+
+function DealPhaseBadge({ phase }: { phase: string }) {
+    const cfg: Record<string, { label: string; cls: string }> = {
+        phase_1: { label: 'P1 Group', cls: 'bg-blue-500/15 text-blue-400 border-blue-500/25' },
+        phase_2: { label: 'P2 Last-Seat', cls: 'bg-purple-500/15 text-purple-400 border-purple-500/25' },
+        phase_3: { label: 'P3 IATA', cls: 'bg-amber-500/15 text-amber-400 border-amber-500/25' },
+    };
+    const c = cfg[phase];
+    if (!c) return null;
+    return <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${c.cls}`}>{c.label}</span>;
 }
 
 function FormRow({ label, children }: { label: string; children: React.ReactNode }) {

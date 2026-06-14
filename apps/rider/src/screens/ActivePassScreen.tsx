@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Share, Animated, SafeAreaView, ActivityIndicator,
+  Share, Animated, SafeAreaView, ActivityIndicator, Linking, Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -120,10 +120,48 @@ export default function ActivePassScreen() {
     : 0;
   const seatsLeft = fb ? fb.tipping_point_seats - fb.allocated_seats : 0;
 
+  const buildShareText = () => {
+    const dest = fb?.destination_name ?? 'the Caribbean';
+    const pkgId = pkg?.id ?? '';
+    const departureStr = fb?.departure_time ? fmtDate(fb.departure_time) : '';
+    if (seatsLeft > 0) {
+      return `I just locked in my G Escape seat to ${dest} ✈️\n\nDeparts ${departureStr}. We need ${seatsLeft} more person${seatsLeft !== 1 ? 's' : ''} to confirm the flight for everyone.\n\nJoin the pool on G-Taxi:\ngtaxi://escape/${pkgId}\n\n#GEscape #Caribbean`;
+    }
+    return `Flight confirmed — I'm heading to ${dest} on G Escape! ✈️\n\nBooked right from G-Taxi, the Caribbean travel app built for T&T.\n\nDeparts ${departureStr}. Download G-Taxi to plan yours.\n\n#GEscape #Caribbean`;
+  };
+
   const handleShare = async () => {
+    const dest = fb?.destination_name ?? 'the Caribbean';
     await Share.share({
-      message: `I just booked a G Escape to ${fb?.destination_name ?? 'the Caribbean'}! Join me and help lock this flight — ${seatsLeft} seat${seatsLeft !== 1 ? 's' : ''} to go. #GEscape`,
+      message: buildShareText(),
+      title: `G Escape to ${dest}`,
     });
+  };
+
+  const handleWhatsAppShare = () => {
+    const text = buildShareText();
+    Linking.openURL(`whatsapp://send?text=${encodeURIComponent(text)}`).catch(() => {
+      Share.share({ message: text });
+    });
+  };
+
+  const handleAddOn = (label: string) => {
+    Alert.alert(
+      label,
+      'Your G-Taxi concierge will arrange this for you. Tap Book to send a request.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Book via WhatsApp',
+          onPress: () => {
+            const dest = fb?.destination_name ?? 'your destination';
+            Linking.openURL(
+              `whatsapp://send?phone=18683000000&text=${encodeURIComponent(`Hi, I'm on G Escape to ${dest} (ref: ${activeTrip?.booking_ref ?? ''}) and I'd like to book: ${label}`)}`
+            ).catch(() => Alert.alert('WhatsApp not found', 'Please contact your G-Taxi concierge directly.'));
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -170,9 +208,14 @@ export default function ActivePassScreen() {
                 : '✓ Tipping point reached'}
             </Text>
             {seatsLeft > 0 && (
-              <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
-                <Text style={styles.shareBtnText}>Invite friends to help lock this flight →</Text>
-              </TouchableOpacity>
+              <View style={{ gap: 8, marginTop: 14 }}>
+                <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+                  <Text style={styles.shareBtnText}>Share link to lock this flight →</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.waBtn} onPress={handleWhatsAppShare}>
+                  <Text style={styles.waBtnText}>Send on WhatsApp</Text>
+                </TouchableOpacity>
+              </View>
             )}
             {fb.cancel_deadline && (
               <Text style={styles.deadlineNote}>
@@ -246,14 +289,18 @@ export default function ActivePassScreen() {
               {pkg?.lodging_nodes?.name} is ready for you.
               Your driver is confirmed and on the way to the arrivals terminal.
             </Text>
-            <View style={styles.addOnRow}>
+            <TouchableOpacity style={styles.addOnRow} onPress={() => handleAddOn('Jet ski excursion')}>
               <Text style={styles.addOnLabel}>Jet ski excursion</Text>
-              <Text style={styles.addOnCta}>Add →</Text>
-            </View>
-            <View style={styles.addOnRow}>
+              <Text style={styles.addOnCta}>Book →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addOnRow} onPress={() => handleAddOn('Private chef dinner')}>
               <Text style={styles.addOnLabel}>Private chef dinner</Text>
-              <Text style={styles.addOnCta}>Add →</Text>
-            </View>
+              <Text style={styles.addOnCta}>Book →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addOnRow} onPress={() => handleAddOn('Island tour (half day)')}>
+              <Text style={styles.addOnLabel}>Island tour (half day)</Text>
+              <Text style={styles.addOnCta}>Book →</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -339,9 +386,12 @@ const styles = StyleSheet.create({
   progressTrack:   { height: 4, backgroundColor: '#1E1E26', borderRadius: 2, overflow: 'hidden', marginBottom: 10 },
   progressFill:    { height: 4, backgroundColor: '#C8A96E', borderRadius: 2 },
   poolNeed:        { color: '#777', fontSize: 12 },
-  shareBtn:        { marginTop: 14, backgroundColor: '#1A1A24', borderRadius: 8, paddingVertical: 12,
+  shareBtn:        { backgroundColor: '#1A1A24', borderRadius: 8, paddingVertical: 12,
                      alignItems: 'center', borderWidth: 1, borderColor: '#2D2D40' },
   shareBtnText:    { color: '#C8A96E', fontWeight: '600', fontSize: 13 },
+  waBtn:           { backgroundColor: '#1A2E22', borderRadius: 8, paddingVertical: 12,
+                     alignItems: 'center', borderWidth: 1, borderColor: '#25D36633' },
+  waBtnText:       { color: '#25D366', fontWeight: '600', fontSize: 13 },
   deadlineNote:    { color: '#3A3A50', fontSize: 11, marginTop: 10, textAlign: 'center' },
 
   // Boarding pass

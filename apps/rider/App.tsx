@@ -192,7 +192,9 @@ const linking = {
                     lng: (lng: string) => parseFloat(lng),
                     stand: (stand: string) => stand,
                 }
-            }
+            },
+            EscapeStorefront: 'escape',
+            TravelPackageDetail: 'travel/:packageId',
         }
     }
 };

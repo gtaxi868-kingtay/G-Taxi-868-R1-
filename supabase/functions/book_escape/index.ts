@@ -20,6 +20,53 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 
+async function notifyPoolMembers(
+  supabase: ReturnType<typeof createClient>,
+  packageId: string,
+  newRiderId: string,
+  guestCount: number,
+) {
+  const { data: pool } = await supabase
+    .from('package_reservations')
+    .select('rider_id')
+    .eq('escape_package_id', packageId)
+    .in('status', ['CAPTURED', 'ACTIVE_HOLD'])
+    .neq('rider_id', newRiderId);
+
+  if (!pool || pool.length === 0) return;
+
+  const { data: pkg } = await supabase
+    .from('escape_packages')
+    .select('flight_blocks(tipping_point_seats, allocated_seats)')
+    .eq('id', packageId)
+    .single();
+
+  const fb = Array.isArray(pkg?.flight_blocks) ? pkg.flight_blocks[0] : pkg?.flight_blocks;
+  const seatsLeft = fb ? Math.max(0, fb.tipping_point_seats - fb.allocated_seats) : null;
+  if (seatsLeft === null) return;
+
+  const joined = guestCount > 1 ? `${guestCount} people just joined` : 'Someone just joined';
+  const body = seatsLeft > 0
+    ? `${joined} your pool — ${seatsLeft} more seat${seatsLeft !== 1 ? 's' : ''} to lock the flight!`
+    : `${joined} — tipping point reached! Your flight is being confirmed.`;
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+  await fetch(`${supabaseUrl}/functions/v1/send_push_notification`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({
+      user_ids: pool.map((m: { rider_id: string }) => m.rider_id),
+      title: seatsLeft > 0 ? 'Pool filling up!' : 'Flight confirmed!',
+      body,
+      data: { type: 'escape_pool_update', escape_package_id: packageId },
+    }),
+  });
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -141,6 +188,8 @@ serve(async (req) => {
       }, 402);
     }
 
+    notifyPoolMembers(supabase, escape_package_id, user.id, guest_count).catch(() => {});
+
     return json({
       reservation_id: reservationId,
       booking_ref: bookingRef,
@@ -201,6 +250,9 @@ serve(async (req) => {
     .from('package_reservations')
     .update({ stripe_payment_intent_id: paymentIntentId, updated_at: new Date().toISOString() })
     .eq('id', reservationId);
+
+  // Notify existing pool members that someone new joined (best-effort, non-blocking)
+  notifyPoolMembers(supabase, escape_package_id, user.id, guest_count).catch(() => {});
 
   return json({
     reservation_id: reservationId,

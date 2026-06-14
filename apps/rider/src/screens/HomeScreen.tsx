@@ -64,6 +64,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         total_rides: number; next_unlock: { level: number; vertical: string; progress: number; required: number; label: string } | null;
     } | null>(null);
     const [suggestion, setSuggestion] = useState<{ cta_text: string; vertical: string; reason_code: string } | null>(null);
+    const [travelSuggestion, setTravelSuggestion] = useState<{ dest: string; destCode: string; tagline: string; rideCount: number } | null>(null);
     const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -340,6 +341,27 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
             .then(({ data }) => setNearbyVendors(data || []));
     }, [location, featureFlags.grocery]);
+
+    // Bezos flywheel: map ride patterns to a travel suggestion
+    useEffect(() => {
+        if (!featureFlags.caribbean_travel && !featureFlags.g_escape) return;
+        const TRAVEL_SUGGESTIONS: Record<string, { dest: string; destCode: string; tagline: string }> = {
+            north:   { dest: 'Tobago',   destCode: 'TAB', tagline: 'Your next move is 20 minutes by air' },
+            south:   { dest: 'Barbados', destCode: 'BGI', tagline: 'The island your Instagram has been showing you' },
+            east:    { dest: 'Grenada',  destCode: 'GND', tagline: 'The undiscovered one — before everyone finds out' },
+            west:    { dest: 'Antigua',  destCode: 'ANU', tagline: '365 beaches. You\'ve seen none of them yet' },
+            central: { dest: 'St Kitts', destCode: 'SKB', tagline: 'Caribbean with no attitude. Just your kind of pace' },
+        };
+        supabase.functions.invoke('get_user_patterns').then(({ data, error }) => {
+            if (error || !data) return;
+            const hint = data.direction_hint as string | undefined;
+            const rideCount = (data.total_trips_last_30_days as number) || 0;
+            const match = hint && TRAVEL_SUGGESTIONS[hint];
+            if (match && rideCount > 0) {
+                setTravelSuggestion({ ...match, rideCount });
+            }
+        }).catch(() => {});
+    }, [featureFlags.caribbean_travel, featureFlags.g_escape]);
 
     useEffect(() => {
         const lat = location?.coords?.latitude || DEFAULT_LOCATION.latitude;
@@ -906,6 +928,33 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                                 />
                                             ))}
                                         </View>
+                                    </TouchableOpacity>
+                                )}
+
+                                {/* ── BEZOS FLYWHEEL: ride-to-travel card ──────── */}
+                                {travelSuggestion && (
+                                    <TouchableOpacity
+                                        activeOpacity={0.88}
+                                        style={s.travelSuggestionCard}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('TravelStorefront');
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(59,130,246,0.18)', 'rgba(59,130,246,0.06)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.travelSuggestionGradient}
+                                        >
+                                            <View style={s.travelSuggestionLeft}>
+                                                <Text style={s.travelSuggestionLabel}>BASED ON YOUR {travelSuggestion.rideCount} RIDES</Text>
+                                                <Text style={s.travelSuggestionDest}>{travelSuggestion.dest} ✈️</Text>
+                                                <Text style={s.travelSuggestionTagline}>{travelSuggestion.tagline}</Text>
+                                            </View>
+                                            <View style={s.travelSuggestionArrow}>
+                                                <Ionicons name="chevron-forward" size={20} color="#3B82F6" />
+                                            </View>
+                                        </LinearGradient>
                                     </TouchableOpacity>
                                 )}
 
@@ -1559,6 +1608,49 @@ const s = StyleSheet.create({
     },
     progressionDotActive: {
         backgroundColor: '#00FFFF',
+    },
+    travelSuggestionCard: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(59,130,246,0.25)',
+    },
+    travelSuggestionGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+    },
+    travelSuggestionLeft: {
+        flex: 1,
+        gap: 2,
+    },
+    travelSuggestionLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: '#3B82F6',
+        letterSpacing: 1,
+        marginBottom: 2,
+    },
+    travelSuggestionDest: {
+        fontSize: 17,
+        fontWeight: '800',
+        color: '#FFF',
+    },
+    travelSuggestionTagline: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.55)',
+        marginTop: 2,
+        lineHeight: 17,
+    },
+    travelSuggestionArrow: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(59,130,246,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 12,
     },
     suggestionBanner: {
         flexDirection: 'row',

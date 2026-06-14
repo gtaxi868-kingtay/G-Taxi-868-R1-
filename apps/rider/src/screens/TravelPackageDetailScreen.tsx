@@ -19,6 +19,57 @@ function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-TT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+const DEST_EXPERIENCES: Record<string, { tagline: string; highlights: string[] }> = {
+    BGI: {
+        tagline: "Where the Caribbean begins",
+        highlights: [
+            "Carlisle Bay at sunrise — turquoise water, zero crowds",
+            "Oistins fish fry — real local flavour, no tourist pricing",
+            "Crane Beach sunset — the photo that makes everyone ask where you went",
+        ],
+    },
+    GND: {
+        tagline: "The island they haven't overrun yet",
+        highlights: [
+            "Grand Anse Beach — 3km of near-empty white sand on a working budget",
+            "St George's spice market — nutmeg, colour, and no tourist tax",
+            "Secret waterfall hike — 45 min in, worth every step",
+        ],
+    },
+    TAB: {
+        tagline: "Home, but on island time",
+        highlights: [
+            "Pigeon Point at sunrise — the T&T you've been sleeping on",
+            "Nylon Pool — standing in the middle of the sea, clear as glass",
+            "Buccoo Reef snorkel — your first time underwater",
+        ],
+    },
+    ANU: {
+        tagline: "365 beaches — pick your own",
+        highlights: [
+            "Half Moon Bay — no bar, no crowd, just the beach",
+            "Nelson's Dockyard — UNESCO history you can walk through",
+            "Shirley Heights Sunday — every local on the same hilltop at sunset",
+        ],
+    },
+    SKB: {
+        tagline: "The Caribbean with no attitude",
+        highlights: [
+            "Brimstone Hill Fortress — volcanic ridge with a colonial fort on top",
+            "Frigate Bay strip — local rum at Caribbean prices",
+            "South Peninsula road — Atlantic on one side, Caribbean on the other",
+        ],
+    },
+    SLU: {
+        tagline: "Two volcanoes, one island",
+        highlights: [
+            "The Pitons at dawn — the most dramatic view in the Caribbean",
+            "Sulfur Springs drive-in volcano — nothing like it anywhere else",
+            "Marigot Bay — superyachts and local fishing boats side by side",
+        ],
+    },
+};
+
 export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<'TravelPackageDetail'>) {
     const { packageId } = route.params;
     const insets = useSafeAreaInsets();
@@ -148,6 +199,8 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
 
     const flightInfo = pkg.flight_info || {};
     const hotelInfo = pkg.hotel_info || {};
+    const destCode = pkg.destination_code as string;
+    const experience = DEST_EXPERIENCES[destCode] ?? null;
 
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -174,6 +227,42 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
                     </View>
                     <Text style={styles.seatsLeft}>{pkg.seats_remaining} seats remaining</Text>
                 </LinearGradient>
+
+                {/* ── EXPERIENCE FIRST (Jobs' sequence) ───────────────────────────── */}
+                {experience && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>WHY YOU'LL GO BACK</Text>
+                        <LinearGradient
+                            colors={['rgba(200,169,110,0.12)', 'rgba(200,169,110,0.04)']}
+                            style={styles.experienceCard}
+                        >
+                            <Text style={styles.experienceTagline}>"{experience.tagline}"</Text>
+                            <View style={styles.highlightList}>
+                                {experience.highlights.map((h, i) => (
+                                    <View key={i} style={styles.highlightRow}>
+                                        <View style={styles.highlightDot} />
+                                        <Text style={styles.highlightText}>{h}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        </LinearGradient>
+                    </View>
+                )}
+                {/* ──────────────────────────────────────────────────────────────────── */}
+
+                {/* Price per person — shown after experience, not before */}
+                <View style={[styles.section, { marginBottom: 8 }]}>
+                    <View style={styles.priceRow}>
+                        <View>
+                            <Text style={styles.priceLabel}>Price per person</Text>
+                            <Text style={styles.priceValue}>{fmtPrice(pkg.price_per_person_cents)}</Text>
+                        </View>
+                        <View style={styles.includesFlag}>
+                            <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+                            <Text style={styles.includesFlagText}>flights + hotel included</Text>
+                        </View>
+                    </View>
+                </View>
 
                 {/* Flight info */}
                 {(flightInfo.airline || flightInfo.flight_number) && (
@@ -310,4 +399,15 @@ const styles = StyleSheet.create({
     ctaPrice: { color: '#FFF', fontWeight: '800', fontSize: 22 },
     ctaBtn: { backgroundColor: '#3B82F6', borderRadius: 20, paddingHorizontal: 32, paddingVertical: 16 },
     ctaBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16 },
+    experienceCard: { borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(200,169,110,0.2)' },
+    experienceTagline: { color: '#C8A96E', fontWeight: '700', fontSize: 17, fontStyle: 'italic', marginBottom: 16, lineHeight: 24 },
+    highlightList: { gap: 12 },
+    highlightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    highlightDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#C8A96E', marginTop: 6, flexShrink: 0 },
+    highlightText: { color: 'rgba(255,255,255,0.75)', fontSize: 14, lineHeight: 20, flex: 1 },
+    priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+    priceLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 2 },
+    priceValue: { color: '#FFF', fontWeight: '800', fontSize: 24 },
+    includesFlag: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    includesFlagText: { color: '#22C55E', fontSize: 12, fontWeight: '600' },
 });

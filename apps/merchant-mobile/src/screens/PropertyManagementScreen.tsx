@@ -72,9 +72,11 @@ export function PropertyManagementScreen({ navigation }: any) {
             }
             setAvailability(grouped);
 
+            // Filter to only bookings for packages that belong to THIS property
             const { data: bkgs } = await supabase
                 .from('travel_bookings')
-                .select('id, traveler_count, total_cents, confirmed_at, travel_packages(title, departure_at)')
+                .select('id, traveler_count, total_cents, confirmed_at, travel_packages!inner(title, departure_at, property_id)')
+                .eq('travel_packages.property_id', prop.id)
                 .eq('status', 'confirmed')
                 .order('created_at', { ascending: false })
                 .limit(20);
