@@ -58,14 +58,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, g_escape: false, food_delivery: false });
-    const [progression, setProgression] = useState<{
-        level: number; level_label: string; unlocked_verticals: string[];
-        total_rides: number; next_unlock: { level: number; vertical: string; progress: number; required: number; label: string } | null;
-    } | null>(null);
-    const [suggestion, setSuggestion] = useState<{ cta_text: string; vertical: string; reason_code: string } | null>(null);
-    const [travelSuggestion, setTravelSuggestion] = useState<{ dest: string; destCode: string; tagline: string; rideCount: number } | null>(null);
-    const [departureNudge, setDepartureNudge] = useState<{ title: string; departure_at: string; booking_id: string } | null>(null);
+    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
     const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -90,7 +83,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
     const [isEstimatingFare, setIsEstimatingFare] = useState(false);
     const [nearbyVendors, setNearbyVendors] = useState<Array<{ id: string; name: string; store_type: string; address: string; delivery_fee_cents: number; avg_delivery_minutes: number; is_open: boolean; distance_meters: number }>>([]);
-    const [merchantMapPins, setMerchantMapPins] = useState<Array<{ kiosk_id: string; merchant_id: string; merchant_name: string; category: string; location_name: string; lat: number; lng: number; default_services: string[]; is_open: boolean }>>([]);
     const [stopSuggestions, setStopSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
     const panelY = useSharedValue(120);
@@ -176,7 +168,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     merchant: verticals?.some((v: any) => v.vertical_name === 'merchant_delivery') || false,
                     kiosk: false,
                     caribbean_travel: verticals?.some((v: any) => v.vertical_name === 'caribbean_travel') || false,
-                    food_delivery: verticals?.some((v: any) => v.vertical_name === 'food_delivery') || false,
                 };
                 setFeatureFlags(flags);
                 const { data: sysKiosk } = await supabase
@@ -188,28 +179,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 setFeatureFlags(flags);
             } catch (err) {
                 console.warn('Failed to fetch verticals:', err);
-                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, g_escape: false, food_delivery: false });
+                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
             } finally {
                 setIsVerticalsLoading(false);
             }
         };
         fetchEnabledVerticals();
-
-        // Fetch rider progression + contextual suggestion
-        const fetchProgression = async () => {
-            try {
-                const { data, error } = await supabase.functions.invoke('get_rider_progress');
-                if (!error && data?.success) {
-                    setProgression(data.data);
-                    setSuggestion(data.data.suggestion ?? null);
-                    const hasEscape = data.data.unlocked_verticals?.includes('g_escape');
-                    setFeatureFlags((prev: any) => ({ ...prev, g_escape: hasEscape }));
-                }
-            } catch (err) {
-                console.warn('[Progression] fetch failed:', err);
-            }
-        };
-        fetchProgression();
 
         const verticalsChannel = supabase
             .channel('verticals-realtime')
@@ -343,59 +318,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
             .then(({ data }) => setNearbyVendors(data || []));
     }, [location, featureFlags.grocery]);
-
-    // Bezos flywheel: map ride patterns to a travel suggestion
-    useEffect(() => {
-        if (!featureFlags.caribbean_travel && !featureFlags.g_escape) return;
-        const TRAVEL_SUGGESTIONS: Record<string, { dest: string; destCode: string; tagline: string }> = {
-            north:   { dest: 'Tobago',   destCode: 'TAB', tagline: 'Your next move is 20 minutes by air' },
-            south:   { dest: 'Barbados', destCode: 'BGI', tagline: 'The island your Instagram has been showing you' },
-            east:    { dest: 'Grenada',  destCode: 'GND', tagline: 'The undiscovered one — before everyone finds out' },
-            west:    { dest: 'Antigua',  destCode: 'ANU', tagline: '365 beaches. You\'ve seen none of them yet' },
-            central: { dest: 'St Kitts', destCode: 'SKB', tagline: 'Caribbean with no attitude. Just your kind of pace' },
-        };
-        supabase.functions.invoke('get_user_patterns').then(({ data, error }) => {
-            if (error || !data) return;
-            const hint = data.direction_hint as string | undefined;
-            const rideCount = (data.total_trips_last_30_days as number) || 0;
-            const match = hint && TRAVEL_SUGGESTIONS[hint];
-            if (match && rideCount > 0) {
-                setTravelSuggestion({ ...match, rideCount });
-            }
-        }).catch(() => {});
-    }, [featureFlags.caribbean_travel, featureFlags.g_escape]);
-
-    // Bezos fix: 72h pre-departure card for confirmed travel bookings
-    useEffect(() => {
-        if (!profile?.id) return;
-        const now = new Date().toISOString();
-        const in72h = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
-        supabase
-            .from('travel_bookings')
-            .select('id, travel_packages(title, departure_at)')
-            .eq('user_id', profile.id)
-            .eq('status', 'confirmed')
-            .gte('travel_packages.departure_at', now)
-            .lte('travel_packages.departure_at', in72h)
-            .maybeSingle()
-            .then(({ data }) => {
-                if (data) {
-                    const pkg = (data as any).travel_packages;
-                    if (pkg?.title && pkg?.departure_at) {
-                        setDepartureNudge({ title: pkg.title, departure_at: pkg.departure_at, booking_id: data.id });
-                    }
-                }
-            })
-            .catch(() => {});
-    }, [profile?.id]);
-
-    useEffect(() => {
-        const lat = location?.coords?.latitude || DEFAULT_LOCATION.latitude;
-        const lng = location?.coords?.longitude || DEFAULT_LOCATION.longitude;
-        supabase
-            .rpc('get_merchant_map_pins', { p_lat: lat, p_lng: lng, p_radius_km: 20 })
-            .then(({ data }) => setMerchantMapPins(data || []));
-    }, [location]);
 
     useEffect(() => {
         const { nfcTagId, nfcLat, nfcLng, nfcLocation } = route?.params || {};
@@ -697,62 +619,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         </View>
                     </Marker>
                 ))}
-
-                {merchantMapPins.map((pin) => {
-                    const iconName = pin.category === 'grocery' ? 'basket-outline'
-                        : pin.category === 'laundry' ? 'shirt-outline'
-                        : pin.category === 'restaurant' ? 'restaurant-outline'
-                        : pin.category === 'pharmacy' ? 'medkit-outline'
-                        : 'storefront-outline';
-                    return (
-                        <Marker
-                            key={`merchant-${pin.kiosk_id}`}
-                            coordinate={{ latitude: pin.lat, longitude: pin.lng }}
-                            anchor={{ x: 0.5, y: 1 }}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                navigation.navigate('ProductListing', {
-                                    merchant: {
-                                        id: pin.merchant_id,
-                                        name: pin.merchant_name,
-                                        category: pin.category,
-                                        address: pin.location_name,
-                                        is_open: pin.is_open,
-                                    }
-                                });
-                            }}
-                        >
-                            <View style={{ alignItems: 'center' }}>
-                                <View style={{
-                                    backgroundColor: pin.is_open ? '#BF40FF' : 'rgba(100,100,120,0.9)',
-                                    borderRadius: 12,
-                                    paddingHorizontal: 8,
-                                    paddingVertical: 5,
-                                    borderWidth: 1.5,
-                                    borderColor: pin.is_open ? '#E090FF' : 'rgba(180,180,200,0.4)',
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    shadowColor: '#BF40FF',
-                                    shadowOpacity: pin.is_open ? 0.5 : 0,
-                                    shadowRadius: 6,
-                                    shadowOffset: { width: 0, height: 2 },
-                                }}>
-                                    <Ionicons name={iconName as any} size={13} color="#FFF" />
-                                    <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }} numberOfLines={1}>
-                                        {pin.merchant_name.length > 14 ? pin.merchant_name.slice(0, 13) + '…' : pin.merchant_name}
-                                    </Text>
-                                </View>
-                                <View style={{
-                                    width: 0, height: 0,
-                                    borderLeftWidth: 5, borderRightWidth: 5, borderTopWidth: 6,
-                                    borderLeftColor: 'transparent', borderRightColor: 'transparent',
-                                    borderTopColor: pin.is_open ? '#BF40FF' : 'rgba(100,100,120,0.9)',
-                                }} />
-                            </View>
-                        </Marker>
-                    );
-                })}
             </MapView>
 
             <View style={[s.topBarContainer, { top: insets.top + 12 }, width > 600 && { alignItems: 'center' }]}>
@@ -916,249 +782,189 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
                         {isVerticalsLoading ? (
                             <View style={s.skeletonContainer}>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
-                                    {[80, 72, 72, 72, 72].map((w, i) => (
-                                        <Skeleton key={i} width={w} height={85} borderRadius={20} />
-                                    ))}
-                                </ScrollView>
+                                <Skeleton width="100%" height={140} borderRadius={20} style={{ marginBottom: 12 }} />
+                                <View style={s.skeletonGrid}>
+                                    <Skeleton width="48%" height={140} borderRadius={20} />
+                                    <Skeleton width="48%" height={140} borderRadius={20} />
+                                </View>
                             </View>
                         ) : (
                             <View style={s.serviceBentoBox}>
-                                {/* ── PROGRESSION MINI-BAR ─────────────────────── */}
-                                {progression && (
-                                    <TouchableOpacity
-                                        activeOpacity={0.88}
-                                        style={s.progressionBar}
-                                        onPress={() => {
-                                            if (progression.next_unlock) {
-                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            }
-                                        }}
+                                <TouchableOpacity
+                                    activeOpacity={0.85}
+                                    style={s.heroCard}
+                                    onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+                                >
+                                    <LinearGradient
+                                        colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
+                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                        style={s.heroCardGradient}
                                     >
-                                        <View style={s.progressionLeft}>
-                                            <Text style={s.progressionLevel}>{progression.level_label}</Text>
-                                            {progression.next_unlock && (
-                                                <Text style={s.progressionCarrot}>
-                                                    {`${progression.next_unlock.progress}/${progression.next_unlock.required} rides to unlock ${progression.next_unlock.vertical.replace('_', ' ')}`}
-                                                </Text>
-                                            )}
+                                        <View style={[s.heroCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.2)' }]}>
+                                            <Ionicons name="car-sport-sharp" size={36} color={VOICES.rider.accent} />
                                         </View>
-                                        <View style={s.progressionDots}>
-                                            {[1,2,3,4,5].map((l) => (
-                                                <View
-                                                    key={l}
-                                                    style={[
-                                                        s.progressionDot,
-                                                        l <= progression.level && s.progressionDotActive,
-                                                    ]}
-                                                />
-                                            ))}
+                                        <View style={s.heroCardContent}>
+                                            <Text style={s.heroCardTitle}>Ride</Text>
+                                            <Text style={s.heroCardSub}>Get a taxi anywhere</Text>
                                         </View>
-                                    </TouchableOpacity>
-                                )}
+                                        <View style={s.heroTag}>
+                                            <Text style={s.heroTagText}>BOOK NOW</Text>
+                                        </View>
+                                    </LinearGradient>
+                                </TouchableOpacity>
 
-                                {/* ── BEZOS FIX: 72h pre-departure card ───────── */}
-                                {departureNudge && (
+                                <View style={s.serviceGrid}>
+                                    {featureFlags.grocery && (
                                     <TouchableOpacity
-                                        activeOpacity={0.88}
-                                        style={s.departureNudgeCard}
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
                                         onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                            navigation.navigate('EscapeStorefront');
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('GroceryStorefront');
                                         }}
                                     >
                                         <LinearGradient
-                                            colors={['rgba(212,175,55,0.18)', 'rgba(212,175,55,0.06)']}
+                                            colors={['rgba(245,158,11,0.2)', 'rgba(245,158,11,0.05)']}
                                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={s.departureNudgeGradient}
+                                            style={s.gridCardGradient}
                                         >
-                                            <View style={s.departureNudgeLeft}>
-                                                <Text style={s.departureNudgeLabel}>DEPARTURE IN LESS THAN 72H</Text>
-                                                <Text style={s.departureNudgeTitle}>{departureNudge.title}</Text>
-                                                <Text style={s.departureNudgeSub}>
-                                                    {new Date(departureNudge.departure_at).toLocaleDateString('en-TT', { weekday: 'short', day: 'numeric', month: 'short' })}
-                                                    {' — '}
-                                                    {new Date(departureNudge.departure_at).toLocaleTimeString('en-TT', { hour: '2-digit', minute: '2-digit' })}
-                                                </Text>
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(245,158,11,0.2)' }]}>
+                                                <Ionicons name="cart-sharp" size={28} color="#F59E0B" />
                                             </View>
-                                            <View style={s.departureNudgeIcon}>
-                                                <Ionicons name="airplane-sharp" size={22} color="#D4AF37" />
-                                            </View>
+                                            <Text style={s.gridCardTitle}>Market</Text>
+                                            <Text style={s.gridCardSub}>Groceries delivered</Text>
                                         </LinearGradient>
                                     </TouchableOpacity>
-                                )}
+                                    )}
 
-                                {/* ── BEZOS FLYWHEEL: ride-to-travel card ──────── */}
-                                {travelSuggestion && (
+                                    {featureFlags.laundry && (
                                     <TouchableOpacity
-                                        activeOpacity={0.88}
-                                        style={s.travelSuggestionCard}
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('LaundryLanding');
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.gridCardGradient}
+                                        >
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.2)' }]}>
+                                                <Ionicons name="shirt-sharp" size={28} color={VOICES.rider.accent} />
+                                            </View>
+                                            <Text style={s.gridCardTitle}>Laundry</Text>
+                                            <Text style={s.gridCardSub}>Fresh & folded</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                    )}
+
+                                    {featureFlags.grocery && (
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('VisionScanner');
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(139,92,246,0.2)', 'rgba(139,92,246,0.05)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.gridCardGradient}
+                                        >
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(139,92,246,0.2)' }]}>
+                                                <Ionicons name="scan-sharp" size={28} color="#8B5CF6" />
+                                            </View>
+                                            <Text style={s.gridCardTitle}>Scan</Text>
+                                            <Text style={s.gridCardSub}>AI product search</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                    )}
+
+                                    {featureFlags.kiosk ? (
+                                        <TouchableOpacity
+                                            activeOpacity={0.85}
+                                            style={s.gridCard}
+                                            onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                (navigation.navigate as any)('NfcScan');
+                                            }}
+                                        >
+                                            <LinearGradient
+                                                colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
+                                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                                style={s.gridCardGradient}
+                                            >
+                                                <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.2)' }]}>
+                                                    <Ionicons name="radio-sharp" size={28} color={VOICES.rider.accent} />
+                                                </View>
+                                                <Text style={s.gridCardTitle}>Tap</Text>
+                                                <Text style={s.gridCardSub}>Scan a puck</Text>
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <View style={s.gridCardPlaceholder} />
+                                    )}
+
+                                    {featureFlags.caribbean_travel && (
+                                    <TouchableOpacity
+                                        activeOpacity={0.85}
+                                        style={s.gridCard}
                                         onPress={() => {
                                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                             navigation.navigate('TravelStorefront');
                                         }}
                                     >
                                         <LinearGradient
-                                            colors={['rgba(59,130,246,0.18)', 'rgba(59,130,246,0.06)']}
+                                            colors={['rgba(59,130,246,0.2)', 'rgba(59,130,246,0.05)']}
                                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={s.travelSuggestionGradient}
+                                            style={s.gridCardGradient}
                                         >
-                                            <View style={s.travelSuggestionLeft}>
-                                                <Text style={s.travelSuggestionLabel}>BASED ON YOUR {travelSuggestion.rideCount} RIDES</Text>
-                                                <Text style={s.travelSuggestionDest}>{travelSuggestion.dest} ✈️</Text>
-                                                <Text style={s.travelSuggestionTagline}>{travelSuggestion.tagline}</Text>
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(59,130,246,0.2)' }]}>
+                                                <Ionicons name="airplane-sharp" size={28} color="#3B82F6" />
                                             </View>
-                                            <View style={s.travelSuggestionArrow}>
-                                                <Ionicons name="chevron-forward" size={20} color="#3B82F6" />
-                                            </View>
+                                            <Text style={s.gridCardTitle}>Escapes</Text>
+                                            <Text style={s.gridCardSub}>Caribbean packages</Text>
                                         </LinearGradient>
                                     </TouchableOpacity>
-                                )}
-
-                                {/* ── CONTEXTUAL SUGGESTION BANNER ──────────────── */}
-                                {suggestion && suggestion.reason_code !== 'default' && (
-                                    <TouchableOpacity
-                                        activeOpacity={0.88}
-                                        style={s.suggestionBanner}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                        }}
-                                    >
-                                        <Ionicons
-                                            name={suggestion.vertical === 'grocery' ? 'cart-sharp' : suggestion.vertical === 'g_escape' ? 'airplane-sharp' : 'sparkles-sharp'}
-                                            size={16}
-                                            color="#F59E0B"
-                                            style={{ marginRight: 8 }}
-                                        />
-                                        <Text style={s.suggestionText}>{suggestion.cta_text}</Text>
-                                        <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.4)" style={{ marginLeft: 'auto' }} />
-                                    </TouchableOpacity>
-                                )}
-
-                                {/* ── SERVICE CHIP ROW ─────────────────────────── */}
-                                <ScrollView
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={s.chipRow}
-                                    style={{ marginHorizontal: -4 }}
-                                >
-                                    {/* Ride — always first, cyan primary */}
-                                    <TouchableOpacity
-                                        activeOpacity={0.82}
-                                        style={s.chip}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            const accuracy = location?.coords?.accuracy;
-                                            if (accuracy && accuracy > 50) {
-                                                setLocationAccuracy(accuracy);
-                                                setShowLocationConfirm(true);
-                                            } else {
-                                                navigation.navigate('DestinationSearch', {
-                                                    currentLocation: { latitude: currentLat, longitude: currentLng }
-                                                });
-                                            }
-                                        }}
-                                    >
-                                        <LinearGradient
-                                            colors={['rgba(0,255,255,0.25)', 'rgba(0,255,255,0.08)']}
-                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={[s.chipIconWrap, { borderColor: 'rgba(0,255,255,0.35)' }]}
-                                        >
-                                            <Ionicons name="car-sport-sharp" size={26} color={VOICES.rider.accent} />
-                                        </LinearGradient>
-                                        <Text style={s.chipLabel}>Ride</Text>
-                                    </TouchableOpacity>
-
-                                    {featureFlags.food_delivery && (
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={s.chip}
-                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('FoodDelivery'); }}
-                                        >
-                                            <View style={[s.chipIconWrap, { backgroundColor: 'rgba(249,115,22,0.15)', borderColor: 'rgba(249,115,22,0.25)' }]}>
-                                                <Ionicons name="restaurant-sharp" size={24} color="#F97316" />
-                                            </View>
-                                            <Text style={s.chipLabel}>Food</Text>
-                                        </TouchableOpacity>
                                     )}
+                                </View>
+                            </View>
+                        )}
 
-                                    {featureFlags.grocery && (
+                        {nearbyVendors.length > 0 && (
+                            <View style={{ marginTop: 20 }}>
+                                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 18, paddingHorizontal: 20, marginBottom: 12 }}>Nearby Merchants</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+                                    {nearbyVendors.map(v => (
                                         <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={s.chip}
-                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('GroceryStorefront'); }}
+                                            key={v.id}
+                                            activeOpacity={0.88}
+                                            onPress={() => {
+                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                                navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
+                                            }}
+                                            style={{ width: 160, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                                         >
-                                            <View style={[s.chipIconWrap, { backgroundColor: 'rgba(245,158,11,0.15)', borderColor: 'rgba(245,158,11,0.25)' }]}>
-                                                <Ionicons name="cart-sharp" size={24} color="#F59E0B" />
-                                            </View>
-                                            <Text style={s.chipLabel}>Market</Text>
+                                            <LinearGradient colors={['rgba(139,92,246,0.15)', 'rgba(6,182,212,0.08)']} style={{ padding: 16 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                                    <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.25)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                                                        <Ionicons name="storefront-outline" size={18} color="#8B5CF6" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{v.name}</Text>
+                                                        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{v.is_open ? 'Open' : 'Closed'}</Text>
+                                                    </View>
+                                                </View>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{Math.round(v.distance_meters)} m</Text>
+                                                    <Text style={{ color: VOICES.rider.accent, fontSize: 11, fontWeight: '600' }}>~{v.avg_delivery_minutes} min</Text>
+                                                </View>
+                                            </LinearGradient>
                                         </TouchableOpacity>
-                                    )}
-
-                                    {featureFlags.laundry && (
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={s.chip}
-                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('LaundryLanding'); }}
-                                        >
-                                            <View style={[s.chipIconWrap, { backgroundColor: 'rgba(0,255,255,0.12)', borderColor: 'rgba(0,255,255,0.2)' }]}>
-                                                <Ionicons name="shirt-sharp" size={24} color={VOICES.rider.accent} />
-                                            </View>
-                                            <Text style={s.chipLabel}>Laundry</Text>
-                                        </TouchableOpacity>
-                                    )}
-
-                                    {featureFlags.grocery && (
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={s.chip}
-                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('VisionScanner'); }}
-                                        >
-                                            <View style={[s.chipIconWrap, { backgroundColor: 'rgba(139,92,246,0.15)', borderColor: 'rgba(139,92,246,0.25)' }]}>
-                                                <Ionicons name="scan-sharp" size={24} color="#8B5CF6" />
-                                            </View>
-                                            <Text style={s.chipLabel}>Scan</Text>
-                                        </TouchableOpacity>
-                                    )}
-
-                                    {featureFlags.kiosk && (
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={s.chip}
-                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); (navigation.navigate as any)('NfcScan'); }}
-                                        >
-                                            <View style={[s.chipIconWrap, { backgroundColor: 'rgba(0,255,255,0.12)', borderColor: 'rgba(0,255,255,0.2)' }]}>
-                                                <Ionicons name="radio-sharp" size={24} color={VOICES.rider.accent} />
-                                            </View>
-                                            <Text style={s.chipLabel}>Tap</Text>
-                                        </TouchableOpacity>
-                                    )}
-
-                                    {featureFlags.caribbean_travel && (
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={s.chip}
-                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('TravelStorefront'); }}
-                                        >
-                                            <View style={[s.chipIconWrap, { backgroundColor: 'rgba(59,130,246,0.15)', borderColor: 'rgba(59,130,246,0.25)' }]}>
-                                                <Ionicons name="airplane-sharp" size={24} color="#3B82F6" />
-                                            </View>
-                                            <Text style={s.chipLabel}>Escapes</Text>
-                                        </TouchableOpacity>
-                                    )}
-
-                                    {featureFlags.g_escape && (
-                                        <TouchableOpacity
-                                            activeOpacity={0.82}
-                                            style={s.chip}
-                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); navigation.navigate('EscapeStorefront'); }}
-                                        >
-                                            <View style={[s.chipIconWrap, { backgroundColor: 'rgba(212,175,55,0.18)', borderColor: 'rgba(212,175,55,0.3)' }]}>
-                                                <Ionicons name="diamond-sharp" size={24} color="#D4AF37" />
-                                            </View>
-                                            <Text style={[s.chipLabel, { color: '#D4AF37' }]}>G-Escape</Text>
-                                        </TouchableOpacity>
-                                    )}
+                                    ))}
                                 </ScrollView>
                             </View>
                         )}
@@ -1639,173 +1445,97 @@ const s = StyleSheet.create({
         marginBottom: 20,
         gap: 12,
     },
-    progressionBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    progressionLeft: {
-        flex: 1,
-    },
-    progressionLevel: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#00FFFF',
-        letterSpacing: 0.5,
-        textTransform: 'uppercase',
-    },
-    progressionCarrot: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.5)',
-        marginTop: 2,
-    },
-    progressionDots: {
-        flexDirection: 'row',
-        gap: 6,
-        marginLeft: 12,
-    },
-    progressionDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: 'rgba(255,255,255,0.15)',
-    },
-    progressionDotActive: {
-        backgroundColor: '#00FFFF',
-    },
-    departureNudgeCard: {
-        borderRadius: 16,
+    heroCard: {
+        width: '100%',
+        height: 120,
+        borderRadius: 24,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(212,175,55,0.4)',
-        marginBottom: 8,
+        ...elevationGlow(),
     },
-    departureNudgeGradient: {
+    heroCardGradient: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
+        padding: 20,
     },
-    departureNudgeLeft: {
-        flex: 1,
-        gap: 2,
-    },
-    departureNudgeLabel: {
-        fontSize: 9,
-        fontWeight: '700',
-        color: '#D4AF37',
-        letterSpacing: 1.2,
-        marginBottom: 2,
-    },
-    departureNudgeTitle: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: '#FFF',
-    },
-    departureNudgeSub: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.5)',
-        marginTop: 2,
-    },
-    departureNudgeIcon: {
-        width: 40,
-        height: 40,
+    heroCardIconWrap: {
+        width: 64,
+        height: 64,
         borderRadius: 20,
-        backgroundColor: 'rgba(212,175,55,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
-        marginLeft: 12,
     },
-    travelSuggestionCard: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(59,130,246,0.25)',
-    },
-    travelSuggestionGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-    },
-    travelSuggestionLeft: {
+    heroCardContent: {
         flex: 1,
-        gap: 2,
+        marginLeft: 16,
     },
-    travelSuggestionLabel: {
-        fontSize: 10,
-        fontWeight: '700',
-        color: '#3B82F6',
-        letterSpacing: 1,
-        marginBottom: 2,
-    },
-    travelSuggestionDest: {
-        fontSize: 17,
+    heroCardTitle: {
+        fontSize: 22,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#FFFFFF',
+        letterSpacing: -0.5,
     },
-    travelSuggestionTagline: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.55)',
-        marginTop: 2,
-        lineHeight: 17,
-    },
-    travelSuggestionArrow: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(59,130,246,0.15)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginLeft: 12,
-    },
-    suggestionBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(245,158,11,0.08)',
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: 'rgba(245,158,11,0.2)',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-    },
-    suggestionText: {
+    heroCardSub: {
         fontSize: 13,
-        color: 'rgba(255,255,255,0.85)',
         fontWeight: '500',
-        flex: 1,
+        color: 'rgba(255,255,255,0.5)',
+        marginTop: 4,
     },
-    chipRow: {
+    heroTag: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: VOICES.rider.accent,
+    },
+    heroTagText: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: SURFACE.base,
+        letterSpacing: 0.5,
+    },
+    serviceGrid: {
         flexDirection: 'row',
-        gap: 10,
-        paddingHorizontal: 4,
-        paddingVertical: 4,
+        flexWrap: 'wrap',
+        gap: 12,
     },
-    chip: {
+    gridCard: {
+        width: '48%',
+        height: 130,
+        borderRadius: 20,
+        overflow: 'hidden',
+        ...elevationGlow(),
+    },
+    gridCardGradient: {
+        flex: 1,
+        padding: 16,
+        justifyContent: 'center',
         alignItems: 'center',
-        width: 72,
+        borderRadius: 20,
     },
-    chipIconWrap: {
+    gridCardIconWrap: {
         width: 52,
         height: 52,
-        borderRadius: 18,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        marginBottom: 6,
+        marginBottom: 10,
     },
-    chipLabel: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: 'rgba(255,255,255,0.75)',
+    gridCardTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#FFFFFF',
         textAlign: 'center',
-        letterSpacing: 0.2,
+    },
+    gridCardSub: {
+        fontSize: 11,
+        fontWeight: '500',
+        color: 'rgba(255,255,255,0.5)',
+        marginTop: 2,
+        textAlign: 'center',
+    },
+    gridCardPlaceholder: {
+        width: '48%',
+        height: 0,
     },
 
     farePreviewContainer: { 

@@ -22,12 +22,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     nfc_restore_session: { maxRequests: 5, windowSeconds: 300 },
     send_push_notification: { maxRequests: 30, windowSeconds: 60 },
     update_ride_status: { maxRequests: 10, windowSeconds: 60 },
-    merchant_dispatch: { maxRequests: 20, windowSeconds: 60 },
     merchant_gateway: { maxRequests: 30, windowSeconds: 60 },
     merchant_order_picker: { maxRequests: 20, windowSeconds: 60 },
     merchant_update_order_status: { maxRequests: 10, windowSeconds: 60 },
-    update_order_price: { maxRequests: 10, windowSeconds: 60 },
-    process_merchant_consent: { maxRequests: 10, windowSeconds: 60 },
     create_wallet_topup: { maxRequests: 5, windowSeconds: 60 },
 };
 

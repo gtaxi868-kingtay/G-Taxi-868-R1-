@@ -333,6 +333,15 @@ serve(async (req: Request) => {
 
         const newRideId = rpcResult.data.ride_id;
 
+        // Tag ride with vendor kiosk so complete_ride can record commission
+        if (kiosk_id && newRideId) {
+            await adminClient
+                .from("rides")
+                .update({ vendor_node_id: kiosk_id })
+                .eq("id", newRideId)
+                .catch((err) => console.error("vendor_node_id tag failed (non-fatal):", err));
+        }
+
         if (stops && stops.length > 0) {
             const stopsData = stops.map((s: any, i: number) => ({
                 ride_id: newRideId,

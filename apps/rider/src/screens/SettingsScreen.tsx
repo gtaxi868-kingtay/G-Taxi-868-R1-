@@ -80,7 +80,7 @@ export function SettingsScreen({ navigation }: any) {
             setSubscriptionTier(tier);
             setSubscriptionExpiry(expiresAt.toISOString());
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert('Upgraded!', `You are now on G-Taxi ${tier.charAt(0).toUpperCase() + tier.slice(1)}. Your benefits are active immediately as a launch-period compliment.`);
+            Alert.alert('Upgraded!', `You are now on G-Taxi ${tier.charAt(0).toUpperCase() + tier.slice(1)}. Your benefits are active immediately.`);
         } catch (err: any) {
             Alert.alert('Upgrade Failed', err.message || 'Please try again.');
         } finally {
@@ -237,7 +237,7 @@ export function SettingsScreen({ navigation }: any) {
                             >
                                 <View style={{ flex: 1 }}>
                                     <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>G-Taxi Plus</Text>
-                                    <Text style={{ color: R.muted, fontSize: 12, marginTop: 2 }}>10% off every ride · Free during launch</Text>
+                                    <Text style={{ color: R.muted, fontSize: 12, marginTop: 2 }}>10% off every ride · TTD $9.99/mo</Text>
                                 </View>
                                 {upgradingTier === 'plus' ? <ActivityIndicator size="small" color={R.purple} /> : <Ionicons name="chevron-forward" size={18} color={R.purple} />}
                             </TouchableOpacity>
@@ -254,7 +254,7 @@ export function SettingsScreen({ navigation }: any) {
                             >
                                 <View style={{ flex: 1 }}>
                                     <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>G-Taxi Pro</Text>
-                                    <Text style={{ color: R.muted, fontSize: 12, marginTop: 2 }}>15% off + priority matching · Free during launch</Text>
+                                    <Text style={{ color: R.muted, fontSize: 12, marginTop: 2 }}>15% off + priority matching · TTD $19.99/mo</Text>
                                 </View>
                                 {upgradingTier === 'pro' ? <ActivityIndicator size="small" color={R.gold} /> : <Ionicons name="chevron-forward" size={18} color={R.gold} />}
                             </TouchableOpacity>

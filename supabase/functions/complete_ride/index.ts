@@ -235,6 +235,21 @@ serve(async (req: Request) => {
         platformRate = 0.16;
         loyaltyApplied = true;
         console.log(`[LOYALTY_TIER] Driver ${driverUserIdForLoyalty} qualifies — 16% rate applied`);
+
+        // Notify driver on first qualification
+        if (driverRecord && (driverRecord as any).push_token && !(driverRecord as any).loyalty_tier_notified) {
+          sendPushNotification(
+            (driverRecord as any).push_token,
+            '🏆 Driver Loyalty Tier Unlocked',
+            'Your wallet balance qualifies you for a reduced 16% platform fee! You\'re saving money on every ride.',
+            { type: 'LOYALTY_TIER_UNLOCKED' }
+          ).catch((err: unknown) => console.error('Loyalty notification failed:', err));
+          await supabaseAdmin
+            .from('drivers')
+            .update({ loyalty_tier_notified: true })
+            .eq('id', driverRecord.id)
+            .catch((err: unknown) => console.error('Failed to set loyalty_tier_notified:', err));
+        }
       }
     }
 
@@ -319,12 +334,12 @@ serve(async (req: Request) => {
         provider: "cash",
       }).catch((err) => console.error("Cash payment_ledger insert failed:", err));
 
-    } else if (ride.payment_method === "card") {
+    } else if (ride.payment_method === "card" || ride.payment_method === "wipay") {
       if (ride.payment_status !== "captured") {
         return new Response(
           JSON.stringify({
             success: false,
-            error: "Card payment has not been captured yet.",
+            error: (ride.payment_method === "card" ? "Card" : "WiPay") + " payment has not been captured yet.",
             data: { payment_status: ride.payment_status },
           }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }

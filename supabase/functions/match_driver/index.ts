@@ -141,7 +141,47 @@ serve(async (req: Request) => {
             });
 
         if (claimError || !claimedDrivers || claimedDrivers.length === 0) {
-            console.log("No drivers available/claimed via RPC. Moving to waiting_queue.");
+            console.log("No live drivers available. Trying bot fallback...");
+
+            // Bot fallback: assign closest online bot driver
+            const { data: botDrivers } = await supabaseAdmin
+                .from("drivers")
+                .select("id, name, lat, lng, vehicle_type, vehicle_model, plate_number, rating")
+                .eq("is_bot", true)
+                .eq("is_online", true)
+                .eq("status", "online")
+                .limit(5);
+
+            if (botDrivers && botDrivers.length > 0) {
+                const pickClosest = (drivers: any[]) =>
+                    drivers.reduce((closest, driver) => {
+                        const dist = Math.sqrt(
+                            Math.pow(driver.lat - ride.pickup_lat, 2) +
+                            Math.pow(driver.lng - ride.pickup_lng, 2)
+                        );
+                        return (!closest || dist < closest.dist) ? { ...driver, dist } : closest;
+                    }, null);
+
+                const botDriver = pickClosest(botDrivers);
+                if (botDriver) {
+                    const { error: assignError } = await supabaseAdmin
+                        .from("rides")
+                        .update({ driver_id: botDriver.id, status: "assigned", updated_at: new Date().toISOString() })
+                        .eq("id", ride_id)
+                        .in("status", ["requested", "searching", "waiting_queue"]);
+
+                    if (!assignError) {
+                        await supabaseAdmin.from("drivers").update({ status: "busy" }).eq("id", botDriver.id);
+                        console.log(`Bot driver ${botDriver.id} assigned to ride ${ride_id}`);
+                        return new Response(JSON.stringify({
+                            success: true, data: { ride_id, status: "assigned", driver: botDriver },
+                            message: `Bot driver ${botDriver.name} assigned`,
+                        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+                    }
+                }
+            }
+
+            console.log("No bot drivers either. Moving to waiting_queue.");
             await supabaseAdmin
                 .from("rides")
                 .update({ status: "waiting_queue" })

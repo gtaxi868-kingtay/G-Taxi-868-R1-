@@ -292,7 +292,7 @@ BEGIN
     FROM referral_earnings
     WHERE referee_id = p_driver_user_id
       AND type = 'driver'
-      AND status = 'paid'
+      AND status = 'active'
       AND (expires_at IS NULL OR expires_at > now())
     LIMIT 1;
 

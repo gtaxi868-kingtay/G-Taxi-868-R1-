@@ -329,3 +329,27 @@ payment_ledger table — read only for users:
 - After each file change, state what verification command confirms it worked
 - If you encounter an error you cannot resolve, stop and report it clearly
   Do not attempt to work around errors silently
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as local markdown files under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix) — embedded in local-issue frontmatter. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context repo. CONTEXT-MAP.md at root points to per-context CONTEXT.md files (one per app/backend area). See `docs/agents/domain.md`.

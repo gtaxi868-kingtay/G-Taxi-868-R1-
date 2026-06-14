@@ -45,7 +45,6 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                     total_cents: priceCents,
                     status: 'pending',
                     delivery_method: 'laundry_pickup',
-                    merchant_id: null,
                 })
                 .select('id')
                 .single();

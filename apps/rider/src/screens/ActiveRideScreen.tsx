@@ -111,6 +111,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
     const { rideUpdate: updatedRide } = useRideSubscription(rideId);
     const hasArrivalNotifiedRef = useRef(false);
+    const aiStopsSuggestedRef = useRef(false);
 
     const sosPulse = useSharedValue(1);
     const statusOpacity = useSharedValue(0);
@@ -313,6 +314,12 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
         
         return () => clearInterval(interval);
     }, [ride?.status, location, aiSuggestionsEnabled]);
+
+    useEffect(() => {
+        if (ride?.status !== 'in_progress' || aiStopsSuggestedRef.current || !rideId) return;
+        aiStopsSuggestedRef.current = true;
+        supabase.functions.invoke('ai_suggest_stops', { body: { ride_id: rideId } }).catch(() => {});
+    }, [ride?.status, rideId]);
 
     const openWhatsAppSupport = () => {
         Linking.openURL('https://wa.me/18687031000?text=I+need+help+with+my+ride');

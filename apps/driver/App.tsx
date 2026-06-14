@@ -16,8 +16,6 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { TripRequestScreen } from './src/screens/TripRequestScreen';
-import { DeliveryRequestScreen } from './src/screens/DeliveryRequestScreen';
-import { ActiveDeliveryScreen } from './src/screens/ActiveDeliveryScreen';
 import { ActiveTripScreen } from './src/screens/ActiveTripScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
@@ -32,7 +30,6 @@ import { RatingsScreen } from './src/screens/RatingsScreen';
 import { ScoutReferralScreen } from './src/screens/ScoutReferralScreen';
 import { DriverReferralScreen } from './src/screens/DriverReferralScreen';
 import { VehicleSalesScreen } from './src/screens/VehicleSalesScreen';
-import LeaseScreen from './src/screens/LeaseScreen';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { DriverActiveRideRestorationHandler } from './src/components/DriverActiveRideRestorationHandler';
@@ -161,8 +158,6 @@ function AppNavigator() {
             <AppStack.Screen name="Dashboard" component={DashboardScreen} />
             <AppStack.Screen name="PendingApproval" component={PendingApprovalScreen} />
             <AppStack.Screen name="TripRequest" component={TripRequestScreen} />
-            <AppStack.Screen name="DeliveryRequest" component={DeliveryRequestScreen} />
-            <AppStack.Screen name="ActiveDelivery" component={ActiveDeliveryScreen} />
             <AppStack.Screen
                 name="ActiveTrip"
                 component={ActiveTripScreen}
@@ -180,7 +175,6 @@ function AppNavigator() {
             <AppStack.Screen name="ScoutReferral" component={ScoutReferralScreen} />
             <AppStack.Screen name="DriverReferral" component={DriverReferralScreen} />
             <AppStack.Screen name="VehicleSales" component={VehicleSalesScreen} />
-            <AppStack.Screen name="Lease" component={LeaseScreen} />
         </AppStack.Navigator>
         </>);
 }

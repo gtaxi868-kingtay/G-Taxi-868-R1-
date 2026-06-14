@@ -14,10 +14,8 @@ import { PlatformControl } from './pages/PlatformControl';
 import { TravelPackages } from './pages/TravelPackages';
 import { DealerBrokerage } from './pages/DealerBrokerage';
 import { Intelligence } from './pages/Intelligence';
-import { Pricing } from './pages/Pricing';
-import { MerchantNetwork } from './pages/MerchantNetwork';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, DollarSign, Store } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot } from 'lucide-react';
 
 // ── AdminSecurityGate ──────────────────────────────────────────────────────────
 // Blocks all rendering unless the user has a verified Supabase session AND
@@ -86,7 +84,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'dealer' | 'intelligence' | 'pricing' | 'merchants';
+type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'dealer' | 'intelligence';
 
 function App() {
     const [activeTab, setActiveTab] = useState<AdminView>('dashboard');
@@ -188,8 +186,6 @@ function App() {
                         <NavItem active={activeTab === 'travel'} onClick={() => handleNav('travel')} icon={<Plane size={20}/>} label="Travel Packages" />
                         <NavItem active={activeTab === 'dealer'} onClick={() => handleNav('dealer')} icon={<Car size={20}/>} label="Dealer Brokerage" />
                         <NavItem active={activeTab === 'intelligence'} onClick={() => handleNav('intelligence')} icon={<Bot size={20}/>} label="AI Intelligence" />
-                        <NavItem active={activeTab === 'pricing'} onClick={() => handleNav('pricing')} icon={<DollarSign size={20}/>} label="Pricing" />
-                        <NavItem active={activeTab === 'merchants'} onClick={() => handleNav('merchants')} icon={<Store size={20}/>} label="Merchant Network" />
                     </nav>
 
                     <div className="pt-8 mt-8 border-t border-white/5">
@@ -248,8 +244,6 @@ function App() {
                         {activeTab === 'travel' && <TravelPackages />}
                         {activeTab === 'dealer' && <DealerBrokerage />}
                         {activeTab === 'intelligence' && <Intelligence />}
-                        {activeTab === 'pricing' && <Pricing />}
-                        {activeTab === 'merchants' && <MerchantNetwork />}
                     </div>
                 </main>
 

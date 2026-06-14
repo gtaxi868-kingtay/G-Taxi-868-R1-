@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View, StyleSheet, TouchableOpacity, ScrollView,
-    Alert, ActivityIndicator, useWindowDimensions
+    Alert, ActivityIndicator, useWindowDimensions, Linking
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -28,12 +28,13 @@ const R = {
     muted: '#AEA9B5',
 };
 
-type PaymentMethod = 'cash' | 'wallet' | 'card';
+type PaymentMethod = 'cash' | 'wallet' | 'card' | 'wipay';
 
 const OPTIONS = [
     { id: 'cash', label: 'Cash', icon: 'cash-outline', subtitle: 'Pay directly' },
     { id: 'wallet', label: 'Wallet', icon: 'wallet-outline', subtitle: 'Auto-deduct' },
     { id: 'card', label: 'Card', icon: 'card-outline', subtitle: 'Secure Stripe' },
+    { id: 'wipay', label: 'WiPay (Local)', icon: 'card-outline', subtitle: 'T&T debit cards' },
 ];
 
 export function PaymentScreen({ navigation, route }: any) {
@@ -142,9 +143,62 @@ export function PaymentScreen({ navigation, route }: any) {
         }
     }, [rideId, userId, stripe, navigation, isExpoGo, paymentAttempts]);
 
+    const handleWipayPayment = useCallback(async () => {
+        if (!rideId) return;
+        if (isProcessingRef.current) return;
+        isProcessingRef.current = true;
+        setLoading(true);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        try {
+            const { data, error: fnError } = await supabase.functions.invoke(
+                'create_wipay_payment',
+                { body: { ride_id: rideId } }
+            );
+
+            if (fnError || !data?.checkout_url) {
+                Alert.alert('Setup Failed', fnError?.message || 'Could not initialize WiPay payment.');
+                return;
+            }
+
+            const supported = await Linking.canOpenURL(data.checkout_url);
+            if (!supported) {
+                Alert.alert('Error', 'Unable to open payment page.');
+                return;
+            }
+
+            await Linking.openURL(data.checkout_url);
+
+            const checkPayment = setInterval(async () => {
+                const { data: ride } = await supabase
+                    .from('rides')
+                    .select('payment_status')
+                    .eq('id', rideId)
+                    .single();
+
+                if (ride?.payment_status === 'captured') {
+                    clearInterval(checkPayment);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    Alert.alert('Success', 'WiPay payment confirmed.', [
+                        { text: 'OK', onPress: () => navigation.goBack() }
+                    ]);
+                }
+            }, 3000);
+
+            setTimeout(() => clearInterval(checkPayment), 120000);
+        } catch (err: any) {
+            Alert.alert('Error', err.message);
+        } finally {
+            setLoading(false);
+            isProcessingRef.current = false;
+        }
+    }, [rideId, userId, navigation]);
+
     const handleConfirm = async () => {
         if (selected === 'card') {
             await handleCardPayment();
+        } else if (selected === 'wipay') {
+            await handleWipayPayment();
         } else {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             navigation.goBack();
@@ -210,7 +264,7 @@ export function PaymentScreen({ navigation, route }: any) {
                         >
                             {loading ? <ActivityIndicator color="#FFF" /> : (
                                 <Txt variant="bodyBold" color="#FFF">
-                                    {selected === 'card' ? 'PROCESS ENGAGEMENT' : 'CONFIRM ENGAGEMENT'}
+                                    {selected === 'card' ? 'PROCESS ENGAGEMENT' : selected === 'wipay' ? 'PAY WITH WIPAY' : 'CONFIRM ENGAGEMENT'}
                                 </Txt>
                             )}
                         </LinearGradient>
