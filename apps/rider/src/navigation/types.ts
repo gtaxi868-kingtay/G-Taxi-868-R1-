@@ -189,6 +189,7 @@ export type AppStackParamList = {
   TravelMyBookings: undefined;
   TravelWaitlist: undefined;
   Referral: undefined;
+  EscapeStorefront: undefined;
   EscapeCheckout: { packageId: string; guestCount: number; userLocation: { latitude: number; longitude: number } };
   ActivePass: undefined;
 };

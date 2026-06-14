@@ -59,6 +59,10 @@ import { TravelBookingConfirmationScreen } from './src/screens/TravelBookingConf
 import { TravelMyBookingsScreen } from './src/screens/TravelMyBookingsScreen';
 import { TravelWaitlistScreen } from './src/screens/TravelWaitlistScreen';
 import { ReferralScreen } from './src/screens/ReferralScreen';
+import EscapeStorefrontScreen from './src/screens/EscapeStorefrontScreen';
+import EscapeCheckoutScreen from './src/screens/EscapeCheckoutScreen';
+import ActivePassScreen from './src/screens/ActivePassScreen';
+import { EscapeTripProvider } from './src/context/EscapeContext';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
@@ -163,6 +167,9 @@ function AppNavigator() {
                 <AppStack.Screen name="TravelMyBookings" component={TravelMyBookingsScreen} />
                 <AppStack.Screen name="TravelWaitlist" component={TravelWaitlistScreen} />
                 <AppStack.Screen name="Referral" component={ReferralScreen} />
+                <AppStack.Screen name="EscapeStorefront" component={EscapeStorefrontScreen} />
+                <AppStack.Screen name="EscapeCheckout" component={EscapeCheckoutScreen} />
+                <AppStack.Screen name="ActivePass" component={ActivePassScreen} />
             </AppStack.Navigator>
         </>
     );
@@ -171,7 +178,7 @@ function AppNavigator() {
 function RootNavigator() {
     const { user, loading } = useAuth();
     if (loading) return <AnimatedSplash onFinish={() => { }} />;
-    return user ? <RideProvider><AppNavigator /></RideProvider> : <AuthNavigator />;
+    return user ? <RideProvider><EscapeTripProvider><AppNavigator /></EscapeTripProvider></RideProvider> : <AuthNavigator />;
 }
 
 const linking = {
