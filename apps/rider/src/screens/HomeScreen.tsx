@@ -58,7 +58,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, g_escape: false });
+    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, g_escape: false, food_delivery: false });
     const [progression, setProgression] = useState<{
         level: number; level_label: string; unlocked_verticals: string[];
         total_rides: number; next_unlock: { level: number; vertical: string; progress: number; required: number; label: string } | null;
@@ -176,6 +176,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     merchant: verticals?.some((v: any) => v.vertical_name === 'merchant_delivery') || false,
                     kiosk: false,
                     caribbean_travel: verticals?.some((v: any) => v.vertical_name === 'caribbean_travel') || false,
+                    food_delivery: verticals?.some((v: any) => v.vertical_name === 'food_delivery') || false,
                 };
                 setFeatureFlags(flags);
                 const { data: sysKiosk } = await supabase
@@ -187,7 +188,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 setFeatureFlags(flags);
             } catch (err) {
                 console.warn('Failed to fetch verticals:', err);
-                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, g_escape: false });
+                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, g_escape: false, food_delivery: false });
             } finally {
                 setIsVerticalsLoading(false);
             }
@@ -1067,6 +1068,19 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                         </LinearGradient>
                                         <Text style={s.chipLabel}>Ride</Text>
                                     </TouchableOpacity>
+
+                                    {featureFlags.food_delivery && (
+                                        <TouchableOpacity
+                                            activeOpacity={0.82}
+                                            style={s.chip}
+                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('FoodDelivery'); }}
+                                        >
+                                            <View style={[s.chipIconWrap, { backgroundColor: 'rgba(249,115,22,0.15)', borderColor: 'rgba(249,115,22,0.25)' }]}>
+                                                <Ionicons name="restaurant-sharp" size={24} color="#F97316" />
+                                            </View>
+                                            <Text style={s.chipLabel}>Food</Text>
+                                        </TouchableOpacity>
+                                    )}
 
                                     {featureFlags.grocery && (
                                         <TouchableOpacity

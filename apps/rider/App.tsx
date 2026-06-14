@@ -62,6 +62,7 @@ import { ReferralScreen } from './src/screens/ReferralScreen';
 import EscapeStorefrontScreen from './src/screens/EscapeStorefrontScreen';
 import EscapeCheckoutScreen from './src/screens/EscapeCheckoutScreen';
 import ActivePassScreen from './src/screens/ActivePassScreen';
+import { FoodDeliveryScreen } from './src/screens/FoodDeliveryScreen';
 import { EscapeTripProvider } from './src/context/EscapeContext';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -170,6 +171,7 @@ function AppNavigator() {
                 <AppStack.Screen name="EscapeStorefront" component={EscapeStorefrontScreen} />
                 <AppStack.Screen name="EscapeCheckout" component={EscapeCheckoutScreen} />
                 <AppStack.Screen name="ActivePass" component={ActivePassScreen} />
+                <AppStack.Screen name="FoodDelivery" component={FoodDeliveryScreen} />
             </AppStack.Navigator>
         </>
     );

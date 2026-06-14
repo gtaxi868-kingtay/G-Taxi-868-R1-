@@ -7,6 +7,7 @@ interface FeatureFlags {
   kiosk: boolean;
   airline: boolean;
   hotel: boolean;
+  food_delivery: boolean;
 }
 
 const CACHE_KEY = 'gtaxi_feature_flags';
@@ -48,6 +49,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   kiosk: true,
   airline: false,
   hotel: false,
+  food_delivery: false,
 };
 
 export async function syncFeatureFlags(supabase: SupabaseClient): Promise<FeatureFlags> {
@@ -82,6 +84,7 @@ export async function syncFeatureFlags(supabase: SupabaseClient): Promise<Featur
       kiosk: flagMap['kiosk_active'] ?? flagMap['kiosk'] ?? DEFAULT_FLAGS.kiosk,
       airline: flagMap['airline_active'] ?? DEFAULT_FLAGS.airline,
       hotel: flagMap['hotel_active'] ?? DEFAULT_FLAGS.hotel,
+      food_delivery: flagMap['food_delivery'] ?? DEFAULT_FLAGS.food_delivery,
     };
 
     await setCachedFlags(flags);

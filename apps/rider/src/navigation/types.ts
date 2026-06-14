@@ -192,6 +192,7 @@ export type AppStackParamList = {
   EscapeStorefront: undefined;
   EscapeCheckout: { packageId: string; guestCount: number; userLocation: { latitude: number; longitude: number } };
   ActivePass: undefined;
+  FoodDelivery: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;
