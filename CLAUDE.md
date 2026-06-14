@@ -78,11 +78,19 @@ confirmed resolved by reading the actual source code on 2026-05-30.
   - FIREBASE_SERVICE_ACCOUNT_JSON  ✅ SET — base64 encoded service account for g-taxi-868-584a4
   - GROQ_API_KEY                   ✅ SET — llama-3.3-70b-versatile (unblocks ai-gateway + platform_intelligence)
 
+  AUTO-INJECTED BY SUPABASE RUNTIME (never set manually — always available):
+  - SUPABASE_SERVICE_ROLE_KEY      ✅ AUTO — Supabase injects this into every edge function
+  - SUPABASE_URL                   ✅ AUTO — same
+  - SUPABASE_ANON_KEY              ✅ AUTO — same
+  Note: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") always resolves in deployed functions.
+  Do NOT add it to dashboard secrets — the runtime provides it. Do NOT put it in any
+  client-side bundle (absolute rule 1 still applies to the CLIENT apps).
+
   NOT YET SET — will crash on first invocation:
-  - SUPABASE_SERVICE_ROLE_KEY      ❌ CRITICAL — ~60 functions fail without this
   - STRIPE_SECRET_KEY              ❌ CRITICAL — all card payments fail
   - STRIPE_WEBHOOK_SECRET          ❌ CRITICAL — webhook signature verify fails (stripe_webhook:61)
   - TWILIO_ACCOUNT_SID / TOKEN     ❌ SMS fails silently
+  - WIPAY_ACCOUNT_NUMBER / API_KEY ❌ Card payments via WiPay return coming_soon
   - UPSTASH_REDIS_REST_URL / TOKEN ❌ Redis cache fails (non-fatal)
   - SENTRY_DSN                     ❌ Error reporting silent (non-fatal)
 
@@ -92,15 +100,32 @@ confirmed resolved by reading the actual source code on 2026-05-30.
   - platform_intelligence  — AI agent using Groq llama-3.3-70b; verify_jwt: false (cron-callable)
   - submit_dispute         — Rider/driver dispute filing; verify_jwt: true
   - admin_process_payout   — Admin payout approve/reject; verify_jwt: true
-  - estimate_fare          — Redeployed with dynamic pricing from platform_config table
 
-## GENUINE REMAINING GAPS (verified against source code 2026-06-13)
+  DEPLOYED (2026-06-16):
+  - estimate_fare    v41   — fixed missing PRICING import (was crashing on every success path);
+                             now reads live rates from pricing_config table, falls back to hardcoded
+  - admin_assign_driver v31 — inlined auth, verify_jwt set to true (was false)
 
-1. SUPABASE_SERVICE_ROLE_KEY NOT SET — highest priority
-   Without this, every edge function that uses the admin client fails silently.
-   Set at: supabase.com/dashboard/project/ffbbuafgeypvkpcuvdnv/settings/functions
+  DEPLOYED (2026-06-17) — travel flow fixes:
+  - book_travel_package v10 — fixed airport transfer pickup coords (was defaulting to Piarco Airport
+                              as BOTH pickup AND dropoff when rider had no home address saved; now
+                              defaults to Port of Spain city centre 10.6549,-61.5019); added booking
+                              confirmation push notification immediately after successful booking
+  - platform_intelligence v8 — added deterministic pre-steps before AI loop:
+                                (1) activateScheduledTransfers: transitions rides with status='scheduled'
+                                    to 'searching' 45 min before scheduled_for, pushes rider to notify
+                                (2) sendTravelReminders: sends 48h and 24h departure push reminders for
+                                    confirmed travel_bookings; deduped via agent_decision_log sentinel
 
-2. STRIPE KEYS NOT SET — blocks all card payments
+  DB MIGRATION APPLIED (2026-06-16): pricing_config_and_admin_rpcs
+  - New table: pricing_config (key, value_cents, description) seeded with TTD fare constants
+  - New RPCs: admin_get_pricing, admin_set_pricing, admin_get_surge_zones,
+              admin_deactivate_surge_zone, admin_create_surge_zone
+  - All 5 RPCs were missing — admin Pricing page errored on every load before this
+
+## GENUINE REMAINING GAPS (verified against source code 2026-06-13, corrected 2026-06-13)
+
+1. STRIPE KEYS NOT SET — blocks all card payments
    STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET both required.
 
 3. MOBILE APPS NEVER BUILT — no APK/IPA for distribution

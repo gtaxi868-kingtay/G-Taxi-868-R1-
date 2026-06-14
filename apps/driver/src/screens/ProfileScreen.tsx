@@ -71,6 +71,46 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
 
     useEffect(() => { loadProfileData(); }, [loadProfileData]);
 
+    const handlePurgeAccount = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+            'Delete Account',
+            'This permanently deletes your account, all trip history, and earnings data. This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Yes, Delete Everything',
+                    style: 'destructive',
+                    onPress: () => {
+                        Alert.alert(
+                            'Final Confirmation',
+                            'Type "DELETE" to confirm. Your account will be permanently removed.',
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                    text: 'Confirm Delete',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                        try {
+                                            const { data: { session } } = await supabase.auth.getSession();
+                                            const { error } = await supabase.functions.invoke('delete_account', {
+                                                headers: session ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+                                            });
+                                            if (error) throw error;
+                                            await signOut();
+                                        } catch (err: any) {
+                                            Alert.alert('Error', err.message || 'Could not delete account. Contact support@gtaxi.tt');
+                                        }
+                                    }
+                                }
+                            ]
+                        );
+                    }
+                }
+            ]
+        );
+    };
+
     const handleLogout = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         Alert.alert('Log Out', 'Are you sure you want to log out?', [
@@ -253,7 +293,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     <Text style={{fontSize: 14, fontWeight: '700', color: '#F59E0B'}}>TERMINATE SESSION</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'rgba(239,68,68,0.4)' }]} onPress={() => {}}>
+                <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'rgba(239,68,68,0.4)' }]} onPress={handlePurgeAccount}>
                     <Ionicons name="trash-outline" size={20} color="#FF4D4D" style={{ marginRight: 8 }} />
                     <Text style={{fontSize: 14, fontWeight: '700', color: '#FF4D4D'}}>PURGE ACCOUNT & DATA</Text>
                 </TouchableOpacity>

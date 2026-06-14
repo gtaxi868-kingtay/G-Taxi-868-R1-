@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, ScrollView, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -119,12 +119,20 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileDesc}>Commissions & payouts</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => {}}>
+          <TouchableOpacity
+            style={[s.tile, glassSurface(0.15), { width: tileWidth }]}
+            onPress={() => {
+              Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Sign Out', style: 'destructive', onPress: signOut },
+              ]);
+            }}
+          >
             <View style={[s.tileIcon, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-              <Ionicons name="settings" size={28} color="#EF4444" />
+              <Ionicons name="log-out-outline" size={28} color="#EF4444" />
             </View>
-            <Text style={s.tileLabel}>Settings</Text>
-            <Text style={s.tileDesc}>Account & preferences</Text>
+            <Text style={s.tileLabel}>Sign Out</Text>
+            <Text style={s.tileDesc}>End your session</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('PropertyManagement', {})}>
