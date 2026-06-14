@@ -117,6 +117,24 @@ confirmed resolved by reading the actual source code on 2026-05-30.
                                 (2) sendTravelReminders: sends 48h and 24h departure push reminders for
                                     confirmed travel_bookings; deduped via agent_decision_log sentinel
 
+  DEPLOYED (2026-06-17) — G-Escape flight-anchored model:
+  - book_escape v1 — atomic seat hold via secure_escape_booking() FOR UPDATE; Stripe pre-auth
+                     with capture_method='manual' (never auto-charges); wallet path via
+                     capture_escape_wallet_payment() FOR UPDATE; rollback via
+                     release_single_reservation() on any downstream failure; idempotent
+                     (returns existing ACTIVE_HOLD on retry instead of double-booking)
+
+  DB MIGRATION APPLIED (2026-06-17): gescape_flight_anchored_model
+  - New tables: driver_zone_rates (12 TTD zones seeded), flight_blocks (POOLING/CONFIRMED/CANCELLED),
+                lodging_nodes, escape_packages (margin_positive constraint), package_reservations
+  - New RPCs: secure_escape_booking (pessimistic FOR UPDATE seat lock),
+              release_expired_holds (pg_cron every minute),
+              release_single_reservation (immediate error-path rollback),
+              capture_escape_wallet_payment (SELECT FOR UPDATE on wallet),
+              check_flight_tipping_points (daily: CONFIRM or CANCEL blocks past deadline),
+              admin_upsert_escape_package
+  - pg_cron: release-expired-escape-holds (every minute), check-escape-tipping-points (6am daily)
+
   DB MIGRATION APPLIED (2026-06-16): pricing_config_and_admin_rpcs
   - New table: pricing_config (key, value_cents, description) seeded with TTD fare constants
   - New RPCs: admin_get_pricing, admin_set_pricing, admin_get_surge_zones,
