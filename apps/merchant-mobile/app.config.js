@@ -25,7 +25,7 @@ export default {
         backgroundColor: "#F0FDF4",
       },
       package: "com.gtaxi.merchant",
-      permissions: ["android.permission.NFC"],
+      permissions: ["android.permission.NFC", "android.permission.POST_NOTIFICATIONS"],
     },
     plugins: [
       [
@@ -52,6 +52,7 @@ export default {
           isAndroidBackgroundLocationEnabled: true,
         },
       ],
+      "expo-notifications",
     ],
     owner: "gtaxi",
     extra: {
