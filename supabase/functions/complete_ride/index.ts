@@ -1,14 +1,15 @@
 // Supabase Edge Function: complete_ride
 // ============================================================
-// CAPITAL RESERVE LOCK — Settlement Engine (2026-06-12)
+// CAPITAL RESERVE LOCK — Settlement Engine (2026-06-14)
 // ============================================================
 // Settlement math (server-side only — app is purely display):
-//   reserve      = round(gross * 0.015)     → capital_reserve_ledger
-//   net          = gross - reserve
-//   platform_fee = round(net * rate)        → platform_revenue_logs
-//                  rate = 0.185 standard / 0.16 loyalty (balance ≥ TTD$500)
-//   driver_payout = net - platform_fee       → wallet / cash
-//   Invariant: reserve + platform_fee + driver_payout = gross
+//   platform_fee  = round(gross * rate)     → platform_revenue_logs
+//                   rate = 0.19 standard / 0.16 loyalty (balance ≥ TTD$500)
+//   reserve       = round(gross * 0.015)    → capital_reserve_ledger
+//                   (sub-ledger within platform_fee — NOT an extra deduction)
+//   driver_payout = gross - platform_fee    → wallet / cash
+//   Invariant: platform_fee + driver_payout = gross
+//   Net platform revenue: platform_fee - reserve = 17.5% (14.5% loyalty)
 //
 // ALL payment paths (wallet, cash, card) converge on this math.
 // No client-supplied value is trusted for payout calculation.
@@ -69,19 +70,20 @@ const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
 /**
  * Server-side settlement calculation — single source of truth.
  * No client-supplied values are used in this computation.
- * platformRate: 0.185 standard, 0.16 for loyalty drivers (balance ≥ TTD $500).
+ * platformRate: 0.19 standard, 0.16 for loyalty drivers (balance ≥ TTD $500).
+ * reserve is a 1.5% sub-ledger within platformFee — not an extra charge.
  */
-function computeSettlement(grossCents: number, platformRate = 0.185): {
+function computeSettlement(grossCents: number, platformRate = 0.19): {
   reserveCents: number;
   netFare: number;
   platformFee: number;
   driverPayoutCents: number;
   platformRate: number;
 } {
+  const platformFee = Math.round(grossCents * platformRate);
   const reserveCents = Math.round(grossCents * 0.015);
-  const netFare = grossCents - reserveCents;
-  const platformFee = Math.round(netFare * platformRate);
-  const driverPayoutCents = netFare - platformFee;
+  const driverPayoutCents = grossCents - platformFee;
+  const netFare = driverPayoutCents;
   return { reserveCents, netFare, platformFee, driverPayoutCents, platformRate };
 }
 
@@ -219,9 +221,9 @@ serve(async (req: Request) => {
       (ride.total_fare_cents || 0) + totalWaitFareCents + gridlockSurchargeCents;
 
     // ── LOYALTY RATE TIER ───────────────────────────────────────────────────
-    // Drivers with wallet balance ≥ TTD $500 get 16% instead of 18.5%.
+    // Drivers with wallet balance ≥ TTD $500 get 16% instead of 19%.
     const driverUserIdForLoyalty = await resolveDriverAuthUserId(supabaseAdmin, driverRecord, ride.driver_id);
-    let platformRate = 0.185;
+    let platformRate = 0.19;
     let loyaltyApplied = false;
 
     if (driverUserIdForLoyalty) {
@@ -279,7 +281,7 @@ serve(async (req: Request) => {
         );
       }
 
-      const totalPlatformCents = platformFee + reserveCents;
+      const totalPlatformCents = platformFee;
 
       console.log("[SHADOW_LEDGER][completeRide]", {
         ride_id,
@@ -298,7 +300,7 @@ serve(async (req: Request) => {
         ride_id: ride_id,
         amount: -totalPlatformCents,
         transaction_type: "commission_fee",
-        description: `Platform (${(platformRate * 100).toFixed(1)}%${loyaltyApplied ? " loyalty" : ""}) + War Chest (1.5%) on cash ride`,
+        description: `Platform (${(platformRate * 100).toFixed(1)}%${loyaltyApplied ? " loyalty" : ""}) on cash ride — war chest (1.5%) sub-ledgered within`,
         status: "completed",
       });
 
@@ -416,7 +418,7 @@ serve(async (req: Request) => {
             .eq("id", kiosk.merchant_id)
             .single();
 
-          const rate = merchant?.commission_rate ?? 0.03;
+          const rate = merchant?.commission_rate ?? 0.05;
           const commissionCents = Math.floor(effectiveFare * rate);
           // Staff earn 1% of ride fare (sub-commission under the merchant's umbrella)
           const staffAmountCents = kiosk.staff_member_id

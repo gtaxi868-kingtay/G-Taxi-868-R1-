@@ -125,7 +125,7 @@ export default function ActivePassScreen() {
     const pkgId = pkg?.id ?? '';
     const departureStr = fb?.departure_time ? fmtDate(fb.departure_time) : '';
     if (seatsLeft > 0) {
-      return `I just locked in my G Escape seat to ${dest} ✈️\n\nDeparts ${departureStr}. We need ${seatsLeft} more person${seatsLeft !== 1 ? 's' : ''} to confirm the flight for everyone.\n\nJoin the pool on G-Taxi:\ngtaxi://escape/${pkgId}\n\n#GEscape #Caribbean`;
+      return `I just locked in my G Escape seat to ${dest} ✈️\n\nDeparts ${departureStr}. We need ${seatsLeft} more person${seatsLeft !== 1 ? 's' : ''} to confirm the flight for everyone.\n\nJoin the pool on G-Taxi:\ngtaxi://travel/${pkgId}\n\n#GEscape #Caribbean`;
     }
     return `Flight confirmed — I'm heading to ${dest} on G Escape! ✈️\n\nBooked right from G-Taxi, the Caribbean travel app built for T&T.\n\nDeparts ${departureStr}. Download G-Taxi to plan yours.\n\n#GEscape #Caribbean`;
   };

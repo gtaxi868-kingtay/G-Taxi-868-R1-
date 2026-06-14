@@ -9,6 +9,7 @@
 //  1. activateScheduledTransfers — flip rides status='scheduled' → 'searching' 45 min before departure
 //  2. sendTravelReminders — push 48h and 24h departure reminders for confirmed travel_bookings
 //  3. sendMerchantOverdueWarnings — push day-4 overdue warning to merchant owners before suspension
+//  4. checkRateExpiry — alert admins when active package wholesale rates expire within 7 days
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -187,6 +188,63 @@ async function sendMerchantOverdueWarnings(supabase: ReturnType<typeof createCli
         });
 
         console.log(`[sendMerchantOverdueWarnings] warning sent for merchant ${sub.merchant_id}`);
+    }
+}
+
+// ── PRE-STEP 4: Rate expiry alerts (Rockefeller) ─────────────────────────────
+// Active travel packages with rate_expiry_at < now()+7days → push admin + log.
+// Deduped via agent_decision_log sentinel key `rate_expiry_alert_{pkg_id}`.
+async function checkRateExpiry(supabase: ReturnType<typeof createClient>) {
+    const sevenDaysOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: expiring } = await supabase
+        .from("travel_packages")
+        .select("id, title, rate_expiry_at, rate_contact")
+        .eq("status", "active")
+        .not("rate_expiry_at", "is", null)
+        .lte("rate_expiry_at", sevenDaysOut);
+
+    if (!expiring?.length) return;
+
+    for (const pkg of expiring) {
+        const sentinelKey = `rate_expiry_alert_${pkg.id}`;
+        const { data: existing } = await supabase
+            .from("agent_decision_log")
+            .select("id")
+            .eq("decision_type", "rate_expiry_alert")
+            .contains("payload", { sentinel: sentinelKey })
+            .maybeSingle();
+        if (existing) continue;
+
+        const daysLeft = Math.ceil((new Date(pkg.rate_expiry_at).getTime() - Date.now()) / 86400000);
+        const isExpired = daysLeft <= 0;
+        const label = isExpired ? "EXPIRED" : `expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`;
+
+        // Push all admin users
+        const { data: admins } = await supabase
+            .from("profiles")
+            .select("push_token")
+            .eq("role", "admin")
+            .not("push_token", "is", null);
+
+        for (const admin of admins ?? []) {
+            await sendExpoPush(
+                admin.push_token,
+                isExpired ? "⚠️ Rate expired — package at risk" : "Rate renewal needed",
+                `${pkg.title} — wholesale rate ${label}.${pkg.rate_contact ? ` Contact: ${pkg.rate_contact}` : ""}`,
+                { package_id: pkg.id, type: "rate_expiry_alert" },
+            );
+        }
+
+        await supabase.from("agent_decision_log").insert({
+            decision_type: "rate_expiry_alert",
+            reasoning: `Package "${pkg.title}" rate ${label}`,
+            tool_used: "checkRateExpiry",
+            payload: { sentinel: sentinelKey, package_id: pkg.id, rate_expiry_at: pkg.rate_expiry_at, days_left: daysLeft },
+            outcome: `Alert pushed to ${admins?.length ?? 0} admin(s)`,
+        });
+
+        console.log(`[checkRateExpiry] ${pkg.title} — rate ${label}`);
     }
 }
 
@@ -493,6 +551,7 @@ serve(async (req) => {
             activateScheduledTransfers(supabase),
             sendTravelReminders(supabase),
             sendMerchantOverdueWarnings(supabase),
+            checkRateExpiry(supabase),
         ]);
 
         // ── GROQ AI LOOP ────────────────────────────────────────────────────────

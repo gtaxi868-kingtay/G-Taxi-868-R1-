@@ -65,6 +65,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     } | null>(null);
     const [suggestion, setSuggestion] = useState<{ cta_text: string; vertical: string; reason_code: string } | null>(null);
     const [travelSuggestion, setTravelSuggestion] = useState<{ dest: string; destCode: string; tagline: string; rideCount: number } | null>(null);
+    const [departureNudge, setDepartureNudge] = useState<{ title: string; departure_at: string; booking_id: string } | null>(null);
     const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -362,6 +363,30 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             }
         }).catch(() => {});
     }, [featureFlags.caribbean_travel, featureFlags.g_escape]);
+
+    // Bezos fix: 72h pre-departure card for confirmed travel bookings
+    useEffect(() => {
+        if (!profile?.id) return;
+        const now = new Date().toISOString();
+        const in72h = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+        supabase
+            .from('travel_bookings')
+            .select('id, travel_packages(title, departure_at)')
+            .eq('user_id', profile.id)
+            .eq('status', 'confirmed')
+            .gte('travel_packages.departure_at', now)
+            .lte('travel_packages.departure_at', in72h)
+            .maybeSingle()
+            .then(({ data }) => {
+                if (data) {
+                    const pkg = (data as any).travel_packages;
+                    if (pkg?.title && pkg?.departure_at) {
+                        setDepartureNudge({ title: pkg.title, departure_at: pkg.departure_at, booking_id: data.id });
+                    }
+                }
+            })
+            .catch(() => {});
+    }, [profile?.id]);
 
     useEffect(() => {
         const lat = location?.coords?.latitude || DEFAULT_LOCATION.latitude;
@@ -928,6 +953,37 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                                 />
                                             ))}
                                         </View>
+                                    </TouchableOpacity>
+                                )}
+
+                                {/* ── BEZOS FIX: 72h pre-departure card ───────── */}
+                                {departureNudge && (
+                                    <TouchableOpacity
+                                        activeOpacity={0.88}
+                                        style={s.departureNudgeCard}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                            navigation.navigate('EscapeStorefront');
+                                        }}
+                                    >
+                                        <LinearGradient
+                                            colors={['rgba(212,175,55,0.18)', 'rgba(212,175,55,0.06)']}
+                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={s.departureNudgeGradient}
+                                        >
+                                            <View style={s.departureNudgeLeft}>
+                                                <Text style={s.departureNudgeLabel}>DEPARTURE IN LESS THAN 72H</Text>
+                                                <Text style={s.departureNudgeTitle}>{departureNudge.title}</Text>
+                                                <Text style={s.departureNudgeSub}>
+                                                    {new Date(departureNudge.departure_at).toLocaleDateString('en-TT', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                                    {' — '}
+                                                    {new Date(departureNudge.departure_at).toLocaleTimeString('en-TT', { hour: '2-digit', minute: '2-digit' })}
+                                                </Text>
+                                            </View>
+                                            <View style={s.departureNudgeIcon}>
+                                                <Ionicons name="airplane-sharp" size={22} color="#D4AF37" />
+                                            </View>
+                                        </LinearGradient>
                                     </TouchableOpacity>
                                 )}
 
@@ -1608,6 +1664,49 @@ const s = StyleSheet.create({
     },
     progressionDotActive: {
         backgroundColor: '#00FFFF',
+    },
+    departureNudgeCard: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(212,175,55,0.4)',
+        marginBottom: 8,
+    },
+    departureNudgeGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+    },
+    departureNudgeLeft: {
+        flex: 1,
+        gap: 2,
+    },
+    departureNudgeLabel: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: '#D4AF37',
+        letterSpacing: 1.2,
+        marginBottom: 2,
+    },
+    departureNudgeTitle: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: '#FFF',
+    },
+    departureNudgeSub: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.5)',
+        marginTop: 2,
+    },
+    departureNudgeIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(212,175,55,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 12,
     },
     travelSuggestionCard: {
         borderRadius: 16,

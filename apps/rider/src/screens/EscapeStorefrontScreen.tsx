@@ -42,6 +42,15 @@ interface EscapePackageCard {
 
 const GUEST_OPTIONS = [1, 2, 3, 4];
 
+const DEST_EXPERIENCES: Record<string, { tagline: string; highlights: [string, string, string] }> = {
+  BGI: { tagline: 'The island that makes every other island jealous', highlights: ['Crystal-clear south coast beaches', 'Crop Over festival energy year-round', 'Bridgetown duty-free dining scene'] },
+  GND: { tagline: 'The undiscovered one — before everyone finds out', highlights: ['Grand Etang rainforest crater lake', 'Grenada chocolate straight from the estate', 'Underwater sculpture park at Molinere'] },
+  TAB: { tagline: 'Your next move is 20 minutes by air', highlights: ['Buccoo Reef glass-bottom boat tours', 'Pigeon Point beach, sun-lounger ready', 'Sunday School street party in Buccoo'] },
+  ANU: { tagline: '365 beaches. You\'ve seen none of them yet', highlights: ['English Harbour\'s colonial-era dockyard', 'Half Moon Bay — the most photographed beach in the Caribbean', 'Shirley Heights Sunday sunset BBQ'] },
+  SKB: { tagline: 'Caribbean with no attitude. Just your kind of pace', highlights: ['Brimstone Hill Fortress — Caribbean\'s Gibraltar', 'Nevis Peak rainforest day hike', 'Black sand Cockleshell Beach with dual-island views'] },
+  SLU: { tagline: 'The Pitons are on every Caribbean bucket list for a reason', highlights: ['Sulfur springs — drive-in volcano', 'Marigot Bay — the most beautiful bay in the Caribbean', 'Rainforest aerial tram over the canopy'] },
+};
+
 export default function EscapeStorefrontScreen() {
   const navigation = useNavigation<Nav>();
   const { activeTrip } = useEscapeTrip();
@@ -176,6 +185,19 @@ export default function EscapeStorefrontScreen() {
           <Text style={styles.destination}>{fb.destination_name}</Text>
           <Text style={styles.pkgName}>{item.package_name}</Text>
           {item.tagline ? <Text style={styles.tagline}>{item.tagline}</Text> : null}
+
+          {/* Jobs fix: island experience highlights before logistics */}
+          {DEST_EXPERIENCES[fb.destination_code] && (
+            <View style={styles.experienceCard}>
+              <Text style={styles.experienceTagline}>{DEST_EXPERIENCES[fb.destination_code].tagline}</Text>
+              {DEST_EXPERIENCES[fb.destination_code].highlights.map((h, i) => (
+                <View key={i} style={styles.highlightRow}>
+                  <View style={styles.highlightDot} />
+                  <Text style={styles.highlightText}>{h}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           <View style={styles.metaRow}>
             <Text style={styles.meta}>{fmtDate(fb.departure_time)}</Text>
@@ -376,6 +398,14 @@ const styles = StyleSheet.create({
   joinBtn:          { backgroundColor: '#C8A96E', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 12 },
   joinBtnDisabled:  { backgroundColor: '#1E1E26' },
   joinBtnText:      { color: '#000', fontWeight: '700', fontSize: 14 },
+
+  // Experience card
+  experienceCard:     { backgroundColor: '#0F1018', borderRadius: 10, padding: 12, marginTop: 10,
+                        marginBottom: 4, borderWidth: 1, borderColor: '#1A1A2A' },
+  experienceTagline:  { color: '#C8A96E', fontSize: 11, fontStyle: 'italic', marginBottom: 8, lineHeight: 15 },
+  highlightRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 4 },
+  highlightDot:       { width: 4, height: 4, borderRadius: 2, backgroundColor: '#C8A96E', marginTop: 5, flexShrink: 0 },
+  highlightText:      { color: '#666', fontSize: 11, lineHeight: 15, flex: 1 },
 
   // Guest picker sheet
   sheetOverlay:     { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
