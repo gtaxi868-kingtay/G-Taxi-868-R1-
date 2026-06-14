@@ -3,7 +3,7 @@
 # Do not skip sections. Do not assume you know the state of any file.
 # Do not fix multiple phases in one session unless explicitly told to.
 
-# Last updated: 2026-05-30
+# Last updated: 2026-06-14
 # Plain English summary (based on code in this repo):
 # This repository implements a two-sided ride-hailing system for Trinidad
 # and Tobago: a Rider app, a Driver app, an Admin dashboard, and Supabase
@@ -256,6 +256,28 @@ payment_ledger table — read only for users:
   Twilio signup:          https://www.twilio.com/try-twilio
   Sentry signup:          https://sentry.io/signup/
   Supabase dashboard:     https://supabase.com/dashboard
+
+---
+
+---
+
+## SESSION HISTORY
+
+### 2026-06-14 — Cleanup purge + pricing strategy clarified
+
+**Cleanup**: Purged ~100 stale files (audits, agent screenshots, build logs, old docs).
+Kept agent-guiding files (AGENTS.md, CLAUDE.md, PRODUCT.md, COMPLIANCE_CHECKLIST.md,
+docs/HANDOFF.md, docs/agents/). See commit 1a4bc388.
+
+**Pricing model** (clarified):
+- Rides feed the driver network; the driver network feeds all verticals
+- Pricing = base ($16) + time ($0.95/min) + distance ($1.75/km), $22 min fare
+- Zone rates override formula (guaranteed minimums per route, e.g. POS→Piarco = $80)
+- driver_zone_pricing table already exists, driver_zone_rates per driver variant
+- 81% driver split across ALL verticals (rides, delivery, merchant, travel)
+- Platform margin varies by vertical: rides 12% → others up to 20%
+- Admin toggles verticals via vertical_settings table (enabled, name, icon, etc.)
+- All settlement happens through rides table (not separate settlement events)
 
 ---
 
