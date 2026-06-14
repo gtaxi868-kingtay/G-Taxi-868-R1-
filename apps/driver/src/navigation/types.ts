@@ -13,6 +13,8 @@ export type AppStackParamList = {
   Dashboard: undefined;
   PendingApproval: undefined;
   TripRequest: undefined;
+  DeliveryRequest: undefined;
+  ActiveDelivery: { orderId: string };
   ActiveTrip: ActiveTripParams;
   Earnings: undefined;
   Wallet: undefined;

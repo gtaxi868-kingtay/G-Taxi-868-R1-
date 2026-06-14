@@ -16,6 +16,8 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { TripRequestScreen } from './src/screens/TripRequestScreen';
+import { DeliveryRequestScreen } from './src/screens/DeliveryRequestScreen';
+import { ActiveDeliveryScreen } from './src/screens/ActiveDeliveryScreen';
 import { ActiveTripScreen } from './src/screens/ActiveTripScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
@@ -159,6 +161,8 @@ function AppNavigator() {
             <AppStack.Screen name="Dashboard" component={DashboardScreen} />
             <AppStack.Screen name="PendingApproval" component={PendingApprovalScreen} />
             <AppStack.Screen name="TripRequest" component={TripRequestScreen} />
+            <AppStack.Screen name="DeliveryRequest" component={DeliveryRequestScreen} />
+            <AppStack.Screen name="ActiveDelivery" component={ActiveDeliveryScreen} />
             <AppStack.Screen
                 name="ActiveTrip"
                 component={ActiveTripScreen}

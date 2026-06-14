@@ -19,7 +19,7 @@ import Reanimated, {
 import { useAuth } from '../context/AuthContext';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { DEFAULT_LOCATION, ENV } from '@gtaxi/shared/env';
-import { useRideOfferSubscription } from '../services/realtime';
+import { useRideOfferSubscription, useDeliveryOfferSubscription } from '../services/realtime';
 import { supabase } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,6 +48,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
     const { driver, toggleOnline, signOut, refreshPushToken } = useAuth();
     const { location, signalStatus } = useLocationTracking();
     const { offer, clearOffer } = useRideOfferSubscription(driver?.id);
+    const { offer: deliveryOffer, clearOffer: clearDeliveryOffer } = useDeliveryOfferSubscription(driver?.id);
     const isOnline = driver?.is_online;
     const panelHeightLocal = height * 0.54;
     const mapHeightLocal = height - panelHeightLocal + 32;
@@ -200,6 +201,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
     const onRefresh = useCallback(async () => { setRefreshing(true); try { const { data } = await supabase.functions.invoke('get_system_status'); if (data?.success) setSystemStatus(data.data as Record<string, unknown>); } catch (e) { /* Refresh failed */ } setRefreshing(false); }, []);
 
     useEffect(() => { if (offer?.ride_id) navigation.navigate('TripRequest', { rideId: offer.ride_id, offer }); }, [offer]);
+    useEffect(() => { if (deliveryOffer?.order_id) navigation.navigate('DeliveryRequest', { offer: deliveryOffer }); }, [deliveryOffer]);
 
     if (isPending) return (
         <View style={[s.root, s.center]}>

@@ -11,6 +11,56 @@ export interface RideOffer {
     expires_at: string;
 }
 
+export interface DeliveryOffer {
+    id: string;
+    order_id: string;
+    driver_id: string;
+    status: 'pending' | 'accepted' | 'declined' | 'expired';
+    expires_at: string;
+    created_at: string;
+    // Enriched from push payload / local fetch
+    merchant_name?: string;
+    delivery_fee_cents?: number;
+    total_cents?: number;
+    merchant_address?: string;
+    rider_address?: string;
+}
+
+export function useDeliveryOfferSubscription(driverId: string | undefined) {
+    const [offer, setOffer] = useState<DeliveryOffer | null>(null);
+
+    useEffect(() => {
+        if (!driverId) return;
+
+        const channel = supabase
+            .channel(`driver-delivery-offers:${driverId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'delivery_offers',
+                    filter: `driver_id=eq.${driverId}`,
+                },
+                (payload) => {
+                    const updatedOffer = payload.new as DeliveryOffer;
+                    if (updatedOffer.status === 'pending') {
+                        setOffer(updatedOffer);
+                    } else {
+                        setOffer(current => current?.id === updatedOffer.id ? null : current);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [driverId]);
+
+    return { offer, clearOffer: () => setOffer(null) };
+}
+
 export function useRideOfferSubscription(driverId: string | undefined) {
     const [offer, setOffer] = useState<RideOffer | null>(null);
 
