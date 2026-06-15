@@ -134,7 +134,7 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
         <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
 
         <View style={s.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
             <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={s.title}>Send a Car</Text>
@@ -174,6 +174,8 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
               style={[s.dispatchBtn, loading && s.dispatchBtnDisabled]}
               onPress={handleDispatch}
               disabled={loading}
+              accessibilityLabel="Dispatch a car to the client"
+              accessibilityRole="button"
             >
               {loading ? (
                 <ActivityIndicator color="#000" />

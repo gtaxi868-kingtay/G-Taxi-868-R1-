@@ -268,10 +268,10 @@ export function ProductCatalogScreen() {
                         ios_backgroundColor="rgba(255,255,255,0.1)"
                     />
                 )}
-                <TouchableOpacity onPress={() => openEdit(item)} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity onPress={() => openEdit(item)} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={`Edit ${item.name}`} accessibilityRole="button">
                     <Ionicons name="pencil" size={16} color="rgba(255,255,255,0.4)" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => deleteProduct(item)} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity onPress={() => deleteProduct(item)} style={s.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={`Delete ${item.name}`} accessibilityRole="button">
                     <Ionicons name="trash-outline" size={16} color="#EF4444" />
                 </TouchableOpacity>
             </View>
@@ -286,7 +286,7 @@ export function ProductCatalogScreen() {
             <Text style={s.emptyDesc}>
                 Add products so riders can browse your store and place orders through G-Taxi.
             </Text>
-            <TouchableOpacity style={[s.emptyBtn, { backgroundColor: ACCENT + '22' }]} onPress={openAdd}>
+            <TouchableOpacity style={[s.emptyBtn, { backgroundColor: ACCENT + '22' }]} onPress={openAdd} accessibilityLabel="Add your first product" accessibilityRole="button">
                 <Ionicons name="add" size={18} color={ACCENT} />
                 <Text style={[s.emptyBtnText, { color: ACCENT }]}>Add First Product</Text>
             </TouchableOpacity>
@@ -319,7 +319,7 @@ export function ProductCatalogScreen() {
                         {products.filter(p => p.is_available).length} available
                     </Text>
                 </View>
-                <TouchableOpacity style={[s.addBtn, { backgroundColor: ACCENT }]} onPress={openAdd} activeOpacity={0.8}>
+                <TouchableOpacity style={[s.addBtn, { backgroundColor: ACCENT }]} onPress={openAdd} activeOpacity={0.8} accessibilityLabel="Add new product" accessibilityRole="button">
                     <Ionicons name="add" size={22} color="#000" />
                 </TouchableOpacity>
             </View>
@@ -361,6 +361,8 @@ export function ProductCatalogScreen() {
                             onPress={() => setModalVisible(false)}
                             style={s.modalClose}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityLabel="Close product form"
+                            accessibilityRole="button"
                         >
                             <Ionicons name="close" size={22} color="rgba(255,255,255,0.5)" />
                         </TouchableOpacity>
@@ -480,6 +482,8 @@ export function ProductCatalogScreen() {
                             onPress={saveProduct}
                             disabled={saving}
                             activeOpacity={0.8}
+                            accessibilityLabel={editingProduct ? 'Save product changes' : 'Add product to catalog'}
+                            accessibilityRole="button"
                         >
                             {saving ? (
                                 <ActivityIndicator size="small" color="#000" />

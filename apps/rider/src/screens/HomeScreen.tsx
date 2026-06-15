@@ -1052,7 +1052,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             <Text style={s.stopSuggestionsTitle}>Suggested stops</Text>
                             <View style={s.stopSuggestionRow}>
                                 {stopSuggestions.map((stop, i) => (
-                                    <TouchableOpacity key={i} style={s.stopSuggestionChip} onPress={() => {
+                                    <TouchableOpacity key={i} style={s.stopSuggestionChip} accessibilityLabel={`Add stop at ${stop.name}`} accessibilityRole="button" onPress={() => {
                                         navigation.navigate('RideConfirmation', {
                                             destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
                                             pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
@@ -1147,7 +1147,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                     <Text style={s.lockSubtitle}>
                                         A critical security update is available. Please update your app to continue using G-TAXI.
                                     </Text>
-                                    <TouchableOpacity style={s.updateBtn} onPress={() => Alert.alert("Update", "Please check the App Store or Google Play for the latest version.")}>
+                                    <TouchableOpacity style={s.updateBtn} accessibilityLabel="Update the app now" accessibilityRole="button" onPress={() => Alert.alert("Update", "Please check the App Store or Google Play for the latest version.")}>
                                         <Text style={s.updateBtnText}>Update Now</Text>
                                     </TouchableOpacity>
                                 </View>

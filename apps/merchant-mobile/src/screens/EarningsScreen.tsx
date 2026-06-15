@@ -160,11 +160,11 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
       <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
 
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={s.title}>Earnings</Text>
-        <TouchableOpacity onPress={loadEarnings} style={s.backBtn}>
+        <TouchableOpacity onPress={loadEarnings} style={s.backBtn} accessibilityLabel="Refresh earnings" accessibilityRole="button">
           <Ionicons name="refresh-outline" size={20} color={VOICES.merchant.accent} />
         </TouchableOpacity>
       </View>
@@ -203,6 +203,8 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
               <TouchableOpacity
                 key={tab}
                 style={[s.tab, activeTab === tab && s.tabActive]}
+                accessibilityLabel={`${tab.charAt(0).toUpperCase() + tab.slice(1)} tab`}
+                accessibilityRole="tab"
                 onPress={() => setActiveTab(tab)}
               >
                 <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>

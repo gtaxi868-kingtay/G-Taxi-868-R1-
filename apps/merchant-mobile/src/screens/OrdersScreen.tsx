@@ -169,6 +169,8 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
                     { backgroundColor: action.color },
                     action.nextStatus === 'cancelled' && s.actionBtnOutline,
                   ]}
+                  accessibilityLabel={`${action.label} order`}
+                  accessibilityRole="button"
                   onPress={() => {
                     if (action.nextStatus === 'cancelled') {
                       confirmReject(item.id);
@@ -198,11 +200,11 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
     <View style={[s.container, { paddingTop: insets.top }]}>
       <LinearGradient colors={['#0A0A0F', '#1C1510']} style={StyleSheet.absoluteFillObject} />
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={s.title}>Orders</Text>
-        <TouchableOpacity onPress={loadOrders}>
+        <TouchableOpacity onPress={loadOrders} accessibilityLabel="Refresh orders" accessibilityRole="button">
           <Ionicons name="refresh" size={22} color={VOICES.merchant.accent} />
         </TouchableOpacity>
       </View>
