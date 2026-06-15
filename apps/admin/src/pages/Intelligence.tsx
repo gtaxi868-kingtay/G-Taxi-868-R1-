@@ -76,24 +76,14 @@ export function Intelligence() {
         setTriggering(true);
         setTriggerMsg('');
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/platform_intelligence`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${session?.access_token}`,
-                    },
-                    body: '{}',
-                },
-            );
-            const json = await res.json();
-            if (json.success) {
-                setTriggerMsg(`Run complete — ${json.iterations} iteration(s). Run ID: ${json.run_id?.slice(0, 8)}`);
+            const { data, error } = await supabase.functions.invoke('platform_intelligence', { body: {} });
+            if (error) {
+                setTriggerMsg(`Error: ${error.message}`);
+            } else if (data?.success) {
+                setTriggerMsg(`Run complete — ${data.iterations} iteration(s). Run ID: ${data.run_id?.slice(0, 8)}`);
                 await load();
             } else {
-                setTriggerMsg(`Error: ${json.error}`);
+                setTriggerMsg(`Error: ${data?.error || 'Unknown error'}`);
             }
         } catch (e: unknown) {
             setTriggerMsg(`Error: ${e instanceof Error ? e.message : String(e)}`);
