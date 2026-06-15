@@ -14,7 +14,7 @@ import {
 import { supabase } from '@gtaxi/core';
 import { Logo } from '@gtaxi/shared/design-system/components';
 import { Ionicons } from '@expo/vector-icons';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { SURFACE, VOICES, ANIMATION, Z } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
 interface SidebarProps {
@@ -180,8 +180,8 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
 const styles = StyleSheet.create({
     overlay: {
         ...StyleSheet.absoluteFillObject,
-        zIndex: 9999,
-        elevation: 9999,
+        zIndex: Z.sidebar,
+        elevation: Z.sidebar,
     },
     backdrop: {
         ...StyleSheet.absoluteFillObject,

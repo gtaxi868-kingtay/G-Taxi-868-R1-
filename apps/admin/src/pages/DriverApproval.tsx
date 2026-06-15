@@ -138,8 +138,27 @@ export const DriverApproval = ({ onRefresh }: { onRefresh: () => void }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      <div className="space-y-6 animate-pulse">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[0,1,2,3].map(i => (
+            <div key={i} className="bg-white/5 border border-white/10 rounded-[1.5rem] p-6">
+              <div className="h-3 bg-white/10 rounded w-20 mb-3" />
+              <div className="h-8 bg-white/10 rounded w-12" />
+            </div>
+          ))}
+        </div>
+        <div className="space-y-4">
+          {[0,1,2].map(i => (
+            <div key={i} className="bg-white/5 border border-white/10 rounded-[1.5rem] p-6 flex gap-4 items-center">
+              <div className="w-12 h-12 bg-white/10 rounded-full flex-shrink-0" />
+              <div className="flex-1">
+                <div className="h-4 bg-white/10 rounded w-40 mb-2" />
+                <div className="h-3 bg-white/10 rounded w-28" />
+              </div>
+              <div className="h-8 bg-white/10 rounded-xl w-24" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

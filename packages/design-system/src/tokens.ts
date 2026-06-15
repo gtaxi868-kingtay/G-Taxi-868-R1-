@@ -50,6 +50,20 @@ export const ANIMATION = {
   spring: { damping: 18, stiffness: 150, mass: 1 },
 };
 
+// Semantic z-index scale — use these across all apps instead of arbitrary magic numbers.
+// Layers are: map content → overlays → panels → modals → banners/toasts
+export const Z = {
+    mapContent:    1,
+    mapOverlay:   10,
+    panel:        20,
+    lockOverlay:  30,
+    locationConfirm: 40,
+    sidebar:      50,
+    modal:        60,
+    toast:        70,
+    offlineBanner: 80,
+} as const;
+
 export const VOICES = {
   rider: {
     bg: '#050505',

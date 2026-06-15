@@ -181,8 +181,15 @@ export const Support = () => {
             </div>
 
             {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden animate-pulse">
+                    {[0,1,2,3,4].map(i => (
+                        <div key={i} className="px-8 py-5 border-b border-white/5 flex items-center gap-4">
+                            <div className="h-3 bg-white/10 rounded w-24" />
+                            <div className="h-3 bg-white/10 rounded w-32 flex-1" />
+                            <div className="h-5 bg-white/10 rounded-full w-16" />
+                            <div className="h-3 bg-white/10 rounded w-20" />
+                        </div>
+                    ))}
                 </div>
             ) : activeSection === 'tickets' ? (
                 <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden">

@@ -171,9 +171,17 @@ export function NodeRegistry() {
 
             {/* Node Grid */}
             {loading ? (
-                <div className="py-32 text-center">
-                    <div className="w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
-                    <p className="text-white/30 font-mono text-sm">Scanning beacon grid...</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {[0,1,2,3,4,5].map(i => (
+                        <div key={i} className="rounded-[1.5rem] border border-white/5 bg-white/[0.02] p-6 animate-pulse">
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="h-4 bg-white/10 rounded w-28" />
+                                <div className="h-5 bg-white/10 rounded-full w-16" />
+                            </div>
+                            <div className="h-3 bg-white/10 rounded w-40 mb-3" />
+                            <div className="h-3 bg-white/10 rounded w-24" />
+                        </div>
+                    ))}
                 </div>
             ) : filtered.length === 0 ? (
                 <div className="py-32 text-center bg-white/[0.02] rounded-[2rem] border border-dashed border-white/5">

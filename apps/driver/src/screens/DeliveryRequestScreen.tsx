@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
     useSharedValue, withSpring, withTiming, withSequence,
-    useAnimatedStyle,
+    useAnimatedStyle, useReducedMotion,
 } from 'react-native-reanimated';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
@@ -50,11 +50,13 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
     const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(true);
 
-    const sheetY = useSharedValue(height);
+    const reducedMotion = useReducedMotion();
+    const sheetY = useSharedValue(reducedMotion ? 0 : height);
     const fareScale = useSharedValue(1);
     const shakeX = useSharedValue(0);
 
     useEffect(() => {
+        if (reducedMotion) return;
         sheetY.value = withSpring(0, { damping: 18, stiffness: 120 });
         fareScale.value = withSequence(
             withSpring(1.12, { damping: 6, stiffness: 300 }),
@@ -130,7 +132,7 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
         setIsHandling(true);
         if (auto) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            shakeX.value = withSequence(withTiming(-10, { duration: 60 }), withTiming(0, { duration: 60 }));
+            if (!reducedMotion) shakeX.value = withSequence(withTiming(-10, { duration: 60 }), withTiming(0, { duration: 60 }));
         }
         await supabase
             .from('delivery_offers')

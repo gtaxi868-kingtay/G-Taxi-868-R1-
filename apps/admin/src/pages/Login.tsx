@@ -31,9 +31,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
     return (
         <div className="admin-login-page">
-            {/* Background Glows (Inspired by Energy Drink ref) */}
-            <div style={{ position: 'absolute', top: '10%', left: '10%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(167, 139, 250, 0.1) 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 1 }} />
-            <div style={{ position: 'absolute', bottom: '10%', right: '10%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(125, 211, 252, 0.08) 0%, transparent 70%)', filter: 'blur(60px)', zIndex: 1 }} />
 
             <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 

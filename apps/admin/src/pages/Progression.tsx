@@ -204,7 +204,7 @@ export function Progression() {
                             {editingRule?.id === rule.id ? (
                                 <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-3">
                                     <div>
-                                        <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Threshold Type</label>
+                                        <label className="text-[10px] text-white/40 block mb-1">Threshold type</label>
                                         <select
                                             value={editingRule.threshold_type}
                                             onChange={e => setEditingRule({ ...editingRule, threshold_type: e.target.value })}
@@ -218,7 +218,7 @@ export function Progression() {
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Required Count</label>
+                                        <label className="text-[10px] text-white/40 block mb-1">Required count</label>
                                         <input
                                             type="number"
                                             value={editingRule.threshold_value}
@@ -227,7 +227,7 @@ export function Progression() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Unlock Vertical</label>
+                                        <label className="text-[10px] text-white/40 block mb-1">Unlock vertical</label>
                                         <input
                                             value={editingRule.unlock_vertical}
                                             onChange={e => setEditingRule({ ...editingRule, unlock_vertical: e.target.value })}

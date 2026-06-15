@@ -9,7 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
     useSharedValue, withSpring, withTiming, withSequence,
-    useAnimatedStyle, Easing,
+    useAnimatedStyle, Easing, useReducedMotion,
 } from 'react-native-reanimated';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
@@ -63,15 +63,17 @@ export function TripRequestScreen({ navigation, route }: any) {
 
     const totalSeconds = offer?.timeout_seconds ?? 15;
 
-    const sheetY = useSharedValue(height);
+    const reducedMotion = useReducedMotion();
+    const sheetY = useSharedValue(reducedMotion ? 0 : height);
     const fareScale = useSharedValue(1);
     const shakeX = useSharedValue(0);
-    const pickupX = useSharedValue(40);
-    const dropoffX = useSharedValue(40);
-    const pickupOp = useSharedValue(0);
-    const dropoffOp = useSharedValue(0);
+    const pickupX = useSharedValue(reducedMotion ? 0 : 40);
+    const dropoffX = useSharedValue(reducedMotion ? 0 : 40);
+    const pickupOp = useSharedValue(reducedMotion ? 1 : 0);
+    const dropoffOp = useSharedValue(reducedMotion ? 1 : 0);
 
     useEffect(() => {
+        if (reducedMotion) return;
         sheetY.value = withSpring(0, { damping: 18, stiffness: 120 });
         fareScale.value = withSequence(
             withSpring(1.12, { damping: 6, stiffness: 300 }),
@@ -159,7 +161,7 @@ export function TripRequestScreen({ navigation, route }: any) {
         setIsHandling(true);
         if (auto) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            shakeX.value = withSequence(withTiming(-10, { duration: 60 }), withTiming(0, { duration: 60 }));
+            if (!reducedMotion) shakeX.value = withSequence(withTiming(-10, { duration: 60 }), withTiming(0, { duration: 60 }));
         }
         await declineRide(offer?.id);
         navigation.goBack();

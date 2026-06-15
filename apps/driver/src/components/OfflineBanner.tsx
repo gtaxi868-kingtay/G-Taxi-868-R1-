@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Z } from '@gtaxi/design-system';
 
 export function OfflineBanner() {
   const netInfo = useNetInfo();
@@ -53,7 +54,7 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     top: 0, left: 0, right: 0,
-    zIndex: 999999, // Absolute top
+    zIndex: Z.offlineBanner,
   },
   banner: {
     backgroundColor: 'rgba(255, 77, 109, 0.9)',
