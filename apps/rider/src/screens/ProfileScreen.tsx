@@ -188,7 +188,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                 <View style={s.grid}>
                     <View style={s.gridItem}>
                         <Text style={s.gridValue}>{stats.totalTrips}</Text>
-                        <Text style={s.gridLabel}>MISSIONS</Text>
+                        <Text style={s.gridLabel}>Missions</Text>
                     </View>
                     <View style={s.gridDivider} />
                     <View style={s.gridItem}>

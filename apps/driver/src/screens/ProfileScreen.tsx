@@ -165,7 +165,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                         {driver?.name}
                     </Text>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginTop: 6, letterSpacing: 1 }}>
-                        {driver?.vehicle_model?.toUpperCase()} · {driver?.plate_number?.toUpperCase()}
+                        {driver?.vehicle_model} · {driver?.plate_number?.toUpperCase()}
                     </Text>
 
                     <View style={s.ratingBadge}>
@@ -204,11 +204,11 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                         />
                     </View>
                     <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>SECURITY STATUS</Text>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>Security status</Text>
                         <Text style={{fontSize: 11, fontWeight: '700', color: driver?.verified_status === 'approved' ? '#10B981' : '#F59E0B'}}>
-                            {driver?.verified_status === 'approved' ? 'LOGISTICS AUTHORIZED' :
-                                driver?.verified_status === 'pending' ? 'UNDER REVIEW' :
-                                    'COMPLIANCE REQUIRED'}
+                            {driver?.verified_status === 'approved' ? 'Authorized' :
+                                driver?.verified_status === 'pending' ? 'Under review' :
+                                    'Verification required'}
                         </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />

@@ -418,7 +418,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
                         </View>
                         <Text style={s.completedTitle}>Trip Completed!</Text>
                         <View style={s.earningsBlock}>
-                            <Text style={s.earningsLabelSmall}>YOUR EARNINGS</Text>
+                            <Text style={s.earningsLabelSmall}>Your earnings</Text>
                             <Text style={s.earningsValueLarge}>TTD ${earnings}</Text>
                         </View>
                         <TouchableOpacity style={s.dashBtn} onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] })} accessibilityLabel="Back to dashboard" accessibilityRole="button">

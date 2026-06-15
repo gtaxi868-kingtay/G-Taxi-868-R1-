@@ -432,7 +432,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                         {fare && (
                             <View style={s.statsRow}>
                                 <Text style={s.logisticsText}>
-                                    LOGISTICS: {(fare?.distance_meters / 1000).toFixed(1)}KM · {Math.round(fare?.duration_seconds / 60)}MIN EST.
+                                    {(fare?.distance_meters / 1000).toFixed(1)} km · {Math.round(fare?.duration_seconds / 60)} min
                                 </Text>
                             </View>
                         )}
@@ -453,7 +453,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
                         {stopSuggestions.length > 0 && (
                             <View style={s.stopsSection}>
-                                <Text style={s.sectionTitle}>SUGGESTED LOGISTICS STOPS</Text>
+                                <Text style={s.sectionTitle}>Suggested stops</Text>
                                 {stopSuggestions.map((stop, index) => {
                                     const isSelected = selectedStops.some(s => s.place_name === stop.place_name);
                                     return (
@@ -619,7 +619,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                 end={{ x: 1, y: 1 }}
                             >
                                 {confirming ? <ActivityIndicator color={'#FFFFFF'} /> : (
-                                    <Text style={s.confirmBtnText}>CONFIRM {selectedType.toUpperCase()}</Text>
+                                    <Text style={s.confirmBtnText}>Confirm {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}</Text>
                                 )}
                             </LinearGradient>
                         </TouchableOpacity>

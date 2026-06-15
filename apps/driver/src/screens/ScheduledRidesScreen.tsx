@@ -77,7 +77,7 @@ export function ScheduledRidesScreen({ navigation }: { navigation: NavigationPro
                 <View style={s.cardBottom}>
                     <Text style={{fontSize: 16, fontWeight: '800', color: VOICES.driver.accent}}>${fair}</Text>
                     <View style={s.tag}>
-                        <Text style={{fontSize: 11, fontWeight: '700', color: VOICES.driver.accent}}>{item.vehicle_type?.toUpperCase() || 'STANDARD'}</Text>
+                        <Text style={{fontSize: 11, fontWeight: '700', color: VOICES.driver.accent}}>{item.vehicle_type ? item.vehicle_type.charAt(0).toUpperCase() + item.vehicle_type.slice(1).replace('_', ' ') : 'Standard'}</Text>
                     </View>
                 </View>
             </TouchableOpacity>

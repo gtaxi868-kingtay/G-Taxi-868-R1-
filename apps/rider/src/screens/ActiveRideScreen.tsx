@@ -569,7 +569,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         backgroundColor: ride?.status === 'in_progress' ? SUCCESS : 
                                         ride?.status === 'arrived' ? WARNING : CYAN
                     }]} />
-                    <Text style={s.statusText}>{ride?.status?.toUpperCase().replace('_', ' ')}</Text>
+                    <Text style={s.statusText}>{(ride?.status || '').charAt(0).toUpperCase() + (ride?.status || '').slice(1).replace('_', ' ')}</Text>
                 </View>
             </Reanimated.View>
 

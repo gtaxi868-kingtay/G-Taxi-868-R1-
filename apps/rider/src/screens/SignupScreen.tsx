@@ -223,7 +223,7 @@ export function SignupScreen({ navigation }: any) {
                                         <View style={{ flex: 1 }}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                                 <Ionicons name="star" size={16} color={VOICES.rider.accent} />
-                                                <Text style={s.aiLabel}>AI CONCIERGE</Text>
+                                                <Text style={s.aiLabel}>AI assistant</Text>
                                             </View>
                                             <Text style={s.aiSubtext}>Enable proactive safety & comfort</Text>
                                         </View>

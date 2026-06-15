@@ -172,7 +172,7 @@ export function LaundryLandingScreen({ navigation }: any) {
             </View>
 
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 20 }]}>
-                {isProcessingAI && <LoadingOverlay message="AI ANALYZING..." color={CYAN} />}
+                {isProcessingAI && <LoadingOverlay message="Analyzing..." color={CYAN} />}
                 
                 {!isProcessingAI && (
                     <>

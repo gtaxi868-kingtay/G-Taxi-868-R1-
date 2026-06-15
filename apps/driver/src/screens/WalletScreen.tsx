@@ -341,7 +341,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                     style={[s.heroCard, elevationGlow(0.12)]}
                 >
                     <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 6 }}>
-                        TTD COMMISSION BALANCE
+                        Commission balance
                     </Text>
 
                     <Reanimated.Text style={[s.balanceNum, { color: isOwed ? '#FF4D4D' : VOICES.driver.accent }]}>

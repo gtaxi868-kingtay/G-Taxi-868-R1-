@@ -178,24 +178,24 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
                     <Reanimated.Text style={s.earningsNum}>
                         {earningsDisplay.value}
                     </Reanimated.Text>
-                    <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginTop: 4}}>TTD TOTAL</Text>
+                    <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginTop: 4}}>TTD total</Text>
 
                     <View style={s.heroDivider} />
 
                     <View style={s.subRow}>
                         <View style={s.subItem}>
                             <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>{stats.trips}</Text>
-                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>TRIPS</Text>
+                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>Trips</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
                             <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.week.toFixed(0)}</Text>
-                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>WEEK</Text>
+                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>Week</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
                             <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.month.toFixed(0)}</Text>
-                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>MONTH</Text>
+                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>Month</Text>
                         </View>
                     </View>
                 </View>

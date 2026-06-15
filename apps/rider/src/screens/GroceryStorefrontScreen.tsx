@@ -212,7 +212,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                 </View>
             )}
 
-            {loading && <LoadingOverlay message="SCANNING LOGISTICS..." color={CYAN} />}
+            {loading && <LoadingOverlay message="Loading..." color={CYAN} />}
 
             {!loading && fetchError ? (
                 <View style={s.center}>
