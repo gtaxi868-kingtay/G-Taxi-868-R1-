@@ -8,6 +8,7 @@ import {
     TouchableWithoutFeedback,
     ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import { GlassView } from './GlassView';
 import { Location } from '@gtaxi/core';
@@ -49,7 +50,7 @@ export function RecentRidesModal({ visible, onClose, onSelect, recentLocations }
                                         }}
                                     >
                                         <View style={styles.iconContainer}>
-                                            <Text style={styles.icon}>🕒</Text>
+                                            <Ionicons name="time-outline" size={20} color={theme.colors?.text?.secondary ?? 'rgba(255,255,255,0.5)'} />
                                         </View>
                                         <View style={styles.textContainer}>
                                             <Text style={styles.address} numberOfLines={1}>

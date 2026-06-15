@@ -10,6 +10,7 @@ import {
     ViewStyle,
     useWindowDimensions,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 // RAINBOW GLASS CARD - The frosted card with rainbow edge on left (like driver card in mockup)
@@ -97,10 +98,10 @@ export function DriverCard({
             {/* Action buttons - glass orbs */}
             <View style={styles.actionButtonsRow}>
                 <View style={styles.glassOrb}>
-                    <Text style={styles.orbIcon}>📞</Text>
+                    <Ionicons name="call-outline" size={22} color="rgba(255,255,255,0.8)" />
                 </View>
                 <View style={styles.glassOrb}>
-                    <Text style={styles.orbIcon}>💬</Text>
+                    <Ionicons name="chatbubble-ellipses-outline" size={22} color="rgba(255,255,255,0.8)" />
                 </View>
             </View>
         </RainbowGlassCard>
@@ -150,7 +151,7 @@ export function VehicleCard({ name, selected }: VehicleCardProps) {
                 {/* Car image placeholder - styled to look 3D */}
                 <View style={styles.vehicleImageArea}>
                     <View style={styles.car3DPlaceholder}>
-                        <Text style={styles.carEmoji}>🚗</Text>
+                        <Ionicons name="car-outline" size={40} color="rgba(255,255,255,0.6)" />
                         {/* Reflection underneath */}
                         <View style={styles.carReflection} />
                     </View>

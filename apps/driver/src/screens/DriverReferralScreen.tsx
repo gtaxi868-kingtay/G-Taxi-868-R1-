@@ -131,7 +131,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                     ListHeaderComponent={
                         <>
                             <View style={styles.hero}>
-                                <Text style={styles.heroEmoji}>🚗</Text>
+                                <Ionicons name="car-sport-outline" size={48} color="#00FFFF" />
                                 <Text style={styles.heroTitle}>Earn on Every Ride They Take</Text>
                                 <Text style={styles.heroSub}>
                                     Refer a driver and earn 1% of their platform fee for 90 days.

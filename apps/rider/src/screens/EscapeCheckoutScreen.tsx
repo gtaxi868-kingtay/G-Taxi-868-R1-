@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   ActivityIndicator, Alert, SafeAreaView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '@gtaxi/core';
@@ -211,7 +212,7 @@ export default function EscapeCheckoutScreen() {
 
         {/* Pre-auth notice */}
         <View style={styles.noticeCard}>
-          <Text style={styles.noticeIcon}>🔒</Text>
+          <Ionicons name="lock-closed-outline" size={20} color="#C8A96E" style={styles.noticeIcon} />
           <Text style={styles.noticeText}>
             Your card is reserved but {'​'}not charged. Payment only completes once this flight
             reaches {breakdown.tipping_point_seats} seats. If the pool doesn't fill, your hold is automatically voided — no charge, ever.

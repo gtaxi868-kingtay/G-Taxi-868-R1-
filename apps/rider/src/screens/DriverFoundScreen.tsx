@@ -117,7 +117,7 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
                 <View style={s.avatarContainer}>
                     <View style={s.avatarGlow} />
                     <View style={s.avatar}>
-                        <Text style={s.avatarEmoji}>🚗</Text>
+                        <Ionicons name="car-sport-outline" size={36} color="#FFFFFF" />
                     </View>
                     <View style={s.ratingBadge}>
                         <Ionicons name="star" size={12} color="#F59E0B" />

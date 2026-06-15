@@ -132,7 +132,7 @@ export function ReferralScreen({ navigation }: AppScreenProps<'Referral'>) {
                         <>
                             {/* Hero */}
                             <View style={styles.hero}>
-                                <Text style={styles.heroEmoji}>🎁</Text>
+                                <Ionicons name="gift-outline" size={48} color="#00FFFF" />
                                 <Text style={styles.heroTitle}>Give TTD $15, Get TTD $15</Text>
                                 <Text style={styles.heroSub}>
                                     Share your code. When a friend takes their first ride, you both earn TTD $15 in wallet credits.

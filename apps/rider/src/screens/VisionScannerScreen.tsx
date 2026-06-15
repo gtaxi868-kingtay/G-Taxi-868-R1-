@@ -83,7 +83,7 @@ export function VisionScannerScreen({ navigation }: any) {
         return (
             <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
                 <View style={s.permCenter}>
-                    <Text style={s.permEmoji}>📷</Text>
+                    <Ionicons name="camera-outline" size={48} color="rgba(255,255,255,0.6)" />
                     <Text style={s.permTitle}>Camera Permission Needed</Text>
                     <Text style={s.permSub}>G-TAXI Vision Scanner needs camera access to identify products.</Text>
                     <TouchableOpacity style={s.permBtn} onPress={requestPermission}>

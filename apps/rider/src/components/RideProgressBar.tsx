@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Text, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
 
 interface RideProgressBarProps {
@@ -65,7 +66,7 @@ export function RideProgressBar({ phase }: RideProgressBarProps) {
                 {/* Moving Car */}
                 <Animated.View style={[styles.carWrapper, { left: leftPosition }]}>
                     <View style={styles.carIcon}>
-                        <Text style={styles.emoji}>🚕</Text>
+                        <Ionicons name="car-sport" size={18} color="#00FFFF" />
                     </View>
                     <View style={styles.glow} />
                 </Animated.View>

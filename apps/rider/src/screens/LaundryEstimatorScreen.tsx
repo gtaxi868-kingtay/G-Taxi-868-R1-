@@ -82,7 +82,7 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
             <View style={s.content}>
                 <View style={s.scaleBox}>
                     <View style={[StyleSheet.absoluteFillObject, glassSurface(25, 0.2)]} />
-                    <Text style={s.scaleEmoji}>⚖️</Text>
+                    <Ionicons name="scale-outline" size={48} color="rgba(255,255,255,0.6)" />
                     <Text style={s.weightDisplay}>{weight} lbs</Text>
                     <Text style={s.weightSub}>Estimated weight</Text>
 

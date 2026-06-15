@@ -252,7 +252,11 @@ export function NodeRegistry() {
 
                             {overrideResult && dispatchOverride === node.id && (
                                 <div className={`mt-3 p-3 rounded-xl text-xs font-bold ${overrideResult.error ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-green-500/10 text-green-400 border border-green-500/20'}`}>
-                                    {overrideResult.error ? `Override Failed: ${overrideResult.error}` : '✅ Virtual dispatch signal sent.'}
+                                    {overrideResult.error ? (
+                                        `Override Failed: ${overrideResult.error}`
+                                    ) : (
+                                        <span className="flex items-center gap-1.5"><CheckCircle size={13} />Virtual dispatch signal sent.</span>
+                                    )}
                                 </div>
                             )}
                         </div>

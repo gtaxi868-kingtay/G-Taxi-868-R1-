@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { ToggleLeft, ToggleRight, RefreshCw, ShieldAlert, Sliders } from 'lucide-react';
+import { ToggleLeft, ToggleRight, RefreshCw, ShieldAlert, Sliders, Car, ShoppingCart, Wind, Package, Truck, type LucideProps } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -25,12 +25,12 @@ interface FeatureFlag {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const VERTICAL_ICONS: Record<string, string> = {
-    ride_hailing: '🚕',
-    grocery: '🛒',
-    laundry: '👔',
-    merchant_delivery: '📦',
-    b2b_logistics: '🏢',
+const VERTICAL_ICONS: Record<string, React.ComponentType<LucideProps>> = {
+    ride_hailing:       Car,
+    grocery:            ShoppingCart,
+    laundry:            Wind,
+    merchant_delivery:  Package,
+    b2b_logistics:      Truck,
 };
 
 const FLAG_GROUP_ORDER = [
@@ -220,7 +220,7 @@ export function PlatformControl() {
                             >
                                 <div className="flex items-center justify-between gap-4 flex-wrap">
                                     <div className="flex items-center gap-4">
-                                        <span className="text-2xl">{VERTICAL_ICONS[v.vertical_name] ?? '⚙️'}</span>
+                                        {(() => { const Icon = VERTICAL_ICONS[v.vertical_name] ?? Sliders; return <Icon size={22} className="text-white/60 flex-shrink-0" />; })()}
                                         <div>
                                             <p className="font-black text-white text-sm">{v.display_name}</p>
                                             <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">

@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useEscapeTrip, ItineraryLeg } from '../context/EscapeContext';
+import { Ionicons } from '@expo/vector-icons';
 
 // Status-driven concierge screen. The entire journey lives here.
 // One screen, seven phases — no manual navigation required.
@@ -33,10 +34,10 @@ const PHASE_LABELS: Record<string, string> = {
   COMPLETED:        'Trip complete',
 };
 
-const LEG_ICONS: Record<string, string> = {
-  GROUND_TRANSIT: '🚗',
-  AVIATION:       '✈️',
-  LODGING:        '🏡',
+const LEG_ICON_NAMES: Record<string, 'car-outline' | 'airplane-outline' | 'home-outline'> = {
+  GROUND_TRANSIT: 'car-outline',
+  AVIATION:       'airplane-outline',
+  LODGING:        'home-outline',
 };
 
 const LEG_STATUS_COLOR: Record<string, string> = {
@@ -233,7 +234,7 @@ export default function ActivePassScreen() {
                 <Text style={styles.bpAirport}>POS</Text>
                 <Text style={styles.bpCity}>Piarco</Text>
               </View>
-              <Text style={styles.bpArrow}>✈</Text>
+              <Ionicons name="airplane-outline" size={22} color="#C8A96E" />
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={styles.bpAirport}>{fb?.destination_code ?? 'TAB'}</Text>
                 <Text style={styles.bpCity}>{fb?.destination_name?.split(' ')[0] ?? 'Destination'}</Text>
@@ -338,7 +339,7 @@ const LegRow: React.FC<{ leg: ItineraryLeg; isLast: boolean }> = ({ leg, isLast 
         {!isLast && <View style={styles.legLine} />}
       </View>
       <View style={styles.legContent}>
-        <Text style={styles.legIcon}>{LEG_ICONS[leg.service_type]}</Text>
+        <Ionicons name={LEG_ICON_NAMES[leg.service_type] ?? 'ellipse-outline'} size={18} color="#C8A96E" style={styles.legIcon} />
         <View style={styles.legInfo}>
           <Text style={styles.legLabel}>{label}</Text>
           {leg.scheduled_start && (
