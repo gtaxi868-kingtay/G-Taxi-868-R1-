@@ -150,7 +150,7 @@ export function WalletScreen({ navigation }: any) {
             <StatusBar style="light" />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
                 <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Luxe Wallet</Txt>
@@ -169,7 +169,7 @@ export function WalletScreen({ navigation }: any) {
                         <LinearGradient colors={[VOICES.rider.accent, '#a88be0']} style={s.hero}>
                             <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">AVAILABLE FUNDS</Txt>
                             {balanceError ? (
-                                <TouchableOpacity onPress={fetchWalletData} style={{ marginVertical: 12, backgroundColor: 'rgba(255,100,100,0.2)', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <TouchableOpacity onPress={fetchWalletData} accessibilityLabel="Retry loading balance" accessibilityRole="button" style={{ marginVertical: 12, backgroundColor: 'rgba(255,100,100,0.2)', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                     <Ionicons name="alert-circle-outline" size={18} color="#FFA0A0" />
                                     <Txt variant="bodyReg" color="#FFA0A0">Balance unavailable — tap to retry</Txt>
                                 </TouchableOpacity>
@@ -186,7 +186,7 @@ export function WalletScreen({ navigation }: any) {
                         </LinearGradient>
 
                         <View style={s.actions}>
-                            <TouchableOpacity style={s.actionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('WalletTopUp'); }}>
+                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="Add funds to wallet" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('WalletTopUp'); }}>
                                 <View style={s.actionIcon}>
                                     <LinearGradient 
                                         colors={[VOICES.rider.accent, CYAN]} 
@@ -196,7 +196,7 @@ export function WalletScreen({ navigation }: any) {
                                 </View>
                                 <Txt variant="caption" weight="heavy" color="#FFF" style={{ marginTop: 12 }}>ADD FUNDS</Txt>
                             </TouchableOpacity>
-                            <TouchableOpacity style={s.actionBtn} onPress={() => Alert.alert(
+                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="Withdraw funds" accessibilityRole="button" onPress={() => Alert.alert(
                                 'Withdraw Funds',
                                 'Withdrawals are processed within 2 business days. Contact support to request a withdrawal.',
                                 [{ text: 'OK' }]
@@ -204,7 +204,7 @@ export function WalletScreen({ navigation }: any) {
                                 <View style={s.actionIcon}><Ionicons name="swap-horizontal" size={22} color="rgba(255,255,255,0.6)" /></View>
                                 <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>WITHDRAW</Txt>
                             </TouchableOpacity>
-                            <TouchableOpacity style={s.actionBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Trips'); }}>
+                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="View transaction history" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Trips'); }}>
                                 <View style={s.actionIcon}><Ionicons name="list" size={22} color="rgba(255,255,255,0.6)" /></View>
                                 <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>HISTORY</Txt>
                             </TouchableOpacity>

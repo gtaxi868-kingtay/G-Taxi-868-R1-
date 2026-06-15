@@ -166,11 +166,13 @@ export function LoginScreen({ navigation }: any) {
                                 </View>
 
                                 {/* Primary CTA Button */}
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={s.primaryButton}
                                     onPress={handleLogin}
                                     disabled={loading}
                                     activeOpacity={0.8}
+                                    accessibilityLabel="Sign in"
+                                    accessibilityRole="button"
                                 >
                                     <LinearGradient
                                         colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
@@ -193,6 +195,8 @@ export function LoginScreen({ navigation }: any) {
                                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                         navigation.navigate('ForgotPassword');
                                     }}
+                                    accessibilityLabel="Reset your password"
+                                    accessibilityRole="button"
                                 >
                                     <Text style={s.linkText}>
                                         Forgot password? <Text style={s.linkTextAccent}>Reset</Text>
@@ -200,12 +204,14 @@ export function LoginScreen({ navigation }: any) {
                                 </TouchableOpacity>
 
                                 {/* Create Account Link */}
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[s.linkContainer, { marginTop: 20 }]}
-                                    onPress={() => { 
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); 
-                                        navigation.navigate('Signup'); 
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        navigation.navigate('Signup');
                                     }}
+                                    accessibilityLabel="Create a new account"
+                                    accessibilityRole="button"
                                 >
                                     <Text style={s.linkText}>
                                         Don't have an account? <Text style={s.linkTextAccent}>Create Account</Text>

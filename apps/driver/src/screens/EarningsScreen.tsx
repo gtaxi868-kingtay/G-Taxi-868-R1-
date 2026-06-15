@@ -153,6 +153,8 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             navigation.goBack();
                         }}
+                        accessibilityLabel="Go back"
+                        accessibilityRole="button"
                     >
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
@@ -224,6 +226,8 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
                                     key={trip.id}
                                     style={[s.tripRow, isLast && { borderBottomWidth: 0 }]}
                                     onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                                    accessibilityLabel={`Trip to ${trip.dropoff_address || 'destination'}: $${earnings}`}
+                                    accessibilityRole="button"
                                 >
                                     <View style={[s.iconBadge, { backgroundColor: `${paymentColor(trip.payment_method)}15` }]}>
                                         <Ionicons name={paymentIcon(trip.payment_method) as 'cash-outline' | 'wallet-outline' | 'card-outline'} size={20} color={paymentColor(trip.payment_method)} />

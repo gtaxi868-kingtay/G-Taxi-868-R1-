@@ -552,10 +552,10 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         Your trip is still active.
                     </Text>
                     <View style={s.signalButtons}>
-                        <TouchableOpacity style={s.signalBtnPrimary} onPress={() => navigation.navigate('Chat', { rideId })}>
+                        <TouchableOpacity style={s.signalBtnPrimary} onPress={() => navigation.navigate('Chat', { rideId })} accessibilityLabel="Contact driver" accessibilityRole="button">
                             <Text style={s.signalBtnPrimaryText}>Contact Driver</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={s.signalBtnSecondary} onPress={openWhatsAppSupport}>
+                        <TouchableOpacity style={s.signalBtnSecondary} onPress={openWhatsAppSupport} accessibilityLabel="Call support" accessibilityRole="button">
                             <Text style={s.signalBtnSecondaryText}>Call Support</Text>
                         </TouchableOpacity>
                     </View>
@@ -591,8 +591,10 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                                 <Text style={s.aiMessage}>{aiInsight}</Text>
                                 
                                 {aiInsight.toLowerCase().includes('stop') && (
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={s.aiActionBtn}
+                                        accessibilityLabel="Add AI suggested stop to trip"
+                                        accessibilityRole="button"
                                         onPress={async () => {
                                             setAiInsight("Updating trip manifest... Navigation synced.");
                                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -617,7 +619,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                                     </TouchableOpacity>
                                 )}
                             </View>
-                            <TouchableOpacity onPress={() => setAiInsight(null)} style={{ padding: 4 }}>
+                            <TouchableOpacity onPress={() => setAiInsight(null)} style={{ padding: 4 }} accessibilityLabel="Dismiss AI suggestion" accessibilityRole="button">
                                 <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
                             </TouchableOpacity>
                         </LinearGradient>
@@ -645,7 +647,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                                 <Text style={s.pinValue}>{ride?.ride_pin}</Text>
                             </View>
                         )}
-                        <TouchableOpacity style={s.sosBtn} onPress={handleSOS}>
+                        <TouchableOpacity style={s.sosBtn} onPress={handleSOS} accessibilityLabel="Emergency SOS" accessibilityRole="button">
                             <Reanimated.View style={[s.sosRing, sosAnim]} />
                             <Text style={s.sosLabel}>SOS</Text>
                         </TouchableOpacity>
@@ -673,36 +675,42 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
                     {/* Action Buttons */}
                     <View style={s.actions}>
-                        <TouchableOpacity style={s.msgBtn} onPress={() => navigation.navigate('Chat', { rideId, driver })}>
+                        <TouchableOpacity style={s.msgBtn} onPress={() => navigation.navigate('Chat', { rideId, driver })} accessibilityLabel="Chat with driver" accessibilityRole="button">
                             <Ionicons name="chatbubble-ellipses" size={20} color={VOICES.rider.accent} />
                         </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                            style={[s.msgBtn, { marginLeft: 8 }]} 
+
+                        <TouchableOpacity
+                            style={[s.msgBtn, { marginLeft: 8 }]}
                             onPress={() => setMusicModalVisible(true)}
+                            accessibilityLabel="Request music entertainment"
+                            accessibilityRole="button"
                         >
-                            <Ionicons 
-                                name={ride?.entertainment_status === 'accepted' ? "musical-notes" : "musical-note-outline"} 
-                                size={20} 
-                                color={ride?.entertainment_status === 'accepted' ? SUCCESS : VOICES.rider.accent} 
+                            <Ionicons
+                                name={ride?.entertainment_status === 'accepted' ? "musical-notes" : "musical-note-outline"}
+                                size={20}
+                                color={ride?.entertainment_status === 'accepted' ? SUCCESS : VOICES.rider.accent}
                             />
                         </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                            style={[s.msgBtn, { marginLeft: 8 }]} 
+
+                        <TouchableOpacity
+                            style={[s.msgBtn, { marginLeft: 8 }]}
                             onPress={handleShareMirror}
+                            accessibilityLabel="Share trip safety mirror"
+                            accessibilityRole="button"
                         >
                             <Ionicons name="shield-checkmark" size={20} color={CYAN} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity 
-                            style={[s.msgBtn, { marginLeft: 8 }]} 
+                        <TouchableOpacity
+                            style={[s.msgBtn, { marginLeft: 8 }]}
                             onPress={toggleSafeEntry}
+                            accessibilityLabel={ride?.safe_entry ? 'Disable safe entry mode' : 'Enable safe entry mode'}
+                            accessibilityRole="button"
                         >
                             <Ionicons name="home-outline" size={20} color={ride?.safe_entry ? SUCCESS : VOICES.rider.accent} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={s.callBtn} onPress={() => driver?.phone_number && Linking.openURL(`tel:${driver.phone_number}`)}>
+                        <TouchableOpacity style={s.callBtn} onPress={() => driver?.phone_number && Linking.openURL(`tel:${driver.phone_number}`)} accessibilityLabel="Call driver" accessibilityRole="button">
                             <Ionicons name="call" size={20} color={VOICES.rider.accent} />
                             <Text style={s.callLabel}>Voice Call</Text>
                         </TouchableOpacity>
@@ -710,6 +718,8 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         <TouchableOpacity
                             style={[s.msgBtn, { marginLeft: 8 }]}
                             onPress={handleCancelRide}
+                            accessibilityLabel="Cancel ride"
+                            accessibilityRole="button"
                         >
                             <Ionicons name="close-circle" size={20} color={ERROR} />
                         </TouchableOpacity>

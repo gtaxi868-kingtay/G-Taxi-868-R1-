@@ -208,7 +208,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             <View style={s.iconCircle}><Ionicons name="hourglass-outline" size={32} color={VOICES.driver.accent} /></View>
             <Text style={[s.centerTitle, { fontSize: 24, fontWeight: '800', color: '#FFF' }]}>APPLICATION UNDER REVIEW</Text>
             <Text style={[s.centerBody, { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.6)' }]}>YOUR PILOT PROFILE HAS BEEN SUBMITTED. YOU'LL BE NOTIFIED ONCE AN ADMINISTRATOR MISSION-CLEARS YOUR ACCOUNT.</Text>
-            <TouchableOpacity style={s.outlineBtn} onPress={signOut}><Ionicons name="log-out-outline" size={16} color="#FF4D4D" /><Text style={{ fontSize: 14, fontWeight: '700', color: '#FF4D4D' }}> TERMINATE SESSION</Text></TouchableOpacity>
+            <TouchableOpacity style={s.outlineBtn} onPress={signOut} accessibilityLabel="Sign out" accessibilityRole="button"><Ionicons name="log-out-outline" size={16} color="#FF4D4D" /><Text style={{ fontSize: 14, fontWeight: '700', color: '#FF4D4D' }}> Sign out</Text></TouchableOpacity>
         </View>
     );
 
