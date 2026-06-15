@@ -305,6 +305,22 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
                                 </Text>
                             </View>
 
+                                            {/* Buffett fix: TTD $2,600/month net earnings estimate */}
+                            <View style={s.earningsCard}>
+                                <Text style={s.earningsTitle}>Your Estimated Monthly Take-Home</Text>
+                                {[
+                                    { label: 'Gross driver earnings (160 rides × ~TTD $38)', value: 'TTD $6,080', color: '#FFF' },
+                                    { label: 'BYD lease deductions (≤15% per ride, auto-deducted)', value: '− TTD $3,480', color: '#EF4444' },
+                                    { label: 'Net earnings after lease', value: '≈ TTD $2,600', color: '#4ADE80' },
+                                ].map((row, i) => (
+                                    <View key={i} style={s.earningsRow}>
+                                        <Text style={s.earningsLabel}>{row.label}</Text>
+                                        <Text style={[s.earningsValue, { color: row.color }]}>{row.value}</Text>
+                                    </View>
+                                ))}
+                                <Text style={s.earningsNote}>Estimates based on market-competitive T&T fares. Actual take-home depends on ride volume.</Text>
+                            </View>
+
                             {!data.lease?.reserve_funded && (
                                 <View style={s.ctaRow}>
                                     <Ionicons name="information-circle-sharp" size={16} color="rgba(255,255,255,0.5)" />
@@ -443,4 +459,18 @@ const s = StyleSheet.create({
         alignItems: 'center',
     },
     secondaryCtaText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+    earningsCard: {
+        backgroundColor: 'rgba(74,222,128,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(74,222,128,0.15)',
+        borderRadius: 16,
+        padding: 16,
+        marginTop: 20,
+        marginBottom: 8,
+    },
+    earningsTitle: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
+    earningsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8 },
+    earningsLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', flex: 1, lineHeight: 16 },
+    earningsValue: { fontSize: 13, fontWeight: '800', textAlign: 'right' },
+    earningsNote: { fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 8, lineHeight: 14 },
 });

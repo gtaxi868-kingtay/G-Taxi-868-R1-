@@ -3,18 +3,19 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, SafeAreaView, Image,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 import { supabase } from '@gtaxi/core';
-import type { RootStackParamList } from '../navigation/types';
+import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip } from '../context/EscapeContext';
 
 // Browse active G-Escape packages (flight-block pool cards).
 // Shows pool progress, departure date, price, destination.
 // "Join Pool" → GuestCountPicker bottom sheet → EscapeCheckout.
+// Deep link: gtaxi://escape/:packageId auto-opens guest picker for that package.
 
-type Nav = NativeStackNavigationProp<RootStackParamList, 'EscapeStorefront'>;
+type Nav = NativeStackNavigationProp<AppStackParamList, 'EscapeStorefront'>;
 
 interface EscapePackageCard {
   id: string;
@@ -51,8 +52,12 @@ const DEST_EXPERIENCES: Record<string, { tagline: string; highlights: [string, s
   SLU: { tagline: 'The Pitons are on every Caribbean bucket list for a reason', highlights: ['Sulfur springs — drive-in volcano', 'Marigot Bay — the most beautiful bay in the Caribbean', 'Rainforest aerial tram over the canopy'] },
 };
 
+type RouteT = RouteProp<AppStackParamList, 'EscapeStorefront'>;
+
 export default function EscapeStorefrontScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteT>();
+  const deepLinkPkgId = (route.params as any)?.packageId as string | undefined;
   const { activeTrip } = useEscapeTrip();
 
   const [packages, setPackages] = useState<EscapePackageCard[]>([]);
@@ -74,6 +79,13 @@ export default function EscapeStorefrontScreen() {
       }
     });
   }, []);
+
+  // Deep link: gtaxi://escape/:packageId — auto-open guest picker for that package
+  useEffect(() => {
+    if (!deepLinkPkgId || packages.length === 0) return;
+    const target = packages.find(p => p.id === deepLinkPkgId);
+    if (target) handleJoinPool(target);
+  }, [deepLinkPkgId, packages]);
 
   const loadPackages = useCallback(async () => {
     setLoadError(null);
@@ -178,7 +190,7 @@ export default function EscapeStorefrontScreen() {
 
         {/* Status badge */}
         <View style={[styles.statusBadge, isConfirmed ? styles.statusConfirmed : styles.statusPooling]}>
-          <Text style={styles.statusText}>{isConfirmed ? 'CONFIRMED' : 'POOLING'}</Text>
+          <Text style={styles.statusText}>{isConfirmed ? 'CONFIRMED' : 'Gathering the Crew'}</Text>
         </View>
 
         <View style={styles.cardBody}>

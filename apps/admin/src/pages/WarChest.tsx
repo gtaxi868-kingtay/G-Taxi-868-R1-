@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Vault, TrendingUp, Zap, Users, RefreshCw, MapPin } from 'lucide-react';
+import { Vault, TrendingUp, Zap, Users, RefreshCw, MapPin, Banknote, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface ReserveBalance {
     total_locked_cents: number;
@@ -27,20 +27,39 @@ interface SurgeZone {
     radius_km: number;
 }
 
+interface LoanRow {
+    id: string;
+    driver_id: string;
+    principal_cents: number;
+    balance_cents: number;
+    installment_cents: number;
+    interest_rate: number;
+    status: 'active' | 'paid_off' | 'defaulted' | 'written_off';
+    notes: string | null;
+    created_at: string;
+    drivers: {
+        profiles: { name: string } | null;
+    } | null;
+}
+
 const fmt = (cents: number) => `$${(cents / 100).toLocaleString('en-TT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TTD`;
 
 export function WarChest() {
     const [reserve, setReserve] = useState<ReserveBalance | null>(null);
     const [referralStats, setReferralStats] = useState<ReferralStat[]>([]);
     const [surgeZones, setSurgeZones] = useState<SurgeZone[]>([]);
+    const [loans, setLoans] = useState<LoanRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [surgeForm, setSurgeForm] = useState({ lat: '', lng: '', radius: '1.5', multiplier: '1.3', hours: '2' });
     const [surgeSubmitting, setSurgeSubmitting] = useState(false);
     const [surgeMsg, setSurgeMsg] = useState('');
+    const [loanForm, setLoanForm] = useState({ driverId: '', principalTTD: '', installmentTTD: '50', notes: '' });
+    const [loanSubmitting, setLoanSubmitting] = useState(false);
+    const [loanMsg, setLoanMsg] = useState('');
 
     const load = useCallback(async () => {
         setLoading(true);
-        const [reserveRes, referralRes, zonesRes] = await Promise.all([
+        const [reserveRes, referralRes, zonesRes, loansRes] = await Promise.all([
             supabase.rpc('admin_get_reserve_balance'),
             supabase.from('referral_earnings')
                 .select('type, referrer_id, amount_cents')
@@ -49,6 +68,10 @@ export function WarChest() {
                 .select('*')
                 .eq('is_active', true)
                 .order('created_at', { ascending: false }),
+            supabase.from('driver_loans')
+                .select('*, drivers!inner(profiles(name))')
+                .order('created_at', { ascending: false })
+                .limit(30),
         ]);
 
         if (reserveRes.data) {
@@ -69,6 +92,7 @@ export function WarChest() {
         }
 
         setSurgeZones((zonesRes.data as SurgeZone[]) || []);
+        setLoans((loansRes.data as LoanRow[]) || []);
         setLoading(false);
     }, []);
 
@@ -94,6 +118,29 @@ export function WarChest() {
         load();
     };
 
+    const createLoan = async () => {
+        const { driverId, principalTTD, installmentTTD, notes } = loanForm;
+        if (!driverId.trim()) { setLoanMsg('Driver ID is required'); return; }
+        const principalCents = Math.round(parseFloat(principalTTD) * 100);
+        const installmentCents = Math.round(parseFloat(installmentTTD) * 100);
+        if (isNaN(principalCents) || principalCents <= 0) { setLoanMsg('Enter a valid principal amount'); return; }
+        if (isNaN(installmentCents) || installmentCents <= 0) { setLoanMsg('Enter a valid installment amount'); return; }
+        setLoanSubmitting(true); setLoanMsg('');
+        const { error } = await supabase.rpc('admin_create_driver_loan', {
+            p_driver_id: driverId.trim(),
+            p_principal_cents: principalCents,
+            p_installment_cents: installmentCents,
+            p_notes: notes || null,
+        });
+        if (error) { setLoanMsg(`Error: ${error.message}`); }
+        else {
+            setLoanMsg(`Loan of ${fmt(principalCents)} created`);
+            setLoanForm({ driverId: '', principalTTD: '', installmentTTD: '50', notes: '' });
+            load();
+        }
+        setLoanSubmitting(false);
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -106,6 +153,9 @@ export function WarChest() {
         ? Math.round((reserve.total_deployed_cents / reserve.total_locked_cents) * 100)
         : 0;
 
+    const activeLoans = loans.filter(l => l.status === 'active');
+    const totalLoanedCents = activeLoans.reduce((s, l) => s + l.balance_cents, 0);
+
     return (
         <div className="space-y-10">
 
@@ -113,7 +163,7 @@ export function WarChest() {
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-3xl font-black text-white italic">WAR CHEST</h2>
-                    <p className="text-xs text-white/30 uppercase tracking-widest mt-1">Capital Reserve · Referral Engine · Surge Control</p>
+                    <p className="text-xs text-white/30 uppercase tracking-widest mt-1">Capital Reserve · Referral Engine · Surge Control · Driver Loans</p>
                 </div>
                 <button onClick={load} className="p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white/40 hover:text-white transition-all">
                     <RefreshCw size={18} />
@@ -151,6 +201,90 @@ export function WarChest() {
                     </p>
                 </div>
             )}
+
+            {/* ── DRIVER LOANS ─────────────────────────────────────── */}
+            <div className="bg-white/5 rounded-2xl p-6 border border-white/10">
+                <div className="flex items-center gap-3 mb-6">
+                    <Banknote size={20} className="text-cyan-400" />
+                    <div>
+                        <h3 className="font-black text-white uppercase tracking-wider text-sm">Driver Loan Programme</h3>
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest">
+                            Deploy reserve capital as driver loans · Repaid via per-ride deduction
+                            {activeLoans.length > 0 && ` · ${activeLoans.length} active · ${fmt(totalLoanedCents)} outstanding`}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Loan creation form */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                    {[
+                        { key: 'driverId', label: 'Driver UUID', placeholder: 'paste driver id...' },
+                        { key: 'principalTTD', label: 'Principal (TTD)', placeholder: '500' },
+                        { key: 'installmentTTD', label: 'Per-Ride Deduction (TTD)', placeholder: '50' },
+                        { key: 'notes', label: 'Notes (optional)', placeholder: 'BYD deposit, emergency...' },
+                    ].map(f => (
+                        <div key={f.key}>
+                            <label className="block text-[10px] font-black text-white/30 uppercase tracking-widest mb-1">{f.label}</label>
+                            <input
+                                type="text"
+                                value={loanForm[f.key as keyof typeof loanForm]}
+                                onChange={e => setLoanForm({ ...loanForm, [f.key]: e.target.value })}
+                                placeholder={f.placeholder}
+                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-mono focus:outline-none focus:border-cyan-400/50"
+                            />
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex items-center gap-4 mb-6">
+                    <button
+                        onClick={createLoan}
+                        disabled={loanSubmitting}
+                        className="px-6 py-3 bg-cyan-500 text-black font-black text-xs uppercase tracking-widest rounded-xl hover:bg-cyan-400 transition-all disabled:opacity-50"
+                    >
+                        {loanSubmitting ? 'Creating...' : 'Issue Loan'}
+                    </button>
+                    {loanMsg && (
+                        <p className={`text-sm font-bold flex items-center gap-2 ${loanMsg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>
+                            {loanMsg.startsWith('Error') ? <AlertCircle size={14}/> : <CheckCircle size={14}/>}
+                            {loanMsg}
+                        </p>
+                    )}
+                </div>
+
+                {/* Outstanding loans list */}
+                {loans.length === 0 ? (
+                    <p className="text-white/20 text-sm italic">No loans issued yet</p>
+                ) : (
+                    <div className="space-y-3">
+                        {loans.map(loan => {
+                            const paidPct = Math.round(((loan.principal_cents - loan.balance_cents) / loan.principal_cents) * 100);
+                            const statusColor = loan.status === 'active' ? 'text-cyan-400' : loan.status === 'paid_off' ? 'text-green-400' : 'text-red-400';
+                            const driverName = (loan.drivers as any)?.profiles?.name ?? loan.driver_id.slice(0, 8) + '...';
+                            return (
+                                <div key={loan.id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10 gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <span className="text-sm font-black text-white truncate">{driverName}</span>
+                                            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${statusColor} bg-white/5 border-current/30`}>{loan.status.replace('_', ' ')}</span>
+                                        </div>
+                                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                            <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${paidPct}%` }} />
+                                        </div>
+                                        <p className="text-[10px] text-white/30 mt-1">{paidPct}% repaid · {fmt(loan.installment_cents)}/ride deduction</p>
+                                        {loan.notes && <p className="text-[10px] text-white/20 mt-0.5 italic truncate">{loan.notes}</p>}
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className="text-[10px] text-white/30 uppercase tracking-widest">Balance</p>
+                                        <p className="text-lg font-black text-white">{fmt(loan.balance_cents)}</p>
+                                        <p className="text-[10px] text-white/20">of {fmt(loan.principal_cents)}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
 
             {/* Referral Engine */}
             <div className="bg-white/5 rounded-2xl p-6 border border-white/10">

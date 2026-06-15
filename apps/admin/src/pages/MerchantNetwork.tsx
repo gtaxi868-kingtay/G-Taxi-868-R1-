@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Store, RefreshCw, CheckCircle, Clock, AlertTriangle, XCircle, Ban, MapPin, DollarSign, Calendar } from 'lucide-react';
+import { Store, RefreshCw, CheckCircle, Clock, AlertTriangle, XCircle, Ban, MapPin, DollarSign, Calendar, ChevronDown, ChevronUp, Package, Wifi } from 'lucide-react';
 
 interface MerchantRow {
     id: string;
@@ -22,6 +22,11 @@ interface MerchantRow {
         last_billed_at: string | null;
         overdue_since: string | null;
     } | null;
+}
+
+interface MerchantDetail {
+    orders: Array<{ id: string; status: string; total_cents: number; created_at: string; delivery_method: string }>;
+    nodes: Array<{ id: string; location_name: string; nfc_uid: string | null; is_active: boolean; tap_count: number }>;
 }
 
 const STATUS_META: Record<string, { label: string; color: string; icon: any }> = {
@@ -53,6 +58,9 @@ export function MerchantNetwork() {
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [filter, setFilter] = useState<'all' | 'trial' | 'active' | 'overdue' | 'suspended'>('all');
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [details, setDetails] = useState<Record<string, MerchantDetail>>({});
+    const [detailLoading, setDetailLoading] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -83,6 +91,57 @@ export function MerchantNetwork() {
     }, []);
 
     useEffect(() => { load(); }, [load]);
+
+    const loadDetail = useCallback(async (merchantId: string) => {
+        if (details[merchantId]) return;
+        setDetailLoading(merchantId);
+        const [ordersRes, nodesRes] = await Promise.all([
+            supabase
+                .from('orders')
+                .select('id, status, total_cents, created_at, delivery_method')
+                .eq('merchant_id', merchantId)
+                .order('created_at', { ascending: false })
+                .limit(10),
+            supabase
+                .from('kiosk_nodes')
+                .select('id, location_name, nfc_uid, is_active')
+                .eq('merchant_id', merchantId)
+                .order('created_at', { ascending: false }),
+        ]);
+
+        const nodes = (nodesRes.data || []) as any[];
+        const nfcUids = nodes.map(n => n.nfc_uid).filter(Boolean);
+
+        let tapCounts: Record<string, number> = {};
+        if (nfcUids.length > 0) {
+            const { data: tapData } = await supabase
+                .from('nfc_event_logs')
+                .select('tag_uid')
+                .in('tag_uid', nfcUids)
+                .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString());
+            for (const row of tapData || []) {
+                tapCounts[row.tag_uid] = (tapCounts[row.tag_uid] || 0) + 1;
+            }
+        }
+
+        setDetails(prev => ({
+            ...prev,
+            [merchantId]: {
+                orders: (ordersRes.data || []) as MerchantDetail['orders'],
+                nodes: nodes.map(n => ({ ...n, tap_count: tapCounts[n.nfc_uid] || 0 })),
+            },
+        }));
+        setDetailLoading(null);
+    }, [details]);
+
+    const toggleExpand = (merchantId: string) => {
+        if (expandedId === merchantId) {
+            setExpandedId(null);
+        } else {
+            setExpandedId(merchantId);
+            loadDetail(merchantId);
+        }
+    };
 
     const setStatus = async (subId: string, status: string, extra: Record<string, any> = {}) => {
         setActionLoading(subId + status);
@@ -153,7 +212,7 @@ export function MerchantNetwork() {
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h3 className="text-xl font-black text-white tracking-tight">Merchant Network</h3>
-                    <p className="text-xs text-white/30 uppercase tracking-widest mt-1">Subscriptions · Map Visibility · Billing</p>
+                    <p className="text-xs text-white/30 uppercase tracking-widest mt-1">Subscriptions · Map Visibility · Billing · NFC Activity</p>
                 </div>
                 <div className="flex gap-3">
                     <button
@@ -208,152 +267,217 @@ export function MerchantNetwork() {
                         const meta = sub ? STATUS_META[sub.status] : null;
                         const StatusIcon = meta?.icon ?? Store;
                         const onMap = sub && (sub.status === 'trial' || sub.status === 'active') && m.is_active && m.lat;
+                        const isExpanded = expandedId === m.id;
+                        const detail = details[m.id];
 
                         return (
-                            <div key={m.id} className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 space-y-4">
+                            <div key={m.id} className="bg-white/[0.03] border border-white/[0.08] rounded-2xl overflow-hidden">
                                 {/* Top row */}
-                                <div className="flex flex-wrap items-start justify-between gap-4">
-                                    <div className="flex items-start gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
-                                            <Store size={18} className="text-purple-400" />
+                                <div className="p-6 space-y-4">
+                                    <div className="flex flex-wrap items-start justify-between gap-4">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center shrink-0">
+                                                <Store size={18} className="text-purple-400" />
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-white text-base">{m.name}</p>
+                                                <p className="text-xs text-white/40 uppercase tracking-widest mt-0.5">{m.category}</p>
+                                                {m.address && <p className="text-xs text-white/25 mt-1">{m.address}</p>}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-black text-white text-base">{m.name}</p>
-                                            <p className="text-xs text-white/40 uppercase tracking-widest mt-0.5">{m.category}</p>
-                                            {m.address && <p className="text-xs text-white/25 mt-1">{m.address}</p>}
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        {/* Map visibility badge */}
-                                        <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${
-                                            onMap
-                                                ? 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30'
-                                                : 'text-white/20 bg-white/5 border-white/10'
-                                        }`}>
-                                            <MapPin size={10} />
-                                            {onMap ? 'On Map' : 'Hidden'}
-                                        </span>
-                                        {/* Subscription status badge */}
-                                        {meta && (
-                                            <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${meta.color}`}>
-                                                <StatusIcon size={10} />
-                                                {meta.label}
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${
+                                                onMap
+                                                    ? 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30'
+                                                    : 'text-white/20 bg-white/5 border-white/10'
+                                            }`}>
+                                                <MapPin size={10} />
+                                                {onMap ? 'On Map' : 'Hidden'}
                                             </span>
-                                        )}
-                                        {/* Active toggle */}
-                                        <button
-                                            onClick={() => toggleActive(m.id, m.is_active)}
-                                            disabled={actionLoading === m.id + 'toggle'}
-                                            className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${
-                                                m.is_active
-                                                    ? 'text-green-400 border-green-400/30 bg-green-400/10 hover:bg-red-400/10 hover:text-red-400 hover:border-red-400/30'
-                                                    : 'text-red-400 border-red-400/30 bg-red-400/10 hover:bg-green-400/10 hover:text-green-400 hover:border-green-400/30'
-                                            }`}
-                                        >
-                                            {m.is_active ? 'Active' : 'Deactivated'}
-                                        </button>
+                                            {meta && (
+                                                <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${meta.color}`}>
+                                                    <StatusIcon size={10} />
+                                                    {meta.label}
+                                                </span>
+                                            )}
+                                            <button
+                                                onClick={() => toggleActive(m.id, m.is_active)}
+                                                disabled={actionLoading === m.id + 'toggle'}
+                                                className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${
+                                                    m.is_active
+                                                        ? 'text-green-400 border-green-400/30 bg-green-400/10 hover:bg-red-400/10 hover:text-red-400 hover:border-red-400/30'
+                                                        : 'text-red-400 border-red-400/30 bg-red-400/10 hover:bg-green-400/10 hover:text-green-400 hover:border-green-400/30'
+                                                }`}
+                                            >
+                                                {m.is_active ? 'Active' : 'Deactivated'}
+                                            </button>
+                                            {/* Drill-down toggle */}
+                                            <button
+                                                onClick={() => toggleExpand(m.id)}
+                                                className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                                            >
+                                                {isExpanded ? <ChevronUp size={10}/> : <ChevronDown size={10}/>}
+                                                {isExpanded ? 'Collapse' : 'Activity'}
+                                            </button>
+                                        </div>
                                     </div>
+
+                                    {/* Subscription details */}
+                                    {sub && (
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            <div className="bg-white/[0.03] rounded-xl p-3">
+                                                <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">Monthly Fee</p>
+                                                <p className="text-sm font-black text-white">{fmtTTD(sub.monthly_fee_cents)}</p>
+                                            </div>
+                                            <div className="bg-white/[0.03] rounded-xl p-3">
+                                                <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">
+                                                    {sub.status === 'trial' ? 'Trial Ends' : 'Next Billing'}
+                                                </p>
+                                                <p className="text-sm font-black text-white">
+                                                    {sub.status === 'trial'
+                                                        ? <span>{fmt(sub.trial_end_at)} <span className="text-cyan-400 text-xs">({daysLeft(sub.trial_end_at)})</span></span>
+                                                        : fmt(sub.next_billing_at)
+                                                    }
+                                                </p>
+                                            </div>
+                                            <div className="bg-white/[0.03] rounded-xl p-3">
+                                                <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">Last Charged</p>
+                                                <p className="text-sm font-black text-white">{fmt(sub.last_billed_at)}</p>
+                                            </div>
+                                            <div className="bg-white/[0.03] rounded-xl p-3">
+                                                <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">Joined</p>
+                                                <p className="text-sm font-black text-white">{fmt(sub.trial_start_at)}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Admin action buttons */}
+                                    {sub && (
+                                        <div className="flex flex-wrap gap-2 pt-1 border-t border-white/5">
+                                            <button
+                                                onClick={() => extendTrial(sub.id)}
+                                                disabled={!!actionLoading}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-lg text-cyan-400 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-500/20 transition-all disabled:opacity-40"
+                                            >
+                                                <Calendar size={11} />
+                                                +30 Day Trial
+                                            </button>
+                                            {sub.status !== 'active' && (
+                                                <button
+                                                    onClick={() => setStatus(sub.id, 'active', { next_billing_at: new Date(Date.now() + 30 * 86400000).toISOString(), overdue_since: null })}
+                                                    disabled={!!actionLoading}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-[10px] font-black uppercase tracking-widest hover:bg-green-500/20 transition-all disabled:opacity-40"
+                                                >
+                                                    <CheckCircle size={11} />
+                                                    Force Active
+                                                </button>
+                                            )}
+                                            {(sub.status === 'active' || sub.status === 'overdue' || sub.status === 'trial') && (
+                                                <button
+                                                    onClick={() => setStatus(sub.id, 'suspended')}
+                                                    disabled={!!actionLoading}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all disabled:opacity-40"
+                                                >
+                                                    <Ban size={11} />
+                                                    Suspend
+                                                </button>
+                                            )}
+                                            {sub.status === 'suspended' && (
+                                                <button
+                                                    onClick={() => setStatus(sub.id, 'active', { overdue_since: null, next_billing_at: new Date(Date.now() + 30 * 86400000).toISOString() })}
+                                                    disabled={!!actionLoading}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-lg text-purple-400 text-[10px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-all disabled:opacity-40"
+                                                >
+                                                    <CheckCircle size={11} />
+                                                    Reactivate
+                                                </button>
+                                            )}
+                                            {sub.status !== 'cancelled' && (
+                                                <button
+                                                    onClick={() => { if (confirm(`Cancel subscription for ${m.name}? They will leave the map.`)) setStatus(sub.id, 'cancelled'); }}
+                                                    disabled={!!actionLoading}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white/30 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/20 transition-all disabled:opacity-40"
+                                                >
+                                                    <XCircle size={11} />
+                                                    Cancel
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => setFee(sub.id)}
+                                                disabled={!!actionLoading}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-400 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/20 transition-all disabled:opacity-40"
+                                            >
+                                                <DollarSign size={11} />
+                                                Set Fee
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Subscription details */}
-                                {sub && (
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                        <div className="bg-white/[0.03] rounded-xl p-3">
-                                            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">Monthly Fee</p>
-                                            <p className="text-sm font-black text-white">{fmtTTD(sub.monthly_fee_cents)}</p>
-                                        </div>
-                                        <div className="bg-white/[0.03] rounded-xl p-3">
-                                            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">
-                                                {sub.status === 'trial' ? 'Trial Ends' : 'Next Billing'}
-                                            </p>
-                                            <p className="text-sm font-black text-white">
-                                                {sub.status === 'trial'
-                                                    ? <span>{fmt(sub.trial_end_at)} <span className="text-cyan-400 text-xs">({daysLeft(sub.trial_end_at)})</span></span>
-                                                    : fmt(sub.next_billing_at)
-                                                }
-                                            </p>
-                                        </div>
-                                        <div className="bg-white/[0.03] rounded-xl p-3">
-                                            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">Last Charged</p>
-                                            <p className="text-sm font-black text-white">{fmt(sub.last_billed_at)}</p>
-                                        </div>
-                                        <div className="bg-white/[0.03] rounded-xl p-3">
-                                            <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">Joined</p>
-                                            <p className="text-sm font-black text-white">{fmt(sub.trial_start_at)}</p>
-                                        </div>
-                                    </div>
-                                )}
+                                {/* ── DRILL-DOWN: Orders + NFC Activity ── */}
+                                {isExpanded && (
+                                    <div className="border-t border-white/5 bg-black/20 p-6 space-y-6">
+                                        {detailLoading === m.id ? (
+                                            <div className="flex items-center justify-center py-8">
+                                                <RefreshCw size={18} className="text-white/30 animate-spin" />
+                                            </div>
+                                        ) : detail ? (
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                                {/* Recent Orders */}
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Package size={14} className="text-purple-400" />
+                                                        <p className="text-xs font-black text-white/60 uppercase tracking-widest">Recent Orders ({detail.orders.length})</p>
+                                                    </div>
+                                                    {detail.orders.length === 0 ? (
+                                                        <p className="text-white/20 text-xs italic">No orders yet</p>
+                                                    ) : (
+                                                        <div className="space-y-2">
+                                                            {detail.orders.map(order => (
+                                                                <div key={order.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                                                                    <div>
+                                                                        <p className="text-[10px] font-black text-white/60 font-mono">{order.id.slice(0, 8).toUpperCase()}</p>
+                                                                        <p className="text-[9px] text-white/30 mt-0.5">{new Date(order.created_at).toLocaleString('en-TT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <OrderStatusBadge status={order.status} />
+                                                                        <p className="text-xs font-black text-white mt-1">{fmtTTD(order.total_cents)}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
 
-                                {/* Admin action buttons */}
-                                {sub && (
-                                    <div className="flex flex-wrap gap-2 pt-1 border-t border-white/5">
-                                        {/* Extend trial — available in any status */}
-                                        <button
-                                            onClick={() => extendTrial(sub.id)}
-                                            disabled={!!actionLoading}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-lg text-cyan-400 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-500/20 transition-all disabled:opacity-40"
-                                        >
-                                            <Calendar size={11} />
-                                            +30 Day Trial
-                                        </button>
-
-                                        {/* Force activate */}
-                                        {sub.status !== 'active' && (
-                                            <button
-                                                onClick={() => setStatus(sub.id, 'active', { next_billing_at: new Date(Date.now() + 30 * 86400000).toISOString(), overdue_since: null })}
-                                                disabled={!!actionLoading}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-[10px] font-black uppercase tracking-widest hover:bg-green-500/20 transition-all disabled:opacity-40"
-                                            >
-                                                <CheckCircle size={11} />
-                                                Force Active
-                                            </button>
-                                        )}
-
-                                        {/* Suspend */}
-                                        {(sub.status === 'active' || sub.status === 'overdue' || sub.status === 'trial') && (
-                                            <button
-                                                onClick={() => setStatus(sub.id, 'suspended')}
-                                                disabled={!!actionLoading}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all disabled:opacity-40"
-                                            >
-                                                <Ban size={11} />
-                                                Suspend
-                                            </button>
-                                        )}
-
-                                        {/* Reactivate from suspended */}
-                                        {sub.status === 'suspended' && (
-                                            <button
-                                                onClick={() => setStatus(sub.id, 'active', { overdue_since: null, next_billing_at: new Date(Date.now() + 30 * 86400000).toISOString() })}
-                                                disabled={!!actionLoading}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-lg text-purple-400 text-[10px] font-black uppercase tracking-widest hover:bg-purple-500/20 transition-all disabled:opacity-40"
-                                            >
-                                                <CheckCircle size={11} />
-                                                Reactivate
-                                            </button>
-                                        )}
-
-                                        {/* Cancel */}
-                                        {sub.status !== 'cancelled' && (
-                                            <button
-                                                onClick={() => { if (confirm(`Cancel subscription for ${m.name}? They will leave the map.`)) setStatus(sub.id, 'cancelled'); }}
-                                                disabled={!!actionLoading}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white/30 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/20 transition-all disabled:opacity-40"
-                                            >
-                                                <XCircle size={11} />
-                                                Cancel
-                                            </button>
-                                        )}
-
-                                        {/* Adjust fee */}
-                                        <button
-                                            onClick={() => setFee(sub.id)}
-                                            disabled={!!actionLoading}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-400 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/20 transition-all disabled:opacity-40"
-                                        >
-                                            <DollarSign size={11} />
-                                            Set Fee
-                                        </button>
+                                                {/* NFC Nodes */}
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Wifi size={14} className="text-cyan-400" />
+                                                        <p className="text-xs font-black text-white/60 uppercase tracking-widest">NFC Nodes ({detail.nodes.length})</p>
+                                                    </div>
+                                                    {detail.nodes.length === 0 ? (
+                                                        <p className="text-white/20 text-xs italic">No NFC nodes registered</p>
+                                                    ) : (
+                                                        <div className="space-y-2">
+                                                            {detail.nodes.map(node => (
+                                                                <div key={node.id} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                                                                    <div>
+                                                                        <p className="text-xs font-black text-white">{node.location_name || 'Unnamed Node'}</p>
+                                                                        {node.nfc_uid && <p className="text-[9px] text-white/30 font-mono mt-0.5">{node.nfc_uid}</p>}
+                                                                    </div>
+                                                                    <div className="text-right">
+                                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${node.is_active ? 'text-green-400 border-green-400/30 bg-green-400/10' : 'text-white/20 border-white/10 bg-white/5'}`}>
+                                                                            {node.is_active ? 'Online' : 'Offline'}
+                                                                        </span>
+                                                                        <p className="text-[10px] text-cyan-400 font-black mt-1">{node.tap_count} taps <span className="text-white/20 font-normal">30d</span></p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : null}
                                     </div>
                                 )}
                             </div>
@@ -364,3 +488,18 @@ export function MerchantNetwork() {
         </div>
     );
 }
+
+const OrderStatusBadge = ({ status }: any) => {
+    const map: any = {
+        delivered: 'text-green-400 bg-green-400/10 border-green-400/20',
+        pending:   'text-white/40 bg-white/5 border-white/10',
+        processing: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+        ready:     'text-purple-400 bg-purple-400/10 border-purple-400/20',
+        cancelled: 'text-red-400 bg-red-400/10 border-red-400/20',
+    };
+    return (
+        <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-tight ${map[status] || 'text-white/30 bg-white/5 border-white/5'}`}>
+            {status}
+        </span>
+    );
+};

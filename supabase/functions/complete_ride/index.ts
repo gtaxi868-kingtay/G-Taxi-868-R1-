@@ -480,6 +480,13 @@ serve(async (req: Request) => {
         .catch((err) => console.error("Driver referral commission failed (non-fatal):", err));
     }
 
+    // ── DRIVER LOAN REPAYMENT ─────────────────────────────────────────────
+    if (ride.driver_id) {
+      await supabaseAdmin
+        .rpc("deduct_loan_installment", { p_driver_id: ride.driver_id, p_ride_id: ride_id })
+        .catch((err) => console.error("Loan deduction failed (non-fatal):", err));
+    }
+
     // ── FLEET LEASE DEDUCTION ─────────────────────────────────────────────
     let leaseDeductionCents = 0;
     let leaseDeductionStatus: "none" | "deducted" | "insufficient_balance" = "none";
