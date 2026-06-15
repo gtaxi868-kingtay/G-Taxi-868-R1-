@@ -90,6 +90,24 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 // ── App ────────────────────────────────────────────────────────────────────────
 type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'dealer' | 'intelligence' | 'pricing' | 'merchants' | 'support' | 'progression';
 
+const TAB_LABELS: Record<AdminView, string> = {
+    dashboard: 'Operations Overview',
+    fleet: 'Fleet & Personnel',
+    financials: 'Financials',
+    approval: 'Driver Approval',
+    nodes: 'Node Registry',
+    rescue: 'Rescue',
+    warchest: 'War Chest',
+    platformcontrol: 'Platform Control',
+    travel: 'Travel Packages',
+    dealer: 'Dealer Brokerage',
+    intelligence: 'AI Intelligence',
+    pricing: 'Pricing Config',
+    merchants: 'Merchant Network',
+    support: 'Support Tickets',
+    progression: 'Rider Progression',
+};
+
 function App() {
     const [activeTab, setActiveTab] = useState<AdminView>('dashboard');
     const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -179,7 +197,7 @@ function App() {
                     </div>
 
                     <nav className="flex-1 space-y-2">
-                        <NavItem active={activeTab === 'dashboard'} onClick={() => handleNav('dashboard')} icon={<LayoutDashboard size={20}/>} label="God View Telemetry" />
+                        <NavItem active={activeTab === 'dashboard'} onClick={() => handleNav('dashboard')} icon={<LayoutDashboard size={20}/>} label="Operations Overview" />
                         <NavItem active={activeTab === 'fleet'} onClick={() => handleNav('fleet')} icon={<Users size={20}/>} label="Fleet & Personnel" />
                         <NavItem active={activeTab === 'approval'} onClick={() => handleNav('approval')} icon={<UserCheck size={20}/>} label="Driver Approval" />
                         <NavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Index" />
@@ -209,7 +227,7 @@ function App() {
                             className="w-full mt-6 h-12 flex items-center justify-center gap-3 rounded-xl border border-red-500/20 text-red-400 font-black text-xs uppercase tracking-widest hover:bg-red-500/10 transition-all"
                         >
                             <LogOut size={16} />
-                            Term. Session
+                            Sign out
                         </button>
                     </div>
                 </aside>
@@ -218,8 +236,8 @@ function App() {
                 <main className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-6 lg:p-12 pt-20 lg:pt-12">
                     <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-12">
                         <div>
-                            <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight">{activeTab.toUpperCase()}</h2>
-                            <p className="text-xs font-medium text-white/20 uppercase tracking-[0.4em] mt-1">G-Taxi Logistics Layer // Node_868</p>
+                            <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight">{TAB_LABELS[activeTab] ?? activeTab}</h2>
+                            <p className="text-xs font-medium text-white/30 mt-1">G-Taxi 868 &mdash; Trinidad &amp; Tobago</p>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-full flex items-center gap-3">
@@ -264,11 +282,11 @@ function App() {
                     <div className="flex items-center gap-6">
                         <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Build V1.7.0</span>
                         <div className="w-1 h-1 bg-white/10 rounded-full" />
-                        <span className="text-[9px] font-black text-cyan-400/60 uppercase tracking-[0.3em]">Quantum Encrypted</span>
+                        <span className="text-[9px] font-black text-cyan-400/60 uppercase tracking-[0.3em]">TLS Secured</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <Activity size={10} className="text-cyan-400" />
-                        <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em]">Live Stream Active</span>
+                        <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em]">Realtime Connected</span>
                     </div>
                 </footer>
             </div>

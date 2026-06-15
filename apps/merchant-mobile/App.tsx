@@ -14,6 +14,7 @@ import { DispatchScreen } from './src/screens/DispatchScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
 import { PropertyManagementScreen } from './src/screens/PropertyManagementScreen';
 import { EquityProgressScreen } from './src/screens/EquityProgressScreen';
+import { ProductCatalogScreen } from './src/screens/ProductCatalogScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -35,6 +36,7 @@ function AppNavigator() {
       <AppStack.Screen name="Orders" component={OrdersScreen} />
       <AppStack.Screen name="Dispatch" component={DispatchScreen} />
       <AppStack.Screen name="Earnings" component={EarningsScreen} />
+      <AppStack.Screen name="ProductCatalog" component={ProductCatalogScreen} />
       <AppStack.Screen name="PropertyManagement" component={PropertyManagementScreen} />
       <AppStack.Screen name="EquityProgress" component={EquityProgressScreen} />
     </AppStack.Navigator>

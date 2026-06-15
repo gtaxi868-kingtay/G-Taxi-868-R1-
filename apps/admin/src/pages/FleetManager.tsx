@@ -96,7 +96,7 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
                     {opsView === 'rides' && (
                         <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden">
                             <div className="p-8 border-b border-white/5 flex justify-between items-center">
-                                <h2 className="font-orbitron text-xs font-black tracking-[0.3em] text-white/40 uppercase">Live Operations Stream</h2>
+                                <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">Active Rides</h2>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
@@ -136,7 +136,7 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
                     {opsView === 'food' && (
                         <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden">
                             <div className="p-8 border-b border-white/5">
-                                <h2 className="font-orbitron text-xs font-black tracking-[0.3em] text-white/40 uppercase">Food & Grocery Orders</h2>
+                                <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">Food &amp; Grocery Orders</h2>
                             </div>
                             {orders.length === 0 ? (
                                 <div className="py-16 text-center text-white/20 text-sm uppercase tracking-widest">No orders yet</div>
@@ -238,9 +238,9 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
                         </div>
                     ) : leases.length === 0 ? (
                         <div className="py-16 text-center">
-                            <Truck className="mx-auto text-white/10 mb-4" size={40} />
-                            <p className="text-white/20 text-sm uppercase tracking-widest">No fleet leases on record</p>
-                            <p className="text-white/10 text-xs mt-2">Leases are created when admin assigns a fleet vehicle to a driver</p>
+                            <Truck className="mx-auto text-white/40 mb-4" size={40} />
+                            <p className="text-white/60 text-sm">No fleet leases on record</p>
+                            <p className="text-white/40 text-xs mt-2">Leases are created when admin assigns a fleet vehicle to a driver</p>
                         </div>
                     ) : (
                         <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden">

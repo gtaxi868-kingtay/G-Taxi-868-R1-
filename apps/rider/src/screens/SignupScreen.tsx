@@ -37,16 +37,16 @@ export function SignupScreen({ navigation }: any) {
 
     const handleSignup = async () => {
         if (!formData.termsAccepted) {
-            setError('YOU MUST ACCEPT THE TERMS OF SERVICE');
+            setError('Please accept the terms of service to continue.');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             return;
         }
         if (!formData.name || !formData.email || !formData.password) {
-            setError('PLEASE FILL IN NAME, EMAIL AND PASSWORD');
+            setError('Please fill in your name, email, and password.');
             return;
         }
         if (formData.password.length < 6) {
-            setError('PASSWORD MUST BE AT LEAST 6 CHARACTERS');
+            setError('Password must be at least 6 characters.');
             return;
         }
 
@@ -111,7 +111,7 @@ export function SignupScreen({ navigation }: any) {
 
         } catch (err: any) {
 
-            setError(err.message?.toUpperCase() || 'SIGNUP FAILED — PLEASE TRY AGAIN');
+            setError(err.message || 'Signup failed. Please try again.');
         } finally {
             setLoading(false);
         }

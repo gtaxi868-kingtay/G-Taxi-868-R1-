@@ -10,6 +10,7 @@ export type AppStackParamList = {
   Orders: undefined;
   Dispatch: undefined;
   Earnings: undefined;
+  ProductCatalog: undefined;
   PropertyManagement: { merchant_id?: string };
   EquityProgress: { contract_id?: string };
 };

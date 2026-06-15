@@ -119,9 +119,9 @@ export function RescueScreen() {
                 /* Broken Node Alerts */
                 alerts.length === 0 ? (
                     <div className="py-32 text-center bg-white/[0.02] rounded-[2rem] border border-dashed border-white/5">
-                        <Radio size={48} className="mx-auto mb-4 text-white/10" />
-                        <p className="text-white/20 font-black uppercase tracking-widest text-xs">All Nodes Operational</p>
-                        <p className="text-white/10 text-sm mt-2">No broken node reports at this time.</p>
+                        <Radio size={48} className="mx-auto mb-4 text-white/40" />
+                        <p className="text-white/60 font-black text-xs">All nodes operational</p>
+                        <p className="text-white/40 text-sm mt-2">No broken node reports at this time.</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -252,9 +252,9 @@ export function RescueScreen() {
 
                     {tripRescues.length === 0 && (
                         <div className="py-32 text-center bg-white/[0.02] rounded-[2rem] border border-dashed border-white/5">
-                            <ShieldAlert size={48} className="mx-auto mb-4 text-white/10" />
-                            <p className="text-white/20 font-black uppercase tracking-widest text-xs">No Recent Trips</p>
-                            <p className="text-white/10 text-sm mt-2">No rides have been flagged for rescue.</p>
+                            <ShieldAlert size={48} className="mx-auto mb-4 text-white/40" />
+                            <p className="text-white/60 font-black text-xs">No recent trips</p>
+                            <p className="text-white/40 text-sm mt-2">No rides have been flagged for rescue.</p>
                         </div>
                     )}
                 </div>

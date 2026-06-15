@@ -188,7 +188,7 @@ export const Support = () => {
                 <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden">
                     <div className="px-8 py-5 border-b border-white/5 flex items-center gap-3 bg-white/[0.02]">
                         <Flag className="text-yellow-400" size={16} />
-                        <h2 className="font-orbitron text-xs font-black tracking-[0.3em] text-white/40 uppercase">Support Tickets</h2>
+                        <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">Support Tickets</h2>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
@@ -237,7 +237,7 @@ export const Support = () => {
                                 ))}
                                 {tickets.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="px-8 py-20 text-center text-white/10 font-orbitron tracking-widest text-xs">NO TICKETS</td>
+                                        <td colSpan={6} className="px-8 py-20 text-center text-white/40 text-xs">No tickets</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -248,7 +248,7 @@ export const Support = () => {
                 <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden">
                     <div className="px-8 py-5 border-b border-white/5 flex items-center gap-3 bg-white/[0.02]">
                         <CreditCard className="text-cyan-400" size={16} />
-                        <h2 className="font-orbitron text-xs font-black tracking-[0.3em] text-white/40 uppercase">Driver Payout Requests</h2>
+                        <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">Driver Payout Requests</h2>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
@@ -316,7 +316,7 @@ export const Support = () => {
                                 ))}
                                 {payouts.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="px-8 py-20 text-center text-white/10 font-orbitron tracking-widest text-xs">NO PAYOUT REQUESTS</td>
+                                        <td colSpan={6} className="px-8 py-20 text-center text-white/40 text-xs">No payout requests</td>
                                     </tr>
                                 )}
                             </tbody>

@@ -276,11 +276,11 @@ export function TripRequestScreen({ navigation, route }: any) {
 
                         {/* Action Buttons */}
                         <View style={s.actionRow}>
-                            <TouchableOpacity style={s.declineBtn} onPress={() => handleDecline(false)} disabled={isHandling}>
+                            <TouchableOpacity style={s.declineBtn} onPress={() => handleDecline(false)} disabled={isHandling} accessibilityLabel="Decline trip" accessibilityRole="button">
                                 <Text style={s.declineText}>DECLINE</Text>
                             </TouchableOpacity>
-                            
-                            <TouchableOpacity style={s.acceptBtn} onPress={handleAccept} disabled={isHandling} activeOpacity={0.9}>
+
+                            <TouchableOpacity style={s.acceptBtn} onPress={handleAccept} disabled={isHandling} activeOpacity={0.9} accessibilityLabel="Accept trip" accessibilityRole="button">
                                 <LinearGradient 
                                     colors={[VOICES.driver.accent, VOICES.driver.accentDark]} 
                                     style={s.acceptGradient}

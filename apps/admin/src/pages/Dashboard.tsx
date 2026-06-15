@@ -26,7 +26,7 @@ export const Dashboard = ({ rides, stats }: any) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-[2.5rem] p-8">
                    <div className="flex justify-between items-center mb-8">
-                      <h2 className="font-orbitron text-xs font-black tracking-[0.3em] text-white/40 uppercase">Operational Velocity</h2>
+                      <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">Activity</h2>
                       <TrendingUp className="text-cyan-400" size={18} />
                    </div>
                    <div className="space-y-4">

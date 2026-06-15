@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
     useSharedValue, withSpring, withTiming,
     useAnimatedStyle, withDelay,
-    FadeIn, FadeOut,
+    FadeIn, FadeOut, useReducedMotion,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -86,8 +86,9 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [nearbyVendors, setNearbyVendors] = useState<Array<{ id: string; name: string; store_type: string; address: string; delivery_fee_cents: number; avg_delivery_minutes: number; is_open: boolean; distance_meters: number }>>([]);
     const [stopSuggestions, setStopSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
-    const panelY = useSharedValue(120);
-    const mapPitch = useSharedValue(45);
+    const reducedMotion = useReducedMotion();
+    const panelY = useSharedValue(reducedMotion ? 0 : 120);
+    const mapPitch = useSharedValue(reducedMotion ? 0 : 45);
 
     useEffect(() => {
         const checkActive = async () => {
@@ -307,8 +308,10 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             fetchProactiveSuggestion();
         }
 
-        panelY.value = withSpring(0, ANIMATION.spring);
-        mapPitch.value = withDelay(1000, withTiming(30, { duration: 1500 }));
+        if (!reducedMotion) {
+            panelY.value = withSpring(0, ANIMATION.spring);
+            mapPitch.value = withDelay(1000, withTiming(30, { duration: 1500 }));
+        }
 
         return () => {
             verticalsChannel?.unsubscribe();
@@ -939,6 +942,23 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                     )}
                                 </View>
 
+                                {nextUnlock && (
+                                    <View style={s.nextUnlockBanner} accessibilityLabel={`${nextUnlock.required - nextUnlock.progress} more ${nextUnlock.label} to unlock ${nextUnlock.vertical}`}>
+                                        <View style={s.nextUnlockRow}>
+                                            <Ionicons name="lock-closed-outline" size={14} color={VOICES.rider.accent} />
+                                            <Text style={s.nextUnlockLabel}>
+                                                {nextUnlock.required - nextUnlock.progress > 0
+                                                    ? `${nextUnlock.required - nextUnlock.progress} more ${nextUnlock.label} to unlock ${nextUnlock.vertical}`
+                                                    : `${nextUnlock.vertical} unlocking…`}
+                                            </Text>
+                                        </View>
+                                        <View style={s.nextUnlockTrack}>
+                                            <View style={[s.nextUnlockFill, { width: `${Math.min(100, (nextUnlock.progress / nextUnlock.required) * 100)}%` }]} />
+                                        </View>
+                                        <Text style={s.nextUnlockCount}>{nextUnlock.progress} / {nextUnlock.required}</Text>
+                                    </View>
+                                )}
+
                                 {featureFlags.caribbean_travel && (
                                     <TouchableOpacity
                                         activeOpacity={0.82}
@@ -1300,6 +1320,13 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         </View>
     );
 }
+
+const Z = {
+    mapOverlay: 10,
+    panel: 20,
+    lockOverlay: 30,
+    locationConfirm: 40,
+};
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
@@ -1671,6 +1698,46 @@ const s = StyleSheet.create({
         fontWeight: '600',
     },
 
+    nextUnlockBanner: {
+        marginTop: 12,
+        backgroundColor: 'rgba(0,255,255,0.05)',
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(0,255,255,0.12)',
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+    },
+    nextUnlockRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 8,
+    },
+    nextUnlockLabel: {
+        color: 'rgba(255,255,255,0.65)',
+        fontSize: 12,
+        fontWeight: '600',
+        flex: 1,
+    },
+    nextUnlockTrack: {
+        height: 4,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        borderRadius: 2,
+        overflow: 'hidden',
+        marginBottom: 6,
+    },
+    nextUnlockFill: {
+        height: 4,
+        backgroundColor: '#00FFFF',
+        borderRadius: 2,
+    },
+    nextUnlockCount: {
+        color: 'rgba(0,255,255,0.6)',
+        fontSize: 10,
+        fontWeight: '700',
+        textAlign: 'right',
+    },
+
     farePreviewContainer: { 
         marginBottom: 16, 
         borderRadius: 16, 
@@ -1859,9 +1926,9 @@ const s = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    lockOverlay: { 
-        zIndex: 9999, 
-        justifyContent: 'center', 
+    lockOverlay: {
+        zIndex: Z.lockOverlay,
+        justifyContent: 'center',
         alignItems: 'center',
     },
     lockBlur: { 
@@ -1908,7 +1975,7 @@ const s = StyleSheet.create({
     },
 
     locationConfirmOverlay: {
-        zIndex: 99999,
+        zIndex: Z.locationConfirm,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: 'rgba(0,0,0,0.7)',

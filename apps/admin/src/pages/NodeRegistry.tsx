@@ -177,9 +177,9 @@ export function NodeRegistry() {
                 </div>
             ) : filtered.length === 0 ? (
                 <div className="py-32 text-center bg-white/[0.02] rounded-[2rem] border border-dashed border-white/5">
-                    <Radio size={48} className="mx-auto mb-4 text-white/10" />
-                    <p className="text-white/20 font-black uppercase tracking-widest text-xs">No Nodes Registered</p>
-                    <p className="text-white/10 text-sm mt-2">Register the first Smart Puck to begin mapping.</p>
+                    <Radio size={48} className="mx-auto mb-4 text-white/40" />
+                    <p className="text-white/60 font-black uppercase tracking-widest text-xs">No Nodes Registered</p>
+                    <p className="text-white/40 text-sm mt-2">Register the first Smart Puck to begin mapping.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

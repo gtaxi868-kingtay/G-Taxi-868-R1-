@@ -466,9 +466,9 @@ export function Pricing() {
                     </div>
                 ) : zones.length === 0 ? (
                     <div className="py-8 px-5 rounded-2xl border border-dashed border-white/10 text-center mb-8">
-                        <Zap size={24} className="text-white/10 mx-auto mb-2" />
-                        <p className="text-sm text-white/20 font-bold">No active surge zones</p>
-                        <p className="text-xs text-white/10 mt-1">Base pricing applies across all of TT</p>
+                        <Zap size={24} className="text-white/40 mx-auto mb-2" />
+                        <p className="text-sm text-white/60 font-bold">No active surge zones</p>
+                        <p className="text-xs text-white/40 mt-1">Base pricing applies across all of TT</p>
                     </div>
                 ) : (
                     <div className="space-y-3 mb-8">

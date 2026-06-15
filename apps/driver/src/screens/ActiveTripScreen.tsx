@@ -421,7 +421,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
                             <Text style={s.earningsLabelSmall}>YOUR EARNINGS</Text>
                             <Text style={s.earningsValueLarge}>TTD ${earnings}</Text>
                         </View>
-                        <TouchableOpacity style={s.dashBtn} onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] })}>
+                        <TouchableOpacity style={s.dashBtn} onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] })} accessibilityLabel="Back to dashboard" accessibilityRole="button">
                             <LinearGradient
                                 colors={[tokens.colors.cyan, tokens.colors.purple]}
                                 style={s.dashBtnGradient}
@@ -501,10 +501,10 @@ export function ActiveTripScreen({ route, navigation }: any) {
                         <Text style={s.modalTitle}>ENTER VERIFICATION PIN</Text>
                         <TextInput style={s.pinInput} keyboardType="number-pad" maxLength={4} value={pinInput} onChangeText={setPinInput} placeholder="0000" placeholderTextColor="rgba(255,255,255,0.2)" autoFocus />
                         <View style={s.modalActions}>
-                            <TouchableOpacity style={s.modalCancel} onPress={() => setShowPinModal(false)}>
+                            <TouchableOpacity style={s.modalCancel} onPress={() => setShowPinModal(false)} accessibilityLabel="Cancel PIN entry" accessibilityRole="button">
                                 <Text style={s.modalCancelText}>CANCEL</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={s.modalConfirm} onPress={async () => { if (await handleStatusChange('in_progress', pinInput)) setShowPinModal(false); }}>
+                            <TouchableOpacity style={s.modalConfirm} onPress={async () => { if (await handleStatusChange('in_progress', pinInput)) setShowPinModal(false); }} accessibilityLabel="Verify passenger PIN" accessibilityRole="button">
                                 <Text style={s.modalConfirmText}>VERIFY</Text>
                             </TouchableOpacity>
                         </View>

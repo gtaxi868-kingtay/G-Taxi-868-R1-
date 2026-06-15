@@ -100,7 +100,7 @@ export const Financials = () => {
                     <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-cyan-500/10">
                         <div className="flex items-center gap-3">
                             <Activity className="text-cyan-400" size={18} />
-                            <h2 className="font-orbitron text-xs font-black tracking-[0.3em] text-cyan-400 uppercase">Awaiting Verification</h2>
+                            <h2 className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Awaiting Verification</h2>
                         </div>
                         <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 text-[10px] font-black rounded-full">{pendingDeposits.length} PENDING</span>
                     </div>
@@ -155,7 +155,7 @@ export const Financials = () => {
             {/* AUDIT LEDGER */}
             <div className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
                 <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    <h2 className="font-orbitron text-xs font-black tracking-[0.3em] text-white/40 uppercase">Platform Revenue Ledger</h2>
+                    <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">Revenue Ledger</h2>
                     <button onClick={loadFinancials} className="text-[10px] font-black text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-widest">Refresh Audit</button>
                 </div>
                 <div className="overflow-x-auto">
@@ -190,7 +190,7 @@ export const Financials = () => {
                             ))}
                             {logs.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-8 py-20 text-center text-white/10 font-orbitron tracking-widest text-xs">NO LEDGER ENTRIES FOUND</td>
+                                    <td colSpan={5} className="px-8 py-20 text-center text-white/40 text-xs">No ledger entries found</td>
                                 </tr>
                             )}
                         </tbody>

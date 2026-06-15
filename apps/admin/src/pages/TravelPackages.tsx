@@ -462,7 +462,7 @@ function EquityPipeline() {
         return (
             <div className="bg-white/3 border border-white/6 rounded-2xl p-8 text-center">
                 <p className="text-white/20 text-sm">No equity contracts yet.</p>
-                <p className="text-white/12 text-xs mt-1">Once you deliver 150 room-nights to a partner property, an equity contract is triggered automatically.</p>
+                <p className="text-white/40 text-xs mt-1">Once you deliver 150 room-nights to a partner property, an equity contract is triggered automatically.</p>
             </div>
         );
     }

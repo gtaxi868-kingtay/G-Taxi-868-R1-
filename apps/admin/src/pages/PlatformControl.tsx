@@ -340,7 +340,7 @@ export function PlatformControl() {
                                                         </p>
                                                     )}
                                                     {f.toggled_at && (
-                                                        <p className="text-[10px] text-white/10 mt-0.5">
+                                                        <p className="text-[10px] text-white/40 mt-0.5">
                                                             Last toggled {new Date(f.toggled_at).toLocaleString()}
                                                         </p>
                                                     )}

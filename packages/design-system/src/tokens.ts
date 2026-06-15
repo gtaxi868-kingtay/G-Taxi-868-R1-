@@ -9,8 +9,8 @@ export const tokens = {
     },
     text: {
       primary: '#FFFFFF',
-      secondary: 'rgba(255,255,255,0.5)',
-      tertiary: 'rgba(255,255,255,0.3)',
+      secondary: 'rgba(255,255,255,0.65)',
+      tertiary: 'rgba(255,255,255,0.45)',
       inverse: '#FFFFFF',
     },
     border: {

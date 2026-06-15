@@ -238,11 +238,11 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
                         </View>
 
                         <View style={s.actionRow}>
-                            <TouchableOpacity style={s.declineBtn} onPress={() => handleDecline(false)} disabled={isHandling}>
+                            <TouchableOpacity style={s.declineBtn} onPress={() => handleDecline(false)} disabled={isHandling} accessibilityLabel="Decline delivery" accessibilityRole="button">
                                 <Text style={s.declineText}>DECLINE</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={s.acceptBtn} onPress={handleAccept} disabled={isHandling} activeOpacity={0.9}>
+                            <TouchableOpacity style={s.acceptBtn} onPress={handleAccept} disabled={isHandling} activeOpacity={0.9} accessibilityLabel="Accept delivery" accessibilityRole="button">
                                 <LinearGradient
                                     colors={[FOOD_ORANGE, '#EA580C']}
                                     style={s.acceptGradient}
