@@ -49,6 +49,7 @@ export interface ActiveEscape {
   booking_ref: string | null;
   stripe_payment_intent_id: string | null;
   escape_packages: {
+    id: string;
     package_name: string;
     cover_image_url: string | null;
     tagline: string | null;
@@ -101,6 +102,7 @@ export const EscapeTripProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           booking_ref,
           stripe_payment_intent_id,
           escape_packages (
+            id,
             package_name,
             cover_image_url,
             tagline,

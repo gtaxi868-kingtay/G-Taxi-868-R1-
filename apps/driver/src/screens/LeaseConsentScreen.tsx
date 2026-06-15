@@ -176,7 +176,7 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
                         <ActivityIndicator color="#000" />
                     ) : (
                         <>
-                            <Ionicons name="pen-sharp" size={18} color="#000" style={{ marginRight: 8 }} />
+                            <Ionicons name="pencil-sharp" size={18} color="#000" style={{ marginRight: 8 }} />
                             <Text style={s.signCtaText}>Sign &amp; Authorise Deductions</Text>
                         </>
                     )}
