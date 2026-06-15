@@ -146,9 +146,16 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
                                 You have {data.active_days_count} active driving days. You are now eligible for a BYD lease. Contact G-Taxi admin to activate.
                             </Text>
 
+                            <TouchableOpacity
+                                style={s.signAddendumCta}
+                                onPress={() => navigation.navigate('LeaseConsent')}
+                            >
+                                <Ionicons name="document-text-sharp" size={16} color="#000" style={{ marginRight: 8 }} />
+                                <Text style={s.signAddendumCtaText}>Review &amp; Sign Earnings Addendum</Text>
+                            </TouchableOpacity>
                             <View style={s.ctaRow}>
-                                <Ionicons name="call-sharp" size={16} color="#D4AF37" />
-                                <Text style={[s.ctaText, { color: '#D4AF37' }]}>Contact admin via Help to activate your lease</Text>
+                                <Ionicons name="information-circle-sharp" size={16} color="rgba(212,175,55,0.5)" />
+                                <Text style={[s.ctaText, { color: 'rgba(212,175,55,0.5)' }]}>Admin activates your lease after you sign</Text>
                             </View>
 
                             <View style={s.infoBlock}>
@@ -473,4 +480,15 @@ const s = StyleSheet.create({
     earningsLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', flex: 1, lineHeight: 16 },
     earningsValue: { fontSize: 13, fontWeight: '800', textAlign: 'right' },
     earningsNote: { fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 8, lineHeight: 14 },
+    signAddendumCta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#D4AF37',
+        borderRadius: 14,
+        paddingVertical: 14,
+        marginTop: 20,
+        marginBottom: 12,
+    },
+    signAddendumCtaText: { fontSize: 15, fontWeight: '800', color: '#000' },
 });
