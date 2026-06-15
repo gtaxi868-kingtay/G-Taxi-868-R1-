@@ -178,7 +178,7 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
                         style={StyleSheet.absoluteFillObject}
                     />
                     <Ionicons name={currentStepData.icon as any} size={32} color={currentStepData.color} />
-                    <Text style={[s.stepLabel, { color: currentStepData.color }]}>{currentStepData.label.toUpperCase()}</Text>
+                    <Text style={[s.stepLabel, { color: currentStepData.color }]}>{currentStepData.label}</Text>
                 </View>
 
                 {/* Merchant info */}
@@ -188,7 +188,7 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
                             <Ionicons name="storefront-outline" size={18} color={FOOD_ORANGE} />
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={s.infoLabel}>PICKUP FROM</Text>
+                            <Text style={s.infoLabel}>Pick up from</Text>
                             <Text style={s.infoValue}>{order?.merchant_name ?? '...'}</Text>
                             {order?.merchant_address ? (
                                 <Text style={s.infoSub}>{order.merchant_address}</Text>
@@ -209,7 +209,7 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
                             <Ionicons name="person-outline" size={18} color={VOICES.driver.accent} />
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={s.infoLabel}>DELIVER TO</Text>
+                            <Text style={s.infoLabel}>Deliver to</Text>
                             <Text style={s.infoValue}>{order?.rider_name ?? 'Customer'}</Text>
                             {order?.delivery_address ? (
                                 <Text style={s.infoSub}>{order.delivery_address}</Text>
@@ -235,7 +235,7 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
                             end={{ x: 1, y: 1 }}
                         >
                             <Ionicons name={nextStepData.icon as any} size={22} color="#FFF" />
-                            <Text style={s.advanceText}>{nextStepData.label.toUpperCase()}</Text>
+                            <Text style={s.advanceText}>{nextStepData.label}</Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 ) : null}

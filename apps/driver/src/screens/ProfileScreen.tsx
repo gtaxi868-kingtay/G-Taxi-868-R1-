@@ -290,7 +290,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
 
                 <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
                     <Ionicons name="log-out-outline" size={20} color="#F59E0B" style={{ marginRight: 8 }} />
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#F59E0B'}}>TERMINATE SESSION</Text>
+                    <Text style={{fontSize: 14, fontWeight: '600', color: '#F59E0B'}}>Sign out</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'rgba(239,68,68,0.4)' }]} onPress={handlePurgeAccount}>

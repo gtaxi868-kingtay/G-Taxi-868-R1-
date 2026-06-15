@@ -30,7 +30,7 @@ export function PhaseTrack({ phaseBarAnimatedStyle, phaseIndex }: PhaseTrackProp
               <Text style={[s.label, {
                 color: active ? tokens.colors.cyan : tokens.colors.textMuted,
                 fontWeight: active ? '800' : '500',
-              }]}>{label.toUpperCase()}</Text>
+              }]}>{label}</Text>
             </View>
           );
         })}

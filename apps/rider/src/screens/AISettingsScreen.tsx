@@ -184,7 +184,7 @@ export function AISettingsScreen({ navigation }: any) {
                                     color={prefs.pace_priority === mode ? R.white : R.muted} 
                                 />
                                 <Txt variant="caption" color={prefs.pace_priority === mode ? R.white : R.muted} style={{ marginTop: 4 }}>
-                                    {mode.toUpperCase()}
+                                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
                                 </Txt>
                             </TouchableOpacity>
                         ))}

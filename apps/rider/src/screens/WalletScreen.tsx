@@ -153,7 +153,7 @@ export function WalletScreen({ navigation }: any) {
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Luxe Wallet</Txt>
+                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Wallet</Txt>
             </View>
 
             <FlatList<any>
@@ -167,7 +167,7 @@ export function WalletScreen({ navigation }: any) {
                 ListHeaderComponent={
                     <>
                         <LinearGradient colors={[VOICES.rider.accent, '#a88be0']} style={s.hero}>
-                            <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">AVAILABLE FUNDS</Txt>
+                            <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.7)">Balance</Txt>
                             {balanceError ? (
                                 <TouchableOpacity onPress={fetchWalletData} accessibilityLabel="Retry loading balance" accessibilityRole="button" style={{ marginVertical: 12, backgroundColor: 'rgba(255,100,100,0.2)', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                     <Ionicons name="alert-circle-outline" size={18} color="#FFA0A0" />
@@ -181,7 +181,7 @@ export function WalletScreen({ navigation }: any) {
                             )}
                             <View style={s.gCoinBadge}>
                                 <Ionicons name="flash" size={12} color="#F59E0B" />
-                                <Txt variant="caption" weight="heavy" color="#F59E0B" style={{ marginLeft: 4 }}>G-COIN ACTIVE</Txt>
+                                <Txt variant="caption" color="#F59E0B" style={{ marginLeft: 4 }}>G-Rewards active</Txt>
                             </View>
                         </LinearGradient>
 

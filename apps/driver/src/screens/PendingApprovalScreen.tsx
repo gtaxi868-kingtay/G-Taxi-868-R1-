@@ -79,7 +79,7 @@ export function PendingApprovalScreen() {
             <View style={[s.footer, { paddingBottom: insets.bottom + 40 }]}>
                 <TouchableOpacity style={s.logoutBtn} onPress={handleSignOut}>
                     <Ionicons name="log-out-outline" size={20} color="rgba(239,68,68,0.35)" style={{ marginRight: 8 }} />
-                    <Text style={{fontSize: 14, fontWeight: '700', color: 'rgba(239,68,68,0.35)'}}>TERMINATE SESSION</Text>
+                    <Text style={{fontSize: 14, fontWeight: '600', color: 'rgba(239,68,68,0.35)'}}>Sign out</Text>
                 </TouchableOpacity>
             </View>
 

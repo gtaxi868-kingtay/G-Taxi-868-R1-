@@ -172,7 +172,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                                     color="#FFF" 
                                 />
                                 <Text style={[s.tierText, { marginLeft: 8 }]}>
-                                    {subscription.tier.toUpperCase()}
+                                    {subscription.tier.charAt(0).toUpperCase() + subscription.tier.slice(1)}
                                 </Text>
                             </View>
                             <View style={s.subscriptionPerks}>
@@ -221,7 +221,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                 </View>
 
                 <TouchableOpacity style={s.logoutBtn} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); signOut(); }}>
-                    <Text style={s.logoutText}>TERMINATE SESSION</Text>
+                    <Text style={s.logoutText}>Sign out</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'transparent', backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={handleDeleteAccount}>

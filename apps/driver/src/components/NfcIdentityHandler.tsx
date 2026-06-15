@@ -99,7 +99,7 @@ export function NfcIdentityHandler({ visible, onClose, rideId, onSuccess }: Prop
                     </View>
 
                     <Text style={s.title}>
-                        {status === 'idle' ? 'Universal Key' : status.toUpperCase()}
+                        {status === 'idle' ? 'Universal Key' : status.charAt(0).toUpperCase() + status.slice(1)}
                     </Text>
                     <Text style={s.sub}>{msg}</Text>
 

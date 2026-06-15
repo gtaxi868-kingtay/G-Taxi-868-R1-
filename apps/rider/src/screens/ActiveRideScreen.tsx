@@ -586,7 +586,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                             <View style={{ flex: 1 }}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                                     <Ionicons name="star" size={14} color="#FFFFFF" />
-                                    <Text style={s.aiTitle}>G-TAXI AI CONCIERGE</Text>
+                                    <Text style={s.aiTitle}>G-Taxi</Text>
                                 </View>
                                 <Text style={s.aiMessage}>{aiInsight}</Text>
                                 

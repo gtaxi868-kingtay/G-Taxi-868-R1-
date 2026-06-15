@@ -28,7 +28,7 @@ export const GlassCard = ({ children, style, variant = 'driver' }: { children: R
 export const InfoChip = ({ label, value, icon, color = BRAND.cyan }: { label: string, value: string, icon?: string, color?: string }) => (
     <View style={s.chip}>
         {icon && <Ionicons name={icon as any} size={14} color={color} style={{ marginBottom: 4 }} />}
-        <Text style={[s.chipLabel, { color: VOICES.driver.textMuted }]}>{label.toUpperCase()}</Text>
+        <Text style={[s.chipLabel, { color: VOICES.driver.textMuted }]}>{label}</Text>
         <Text style={[s.chipValue, { color: BRAND.cyan }]}>{value}</Text>
     </View>
 );

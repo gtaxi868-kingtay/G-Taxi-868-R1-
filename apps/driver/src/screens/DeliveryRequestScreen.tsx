@@ -200,7 +200,7 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
                                 <View style={s.addrRow}>
                                     <View style={[s.dot, { backgroundColor: FOOD_ORANGE }]} />
                                     <View style={{ flex: 1 }}>
-                                        <Text style={s.addrLabel}>PICKUP FROM</Text>
+                                        <Text style={s.addrLabel}>Pick up from</Text>
                                         <Text style={s.addrText} numberOfLines={1}>
                                             {orderDetail?.merchant_name ?? offer?.merchant_name ?? 'Restaurant'}
                                         </Text>
@@ -213,7 +213,7 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
                                 <View style={s.addrRow}>
                                     <View style={s.square} />
                                     <View style={{ flex: 1 }}>
-                                        <Text style={s.addrLabel}>DELIVER TO</Text>
+                                        <Text style={s.addrLabel}>Deliver to</Text>
                                         <Text style={s.addrText} numberOfLines={1}>
                                             {orderDetail?.rider_address ?? 'Customer address'}
                                         </Text>

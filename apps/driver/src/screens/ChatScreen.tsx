@@ -113,10 +113,10 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
                     <View style={s.headerTitle}>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{rider?.name?.toUpperCase() || 'RIDER'}</Text>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{rider?.name || 'Rider'}</Text>
                         <View style={s.statusRow}>
                             <View style={s.statusDot} />
-                            <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}}>LIVE TELEMETRY</Text>
+                            <Text style={{fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.5)'}}>Active ride</Text>
                         </View>
                     </View>
                     <TouchableOpacity style={s.headerBtn}>
@@ -147,7 +147,7 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
                         keyExtractor={item => item}
                         renderItem={({ item }) => (
                             <TouchableOpacity style={s.chip} onPress={() => handleSend(item)}>
-                                <Text style={{fontSize: 11, fontWeight: '700', color: '#FFF'}}>{item.toUpperCase()}</Text>
+                                <Text style={{fontSize: 12, fontWeight: '600', color: '#FFF'}}>{item}</Text>
                             </TouchableOpacity>
                         )}
                         contentContainerStyle={{ paddingHorizontal: 12 } as any}

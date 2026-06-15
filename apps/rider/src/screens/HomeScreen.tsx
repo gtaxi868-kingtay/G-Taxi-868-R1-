@@ -406,7 +406,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const handleVoiceComplete = async (text: string) => {
         if (!profile?.id || !text) return;
         setIsAiThinking(true);
-        setAiGreeting("ANALYZING COMMAND...");
+        setAiGreeting("On it...");
 
         try {
             const { data, error } = await supabase.functions.invoke('handle_voice', {
@@ -1145,9 +1145,9 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     <View style={[glassSurface(100), s.lockBlur]}>
                         <View style={s.hudLockRing} />
                                 <Ionicons name="flash" size={64} color={VOICES.rider.accent} />
-                        <Text style={s.lockTitle}>SYSTEM LOCK</Text>
+                        <Text style={s.lockTitle}>Feature locked</Text>
                         <Text style={s.lockSubtitle}>
-                            MAINTENANCE PROTOCOL ACTIVE. ENCRYPTED LINK STANDBY.
+                            Complete your first ride to unlock this.
                         </Text>
                     </View>
                 </View>

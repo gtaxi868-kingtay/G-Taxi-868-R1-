@@ -115,7 +115,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                     <View style={s.footer}>
                         <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
                             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-                            <Txt variant="bodyBold" color="#EF4444" style={{ marginLeft: 12 }}>TERMINATE SESSION</Txt>
+                            <Txt variant="bodyBold" color="#EF4444" style={{ marginLeft: 12 }}>Sign out</Txt>
                         </TouchableOpacity>
 
                         <View style={s.footerLogo}>
@@ -137,7 +137,7 @@ const MenuItem = ({ icon, label, onPress }: any) => (
         <View style={s.menuIcon}>
             <Ionicons name={icon as any} size={22} color={VOICES.rider.accent} />
         </View>
-        <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 16 }}>{label.toUpperCase()}</Txt>
+        <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 16 }}>{label}</Txt>
     </TouchableOpacity>
 );
 

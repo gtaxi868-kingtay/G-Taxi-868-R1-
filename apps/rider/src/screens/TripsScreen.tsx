@@ -89,7 +89,7 @@ export function TripsScreen({ navigation }: any) {
                     <View style={s.cardFooter}>
                         <View style={[s.statusPill, { backgroundColor: isCompleted ? 'rgba(16,185,129,0.1)' : isCancelled ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.05)' }]}>
                             <Txt variant="caption" weight="heavy" color={isCompleted ? '#32D74B' : isCancelled ? '#FF6E84' : 'rgba(174, 169, 181, 0.45)'}>
-                                {item.status.toUpperCase()}
+                                {item.status.charAt(0).toUpperCase() + item.status.slice(1).replace(/_/g, ' ')}
                             </Txt>
                         </View>
                         <Ionicons name="chevron-forward" size={16} color="rgba(174, 169, 181, 0.45)" />

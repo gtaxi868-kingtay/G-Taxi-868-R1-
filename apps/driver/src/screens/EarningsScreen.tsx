@@ -172,7 +172,7 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
             >
                 <View style={[s.heroCard, glassSurface(0.15)]}>
                     <Text style={{fontSize: 11, fontWeight: '700', color: VOICES.driver.accent, letterSpacing: 1.5, marginBottom: 12 }}>
-                        TODAY'S EARNINGS
+                        Today's earnings
                     </Text>
 
                     <Reanimated.Text style={s.earningsNum}>
@@ -201,7 +201,7 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
                 </View>
 
                 <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginBottom: 16, letterSpacing: 2}}>
-                    RECENT LOGISTICS ACTIVITY
+                    Recent trips
                 </Text>
 
                 {recentTrips.length === 0 ? (

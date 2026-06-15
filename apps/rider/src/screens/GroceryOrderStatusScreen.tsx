@@ -316,7 +316,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                             <View style={s.itemList}>
                                 {Object.entries(intakeLog.items).map(([key, val]: [string, any]) => (
                                     <View key={key} style={s.itemRow}>
-                                        <Txt variant="bodyBold" color="#FFF">{key.toUpperCase()}</Txt>
+                                        <Txt variant="bodyBold" color="#FFF">{key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}</Txt>
                                         <Txt variant="bodyBold" color={CYAN}>{val} units</Txt>
                                     </View>
                                 ))}

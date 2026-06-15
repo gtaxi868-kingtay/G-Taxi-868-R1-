@@ -76,7 +76,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
             activeOpacity={0.7}
         >
             <Ionicons name={iconName as any} size={22} color={isWarning ? 'rgba(239,68,68,0.35)' : VOICES.driver.gold} style={{ width: 32 }} />
-            <Text style={{fontSize: 16, fontWeight: '700', color: isWarning ? 'rgba(239,68,68,0.35)' : '#FFF'}}>{label.toUpperCase()}</Text>
+            <Text style={{fontSize: 16, fontWeight: '600', color: isWarning ? 'rgba(239,68,68,0.35)' : '#FFF'}}>{label}</Text>
         </TouchableOpacity>
     );
 
@@ -159,7 +159,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                 activeOpacity={0.7}
                             >
                                 <Ionicons name="log-out-outline" size={22} color="rgba(239,68,68,0.35)" style={{ width: 32 }} />
-                                <Text style={{fontSize: 16, fontWeight: '700', color: 'rgba(239,68,68,0.35)'}}>TERMINATE SESSION</Text>
+                                <Text style={{fontSize: 16, fontWeight: '600', color: 'rgba(239,68,68,0.35)'}}>Sign out</Text>
                             </TouchableOpacity>
                         </View>
 

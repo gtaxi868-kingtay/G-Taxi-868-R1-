@@ -160,7 +160,7 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
                   color={selectedServices.includes(service.id) ? VOICES.rider.accent : 'rgba(174, 169, 181, 0.45)'}
                 />
                 <Text style={s.serviceName}>{service.name}</Text>
-                <Text style={s.serviceCategory}>{service.category.toUpperCase()}</Text>
+                <Text style={s.serviceCategory}>{service.category}</Text>
               </TouchableOpacity>
             ))}
           </View>

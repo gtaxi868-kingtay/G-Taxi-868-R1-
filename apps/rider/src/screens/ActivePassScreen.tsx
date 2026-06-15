@@ -172,7 +172,7 @@ export default function ActivePassScreen() {
         {/* Phase badge */}
         <View style={styles.phaseBadge}>
           <Animated.View style={[styles.phaseDot, { transform: [{ scale: pulseAnim }] }]} />
-          <Text style={styles.phaseText}>{phaseLabel.toUpperCase()}</Text>
+          <Text style={styles.phaseText}>{phaseLabel}</Text>
         </View>
 
         {/* Destination title */}
