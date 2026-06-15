@@ -59,6 +59,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
+    const [nextUnlock, setNextUnlock] = useState<{ vertical: string; progress: number; required: number; label: string } | null>(null);
     const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -154,32 +155,33 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         const fetchEnabledVerticals = async () => {
             setIsVerticalsLoading(true);
             try {
-                const { data: verticals, error } = await supabase
-                    .rpc('get_enabled_verticals', {
-                        p_user_id: profile?.id,
-                        p_region: 'POS'
-                    });
-                
+                const { data, error } = await supabase.functions.invoke('get_rider_progress');
+
                 if (error) throw error;
-                
+
+                const unlocked: string[] = data?.data?.unlocked_verticals || [];
                 const flags = {
-                    grocery: verticals?.some((v: any) => v.vertical_name === 'grocery') || false,
-                    laundry: verticals?.some((v: any) => v.vertical_name === 'laundry') || false,
-                    merchant: verticals?.some((v: any) => v.vertical_name === 'merchant_delivery') || false,
-                    kiosk: false,
-                    caribbean_travel: verticals?.some((v: any) => v.vertical_name === 'caribbean_travel') || false,
+                    grocery: unlocked.includes('grocery'),
+                    laundry: unlocked.includes('laundry_nfc') || unlocked.includes('laundry'),
+                    merchant: unlocked.includes('merchant_delivery'),
+                    kiosk: unlocked.includes('laundry_nfc') || unlocked.includes('kiosk'),
+                    caribbean_travel: unlocked.includes('g_escape') || unlocked.includes('caribbean_travel'),
                 };
-                setFeatureFlags(flags);
+
+                // Kiosk also requires system-level activation
                 const { data: sysKiosk } = await supabase
                     .from('system_feature_flags')
                     .select('is_active')
                     .eq('id', 'kiosk_active')
                     .maybeSingle();
-                flags.kiosk = sysKiosk?.is_active === true;
+                flags.kiosk = flags.kiosk && (sysKiosk?.is_active === true);
+
                 setFeatureFlags(flags);
+                setNextUnlock(data?.data?.next_unlock ?? null);
             } catch (err) {
-                console.warn('Failed to fetch verticals:', err);
+                console.warn('[HomeScreen] Failed to fetch rider progress:', err);
                 setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
+                setNextUnlock(null);
             } finally {
                 setIsVerticalsLoading(false);
             }
@@ -191,9 +193,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'vertical_settings' },
-                () => {
-                    fetchEnabledVerticals();
-                }
+                () => { fetchEnabledVerticals(); }
+            )
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'rider_progression', filter: `rider_id=eq.${profile?.id}` },
+                () => { fetchEnabledVerticals(); }
             )
             .subscribe();
 

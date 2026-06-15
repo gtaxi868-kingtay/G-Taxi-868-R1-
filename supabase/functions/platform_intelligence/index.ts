@@ -249,6 +249,95 @@ async function checkRateExpiry(supabase: ReturnType<typeof createClient>) {
     }
 }
 
+// ── PRE-STEP 5: Check for missed progression unlocks ─────────────────────────
+// Catches riders who have met the next level threshold but weren't unlocked yet.
+// Guards against complete_ride failures mid-way or riders who existed before progression launched.
+// Deduped via agent_decision_log sentinel key `progression_unlock_{rider_id}_{vertical}`.
+async function checkProgressionUnlocks(supabase: ReturnType<typeof createClient>) {
+    const { data: configs } = await supabase
+        .from("progression_config")
+        .select("level, threshold_type, threshold_value, unlock_vertical")
+        .order("level", { ascending: true });
+
+    if (!configs?.length) return;
+
+    const { data: riders } = await supabase
+        .from("rider_progression")
+        .select("rider_id, level, total_rides, total_grocery_orders, total_laundry_orders, wallet_ever_funded, escape_ever_booked, unlocked_verticals")
+        .lt("level", 5);
+
+    if (!riders?.length) return;
+
+    for (const rider of riders) {
+        const nextConfig = configs.find((c: any) => c.level > rider.level);
+        if (!nextConfig) continue;
+
+        let qualifies = false;
+        switch (nextConfig.threshold_type) {
+            case "rides":
+                qualifies = rider.total_rides >= nextConfig.threshold_value;
+                break;
+            case "grocery_orders":
+                qualifies = rider.total_grocery_orders >= nextConfig.threshold_value;
+                break;
+            case "laundry_orders":
+                qualifies = rider.total_laundry_orders >= nextConfig.threshold_value;
+                break;
+            case "wallet_funded":
+                qualifies = rider.wallet_ever_funded === true;
+                break;
+            case "escape_booked":
+                qualifies = rider.escape_ever_booked === true;
+                break;
+        }
+
+        if (!qualifies) continue;
+        if (rider.unlocked_verticals?.includes(nextConfig.unlock_vertical)) continue;
+
+        const sentinelKey = `progression_unlock_${rider.rider_id}_${nextConfig.unlock_vertical}`;
+        const { data: existing } = await supabase
+            .from("agent_decision_log")
+            .select("id")
+            .eq("decision_type", "progression_unlock")
+            .contains("payload", { sentinel: sentinelKey })
+            .maybeSingle();
+
+        if (existing) continue;
+
+        await supabase
+            .from("rider_progression")
+            .update({
+                level: nextConfig.level,
+                unlocked_verticals: [...(rider.unlocked_verticals || []), nextConfig.unlock_vertical],
+                updated_at: new Date().toISOString(),
+            })
+            .eq("rider_id", rider.rider_id);
+
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("push_token, name")
+            .eq("id", rider.rider_id)
+            .single();
+
+        await sendExpoPush(
+            profile?.push_token ?? null,
+            "New feature unlocked",
+            `${nextConfig.unlock_vertical.replace(/_/g, " ")} is now available on your home screen.`,
+            { type: "progression_unlock", vertical: nextConfig.unlock_vertical },
+        );
+
+        await supabase.from("agent_decision_log").insert({
+            decision_type: "progression_unlock",
+            reasoning: `Rider met threshold for ${nextConfig.unlock_vertical} (level ${nextConfig.level})`,
+            tool_used: "checkProgressionUnlocks",
+            payload: { sentinel: sentinelKey, rider_id: rider.rider_id, vertical: nextConfig.unlock_vertical },
+            outcome: `Unlocked ${nextConfig.unlock_vertical} for rider`,
+        });
+
+        console.log(`[checkProgressionUnlocks] rider ${rider.rider_id} → unlocked ${nextConfig.unlock_vertical}`);
+    }
+}
+
 // ── Tool definitions for Groq AI loop ────────────────────────────────────────
 
 const TOOLS = [
@@ -582,6 +671,7 @@ serve(async (req) => {
             sendTravelReminders(supabase),
             sendMerchantOverdueWarnings(supabase),
             checkRateExpiry(supabase),
+            checkProgressionUnlocks(supabase),
         ]);
 
         // ── GROQ AI LOOP ────────────────────────────────────────────────────────
