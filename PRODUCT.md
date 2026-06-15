@@ -1,7 +1,43 @@
-# Product
+# G-Taxi — Product Context
 
-## Register
+## What it is
+A ride-hailing platform for Trinidad and Tobago. Four apps sharing one Supabase backend.
 
+## The apps
+- **Rider** (`apps/rider`) — Book rides, order groceries, book laundry, scan NFC kiosks, buy Caribbean travel packages via G-Escape
+- **Driver** (`apps/driver`) — Go online, accept trips, manage earnings, sign BYD lease addendum
+- **Merchant** (`apps/merchant-mobile`) — Manage NFC kiosk orders, dispatch rides for clients, view vendor earnings
+- **Admin** (`apps/admin`) — Approve drivers, manage pricing, view the war chest reserve, settle bank escrow
+
+## Users
+- **Rider**: T&T resident, 18–45, Android-first (Qualcomm 6xx series common), active 6–10am and 4–8pm commute hours
+- **Driver**: Freelance, income-motivated, values transparency on earnings and deductions before every dollar is credited
+- **Merchant**: Shop owner operating an NFC kiosk, wants fast dispatch visibility and vendor commission tracking
+- **Admin**: G-Taxi operations team — needs full financial visibility, fleet oversight, and one-click payout approval
+
+## Visual identity
+- Dark-first. The map IS the interface for rider and driver; every overlay is an interruption that must earn its place.
+- **Cyan** (`#00FFFF`) — ride speed, real-time data, the pulse of the system
+- **Gold** (`#D4AF37`) — G-Escape premium travel, BYD lease, high-value moments
+- **Purple** (`#BF40FF`) — AI suggestions, AI intelligence layer
+- **Amber** (`#F59E0B`) — groceries/market warmth
+- Background is near-black obsidian (`#050505`); card surfaces are `rgba(255,255,255,0.04)` — just enough to lift
+
+## Design rules
+- Every animation must run on the UI thread (react-native-reanimated). Never the JS thread.
+- G-Escape is a premium vertical — gold treatment, not a utility chip. Treat it like a travel concierge.
+- NFC/Tap is a utility feature — compact chip, not a full grid card. Technical, small, precise.
+- Blur effects use `expo-blur` on iOS only. Android gets a rich dark solid substrate (no CSS backdropFilter).
+- Press states follow Emil Kowalski's principle: scale 0.97 on active, ease-out. Nothing appears from nothing.
+- `accessibilityLabel` and `accessibilityRole` are required on every TouchableOpacity.
+
+## Tech stack
+- Expo SDK 52, React Native, TypeScript
+- Supabase Postgres + Realtime + Edge Functions (Deno, 23 functions)
+- react-native-reanimated for all animations
+- Design tokens live in `packages/design-system-native/src/theme.ts` (VOICES, BRAND, SEMANTIC, SPACING, RADIUS)
+
+## register
 product
 
 ## Users

@@ -631,17 +631,21 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         />
                         
                         <View style={s.topBarRight}>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 style={s.iconButton}
                                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                                accessibilityLabel="View notifications"
+                                accessibilityRole="button"
                             >
                                 <Ionicons name="notifications-outline" size={22} color="#FFF" />
                                 <View style={s.notificationBadge} />
                             </TouchableOpacity>
-                            
-                            <TouchableOpacity 
+
+                            <TouchableOpacity
                                 style={s.avatarButton}
                                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsMenuOpen(true); }}
+                                accessibilityLabel="Open menu"
+                                accessibilityRole="button"
                             >
                                 {profile?.avatar_url ? (
                                     <Image source={{ uri: profile.avatar_url }} style={s.avatarImage} />
@@ -697,10 +701,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 </Reanimated.View>
             )}
 
-            <TouchableOpacity 
-                style={[s.visionFab, { bottom: 330 + 74 }]} 
+            <TouchableOpacity
+                style={[s.visionFab, { bottom: 330 + 74 }]}
                 onPress={handleVisionSighting}
                 activeOpacity={0.7}
+                accessibilityLabel="Open AI vision scanner"
+                accessibilityRole="button"
             >
                 <View style={s.visionGlass}>
                     <Ionicons name="scan-outline" size={28} color={VOICES.rider.accent} />
@@ -773,7 +779,11 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                         <Ionicons name="sparkles" size={14} color={VOICES.rider.accent} />
                                     </View>
                                     <Text style={s.proactiveText}>{proactiveAction}</Text>
-                                    <TouchableOpacity onPress={() => setProactiveAction(null)}>
+                                    <TouchableOpacity
+                                        onPress={() => setProactiveAction(null)}
+                                        accessibilityLabel="Dismiss AI suggestion"
+                                        accessibilityRole="button"
+                                    >
                                         <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
                                     </TouchableOpacity>
                                 </LinearGradient>
@@ -793,7 +803,14 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                 <TouchableOpacity
                                     activeOpacity={0.85}
                                     style={s.heroCard}
-                                    onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                        navigation.navigate('DestinationSearch', {
+                                            currentLocation: location ? { latitude: location.coords.latitude, longitude: location.coords.longitude } : undefined
+                                        });
+                                    }}
+                                    accessibilityLabel="Book a ride"
+                                    accessibilityRole="button"
                                 >
                                     <LinearGradient
                                         colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
@@ -808,7 +825,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             <Text style={s.heroCardSub}>Get a taxi anywhere</Text>
                                         </View>
                                         <View style={s.heroTag}>
-                                            <Text style={s.heroTagText}>BOOK NOW</Text>
+                                            <Text style={s.heroTagText}>Book Ride</Text>
                                         </View>
                                     </LinearGradient>
                                 </TouchableOpacity>
@@ -822,9 +839,11 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                             navigation.navigate('GroceryStorefront');
                                         }}
+                                        accessibilityLabel="Order groceries for delivery"
+                                        accessibilityRole="button"
                                     >
                                         <LinearGradient
-                                            colors={['rgba(245,158,11,0.2)', 'rgba(245,158,11,0.05)']}
+                                            colors={['rgba(245,158,11,0.22)', 'rgba(245,158,11,0.06)']}
                                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                                             style={s.gridCardGradient}
                                         >
@@ -845,14 +864,16 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                             navigation.navigate('LaundryLanding');
                                         }}
+                                        accessibilityLabel="Book laundry pickup"
+                                        accessibilityRole="button"
                                     >
                                         <LinearGradient
-                                            colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
+                                            colors={['rgba(6,182,212,0.18)', 'rgba(6,182,212,0.04)']}
                                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                                             style={s.gridCardGradient}
                                         >
-                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.2)' }]}>
-                                                <Ionicons name="shirt-sharp" size={28} color={VOICES.rider.accent} />
+                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(6,182,212,0.15)' }]}>
+                                                <Ionicons name="shirt-sharp" size={28} color="#06B6D4" />
                                             </View>
                                             <Text style={s.gridCardTitle}>Laundry</Text>
                                             <Text style={s.gridCardSub}>Fresh & folded</Text>
@@ -868,9 +889,11 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                             navigation.navigate('VisionScanner');
                                         }}
+                                        accessibilityLabel="Search products with AI vision"
+                                        accessibilityRole="button"
                                     >
                                         <LinearGradient
-                                            colors={['rgba(139,92,246,0.2)', 'rgba(139,92,246,0.05)']}
+                                            colors={['rgba(139,92,246,0.22)', 'rgba(139,92,246,0.06)']}
                                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                                             style={s.gridCardGradient}
                                         >
@@ -891,14 +914,16 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                                 (navigation.navigate as any)('NfcScan');
                                             }}
+                                            accessibilityLabel="Tap NFC kiosk"
+                                            accessibilityRole="button"
                                         >
                                             <LinearGradient
-                                                colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
+                                                colors={['rgba(0,255,255,0.15)', 'rgba(0,255,255,0.03)']}
                                                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                                                 style={s.gridCardGradient}
                                             >
-                                                <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.2)' }]}>
-                                                    <Ionicons name="radio-sharp" size={28} color={VOICES.rider.accent} />
+                                                <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.12)' }]}>
+                                                    <Ionicons name="radio-sharp" size={26} color={VOICES.rider.accent} />
                                                 </View>
                                                 <Text style={s.gridCardTitle}>Tap</Text>
                                                 <Text style={s.gridCardSub}>Scan a puck</Text>
@@ -907,30 +932,41 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                     ) : (
                                         <View style={s.gridCardPlaceholder} />
                                     )}
+                                </View>
 
-                                    {featureFlags.caribbean_travel && (
+                                {featureFlags.caribbean_travel && (
                                     <TouchableOpacity
-                                        activeOpacity={0.85}
-                                        style={s.gridCard}
+                                        activeOpacity={0.82}
+                                        style={s.escapeHeroCard}
                                         onPress={() => {
                                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                             navigation.navigate('TravelStorefront');
                                         }}
+                                        accessibilityLabel="Browse Caribbean travel packages from Port of Spain"
+                                        accessibilityRole="button"
                                     >
                                         <LinearGradient
-                                            colors={['rgba(59,130,246,0.2)', 'rgba(59,130,246,0.05)']}
+                                            colors={['rgba(212,175,55,0.22)', 'rgba(8,5,2,0.96)']}
                                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={s.gridCardGradient}
+                                            style={s.escapeHeroGradient}
                                         >
-                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(59,130,246,0.2)' }]}>
-                                                <Ionicons name="airplane-sharp" size={28} color="#3B82F6" />
+                                            <View style={s.escapeHeroLeft}>
+                                                <View style={s.escapeHeroIconWrap}>
+                                                    <Ionicons name="airplane-sharp" size={20} color="#D4AF37" />
+                                                </View>
+                                                <View>
+                                                    <Text style={s.escapeHeroTitle}>G-Escape</Text>
+                                                    <Text style={s.escapeHeroSub}>Caribbean packages from POS</Text>
+                                                </View>
                                             </View>
-                                            <Text style={s.gridCardTitle}>Escapes</Text>
-                                            <Text style={s.gridCardSub}>Caribbean packages</Text>
+                                            <View style={s.escapeHeroRight}>
+                                                <Text style={s.escapeHeroFrom}>from</Text>
+                                                <Text style={s.escapeHeroPrice}>$1,904</Text>
+                                                <Text style={s.escapeHeroCurrency}>TTD</Text>
+                                            </View>
                                         </LinearGradient>
                                     </TouchableOpacity>
-                                    )}
-                                </View>
+                                )}
                             </View>
                         )}
 
@@ -946,6 +982,8 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                                                 navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
                                             }}
+                                            accessibilityLabel={`Shop at ${v.name}${v.is_open ? '' : ' (closed)'}`}
+                                            accessibilityRole="button"
                                             style={{ width: 160, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                                         >
                                             <LinearGradient colors={['rgba(139,92,246,0.15)', 'rgba(6,182,212,0.08)']} style={{ padding: 16 }}>
@@ -998,7 +1036,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             </View>
                                         </View>
                                         {!isEstimatingFare && estimatedFare && (
-                                            <TouchableOpacity onPress={clearFarePreview} style={s.fareCloseBtn}>
+                                            <TouchableOpacity
+                                            onPress={clearFarePreview}
+                                            style={s.fareCloseBtn}
+                                            accessibilityLabel="Clear fare estimate"
+                                            accessibilityRole="button"
+                                        >
                                                 <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
                                             </TouchableOpacity>
                                         )}
@@ -1027,15 +1070,30 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         )}
 
                         <View style={s.pills}>
-                            <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Home')}>
+                            <TouchableOpacity
+                                style={s.pill}
+                                onPress={() => handleQuickAction('Home')}
+                                accessibilityLabel="Ride to saved Home address"
+                                accessibilityRole="button"
+                            >
                                 <Ionicons name="home-outline" size={18} color={VOICES.rider.accent} />
                                 <Text style={s.pillLabel}>Home</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={s.pill} onPress={() => handleQuickAction('Work')}>
+                            <TouchableOpacity
+                                style={s.pill}
+                                onPress={() => handleQuickAction('Work')}
+                                accessibilityLabel="Ride to saved Work address"
+                                accessibilityRole="button"
+                            >
                                 <Ionicons name="briefcase-outline" size={18} color={VOICES.rider.accent} />
                                 <Text style={s.pillLabel}>Work</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={s.recentPill} onPress={() => handleQuickAction('Recent')}>
+                            <TouchableOpacity
+                                style={s.recentPill}
+                                onPress={() => handleQuickAction('Recent')}
+                                accessibilityLabel="View recent rides"
+                                accessibilityRole="button"
+                            >
                                 <Ionicons name="time-outline" size={22} color={VOICES.rider.accent} />
                             </TouchableOpacity>
                         </View>
@@ -1143,6 +1201,8 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             editPickupMode: true
                                         });
                                     }}
+                                    accessibilityLabel="Move pickup pin manually"
+                                    accessibilityRole="button"
                                 >
                                     <Text style={s.locationConfirmBtnSecondaryText}>Move the pin</Text>
                                 </TouchableOpacity>
@@ -1155,6 +1215,8 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                             currentLocation: { latitude: currentLat, longitude: currentLng }
                                         });
                                     }}
+                                    accessibilityLabel="Confirm pickup location and search destination"
+                                    accessibilityRole="button"
                                 >
                                     <Text style={s.locationConfirmBtnPrimaryText}>Yes, this is right</Text>
                                 </TouchableOpacity>
@@ -1201,6 +1263,8 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             <TouchableOpacity
                                 style={s.voiceModalCancel}
                                 onPress={() => setVoiceModalVisible(false)}
+                                accessibilityLabel="Cancel voice command"
+                                accessibilityRole="button"
                             >
                                 <Text style={s.voiceModalCancelText}>Cancel</Text>
                             </TouchableOpacity>
@@ -1211,6 +1275,8 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                     setVoiceModalVisible(false);
                                     if (text) handleVoiceComplete(text);
                                 }}
+                                accessibilityLabel="Send voice command"
+                                accessibilityRole="button"
                             >
                                 <LinearGradient
                                     colors={[VOICES.rider.accent, '#00FFFF']}
@@ -1529,13 +1595,75 @@ const s = StyleSheet.create({
     gridCardSub: {
         fontSize: 11,
         fontWeight: '500',
-        color: 'rgba(255,255,255,0.5)',
+        color: VOICES.rider.textMuted,
         marginTop: 2,
         textAlign: 'center',
     },
     gridCardPlaceholder: {
         width: '48%',
         height: 0,
+    },
+
+    escapeHeroCard: {
+        width: '100%',
+        height: 64,
+        borderRadius: 20,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(212,175,55,0.3)',
+        ...elevationGlow(),
+    },
+    escapeHeroGradient: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+    },
+    escapeHeroLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    escapeHeroIconWrap: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: 'rgba(212,175,55,0.15)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(212,175,55,0.25)',
+    },
+    escapeHeroTitle: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: '#D4AF37',
+        letterSpacing: 0.2,
+    },
+    escapeHeroSub: {
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.5)',
+        marginTop: 1,
+    },
+    escapeHeroRight: {
+        alignItems: 'flex-end',
+    },
+    escapeHeroFrom: {
+        fontSize: 10,
+        color: 'rgba(212,175,55,0.6)',
+        fontWeight: '500',
+    },
+    escapeHeroPrice: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#D4AF37',
+        lineHeight: 22,
+    },
+    escapeHeroCurrency: {
+        fontSize: 10,
+        color: 'rgba(212,175,55,0.7)',
+        fontWeight: '600',
     },
 
     farePreviewContainer: { 

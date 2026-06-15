@@ -257,9 +257,9 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                 </MapView>
 
                 <View style={[s.mapOverlay, { top: insets.top + 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: Math.min(width - 40, 560) }]} pointerEvents="box-none">
-                    <TouchableOpacity style={s.mapBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSidebarVisible(true); }} activeOpacity={0.8}><Ionicons name="menu-outline" size={22} color={'#FFFFFF'} /></TouchableOpacity>
+                    <TouchableOpacity style={s.mapBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSidebarVisible(true); }} activeOpacity={0.8} accessibilityLabel="Open driver menu" accessibilityRole="button"><Ionicons name="menu-outline" size={22} color={'#FFFFFF'} /></TouchableOpacity>
                     <View style={{ flexDirection: 'row', gap: 12 }}>
-                        <TouchableOpacity style={[s.mapBtn, { backgroundColor: VOICES.driver.accent }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setNfcVisible(true); }} activeOpacity={0.8}><Ionicons name="radio-outline" size={20} color={'#FFFFFF'} /></TouchableOpacity>
+                        <TouchableOpacity style={[s.mapBtn, { backgroundColor: VOICES.driver.accent }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setNfcVisible(true); }} activeOpacity={0.8} accessibilityLabel="Scan NFC kiosk" accessibilityRole="button"><Ionicons name="radio-outline" size={20} color={'#FFFFFF'} /></TouchableOpacity>
                         <Text style={{ fontSize: 22, fontWeight: '900', color: VOICES.driver.accent, letterSpacing: 2 }}>G-TAXI</Text>
                     </View>
                 </View>
@@ -267,7 +267,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
 
             <Reanimated.View style={[s.carWrap, { bottom: panelHeightLocal - 20 }, carStyle]}>
                 {isOnline && <LinearGradient colors={[VOICES.driver.accent, VOICES.driver.accent]} style={{ position: 'absolute', width: 200, height: 200, borderRadius: 100, opacity: 0.15, top: -40 }} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} />}
-                <TouchableOpacity onPress={handleCarTap} activeOpacity={0.9}><Image source={require('../../assets/images/car_gtaxi_standard_v7.png')} style={s.carImg} resizeMode="contain" /></TouchableOpacity>
+                <TouchableOpacity onPress={handleCarTap} activeOpacity={0.9} accessibilityLabel="View vehicle details" accessibilityRole="button"><Image source={require('../../assets/images/car_gtaxi_standard_v7.png')} style={s.carImg} resizeMode="contain" /></TouchableOpacity>
                 {carLabel && <Text style={[s.carLabel, { fontSize: 11, fontWeight: '700', color: VOICES.driver.accent }]}>G-Taxi Standard</Text>}
             </Reanimated.View>
 
@@ -278,19 +278,19 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} />}>
                             <View style={s.greetingRow}>
                                 <View><Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)' }}>{getGreeting().toUpperCase()}</Text><Text style={[s.driverName, { fontSize: 24, fontWeight: '800', color: '#FFF' }]}>{firstName(driver?.name)}</Text></View>
-                                <TouchableOpacity style={[s.statusPill, isOnline ? s.statusPillOn : s.statusPillOff]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); handleToggle(); }} disabled={isToggling} activeOpacity={0.85}>
+                                <TouchableOpacity style={[s.statusPill, isOnline ? s.statusPillOn : s.statusPillOff]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); handleToggle(); }} disabled={isToggling} activeOpacity={0.85} accessibilityLabel={isOnline ? 'Go offline' : 'Go online to receive rides'} accessibilityRole="switch" accessibilityState={{ checked: isOnline }}>
                                     {isToggling ? <ActivityIndicator color={VOICES.driver.accent} size="small" /> : <View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={[s.statusDot, { backgroundColor: isOnline ? VOICES.driver.accent : 'rgba(174,169,181,0.2)' }]} /><Text style={{ fontSize: 14, fontWeight: '700', color: isOnline ? VOICES.driver.accent : '#AEA9B5' }}>{isOnline ? 'ONLINE' : 'OFFLINE'}</Text></View>}
                                 </TouchableOpacity>
                             </View>
 
                             <View style={s.statsRow}>
                                 <Reanimated.View style={[{ flex: 1 }, card0Style]}>
-                                    <TouchableOpacity activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Earnings'); }}>
+                                    <TouchableOpacity activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Earnings'); }} accessibilityLabel={`View earnings: $${todayEarnings.toFixed(2)} today`} accessibilityRole="button">
                                         <View style={[s.statCard, { backgroundColor: VOICES.driver.accent + '0D' }, elevationGlow()]}><Ionicons name="cash-outline" size={16} color={VOICES.driver.accent} /><Text style={[s.statLabel, { fontSize: 10, fontWeight: '700', color: VOICES.driver.accent }]}>EARNINGS</Text><Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF' }}>${todayEarnings.toFixed(2)}</Text></View>
                                     </TouchableOpacity>
                                 </Reanimated.View>
                                 <Reanimated.View style={[{ flex: 1 }, card1Style]}>
-                                    <TouchableOpacity activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('ScheduledRides'); }}>
+                                    <TouchableOpacity activeOpacity={0.8} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('ScheduledRides'); }} accessibilityLabel={`View scheduled rides: ${todayTrips} trips today`} accessibilityRole="button">
                                         <View style={[s.statCard, { backgroundColor: VOICES.driver.accent + '08' }, elevationGlow()]}><Ionicons name="car-outline" size={16} color={VOICES.driver.accent} /><Text style={[s.statLabel, { fontSize: 10, fontWeight: '700', color: VOICES.driver.accent }]}>TRIPS</Text><Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF' }}>{todayTrips}</Text></View>
                                     </TouchableOpacity>
                                 </Reanimated.View>
@@ -300,7 +300,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                             <View style={s.quickRow}>
                                 {QUICK_NAV.map((item, i) => (
                                     <Reanimated.View key={item.screen} style={[{ flex: 1 }, navStyles[i]]}>
-                                        <TouchableOpacity style={[s.quickCard, elevationGlow()]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate(item.screen); }} activeOpacity={0.7}><View style={[s.quickIcon, { backgroundColor: VOICES.driver.accent + '1A' }]}><Ionicons name={item.icon as 'wallet-outline' | 'bar-chart-outline' | 'calendar-outline' | 'person-outline' | 'warning-outline'} size={20} color={VOICES.driver.accent} /></View><Text style={{ marginTop: 6, fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.6)' }}>{item.label.toUpperCase()}</Text></TouchableOpacity>
+                                        <TouchableOpacity style={[s.quickCard, elevationGlow()]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate(item.screen); }} activeOpacity={0.7} accessibilityLabel={`Navigate to ${item.label}`} accessibilityRole="button"><View style={[s.quickIcon, { backgroundColor: VOICES.driver.accent + '1A' }]}><Ionicons name={item.icon as 'wallet-outline' | 'bar-chart-outline' | 'calendar-outline' | 'person-outline' | 'warning-outline'} size={20} color={VOICES.driver.accent} /></View><Text style={{ marginTop: 6, fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.6)' }}>{item.label.toUpperCase()}</Text></TouchableOpacity>
                                     </Reanimated.View>
                                 ))}
                             </View>

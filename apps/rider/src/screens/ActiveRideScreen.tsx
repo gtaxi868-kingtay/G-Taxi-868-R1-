@@ -23,6 +23,7 @@ import { ENV } from '@gtaxi/shared/env';
 import { supabase } from '@gtaxi/core';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
+import { useRideSession } from '../hooks/useRideSession';
 
 const CYAN = '#00E5FF';
 const SUCCESS = '#00FF94';
@@ -102,12 +103,23 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     const [isMusicLoading, setIsMusicLoading] = useState(false);
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
 
-    const driverChannelRef = useRef<any>(null);
-    const lastLocationUpdateRef = useRef<number>(Date.now());
     const [signalStatus, setSignalStatus] = useState<'ok' | 'stale' | 'lost'>('ok');
-    const signalCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
     // Fix 4: Ref to hold the location watcher so it can be cleaned up on unmount
     const locationWatcherRef = useRef<{ remove: () => void } | null>(null);
+
+    const { reattachDriverChannel } = useRideSession({
+        rideId,
+        rideStatus: ride?.status,
+        driverId: driver?.id,
+        location,
+        aiSuggestionsEnabled,
+        onDriverLocationUpdate: (lat, lng) => setDriverLocation({ latitude: lat, longitude: lng }),
+        onSignalStatusChange: setSignalStatus,
+        onAiInsight: (msg) => {
+            setAiInsight(msg);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        },
+    });
 
     const { rideUpdate: updatedRide } = useRideSubscription(rideId);
     const hasArrivalNotifiedRef = useRef(false);
@@ -125,9 +137,8 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
         );
 
         const appStateSub = AppState.addEventListener('change', (nextState) => {
-            if (nextState === 'active' && driverChannelRef.current) {
-                supabase.removeChannel(driverChannelRef.current);
-                driverChannelRef.current = null;
+            if (nextState === 'active') {
+                reattachDriverChannel();
                 fetchInitialData();
             }
         });
@@ -181,35 +192,12 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
         return () => {
             appStateSub.remove();
-            if (driverChannelRef.current) {
-                supabase.removeChannel(driverChannelRef.current);
-            }
             eventsChannel.unsubscribe();
             beforeRemoveListener();
             // Fix 4: Remove location watcher on unmount
             locationWatcherRef.current?.remove();
         };
     }, []);
-
-    // Fix 2: Signal staleness check — extracted to top-level useEffect (was illegally nested)
-    useEffect(() => {
-        if (!driver) return;
-
-        signalCheckIntervalRef.current = setInterval(() => {
-            const elapsed = Date.now() - lastLocationUpdateRef.current;
-
-            if (elapsed > 180000 && signalStatus !== 'lost') {
-                setSignalStatus('lost');
-            } else if (elapsed > 30000 && signalStatus === 'ok') {
-                setSignalStatus('stale');
-                console.log('DRIVER SIGNAL: Stale - no update for 30s');
-            }
-        }, 15000);
-
-        return () => {
-            if (signalCheckIntervalRef.current) clearInterval(signalCheckIntervalRef.current);
-        };
-    }, [driver, signalStatus]);
 
     useEffect(() => {
         if (updatedRide) {
@@ -288,34 +276,6 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     }, [ride?.rider_id]);
 
     useEffect(() => {
-        if (ride?.status !== 'in_progress' || !aiSuggestionsEnabled) return;
-
-        const pollAi = async () => {
-            try {
-                const { data, error } = await supabase.functions.invoke('ai_concierge_proactive', {
-                    body: { 
-                        ride_id: rideId, 
-                        lat: location?.coords?.latitude, 
-                        lng: location?.coords?.longitude,
-                        destination_name: ride?.dropoff_address
-                    }
-                });
-                if (data?.suggestion) {
-                    setAiInsight(data.suggestion);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                }
-            } catch (err) {
-                console.warn("AI Proactive fetch failed:", err);
-            }
-        };
-
-        const interval = setInterval(pollAi, 120000);
-        pollAi();
-        
-        return () => clearInterval(interval);
-    }, [ride?.status, location, aiSuggestionsEnabled]);
-
-    useEffect(() => {
         if (ride?.status !== 'in_progress' || aiStopsSuggestedRef.current || !rideId) return;
         aiStopsSuggestedRef.current = true;
         supabase.functions.invoke('ai_suggest_stops', { body: { ride_id: rideId } }).catch(() => {});
@@ -387,17 +347,6 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             setRide(data);
             setDriver(data.driver);
             setDriverLocation({ latitude: data.driver?.lat, longitude: data.driver?.lng });
-
-            driverChannelRef.current = supabase.channel(`driver_loc_${data.driver?.id}`)
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drivers', filter: `id=eq.${data.driver?.id}` }, (payload) => {
-                    setDriverLocation({ latitude: payload.new.lat, longitude: payload.new.lng });
-                    lastLocationUpdateRef.current = Date.now();
-                    if (signalStatus !== 'ok') {
-                        setSignalStatus('ok');
-                        console.log('DRIVER SIGNAL: Restored');
-                    }
-                })
-                .subscribe();
         }
     };
 

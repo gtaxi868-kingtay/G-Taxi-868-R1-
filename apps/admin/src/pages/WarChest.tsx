@@ -165,7 +165,7 @@ export function WarChest() {
                     <h2 className="text-3xl font-black text-white italic">WAR CHEST</h2>
                     <p className="text-xs text-white/30 uppercase tracking-widest mt-1">Capital Reserve · Referral Engine · Surge Control · Driver Loans</p>
                 </div>
-                <button onClick={load} className="p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white/40 hover:text-white transition-all">
+                <button onClick={load} aria-label="Refresh war chest data" className="p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white/40 hover:text-white transition-all">
                     <RefreshCw size={18} />
                 </button>
             </div>
@@ -351,6 +351,7 @@ export function WarChest() {
                     <button
                         onClick={activateSurge}
                         disabled={surgeSubmitting}
+                        aria-label="Activate surge pricing zone"
                         className="px-6 py-3 bg-yellow-500 text-black font-black text-xs uppercase tracking-widest rounded-xl hover:bg-yellow-400 transition-all disabled:opacity-50"
                     >
                         {surgeSubmitting ? 'Activating...' : 'Activate Surge Zone'}
@@ -375,6 +376,7 @@ export function WarChest() {
                                 </div>
                                 <button
                                     onClick={() => deactivateSurge(zone.id)}
+                                    aria-label={`Deactivate surge zone ${zone.name}`}
                                     className="px-4 py-2 bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-red-500/30 transition-all"
                                 >
                                     Deactivate

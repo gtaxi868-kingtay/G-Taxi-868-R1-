@@ -76,7 +76,7 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
           <Text style={s.greeting}>Welcome back,</Text>
           <Text style={s.merchantName}>{merchantName || 'Merchant'}</Text>
         </View>
-        <TouchableOpacity style={s.logoutBtn} onPress={signOut}>
+        <TouchableOpacity style={s.logoutBtn} onPress={signOut} accessibilityLabel="Sign out" accessibilityRole="button">
           <Ionicons name="log-out-outline" size={22} color="#EF4444" />
         </TouchableOpacity>
       </View>
@@ -95,7 +95,7 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
 
         <Text style={s.sectionTitle}>Quick Actions</Text>
         <View style={s.tileGrid}>
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Orders')}>
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Orders')} accessibilityLabel="Manage incoming orders" accessibilityRole="button">
             <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
               <Ionicons name="receipt" size={28} color={VOICES.merchant.accent} />
             </View>
@@ -103,7 +103,7 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileDesc}>Manage incoming orders</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Dispatch')}>
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Dispatch')} accessibilityLabel="Dispatch a car for a client" accessibilityRole="button">
             <View style={[s.tileIcon, { backgroundColor: '#4ADE8026' }]}>
               <Ionicons name="car-sport" size={28} color="#4ADE80" />
             </View>
@@ -111,7 +111,7 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileDesc}>Send car for a client</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Earnings')}>
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Earnings')} accessibilityLabel="View commissions and payouts" accessibilityRole="button">
             <View style={[s.tileIcon, { backgroundColor: 'rgba(129,140,248,0.15)' }]}>
               <Ionicons name="trending-up" size={28} color="#818CF8" />
             </View>
@@ -119,8 +119,34 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileDesc}>Commissions & payouts</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('ProductCatalog')} accessibilityLabel="Add and manage products" accessibilityRole="button">
+            <View style={[s.tileIcon, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
+              <Ionicons name="storefront" size={28} color="#10B981" />
+            </View>
+            <Text style={s.tileLabel}>Catalog</Text>
+            <Text style={s.tileDesc}>Add & manage products</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('PropertyManagement', {})} accessibilityLabel="Manage property iCal sync and availability" accessibilityRole="button">
+            <View style={[s.tileIcon, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
+              <Ionicons name="home" size={28} color="#3B82F6" />
+            </View>
+            <Text style={s.tileLabel}>Property</Text>
+            <Text style={s.tileDesc}>iCal sync & availability</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('EquityProgress', {})} accessibilityLabel="View equity ownership milestones" accessibilityRole="button">
+            <View style={[s.tileIcon, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
+              <Ionicons name="trending-up" size={28} color="#F59E0B" />
+            </View>
+            <Text style={s.tileLabel}>Equity</Text>
+            <Text style={s.tileDesc}>Ownership milestones</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[s.tile, glassSurface(0.15), { width: tileWidth }]}
+            accessibilityLabel="Sign out of your account"
+            accessibilityRole="button"
             onPress={() => {
               Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
                 { text: 'Cancel', style: 'cancel' },
@@ -133,46 +159,6 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             </View>
             <Text style={s.tileLabel}>Sign Out</Text>
             <Text style={s.tileDesc}>End your session</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('PropertyManagement', {})}>
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
-              <Ionicons name="home" size={28} color="#3B82F6" />
-            </View>
-            <Text style={s.tileLabel}>Property</Text>
-            <Text style={s.tileDesc}>iCal sync & availability</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('EquityProgress', {})}>
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
-              <Ionicons name="trending-up" size={28} color="#F59E0B" />
-            </View>
-            <Text style={s.tileLabel}>Equity</Text>
-            <Text style={s.tileDesc}>Ownership milestones</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('ProductCatalog')}>
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
-              <Ionicons name="storefront" size={28} color="#10B981" />
-            </View>
-            <Text style={s.tileLabel}>Catalog</Text>
-            <Text style={s.tileDesc}>Add & manage products</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('PropertyManagement', {})}>
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
-              <Ionicons name="home" size={28} color="#3B82F6" />
-            </View>
-            <Text style={s.tileLabel}>Property</Text>
-            <Text style={s.tileDesc}>iCal sync & availability</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('EquityProgress', {})}>
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
-              <Ionicons name="trending-up" size={28} color="#F59E0B" />
-            </View>
-            <Text style={s.tileLabel}>Equity</Text>
-            <Text style={s.tileDesc}>Ownership milestones</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
