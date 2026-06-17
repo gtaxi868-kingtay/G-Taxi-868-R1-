@@ -45,6 +45,11 @@ coverage/
 .sentry-debug-files
 apps/rider/build-*.apk
 
+# [Agent skill files — not part of the app]
+_agents/
+superpowers
+ui-ux-pro-max-skill
+
 # [Per-app local caches — prevent workspace drift]
 apps/driver/node_modules/
 apps/driver/dist/

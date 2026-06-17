@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Image, ScrollView,
-    useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView, Linking,
+    useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView,
+    Linking, PanResponder,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
@@ -12,7 +13,7 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
-    useSharedValue, withSpring, withTiming,
+    useSharedValue, withSpring,
     useAnimatedStyle, withDelay,
     FadeIn, FadeOut, useReducedMotion,
 } from 'react-native-reanimated';
@@ -20,10 +21,11 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useAuth } from '../context/AuthContext';
+import { useRide } from '../context/RideContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
-import { AIAssistantWidget } from '../components/home/AIAssistantWidget';
+import { LayerDeck, Layer } from '../components/home/LayerDeck';
 import { GlassCard, Skeleton } from '@gtaxi/design-system/native';
 import { ANIMATION, SURFACE, VOICES } from '@gtaxi/design-system';
 import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
@@ -32,13 +34,15 @@ const { supabase } = initializeSupabaseClient('native');
 
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
+const BRAND = '#1DE0E6';
+
 const DARK_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: '#050505' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#00FFFF' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#050505' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#0A0A0A' }] },
-    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#00FFFF', weight: 0.5 }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00FFFF', lightness: -80 }] },
+    { elementType: 'geometry', stylers: [{ color: '#0B0E12' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: BRAND }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0B0E12' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#13171D' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: BRAND, weight: 0.5 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0A2E33', lightness: -80 }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] }
 ];
 
@@ -65,13 +69,15 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [showRecentModal, setShowRecentModal] = useState(false);
     const [aiGreeting, setAiGreeting] = useState<string | null>(null);
     const [isAiThinking, setIsAiThinking] = useState(false);
-    const [aiLoading, setAiLoading] = useState(false);
     const [proactiveAction, setProactiveAction] = useState<string | null>(null);
     const [proactiveData, setProactiveData] = useState<{type?: string, merchant_id?: string, merchant_name?: string, text?: string} | null>(null);
     const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
     const [visionLoading, setVisionLoading] = useState(false);
     const [showLocationConfirm, setShowLocationConfirm] = useState(false);
     const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [activeLayerId, setActiveLayerId] = useState('ride');
+    const [homeSuggestion, setHomeSuggestion] = useState<string | null>(null);
 
     const nfcDedupCache = useRef<Map<string, number>>(new Map());
     const netInfo = useNetInfo();
@@ -87,28 +93,43 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [stopSuggestions, setStopSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
     const reducedMotion = useReducedMotion();
-    const panelY = useSharedValue(reducedMotion ? 0 : 120);
-    const mapPitch = useSharedValue(reducedMotion ? 0 : 45);
+
+    // Sheet snap positions: PEEK shows 220px at the bottom; EXPANDED shows most of screen
+    const PEEK_OFFSET = height - 220;
+    const EXPANDED_OFFSET = insets.top + 60;
+
+    const sheetY = useSharedValue(reducedMotion ? PEEK_OFFSET : height);
+
+    const panResponder = useRef(
+        PanResponder.create({
+            onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 8,
+            onPanResponderGrant: () => {
+                Haptics.selectionAsync();
+            },
+            onPanResponderMove: (_, gs) => {
+                const next = sheetY.value + gs.dy;
+                if (next >= EXPANDED_OFFSET && next <= PEEK_OFFSET) {
+                    sheetY.value = next;
+                }
+            },
+            onPanResponderRelease: (_, gs) => {
+                const mid = (EXPANDED_OFFSET + PEEK_OFFSET) / 2;
+                const snapTo = (sheetY.value < mid || gs.vy < -0.5)
+                    ? EXPANDED_OFFSET
+                    : PEEK_OFFSET;
+                sheetY.value = withSpring(snapTo, { damping: 22, stiffness: 180 });
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            },
+        })
+    ).current;
+
+    const { activeRide: contextActiveRide } = useRide();
 
     useEffect(() => {
-        const checkActive = async () => {
-            try {
-                const { data, error } = await supabase.functions.invoke('get_active_ride');
-                if (error) {
-                    console.error('[HomeScreen] get_active_ride failed:', error.message);
-                    return;
-                }
-                if (data?.success && data?.data?.ride_id) {
-                    navigation.replace('ActiveRide', { 
-                        rideId: data.data.ride_id,
-                        paymentMethod: data.data.payment_method 
-                    });
-                }
-            } catch (e) {
-                console.warn('[Phase 3] Recovery check suppressed:', e);
-            }
-        };
-        checkActive();
+        if (contextActiveRide?.ride_id) {
+            navigation.replace('ActiveRide', { rideId: contextActiveRide.ride_id });
+            return;
+        }
 
         const { lat, lng, stand, source } = route?.params || {};
         const qrLat = typeof lat === 'string' ? parseFloat(lat) : lat;
@@ -156,29 +177,32 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         const fetchEnabledVerticals = async () => {
             setIsVerticalsLoading(true);
             try {
-                const { data, error } = await supabase.functions.invoke('get_rider_progress');
+                const [progressRes, kioskFlagRes] = await Promise.all([
+                    supabase.functions.invoke('get_rider_progress'),
+                    supabase.from('system_feature_flags').select('is_active').eq('id', 'kiosk_active').maybeSingle(),
+                ]);
 
-                if (error) throw error;
+                if (progressRes.error) throw progressRes.error;
 
-                const unlocked: string[] = data?.data?.unlocked_verticals || [];
+                const { data: suggestionData } = await supabase
+                    .rpc('get_home_suggestion', { p_rider_id: profile?.id })
+                    .maybeSingle();
+                const suggestion = suggestionData as { cta_text?: string; vertical?: string; reason_code?: string } | null;
+                if (suggestion?.cta_text) {
+                    setHomeSuggestion(suggestion.cta_text);
+                }
+
+                const unlocked: string[] = progressRes.data?.data?.unlocked_verticals || [];
                 const flags = {
                     grocery: unlocked.includes('grocery'),
                     laundry: unlocked.includes('laundry_nfc') || unlocked.includes('laundry'),
                     merchant: unlocked.includes('merchant_delivery'),
-                    kiosk: unlocked.includes('laundry_nfc') || unlocked.includes('kiosk'),
+                    kiosk: (unlocked.includes('laundry_nfc') || unlocked.includes('kiosk')) && (kioskFlagRes.data?.is_active === true),
                     caribbean_travel: unlocked.includes('g_escape') || unlocked.includes('caribbean_travel'),
                 };
 
-                // Kiosk also requires system-level activation
-                const { data: sysKiosk } = await supabase
-                    .from('system_feature_flags')
-                    .select('is_active')
-                    .eq('id', 'kiosk_active')
-                    .maybeSingle();
-                flags.kiosk = flags.kiosk && (sysKiosk?.is_active === true);
-
                 setFeatureFlags(flags);
-                setNextUnlock(data?.data?.next_unlock ?? null);
+                setNextUnlock(progressRes.data?.data?.next_unlock ?? null);
             } catch (err) {
                 console.warn('[HomeScreen] Failed to fetch rider progress:', err);
                 setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
@@ -231,6 +255,22 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             }
         };
         fetchAiPrefs();
+
+        const fetchUnreadCount = async () => {
+            if (!profile?.id) return;
+            const { count, error } = await supabase
+                .from('notifications')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', profile.id)
+                .eq('is_read', false);
+            // Table may not exist yet — fail closed to 0 so the badge stays honest.
+            if (error) {
+                console.warn('[HomeScreen] notifications count unavailable:', error.message);
+                return;
+            }
+            setUnreadCount(count || 0);
+        };
+        fetchUnreadCount();
 
         const AI_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
         const AI_CACHE_KEY = `ai_greeting_cache_${profile?.id}`;
@@ -309,8 +349,9 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         }
 
         if (!reducedMotion) {
-            panelY.value = withSpring(0, ANIMATION.spring);
-            mapPitch.value = withDelay(1000, withTiming(30, { duration: 1500 }));
+            sheetY.value = withDelay(200, withSpring(PEEK_OFFSET, { damping: 22, stiffness: 180 }));
+        } else {
+            sheetY.value = PEEK_OFFSET;
         }
 
         return () => {
@@ -368,8 +409,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 Alert.alert('Location Mismatch', `You are ${driftMeters.toFixed(0)}m from this NFC kiosk. Please move closer.`);
                 return;
             }
-            if (!withinSoft) {
-            }
         }
 
         navigation.navigate('NfcHandshake', { tagUid: nfcTagId });
@@ -383,6 +422,17 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const currentLat = location?.coords.latitude || DEFAULT_LOCATION.latitude;
     const currentLng = location?.coords.longitude || DEFAULT_LOCATION.longitude;
     const { drivers: realtimeDrivers } = useNearbyDrivers(currentLat, currentLng);
+
+    // Trust caption: convert the abstract map dots into an explicit promise.
+    // ETA is a rough estimate from nearest driver distance (~30km/h urban => m/500 ≈ min),
+    // surfaced with a "~" so it never reads as a hard guarantee.
+    const nearestDriverMeters = realtimeDrivers.reduce<number | null>((min, d) => {
+        const dlat = (d.lat as any), dlng = (d.lng as any);
+        if (!Number.isFinite(dlat) || !Number.isFinite(dlng)) return min;
+        const m = haversineMeters(currentLat, currentLng, dlat, dlng);
+        return min === null || m < min ? m : min;
+    }, null);
+    const driverEtaMin = nearestDriverMeters !== null ? Math.max(1, Math.round(nearestDriverMeters / 500)) : null;
 
     const handleSavePlace = async (label: string, address: string) => {
         try {
@@ -421,15 +471,15 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
                     setTimeout(() => {
                         navigation.navigate('RideConfirmation', {
-                            destination: { 
-                                latitude: data.destination.lat, 
-                                longitude: data.destination.lng, 
-                                address: data.destination.address 
+                            destination: {
+                                latitude: data.destination.lat,
+                                longitude: data.destination.lng,
+                                address: data.destination.address
                             },
-                            pickup: { 
-                                latitude: currentLat, 
-                                longitude: currentLng, 
-                                address: 'Current Location' 
+                            pickup: {
+                                latitude: currentLat,
+                                longitude: currentLng,
+                                address: 'Current Location'
                             }
                         });
                         clearFarePreview();
@@ -466,9 +516,9 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
             const currentPos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-            
+
             const { data, error } = await supabase.functions.invoke('vision_pickup', {
-                body: { 
+                body: {
                     image: result.assets[0].base64,
                     lat: currentPos.coords.latitude,
                     lng: currentPos.coords.longitude
@@ -480,17 +530,17 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            
+
             navigation.navigate('RideConfirmation', {
-                destination: { 
-                    latitude: data.refined_lat, 
-                    longitude: data.refined_lng, 
-                    address: data.landmark_name || data.address 
+                destination: {
+                    latitude: data.refined_lat,
+                    longitude: data.refined_lng,
+                    address: data.landmark_name || data.address
                 },
-                pickup: { 
-                    latitude: currentPos.coords.latitude, 
-                    longitude: currentPos.coords.longitude, 
-                    address: 'Your Location' 
+                pickup: {
+                    latitude: currentPos.coords.latitude,
+                    longitude: currentPos.coords.longitude,
+                    address: 'Your Location'
                 }
             });
 
@@ -505,7 +555,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const fetchFareEstimate = async (destLat: number, destLng: number, destAddress: string) => {
         setSelectedDestinationPreview({ lat: destLat, lng: destLng, address: destAddress });
         setIsEstimatingFare(true);
-        
+
         try {
             const fareRes = await estimateFare({
                 pickup_lat: currentLat,
@@ -513,7 +563,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 dropoff_lat: destLat,
                 dropoff_lng: destLng,
             });
-            
+
             if (fareRes.success && fareRes.data) {
                 setEstimatedFare(fareRes.data.total_fare_cents);
             } else {
@@ -533,7 +583,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             setIsEstimatingFare(false);
         }
     };
-    
+
     const clearFarePreview = () => {
         setSelectedDestinationPreview(null);
         setEstimatedFare(null);
@@ -563,16 +613,63 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         }
     };
 
-    const animatedPanel = useAnimatedStyle(() => ({
-        transform: [{ translateY: panelY.value }]
+    const expandSheet = () => {
+        sheetY.value = withSpring(EXPANDED_OFFSET, { damping: 22, stiffness: 180 });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    };
+
+    // Ride card sub-line carries the live driver-presence promise when drivers exist.
+    const driverSubText = realtimeDrivers.length > 0
+        ? `${realtimeDrivers.length} ${realtimeDrivers.length === 1 ? 'driver' : 'drivers'} nearby${driverEtaMin ? ` · ~${driverEtaMin} min` : ''}`
+        : 'Get a taxi anywhere';
+
+    const layers: Layer[] = useMemo(() => {
+        const arr: Layer[] = [
+            { id: 'ride', name: 'Ride', sub: driverSubText, accent: BRAND, icon: 'car-sport-sharp', search: homeSuggestion || 'Where to?' },
+        ];
+        if (featureFlags.grocery) arr.push({ id: 'market', name: 'Market', sub: 'Groceries delivered', accent: '#F59E0B', icon: 'cart-sharp', search: 'Shop groceries & more' });
+        if (featureFlags.laundry) arr.push({ id: 'laundry', name: 'Laundry', sub: 'Fresh & folded', accent: '#38BDF8', icon: 'shirt-sharp', search: 'Schedule a pickup' });
+        if (featureFlags.caribbean_travel) arr.push({ id: 'escape', name: 'G-Escape', sub: 'Caribbean packages', accent: '#D4AF37', icon: 'airplane-sharp', search: 'Browse escapes' });
+        if (featureFlags.kiosk) arr.push({ id: 'tap', name: 'Tap', sub: 'Scan a puck', accent: BRAND, icon: 'radio-sharp', search: 'Open NFC scanner' });
+        if (nextUnlock) arr.push({ id: 'locked', name: nextUnlock.vertical, accent: '#38BDF8', icon: 'lock-closed', locked: true, progress: nextUnlock.progress, need: nextUnlock.required, label: nextUnlock.label });
+        return arr;
+    }, [featureFlags, nextUnlock, driverSubText, homeSuggestion]);
+
+    const openDestinationSearch = () => {
+        const accuracy = location?.coords?.accuracy;
+        if (accuracy && accuracy > 50) {
+            setLocationAccuracy(accuracy);
+            setShowLocationConfirm(true);
+        } else {
+            navigation.navigate('DestinationSearch', {
+                currentLocation: { latitude: currentLat, longitude: currentLng },
+            });
+        }
+    };
+
+    const handleLayerPrimary = (layer: Layer) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        switch (layer.id) {
+            case 'ride': openDestinationSearch(); break;
+            case 'market': navigation.navigate('GroceryStorefront'); break;
+            case 'laundry': navigation.navigate('LaundryLanding'); break;
+            case 'escape': navigation.navigate('TravelStorefront'); break;
+            case 'tap': (navigation.navigate as any)('NfcScan'); break;
+            default: break;
+        }
+    };
+
+    const animatedSheet = useAnimatedStyle(() => ({
+        transform: [{ translateY: sheetY.value }]
     }));
 
     return (
-        <View style={s.root} pointerEvents="box-none">
+        <View style={s.root}>
             <StatusBar style="light" />
 
+            {/* Map — fullscreen behind the sheet */}
             <MapView
-                style={s.map}
+                style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
                 customMapStyle={DARK_MAP_STYLE}
                 initialRegion={{
@@ -614,39 +711,35 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             });
                         }}
                     >
-                        <View style={{
-                            backgroundColor: 'rgba(0, 255, 255, 0.9)',
-                            borderRadius: 20,
-                            padding: 8,
-                            borderWidth: 2,
-                            borderColor: '#00FFFF',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
+                        <View style={s.savedPlacePin}>
                             <Ionicons name="heart" size={16} color="#FFF" />
                         </View>
                     </Marker>
                 ))}
             </MapView>
 
+            {/* Top bar — absolute over the map */}
             <View style={[s.topBarContainer, { top: insets.top + 12 }, width > 600 && { alignItems: 'center' }]}>
                 <GlassCard style={[s.topBarBlur, width > 600 && { maxWidth: 600 }]}>
                     <View style={s.topBar}>
-                        <Image 
-                            source={require('../../assets/logo.png')} 
+                        <Image
+                            source={require('../../assets/logo.png')}
                             style={s.topBarLogo}
                             resizeMode="contain"
                         />
-                        
+
                         <View style={s.topBarRight}>
                             <TouchableOpacity
                                 style={s.iconButton}
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    (navigation.navigate as any)('Notifications');
+                                }}
                                 accessibilityLabel="View notifications"
                                 accessibilityRole="button"
                             >
                                 <Ionicons name="notifications-outline" size={22} color="#FFF" />
-                                <View style={s.notificationBadge} />
+                                {unreadCount > 0 && <View style={s.notificationBadge} />}
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -688,11 +781,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 }}
             />
 
+            {/* AI/vision loading bubble — floats above the sheet peek zone */}
             {(isAiThinking || visionLoading) && (
-                <Reanimated.View 
+                <Reanimated.View
                     entering={FadeIn}
                     exiting={FadeOut}
-                    style={[s.aiBubbleContainer, { bottom: 330 }]}
+                    style={s.aiBubbleContainer}
                 >
                     <GlassCard style={s.aiBlur}>
                         <View style={s.aiAvatar}>
@@ -709,8 +803,9 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 </Reanimated.View>
             )}
 
+            {/* Vision FAB — floats above the sheet peek zone */}
             <TouchableOpacity
-                style={[s.visionFab, { bottom: 330 + 74 }]}
+                style={s.visionFab}
                 onPress={handleVisionSighting}
                 activeOpacity={0.7}
                 accessibilityLabel="Open AI vision scanner"
@@ -722,409 +817,222 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 </View>
             </TouchableOpacity>
 
-            <Reanimated.View style={[s.panel, animatedPanel, { paddingBottom: insets.bottom + 20 }, width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300 }]}>
-                <GlassCard style={{ borderRadius: 24, ...elevationGlow(8) }}>
-                    <View style={s.cardInner}>
-                        
-                        <AIAssistantWidget
-                            greeting={aiGreeting ?? undefined}
-                            isLoading={aiLoading}
-                            onSubmitText={async (query: string) => {
-                                setAiLoading(true);
-                                try {
-                                    const { data, error } = await supabase.functions.invoke('parse_natural_language', {
-                                        body: { query, current_lat: currentLat, current_lng: currentLng }
-                                    });
-                                    if (error) throw new Error(error);
-                                    if (data?.stops?.length >= 2) {
-                                        setAiLoading(false);
-                                        navigation.navigate('RideReview', {
-                                            stops: data.stops,
-                                            service_type: data.service_type,
-                                            estimated_fare_cents: data.estimated_fare_cents,
-                                            total_duration_seconds: data.total_duration_seconds || 0,
-                                            total_distance_meters: data.total_distance_meters || 0,
-                                            validation_required: data.validation_required,
-                                            raw_query: query,
-                                        });
-                                    } else {
-                                        Alert.alert('Could not understand', 'Please rephrase your request with a pickup and dropoff location.');
-                                        setAiLoading(false);
-                                    }
-                                } catch (err: any) {
-                                    Alert.alert('Error', err.message || 'Failed to parse request. Please try again.');
-                                    setAiLoading(false);
-                                }
-                            }}
-                            onSearchPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                const accuracy = location?.coords?.accuracy;
-                                if (accuracy && accuracy > 50) {
-                                    setLocationAccuracy(accuracy);
-                                    setShowLocationConfirm(true);
-                                } else {
-                                    navigation.navigate('DestinationSearch', {
-                                        currentLocation: { latitude: currentLat, longitude: currentLng }
-                                    });
-                                }
-                            }}
-                            onMicPress={() => {
+            {/* Bottom sheet */}
+            <Reanimated.View
+                style={[
+                    s.sheet,
+                    animatedSheet,
+                    { paddingBottom: insets.bottom + 20 },
+                    width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300 },
+                ]}
+            >
+                {/* Drag handle — always visible in peek zone */}
+                <View {...panResponder.panHandlers} style={s.handleZone}>
+                    <TouchableOpacity onPress={expandSheet} activeOpacity={0.7} accessibilityLabel="Expand options" accessibilityRole="button">
+                        <View style={s.handleBar} />
+                    </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                    style={s.sheetScroll}
+                    contentContainerStyle={s.sheetContent}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    scrollEventThrottle={16}
+                >
+                    {/* Greeting + voice row */}
+                    <View style={s.greetRow}>
+                        <Text style={s.greetText} numberOfLines={2}>
+                            {aiGreeting || 'Where to next?'}
+                        </Text>
+                        <TouchableOpacity
+                            style={s.micBtn}
+                            onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
                                 setVoiceInputText('');
                                 setVoiceModalVisible(true);
                             }}
+                            accessibilityLabel="Ask G-Taxi by voice"
+                            accessibilityRole="button"
+                        >
+                            <Ionicons name="mic" size={20} color={VOICES.rider.accent} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Swipeable layer deck — booking + verticals + level meter in one control */}
+                    {isVerticalsLoading ? (
+                        <View style={s.skeletonContainer}>
+                            <Skeleton width="100%" height={144} borderRadius={22} />
+                        </View>
+                    ) : (
+                        <LayerDeck
+                            layers={layers}
+                            onPrimary={handleLayerPrimary}
+                            onActiveChange={(l) => setActiveLayerId(l.id)}
                         />
+                    )}
 
-                        {proactiveAction && (
-                            <Reanimated.View entering={FadeIn} style={s.proactiveHud}>
-                                <LinearGradient 
-                                    colors={[VOICES.rider.accent, '#004444']} 
-                                    style={s.proactiveGradient} 
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                >
-                                    <View style={s.aiIndicator}>
-                                        <Ionicons name="sparkles" size={14} color={VOICES.rider.accent} />
+                    {/* Ride-only quick places */}
+                    {activeLayerId === 'ride' && (
+                    <View style={s.pills}>
+                        <TouchableOpacity
+                            style={s.pill}
+                            onPress={() => handleQuickAction('Home')}
+                            accessibilityLabel="Ride to saved Home address"
+                            accessibilityRole="button"
+                        >
+                            <Ionicons name="home-outline" size={18} color={VOICES.rider.accent} />
+                            <Text style={s.pillLabel}>Home</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={s.pill}
+                            onPress={() => handleQuickAction('Work')}
+                            accessibilityLabel="Ride to saved Work address"
+                            accessibilityRole="button"
+                        >
+                            <Ionicons name="briefcase-outline" size={18} color={VOICES.rider.accent} />
+                            <Text style={s.pillLabel}>Work</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={s.recentPill}
+                            onPress={() => handleQuickAction('Recent')}
+                            accessibilityLabel="View recent rides"
+                            accessibilityRole="button"
+                        >
+                            <Ionicons name="time-outline" size={22} color={VOICES.rider.accent} />
+                        </TouchableOpacity>
+                    </View>
+                    )}
+
+                    {/* Fare preview */}
+                    {(selectedDestinationPreview || isEstimatingFare) && (
+                        <Reanimated.View entering={FadeIn} exiting={FadeOut} style={s.farePreviewContainer}>
+                            <View style={s.farePreviewBlur}>
+                                <View style={s.farePreviewContent}>
+                                    <View style={s.fareIconContainer}>
+                                        <Ionicons name="wallet-outline" size={20} color={VOICES.rider.accent} />
                                     </View>
-                                    <Text style={s.proactiveText}>{proactiveAction}</Text>
-                                    <TouchableOpacity
-                                        onPress={() => setProactiveAction(null)}
-                                        accessibilityLabel="Dismiss AI suggestion"
-                                        accessibilityRole="button"
-                                    >
-                                        <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
-                                    </TouchableOpacity>
-                                </LinearGradient>
-                            </Reanimated.View>
-                        )}
-
-                        {isVerticalsLoading ? (
-                            <View style={s.skeletonContainer}>
-                                <Skeleton width="100%" height={140} borderRadius={20} style={{ marginBottom: 12 }} />
-                                <View style={s.skeletonGrid}>
-                                    <Skeleton width="48%" height={140} borderRadius={20} />
-                                    <Skeleton width="48%" height={140} borderRadius={20} />
-                                </View>
-                            </View>
-                        ) : (
-                            <View style={s.serviceBentoBox}>
-                                <TouchableOpacity
-                                    activeOpacity={0.85}
-                                    style={s.heroCard}
-                                    onPress={() => {
-                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                        navigation.navigate('DestinationSearch', {
-                                            currentLocation: location ? { latitude: location.coords.latitude, longitude: location.coords.longitude } : undefined
-                                        });
-                                    }}
-                                    accessibilityLabel="Book a ride"
-                                    accessibilityRole="button"
-                                >
-                                    <LinearGradient
-                                        colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']}
-                                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                        style={s.heroCardGradient}
-                                    >
-                                        <View style={[s.heroCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.2)' }]}>
-                                            <Ionicons name="car-sport-sharp" size={36} color={VOICES.rider.accent} />
+                                    <View style={s.fareTextContainer}>
+                                        <Text style={s.fareAddress}>
+                                            {selectedDestinationPreview?.address || 'Estimating...'}
+                                        </Text>
+                                        <View style={s.fareRow}>
+                                            {isEstimatingFare ? (
+                                                <Text style={{ color: VOICES.rider.accent, fontWeight: '700' }}>Calculating...</Text>
+                                            ) : estimatedFare ? (
+                                                <>
+                                                    <Text style={s.fareAmount}>
+                                                        {formatTTDDollars(estimatedFare / 100)}
+                                                    </Text>
+                                                    <Text style={s.fareLabel}>estimated</Text>
+                                                </>
+                                            ) : (
+                                                <Text style={{ color: 'rgba(255,255,255,0.6)' }}>Fare unavailable</Text>
+                                            )}
                                         </View>
-                                        <View style={s.heroCardContent}>
-                                            <Text style={s.heroCardTitle}>Ride</Text>
-                                            <Text style={s.heroCardSub}>Get a taxi anywhere</Text>
-                                        </View>
-                                        <View style={s.heroTag}>
-                                            <Text style={s.heroTagText}>Book Ride</Text>
-                                        </View>
-                                    </LinearGradient>
-                                </TouchableOpacity>
-
-                                <View style={s.serviceGrid}>
-                                    {featureFlags.grocery && (
-                                    <TouchableOpacity
-                                        activeOpacity={0.85}
-                                        style={s.gridCard}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            navigation.navigate('GroceryStorefront');
-                                        }}
-                                        accessibilityLabel="Order groceries for delivery"
-                                        accessibilityRole="button"
-                                    >
-                                        <LinearGradient
-                                            colors={['rgba(245,158,11,0.22)', 'rgba(245,158,11,0.06)']}
-                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={s.gridCardGradient}
-                                        >
-                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(245,158,11,0.2)' }]}>
-                                                <Ionicons name="cart-sharp" size={28} color="#F59E0B" />
-                                            </View>
-                                            <Text style={s.gridCardTitle}>Market</Text>
-                                            <Text style={s.gridCardSub}>Groceries delivered</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                    )}
-
-                                    {featureFlags.laundry && (
-                                    <TouchableOpacity
-                                        activeOpacity={0.85}
-                                        style={s.gridCard}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            navigation.navigate('LaundryLanding');
-                                        }}
-                                        accessibilityLabel="Book laundry pickup"
-                                        accessibilityRole="button"
-                                    >
-                                        <LinearGradient
-                                            colors={['rgba(6,182,212,0.18)', 'rgba(6,182,212,0.04)']}
-                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={s.gridCardGradient}
-                                        >
-                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(6,182,212,0.15)' }]}>
-                                                <Ionicons name="shirt-sharp" size={28} color="#06B6D4" />
-                                            </View>
-                                            <Text style={s.gridCardTitle}>Laundry</Text>
-                                            <Text style={s.gridCardSub}>Fresh & folded</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                    )}
-
-                                    {featureFlags.grocery && (
-                                    <TouchableOpacity
-                                        activeOpacity={0.85}
-                                        style={s.gridCard}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            navigation.navigate('VisionScanner');
-                                        }}
-                                        accessibilityLabel="Search products with AI vision"
-                                        accessibilityRole="button"
-                                    >
-                                        <LinearGradient
-                                            colors={['rgba(139,92,246,0.22)', 'rgba(139,92,246,0.06)']}
-                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={s.gridCardGradient}
-                                        >
-                                            <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(139,92,246,0.2)' }]}>
-                                                <Ionicons name="scan-sharp" size={28} color="#8B5CF6" />
-                                            </View>
-                                            <Text style={s.gridCardTitle}>Scan</Text>
-                                            <Text style={s.gridCardSub}>AI product search</Text>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                    )}
-
-                                    {featureFlags.kiosk ? (
-                                        <TouchableOpacity
-                                            activeOpacity={0.85}
-                                            style={s.gridCard}
-                                            onPress={() => {
-                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                                (navigation.navigate as any)('NfcScan');
-                                            }}
-                                            accessibilityLabel="Tap NFC kiosk"
-                                            accessibilityRole="button"
-                                        >
-                                            <LinearGradient
-                                                colors={['rgba(0,255,255,0.15)', 'rgba(0,255,255,0.03)']}
-                                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                                style={s.gridCardGradient}
-                                            >
-                                                <View style={[s.gridCardIconWrap, { backgroundColor: 'rgba(0,255,255,0.12)' }]}>
-                                                    <Ionicons name="radio-sharp" size={26} color={VOICES.rider.accent} />
-                                                </View>
-                                                <Text style={s.gridCardTitle}>Tap</Text>
-                                                <Text style={s.gridCardSub}>Scan a puck</Text>
-                                            </LinearGradient>
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <View style={s.gridCardPlaceholder} />
-                                    )}
-                                </View>
-
-                                {nextUnlock && (
-                                    <View style={s.nextUnlockBanner} accessibilityLabel={`${nextUnlock.required - nextUnlock.progress} more ${nextUnlock.label} to unlock ${nextUnlock.vertical}`}>
-                                        <View style={s.nextUnlockRow}>
-                                            <Ionicons name="lock-closed-outline" size={14} color={VOICES.rider.accent} />
-                                            <Text style={s.nextUnlockLabel}>
-                                                {nextUnlock.required - nextUnlock.progress > 0
-                                                    ? `${nextUnlock.required - nextUnlock.progress} more ${nextUnlock.label} to unlock ${nextUnlock.vertical}`
-                                                    : `${nextUnlock.vertical} unlocking…`}
-                                            </Text>
-                                        </View>
-                                        <View style={s.nextUnlockTrack}>
-                                            <View style={[s.nextUnlockFill, { width: `${Math.min(100, (nextUnlock.progress / nextUnlock.required) * 100)}%` }]} />
-                                        </View>
-                                        <Text style={s.nextUnlockCount}>{nextUnlock.progress} / {nextUnlock.required}</Text>
                                     </View>
-                                )}
-
-                                {featureFlags.caribbean_travel && (
-                                    <TouchableOpacity
-                                        activeOpacity={0.82}
-                                        style={s.escapeHeroCard}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            navigation.navigate('TravelStorefront');
-                                        }}
-                                        accessibilityLabel="Browse Caribbean travel packages from Port of Spain"
-                                        accessibilityRole="button"
-                                    >
-                                        <LinearGradient
-                                            colors={['rgba(212,175,55,0.22)', 'rgba(8,5,2,0.96)']}
-                                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={s.escapeHeroGradient}
-                                        >
-                                            <View style={s.escapeHeroLeft}>
-                                                <View style={s.escapeHeroIconWrap}>
-                                                    <Ionicons name="airplane-sharp" size={20} color="#D4AF37" />
-                                                </View>
-                                                <View>
-                                                    <Text style={s.escapeHeroTitle}>G-Escape</Text>
-                                                    <Text style={s.escapeHeroSub}>Caribbean packages from POS</Text>
-                                                </View>
-                                            </View>
-                                            <View style={s.escapeHeroRight}>
-                                                <Text style={s.escapeHeroFrom}>from</Text>
-                                                <Text style={s.escapeHeroPrice}>$1,904</Text>
-                                                <Text style={s.escapeHeroCurrency}>TTD</Text>
-                                            </View>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        )}
-
-                        {nearbyVendors.length > 0 && (
-                            <View style={{ marginTop: 20 }}>
-                                <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 18, paddingHorizontal: 20, marginBottom: 12 }}>Nearby Merchants</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
-                                    {nearbyVendors.map(v => (
+                                    {!isEstimatingFare && estimatedFare && (
                                         <TouchableOpacity
-                                            key={v.id}
-                                            activeOpacity={0.88}
-                                            onPress={() => {
-                                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                                navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
-                                            }}
-                                            accessibilityLabel={`Shop at ${v.name}${v.is_open ? '' : ' (closed)'}`}
-                                            accessibilityRole="button"
-                                            style={{ width: 160, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                                        >
-                                            <LinearGradient colors={['rgba(139,92,246,0.15)', 'rgba(6,182,212,0.08)']} style={{ padding: 16 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                                                    <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.25)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                                                        <Ionicons name="storefront-outline" size={18} color="#8B5CF6" />
-                                                    </View>
-                                                    <View style={{ flex: 1 }}>
-                                                        <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{v.name}</Text>
-                                                        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{v.is_open ? 'Open' : 'Closed'}</Text>
-                                                    </View>
-                                                </View>
-                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{Math.round(v.distance_meters)} m</Text>
-                                                    <Text style={{ color: VOICES.rider.accent, fontSize: 11, fontWeight: '600' }}>~{v.avg_delivery_minutes} min</Text>
-                                                </View>
-                                            </LinearGradient>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                            </View>
-                        )}
-
-                        {(selectedDestinationPreview || isEstimatingFare) && (
-                            <Reanimated.View entering={FadeIn} exiting={FadeOut} style={s.farePreviewContainer}>
-                                <View style={s.farePreviewBlur}>
-                                    <View style={s.farePreviewContent}>
-                                        <View style={s.fareIconContainer}>
-                                            <Ionicons name="wallet-outline" size={20} color={VOICES.rider.accent} />
-                                        </View>
-                                        <View style={s.fareTextContainer}>
-                                            <Text style={s.fareAddress}>
-                                                {selectedDestinationPreview?.address || 'Estimating...'}
-                                            </Text>
-                                            <View style={s.fareRow}>
-                                                {isEstimatingFare ? (
-                                                    <Text style={{ color: VOICES.rider.accent, fontWeight: '700' }}>Calculating...</Text>
-                                                ) : estimatedFare ? (
-                                                    <>
-                                                        <Text style={s.fareAmount}>
-                                                            {formatTTDDollars(estimatedFare / 100)}
-                                                        </Text>
-                                                        <Text style={s.fareLabel}>
-                                                            estimated
-                                                        </Text>
-                                                    </>
-                                                ) : (
-                                                    <Text style={{ color: 'rgba(255,255,255,0.6)' }}>Fare unavailable</Text>
-                                                )}
-                                            </View>
-                                        </View>
-                                        {!isEstimatingFare && estimatedFare && (
-                                            <TouchableOpacity
                                             onPress={clearFarePreview}
                                             style={s.fareCloseBtn}
                                             accessibilityLabel="Clear fare estimate"
                                             accessibilityRole="button"
                                         >
-                                                <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
+                                            <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            </View>
+                            {stopSuggestions.length > 0 && selectedDestinationPreview && (
+                                <View style={s.stopSuggestionsStrip}>
+                                    <Text style={s.stopSuggestionsTitle}>Suggested stops</Text>
+                                    <View style={s.stopSuggestionRow}>
+                                        {stopSuggestions.map((stop, i) => (
+                                            <TouchableOpacity
+                                                key={i}
+                                                style={s.stopSuggestionChip}
+                                                accessibilityLabel={`Add stop at ${stop.name}`}
+                                                accessibilityRole="button"
+                                                onPress={() => {
+                                                    navigation.navigate('RideConfirmation', {
+                                                        destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
+                                                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
+                                                        stop: { name: stop.name, latitude: stop.lat, longitude: stop.lng }
+                                                    });
+                                                    clearFarePreview();
+                                                }}
+                                            >
+                                                <Text style={s.stopSuggestionLabel}>{stop.name}</Text>
                                             </TouchableOpacity>
-                                        )}
-                        </View>
-                    </View>
-                    {stopSuggestions.length > 0 && selectedDestinationPreview && (
-                        <View style={s.stopSuggestionsStrip}>
-                            <Text style={s.stopSuggestionsTitle}>Suggested stops</Text>
-                            <View style={s.stopSuggestionRow}>
-                                {stopSuggestions.map((stop, i) => (
-                                    <TouchableOpacity key={i} style={s.stopSuggestionChip} accessibilityLabel={`Add stop at ${stop.name}`} accessibilityRole="button" onPress={() => {
-                                        navigation.navigate('RideConfirmation', {
-                                            destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
-                                            pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
-                                            stop: { name: stop.name, latitude: stop.lat, longitude: stop.lng }
-                                        });
-                                        clearFarePreview();
-                                    }}>
-                                        <Text style={s.stopSuggestionLabel}>{stop.name}</Text>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+                        </Reanimated.View>
+                    )}
+
+                    {/* Proactive AI suggestion */}
+                    {proactiveAction && (
+                        <Reanimated.View entering={FadeIn} style={s.proactiveHud}>
+                            <LinearGradient
+                                colors={[`${BRAND}30`, `${BRAND}08`]}
+                                style={s.proactiveGradient}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                            >
+                                <View style={s.aiIndicator}>
+                                    <Ionicons name="sparkles" size={14} color={VOICES.rider.accent} />
+                                </View>
+                                <Text style={s.proactiveText}>{proactiveAction}</Text>
+                                <TouchableOpacity
+                                    onPress={() => setProactiveAction(null)}
+                                    accessibilityLabel="Dismiss AI suggestion"
+                                    accessibilityRole="button"
+                                >
+                                    <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
+                                </TouchableOpacity>
+                            </LinearGradient>
+                        </Reanimated.View>
+                    )}
+
+                    {/* Nearby merchants */}
+                    {nearbyVendors.length > 0 && (
+                        <View style={{ marginTop: 20 }}>
+                            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 18, paddingHorizontal: 20, marginBottom: 12 }}>Nearby Merchants</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+                                {nearbyVendors.map(v => (
+                                    <TouchableOpacity
+                                        key={v.id}
+                                        activeOpacity={0.88}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
+                                        }}
+                                        accessibilityLabel={`Shop at ${v.name}${v.is_open ? '' : ' (closed)'}`}
+                                        accessibilityRole="button"
+                                        style={{ width: 160, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                                    >
+                                        <LinearGradient colors={['rgba(139,92,246,0.15)', 'rgba(6,182,212,0.08)']} style={{ padding: 16 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                                                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.25)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                                                    <Ionicons name="storefront-outline" size={18} color="#8B5CF6" />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{v.name}</Text>
+                                                    <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{v.is_open ? 'Open' : 'Closed'}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{Math.round(v.distance_meters)} m</Text>
+                                                <Text style={{ color: VOICES.rider.accent, fontSize: 11, fontWeight: '600' }}>~{v.avg_delivery_minutes} min</Text>
+                                            </View>
+                                        </LinearGradient>
                                     </TouchableOpacity>
                                 ))}
-                            </View>
+                            </ScrollView>
                         </View>
                     )}
-                </Reanimated.View>
-                        )}
-
-                        <View style={s.pills}>
-                            <TouchableOpacity
-                                style={s.pill}
-                                onPress={() => handleQuickAction('Home')}
-                                accessibilityLabel="Ride to saved Home address"
-                                accessibilityRole="button"
-                            >
-                                <Ionicons name="home-outline" size={18} color={VOICES.rider.accent} />
-                                <Text style={s.pillLabel}>Home</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={s.pill}
-                                onPress={() => handleQuickAction('Work')}
-                                accessibilityLabel="Ride to saved Work address"
-                                accessibilityRole="button"
-                            >
-                                <Ionicons name="briefcase-outline" size={18} color={VOICES.rider.accent} />
-                                <Text style={s.pillLabel}>Work</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={s.recentPill}
-                                onPress={() => handleQuickAction('Recent')}
-                                accessibilityLabel="View recent rides"
-                                accessibilityRole="button"
-                            >
-                                <Ionicons name="time-outline" size={22} color={VOICES.rider.accent} />
-                            </TouchableOpacity>
-                        </View>
-
-                    </View>
-                </GlassCard>
+                </ScrollView>
             </Reanimated.View>
 
             <SavedPlaceModal visible={!!activeModalLabel} defaultLabel={activeModalLabel || ''} onClose={() => setActiveModalLabel(null)} onSave={handleSavePlace} />
@@ -1144,7 +1052,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
                     <View style={[glassSurface(100), s.lockBlur]}>
                         <View style={s.hudLockRing} />
-                                <Ionicons name="flash" size={64} color={VOICES.rider.accent} />
+                        <Ionicons name="flash" size={64} color={VOICES.rider.accent} />
                         <Text style={s.lockTitle}>Feature locked</Text>
                         <Text style={s.lockSubtitle}>
                             Complete your first ride to unlock this.
@@ -1162,7 +1070,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         if ((current[i] || 0) < (min[i] || 0)) { needsUpdate = true; break; }
                         if ((current[i] || 0) > (min[i] || 0)) break;
                     }
-                    
+
                     if (needsUpdate) {
                         return (
                             <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
@@ -1304,7 +1212,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                 accessibilityRole="button"
                             >
                                 <LinearGradient
-                                    colors={[VOICES.rider.accent, '#00FFFF']}
+                                    colors={[BRAND, `${BRAND}CC`]}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
                                     style={s.voiceModalSendGradient}
@@ -1322,116 +1230,38 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 }
 
 const Z = {
-    mapOverlay: 10,
-    panel: 20,
+    topBar: 10,
+    sheet: 20,
     lockOverlay: 30,
     locationConfirm: 40,
 };
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
-    map: { width: '100%', height: '100%' },
 
-    voiceModalOverlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-    },
-    voiceModalCard: {
-        backgroundColor: SURFACE.base,
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        padding: 28,
-        paddingBottom: 40,
-        ...ghostBorder(),
-    },
-    voiceModalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-        gap: 10,
-    },
-    voiceModalAiDot: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: 'rgba(0,255,255,0.12)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.3),
-    },
-    voiceModalTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#FFF',
-    },
-    voiceModalSubtitle: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.6)',
-        marginBottom: 20,
-        marginLeft: 46,
-    },
-    voiceModalInput: {
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        ...ghostBorder(0.4),
-        borderRadius: 16,
-        paddingHorizontal: 18,
-        paddingVertical: 14,
-        fontSize: 16,
-        color: '#FFF',
-        marginBottom: 20,
-    },
-    voiceModalButtons: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    voiceModalCancel: {
-        flex: 1,
-        height: 52,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.1),
-    },
-    voiceModalCancelText: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: 'rgba(255,255,255,0.6)',
-    },
-    voiceModalSend: {
-        flex: 1,
-        height: 52,
-        borderRadius: 14,
-        overflow: 'hidden',
-    },
-    voiceModalSendGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-    },
-    voiceModalSendText: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: '#FFF',
-    },
-    
-    carMarker: { 
-        width: 44, 
-        height: 44, 
-        shadowColor: VOICES.rider.accent, 
-        shadowRadius: 12, 
+    carMarker: {
+        width: 44,
+        height: 44,
+        shadowColor: VOICES.rider.accent,
+        shadowRadius: 12,
         shadowOpacity: 0.8,
         shadowOffset: { width: 0, height: 0 },
+    },
+    savedPlacePin: {
+        backgroundColor: BRAND,
+        borderRadius: 20,
+        padding: 8,
+        borderWidth: 2,
+        borderColor: BRAND,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 
     topBarContainer: {
         position: 'absolute',
         left: 20,
         right: 20,
-        zIndex: 100,
+        zIndex: Z.topBar,
     },
     topBarBlur: {
         borderRadius: 20,
@@ -1492,7 +1322,7 @@ const s = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 12,
-        backgroundColor: 'rgba(0,255,255,0.15)',
+        backgroundColor: `${BRAND}26`,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -1515,32 +1345,213 @@ const s = StyleSheet.create({
         color: '#856404',
     },
 
-    panel: { 
-        position: 'absolute', 
-        bottom: 12, 
-        left: 12, 
-        right: 12,
-        maxHeight: '60%',
+    // Bottom sheet
+    sheet: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: '100%',
+        zIndex: Z.sheet,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        backgroundColor: SURFACE.containerLow,
+        ...elevationGlow(12),
     },
-    glassPanel: { 
-        backgroundColor: 'rgba(255,255,255,0.03)', 
-        ...ghostBorder(), 
-        borderRadius: 24, 
-        overflow: 'hidden',
-        ...elevationGlow(8),
+    handleZone: {
+        alignItems: 'center',
+        paddingTop: 12,
+        paddingBottom: 8,
     },
-    cardInner: { padding: 20 },
+    handleBar: {
+        width: 40,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+    },
+    sheetScroll: {
+        flex: 1,
+    },
+    sheetContent: {
+        paddingHorizontal: 20,
+        paddingTop: 4,
+        paddingBottom: 40,
+        gap: 16,
+    },
 
+    // AI loading bubble
+    aiBubbleContainer: {
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        bottom: 248,
+        zIndex: Z.topBar,
+    },
+    aiBlur: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 20,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(5, 5, 5, 0.85)',
+        ...ghostBorder(),
+    },
+    aiAvatar: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: `${BRAND}26`,
+    },
+    aiThinking: {
+        color: 'rgba(255,255,255,0.6)',
+    },
+    aiCyan: {
+        color: VOICES.rider.accent,
+    },
+
+    // Vision FAB
+    visionFab: {
+        position: 'absolute',
+        right: 20,
+        bottom: 248,
+        zIndex: Z.topBar,
+    },
+    visionGlass: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 20,
+        ...ghostBorder(0.4),
+        backgroundColor: 'rgba(5, 5, 5, 0.8)',
+    },
+    visionText: {
+        marginLeft: 8,
+        fontSize: 13,
+        fontWeight: '700',
+        color: VOICES.rider.accent,
+        letterSpacing: 0.5,
+    },
+
+    // Greeting + voice row
+    greetRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    greetText: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#F2F5F8',
+        lineHeight: 20,
+    },
+    micBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: `${BRAND}1F`,
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...ghostBorder(0.25),
+    },
+
+    // Driver presence trust caption
+    driverPresence: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 2,
+    },
+    driverPresenceDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#10B981',
+    },
+    driverPresenceText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: 'rgba(242,245,248,0.7)',
+    },
+    driverPresenceEta: {
+        color: VOICES.rider.accent,
+        fontWeight: '700',
+    },
+
+    // Pills
+    pills: {
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'center',
+    },
+    pill: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 48,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        ...ghostBorder(0.08),
+    },
+    pillLabel: {
+        marginLeft: 8,
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#FFF',
+    },
+    recentPill: {
+        width: 48,
+        height: 48,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...ghostBorder(0.08),
+    },
+
+    // Proactive AI HUD
+    proactiveHud: {
+        // no extra margin — gap in sheetContent handles spacing
+    },
+    proactiveGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 16,
+        ...ghostBorder(0.3),
+    },
+    proactiveText: {
+        flex: 1,
+        marginLeft: 10,
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#FFF',
+    },
+    aiIndicator: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(0,0,0,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    // Skeletons
     skeletonContainer: {
-        marginBottom: 20,
+        // no extra margin
     },
     skeletonGrid: {
         flexDirection: 'row',
         justifyContent: 'space-between',
     },
 
+    // Service bento
     serviceBentoBox: {
-        marginBottom: 20,
         gap: 12,
     },
     heroCard: {
@@ -1699,11 +1710,10 @@ const s = StyleSheet.create({
     },
 
     nextUnlockBanner: {
-        marginTop: 12,
-        backgroundColor: 'rgba(0,255,255,0.05)',
+        backgroundColor: `${BRAND}0D`,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: 'rgba(0,255,255,0.12)',
+        borderColor: `${BRAND}1F`,
         paddingHorizontal: 14,
         paddingVertical: 12,
     },
@@ -1728,50 +1738,50 @@ const s = StyleSheet.create({
     },
     nextUnlockFill: {
         height: 4,
-        backgroundColor: '#00FFFF',
+        backgroundColor: BRAND,
         borderRadius: 2,
     },
     nextUnlockCount: {
-        color: 'rgba(0,255,255,0.6)',
+        color: `${BRAND}99`,
         fontSize: 10,
         fontWeight: '700',
         textAlign: 'right',
     },
 
-    farePreviewContainer: { 
-        marginBottom: 16, 
-        borderRadius: 16, 
-        overflow: 'hidden' 
+    // Fare preview
+    farePreviewContainer: {
+        borderRadius: 16,
+        overflow: 'hidden',
     },
-    farePreviewBlur: { 
-        borderRadius: 16, 
-        overflow: 'hidden', 
-        backgroundColor: 'rgba(0, 255, 255, 0.08)', 
+    farePreviewBlur: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        backgroundColor: `${BRAND}14`,
         ...ghostBorder(0.3),
     },
-    farePreviewContent: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        padding: 14 
+    farePreviewContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
     },
-    fareIconContainer: { 
-        width: 40, 
-        height: 40, 
-        borderRadius: 20, 
-        backgroundColor: 'rgba(0, 255, 255, 0.15)', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        marginRight: 12 
+    fareIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: `${BRAND}26`,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
     },
     fareTextContainer: { flex: 1 },
     fareAddress: {
         fontSize: 13,
         color: 'rgba(255,255,255,0.6)',
     },
-    fareRow: { 
-        flexDirection: 'row', 
-        alignItems: 'baseline', 
-        marginTop: 2 
+    fareRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginTop: 2,
     },
     fareAmount: {
         fontSize: 20,
@@ -1800,12 +1810,12 @@ const s = StyleSheet.create({
         gap: 8,
     },
     stopSuggestionChip: {
-        backgroundColor: 'rgba(0, 255, 255, 0.12)',
+        backgroundColor: `${BRAND}1F`,
         borderRadius: 20,
         paddingVertical: 6,
         paddingHorizontal: 14,
         borderWidth: 1,
-        borderColor: 'rgba(0, 255, 255, 0.2)',
+        borderColor: `${BRAND}33`,
     },
     stopSuggestionLabel: {
         color: '#FFF',
@@ -1813,137 +1823,112 @@ const s = StyleSheet.create({
         fontWeight: '600',
     },
 
-    pills: { 
-        flexDirection: 'row', 
-        gap: 10, 
-        alignItems: 'center' 
+    // Voice modal
+    voiceModalOverlay: {
+        flex: 1,
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.6)',
     },
-    pill: { 
-        flex: 1, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        height: 48, 
-        backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-        borderRadius: 14, 
-        paddingHorizontal: 16,
-        ...ghostBorder(0.08),
-    },
-    pillLabel: { 
-        marginLeft: 8, 
-        fontSize: 14, 
-        fontWeight: '600', 
-        color: '#FFF' 
-    },
-    recentPill: { 
-        width: 48, 
-        height: 48, 
-        borderRadius: 14, 
-        backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        ...ghostBorder(0.08),
-    },
-
-    aiBubbleContainer: { 
-        position: 'absolute', 
-        left: 20, 
-        right: 20, 
-        zIndex: 90,
-        bottom: 340,
-    },
-    aiBlur: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        padding: 14, 
-        borderRadius: 20, 
-        overflow: 'hidden', 
-        backgroundColor: 'rgba(5, 5, 5, 0.85)',
+    voiceModalCard: {
+        backgroundColor: SURFACE.base,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: 28,
+        paddingBottom: 40,
         ...ghostBorder(),
     },
-    aiAvatar: { 
-        width: 36, 
-        height: 36, 
-        borderRadius: 18, 
-        overflow: 'hidden', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        backgroundColor: 'rgba(0, 255, 255, 0.15)',
+    voiceModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+        gap: 10,
     },
-    aiThinking: {
+    voiceModalAiDot: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: `${BRAND}1F`,
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...ghostBorder(0.3),
+    },
+    voiceModalTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#FFF',
+    },
+    voiceModalSubtitle: {
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.6)',
+        marginBottom: 20,
+        marginLeft: 46,
+    },
+    voiceModalInput: {
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        ...ghostBorder(0.4),
+        borderRadius: 16,
+        paddingHorizontal: 18,
+        paddingVertical: 14,
+        fontSize: 16,
+        color: '#FFF',
+        marginBottom: 20,
+    },
+    voiceModalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    voiceModalCancel: {
+        flex: 1,
+        height: 52,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...ghostBorder(0.1),
+    },
+    voiceModalCancelText: {
+        fontSize: 15,
+        fontWeight: '700',
         color: 'rgba(255,255,255,0.6)',
     },
-    aiCyan: {
-        color: VOICES.rider.accent,
+    voiceModalSend: {
+        flex: 1,
+        height: 52,
+        borderRadius: 14,
+        overflow: 'hidden',
+    },
+    voiceModalSendGradient: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    },
+    voiceModalSendText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: '#FFF',
     },
 
-    proactiveHud: { 
-        marginBottom: 16 
-    },
-    proactiveGradient: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        padding: 14, 
-        borderRadius: 16, 
-        ...ghostBorder(0.3),
-        backgroundColor: 'rgba(0,255,255,0.15)',
-    },
-    proactiveText: { 
-        flex: 1, 
-        marginLeft: 10, 
-        fontSize: 13, 
-        fontWeight: '500', 
-        color: '#FFF' 
-    },
-    aiIndicator: { 
-        width: 28, 
-        height: 28, 
-        borderRadius: 14, 
-        backgroundColor: 'rgba(0,0,0,0.2)', 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-    },
-
-    visionFab: { 
-        position: 'absolute', 
-        right: 20, 
-        zIndex: 100,
-        bottom: 340,
-    },
-    visionGlass: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        paddingHorizontal: 16, 
-        paddingVertical: 12, 
-        borderRadius: 20, 
-        ...ghostBorder(0.4),
-        backgroundColor: 'rgba(5, 5, 5, 0.8)',
-    },
-    visionText: {
-        marginLeft: 8,
-        fontSize: 13,
-        fontWeight: '700',
-        color: VOICES.rider.accent,
-        letterSpacing: 0.5,
-    },
-
+    // Lock overlays
     lockOverlay: {
         zIndex: Z.lockOverlay,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    lockBlur: { 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+    lockBlur: {
+        justifyContent: 'center',
+        alignItems: 'center',
         padding: 20,
         backgroundColor: 'rgba(13, 11, 30, 0.95)',
     },
-    hudLockRing: { 
-        position: 'absolute', 
-        width: 250, 
-        height: 250, 
-        borderRadius: 125, 
-        borderWidth: 2, 
-        borderColor: 'rgba(0, 255, 255, 0.2)' 
+    hudLockRing: {
+        position: 'absolute',
+        width: 250,
+        height: 250,
+        borderRadius: 125,
+        borderWidth: 2,
+        borderColor: `${BRAND}33`,
     },
     lockTitle: {
         fontSize: 28,
@@ -1960,12 +1945,11 @@ const s = StyleSheet.create({
         paddingHorizontal: 40,
         lineHeight: 20,
     },
-
-    updateBtn: { 
-        marginTop: 32, 
-        backgroundColor: VOICES.rider.accent, 
-        paddingHorizontal: 40, 
-        paddingVertical: 16, 
+    updateBtn: {
+        marginTop: 32,
+        backgroundColor: VOICES.rider.accent,
+        paddingHorizontal: 40,
+        paddingVertical: 16,
         borderRadius: 16,
     },
     updateBtnText: {
@@ -1974,6 +1958,7 @@ const s = StyleSheet.create({
         color: '#FFF',
     },
 
+    // Location confirm overlay
     locationConfirmOverlay: {
         zIndex: Z.locationConfirm,
         justifyContent: 'center',

@@ -40,9 +40,9 @@ export function SettingsScreen({ navigation }: any) {
     const [contactPhone, setContactPhone] = useState('');
     const [savingContact, setSavingContact] = useState(false);
 
-    const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'plus' | 'pro'>('free');
-    const [subscriptionExpiry, setSubscriptionExpiry] = useState<string | null>(null);
-    const [upgradingTier, setUpgradingTier] = useState<string | null>(null);
+    const [progLevel, setProgLevel] = useState(1);
+    const [progTier, setProgTier] = useState('free');
+    const [progDiscount, setProgDiscount] = useState(0);
 
     useEffect(() => {
         if (!user) return;
@@ -53,40 +53,33 @@ export function SettingsScreen({ navigation }: any) {
                     setNotifyPromos(data.promotions);
                 }
             });
-        supabase.from('profiles').select('emergency_contact_name, emergency_contact_phone, subscription_tier, subscription_expires_at').eq('id', user.id).single()
+        supabase.from('profiles').select('subscription_tier').eq('id', user.id).single()
+            .then(({ data }) => {
+                if (data) {
+                    setProgTier(data.subscription_tier || 'free');
+                }
+            });
+        supabase.from('rider_progression').select('level').eq('rider_id', user.id).maybeSingle()
+            .then(async ({ data }) => {
+                if (data?.level) {
+                    setProgLevel(data.level);
+                    const { data: cfg } = await supabase
+                        .from('progression_config')
+                        .select('discount_percent')
+                        .eq('level', data.level)
+                        .maybeSingle();
+                    if (cfg?.discount_percent) setProgDiscount(cfg.discount_percent);
+                }
+            });
+        supabase.from('profiles').select('emergency_contact_name, emergency_contact_phone').eq('id', user.id).single()
             .then(({ data }) => {
                 if (data) {
                     setContactName(data.emergency_contact_name || '');
                     setContactPhone(data.emergency_contact_phone || '');
-                    setSubscriptionTier((data.subscription_tier as any) || 'free');
-                    setSubscriptionExpiry(data.subscription_expires_at || null);
                 }
             });
         AsyncStorage.getItem('@ai_routing_opt_in').then(val => setAiRouting(val === 'true'));
     }, [user]);
-
-    const handleUpgradeTier = async (tier: 'plus' | 'pro') => {
-        if (!user) return;
-        setUpgradingTier(tier);
-        try {
-            const expiresAt = new Date();
-            expiresAt.setMonth(expiresAt.getMonth() + 1);
-            const { error } = await supabase.from('profiles').update({
-                subscription_tier: tier,
-                subscription_started_at: new Date().toISOString(),
-                subscription_expires_at: expiresAt.toISOString(),
-            }).eq('id', user.id);
-            if (error) throw error;
-            setSubscriptionTier(tier);
-            setSubscriptionExpiry(expiresAt.toISOString());
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert('Upgraded!', `You are now on G-Taxi ${tier.charAt(0).toUpperCase() + tier.slice(1)}. Your benefits are active immediately.`);
-        } catch (err: any) {
-            Alert.alert('Upgrade Failed', err.message || 'Please try again.');
-        } finally {
-            setUpgradingTier(null);
-        }
-    };
 
     const saveEmergencyContact = async () => {
         if (!user) return;
@@ -209,58 +202,36 @@ export function SettingsScreen({ navigation }: any) {
                     </TouchableOpacity>
                 </View>
 
-                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>G-TAXI PASS</Txt>
-                <View style={s.card}>
-                    <View style={{ padding: 20, paddingBottom: 4 }}>
+                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>G-LEVEL</Txt>
+                <TouchableOpacity style={s.card} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); (navigation as any).navigate('Subscription'); }}>
+                    <View style={{ padding: 20 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                            <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 99, backgroundColor: subscriptionTier === 'pro' ? '#F59E0B' : subscriptionTier === 'plus' ? R.purple : 'rgba(255,255,255,0.12)' }}>
-                                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 12, textTransform: 'uppercase' }}>{subscriptionTier}</Text>
+                            <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 99, backgroundColor: progTier === 'g_member' ? '#D4AF37' : R.purple }}>
+                                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 12, textTransform: 'uppercase' }}>
+                                    {progTier === 'g_member' ? 'G-Member' : `Level ${progLevel}`}
+                                </Text>
                             </View>
-                            {subscriptionExpiry && subscriptionTier !== 'free' && (
-                                <Text style={{ color: R.muted, fontSize: 12 }}>Renews {new Date(subscriptionExpiry).toLocaleDateString('en-TT', { day: 'numeric', month: 'short' })}</Text>
+                            {progTier === 'g_member' && (
+                                <Text style={{ color: R.muted, fontSize: 12 }}>15% off · Unlimited priority</Text>
+                            )}
+                            {progTier !== 'g_member' && progDiscount > 0 && (
+                                <Text style={{ color: R.muted, fontSize: 12 }}>{progDiscount}% off rides</Text>
                             )}
                         </View>
                         <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, lineHeight: 18 }}>
-                            {subscriptionTier === 'free' && 'Upgrade to save on every ride and unlock priority matching.'}
-                            {subscriptionTier === 'plus' && '10% discount on every ride. Your discount is applied automatically.'}
-                            {subscriptionTier === 'pro' && '15% discount + priority driver matching. Top-tier benefits active.'}
+                            {progTier === 'g_member'
+                                ? 'You are a G-Member. 15% off all rides, unlimited priority matching, 20-minute wait grace.'
+                                : progLevel >= 5
+                                    ? 'Level 5 — you qualify for G-Member. Tap to upgrade and get 15% off everything.'
+                                    : `Level ${progLevel} — ride more to unlock better perks. Tap to see your full benefits.`}
                         </Text>
                     </View>
-
-                    {subscriptionTier !== 'plus' && subscriptionTier !== 'pro' && (
-                        <>
-                            <View style={s.divider} />
-                            <TouchableOpacity
-                                style={s.row}
-                                onPress={() => handleUpgradeTier('plus')}
-                                disabled={upgradingTier === 'plus'}
-                            >
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>G-Taxi Plus</Text>
-                                    <Text style={{ color: R.muted, fontSize: 12, marginTop: 2 }}>10% off every ride · TTD $9.99/mo</Text>
-                                </View>
-                                {upgradingTier === 'plus' ? <ActivityIndicator size="small" color={R.purple} /> : <Ionicons name="chevron-forward" size={18} color={R.purple} />}
-                            </TouchableOpacity>
-                        </>
-                    )}
-
-                    {subscriptionTier !== 'pro' && (
-                        <>
-                            <View style={s.divider} />
-                            <TouchableOpacity
-                                style={s.row}
-                                onPress={() => handleUpgradeTier('pro')}
-                                disabled={upgradingTier === 'pro'}
-                            >
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>G-Taxi Pro</Text>
-                                    <Text style={{ color: R.muted, fontSize: 12, marginTop: 2 }}>15% off + priority matching · TTD $19.99/mo</Text>
-                                </View>
-                                {upgradingTier === 'pro' ? <ActivityIndicator size="small" color={R.gold} /> : <Ionicons name="chevron-forward" size={18} color={R.gold} />}
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </View>
+                    <View style={s.divider} />
+                    <View style={s.row}>
+                        <Text style={{ color: R.purple, fontWeight: '700', fontSize: 14 }}>View G-Level</Text>
+                        <Ionicons name="chevron-forward" size={18} color={R.purple} />
+                    </View>
+                </TouchableOpacity>
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>EARN</Txt>
                 <View style={s.card}>

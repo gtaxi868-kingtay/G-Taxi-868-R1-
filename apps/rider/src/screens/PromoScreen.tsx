@@ -63,9 +63,26 @@ export function PromoScreen({ navigation }: any) {
 
         if (error || !data) {
             Alert.alert("Invalid Code", "This promo code doesn't exist or is inactive.");
-        } else {
-            Alert.alert("Success!", `Promo ${data.code} applied! Enjoy ${data.discount_percent}% off your next ride.`);
+            setLoading(false);
+            return;
         }
+
+        const { error: claimError } = await supabase
+            .from('user_promos')
+            .insert({ user_id: user?.id, promo_code: data.code });
+
+        if (claimError) {
+            if (claimError.message?.includes('duplicate') || claimError.code === '23505') {
+                Alert.alert("Already Claimed", "You've already used this promo code.");
+            } else {
+                Alert.alert("Error", claimError.message);
+            }
+            setLoading(false);
+            return;
+        }
+
+        Alert.alert("Success!", `Promo ${data.code} applied! Enjoy ${data.discount_percent}% off your next ride.`);
+        fetchPromos();
         setLoading(false);
     };
 

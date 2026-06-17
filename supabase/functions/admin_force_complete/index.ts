@@ -26,19 +26,27 @@ const corsHeaders = {
 const VALID_STATES_FOR_COMPLETION = ['in_progress', 'arrived']
 
 /**
- * Server-side settlement calculation — single source of truth.
- * Must match the calculate_settlement() RPC exactly.
+ * Settlement math matches complete_ride/index.ts.
+ * Rate read from pricing_config; falls back to 0.19.
  */
-function computeSettlement(grossCents: number): {
+async function computeSettlement(grossCents: number, supabaseAdmin: ReturnType<typeof createClient>): Promise<{
     reserveCents: number
     platformFeeCents: number
     driverPayoutCents: number
-} {
-    const reserveCents = Math.round(grossCents * 0.015)
-    const net = grossCents - reserveCents
-    const platformFeeCents = Math.round(net * 0.185)
-    const driverPayoutCents = net - platformFeeCents
-    return { reserveCents, platformFeeCents, driverPayoutCents }
+    platformRate: number
+}> {
+    const { data: platRateRow } = await supabaseAdmin
+        .from("pricing_config")
+        .select("value_cents")
+        .eq("key", "PLATFORM_RATE_CENTS")
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+    const platformRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
+
+    const reserveCents = Math.round(grossCents * 0.015);
+    const platformFeeCents = Math.round(grossCents * platformRate);
+    const driverPayoutCents = grossCents - platformFeeCents;
+    return { reserveCents, platformFeeCents, driverPayoutCents, platformRate };
 }
 
 Deno.serve(async (req) => {
@@ -120,7 +128,7 @@ Deno.serve(async (req) => {
 
         // ── Compute settlement (server-side, no client trust) ──────────────
         const grossCents = ride.total_fare_cents || 0
-        const { reserveCents, platformFeeCents, driverPayoutCents } = computeSettlement(grossCents)
+        const { reserveCents, platformFeeCents, driverPayoutCents, platformRate } = await computeSettlement(grossCents, supabaseAdmin)
 
         let paymentIntent = {
             will_process: false,

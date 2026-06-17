@@ -252,9 +252,18 @@ serve(async (req: Request) => {
             );
         }
 
+        // Read platform rate from config; falls back to 0.19 / 0.14 (node)
+        const { data: platRateRow } = await supabaseAdmin
+            .from("pricing_config")
+            .select("value_cents")
+            .eq("key", "PLATFORM_RATE_CENTS")
+            .maybeSingle()
+            .catch(() => ({ data: null }));
+        const defaultPlatRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
+
         const hasNode = !!(kiosk_id || billed_to_merchant_id);
-        const driverSharePct = 0.81;
-        const platformSharePct = hasNode ? 0.14 : 0.19;
+        const driverSharePct = 1 - defaultPlatRate;
+        const platformSharePct = hasNode ? defaultPlatRate - 0.05 : defaultPlatRate;
         const merchantSharePct = hasNode ? 0.05 : 0.0;
 
         const driverPayoutCents = Math.floor(fareCents * driverSharePct);

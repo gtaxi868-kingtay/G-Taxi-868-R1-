@@ -4,7 +4,8 @@
 // ============================================================
 // Settlement math (server-side only — app is purely display):
 //   platform_fee  = round(gross * rate)     → platform_revenue_logs
-//                   rate = 0.19 standard / 0.16 loyalty (balance ≥ TTD$500)
+//                   rate = pricing_config['PLATFORM_RATE_CENTS'] / 10000
+//                   default 0.19 / loyalty = rate - 0.03 (min 0.01)
 //   reserve       = round(gross * 0.015)    → capital_reserve_ledger
 //                   (sub-ledger within platform_fee — NOT an extra deduction)
 //   driver_payout = gross - platform_fee    → wallet / cash
@@ -220,10 +221,21 @@ serve(async (req: Request) => {
     const effectiveFare =
       (ride.total_fare_cents || 0) + totalWaitFareCents + gridlockSurchargeCents;
 
+    // ── PLATFORM RATE FROM CONFIG ─────────────────────────────────────────────
+    // Read from pricing_config table; admin can change without redeploy.
+    // Falls back to 0.19 (1900 basis points) if table is empty or unreachable.
+    const { data: platRateRow } = await supabaseAdmin
+      .from("pricing_config")
+      .select("value_cents")
+      .eq("key", "PLATFORM_RATE_CENTS")
+      .maybeSingle()
+      .catch(() => ({ data: null }));
+    const defaultPlatformRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
+
     // ── LOYALTY RATE TIER ───────────────────────────────────────────────────
     // Drivers with wallet balance ≥ TTD $500 get 16% instead of 19%.
     const driverUserIdForLoyalty = await resolveDriverAuthUserId(supabaseAdmin, driverRecord, ride.driver_id);
-    let platformRate = 0.19;
+    let platformRate = defaultPlatformRate;
     let loyaltyApplied = false;
 
     if (driverUserIdForLoyalty) {
@@ -232,7 +244,7 @@ serve(async (req: Request) => {
         .catch(() => ({ data: false }));
 
       if (qualifies === true) {
-        platformRate = 0.16;
+        platformRate = Math.max(0.01, defaultPlatformRate - 0.03);
         loyaltyApplied = true;
         console.log(`[LOYALTY_TIER] Driver ${driverUserIdForLoyalty} qualifies — 16% rate applied`);
 

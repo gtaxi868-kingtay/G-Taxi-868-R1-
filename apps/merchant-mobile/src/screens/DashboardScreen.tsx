@@ -127,6 +127,14 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileDesc}>Add & manage products</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Appointments')} accessibilityLabel="View and manage appointments" accessibilityRole="button">
+            <View style={[s.tileIcon, { backgroundColor: '#F59E0B26' }]}>
+              <Ionicons name="calendar" size={28} color="#F59E0B" />
+            </View>
+            <Text style={s.tileLabel}>Appointments</Text>
+            <Text style={s.tileDesc}>View & manage bookings</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('PropertyManagement', {})} accessibilityLabel="Manage property iCal sync and availability" accessibilityRole="button">
             <View style={[s.tileIcon, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
               <Ionicons name="home" size={28} color="#3B82F6" />

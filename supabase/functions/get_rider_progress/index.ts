@@ -54,6 +54,33 @@ serve(async (req) => {
   const level = prog?.level ?? 1;
   const unlockedVerticals: string[] = prog?.unlocked_verticals ?? ['rides'];
 
+  // Current level perks
+  const { data: currentPerks } = await supabaseAdmin
+    .from('progression_config')
+    .select('discount_percent, priority_matching, free_wait_minutes')
+    .eq('level', level)
+    .maybeSingle();
+
+  const perks = {
+    discount_percent: currentPerks?.discount_percent ?? (level >= 1 ? 0 : 0),
+    priority_matching: currentPerks?.priority_matching ?? false,
+    free_wait_minutes: currentPerks?.free_wait_minutes ?? 3,
+  };
+
+  // G-Member overrides
+  const { data: profileCheck } = await supabaseAdmin
+    .from('profiles')
+    .select('subscription_tier')
+    .eq('id', user.id)
+    .single()
+    .catch(() => ({ data: null }));
+
+  if (profileCheck?.subscription_tier === 'g_member') {
+    perks.discount_percent = 15;
+    perks.priority_matching = true;
+    perks.free_wait_minutes = 20;
+  }
+
   // Next level config for the carrot display
   const { data: nextCfg } = await supabaseAdmin
     .from('progression_config')
@@ -99,6 +126,7 @@ serve(async (req) => {
     data: {
       level,
       level_label: LEVEL_LABELS[level] ?? 'Rider',
+      perks,
       unlocked_verticals: unlockedVerticals,
       total_rides: prog?.total_rides ?? 0,
       total_grocery_orders: prog?.total_grocery_orders ?? 0,

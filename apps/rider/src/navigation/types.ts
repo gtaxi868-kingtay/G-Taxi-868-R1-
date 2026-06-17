@@ -99,6 +99,7 @@ export type AppStackParamList = {
     editPickupMode?: boolean;
   };
   Profile: undefined;
+  Notifications: undefined;
   DestinationSearch: {
     currentLocation?: { latitude: number; longitude: number; address?: string };
     source?: string;
@@ -188,6 +189,7 @@ export type AppStackParamList = {
   TravelBookingConfirmation: { bookingId: string; packageTitle: string; totalCents: number; travelerCount: number; departureAt: string; airportTransferRideId?: string };
   TravelMyBookings: undefined;
   TravelWaitlist: undefined;
+  Subscription: undefined;
   Referral: undefined;
   FoodDelivery: undefined;
   EscapeStorefront: { packageId?: string } | undefined;

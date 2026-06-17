@@ -62,13 +62,8 @@ export function ServiceBookingScreen({ navigation, route }: any) {
 
         setSubmitting(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("Auth required");
-
-            const { data, error } = await supabase
-                .from('merchant_appointments')
-                .insert({
-                    rider_id: user.id,
+            const { data, error } = await supabase.functions.invoke('create_appointment', {
+                body: {
                     merchant_id: merchantId,
                     service_id: selectedService.id,
                     scheduled_at: selectedTime.toISOString(),
@@ -76,12 +71,12 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                     pickup_address: pickup.address,
                     pickup_lat: pickup.latitude,
                     pickup_lng: pickup.longitude,
-                    merchant_consent_status: 'pending'
-                })
-                .select()
-                .single();
+                }
+            });
 
-            if (error) throw error;
+            if (error || !data?.success) {
+                throw new Error(error?.message || data?.error || "Booking failed");
+            }
 
             Alert.alert(
                 "Booking Sent!",

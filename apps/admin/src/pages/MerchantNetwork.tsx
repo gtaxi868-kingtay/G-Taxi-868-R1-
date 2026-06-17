@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Store, RefreshCw, CheckCircle, Clock, AlertTriangle, XCircle, Ban, MapPin, DollarSign, Calendar, ChevronDown, ChevronUp, Package, Wifi } from 'lucide-react';
+import { Store, RefreshCw, CheckCircle, Clock, AlertTriangle, XCircle, Ban, MapPin, DollarSign, Calendar, ChevronDown, ChevronUp, Package, Wifi, Star } from 'lucide-react';
 
 interface MerchantRow {
     id: string;
@@ -10,6 +10,7 @@ interface MerchantRow {
     lat: number | null;
     lng: number | null;
     is_active: boolean;
+    is_pinned: boolean;
     commission_rate: number;
     created_at: string;
     subscription: {
@@ -18,6 +19,7 @@ interface MerchantRow {
         trial_start_at: string;
         trial_end_at: string;
         monthly_fee_cents: number;
+        pin_fee_cents: number;
         next_billing_at: string | null;
         last_billed_at: string | null;
         overdue_since: string | null;
@@ -57,7 +59,7 @@ export function MerchantNetwork() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [filter, setFilter] = useState<'all' | 'trial' | 'active' | 'overdue' | 'suspended'>('all');
+    const [filter, setFilter] = useState<'all' | 'pinned' | 'trial' | 'active' | 'overdue' | 'suspended'>('all');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [details, setDetails] = useState<Record<string, MerchantDetail>>({});
     const [detailLoading, setDetailLoading] = useState<string | null>(null);
@@ -69,12 +71,13 @@ export function MerchantNetwork() {
             const { data, error: err } = await supabase
                 .from('merchants')
                 .select(`
-                    id, name, category, address, lat, lng, is_active, commission_rate, created_at,
+                    id, name, category, address, lat, lng, is_active, is_pinned, commission_rate, created_at,
                     merchant_subscriptions (
                         id, status, trial_start_at, trial_end_at,
-                        monthly_fee_cents, next_billing_at, last_billed_at, overdue_since
+                        monthly_fee_cents, pin_fee_cents, next_billing_at, last_billed_at, overdue_since
                     )
                 `)
+                .order('is_pinned', { ascending: false })
                 .order('created_at', { ascending: false });
 
             if (err) throw err;
@@ -185,6 +188,25 @@ export function MerchantNetwork() {
         setActionLoading(null);
     };
 
+    const togglePin = async (merchantId: string, current: boolean) => {
+        setActionLoading(merchantId + 'pin');
+        await supabase.from('merchants').update({ is_pinned: !current }).eq('id', merchantId);
+        await load();
+        setActionLoading(null);
+    };
+
+    const setPinFee = async (subId: string) => {
+        const input = prompt('Additional monthly pin fee in TTD (e.g. 50):');
+        if (!input || isNaN(Number(input))) return;
+        const cents = Math.round(Number(input) * 100);
+        const { error: err } = await supabase
+            .from('merchant_subscriptions')
+            .update({ pin_fee_cents: cents })
+            .eq('id', subId);
+        if (err) alert(err.message);
+        else await load();
+    };
+
     const runBilling = async () => {
         setActionLoading('billing');
         const { data, error: err } = await supabase.rpc('process_merchant_billing');
@@ -196,10 +218,13 @@ export function MerchantNetwork() {
 
     const visible = filter === 'all'
         ? merchants
-        : merchants.filter(m => m.subscription?.status === filter);
+        : filter === 'pinned'
+            ? merchants.filter(m => m.is_pinned)
+            : merchants.filter(m => m.subscription?.status === filter);
 
     const counts = {
         all:       merchants.length,
+        pinned:    merchants.filter(m => m.is_pinned).length,
         trial:     merchants.filter(m => m.subscription?.status === 'trial').length,
         active:    merchants.filter(m => m.subscription?.status === 'active').length,
         overdue:   merchants.filter(m => m.subscription?.status === 'overdue').length,
@@ -235,7 +260,7 @@ export function MerchantNetwork() {
 
             {/* Summary chips */}
             <div className="flex flex-wrap gap-3">
-                {(['all', 'trial', 'active', 'overdue', 'suspended'] as const).map(f => (
+                {(['all', 'pinned', 'trial', 'active', 'overdue', 'suspended'] as const).map(f => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
@@ -294,6 +319,12 @@ export function MerchantNetwork() {
                                                 <MapPin size={10} />
                                                 {onMap ? 'On Map' : 'Hidden'}
                                             </span>
+                                            {m.is_pinned && (
+                                                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest text-yellow-400 bg-yellow-400/10 border-yellow-400/30">
+                                                    <Star size={10} />
+                                                    Pinned
+                                                </span>
+                                            )}
                                             {meta && (
                                                 <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${meta.color}`}>
                                                     <StatusIcon size={10} />
@@ -352,6 +383,32 @@ export function MerchantNetwork() {
                                     )}
 
                                     {/* Admin action buttons */}
+                                    {/* Pin toggle */}
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        <button
+                                            onClick={() => togglePin(m.id, m.is_pinned)}
+                                            disabled={!!actionLoading}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-40 ${
+                                                m.is_pinned
+                                                    ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30'
+                                                    : 'bg-white/5 border border-white/10 text-white/40 hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/20'
+                                            }`}
+                                        >
+                                            <Star size={11} />
+                                            {m.is_pinned ? 'Unpin' : 'Pin'}
+                                        </button>
+                                        {m.is_pinned && sub && (
+                                            <button
+                                                onClick={() => setPinFee(sub.id)}
+                                                disabled={!!actionLoading}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-400 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/20 transition-all disabled:opacity-40"
+                                            >
+                                                <DollarSign size={11} />
+                                                Pin Fee: {fmtTTD(sub.pin_fee_cents)}
+                                            </button>
+                                        )}
+                                    </div>
+
                                     {sub && (
                                         <div className="flex flex-wrap gap-2 pt-1 border-t border-white/5">
                                             <button

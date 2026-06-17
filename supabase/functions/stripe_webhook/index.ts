@@ -2,9 +2,9 @@
 // ============================================================
 // Settlement math (server-side only):
 //   reserve      = round(gross * 0.015)     → capital_reserve_ledger
-//   net          = gross - reserve
-//   platform_fee = round(net * 0.185)       → platform wallet credit
-//   driver_payout = net - platform_fee       → driver wallet credit
+//   platform_fee = round(gross * rate)      → platform wallet credit
+//   rate         = pricing_config['PLATFORM_RATE_CENTS'] / 10000
+//   driver_payout = gross - platform_fee     → driver wallet credit
 //
 // Security rules:
 //   - req.text() is called FIRST — before any JSON parsing.

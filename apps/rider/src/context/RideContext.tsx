@@ -79,11 +79,7 @@ export function RideProvider({ children }: { children: ReactNode }) {
         }
 
         if (session?.access_token) {
-            // Small delay to ensure session is fully propagated
-            const timer = setTimeout(() => {
-                checkActiveRide();
-            }, 100);
-            return () => clearTimeout(timer);
+            checkActiveRide();
         } else {
             setActiveRide(null);
             setLoading(false);

@@ -22,10 +22,13 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
     const [stats, setStats] = useState({ totalTrips: 0, rating: '5.0', memberSince: '' });
     const [loading, setLoading] = useState(true);
     
-    const [subscription, setSubscription] = useState({
-        tier: 'free',
-        benefits: { discount_percent: 0, free_wait_minutes: 3, priority_matching: false },
-        expires_at: null as string | null
+    const [progression, setProgression] = useState({
+        level: 1,
+        label: 'New Rider' as string,
+        discount_percent: 0,
+        free_wait_minutes: 3,
+        priority_matching: false,
+        tier: 'free' as string,
     });
 
     const fetchProfileStats = useCallback(async () => {
@@ -61,39 +64,50 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
     useEffect(() => {
         if (user?.id) {
             fetchProfileStats();
-            fetchSubscriptionDetails();
+            fetchProgressionPerks();
         }
     }, [user?.id, fetchProfileStats]);
     
-    const fetchSubscriptionDetails = async () => {
+    const fetchProgressionPerks = async () => {
         try {
-            const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('subscription_tier, subscription_expires_at')
-                .eq('id', user?.id)
-                .single();
-            if (profileError) console.error('[ProfileScreen] profiles query failed:', profileError.message);
-            
-            const { data: benefits, error: benefitsError } = await supabase
-                .from('subscription_benefits')
-                .select('*')
-                .eq('tier', profileData?.subscription_tier || 'free')
-                .single();
-            if (benefitsError) console.error('[ProfileScreen] subscription_benefits query failed:', benefitsError.message);
-            
-            setSubscription({
-                tier: profileData?.subscription_tier || 'free',
-                benefits: benefits || { discount_percent: 0, free_wait_minutes: 3, priority_matching: false },
-                expires_at: profileData?.subscription_expires_at
-            });
+            const [progRes, profileRes] = await Promise.all([
+                supabase.from('rider_progression').select('*').eq('rider_id', user?.id).maybeSingle(),
+                supabase.from('profiles').select('subscription_tier').eq('id', user?.id).single(),
+            ]);
+
+            const level = progRes.data?.level ?? 1;
+            const tier = profileRes.data?.subscription_tier || 'free';
+            const label = ['New Rider', 'Regular', 'Loyal', 'Elite', 'G-Member Eligible'][level - 1] ?? 'Rider';
+
+            let discount = 0, wait = 3, priority = false;
+            if (level >= 2) {
+                const { data: cfg } = await supabase
+                    .from('progression_config')
+                    .select('discount_percent, free_wait_minutes, priority_matching')
+                    .eq('level', level)
+                    .single();
+                if (cfg) {
+                    discount = cfg.discount_percent;
+                    wait = cfg.free_wait_minutes;
+                    priority = cfg.priority_matching;
+                }
+            }
+            if (tier === 'g_member') {
+                discount = 15;
+                wait = 20;
+                priority = true;
+            }
+
+            setProgression({ level, label, discount_percent: discount, free_wait_minutes: wait, priority_matching: priority, tier });
         } catch (err) {
-            console.warn('[ProfileScreen] Failed to fetch subscription:', err);
+            console.warn('[ProfileScreen] Failed to fetch progression:', err);
         }
     };
 
     const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Rider';
     const menuItems: { label: string; icon: string; nav: keyof AppStackParamList; params?: any }[] = [
         { label: 'Edit Profile', icon: 'person-outline', nav: 'EditProfile' },
+        { label: 'G-Level', icon: 'diamond-outline', nav: 'Subscription' },
         { label: 'AI Assistant & Safety', icon: 'sparkles-outline', nav: 'AISettings' },
         { label: 'Payment Methods', icon: 'card-outline', nav: 'Wallet' },
         { label: 'Saved Places', icon: 'location-outline', nav: 'DestinationSearch', params: { mode: 'save' } },
@@ -145,7 +159,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                     <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
-                    <Text style={[s.headerTitle, { marginLeft: 16 }]}>Command Center</Text>
+                    <Text style={[s.headerTitle, { marginLeft: 16 }]}>Profile</Text>
                 </View>
 
                 <View style={s.hero}>
@@ -158,27 +172,28 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
 
                 <View style={s.subscriptionCard}>
                     <LinearGradient 
-                        colors={subscription.tier === 'pro' ? ['#FFD700', '#FFA500'] : 
-                                subscription.tier === 'plus' ? ['#C0C0C0', '#808080'] : 
-                                [VOICES.rider.accent, VOICES.rider.accentDark]}
+                        colors={progression.tier === 'g_member' ? ['#D4AF37', '#8A6E2A'] : 
+                                progression.level >= 3 ? [VOICES.rider.accent, VOICES.rider.accentDark] :
+                                [VOICES.rider.accentDark, '#1A1F27']}
                         style={s.subscriptionGradient}
                     >
                         <View style={s.subscriptionContent}>
                             <View style={s.subscriptionBadge}>
                                 <Ionicons 
-                                    name={subscription.tier === 'pro' ? 'shield' : 
-                                          subscription.tier === 'plus' ? 'star' : 'person'} 
+                                    name={progression.tier === 'g_member' ? 'diamond' : 
+                                          progression.level >= 5 ? 'diamond-outline' :
+                                          progression.level >= 3 ? 'shield-checkmark' : 'arrow-up-circle'} 
                                     size={20} 
                                     color="#FFF" 
                                 />
                                 <Text style={[s.tierText, { marginLeft: 8 }]}>
-                                    {subscription.tier.charAt(0).toUpperCase() + subscription.tier.slice(1)}
+                                    {progression.tier === 'g_member' ? 'G-Member' : `Level ${progression.level} — ${progression.label}`}
                                 </Text>
                             </View>
                             <View style={s.subscriptionPerks}>
                                 <Text style={s.perksText}>
-                                    {subscription.benefits.discount_percent}% off rides • {subscription.benefits.free_wait_minutes}min grace
-                                    {subscription.benefits.priority_matching ? ' • Priority' : ''}
+                                    {progression.discount_percent}% off rides • {progression.free_wait_minutes}min grace
+                                    {progression.priority_matching ? ' • Priority' : ''}
                                 </Text>
                             </View>
                         </View>
@@ -188,17 +203,17 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                 <View style={s.grid}>
                     <View style={s.gridItem}>
                         <Text style={s.gridValue}>{stats.totalTrips}</Text>
-                        <Text style={s.gridLabel}>Missions</Text>
+                        <Text style={s.gridLabel}>Trips</Text>
                     </View>
                     <View style={s.gridDivider} />
                     <View style={s.gridItem}>
                         <Text style={[s.gridValue, { color: VOICES.rider.accent }]}>⭐ {stats.rating}</Text>
-                        <Text style={s.gridLabel}>RANKING</Text>
+                        <Text style={s.gridLabel}>Rating</Text>
                     </View>
                     <View style={s.gridDivider} />
                     <View style={s.gridItem}>
                         <Text style={s.gridValue}>{stats.memberSince}</Text>
-                        <Text style={s.gridLabel}>ENLISTED</Text>
+                        <Text style={s.gridLabel}>Member since</Text>
                     </View>
                 </View>
 
@@ -225,12 +240,12 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'transparent', backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={handleDeleteAccount}>
-                    <Text style={s.logoutText}>PURGE DATA & IDENTITY</Text>
+                    <Text style={s.logoutText}>Delete Account</Text>
                 </TouchableOpacity>
 
                 <View style={s.footerBranding}>
                     <Text style={s.logoText}>G-TAXI</Text>
-                    <Text style={[s.footerText, { marginTop: 12 }]}>RIDER COMMAND V3.2 • EMPIRE OS</Text>
+                    <Text style={[s.footerText, { marginTop: 6 }]}>Trinidad & Tobago</Text>
                 </View>
 
             </ScrollView>
@@ -275,6 +290,4 @@ const s = StyleSheet.create({
     tierText: { fontSize: 16, fontWeight: '800', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
     subscriptionPerks: { marginTop: 4 },
     perksText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.9)', fontFamily: 'Manrope-Medium' },
-    upgradeHint: { marginTop: 12, alignSelf: 'flex-end' },
-    upgradeText: { fontSize: 13, fontWeight: '700', color: '#FFF', fontFamily: 'Manrope-Medium' },
 });

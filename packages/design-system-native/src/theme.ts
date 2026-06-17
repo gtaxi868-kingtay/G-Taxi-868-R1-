@@ -4,16 +4,16 @@
  */
 
 export const BRAND = {
-    purple: '#BF40FF', // "The Pulse"
-    purpleDark: '#4D0070',
-    purpleLight: '#DB90FF',
-    cyan: '#06B6D4', // "The Data Stream"
-    cyanSoft: 'rgba(6, 182, 212, 0.1)',
+    purple: '#8B5CF6', // "The Pulse" — logo violet
+    purpleDark: '#6D28D9',
+    purpleLight: '#B79CFA',
+    cyan: '#1DE0E6', // "The Data Stream" — logo cyan
+    cyanSoft: 'rgba(29, 224, 230, 0.1)',
     gold: '#F59E0B', // "The Commerce Gold"
     goldDark: '#B45309',
     crimson: '#DC2626', // "The Admin Red"
-    deepViolet: '#0F0D16', // Obsidian Base
-    obsidian: '#0A0A0F',
+    deepViolet: '#0B0E12', // cool-grey base
+    obsidian: '#0E1217',
     lavender: '#F5F3FF',
     indigoDeep: '#1E1B4B',
 };
@@ -57,23 +57,23 @@ export const GRADIENTS = {
 
 export const VOICES = {
     rider: {
-        bg: '#050505',
+        bg: '#0B0E12',
         surface: 'rgba(255,255,255,0.04)',
-        text: '#FFFFFF',
-        textMuted: 'rgba(255,255,255,0.65)',
-        border: 'rgba(255, 255, 255, 0.12)',
-        accent: '#00FFFF',
-        accentDark: '#00CCCC',
+        text: '#F2F5F8',
+        textMuted: 'rgba(242,245,248,0.68)',
+        border: 'rgba(255, 255, 255, 0.10)',
+        accent: '#1DE0E6',
+        accentDark: '#0A9CA6',
     },
     driver: {
-        bg: '#050505',
-        surface: '#0A0A0A',
-        surfaceHigh: 'rgba(10, 10, 10, 0.8)',
-        text: '#FFFFFF',
-        textMuted: 'rgba(255,255,255,0.65)',
+        bg: '#0B0E12',
+        surface: '#13171D',
+        surfaceHigh: 'rgba(19, 23, 29, 0.8)',
+        text: '#F2F5F8',
+        textMuted: 'rgba(242,245,248,0.68)',
         gold: BRAND.gold,
-        accent: '#00FFFF',
-        accentDark: '#00CCCC',
+        accent: '#1DE0E6',
+        accentDark: '#0A9CA6',
     },
     admin: {
         bg: '#0F172A',

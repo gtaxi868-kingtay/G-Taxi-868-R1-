@@ -87,28 +87,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const fetchUserData = async (userId: string) => {
         try {
-            // 1. Fetch Profile
-            const { data: profileData } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
+            const fetchPrefs = supabase
+                .from('user_preferences').select('*').eq('user_id', userId).single()
+                .then(res => res, () => ({ data: null, error: null } as any));
 
-            if (profileData) setProfile(profileData);
+            const [profileRes, prefRes] = await Promise.all([
+                supabase.from('profiles').select('*').eq('id', userId).single(),
+                fetchPrefs,
+            ]);
 
-            // 2. Fetch Preferences — safe, table may not always exist
-            try {
-                const { data: prefData } = await supabase
-                    .from('user_preferences')
-                    .select('*')
-                    .eq('user_id', userId)
-                    .single();
-                if (prefData) setPreferences(prefData);
-            } catch (_prefErr) {
-                // Non-critical: preferences are optional
-            }
+            if (profileRes.data) setProfile(profileRes.data);
+            if (prefRes.data) setPreferences(prefRes.data);
 
-            // Phase 5: Register push token after profile is confirmed to exist.
             registerPushToken(userId).catch(err =>
                 console.error('registerPushToken (rider) background error:', err)
             );

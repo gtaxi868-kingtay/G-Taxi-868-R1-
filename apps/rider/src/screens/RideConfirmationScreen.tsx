@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeSupabaseClient, ENV } from '@gtaxi/core';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
 import { PaymentSelector, PaymentMethod } from '../components/PaymentSelector';
@@ -21,11 +22,11 @@ import { formatTTDDollars } from '../utils/currency';
 
 const { supabase, getSupabase } = initializeSupabaseClient('native');
 
-const CYAN = '#00E5FF';
-const CYAN_SOFT = 'rgba(0,229,255,0.1)';
+const CYAN = '#1DE0E6';
+const CYAN_SOFT = 'rgba(29,224,230,0.1)';
 const WARNING = '#F59E0B';
 const ERROR = '#EF4444';
-const SUCCESS = '#00FF94';
+const SUCCESS = '#10B981';
 
 interface StopSuggestion {
     place_name: string;
@@ -75,6 +76,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const [selfieVerified, setSelfieVerified] = useState(false);
     const [selfieUploading, setSelfieUploading] = useState(false);
     const [selfieError, setSelfieError] = useState<string | null>(null);
+    const [deviceVerified, setDeviceVerified] = useState(false);
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
     const pickupLoc = pickup || { latitude: 10.66, longitude: -61.51, address: 'Current Location' };
@@ -84,6 +86,10 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
     useEffect(() => {
         fetchData();
+        // A device that has verified once is trusted for low-risk rides thereafter.
+        AsyncStorage.getItem('gtaxi_device_verified')
+            .then(v => { if (v === 'true') setDeviceVerified(true); })
+            .catch(() => {});
         return () => {
             if (fitMapTimeout.current) clearTimeout(fitMapTimeout.current);
             if (stopsTimerRef.current) clearTimeout(stopsTimerRef.current);
@@ -214,6 +220,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             setSelfieVerified(true);
             setSelfieUploading(false);
             setSelfieMode(false);
+            // Trust this device for future low-risk rides.
+            AsyncStorage.setItem('gtaxi_device_verified', 'true').catch(() => {});
+            setDeviceVerified(true);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (err: any) {
             setSelfieError('Camera error: ' + (err.message || 'Unknown error'));
@@ -229,9 +238,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             return;
         }
 
-        if (!selfieVerified || !selfieUri) {
-            setSelfieError('Identity verification required before confirming ride.');
-            Alert.alert('Verification Required', 'Please complete identity verification before confirming your ride.');
+        if (requiresVerification && (!selfieVerified || !selfieUri)) {
+            setSelfieError(verificationReason);
+            Alert.alert('Quick verification needed', verificationReason);
             return;
         }
 
@@ -273,7 +282,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 source_metadata: sourceMetadata,
                 kiosk_id: kioskId,
                 taxi_stand_id: taxiStandId,
-                identity_verified: true,
+                identity_verified: selfieVerified,
                 verification_url: selfieUri,
                 stops: selectedStops.map((s, i) => ({
                     stop_order: i + 1,
@@ -349,20 +358,34 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const displayFareCents = Math.round(baseFareCents * multiplier);
     const finalFare = fare ? (displayFareCents / 100).toFixed(2) : '--';
 
+    // Risk-triggered identity verification — frictionless for normal rides,
+    // a quick selfie only when signals warrant it.
+    const HIGH_VALUE_CASH_CENTS = 15000; // $150 TTD
+    const bookingHour = new Date().getHours();
+    const isLateNight = bookingHour >= 22 || bookingHour < 5;
+    const isHighValueCash = paymentMethod === 'cash' && displayFareCents >= HIGH_VALUE_CASH_CENTS;
+    const isNewDevice = !deviceVerified;
+    const requiresVerification = isNewDevice || isLateNight || isHighValueCash;
+    const verificationReason = isNewDevice
+        ? 'First ride on this device — a one-time identity check'
+        : isLateNight
+            ? 'Late-night ride — a quick check keeps everyone safe'
+            : 'Large cash fare — verify your identity to continue';
+
     return (
         <View style={s.root} pointerEvents="box-none">
-            <StatusBar style="dark" />
+            <StatusBar style="light" />
 
             <View style={{ height: height * 0.35 }}>
                 <MapView
                     ref={mapRef}
                     style={StyleSheet.absoluteFillObject}
                     provider={PROVIDER_DEFAULT}
-                    userInterfaceStyle="light"
+                    userInterfaceStyle="dark"
                 >
                     {ENV.MAPBOX_PUBLIC_TOKEN && (
                         <UrlTile
-                            urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/light-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
+                            urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
                             shouldReplaceMapContent={true}
                         />
                     )}
@@ -376,9 +399,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             onPress={() => toggleStop(stop)}
                         >
                             <View style={{
-                                backgroundColor: selectedStops.some(s => s.place_name === stop.place_name) 
-                                    ? 'rgba(0, 229, 255, 0.9)' 
-                                    : 'rgba(123, 92, 240, 0.8)',
+                                backgroundColor: selectedStops.some(s => s.place_name === stop.place_name)
+                                    ? 'rgba(29, 224, 230, 0.9)'
+                                    : 'rgba(139, 92, 246, 0.85)',
                                 borderRadius: 20,
                                 padding: 6,
                                 borderWidth: 1.5,
@@ -444,9 +467,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                     style={[s.vehicleCard, selectedType === v.type && s.vehicleCardActive]}
                                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.type); }}
                                 >
-                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.type ? '#FFFFFF' : VOICES.rider.accent} />
-                                    <Text style={[s.vehicleType, { color: selectedType === v.type ? '#FFFFFF' : '#FFFFFF' }]}>{v.type}</Text>
-                                    <Text style={[s.vehicleMultiplier, { color: selectedType === v.type ? 'rgba(255,255,255,0.7)' : VOICES.rider.textMuted }]}>{v.multiplier}x</Text>
+                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.type ? SURFACE.base : VOICES.rider.accent} />
+                                    <Text style={[s.vehicleType, { color: selectedType === v.type ? SURFACE.base : '#FFFFFF' }]}>{v.type}</Text>
+                                    <Text style={[s.vehicleMultiplier, { color: selectedType === v.type ? 'rgba(6,8,10,0.6)' : VOICES.rider.textMuted }]}>{v.multiplier}x</Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
@@ -503,45 +526,54 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             requiredAmount={displayFareCents / 100}
                         />
 
-                        <View style={s.identityShield}>
-                            <Ionicons name="shield-checkmark" size={20} color={CYAN} />
-                            <Text style={s.identityText}>G-TAXI IDENTITY SHIELD ACTIVE</Text>
-                        </View>
+                        {requiresVerification ? (
+                            <>
+                                <View style={s.verifyReasonRow}>
+                                    <Ionicons name="shield-checkmark-outline" size={16} color={WARNING} />
+                                    <Text style={s.verifyReasonText}>{verificationReason}</Text>
+                                </View>
 
-                        {selfieError && (
-                            <View style={s.selfieErrorContainer}>
-                                <Ionicons name="alert-circle" size={16} color={ERROR} />
-                                <Text style={s.selfieErrorText}>{selfieError}</Text>
+                                {selfieError && (
+                                    <View style={s.selfieErrorContainer}>
+                                        <Ionicons name="alert-circle" size={16} color={ERROR} />
+                                        <Text style={s.selfieErrorText}>{selfieError}</Text>
+                                    </View>
+                                )}
+
+                                <TouchableOpacity
+                                    style={[s.selfieBtn, selfieVerified && s.selfieBtnVerified]}
+                                    onPress={async () => {
+                                        if (selfieVerified) return;
+                                        if (!cameraPermission?.granted) {
+                                            const perm = await requestCameraPermission();
+                                            if (!perm.granted) {
+                                                Alert.alert('Camera Required', 'Camera access is required for identity verification.');
+                                                return;
+                                            }
+                                        }
+                                        setSelfieMode(true);
+                                    }}
+                                >
+                                    {selfieUploading ? (
+                                        <ActivityIndicator color={CYAN} size="small" />
+                                    ) : (
+                                        <Ionicons
+                                            name={selfieVerified ? 'checkmark-circle' : 'camera-outline'}
+                                            size={20}
+                                            color={selfieVerified ? SUCCESS : CYAN}
+                                        />
+                                    )}
+                                    <Text style={[s.selfieBtnText, selfieVerified && { color: SUCCESS }]}>
+                                        {selfieUploading ? 'Uploading…' : selfieVerified ? 'Verified' : 'Verify identity'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <View style={s.identityShield}>
+                                <Ionicons name="shield-checkmark" size={20} color={CYAN} />
+                                <Text style={s.identityText}>Identity shield active</Text>
                             </View>
                         )}
-
-                        <TouchableOpacity
-                            style={[s.selfieBtn, selfieVerified && s.selfieBtnVerified]}
-                            onPress={async () => {
-                                if (selfieVerified) return;
-                                if (!cameraPermission?.granted) {
-                                    const perm = await requestCameraPermission();
-                                    if (!perm.granted) {
-                                        Alert.alert('Camera Required', 'Camera access is required for identity verification.');
-                                        return;
-                                    }
-                                }
-                                setSelfieMode(true);
-                            }}
-                        >
-                            {selfieUploading ? (
-                                <ActivityIndicator color={CYAN} size="small" />
-                            ) : (
-                                <Ionicons
-                                    name={selfieVerified ? 'checkmark-circle' : 'camera-outline'}
-                                    size={20}
-                                    color={selfieVerified ? SUCCESS : CYAN}
-                                />
-                            )}
-                            <Text style={[s.selfieBtnText, selfieVerified && { color: SUCCESS }]}>
-                                {selfieUploading ? 'UPLOADING...' : selfieVerified ? 'PASSENGER VERIFIED' : 'VERIFY IDENTITY'}
-                            </Text>
-                        </TouchableOpacity>
 
                         {requestStatus === 'still_trying' && (
                             <View style={s.statusBanner}>
@@ -608,17 +640,17 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                         )}
 
                         <TouchableOpacity
-                            style={[s.confirmBtn, (confirming || !selfieVerified || !selfieUri) && { opacity: 0.5 }]}
+                            style={[s.confirmBtn, (confirming || (requiresVerification && (!selfieVerified || !selfieUri))) && { opacity: 0.5 }]}
                             onPress={handleConfirm}
-                            disabled={confirming || !selfieVerified || !selfieUri}
+                            disabled={confirming || (requiresVerification && (!selfieVerified || !selfieUri))}
                         >
                             <LinearGradient
-                                colors={[VOICES.rider.accent, CYAN]}
+                                colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
                                 style={s.btnGradient}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                             >
-                                {confirming ? <ActivityIndicator color={'#FFFFFF'} /> : (
+                                {confirming ? <ActivityIndicator color={SURFACE.base} /> : (
                                     <Text style={s.confirmBtnText}>Confirm {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}</Text>
                                 )}
                             </LinearGradient>
@@ -632,7 +664,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
-    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', ...elevationGlow(3) },
+    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(11,14,18,0.8)', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.15) },
     
     bottomContainer: { flex: 1, marginTop: -30 },
     panel: { flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 0, overflow: 'hidden' },
@@ -657,9 +689,9 @@ const s = StyleSheet.create({
 
     stopsSection: { marginBottom: 32 },
     sectionTitle: { fontSize: 12, fontWeight: '800', color: VOICES.rider.accent, letterSpacing: 1, marginBottom: 12 },
-    stopItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.02)', marginBottom: 10, ...ghostBorder(0) },
-    stopItemActive: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(210,187,255,0.05)' },
-    stopEmojiWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+    stopItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, backgroundColor: SURFACE.containerLow, marginBottom: 10, ...ghostBorder(0.06) },
+    stopItemActive: { borderColor: VOICES.rider.accent, backgroundColor: CYAN_SOFT },
+    stopEmojiWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
     stopName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
     stopSubtext: { fontSize: 13, fontWeight: '500', color: VOICES.rider.textMuted },
     stopPrice: { fontSize: 15, fontWeight: '700' },
@@ -671,17 +703,19 @@ const s = StyleSheet.create({
     
     identityShield: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: CYAN_SOFT, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 100, marginBottom: 12, alignSelf: 'center' },
     identityText: { marginLeft: 8, fontSize: 12, fontWeight: '800', color: CYAN, letterSpacing: 1 },
+    verifyReasonRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(245,158,11,0.22)' },
+    verifyReasonText: { flex: 1, fontSize: 12, fontWeight: '600', color: '#F2D08A' },
     selfieBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE.containerLow, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 16, marginBottom: 24, ...ghostBorder(0.2), gap: 8 },
-    selfieBtnVerified: { backgroundColor: 'rgba(0,255,148,0.08)', ...ghostBorder(0.3) },
+    selfieBtnVerified: { backgroundColor: 'rgba(16,185,129,0.1)', ...ghostBorder(0.3) },
     selfieBtnText: { fontSize: 12, fontWeight: '800', color: CYAN, letterSpacing: 0.5 },
     selfieErrorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(239,68,68,0.1)', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, marginBottom: 12, gap: 8 },
     selfieErrorText: { fontSize: 12, fontWeight: '700', color: ERROR, flex: 1 },
 
     confirmBtn: { height: 60, borderRadius: 30, overflow: 'hidden', ...elevationGlow(6) },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    confirmBtnText: { fontSize: 16, fontWeight: '900', color: '#FFFFFF', letterSpacing: 0.5 },
+    confirmBtnText: { fontSize: 16, fontWeight: '900', color: SURFACE.base, letterSpacing: 0.5 },
     markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: CYAN, borderWidth: 2, borderColor: '#FFFFFF' },
-    markerDropoff: { width: 14, height: 14, borderRadius: 7, backgroundColor: VOICES.rider.accent, borderWidth: 2, borderColor: '#FFFFFF' },
+    markerDropoff: { width: 14, height: 14, borderRadius: 7, backgroundColor: WARNING, borderWidth: 2, borderColor: '#FFFFFF' },
 
     statusBanner: {
         backgroundColor: 'rgba(245, 158, 11, 0.15)',

@@ -1,76 +1,123 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
-    FlatList, useWindowDimensions, ActivityIndicator, Keyboard,
-    KeyboardAvoidingView, Platform
+    FlatList, ScrollView, ActivityIndicator, Keyboard,
+    KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@gtaxi/core';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { useNetInfo } from '@react-native-community/netinfo';
+import { supabase, SavedPlace, Location as RideLocation, DEFAULT_LOCATION } from '@gtaxi/core';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { getRecentRides, getSavedPlaces } from '../services/api';
 import { AppScreenProps } from '../navigation/types';
 
+interface RecentItem { id: string; name: string; address: string; latitude: number; longitude: number; }
+
 export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'DestinationSearch'>) {
-    const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
-    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId } = route.params || {};
+    const netInfo = useNetInfo();
+    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode } = route.params || {};
 
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [recentSearches, setRecentSearches] = useState<{ id: string; name: string; address: string }[]>([]);
+    const [error, setError] = useState(false);
+    const [recents, setRecents] = useState<RecentItem[]>([]);
+    const [saved, setSaved] = useState<SavedPlace[]>([]);
 
     const inputRef = useRef<TextInput>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const reqIdRef = useRef(0);
 
     useEffect(() => {
         const timer = setTimeout(() => inputRef.current?.focus(), 100);
-        loadRecentSearches();
-        return () => clearTimeout(timer);
+        loadLists();
+        return () => {
+            clearTimeout(timer);
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
     }, []);
 
-    const loadRecentSearches = async () => {
-        setRecentSearches([
-            { id: 'r1', name: 'Piarco Airport', address: 'Golden Grove Rd, Piarco' },
-            { id: 'r2', name: 'Trincity Mall', address: 'Trincity Central Rd' },
-        ]);
+    // Real recents + saved places — no more hardcoded Piarco/Trincity placeholders.
+    const loadLists = async () => {
+        try {
+            const [recentRides, savedPlaces] = await Promise.all([getRecentRides(), getSavedPlaces()]);
+            setRecents(
+                (recentRides || [])
+                    .filter((r: RideLocation) => Number.isFinite(r.latitude) && Number.isFinite(r.longitude))
+                    .map((r: RideLocation, i: number) => ({
+                        id: `recent-${i}`,
+                        name: (r.address || 'Recent trip').split(',')[0],
+                        address: r.address || '',
+                        latitude: r.latitude,
+                        longitude: r.longitude,
+                    }))
+            );
+            setSaved(savedPlaces || []);
+        } catch (err) {
+            console.warn('[DestinationSearch] could not load recents/saved:', err);
+        }
     };
 
-    const searchPlaces = async (val: string) => {
+    // Debounced geocode with stale-response guarding.
+    const onChangeQuery = (val: string) => {
         setQuery(val);
-        if (val.length < 2) {
+        setError(false);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (val.trim().length < 2) {
             setResults([]);
+            setIsLoading(false);
             return;
         }
-
         setIsLoading(true);
+        debounceRef.current = setTimeout(() => runSearch(val.trim()), 300);
+    };
+
+    const runSearch = async (val: string) => {
+        const reqId = ++reqIdRef.current;
         try {
-            const { data, error } = await supabase.functions.invoke('geocode', {
+            const { data, error: gErr } = await supabase.functions.invoke('geocode', {
                 body: { query: val, limit: 10 },
             });
-            if (data?.success && data?.data) {
+            if (reqId !== reqIdRef.current) return; // a newer keystroke superseded this one
+            if (gErr) throw gErr;
+            if (data?.success && Array.isArray(data?.data)) {
                 setResults(data.data);
+                setError(false);
+            } else {
+                setResults([]);
             }
         } catch (err) {
-            console.error(err);
+            if (reqId === reqIdRef.current) {
+                console.warn('[DestinationSearch] geocode failed:', err);
+                setError(true);
+                setResults([]);
+            }
         } finally {
-            setIsLoading(false);
+            if (reqId === reqIdRef.current) setIsLoading(false);
         }
     };
 
-    const handleSelect = (item: any) => {
+    const choose = (latitude: number, longitude: number, address: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Keyboard.dismiss();
 
+        // editPickupMode: the rider is correcting their PICKUP (from Home's GPS-accuracy
+        // prompt). Set it as the new pickup, then drop back into a normal destination search.
+        if (editPickupMode) {
+            navigation.replace('DestinationSearch', {
+                currentLocation: { latitude, longitude, address },
+            });
+            return;
+        }
+
         navigation.navigate('RideConfirmation', {
-            destination: {
-                latitude: item.latitude,
-                longitude: item.longitude,
-                address: item.name || item.address,
-            },
-            pickup: currentLocation || { latitude: 10.66, longitude: -61.51, address: 'Current Location' },
+            destination: { latitude, longitude, address },
+            pickup: currentLocation || { latitude: DEFAULT_LOCATION.latitude, longitude: DEFAULT_LOCATION.longitude, address: 'Current Location' },
             source,
             sourceMetadata,
             kioskId,
@@ -78,71 +125,160 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
         });
     };
 
-    const renderItem = ({ item }: { item: any }) => (
-        <TouchableOpacity style={s.resultRow} onPress={() => handleSelect(item)}>
-            <View style={s.iconCircle}>
-                <Ionicons name="location-sharp" size={18} color="#00E5FF" />
+    const renderResult = ({ item }: { item: any }) => (
+        <TouchableOpacity
+            style={s.row}
+            onPress={() => choose(item.latitude, item.longitude, item.name || item.address)}
+            accessibilityLabel={`Select ${item.name || item.address}`}
+            accessibilityRole="button"
+        >
+            <View style={s.rowIconNeutral}>
+                <Ionicons name="location-sharp" size={18} color="rgba(242,245,248,0.6)" />
             </View>
-            <View style={s.resultInfo}>
-                <Text style={s.resultName}>{item.name || item.address?.split(',')[0]}</Text>
-                <Text style={s.resultAddress} numberOfLines={1}>{item.address}</Text>
+            <View style={s.rowInfo}>
+                <Text style={s.rowName}>{item.name || item.address?.split(',')[0]}</Text>
+                <Text style={s.rowAddress} numberOfLines={1}>{item.address}</Text>
             </View>
         </TouchableOpacity>
     );
 
+    const placeholder = editPickupMode ? 'Search pickup address' : 'Where to?';
+
     return (
         <View style={s.root}>
             <StatusBar style="light" />
-
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
-            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity
-                    style={s.backBtn}
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
-                >
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
-                </TouchableOpacity>
+                <View style={[s.header, { paddingTop: insets.top + 10 }]}>
+                    <View style={s.headerRow}>
+                        <TouchableOpacity
+                            style={s.backBtn}
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
+                            accessibilityLabel="Go back"
+                            accessibilityRole="button"
+                        >
+                            <Ionicons name="chevron-back" size={24} color="#FFF" />
+                        </TouchableOpacity>
 
-                <View style={s.inputContainer}>
-                    <Ionicons name="search" size={18} color="rgba(255,255,255,0.6)" style={s.searchIcon} />
-                    <TextInput
-                        ref={inputRef}
-                        style={s.input}
-                        placeholder="Where to?"
-                        placeholderTextColor="rgba(255,255,255,0.6)"
-                        value={query}
-                        onChangeText={searchPlaces}
-                        selectionColor="#00E5FF"
-                        autoFocus
-                    />
-                    {isLoading && <ActivityIndicator size="small" color={VOICES.rider.accent} />}
+                        <View style={s.inputContainer}>
+                            <Ionicons name="search" size={18} color="rgba(242,245,248,0.5)" style={{ marginRight: 8 }} />
+                            <TextInput
+                                ref={inputRef}
+                                style={s.input}
+                                placeholder={placeholder}
+                                placeholderTextColor="rgba(242,245,248,0.4)"
+                                value={query}
+                                onChangeText={onChangeQuery}
+                                selectionColor={VOICES.rider.accent}
+                                autoFocus
+                                returnKeyType="search"
+                            />
+                            {isLoading && <ActivityIndicator size="small" color={VOICES.rider.accent} />}
+                        </View>
+                    </View>
+                    {editPickupMode && (
+                        <Text style={s.editHint}>Choose a more precise pickup point</Text>
+                    )}
                 </View>
-            </View>
 
-            <FlatList
-                data={query.length > 0 ? results : recentSearches}
-                keyExtractor={(item: any) => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={s.list}
-                ListHeaderComponent={
-                    query.length === 0 ? (
-                        <View style={s.sectionHeader}>
-                            <Ionicons name="time-outline" size={16} color="rgba(255,255,255,0.6)" />
-                            <Text style={[s.sectionLabel, { marginLeft: 8 }]}>RECENT SEARCHES</Text>
-                        </View>
-                    ) : null
-                }
-                ListEmptyComponent={
-                    !isLoading && query.length > 0 ? (
-                        <View style={s.empty}>
-                            <Text style={s.emptyText}>No results found</Text>
-                        </View>
-                    ) : null
-                }
-            />
+                {netInfo.isConnected === false && (
+                    <View style={s.offlineBanner}>
+                        <Ionicons name="cloud-offline-outline" size={15} color="#F59E0B" />
+                        <Text style={s.offlineText}>You're offline — search needs a connection. Saved places still work.</Text>
+                    </View>
+                )}
+
+                {query.length > 0 ? (
+                    <FlatList
+                        data={results}
+                        keyExtractor={(item: any, i) => item.id?.toString() || `res-${i}`}
+                        renderItem={renderResult}
+                        keyboardShouldPersistTaps="handled"
+                        contentContainerStyle={s.list}
+                        ListEmptyComponent={
+                            isLoading ? null : error ? (
+                                <View style={s.empty}>
+                                    <Ionicons name="alert-circle-outline" size={32} color="#EF4444" />
+                                    <Text style={s.emptyText}>Couldn't search right now</Text>
+                                    <TouchableOpacity style={s.retryBtn} onPress={() => runSearch(query.trim())} accessibilityRole="button" accessibilityLabel="Retry search">
+                                        <Text style={s.retryText}>Retry</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View style={s.empty}>
+                                    <Text style={s.emptyText}>No match for "{query}"</Text>
+                                    <Text style={s.emptySub}>Try a landmark or a nearby street.</Text>
+                                </View>
+                            )
+                        }
+                    />
+                ) : (
+                    <ScrollView
+                        contentContainerStyle={s.list}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {saved.length > 0 && (
+                            <>
+                                <View style={s.sectionHeader}>
+                                    <Ionicons name="star-outline" size={15} color="rgba(242,245,248,0.5)" />
+                                    <Text style={s.sectionLabel}>Saved</Text>
+                                </View>
+                                {saved.map((p) => (
+                                    <TouchableOpacity
+                                        key={p.id}
+                                        style={s.row}
+                                        onPress={() => choose(p.lat, p.lng, p.address || p.label)}
+                                        accessibilityLabel={`Select saved place ${p.label}`}
+                                        accessibilityRole="button"
+                                    >
+                                        <View style={s.rowIconBrand}>
+                                            <Ionicons name={(p.icon as any) || 'bookmark'} size={18} color={VOICES.rider.accent} />
+                                        </View>
+                                        <View style={s.rowInfo}>
+                                            <Text style={s.rowName}>{p.label}</Text>
+                                            <Text style={s.rowAddress} numberOfLines={1}>{p.address}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </>
+                        )}
+
+                        {recents.length > 0 ? (
+                            <>
+                                <View style={s.sectionHeader}>
+                                    <Ionicons name="time-outline" size={15} color="rgba(242,245,248,0.5)" />
+                                    <Text style={s.sectionLabel}>Recent</Text>
+                                </View>
+                                {recents.map((r) => (
+                                    <TouchableOpacity
+                                        key={r.id}
+                                        style={s.row}
+                                        onPress={() => choose(r.latitude, r.longitude, r.address || r.name)}
+                                        accessibilityLabel={`Select recent ${r.name}`}
+                                        accessibilityRole="button"
+                                    >
+                                        <View style={s.rowIconNeutral}>
+                                            <Ionicons name="location-sharp" size={18} color="rgba(242,245,248,0.6)" />
+                                        </View>
+                                        <View style={s.rowInfo}>
+                                            <Text style={s.rowName}>{r.name}</Text>
+                                            <Text style={s.rowAddress} numberOfLines={1}>{r.address}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </>
+                        ) : saved.length === 0 ? (
+                            <View style={s.empty}>
+                                <Ionicons name="navigate-outline" size={32} color="rgba(242,245,248,0.3)" />
+                                <Text style={s.emptyText}>Search for where you're headed</Text>
+                                <Text style={s.emptySub}>Your saved places and recent trips will show here.</Text>
+                            </View>
+                        ) : null}
+                    </ScrollView>
+                )}
             </KeyboardAvoidingView>
         </View>
     );
@@ -150,25 +286,51 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
-    header: { paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' },
-    
-    input: { flex: 1, height: '100%', color: '#FFF', fontSize: 17, marginLeft: 12 },
+    header: {
+        paddingHorizontal: 20, paddingBottom: 16,
+        borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
+        backgroundColor: SURFACE.containerLow,
+    },
+    headerRow: { flexDirection: 'row', alignItems: 'center' },
+    backBtn: {
+        width: 44, height: 44, borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        alignItems: 'center', justifyContent: 'center',
+        ...ghostBorder(0.1),
+    },
+    inputContainer: {
+        flex: 1, height: 50, backgroundColor: SURFACE.base, borderRadius: 14,
+        marginLeft: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14,
+        ...ghostBorder(0.1),
+    },
+    input: { flex: 1, height: '100%', color: '#F2F5F8', fontSize: 16 },
+    editHint: { fontSize: 12, color: 'rgba(242,245,248,0.5)', marginTop: 10, marginLeft: 4 },
 
-    content: { flex: 1, padding: 20 },
-    sectionLabel: { fontSize: 12, fontWeight: '800', color: 'rgba(255,255,255,0.6)', letterSpacing: 1 },
+    offlineBanner: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        marginHorizontal: 20, marginTop: 14, padding: 12, borderRadius: 12,
+        backgroundColor: 'rgba(245,158,11,0.1)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.22)',
+    },
+    offlineText: { flex: 1, fontSize: 12, color: '#F59E0B', fontWeight: '600' },
 
-    resultRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 24, marginBottom: 12, ...ghostBorder() },
-    iconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(0,229,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-    resultInfo: { marginLeft: 16, flex: 1 },
-    resultName: { fontSize: 16, fontWeight: '700', color: '#FFF', marginBottom: 4 },
-    resultAddress: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.6)' },
+    list: { padding: 20, paddingBottom: 40 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8, paddingBottom: 12 },
+    sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(242,245,248,0.5)', letterSpacing: 1, textTransform: 'uppercase' },
 
-    loadingContainer: { marginTop: 40, alignItems: 'center' },
-    backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', ...ghostBorder() },
-    inputContainer: { flex: 1, height: 50, backgroundColor: SURFACE.base, borderRadius: 12, marginLeft: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, ...ghostBorder() },
-    searchIcon: { marginRight: 8 },
-    list: { paddingBottom: 40 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 24, paddingBottom: 12 },
-    empty: { marginTop: 40, alignItems: 'center' },
-    emptyText: { fontSize: 15, fontWeight: '500', color: 'rgba(255,255,255,0.6)' },
+    row: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: SURFACE.containerLow, padding: 14, borderRadius: 18, marginBottom: 10,
+        ...ghostBorder(0.06),
+    },
+    rowIconBrand: { width: 44, height: 44, borderRadius: 14, backgroundColor: `${VOICES.rider.accent}22`, alignItems: 'center', justifyContent: 'center' },
+    rowIconNeutral: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+    rowInfo: { marginLeft: 14, flex: 1 },
+    rowName: { fontSize: 15, fontWeight: '700', color: '#F2F5F8', marginBottom: 2 },
+    rowAddress: { fontSize: 13, fontWeight: '500', color: 'rgba(242,245,248,0.5)' },
+
+    empty: { marginTop: 48, alignItems: 'center', gap: 8 },
+    emptyText: { fontSize: 16, fontWeight: '700', color: 'rgba(242,245,248,0.7)' },
+    emptySub: { fontSize: 13, color: 'rgba(242,245,248,0.4)', textAlign: 'center', paddingHorizontal: 40 },
+    retryBtn: { marginTop: 10, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14, backgroundColor: VOICES.rider.accent },
+    retryText: { fontSize: 14, fontWeight: '800', color: SURFACE.base },
 });

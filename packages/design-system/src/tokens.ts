@@ -4,42 +4,42 @@
 export const tokens = {
   colors: {
     background: {
-      base: '#050505',
-      ambient: '#050505',
+      base: '#0B0E12',
+      ambient: '#0B0E12',
     },
     text: {
-      primary: '#FFFFFF',
-      secondary: 'rgba(255,255,255,0.65)',
-      tertiary: 'rgba(255,255,255,0.45)',
-      inverse: '#FFFFFF',
+      primary: '#F2F5F8',
+      secondary: 'rgba(242,245,248,0.68)',
+      tertiary: 'rgba(242,245,248,0.42)',
+      inverse: '#06080A',
     },
     border: {
-      subtle: 'rgba(255,255,255,0.15)',
+      subtle: 'rgba(255,255,255,0.10)',
     },
     primary: {
-      cyan: '#00FFFF',
-      purple: '#7F00FF',
-      gradient: ['#00FFFF', '#7F00FF'] as [string, string],
+      cyan: '#1DE0E6',
+      purple: '#8B5CF6',
+      gradient: ['#8B5CF6', '#1DE0E6'] as [string, string],
     },
     status: {
-      error: '#FF6E84',
+      error: '#EF4444',
     },
     glass: {
-      fill: 'rgba(0,255,255,0.06)',
-      strokeHighlight: 'rgba(255,255,255,0.08)',
+      fill: 'rgba(20,26,34,0.62)',
+      strokeHighlight: 'rgba(255,255,255,0.10)',
     },
   },
 };
 
 export const SURFACE = {
-  base: '#050505',
-  containerLow: '#0A0A0A',
-  containerHigh: '#1A1A1A',
-  containerHighest: '#2A2A2A',
+  base: '#0B0E12',
+  containerLow: '#13171D',
+  containerHigh: '#1A1F27',
+  containerHighest: '#232932',
 };
 
 export const SHADOW_PROFILE = {
-  shadowColor: '#00FFFF',
+  shadowColor: '#1DE0E6',
   shadowOffset: { width: 0, height: 8 } as const,
   shadowOpacity: 0.08,
   shadowRadius: 24,
@@ -66,23 +66,23 @@ export const Z = {
 
 export const VOICES = {
   rider: {
-    bg: '#050505',
+    bg: '#0B0E12',
     surface: 'rgba(255,255,255,0.04)',
-    text: '#FFFFFF',
-    textMuted: 'rgba(255,255,255,0.65)',
-    border: 'rgba(255, 255, 255, 0.12)',
-    accent: '#00FFFF',
-    accentDark: '#00CCCC',
+    text: '#F2F5F8',
+    textMuted: 'rgba(242,245,248,0.68)',
+    border: 'rgba(255, 255, 255, 0.10)',
+    accent: '#1DE0E6',
+    accentDark: '#0A9CA6',
   },
   driver: {
-    bg: '#050505',
-    surface: '#0A0A0A',
-    surfaceHigh: 'rgba(10, 10, 10, 0.8)',
-    text: '#FFFFFF',
-    textMuted: 'rgba(255,255,255,0.65)',
+    bg: '#0B0E12',
+    surface: '#13171D',
+    surfaceHigh: 'rgba(19, 23, 29, 0.8)',
+    text: '#F2F5F8',
+    textMuted: 'rgba(242,245,248,0.68)',
     gold: '#F59E0B',
-    accent: '#00FFFF',
-    accentDark: '#00CCCC',
+    accent: '#1DE0E6',
+    accentDark: '#0A9CA6',
   },
   admin: {
     bg: '#0F172A',

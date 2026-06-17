@@ -3,13 +3,16 @@
 # Do not skip sections. Do not assume you know the state of any file.
 # Do not fix multiple phases in one session unless explicitly told to.
 
-# Last updated: 2026-06-14
+# Last updated: 2026-06-25
 # Plain English summary (based on code in this repo):
-# This repository implements a two-sided ride-hailing system for Trinidad
-# and Tobago: a Rider app, a Driver app, an Admin dashboard, and Supabase
-# backend code (database + edge functions). The mobile apps are Expo SDK
-# projects (Expo 52) and target Android/APKs via EAS; iOS prebuilds require
-# Xcode/CocoaPods on macOS.
+# THIS IS NOT JUST A RIDE-HAILING APP. It is a multiplex ecosystem
+# connecting riders to drivers, stores, travel, and services through
+# a single hub. 7 apps (rider, driver, admin, merchant-web,
+# merchant-mobile, admin-mobile, qr-landing), 86 edge functions,
+# 151 migrations, 268 RLS policies, 72,518 lines TypeScript.
+# The rider's phone is the hub; drivers, merchants, NFC kiosks,
+# and voice AI are the touchpoints. Mobile apps are Expo SDK 52
+# targeting Android/APKs via EAS; iOS prebuilds require Xcode/CocoaPods.
 
 # IMPORTANT: The prior AGENTS.md (dated 2026-05-16) listed 5 crashes and 5
 # security holes. Every single one has been verified as FIXED in the source
@@ -262,6 +265,100 @@ payment_ledger table — read only for users:
 ---
 
 ## SESSION HISTORY
+
+### 2026-06-25 — Progression perks merge: killed paid subscription, single G-Member tier at Level 5
+
+**What we did:**
+1. **Killed 3-tier paid subscription (free/plus/pro)** — Removed from DB, replaced with free progression-based perks. Riders earn discount, priority matching, and wait time by riding, not by paying.
+
+2. **Added perks to `progression_config`** — New columns: `discount_percent`, `priority_matching`, `free_wait_minutes`. Each level grants:
+   - L2: 5% off, 5min grace
+   - L3: 8% off, 8min grace, priority matching
+   - L4: 10% off, 10min grace, priority matching
+   - L5: 12% off, 12min grace, priority matching
+
+3. **Single paid tier: G-Member (TTD $35/mo)** — Only purchasable at Level 5. Adds 15% off, unlimited priority, 20min wait, no booking fees. One gold card at the top of the ladder, not three tiers everyone ignores.
+
+4. **Rewrote `SubscriptionScreen` → `G-Level`** — Shows a 5-level perk ladder with progress bars, current level badge, and G-Member upgrade card at Level 5. Below Level 5: locked G-Member teaser with "Keep riding to unlock."
+
+5. **Updated `ProfileScreen`** — Subscription card now shows Level + perks (not tier). Stats labels: "Missions" → "Trips", "RANKING" → "Rating", "ENLISTED" → "Member since". Footer: "RIDER COMMAND V3.2 • EMPIRE OS" → "Trinidad & Tobago". "PURGE DATA & IDENTITY" → "Delete Account".
+
+6. **Updated `SettingsScreen`** — "G-TAXI PASS" section replaced with "G-LEVEL" card. No more manual Plus/Pro upgrade buttons. Shows current level + discount + links to G-Level screen.
+
+7. **Updated `get_rider_progress` edge function** — Now returns `perks` object with `discount_percent`, `priority_matching`, `free_wait_minutes`. Respects G-Member overrides.
+
+8. **Updated `calculate_subscription_discount()` SQL function** — Reads level-based discount from `rider_progression.level` + `progression_config.discount_percent`, adds 3% if g_member.
+
+**Database changes:**
+- Migration: `20260625000000_progression_perks_single_tier` (applied to production)
+- Removed from `subscription_benefits`: plus (TTD $9.99), pro (TTD $19.99)
+- Added to `subscription_benefits`: g_member (TTD $35.00)
+- Added to `rider_subscription_tier` enum: `g_member`
+
+**Design principle (T&T market):**
+- Free to start. Ride to earn. Pay only at Level 5 when convenience is already habit.
+- TTD $35/mo = impulse-buy price (~$5 USD). One tier, not three.
+- No credit card needed on sign-up. No rider feels blocked.
+
+### 2026-06-16 — Council audit fixes (pre-commit bugfixes)
+
+**Council findings and fixes this session:**
+
+1. **`get_home_suggestion` RPC wired into HomeScreen** — Was 0 references in app code despite RPC existing in DB. Now called during `fetchEnabledVerticals`, result used as dynamic search placeholder on the Ride layer card. Falls back to "Where to?" if RPC unavailable.
+
+2. **PromoScreen now actually INSERTs into `user_promos`** — Before: showed Alert but never wrote to the table, so promo had no effect and the notification trigger never fired. Now properly inserts + claims with duplicate detection.
+
+3. **Promo notification trigger applied** — `trg_emit_promo_notification` on `user_promos` INSERT fires `notify_user()` with 'promo' type. Trigger-based like the ride/escape notifications.
+
+4. **Rider subscription UI built** — `SubscriptionScreen.tsx` shows 3 tiers (free/plus/pro) with benefit comparison, monthly/yearly pricing, upgrade buttons. Adds "Subscription" to ProfileScreen menu. Tier changes update `profiles.subscription_tier` directly (Stripe billing TBD).
+
+5. **`.gitignore` updated** — added `_agents/`, `superpowers`, `ui-ux-pro-max-skill` patterns to prevent agent skill files from being tracked.
+
+6. **`expo-notifications` plugin** — confirmed already present in rider app.config.js (line 103). Council was working from stale AGENTS.md.
+
+7. **FoodDelivery/EscapeStorefront screens** — confirmed already registered in navigation at commit `5f87c65a`.
+
+**Still requires dashboard config (not code):**
+- Edge function secrets (STRIPE_SECRET_KEY, FIREBASE_SERVICE_ACCOUNT_JSON, TWILIO_*, SENTRY_DSN, etc.) — 0 of 10 set
+- `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` on `spatial_ref_sys`, `agent_decision_log`, `dispatch_queue`
+
+### 2026-06-15 — Full ecosystem audit + merchant service gap analysis
+
+**What we did this session:**
+
+1. **Full app inventory & build check**: Verified all 7 apps (rider, driver, admin, merchant-web, merchant-mobile, admin-mobile, qr-landing) typecheck/build clean. 72,518 total lines TypeScript, 86 edge functions, 151 migrations, 268 RLS policies.
+
+2. **Fixed actual code bug**: `ProductCatalog` screen was registered at `merchant-mobile/src/screens/ProductCatalog.tsx:57` but **never added** to the `RootStackParamList` type or the main navigator. Rider would tap a product → `TypeError: undefined is not a function`. See `merchant-mobile/src/navigation/AppNavigator.tsx:34` (was missing entry). Fixed.
+
+3. **Ecosystem scope corrected** (mid-session): The user corrected that this isn't just a ride-hailing app. It's a **multiplex ecosystem** connecting riders to drivers, stores, travel, and services through a single hub. Inventory of all 10 verticals: ride-hailing (always on), grocery (L2), laundry (L3), g-wallet (L4), g-escape/travel (L5), merchant delivery (toggle), b2b logistics (toggle), food delivery (toggle), travel packages (toggle), property booking (toggle).
+
+4. **Screen parity audit**: 9 of 50 rider screens at FULL HomeScreen standard. Travel/G-Escape/Referral screens at low parity — untouched by Sprint 1.
+
+**Key discoveries (gaps):**
+
+| Gap | Status | Location |
+|-----|--------|----------|
+| 19% platform rate hardcoded | **FIXED** — reads from pricing_config table | `complete_ride/index.ts:226`, `create_ride/index.ts`, `admin_force_complete/index.ts` |
+| Cold start: 5 edge calls + 4 DB queries + 1 sub before usable | **FIXED** — removed 100ms delay, parallelized profile+prefs, removed duplicate get_active_ride | `RideContext.tsx:83`, `AuthContext.tsx:88-118`, `HomeScreen.tsx:124-143` |
+| Cash operations need real infrastructure | Ops/business issue — code done | `complete_ride/index.ts:241` |
+| Food delivery blocked | **FIXED** — constraint now allows restaurant/barber/salon/carwash | `20260403000002_unified_handshake_expansion.sql` |
+| Barber/salon only stubs | **FIXED** — constraint allows them; ServiceBookingScreen exists; category constraint updated | `suggest_stops/index.ts:82` |
+| Appointments half-built | Deferred — needs merchant edge functions | `ServiceBookingScreen.tsx`, `20260406000000_merchant_service_verticals.sql` |
+| NFC dispatch migration unapplied | **FIXED** — migration 20260530000005 applied to production | `supabase/migrations/20260530000005_nfc_dispatch_layer.sql` |
+
+**New feature added (2026-06-15):**
+- **Merchant Pin System** — Admin can pin/unpin merchants (`is_pinned` on merchants table). Pinned merchants appear first on map (ORDER BY is_pinned DESC). pin_fee_cents on merchant_subscriptions charged on top of monthly fee. Admin UI in MerchantNetwork.tsx with Pin/Unpin toggle + Pin Fee setter + pinned filter chip + Star badge.
+
+**Council advice (validated against real code):**
+- **Elon (infrastructure)**: Correct — PostGIS, 86 edge functions, real-time tracking, Stripe webhook, NFC, FCM push — all real. Caught exaggerating re: "AI concierge" (handle_voice exists but uses generic web search, not LLM fine-tuned on G-Taxi data).
+- **Zuck (execution)**: Correct — 72K lines, 7 apps, all verticals have code — the sprawl is real. Caught misleading re: "Pokémon Go gamification for drivers" — no such feature exists in app or migrations.
+- **Bezos (customer obsession)**: Correct — cold start is bad, restaurant/barber/salon are unfinished. Caught wrong re: "partner feedback loop" — no Partner API exists.
+
+**Resulting strategy (user-approved):**
+- Global is NOT an option — focus on Trinidad and Tobago dominance
+- G-Wallet IS needed — cash is dominant in T&T, driver settlement requires wallet
+- NFC is good for this market (phone-to-NFC-kiosk at malls) but don't overbuild
+- Fix cold start latency first, then food delivery constraint, then service booking — in that order
 
 ### 2026-06-14 — Cleanup purge + pricing strategy clarified
 
