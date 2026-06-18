@@ -154,7 +154,7 @@ serve(async (req: Request) => {
                     description: "Nearby cancellation fee ($5 TTD)",
                     status: "completed"
                 }, {
-                    user_id: ride.driver_id, // Driver
+                    user_id: driverData?.user_id || ride.driver_id, // Driver (resolved auth.users.id)
                     ride_id: ride_id,
                     amount: 500,
                     transaction_type: "cancellation_fee",

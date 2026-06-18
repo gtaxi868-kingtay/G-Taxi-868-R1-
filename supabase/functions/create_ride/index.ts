@@ -263,8 +263,16 @@ serve(async (req: Request) => {
 
         const hasNode = !!(kiosk_id || billed_to_merchant_id);
         const driverSharePct = 1 - defaultPlatRate;
-        const platformSharePct = hasNode ? defaultPlatRate - 0.05 : defaultPlatRate;
-        const merchantSharePct = hasNode ? 0.05 : 0.0;
+        // Read node commission spread from pricing_config; fallback to 0.05
+        const { data: nodeSpreadRow } = await supabaseAdmin
+            .from("pricing_config")
+            .select("value_cents")
+            .eq("key", "NODE_COMMISSION_SPREAD_CENTS")
+            .maybeSingle()
+            .catch(() => ({ data: null }));
+        const nodeSpread = nodeSpreadRow ? (nodeSpreadRow.value_cents ?? 500) / 10000 : 0.05;
+        const platformSharePct = hasNode ? defaultPlatRate - nodeSpread : defaultPlatRate;
+        const merchantSharePct = hasNode ? nodeSpread : 0.0;
 
         const driverPayoutCents = Math.floor(fareCents * driverSharePct);
         const platformRevenueCents = Math.floor(fareCents * platformSharePct);

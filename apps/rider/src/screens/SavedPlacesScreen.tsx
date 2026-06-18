@@ -133,7 +133,7 @@ export function SavedPlacesScreen({ navigation }: any) {
             <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                 <TouchableOpacity
                     style={s.addBtn}
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('DestinationSearch', { mode: 'save' }); }}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('DestinationSearch'); }}
                 >
                     <LinearGradient
                         colors={[VOICES.rider.accent, CYAN]}

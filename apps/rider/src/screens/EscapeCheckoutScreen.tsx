@@ -8,16 +8,12 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '@gtaxi/core';
 import { useStripe } from '@stripe/stripe-react-native';
-import type { RootStackParamList } from '../navigation/types';
+import type { AppStackParamList } from '../navigation/types';
 
-// Itemized checkout for a G-Escape package.
-// Shows the exact price breakdown (ground transfers + flight + villa) and
-// presents the Stripe payment sheet for a manual-capture pre-authorization.
-// The card is HELD but not charged until the flight block reaches its
-// tipping point. If the block is cancelled, the hold is automatically voided.
+const BRAND = '#1DE0E6';
 
-type Nav = NativeStackNavigationProp<RootStackParamList, 'EscapeCheckout'>;
-type RouteT = RouteProp<RootStackParamList, 'EscapeCheckout'>;
+type Nav = NativeStackNavigationProp<AppStackParamList, 'EscapeCheckout'>;
+type RouteT = RouteProp<AppStackParamList, 'EscapeCheckout'>;
 
 interface PriceBreakdown {
   package_name: string;
@@ -27,13 +23,11 @@ interface PriceBreakdown {
   tipping_point_seats: number;
   allocated_seats: number;
   cancel_deadline: string | null;
-  // Per-person public costs
   flight_cost_per_person_cents: number;
   lodging_cost_per_person_cents: number;
   driver_origin_cost_cents: number;
   driver_destination_cost_cents: number;
   price_per_person_cents: number;
-  // Calculated for this booking
   total_price_cents: number;
   guests: number;
 }
@@ -113,7 +107,6 @@ export default function EscapeCheckoutScreen() {
       if (error) throw error;
       if (!data?.client_secret) throw new Error(data?.error ?? 'Booking failed');
 
-      // Init Stripe Payment Sheet with manual-capture pre-auth
       const { error: initErr } = await initPaymentSheet({
         paymentIntentClientSecret: data.client_secret,
         merchantDisplayName: 'G Escape',
@@ -123,14 +116,12 @@ export default function EscapeCheckoutScreen() {
 
       const { error: presentErr } = await presentPaymentSheet();
       if (presentErr) {
-        // User cancelled or card declined — hold is still active for 10 min
         if (presentErr.code !== 'Canceled') {
           Alert.alert('Payment failed', presentErr.message);
         }
         return;
       }
 
-      // Payment method attached — navigate to live trip tracker
       navigation.replace('ActivePass');
     } catch (err: any) {
       Alert.alert('Booking error', err.message ?? 'Something went wrong');
@@ -148,7 +139,7 @@ export default function EscapeCheckoutScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#C8A96E" />
+        <ActivityIndicator size="large" color={BRAND} />
       </View>
     );
   }
@@ -160,14 +151,20 @@ export default function EscapeCheckoutScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={24} color="#F2F5F8" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Checkout</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <Text style={styles.destination}>{breakdown.destination_name}</Text>
         <Text style={styles.packageName}>{breakdown.package_name}</Text>
         <Text style={styles.dateLabel}>Departs {fmtDate(breakdown.departure_time)} · {breakdown.nights}N</Text>
 
-        {/* Pool progress */}
-        <View style={styles.poolCard}>
+        <View style={styles.card}>
           <View style={styles.poolHeader}>
             <Text style={styles.poolLabel}>Flight pool</Text>
             <Text style={styles.poolCount}>{breakdown.allocated_seats} / {breakdown.tipping_point_seats} seats</Text>
@@ -182,14 +179,13 @@ export default function EscapeCheckoutScreen() {
           </Text>
         </View>
 
-        {/* Itemized breakdown */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>WHAT YOU GET</Text>
 
-          <Row label="Transfer to Piarco (Trinidad)" value={fmt(breakdown.driver_origin_cost_cents)} />
-          <Row label={`Flight POS ⇄ ${breakdown.destination_name.split(' ')[0]}`} value={fmt(breakdown.flight_cost_per_person_cents)} />
-          <Row label={`${breakdown.destination_name} villa transfer`} value={fmt(breakdown.driver_destination_cost_cents)} />
-          <Row label={`${breakdown.nights}-night villa stay`} value={fmt(breakdown.lodging_cost_per_person_cents)} />
+          <Row icon="car-outline" label="Transfer to Piarco (Trinidad)" value={fmt(breakdown.driver_origin_cost_cents)} />
+          <Row icon="airplane-outline" label={`Flight POS ⇄ ${breakdown.destination_name.split(' ')[0]}`} value={fmt(breakdown.flight_cost_per_person_cents)} />
+          <Row icon="car-outline" label={`${breakdown.destination_name} villa transfer`} value={fmt(breakdown.driver_destination_cost_cents)} />
+          <Row icon="home-outline" label={`${breakdown.nights}-night villa stay`} value={fmt(breakdown.lodging_cost_per_person_cents)} />
 
           <View style={styles.divider} />
 
@@ -200,7 +196,7 @@ export default function EscapeCheckoutScreen() {
 
           {guestCount > 1 && (
             <View style={styles.row}>
-              <Text style={styles.guestMult}>× {guestCount} guests</Text>
+              <Text style={styles.guestMult}>× {breakdown.guests} guests</Text>
             </View>
           )}
 
@@ -210,11 +206,10 @@ export default function EscapeCheckoutScreen() {
           </View>
         </View>
 
-        {/* Pre-auth notice */}
         <View style={styles.noticeCard}>
-          <Ionicons name="lock-closed-outline" size={20} color="#C8A96E" style={styles.noticeIcon} />
+          <Ionicons name="lock-closed-outline" size={18} color={BRAND} />
           <Text style={styles.noticeText}>
-            Your card is reserved but {'​'}not charged. Payment only completes once this flight
+            Your card is reserved but not charged. Payment only completes once this flight
             reaches {breakdown.tipping_point_seats} seats. If the pool doesn't fill, your hold is automatically voided — no charge, ever.
           </Text>
         </View>
@@ -226,7 +221,7 @@ export default function EscapeCheckoutScreen() {
           activeOpacity={0.85}
         >
           {submitting
-            ? <ActivityIndicator color="#000" />
+            ? <ActivityIndicator color="#0B0E12" />
             : <Text style={styles.ctaText}>Lock My Escape · {fmt(breakdown.total_price_cents)}</Text>}
         </TouchableOpacity>
 
@@ -236,46 +231,56 @@ export default function EscapeCheckoutScreen() {
   );
 }
 
-const Row: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+const Row: React.FC<{ icon: string; label: string; value: string }> = ({ icon, label, value }) => (
   <View style={styles.row}>
-    <Text style={styles.rowLabel}>{label}</Text>
+    <View style={styles.rowLeft}>
+      <Ionicons name={icon as any} size={14} color={BRAND} />
+      <Text style={styles.rowLabel}>{label}</Text>
+    </View>
     <Text style={styles.rowValue}>{value}</Text>
   </View>
 );
 
 const styles = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: '#0C0C0F' },
+  safe:          { flex: 1, backgroundColor: '#0B0E12' },
   container:     { flex: 1, paddingHorizontal: 20 },
-  centered:      { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0C0C0F' },
-  destination:   { fontSize: 28, fontWeight: '700', color: '#FFFFFF', marginTop: 28, letterSpacing: -0.5 },
-  packageName:   { fontSize: 16, color: '#C8A96E', fontWeight: '600', marginTop: 4 },
-  dateLabel:     { fontSize: 13, color: '#666', marginTop: 4, marginBottom: 20 },
-  poolCard:      { backgroundColor: '#141418', borderRadius: 12, padding: 16, marginBottom: 16,
-                   borderWidth: 1, borderColor: '#222' },
-  poolHeader:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  poolLabel:     { color: '#888', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  poolCount:     { color: '#FFF', fontSize: 12, fontWeight: '600' },
-  progressTrack: { height: 4, backgroundColor: '#222', borderRadius: 2, overflow: 'hidden' },
-  progressFill:  { height: 4, backgroundColor: '#C8A96E', borderRadius: 2 },
-  poolSub:       { color: '#555', fontSize: 11, marginTop: 8 },
-  card:          { backgroundColor: '#141418', borderRadius: 12, padding: 18, marginBottom: 16,
-                   borderWidth: 1, borderColor: '#222' },
-  sectionTitle:  { color: '#C8A96E', fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 14 },
+  centered:      { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0E12' },
+  header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                   paddingHorizontal: 16, paddingVertical: 12 },
+  backBtn:       { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)',
+                   alignItems: 'center', justifyContent: 'center' },
+  headerTitle:   { fontSize: 17, fontWeight: '700', color: '#F2F5F8' },
+  destination:   { fontSize: 28, fontWeight: '800', color: '#F2F5F8', marginTop: 8, letterSpacing: -0.5 },
+  packageName:   { fontSize: 15, color: BRAND, fontWeight: '600', marginTop: 4 },
+  dateLabel:     { fontSize: 13, color: 'rgba(242,245,248,0.5)', marginTop: 4, marginBottom: 20 },
+
+  card:          { backgroundColor: '#13171D', borderRadius: 16, padding: 18, marginBottom: 16,
+                   borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  sectionTitle:  { color: BRAND, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 14 },
   row:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 7 },
-  rowLabel:      { color: '#888', fontSize: 14, flex: 1 },
-  rowValue:      { color: '#EEE', fontSize: 14, fontWeight: '500' },
-  divider:       { height: 1, backgroundColor: '#222', marginVertical: 10 },
-  perPersonLabel:{ color: '#666', fontSize: 13 },
-  perPersonValue:{ color: '#CCC', fontSize: 13, fontWeight: '600' },
-  guestMult:     { color: '#444', fontSize: 12, flex: 1, textAlign: 'right' },
+  rowLeft:       { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  rowLabel:      { color: 'rgba(242,245,248,0.6)', fontSize: 14, flex: 1 },
+  rowValue:      { color: '#F2F5F8', fontSize: 14, fontWeight: '500' },
+  divider:       { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 10 },
+  perPersonLabel:{ color: 'rgba(242,245,248,0.42)', fontSize: 13 },
+  perPersonValue:{ color: 'rgba(242,245,248,0.7)', fontSize: 13, fontWeight: '600' },
+  guestMult:     { color: 'rgba(242,245,248,0.35)', fontSize: 12, flex: 1, textAlign: 'right' },
   totalRow:      { marginTop: 4 },
-  totalLabel:    { color: '#FFF', fontSize: 18, fontWeight: '700' },
-  totalValue:    { color: '#4ADE80', fontSize: 20, fontWeight: '700' },
-  noticeCard:    { flexDirection: 'row', backgroundColor: '#111520', borderRadius: 10, padding: 14,
-                   marginBottom: 24, borderWidth: 1, borderColor: '#1E2640' },
-  noticeIcon:    { fontSize: 18, marginRight: 10, marginTop: 1 },
-  noticeText:    { color: '#6B82B4', fontSize: 12, lineHeight: 18, flex: 1 },
-  cta:           { backgroundColor: '#C8A96E', borderRadius: 12, paddingVertical: 18, alignItems: 'center' },
+  totalLabel:    { color: '#F2F5F8', fontSize: 18, fontWeight: '800' },
+  totalValue:    { color: '#10B981', fontSize: 20, fontWeight: '800' },
+
+  poolHeader:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  poolLabel:     { color: 'rgba(242,245,248,0.42)', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  poolCount:     { color: '#F2F5F8', fontSize: 12, fontWeight: '600' },
+  progressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' },
+  progressFill:  { height: 4, backgroundColor: BRAND, borderRadius: 2 },
+  poolSub:       { color: 'rgba(242,245,248,0.35)', fontSize: 11, marginTop: 8 },
+
+  noticeCard:    { flexDirection: 'row', backgroundColor: 'rgba(29,224,230,0.05)', borderRadius: 14, padding: 14,
+                   marginBottom: 24, borderWidth: 1, borderColor: 'rgba(29,224,230,0.12)', gap: 10 },
+  noticeText:    { color: 'rgba(242,245,248,0.55)', fontSize: 12, lineHeight: 18, flex: 1 },
+
+  cta:           { backgroundColor: BRAND, borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   ctaDisabled:   { opacity: 0.5 },
-  ctaText:       { color: '#000', fontWeight: '700', fontSize: 16 },
+  ctaText:       { color: '#0B0E12', fontWeight: '800', fontSize: 16 },
 });

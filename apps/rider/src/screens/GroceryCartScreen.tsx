@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { useStripe } from '@stripe/stripe-react-native';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
@@ -26,9 +27,12 @@ export function GroceryCartScreen({ navigation, route }: any) {
     const { user } = useAuth();
     const { activeRide } = useRide();
 
+    const { initPaymentSheet, presentPaymentSheet } = useStripe();
+
     const [cart, setCart] = useState<CartItem[]>(initialCart || []);
     const [deliverToRide, setDeliverToRide] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
 
     const subTotal = cart.reduce((sum, i) => sum + i.product.price_cents * i.quantity, 0);
     const deliveryFee = 500;
@@ -58,6 +62,8 @@ export function GroceryCartScreen({ navigation, route }: any) {
                     merchant_id: merchant.id,
                     total_cents: total,
                     status: 'pending',
+                    payment_method: paymentMethod === 'cash' ? 'cash' : 'card',
+                    payment_status: paymentMethod === 'cash' ? 'cash_on_delivery' : 'unpaid',
                     delivery_method: deliverToRide && activeRide?.ride_id ? 'to_ride' : 'courier',
                     ride_id: deliverToRide && activeRide?.ride_id ? activeRide.ride_id : null,
                 })
@@ -79,17 +85,60 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
             if (itemsErr) throw itemsErr;
 
-            supabase.functions.invoke('match_order_delivery', {
-              body: { order_id: order.id },
-            }).then(({ error }) => {
-              if (error) console.warn('[Checkout] match_order_delivery:', error.message);
-            });
+            if (paymentMethod === 'card') {
+                const { data: piData, error: piErr } = await supabase.functions.invoke(
+                    'create_order_payment_intent',
+                    { body: { order_id: order.id } }
+                );
 
-            Alert.alert(
-                '🛒 Order Placed!',
-                `Your order from ${merchant.name} has been confirmed.\nID: ${order.id.slice(0, 8).toUpperCase()}`,
-                [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', {orderId: order.id}) }]
-            );
+                if (piErr) throw new Error(piErr.message || 'Failed to create payment');
+
+                const { error: initErr } = await initPaymentSheet({
+                    merchantDisplayName: merchant.name || 'G-Taxi',
+                    paymentIntentClientSecret: piData.clientSecret,
+                    customerId: piData.customer,
+                    customerEphemeralKeySecret: piData.ephemeralKey,
+                    style: 'alwaysDark',
+                });
+
+                if (initErr) throw initErr;
+
+                const { error: presentErr } = await presentPaymentSheet();
+                if (presentErr) {
+                    Alert.alert('Payment Cancelled', presentErr.message);
+                    setLoading(false);
+                    return;
+                }
+
+                const { error: matchErr } = await supabase.functions.invoke('match_order_delivery', {
+                    body: { order_id: order.id },
+                });
+                if (matchErr) {
+                    Alert.alert(
+                        'Order Created',
+                        `Your order from ${merchant.name} has been paid but dispatch failed. Support will follow up.\nAmount: $${(total / 100).toFixed(2)} TTD`,
+                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.id }) }]
+                    );
+                } else {
+                    Alert.alert(
+                        'Order Placed!',
+                        `Your order from ${merchant.name} has been paid.\nAmount: $${(total / 100).toFixed(2)} TTD`,
+                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.id }) }]
+                    );
+                }
+            } else {
+                const { error: matchErr } = await supabase.functions.invoke('match_order_delivery', {
+                    body: { order_id: order.id },
+                });
+                if (matchErr) {
+                    console.warn('[Checkout] match_order_delivery:', matchErr.message);
+                }
+                Alert.alert(
+                    'Cash on Delivery',
+                    `Pay $${(total / 100).toFixed(2)} TTD to the driver upon delivery.\nOrder ID: ${order.id.slice(0, 8).toUpperCase()}`,
+                    [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.id }) }]
+                );
+            }
         } catch (err: any) {
             Alert.alert('Order Failed', err.message || 'Please try again.');
         } finally {
@@ -160,6 +209,26 @@ export function GroceryCartScreen({ navigation, route }: any) {
                             </View>
                         )}
 
+                        <View style={s.paymentCard}>
+                            <Text style={s.paymentLabel}>Payment Method</Text>
+                            <View style={s.paymentOptions}>
+                                <TouchableOpacity
+                                    style={[s.paymentOption, paymentMethod === 'card' && s.paymentOptionActive]}
+                                    onPress={() => { Haptics.selectionAsync(); setPaymentMethod('card'); }}
+                                >
+                                    <Ionicons name="card-outline" size={18} color={paymentMethod === 'card' ? CYAN : '#AAA'} />
+                                    <Text style={[s.paymentOptionText, paymentMethod === 'card' && s.paymentOptionTextActive]}>Card</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[s.paymentOption, paymentMethod === 'cash' && s.paymentOptionActive]}
+                                    onPress={() => { Haptics.selectionAsync(); setPaymentMethod('cash'); }}
+                                >
+                                    <Ionicons name="cash-outline" size={18} color={paymentMethod === 'cash' ? CYAN : '#AAA'} />
+                                    <Text style={[s.paymentOptionText, paymentMethod === 'cash' && s.paymentOptionTextActive]}>Cash</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
                         <View style={s.priceCard}>
                             <View style={s.priceRow}>
                                 <Text style={s.priceLabel}>Subtotal</Text>
@@ -186,8 +255,8 @@ export function GroceryCartScreen({ navigation, route }: any) {
                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                             style={s.ctaGradient}
                         >
-                            <Ionicons name="checkmark-circle-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
-                            <Text style={s.ctaText}>{loading ? 'Placing Order...' : `Checkout Securely · $${(total / 100).toFixed(2)} TTD`}</Text>
+                                <Ionicons name={paymentMethod === 'card' ? "card-outline" : "cash-outline"} size={22} color="#FFF" style={{ marginRight: 8 }} />
+                            <Text style={s.ctaText}>{loading ? 'Placing Order...' : paymentMethod === 'card' ? `Pay with Card · $${(total / 100).toFixed(2)} TTD` : `Cash on Delivery · $${(total / 100).toFixed(2)} TTD`}</Text>
                         </LinearGradient>
                     </TouchableOpacity>
                 </View>
@@ -240,6 +309,21 @@ const s = StyleSheet.create({
     deliveryTitle: { fontSize: 15, fontWeight: '700', color: '#FFF' },
     deliverySub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
     deliveryNote: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 8 },
+    paymentCard: {
+        borderRadius: 20, overflow: 'hidden', padding: 18,
+        ...ghostBorder(0.1),
+        backgroundColor: 'rgba(255,255,255,0.04)', gap: 12,
+    },
+    paymentLabel: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 },
+    paymentOptions: { flexDirection: 'row', gap: 10 },
+    paymentOption: {
+        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        paddingVertical: 14, borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    },
+    paymentOptionActive: { borderColor: CYAN, backgroundColor: `${CYAN}15` },
+    paymentOptionText: { fontSize: 15, fontWeight: '700', color: '#AAA' },
+    paymentOptionTextActive: { color: '#FFF' },
     priceCard: {
         borderRadius: 20, overflow: 'hidden', padding: 18,
         ...ghostBorder(0.1),

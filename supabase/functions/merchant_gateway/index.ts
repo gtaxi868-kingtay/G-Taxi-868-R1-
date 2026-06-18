@@ -71,7 +71,7 @@ serve(async (req: Request) => {
         const { data: apiKeyRef, error: keyError } = await adminClient
             .from("merchant_api_keys")
             .select("merchant_id, is_active")
-            .eq("hashed_key", hashedKey)
+            .eq("key_hash", hashedKey)
             .single();
 
         if (keyError || !apiKeyRef || !apiKeyRef.is_active) {
@@ -81,7 +81,7 @@ serve(async (req: Request) => {
         // Update Last Used Timestamp
         await adminClient.from("merchant_api_keys")
              .update({ last_used_at: new Date().toISOString() })
-             .eq("hashed_key", hashedKey);
+             .eq("key_hash", hashedKey);
 
         await checkRateLimit(adminClient, `merchant_${apiKeyRef.merchant_id}`, "merchant_gateway");
 

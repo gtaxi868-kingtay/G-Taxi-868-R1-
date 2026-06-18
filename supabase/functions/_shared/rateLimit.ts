@@ -44,9 +44,8 @@ export async function checkRateLimit(
     });
 
     if (error) {
-        // If rate limit check fails, log and allow (fail open — don't block legit users)
         console.error("[RateLimit] check failed:", error.message);
-        return { allowed: true };
+        return { allowed: false, error: "Rate limit unavailable. Try again." };
     }
 
     if (!data) {

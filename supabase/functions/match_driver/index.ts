@@ -210,13 +210,19 @@ serve(async (req: Request) => {
         // Append distance for the offer insertion below
         selectedDriver._distance = selectedDriverSummary.distance_km * 1000;
 
-        // Calculate Payout based on Commission Tier (Phase 11.5)
-        let commissionRate = 0.22; // Default Standard
-        if (selectedDriver.commission_tier === 'pioneer') {
-            commissionRate = 0.19;
-        }
-        // User Feedback: 17% tier removed to protect margins
-        
+        // Read platform rate from pricing_config; fallback to 0.19
+        const { data: platRateRow } = await supabaseAdmin
+            .from("pricing_config")
+            .select("value_cents")
+            .eq("key", "PLATFORM_RATE_CENTS")
+            .maybeSingle()
+            .catch(() => ({ data: null }));
+        const platRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
+        // Pioneer tier gets 3% lower rate
+        const commissionRate = selectedDriver.commission_tier === 'pioneer'
+            ? Math.max(0.01, platRate - 0.03)
+            : platRate;
+
         const totalFare = ride.total_fare_cents || 0;
         const driverPayout = Math.round(totalFare * (1 - commissionRate));
 

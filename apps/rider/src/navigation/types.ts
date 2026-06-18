@@ -195,6 +195,7 @@ export type AppStackParamList = {
   EscapeStorefront: { packageId?: string } | undefined;
   EscapeCheckout: { packageId: string; guestCount: number; userLocation: { latitude: number; longitude: number } };
   ActivePass: undefined;
+  PassportSubmission: { participantId: string };
 };
 
 export type RootStackParamList = AppStackParamList;

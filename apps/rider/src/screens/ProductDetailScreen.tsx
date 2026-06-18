@@ -62,7 +62,7 @@ export function ProductDetailScreen({ navigation, route }: any) {
             `${quantity}x ${product.name} added.`,
             [
                 { text: 'Keep Shopping', style: 'cancel' },
-                { text: 'View Cart', onPress: () => navigation.navigate('GroceryCart') },
+                { text: 'View Cart', onPress: () => navigation.navigate('GroceryCart', { cart: [], merchant: { id: '', name: '', address: '' } }) },
             ]
         );
         navigation.goBack();

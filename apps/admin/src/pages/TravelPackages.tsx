@@ -453,7 +453,7 @@ function EquityPipeline() {
             .from('equity_contracts')
             .select('*, travel_properties(name, destination_name)')
             .order('created_at', { ascending: false })
-            .then(({ data }) => { setContracts(data || []); setLoading(false); });
+            .then(({ data }: { data: any[] | null }) => { setContracts(data || []); setLoading(false); });
     }, []);
 
     if (loading) return <div className="text-white/30 text-sm animate-pulse">Loading equity contracts…</div>;

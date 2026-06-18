@@ -2,9 +2,27 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const WIPAY_WEBHOOK_SECRET = Deno.env.get("WIPAY_WEBHOOK_SECRET");
 
 Deno.serve(async (req: Request) => {
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // Require webhook secret or admin JWT
+  const authHeader = req.headers.get("Authorization") || "";
+  const webhookKey = req.headers.get("x-webhook-key") || "";
+  const isValidWebhook = WIPAY_WEBHOOK_SECRET && webhookKey === WIPAY_WEBHOOK_SECRET;
+  const isValidAdmin = authHeader.startsWith("Bearer ") && await (async () => {
+    try {
+      const { data: { user } } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
+      if (!user) return false;
+      const { data: profile } = await supabaseAdmin.from("profiles").select("role").eq("id", user.id).single();
+      return profile?.role === "admin";
+    } catch { return false; }
+  })();
+
+  if (!isValidWebhook && !isValidAdmin) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  }
 
   const url = new URL(req.url);
   const orderId = url.searchParams.get("order_id");

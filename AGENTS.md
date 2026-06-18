@@ -3,7 +3,7 @@
 # Do not skip sections. Do not assume you know the state of any file.
 # Do not fix multiple phases in one session unless explicitly told to.
 
-# Last updated: 2026-06-25
+# Last updated: 2026-06-27
 # Plain English summary (based on code in this repo):
 # THIS IS NOT JUST A RIDE-HAILING APP. It is a multiplex ecosystem
 # connecting riders to drivers, stores, travel, and services through
@@ -359,6 +359,48 @@ payment_ledger table — read only for users:
 - G-Wallet IS needed — cash is dominant in T&T, driver settlement requires wallet
 - NFC is good for this market (phone-to-NFC-kiosk at malls) but don't overbuild
 - Fix cold start latency first, then food delivery constraint, then service booking — in that order
+
+### 2026-06-27 — G-Escape group demand aggregator: backend built, Amadeus/Booking APIs wired
+
+**What we did this session:**
+
+1. **Identified the `credit_wallet` RPC gap** — confirmed missing from DB. The `cancel_travel_booking` edge function had a fallback path, but the RPC was never created. Now it exists.
+
+2. **Built the G-Escape group demand aggregator backend** — 3 new migrations, 4 new edge functions, 1 new admin RPC.
+
+3. **Migrations applied to production DB:**
+   - `20260627000000_credit_wallet_rpc` — `credit_wallet(p_user_id, p_amount_cents, p_type, p_description, p_reference_id)` with idempotency check + wallets table cached balance update
+   - `20260627000001_escape_group_booking` — 5 new tables: `flight_cache` (Amadeus), `lodging_cache` (Booking.com), `escape_group_participants` (intent→paid status machine), `passenger_details` (passport/ID post-confirmation), `group_booking_alerts` (delay/reschedule/refund log)
+   - `20260627000002_escape_group_admin_tools` — `min_guests_threshold`, `charge_deadline`, `charter_reference`, `confirmed_guests` columns + `increment_allocated_guests`/`increment_confirmed_guests` RPCs
+   - `20260627000003_admin_escape_actions_rpc` — `admin_escape_action(package_id, action, ...)` — confirm/delay/refund_all in one SECURITY DEFINER RPC
+
+4. **Edge functions deployed:**
+   - `sync_flight_availability` — Scans 8 routes × 14 dates via Amadeus Flight Offers Search API (±8ms delay between calls). Returns: flight number, available seats, fare cents. Handle: returns 503 if `AMADEUS_API_KEY`/`AMADEUS_API_SECRET` not set.
+   - `sync_lodging_availability` — Scans 4 locations × 4 date ranges via Booking.com XML API. Returns: property name, available rooms, nightly rate. Handle: returns 503 if `BOOKING_API_KEY` not set.
+   - `join_escape_group` — Rider joins a package → `intent_pending` status. Guards: capacity check, duplicate check, 1-20 party_size. Requires JWT auth.
+   - `auto_charge_escape_group` — Cron: finds packages where `allocated_guests >= min_guests_threshold`, charges via `process_wallet_payment_hardened` (wallet) or Stripe PaymentIntent fallback. Creates `payment_pending`/`confirmed` transitions.
+
+5. **Amadeus Django demo repo analyzed** (`amadeus4dev/amadeus-flight-booking-django`): Shows official 3-step booking flow:
+   - **Step 1**: Flight Offers Search (what our sync does)
+   - **Step 2**: Flight Offers Price (confirm current price/availability)
+   - **Step 3**: Flight Create Orders (book with traveler details)
+   - Also: Trip Purpose Prediction API, Airport Search autocomplete, airline logos via `s1.apideeplink.com`
+   - We must use these steps when admin calls `admin_escape_action('confirm')` for actual charter booking
+
+6. **CAL/API advice provided:**
+   - Amadeus: `https://developers.amadeus.com/register` — free tier, 2K calls/mo, covers CAL
+   - Booking.com: `https://partner.booking.com/` — affiliate partner program
+   - CAL direct: `+1 (868) 625-7200`, ask for Commercial Partnerships
+
+**Key decision:** `admin_confirm_escape_seats` was built as edge function but hit the function cap (60+ already). Merged into `admin_escape_action` RPC instead — admin calls `supabase.rpc('admin_escape_action', { p_package_id, p_action: 'confirm', p_booking_ref: '...' })`.
+
+**Gaps still open for "true business tool" confirmation:**
+- Edge function secrets (AMADEUS_API_KEY, AMADEUS_API_SECRET, BOOKING_API_KEY, STRIPE_SECRET_KEY, etc.) — require dashboard config
+- `sync_flight_availability`/`sync_lodging_availability` need cron schedule set in Supabase dashboard
+- G-Escape rider + admin screens not yet coded (need UI for browsing packages, joining, passport submission, admin demand dashboard)
+- Grocery/laundry checkout still doesn't charge rider
+- Dispatch queue still a no-op
+- `credit_wallet` RPC now exists but was the only truly missing DB object
 
 ### 2026-06-14 — Cleanup purge + pricing strategy clarified
 

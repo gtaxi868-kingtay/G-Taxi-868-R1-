@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
                 {
                     p_ride_id: ride_id,
                     p_amount: paymentIntent.amount,
-                    p_idempotency_key: `admin_complete_${ride_id}_${Date.now()}`
+                    p_idempotency_key: `admin_complete_${ride_id}`
                 }
             )
 

@@ -149,6 +149,91 @@ Deno.serve(async (req: Request) => {
             });
         }
 
+        // ── ORDER PAYMENT (GROCERY/LAUNDRY etc.) ──────────────
+        if (eventType === 'order_payment') {
+            const orderId = pi.metadata?.order_id;
+            const merchantId = pi.metadata?.merchant_id;
+            const userId = pi.metadata?.user_id;
+
+            if (!orderId || !userId) {
+                return new Response("Missing order_id/user_id in order_payment metadata", { status: 400 });
+            }
+
+            const { data: order, error: orderErr } = await supabaseAdmin
+                .from("orders")
+                .select("id, merchant_id, total_cents")
+                .eq("id", orderId)
+                .single();
+
+            if (orderErr || !order) {
+                console.error("stripe_webhook: Order not found:", orderId);
+                return new Response("Order not found", { status: 404 });
+            }
+
+            // Mark order as paid
+            const { error: updateErr } = await supabaseAdmin
+                .from("orders")
+                .update({
+                    payment_status: "paid",
+                    paid_at: new Date().toISOString(),
+                    payment_method: "card",
+                })
+                .eq("id", orderId);
+
+            if (updateErr) {
+                console.error("stripe_webhook: Failed to update order payment:", updateErr);
+                return new Response("Order update failed", { status: 500 });
+            }
+
+            // Read platform rate from pricing_config; fallback to 0.19
+            const { data: platRateRow } = await supabaseAdmin
+                .from("pricing_config")
+                .select("value_cents")
+                .eq("key", "PLATFORM_RATE_CENTS_DELIVERY")
+                .maybeSingle()
+                .catch(() => ({ data: null }));
+            const platRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
+            const merchantCutCents = Math.round(order.total_cents * (1 - platRate));
+            const platformFeeCents = order.total_cents - merchantCutCents;
+
+            if (merchantId) {
+                const { data: merchant } = await supabaseAdmin
+                    .from("merchants")
+                    .select("created_by")
+                    .eq("id", merchantId)
+                    .single();
+
+                if (merchant?.created_by) {
+                    await supabaseAdmin.rpc('process_wallet_credit_idempotent', {
+                        p_user_id: merchant.created_by,
+                        p_amount_cents: merchantCutCents,
+                        p_reference_id: event.id + '_merchant',
+                        p_provider: 'stripe',
+                    }).catch(e => console.error("Merchant credit failed:", e));
+                }
+            }
+
+            // Log to payment_ledger
+            await supabaseAdmin
+                .from('payment_ledger')
+                .insert({
+                    order_id: orderId,
+                    user_id: userId,
+                    amount: pi.amount / 100.0,
+                    currency: pi.currency.toUpperCase(),
+                    status: 'captured',
+                    provider: 'stripe',
+                    provider_ref: pi.id,
+                    stripe_event_id: event.id,
+                    processing_status: 'completed',
+                });
+
+            return new Response(JSON.stringify({ status: 'order_payment_processed' }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+
         // ── RIDE PAYMENT (ATOMIC SETTLEMENT) ──────────────────
         const rideId = pi.metadata?.ride_id;
         const userId = pi.metadata?.user_id;

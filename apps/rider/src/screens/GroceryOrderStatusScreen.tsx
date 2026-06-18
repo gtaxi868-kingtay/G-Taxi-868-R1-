@@ -45,6 +45,8 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
     const { orderId, service, weight, priceCents } = route.params;
     const insets = useSafeAreaInsets();
     const [status, setStatus] = useState<string>('pending');
+    const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
+    const [paymentStatus, setPaymentStatus] = useState<string>('unpaid');
     const [pins, setPins] = useState<any>(null);
     const [intakeLog, setIntakeLog] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -75,13 +77,15 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
             try {
                 const { data, error } = await supabase
                     .from('orders')
-                    .select('status, ride_id, merchant_id, merchant_intake_logs(*), order_handoff_pins(*)')
+                    .select('status, payment_method, payment_status, ride_id, merchant_id, merchant_intake_logs(*), order_handoff_pins(*)')
                     .eq('id', orderId)
                     .single();
 
                 if (error) throw error;
                 if (data) {
                     setStatus(data.status);
+                    setPaymentMethod(data.payment_method);
+                    setPaymentStatus(data.payment_status);
                     setPins(data.order_handoff_pins);
                     if (data.ride_id) resolveDriverFromRide(data.ride_id);
                     if (data.merchant_intake_logs && data.merchant_intake_logs.length > 0) {
@@ -230,6 +234,22 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                 <Text style={s.summaryDetail}>
                     {service?.label}  ·  {weight} lbs  ·  ${((priceCents || 0) / 100).toFixed(2)} TTD
                 </Text>
+                {paymentMethod === 'cash' && paymentStatus === 'cash_on_delivery' ? (
+                    <View style={s.paymentBadgeCash}>
+                        <Ionicons name="cash-outline" size={12} color="#F59E0B" />
+                        <Text style={s.paymentBadgeCashText}>Cash on delivery</Text>
+                    </View>
+                ) : paymentStatus === 'paid' ? (
+                    <View style={s.paymentBadgePaid}>
+                        <Ionicons name="checkmark-circle" size={12} color="#22C55E" />
+                        <Text style={s.paymentBadgePaidText}>Paid by Card</Text>
+                    </View>
+                ) : paymentStatus === 'unpaid' && paymentMethod === 'card' ? (
+                    <View style={s.paymentBadgePending}>
+                        <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.4)" />
+                        <Text style={s.paymentBadgePendingText}>Payment pending</Text>
+                    </View>
+                ) : null}
             </View>
 
             {/* Status steps */}
@@ -399,6 +419,24 @@ const s = StyleSheet.create({
     },
     summaryId: { fontSize: 22, fontWeight: '900', color: CYAN, letterSpacing: 2, fontFamily: 'SpaceGrotesk' },
     summaryDetail: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4, fontFamily: 'Manrope' },
+    paymentBadgeCash: {
+        flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10,
+        paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20,
+        backgroundColor: 'rgba(245,158,11,0.15)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)',
+    },
+    paymentBadgeCashText: { fontSize: 12, fontWeight: '700', color: '#F59E0B', fontFamily: 'Manrope' },
+    paymentBadgePaid: {
+        flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10,
+        paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20,
+        backgroundColor: 'rgba(34,197,94,0.15)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
+    },
+    paymentBadgePaidText: { fontSize: 12, fontWeight: '700', color: '#22C55E', fontFamily: 'Manrope' },
+    paymentBadgePending: {
+        flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10,
+        paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    },
+    paymentBadgePendingText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.4)', fontFamily: 'Manrope' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     steps: { paddingHorizontal: 40, gap: 0 },
     stepRow: { flexDirection: 'row', alignItems: 'center', gap: 16, height: 64 },

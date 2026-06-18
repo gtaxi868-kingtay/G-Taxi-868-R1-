@@ -244,7 +244,15 @@ serve(async (req: Request) => {
         .catch(() => ({ data: false }));
 
       if (qualifies === true) {
-        platformRate = Math.max(0.01, defaultPlatformRate - 0.03);
+        // Read loyalty rate from pricing_config (value_cents = percentage, e.g. 16 = 16%)
+        const { data: loyaltyRow } = await supabaseAdmin
+            .from("pricing_config")
+            .select("value_cents")
+            .eq("key", "LOYALTY_FEE_PCT")
+            .maybeSingle()
+            .catch(() => ({ data: null }));
+        const loyaltyRate = loyaltyRow ? (loyaltyRow.value_cents ?? 16) / 100 : Math.max(0.01, defaultPlatformRate - 0.03);
+        platformRate = Math.max(0.01, Math.min(defaultPlatformRate, loyaltyRate));
         loyaltyApplied = true;
         console.log(`[LOYALTY_TIER] Driver ${driverUserIdForLoyalty} qualifies — 16% rate applied`);
 
@@ -271,8 +279,8 @@ serve(async (req: Request) => {
     // ── PAYMENT PROCESSING ──────────────────────────────────────────────────
     if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
       const { data: walletSuccess, error: payError } = await supabaseAdmin.rpc(
-        "process_wallet_payment",
-        { p_ride_id: ride_id, p_amount: effectiveFare }
+        "process_wallet_payment_hardened",
+        { p_ride_id: ride_id, p_amount: effectiveFare, p_idempotency_key: `complete_ride_${ride_id}` }
       );
 
       if (payError || !walletSuccess) {
@@ -322,14 +330,12 @@ serve(async (req: Request) => {
         driver_user_id: driverUserId,
       });
 
-      await supabaseAdmin.from("wallet_transactions").insert({
-        user_id: driverUserId,
-        ride_id: ride_id,
-        amount: -totalPlatformCents,
-        transaction_type: "commission_fee",
-        description: `Platform (${(platformRate * 100).toFixed(1)}%${loyaltyApplied ? " loyalty" : ""}) on cash ride — war chest (1.5%) sub-ledgered within`,
-        status: "completed",
-      });
+      await supabaseAdmin.rpc("deduct_driver_commission_hardened", {
+        p_driver_user_id: driverUserId,
+        p_ride_id: ride_id,
+        p_amount_cents: totalPlatformCents,
+        p_description: `Platform (${(platformRate * 100).toFixed(1)}%${loyaltyApplied ? " loyalty" : ""}) on cash ride — war chest (1.5%) sub-ledgered within`
+      }).catch((err) => console.error("deduct_driver_commission_hardened failed:", err));
 
       await supabaseAdmin.rpc("post_reserve_contribution", {
         p_source_id: ride_id,

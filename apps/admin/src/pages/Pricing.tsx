@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, Zap, X, DollarSign, MapPin, Clock } from 'lucide-react';
+import { RefreshCw, Zap, X, DollarSign, MapPin, Clock, Percent } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -59,6 +59,16 @@ const PRICING_LABELS: Record<string, { label: string; unit: string; hint: string
 };
 
 const KEY_ORDER = ['BASE_FARE_CENTS', 'PER_KM_CENTS', 'PER_MIN_CENTS', 'MIN_FARE_CENTS'];
+
+const PLATFORM_RATE_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+    PLATFORM_RATE_CENTS_RIDE:     { label: 'Rides',      icon: '🚗',  color: 'text-cyan-400' },
+    PLATFORM_RATE_CENTS_GROCERY:  { label: 'Grocery',    icon: '🛒',  color: 'text-green-400' },
+    PLATFORM_RATE_CENTS_LAUNDRY:  { label: 'Laundry',    icon: '👕',  color: 'text-blue-400' },
+    PLATFORM_RATE_CENTS_TRAVEL:   { label: 'G-Escape',   icon: '✈️',  color: 'text-purple-400' },
+    PLATFORM_RATE_CENTS_DELIVERY: { label: 'Delivery',   icon: '📦',  color: 'text-amber-400' },
+    PLATFORM_RATE_CENTS_FOOD:     { label: 'Food',       icon: '🍔',  color: 'text-orange-400' },
+    PLATFORM_RATE_CENTS_B2B:      { label: 'B2B',        icon: '🏢',  color: 'text-rose-400' },
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -128,6 +138,11 @@ export function Pricing() {
     const [zoneExpiry, setZoneExpiry] = useState(60);
     const [creatingZone, setCreatingZone] = useState(false);
 
+    // ── Platform rates state ──────────────────────────────────────────────────
+    const [platRates, setPlatRates] = useState<PricingConfig[]>([]);
+    const [platEditing, setPlatEditing] = useState<Record<string, string>>({});
+    const [savingPlat, setSavingPlat] = useState(false);
+
     // ── Shared toast ──────────────────────────────────────────────────────────
     const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -157,10 +172,20 @@ export function Pricing() {
         setLoadingZones(false);
     }, []);
 
+    const loadPlatRates = useCallback(async () => {
+        const { data, error } = await supabase.rpc('admin_get_platform_rates');
+        if (error) {
+            flash(`Failed to load platform rates: ${error.message}`, false);
+        } else {
+            setPlatRates((data as PricingConfig[]) || []);
+        }
+    }, []);
+
     useEffect(() => {
         loadRates();
         loadZones();
-    }, [loadRates, loadZones]);
+        loadPlatRates();
+    }, [loadRates, loadZones, loadPlatRates]);
 
     // ── Fare rate save ────────────────────────────────────────────────────────
     const saveRates = async () => {
@@ -288,6 +313,46 @@ export function Pricing() {
         parseFloat(previewDur) || 0,
         parseFloat(previewSurge) || 1.0,
     );
+
+    // ── Platform rate save ────────────────────────────────────────────────────
+    const savePlatRates = async () => {
+        const dirty = Object.entries(platEditing).filter(([key]) =>
+            platRates.some(r => r.key === key),
+        );
+        if (dirty.length === 0) {
+            flash('No platform rate changes to save', false);
+            return;
+        }
+
+        setSavingPlat(true);
+        let failed = false;
+
+        for (const [key, rawVal] of dirty) {
+            const pct = parseFloat(rawVal);
+            if (isNaN(pct) || pct < 0.5 || pct > 50) {
+                flash(`Invalid percentage for ${PLATFORM_RATE_LABELS[key]?.label ?? key}`, false);
+                setSavingPlat(false);
+                return;
+            }
+            const cents = Math.round(pct * 100);
+            const { error } = await supabase.rpc('admin_set_pricing', {
+                p_key: key,
+                p_value_cents: cents,
+            });
+            if (error) {
+                flash(`Failed to save ${PLATFORM_RATE_LABELS[key]?.label}: ${error.message}`, false);
+                failed = true;
+                break;
+            }
+        }
+
+        if (!failed) {
+            flash('Platform rates saved — all verticals use these on next transaction', true);
+            setPlatEditing({});
+            await loadPlatRates();
+        }
+        setSavingPlat(false);
+    };
 
     const isDirty = Object.keys(editing).some(k => rates.some(r => r.key === k));
 
@@ -666,6 +731,77 @@ export function Pricing() {
                         {creatingZone ? 'Activating...' : 'Activate Surge Zone'}
                     </button>
                 </div>
+            </section>
+
+            {/* ── Platform Rates ──────────────────────────────────────────────── */}
+            <section>
+                <div className="flex items-center gap-3 mb-6">
+                    <Percent size={18} className="text-purple-400" />
+                    <div>
+                        <h3 className="font-black text-white uppercase tracking-wider text-sm">Platform Rates</h3>
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest">
+                            Commission % per vertical — changes apply to next transaction
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    {platRates.map(pr => {
+                        const meta = PLATFORM_RATE_LABELS[pr.key] || { label: pr.key, icon: '📊', color: 'text-white' };
+                        const currentPct = (pr.value_cents / 100).toFixed(1);
+                        const editVal = platEditing[pr.key] ?? currentPct;
+                        const isDirtyField = platEditing[pr.key] !== undefined &&
+                            platEditing[pr.key] !== currentPct;
+
+                        return (
+                            <div key={pr.key} className={`bg-white/5 rounded-2xl p-5 border transition-all ${
+                                isDirtyField ? 'border-purple-400/30' : 'border-white/5'
+                            }`}>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <span className="text-lg">{meta.icon}</span>
+                                    <p className="font-black text-white text-sm">{meta.label}</p>
+                                </div>
+                                <p className="text-[10px] text-white/30 mb-3">{pr.description}</p>
+
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="0.5"
+                                        max="50"
+                                        step="0.1"
+                                        value={editVal}
+                                        onChange={e =>
+                                            setPlatEditing(prev => ({ ...prev, [pr.key]: e.target.value }))
+                                        }
+                                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white font-mono text-lg font-bold focus:outline-none focus:border-purple-400/50 transition-colors"
+                                    />
+                                    <span className="text-white/40 text-sm font-mono">%</span>
+                                </div>
+
+                                {isDirtyField && (
+                                    <p className="text-[10px] text-amber-400/70 mt-2">
+                                        Changed from {currentPct}%
+                                    </p>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <button
+                    onClick={savePlatRates}
+                    disabled={Object.keys(platEditing).length === 0 || savingPlat}
+                    className={`h-12 px-8 rounded-xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-2 ${
+                        Object.keys(platEditing).length > 0 && !savingPlat
+                            ? 'bg-purple-400 text-black hover:bg-purple-300'
+                            : 'bg-white/5 text-white/20 cursor-not-allowed'
+                    }`}
+                >
+                    {savingPlat ? (
+                        <div className="w-4 h-4 border-2 border-black/40 border-t-transparent rounded-full animate-spin" />
+                    ) : null}
+                    {savingPlat ? 'Saving...' : Object.keys(platEditing).length > 0 ? 'Save Rate Changes' : 'No Changes'}
+                </button>
             </section>
         </div>
     );

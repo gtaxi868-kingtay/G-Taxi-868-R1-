@@ -5,24 +5,14 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../navigation/types';
+import { supabase } from '@gtaxi/core';
+import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip, ItineraryLeg } from '../context/EscapeContext';
 import { Ionicons } from '@expo/vector-icons';
 
-// Status-driven concierge screen. The entire journey lives here.
-// One screen, seven phases — no manual navigation required.
-// The status machine in the DB drives what the rider sees.
-//
-// Phase map:
-//   ACTIVE_HOLD      → "Securing your seats" (hold countdown)
-//   CAPTURED         → "Building your escape" (flight pool progress ring)
-//   CONFIRMED        → "Escape locked" (dark executive boarding pass + 4-leg timeline)
-//   EN_ROUTE_DEPART  → "Driver en route" (Trinidad driver coming)
-//   ON_ISLAND        → "You're here" (villa info + add-ons)
-//   EN_ROUTE_RETURN  → "Heading home" (return driver info)
-//   COMPLETED        → "Trip complete"
+const BRAND = '#1DE0E6';
 
-type Nav = NativeStackNavigationProp<RootStackParamList, 'ActivePass'>;
+type Nav = NativeStackNavigationProp<AppStackParamList, 'ActivePass'>;
 
 const PHASE_LABELS: Record<string, string> = {
   ACTIVE_HOLD:      'Securing your seats',
@@ -41,9 +31,9 @@ const LEG_ICON_NAMES: Record<string, 'car-outline' | 'airplane-outline' | 'home-
 };
 
 const LEG_STATUS_COLOR: Record<string, string> = {
-  scheduled:        '#333',
-  driver_en_route:  '#C8A96E',
-  in_transit:       '#3B82F6',
+  scheduled:        'rgba(255,255,255,0.2)',
+  driver_en_route:  BRAND,
+  in_transit:       '#38BDF8',
   completed:        '#22C55E',
   delayed:          '#F59E0B',
   cancelled:        '#EF4444',
@@ -53,9 +43,9 @@ export default function ActivePassScreen() {
   const navigation = useNavigation<Nav>();
   const { activeTrip, loading, refreshTrip } = useEscapeTrip();
   const [countdown, setCountdown] = useState('');
+  const [participantId, setParticipantId] = useState<string | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Pulse animation for active phases
   useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
@@ -67,7 +57,6 @@ export default function ActivePassScreen() {
     return () => pulse.stop();
   }, []);
 
-  // Hold countdown (10-min window for ACTIVE_HOLD)
   useEffect(() => {
     if (activeTrip?.status !== 'ACTIVE_HOLD' || !activeTrip.hold_expires_at) return;
     const tick = () => {
@@ -82,10 +71,32 @@ export default function ActivePassScreen() {
     return () => clearInterval(id);
   }, [activeTrip?.status, activeTrip?.hold_expires_at]);
 
+  useEffect(() => {
+    if (!activeTrip || !['CONFIRMED', 'EN_ROUTE_DEPART', 'ON_ISLAND', 'EN_ROUTE_RETURN', 'COMPLETED'].includes(activeTrip.status)) {
+      setParticipantId(null);
+      return;
+    }
+    const fetchParticipant = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const pkgId = activeTrip.escape_packages?.id;
+      if (!pkgId) return;
+      const { data } = await supabase
+        .from('escape_group_participants')
+        .select('id')
+        .eq('package_id', pkgId)
+        .eq('rider_id', session.user.id)
+        .in('status', ['intent_pending', 'confirmed'])
+        .maybeSingle();
+      if (data) setParticipantId(data.id);
+    };
+    fetchParticipant();
+  }, [activeTrip?.status, activeTrip?.escape_packages?.id]);
+
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#C8A96E" />
+        <ActivityIndicator size="large" color={BRAND} />
       </View>
     );
   }
@@ -93,6 +104,7 @@ export default function ActivePassScreen() {
   if (!activeTrip) {
     return (
       <View style={styles.centered}>
+        <Ionicons name="airplane-outline" size={48} color="rgba(255,255,255,0.15)" />
         <Text style={styles.emptyTitle}>No active escape</Text>
         <Text style={styles.emptySub}>Book a G Escape package to see your trip here.</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -132,10 +144,9 @@ export default function ActivePassScreen() {
   };
 
   const handleShare = async () => {
-    const dest = fb?.destination_name ?? 'the Caribbean';
     await Share.share({
       message: buildShareText(),
-      title: `G Escape to ${dest}`,
+      title: `G Escape to ${fb?.destination_name ?? 'the Caribbean'}`,
     });
   };
 
@@ -168,21 +179,17 @@ export default function ActivePassScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-
-        {/* Phase badge */}
         <View style={styles.phaseBadge}>
           <Animated.View style={[styles.phaseDot, { transform: [{ scale: pulseAnim }] }]} />
           <Text style={styles.phaseText}>{phaseLabel}</Text>
         </View>
 
-        {/* Destination title */}
         <Text style={styles.destination}>{fb?.destination_name ?? pkg?.lodging_nodes?.destination_code}</Text>
         <Text style={styles.pkgName}>{pkg?.package_name}</Text>
         {fb?.departure_time && (
           <Text style={styles.departure}>{fmtDate(fb.departure_time)} at {fmtTime(fb.departure_time)}</Text>
         )}
 
-        {/* ── PHASE: ACTIVE_HOLD ── */}
         {status === 'ACTIVE_HOLD' && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Seat hold active</Text>
@@ -192,7 +199,6 @@ export default function ActivePassScreen() {
           </View>
         )}
 
-        {/* ── PHASE: CAPTURED (pooling) ── */}
         {status === 'CAPTURED' && fb && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Flight pooling</Text>
@@ -214,6 +220,7 @@ export default function ActivePassScreen() {
                   <Text style={styles.shareBtnText}>Share link to lock this flight →</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.waBtn} onPress={handleWhatsAppShare}>
+                  <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
                   <Text style={styles.waBtnText}>Send on WhatsApp</Text>
                 </TouchableOpacity>
               </View>
@@ -226,7 +233,6 @@ export default function ActivePassScreen() {
           </View>
         )}
 
-        {/* ── PHASE: CONFIRMED — executive boarding pass ── */}
         {(status === 'CONFIRMED' || status === 'EN_ROUTE_DEPART' || status === 'ON_ISLAND' || status === 'EN_ROUTE_RETURN') && (
           <View style={styles.boardingPass}>
             <View style={styles.bpHeader}>
@@ -234,7 +240,7 @@ export default function ActivePassScreen() {
                 <Text style={styles.bpAirport}>POS</Text>
                 <Text style={styles.bpCity}>Piarco</Text>
               </View>
-              <Ionicons name="airplane-outline" size={22} color="#C8A96E" />
+              <Ionicons name="airplane-outline" size={22} color={BRAND} />
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={styles.bpAirport}>{fb?.destination_code ?? 'TAB'}</Text>
                 <Text style={styles.bpCity}>{fb?.destination_name?.split(' ')[0] ?? 'Destination'}</Text>
@@ -272,7 +278,21 @@ export default function ActivePassScreen() {
           </View>
         )}
 
-        {/* ── 4-leg journey timeline (shown once CONFIRMED) ── */}
+        {status === 'CONFIRMED' && participantId && (
+          <TouchableOpacity
+            style={styles.passportCta}
+            onPress={() => navigation.navigate('PassportSubmission', { participantId })}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="document-text-outline" size={20} color={BRAND} />
+            <View style={styles.passportCtaTextWrap}>
+              <Text style={styles.passportCtaTitle}>Submit Passport Details</Text>
+              <Text style={styles.passportCtaSub}>Required for airline check-in</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={BRAND} />
+          </TouchableOpacity>
+        )}
+
         {itin?.itinerary_legs && itin.itinerary_legs.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Your journey</Text>
@@ -282,7 +302,6 @@ export default function ActivePassScreen() {
           </View>
         )}
 
-        {/* ── PHASE: ON_ISLAND extras ── */}
         {status === 'ON_ISLAND' && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>You're on island</Text>
@@ -292,20 +311,19 @@ export default function ActivePassScreen() {
             </Text>
             <TouchableOpacity style={styles.addOnRow} onPress={() => handleAddOn('Jet ski excursion')}>
               <Text style={styles.addOnLabel}>Jet ski excursion</Text>
-              <Text style={styles.addOnCta}>Book →</Text>
+              <Ionicons name="chevron-forward" size={14} color={BRAND} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.addOnRow} onPress={() => handleAddOn('Private chef dinner')}>
               <Text style={styles.addOnLabel}>Private chef dinner</Text>
-              <Text style={styles.addOnCta}>Book →</Text>
+              <Ionicons name="chevron-forward" size={14} color={BRAND} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.addOnRow} onPress={() => handleAddOn('Island tour (half day)')}>
               <Text style={styles.addOnLabel}>Island tour (half day)</Text>
-              <Text style={styles.addOnCta}>Book →</Text>
+              <Ionicons name="chevron-forward" size={14} color={BRAND} />
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Booking reference footer */}
         <View style={styles.footer}>
           <Text style={styles.footerRef}>Ref {activeTrip.booking_ref ?? '—'}</Text>
           <Text style={styles.footerSub}>G Escape · {fmt(activeTrip.total_price_cents)}</Text>
@@ -335,11 +353,11 @@ const LegRow: React.FC<{ leg: ItineraryLeg; isLast: boolean }> = ({ leg, isLast 
   return (
     <View style={styles.legRow}>
       <View style={styles.legLeft}>
-        <View style={[styles.legDot, { backgroundColor: LEG_STATUS_COLOR[leg.status] ?? '#333' }]} />
+        <View style={[styles.legDot, { backgroundColor: LEG_STATUS_COLOR[leg.status] ?? 'rgba(255,255,255,0.2)' }]} />
         {!isLast && <View style={styles.legLine} />}
       </View>
       <View style={styles.legContent}>
-        <Ionicons name={LEG_ICON_NAMES[leg.service_type] ?? 'ellipse-outline'} size={18} color="#C8A96E" style={styles.legIcon} />
+        <Ionicons name={LEG_ICON_NAMES[leg.service_type] ?? 'ellipse-outline'} size={16} color={BRAND} />
         <View style={styles.legInfo}>
           <Text style={styles.legLabel}>{label}</Text>
           {leg.scheduled_start && (
@@ -357,88 +375,90 @@ const LegRow: React.FC<{ leg: ItineraryLeg; isLast: boolean }> = ({ leg, isLast 
 };
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1, backgroundColor: '#0C0C0F' },
+  safe:            { flex: 1, backgroundColor: '#0B0E12' },
   scroll:          { flex: 1, paddingHorizontal: 20 },
-  centered:        { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0C0C0F', padding: 30 },
-  emptyTitle:      { color: '#FFF', fontSize: 20, fontWeight: '600', marginBottom: 8 },
-  emptySub:        { color: '#555', fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  backBtn:         { marginTop: 24, backgroundColor: '#C8A96E', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  backBtnText:     { color: '#000', fontWeight: '700' },
+  centered:        { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0E12', padding: 30 },
+  emptyTitle:      { color: '#F2F5F8', fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  emptySub:        { color: 'rgba(242,245,248,0.42)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  backBtn:         { marginTop: 24, backgroundColor: BRAND, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
+  backBtnText:     { color: '#0B0E12', fontWeight: '700' },
 
   phaseBadge:      { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8, gap: 8 },
-  phaseDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: '#C8A96E' },
-  phaseText:       { color: '#C8A96E', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  destination:     { fontSize: 30, fontWeight: '700', color: '#FFF', letterSpacing: -0.5 },
-  pkgName:         { fontSize: 15, color: '#888', marginTop: 2 },
-  departure:       { fontSize: 13, color: '#555', marginTop: 2, marginBottom: 20 },
+  phaseDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND },
+  phaseText:       { color: BRAND, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  destination:     { fontSize: 30, fontWeight: '800', color: '#F2F5F8', letterSpacing: -0.5 },
+  pkgName:         { fontSize: 15, color: 'rgba(242,245,248,0.6)', marginTop: 2 },
+  departure:       { fontSize: 13, color: 'rgba(242,245,248,0.42)', marginTop: 2, marginBottom: 20 },
 
-  card:            { backgroundColor: '#141418', borderRadius: 14, padding: 18, marginBottom: 16,
-                     borderWidth: 1, borderColor: '#1E1E26' },
-  cardTitle:       { color: '#C8A96E', fontSize: 11, fontWeight: '700', letterSpacing: 1,
+  card:            { backgroundColor: '#13171D', borderRadius: 16, padding: 18, marginBottom: 16,
+                     borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  cardTitle:       { color: BRAND, fontSize: 11, fontWeight: '700', letterSpacing: 0.5,
                      textTransform: 'uppercase', marginBottom: 14 },
-  cardSub:         { color: '#666', fontSize: 13, marginTop: 8 },
-  cardSub2:        { color: '#888', fontSize: 13, marginTop: 4, fontWeight: '600' },
+  cardSub:         { color: 'rgba(242,245,248,0.5)', fontSize: 13, marginTop: 8 },
+  cardSub2:        { color: 'rgba(242,245,248,0.6)', fontSize: 13, marginTop: 4, fontWeight: '600' },
 
-  holdCountdown:   { color: '#FFF', fontSize: 48, fontWeight: '200', letterSpacing: -2, marginVertical: 8 },
+  holdCountdown:   { color: '#F2F5F8', fontSize: 48, fontWeight: '200', letterSpacing: -2, marginVertical: 8 },
 
   poolRow:         { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 12 },
-  poolFraction:    { color: '#FFF', fontSize: 28, fontWeight: '700' },
-  poolSub:         { color: '#555', fontSize: 14 },
-  progressTrack:   { height: 4, backgroundColor: '#1E1E26', borderRadius: 2, overflow: 'hidden', marginBottom: 10 },
-  progressFill:    { height: 4, backgroundColor: '#C8A96E', borderRadius: 2 },
-  poolNeed:        { color: '#777', fontSize: 12 },
-  shareBtn:        { backgroundColor: '#1A1A24', borderRadius: 8, paddingVertical: 12,
-                     alignItems: 'center', borderWidth: 1, borderColor: '#2D2D40' },
-  shareBtnText:    { color: '#C8A96E', fontWeight: '600', fontSize: 13 },
-  waBtn:           { backgroundColor: '#1A2E22', borderRadius: 8, paddingVertical: 12,
-                     alignItems: 'center', borderWidth: 1, borderColor: '#25D36633' },
+  poolFraction:    { color: '#F2F5F8', fontSize: 28, fontWeight: '700' },
+  poolSub:         { color: 'rgba(242,245,248,0.42)', fontSize: 14 },
+  progressTrack:   { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginBottom: 10 },
+  progressFill:    { height: 4, backgroundColor: BRAND, borderRadius: 2 },
+  poolNeed:        { color: 'rgba(242,245,248,0.5)', fontSize: 12 },
+  shareBtn:        { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, paddingVertical: 12,
+                     alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  shareBtnText:    { color: BRAND, fontWeight: '600', fontSize: 13 },
+  waBtn:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                     backgroundColor: 'rgba(37,211,102,0.08)', borderRadius: 12, paddingVertical: 12,
+                     borderWidth: 1, borderColor: 'rgba(37,211,102,0.2)' },
   waBtnText:       { color: '#25D366', fontWeight: '600', fontSize: 13 },
-  deadlineNote:    { color: '#3A3A50', fontSize: 11, marginTop: 10, textAlign: 'center' },
+  deadlineNote:    { color: 'rgba(242,245,248,0.25)', fontSize: 11, marginTop: 10, textAlign: 'center' },
 
-  // Boarding pass
-  boardingPass:    { backgroundColor: '#0F1018', borderRadius: 14, marginBottom: 16, overflow: 'hidden',
-                     borderWidth: 1, borderColor: '#2A2A3A' },
+  passportCta:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(29,224,230,0.06)',
+                     borderRadius: 14, padding: 16, marginBottom: 16, gap: 12,
+                     borderWidth: 1, borderColor: 'rgba(29,224,230,0.15)' },
+  passportCtaTextWrap: { flex: 1 },
+  passportCtaTitle: { color: '#F2F5F8', fontSize: 14, fontWeight: '700' },
+  passportCtaSub:  { color: 'rgba(242,245,248,0.42)', fontSize: 11, marginTop: 2 },
+
+  boardingPass:    { backgroundColor: '#0F1115', borderRadius: 16, marginBottom: 16, overflow: 'hidden',
+                     borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   bpHeader:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
                      paddingHorizontal: 20, paddingVertical: 20 },
-  bpAirport:       { color: '#FFF', fontSize: 26, fontWeight: '200', letterSpacing: 2 },
-  bpCity:          { color: '#444', fontSize: 11 },
-  bpArrow:         { color: '#C8A96E', fontSize: 22 },
-  bpDivider:       { height: 1, backgroundColor: '#1E1E2E', marginHorizontal: 0, position: 'relative' },
+  bpAirport:       { color: '#F2F5F8', fontSize: 26, fontWeight: '200', letterSpacing: 2 },
+  bpCity:          { color: 'rgba(242,245,248,0.35)', fontSize: 11 },
+  bpDivider:       { height: 1, marginHorizontal: 0, position: 'relative' },
   bpNotch:         { position: 'absolute', left: -8, top: -8, width: 16, height: 16,
-                     borderRadius: 8, backgroundColor: '#0C0C0F' },
-  bpLine:          { borderTopWidth: 1, borderTopColor: '#1E1E2E', borderStyle: 'dashed', flex: 1 },
+                     borderRadius: 8, backgroundColor: '#0B0E12' },
+  bpLine:          { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', borderStyle: 'dashed', flex: 1 },
   bpBody:          { padding: 20, flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   bpField:         { minWidth: 90 },
-  bpFieldLabel:    { color: '#333', fontSize: 9, fontWeight: '700', letterSpacing: 1,
+  bpFieldLabel:    { color: 'rgba(242,245,248,0.3)', fontSize: 9, fontWeight: '700', letterSpacing: 1,
                      textTransform: 'uppercase', marginBottom: 4 },
-  bpFieldValue:    { color: '#CCC', fontSize: 14, fontWeight: '600' },
-  qrPlaceholder:   { backgroundColor: '#111', borderRadius: 10, padding: 16, alignItems: 'center',
-                     borderWidth: 1, borderColor: '#222' },
-  qrToken:         { color: '#C8A96E', fontSize: 18, fontWeight: '700', letterSpacing: 4, fontFamily: 'monospace' },
-  qrSub:           { color: '#333', fontSize: 10, marginTop: 4 },
+  bpFieldValue:    { color: 'rgba(242,245,248,0.7)', fontSize: 14, fontWeight: '600' },
+  qrPlaceholder:   { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 16, alignItems: 'center',
+                     borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  qrToken:         { color: BRAND, fontSize: 18, fontWeight: '700', letterSpacing: 4, fontFamily: 'monospace' },
+  qrSub:           { color: 'rgba(242,245,248,0.25)', fontSize: 10, marginTop: 4 },
 
-  // Leg timeline
   legRow:          { flexDirection: 'row', marginBottom: 4 },
   legLeft:         { width: 20, alignItems: 'center' },
   legDot:          { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
-  legLine:         { width: 2, flex: 1, backgroundColor: '#1E1E26', marginTop: 4, marginBottom: -4 },
+  legLine:         { width: 2, flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginTop: 4, marginBottom: -4 },
   legContent:      { flex: 1, flexDirection: 'row', alignItems: 'flex-start', paddingBottom: 18,
                      paddingLeft: 10, gap: 8 },
-  legIcon:         { fontSize: 16, marginTop: 2 },
   legInfo:         { flex: 1 },
-  legLabel:        { color: '#CCC', fontSize: 13, fontWeight: '500' },
-  legTime:         { color: '#555', fontSize: 11, marginTop: 2 },
+  legLabel:        { color: 'rgba(242,245,248,0.7)', fontSize: 13, fontWeight: '500' },
+  legTime:         { color: 'rgba(242,245,248,0.35)', fontSize: 11, marginTop: 2 },
   legStatusBadge:  { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   legStatusText:   { fontSize: 10, fontWeight: '600', textTransform: 'uppercase' },
 
-  // On-island add-ons
-  onIslandText:    { color: '#888', fontSize: 14, lineHeight: 20, marginBottom: 14 },
-  addOnRow:        { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12,
-                     borderTopWidth: 1, borderTopColor: '#1E1E26' },
-  addOnLabel:      { color: '#CCC', fontSize: 14 },
-  addOnCta:        { color: '#C8A96E', fontSize: 13, fontWeight: '600' },
+  onIslandText:    { color: 'rgba(242,245,248,0.5)', fontSize: 14, lineHeight: 20, marginBottom: 14 },
+  addOnRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12,
+                     borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.04)' },
+  addOnLabel:      { color: 'rgba(242,245,248,0.6)', fontSize: 14 },
 
   footer:          { alignItems: 'center', paddingVertical: 20 },
-  footerRef:       { color: '#333', fontSize: 12, fontFamily: 'monospace', letterSpacing: 2 },
-  footerSub:       { color: '#2A2A35', fontSize: 11, marginTop: 2 },
+  footerRef:       { color: 'rgba(242,245,248,0.2)', fontSize: 12, fontFamily: 'monospace', letterSpacing: 2 },
+  footerSub:       { color: 'rgba(242,245,248,0.15)', fontSize: 11, marginTop: 2 },
 });

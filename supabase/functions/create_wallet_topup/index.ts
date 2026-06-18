@@ -81,8 +81,10 @@ Deno.serve(async (req: Request) => {
             payment_method_types: ["card"],
         };
 
+        // Deterministic idempotency key (user + amount + day, repeated calls within same day are idempotent)
+        const today = new Date().toISOString().split('T')[0];
         const stripeOptions: any = {
-            idempotencyKey: `topup_${user.id}_${amount_cents}_${Date.now()}`
+            idempotencyKey: `topup_${user.id}_${amount_cents}_${today}`
         };
 
         const paymentIntent = await stripe.paymentIntents.create(createParams, stripeOptions);

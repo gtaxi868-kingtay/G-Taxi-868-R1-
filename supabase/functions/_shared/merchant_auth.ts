@@ -5,21 +5,26 @@ export const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-merchant-key',
 }
 
+async function sha256Hex(input: string): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function verifyMerchantKey(req: Request, requiredScope: string) {
-  const apiKey = req.headers.get('x-merchant-key')
-  if (!apiKey) throw new Error("Missing Merchant API Key")
+  const rawKey = req.headers.get('x-merchant-key')
+  if (!rawKey) throw new Error("Missing Merchant API Key")
 
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   )
 
-  // In production, we would use a more sophisticated hash (Argon2/bcrypt)
-  // For this implementation, we use a standard hash comparison
+  // Hash the incoming key and compare against stored hash
+  const keyHash = await sha256Hex(rawKey);
   const { data: keyData, error } = await supabaseAdmin
     .from('merchant_api_keys')
     .select('merchant_id, scopes, is_active')
-    .eq('key_hash', apiKey) // Assuming the header contains the hash for simplicity here
+    .eq('key_hash', keyHash)
     .single()
 
   if (error || !keyData) throw new Error("Invalid Merchant API Key")

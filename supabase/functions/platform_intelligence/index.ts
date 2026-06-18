@@ -13,6 +13,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -49,6 +50,17 @@ async function activateScheduledTransfers(supabase: ReturnType<typeof createClie
         .lte("scheduled_for", windowCutoff);
 
     if (error || !rides?.length) return;
+
+    // AMODEI CIRCUIT BREAKER
+    if (rides.length > 5) {
+        await supabase.from("system_alerts").insert({
+            type: "RATE_LIMIT_BURST",
+            title: "Anomaly Detected: activateScheduledTransfers",
+            details: { message: `Attempted to activate ${rides.length} scheduled transfers at once. Circuit breaker tripped.` },
+            severity: "CRITICAL"
+        }).catch(() => null);
+        throw new Error("Circuit breaker tripped: activateScheduledTransfers exceeded 5 row safety limit.");
+    }
 
     for (const ride of rides) {
         await supabase
@@ -748,6 +760,18 @@ Context:
             if (choice.finish_reason === "stop" || !assistantMsg.tool_calls?.length) {
                 continueLoop = false;
             } else if (choice.finish_reason === "tool_calls" || assistantMsg.tool_calls?.length) {
+                
+                // AMODEI CIRCUIT BREAKER: AI Tool Spam limit
+                if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 5) {
+                    await supabase.from("system_alerts").insert({
+                        type: "RATE_LIMIT_BURST",
+                        title: "Anomaly Detected: AI Tool Spam",
+                        details: { message: `AI attempted to execute ${assistantMsg.tool_calls.length} tools in one step. Circuit breaker tripped.` },
+                        severity: "CRITICAL"
+                    }).catch(() => null);
+                    throw new Error("Circuit breaker tripped: AI exceeded 5 concurrent tool calls safety limit.");
+                }
+
                 for (const toolCall of assistantMsg.tool_calls ?? []) {
                     let parsedInput: Record<string, unknown> = {};
                     try { parsedInput = JSON.parse(toolCall.function.arguments); } catch { /* empty args */ }

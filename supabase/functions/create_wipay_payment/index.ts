@@ -132,7 +132,7 @@ async function serveApi(req: Request): Promise<Response> {
     }
 
     const amountDollars = (amountCents / 100).toFixed(2);
-    const orderId = `wipay_${ride.id}_${Date.now()}`;
+    const orderId = `wipay_${ride.id}_${ride.idempotency_key || ride.id}`;
     const webhookUrl = `${SUPABASE_URL}/functions/v1/wipay_webhook`;
 
     const formFields = {

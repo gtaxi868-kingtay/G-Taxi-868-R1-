@@ -118,7 +118,7 @@ serve(async (req: Request) => {
         );
     }
 
-    const orderId = `gtaxi-${ride_id.slice(0, 8)}-${Date.now()}`;
+    const orderId = `gtaxi-${ride_id.slice(0, 8)}-${ride_id}`;
     const totalTTD = (amount_cents / 100).toFixed(2);
 
     // Insert pending wipay_transaction record
