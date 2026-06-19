@@ -35,7 +35,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
 
     const subTotal = cart.reduce((sum, i) => sum + i.product.price_cents * i.quantity, 0);
-    const deliveryFee = 500;
+    const deliveryFee = merchant?.delivery_fee_cents ?? 500;
     const total = subTotal + deliveryFee;
 
     const updateQty = (productId: string, delta: number) => {
@@ -61,6 +61,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                     rider_id: user.id,
                     merchant_id: merchant.id,
                     total_cents: total,
+                    delivery_fee_cents: deliveryFee,
                     status: 'pending',
                     payment_method: paymentMethod === 'cash' ? 'cash' : 'card',
                     payment_status: paymentMethod === 'cash' ? 'cash_on_delivery' : 'unpaid',

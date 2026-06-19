@@ -54,17 +54,21 @@ serve(async (req) => {
   }
 
   try {
+    // Conditional auth: cron daemon sends no header → skip JWT check
+    // Admin calls with JWT → validate admin role
     const authHeader = req.headers.get("Authorization") || "";
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      global: { headers: { Authorization: authHeader } }
-    });
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    const { data: profile } = await supabaseClient.from("profiles").select("role").eq("id", user.id).single();
-    if (profile?.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Admin only" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (authHeader) {
+      const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        global: { headers: { Authorization: authHeader } }
+      });
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const { data: profile } = await supabaseClient.from("profiles").select("role").eq("id", user.id).single();
+      if (profile?.role !== "admin") {
+        return new Response(JSON.stringify({ error: "Admin only" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     if (!AMADEUS_API_KEY || !AMADEUS_API_SECRET) {

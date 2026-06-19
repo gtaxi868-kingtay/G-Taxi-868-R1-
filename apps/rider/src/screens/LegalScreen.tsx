@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,19 +35,46 @@ export function LegalScreen({ navigation }: any) {
                 </Txt>
             </View>
 
-            <ScrollView 
+            <ScrollView
                 contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 40 }]}
                 showsVerticalScrollIndicator={false}
             >
+                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}>
+                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
+                        Terms of Service
+                    </Txt>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
+                        Read the full Terms of Service — governing your use of the G-Taxi platform.
+                        G-Taxi is a technology platform, not a transportation carrier.
+                        Governed by the laws of Trinidad and Tobago.
+                    </Txt>
+                    <View style={s.docLinkRow}>
+                        <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}>
+                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
+                        Privacy Policy
+                    </Txt>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
+                        How we collect, use, and protect your personal data. Compliant with the
+                        Data Protection Act, 2011 of Trinidad and Tobago and applicable Caribbean data protection laws.
+                    </Txt>
+                    <View style={s.docLinkRow}>
+                        <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>
+                    </View>
+                </TouchableOpacity>
+
                 <GlassCard style={s.card}>
                     <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
                         DATA SECURITY & PRIVACY
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
-                        G-Taxi utilizes state-of-the-art encryption to safeguard your movement data. We collect location telemetry exclusively for driver matching and security auditing. Your biometric and payment data is handled through decentralized encrypted gateways and never touches our core servers.
+                        G-Taxi utilizes encryption to safeguard your movement data. We collect location telemetry exclusively for driver matching and security auditing. Your biometric and payment data is handled through encrypted gateways.
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
-                        You retain total sovereignty over your dataset and may trigger a permanent "Right to be Forgotten" wipe through the Executive Settings at any time.
+                        You retain control over your data and may request permanent deletion through your account settings or by contacting privacy@gtaxi.tt.
                     </Txt>
                 </GlassCard>
 
@@ -56,16 +83,19 @@ export function LegalScreen({ navigation }: any) {
                         NETWORK CONDUCT
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
-                        By engaging with the G-Taxi ecosystem, you agree to our standard of Professionalism and Safety. Operators (Drivers) are independent nodes in the logistics mesh.
+                        By engaging with the G-Taxi ecosystem, you agree to our standard of Professionalism and Safety. Service Providers (Drivers, Merchants, Couriers) are independent operators.
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
-                        Platform fees are dynamically calculated based on network load and computational overhead, typically ranging from 18% to 22.5%. Any violation of the Network Trust Protocol will result in immediate and permanent revocation of access.
+                        Platform fees vary by service vertical and are disclosed before each transaction. Violations of the Platform's conduct standards may result in account suspension or termination.
                     </Txt>
                 </GlassCard>
 
                 <View style={s.footer}>
-                    <Txt variant="caption" color="#AEA9B5" center style={{ opacity: 0.3 }}>
-                        G-TAXI EMPIRE v1.0.0 • SYSTEM ACTIVE
+                    <Txt variant="caption" color="#AEA9B5" center style={{ opacity: 0.4 }}>
+                        Terms governed by the laws of Trinidad and Tobago.
+                    </Txt>
+                    <Txt variant="caption" color="#AEA9B5" center style={{ opacity: 0.3, marginTop: 4 }}>
+                        Caribbean-region scalable. Last updated 2026-06-18.
                     </Txt>
                 </View>
             </ScrollView>
@@ -115,5 +145,18 @@ const s = StyleSheet.create({
     footer: {
         marginTop: 40,
         paddingBottom: 20,
-    }
+    },
+    docLinkCard: {
+        marginBottom: 20,
+        padding: 24,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(6,182,212,0.2)',
+        backgroundColor: 'rgba(6,182,212,0.05)',
+    },
+    docLinkRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+    },
 });

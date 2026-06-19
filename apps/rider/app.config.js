@@ -108,6 +108,8 @@ export default {
       eas: {
         projectId: "f4f49272-bb2c-4a6d-8a35-caff959079dc",
       },
+      legal_terms_url: "https://gtaxi.tt/legal/terms",
+      legal_privacy_url: "https://gtaxi.tt/legal/privacy",
     },
   },
 }

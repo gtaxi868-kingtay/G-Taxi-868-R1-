@@ -63,6 +63,8 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const [stops, setStops] = useState<any[]>([]);
     const [isQuietRide, setIsQuietRide] = useState(false);
     const [hasMerchantPhoto, setHasMerchantPhoto] = useState(false);
+    const [cashConfirmed, setCashConfirmed] = useState(false);
+    const [cashConfirming, setCashConfirming] = useState(false);
 
     let intakeCh: any = null;
 
@@ -405,6 +407,79 @@ export function ActiveTripScreen({ route, navigation }: any) {
         const earnings = payoutCents != null
             ? (payoutCents / 100).toFixed(2)
             : '--';
+        const isCash = ride?.payment_method === 'cash' || ride?.payment_method === null || ride?.payment_method === undefined;
+
+        if (isCash && !cashConfirmed) {
+            return (
+                <View style={[s.root, { justifyContent: 'center', padding: 24 }]}>
+                    <LinearGradient
+                        colors={['#1a3a2a', '#0d2818']}
+                        style={StyleSheet.absoluteFillObject}
+                    />
+                    <BlurView intensity={60} tint="dark" style={[s.completedCardBlur, glassSurface(60, 0.2)]}>
+                        <View style={s.completedCardInner}>
+                            <View style={[s.successCircle, { borderColor: tokens.colors.warning }]}>
+                                <Ionicons name="cash-outline" size={44} color={tokens.colors.warning} />
+                            </View>
+                            <Text style={s.completedTitle}>Cash Collected?</Text>
+                            <Text style={s.cashPromptText}>
+                                Did the rider pay you TTD ${earnings} in cash?{'\n'}
+                                Confirm to complete settlement.
+                            </Text>
+                            <View style={s.cashConfirmActions}>
+                                <TouchableOpacity
+                                    style={[s.dashBtn, { flex: 1 }]}
+                                    onPress={async () => {
+                                        setCashConfirming(true);
+                                        try {
+                                            const { data: orderData } = await supabase
+                                                .from('orders')
+                                                .select('id')
+                                                .eq('ride_id', rideId)
+                                                .maybeSingle();
+                                            if (orderData?.id) {
+                                                await supabase.functions.invoke('confirm_cash_collection', {
+                                                    body: { order_id: orderData.id }
+                                                });
+                                            } else {
+                                                const { error } = await supabase.functions.invoke('update_ride_status', {
+                                                    body: { ride_id: rideId, cash_confirmed: true }
+                                                });
+                                                if (error) console.error('cash confirm fallback failed:', error);
+                                            }
+                                        } catch (err) {
+                                            console.error('cash confirmation error:', err);
+                                        } finally {
+                                            setCashConfirming(false);
+                                            setCashConfirmed(true);
+                                        }
+                                    }}
+                                    accessibilityLabel="Confirm cash collected"
+                                    accessibilityRole="button"
+                                >
+                                    <LinearGradient
+                                        colors={[tokens.colors.warning, '#e68a00']}
+                                        style={s.dashBtnGradient}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 1 }}
+                                    >
+                                        {cashConfirming ? (
+                                            <ActivityIndicator color={tokens.colors.bg} />
+                                        ) : (
+                                            <>
+                                                <Ionicons name="cash-outline" size={18} color={tokens.colors.bg} style={{ marginRight: 6 }} />
+                                                <Text style={s.dashBtnText}>CONFIRM CASH COLLECTED</Text>
+                                            </>
+                                        )}
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </BlurView>
+                </View>
+            );
+        }
+
         return (
             <View style={[s.root, { justifyContent: 'center', padding: 24 }]}>
                 <LinearGradient
@@ -669,5 +744,19 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.06)',
         ...ghostBorder(0.2),
         marginTop: 1,
+    },
+    cashPromptText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: tokens.colors.textMuted,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginTop: 8,
+        marginBottom: 4,
+        fontFamily: 'SpaceGrotesk-Bold',
+    },
+    cashConfirmActions: {
+        width: '100%',
+        marginTop: 20,
     },
 });

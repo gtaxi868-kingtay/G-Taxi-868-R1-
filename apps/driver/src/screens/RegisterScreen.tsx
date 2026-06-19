@@ -250,9 +250,19 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                                 </View>
                                 <Text style={{ flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' }}>
                                     I accept the{' '}
-                                    <Text style={{ color: VOICES.driver.accent, fontWeight: '700' }}>Terms of Service</Text>
-                                        {' '}and{' '}
-                                    <Text style={{ color: VOICES.driver.accent, fontWeight: '700' }}>Privacy Policy</Text>
+                                    <Text
+                                        style={{ color: VOICES.driver.accent, fontWeight: '700' }}
+                                        onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}
+                                    >
+                                        Terms of Service
+                                    </Text>
+                                    {' '}and{' '}
+                                    <Text
+                                        style={{ color: VOICES.driver.accent, fontWeight: '700' }}
+                                        onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}
+                                    >
+                                        Privacy Policy
+                                    </Text>
                                 </Text>
                             </TouchableOpacity>
 

@@ -32,6 +32,62 @@ Deno.serve(async (req: Request) => {
 
   console.log("[WiPay Webhook] Callback received:", { order_id: orderId, transaction_id: txnId, status, error: errorMsg });
 
+  if (!orderId) {
+    return serveHtml("Error", "Missing order_id in callback", "error");
+  }
+
+  // ── PAYOUT CALLBACK ────────────────────────────────────────
+  // orderId format: "payout_<request_id_prefix>_<timestamp>"
+  if (orderId.startsWith("payout_")) {
+    const { data: payout } = await supabaseAdmin
+      .from("wipay_payouts")
+      .select("id, status")
+      .eq("wipay_reference", orderId)
+      .maybeSingle();
+
+    if (!payout) {
+      console.error("[WiPay Webhook] Payout record not found for order_id:", orderId);
+      return serveHtml("Error", "Payout record not found", "error");
+    }
+
+    if (status === "success" || status === "completed") {
+      await supabaseAdmin
+        .from("wipay_payouts")
+        .update({
+          status: "completed",
+          wipay_transaction_id: txnId || null,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", payout.id);
+
+      await supabaseAdmin
+        .from("payout_requests")
+        .update({ status: "completed", processed_at: new Date().toISOString() })
+        .eq("id", payout.payout_request_id)
+        .catch(() => {});
+
+      console.log("[WiPay Webhook] Payout completed:", { payout_id: payout.id, transaction_id: txnId });
+      return serveHtml("Payout Successful", "Driver payout has been sent to their bank account.", "success");
+    }
+
+    if (status === "cancelled" || status === "failed" || errorMsg) {
+      await supabaseAdmin
+        .from("wipay_payouts")
+        .update({
+          status: "failed",
+          raw_response: JSON.stringify({ error: errorMsg || `Status: ${status}` }),
+          failed_at: new Date().toISOString(),
+        })
+        .eq("id", payout.id);
+
+      console.error("[WiPay Webhook] Payout failed:", { payout_id: payout.id, status, error: errorMsg });
+      return serveHtml("Payout Failed", errorMsg || `Payout status: ${status || "unknown"}.`, "error");
+    }
+
+    return serveHtml("Processing", "Payout is being processed...", "info");
+  }
+
+  // ── PAYMENT SESSION CALLBACK (ride/grocery) ────────────────
   let rideId: string | null = null;
   let userId: string | null = null;
 
@@ -42,10 +98,6 @@ Deno.serve(async (req: Request) => {
       rideId = parsed.ride_id;
       userId = parsed.user_id;
     } catch { }
-  }
-
-  if (!orderId) {
-    return serveHtml("Error", "Missing order_id in callback", "error");
   }
 
   const { data: session } = await supabaseAdmin
@@ -59,22 +111,15 @@ Deno.serve(async (req: Request) => {
   }
 
   if (status === "success" || status === "completed") {
-    const updates: Record<string, unknown> = {
-      payment_status: "captured",
-    };
-    if (txnId) {
-      updates.wipay_transaction_id = txnId;
-    }
+    const updates: Record<string, unknown> = { payment_status: "captured" };
+    if (txnId) updates.wipay_transaction_id = txnId;
 
     if (rideId) {
       const { error: updateError } = await supabaseAdmin
         .from("rides")
         .update(updates)
         .eq("id", rideId);
-
-      if (updateError) {
-        console.error("WiPay webhook: failed to update ride:", updateError);
-      }
+      if (updateError) console.error("WiPay webhook: failed to update ride:", updateError);
     }
 
     if (session) {

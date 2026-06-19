@@ -100,16 +100,21 @@ serve(async (req) => {
       .maybeSingle();
 
     const defaultService = (kiosk.default_services || ['transport'])[0];
+    const dispatchableTasks = ['grocery', 'laundry', 'courier'];
+    const deliveryMethod = dispatchableTasks.includes(defaultService) ? 'courier' : null;
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
+        rider_id: user.id,
         merchant_id: kiosk.merchant_id,
         puck_id: tag_uid,
         task_type: defaultService,
         status: 'pending',
+        total_cents: 0,
+        delivery_method: deliveryMethod,
       })
-      .select('id, merchant_id, puck_id, task_type, status, created_at')
+      .select('id, rider_id, merchant_id, puck_id, task_type, status, total_cents, created_at')
       .single();
 
     if (orderError) {

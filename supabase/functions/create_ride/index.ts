@@ -253,7 +253,7 @@ serve(async (req: Request) => {
         }
 
         // Read platform rate from config; falls back to 0.19 / 0.14 (node)
-        const { data: platRateRow } = await supabaseAdmin
+        const { data: platRateRow } = await adminClient
             .from("pricing_config")
             .select("value_cents")
             .eq("key", "PLATFORM_RATE_CENTS")
@@ -264,7 +264,7 @@ serve(async (req: Request) => {
         const hasNode = !!(kiosk_id || billed_to_merchant_id);
         const driverSharePct = 1 - defaultPlatRate;
         // Read node commission spread from pricing_config; fallback to 0.05
-        const { data: nodeSpreadRow } = await supabaseAdmin
+        const { data: nodeSpreadRow } = await adminClient
             .from("pricing_config")
             .select("value_cents")
             .eq("key", "NODE_COMMISSION_SPREAD_CENTS")
@@ -357,6 +357,33 @@ serve(async (req: Request) => {
                 .update({ vendor_node_id: kiosk_id })
                 .eq("id", newRideId)
                 .catch((err) => console.error("vendor_node_id tag failed (non-fatal):", err));
+
+            // Link the NFC order to this ride: find pending order for this rider at the kiosk's merchant
+            const { data: nfcKiosk } = await adminClient
+                .from("kiosk_nodes")
+                .select("merchant_id")
+                .eq("id", kiosk_id)
+                .single()
+                .catch(() => ({ data: null }));
+
+            if (nfcKiosk?.merchant_id) {
+                const { data: nfcOrder } = await adminClient
+                    .from("orders")
+                    .select("id")
+                    .eq("rider_id", rider_id)
+                    .eq("merchant_id", nfcKiosk.merchant_id)
+                    .eq("status", "pending")
+                    .maybeSingle()
+                    .catch(() => ({ data: null }));
+
+                if (nfcOrder?.id) {
+                    await adminClient
+                        .from("orders")
+                        .update({ ride_id: newRideId, total_cents: fareCents })
+                        .eq("id", nfcOrder.id)
+                        .catch((err) => console.error("NFC order link failed (non-fatal):", err));
+                }
+            }
         }
 
         if (stops && stops.length > 0) {

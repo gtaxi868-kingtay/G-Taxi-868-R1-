@@ -8,6 +8,7 @@ import Slider from '@react-native-community/slider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { useStripe } from '@stripe/stripe-react-native';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
@@ -26,9 +27,11 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
     const { service } = route.params as { service: ServiceType };
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
+    const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
     const [weight, setWeight] = useState(5);
     const [loading, setLoading] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
 
     const priceCents = Math.round(service.baseRate * weight);
 
@@ -38,36 +41,74 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
         setLoading(true);
 
         try {
-            const { data: order, error } = await supabase
+            const { data: order, error: orderErr } = await supabase
                 .from('orders')
                 .insert({
                     rider_id: user.id,
                     total_cents: priceCents,
                     status: 'pending',
+                    payment_method: paymentMethod === 'cash' ? 'cash' : 'card',
+                    payment_status: paymentMethod === 'cash' ? 'cash_on_delivery' : 'unpaid',
                     delivery_method: 'laundry_pickup',
                 })
                 .select('id')
                 .single();
 
-            if (error) throw error;
+            if (orderErr) throw orderErr;
 
-            Alert.alert(
-                '✅ Laundry Scheduled!',
-                `${service.label} for ~${weight} lbs.\nTotal: $${(priceCents / 100).toFixed(2)} TTD\nOrder: ${order.id.slice(0, 8).toUpperCase()}`,
-                [
-                    {
-                        text: 'Track Order',
-                        onPress: () => navigation.navigate('LaundryOrderStatus', { orderId: order.id, service, weight, priceCents }),
-                    },
-                    { text: 'Done', onPress: () => navigation.navigate('Home') },
-                ]
-            );
+            if (paymentMethod === 'card') {
+                const { data: piData, error: piErr } = await supabase.functions.invoke(
+                    'create_order_payment_intent',
+                    { body: { order_id: order.id } }
+                );
+                if (piErr) throw new Error(piErr.message || 'Failed to create payment');
+
+                const { error: initErr } = await initPaymentSheet({
+                    merchantDisplayName: 'G-Taxi Laundry',
+                    paymentIntentClientSecret: piData.clientSecret,
+                    customerId: piData.customer,
+                    customerEphemeralKeySecret: piData.ephemeralKey,
+                    style: 'alwaysDark',
+                });
+                if (initErr) throw initErr;
+
+                const { error: presentErr } = await presentPaymentSheet();
+                if (presentErr) {
+                    Alert.alert('Payment Cancelled', presentErr.message);
+                    setLoading(false);
+                    return;
+                }
+
+                Alert.alert(
+                    '✅ Laundry Scheduled!',
+                    `${service.label} for ~${weight} lbs.\nPaid: $${(priceCents / 100).toFixed(2)} TTD\nOrder: ${order.id.slice(0, 8).toUpperCase()}`,
+                    [
+                        {
+                            text: 'Track Order',
+                            onPress: () => navigation.navigate('LaundryOrderStatus', { orderId: order.id, service, weight, priceCents }),
+                        },
+                        { text: 'Done', onPress: () => navigation.navigate('Home') },
+                    ]
+                );
+            } else {
+                Alert.alert(
+                    '✅ Laundry Scheduled! (Cash on Delivery)',
+                    `${service.label} for ~${weight} lbs.\nTotal: $${(priceCents / 100).toFixed(2)} TTD\nPay driver upon pickup.\nOrder: ${order.id.slice(0, 8).toUpperCase()}`,
+                    [
+                        {
+                            text: 'Track Order',
+                            onPress: () => navigation.navigate('LaundryOrderStatus', { orderId: order.id, service, weight, priceCents }),
+                        },
+                        { text: 'Done', onPress: () => navigation.navigate('Home') },
+                    ]
+                );
+            }
         } catch (err: any) {
             Alert.alert('Booking Failed', err.message || 'Please try again.');
         } finally {
             setLoading(false);
         }
-    }, [user, priceCents, service, weight, navigation]);
+    }, [user, priceCents, service, weight, navigation, paymentMethod, initPaymentSheet, presentPaymentSheet]);
 
     return (
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
@@ -129,6 +170,23 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                 </View>
             </View>
 
+            <View style={s.paymentToggle}>
+                <TouchableOpacity
+                    style={[s.payOption, paymentMethod === 'card' && s.payOptionActive]}
+                    onPress={() => setPaymentMethod('card')}
+                >
+                    <Ionicons name="card-outline" size={18} color={paymentMethod === 'card' ? CYAN : 'rgba(255,255,255,0.4)'} />
+                    <Text style={[s.payOptionText, paymentMethod === 'card' && s.payOptionTextActive]}>Card</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[s.payOption, paymentMethod === 'cash' && s.payOptionActive]}
+                    onPress={() => setPaymentMethod('cash')}
+                >
+                    <Ionicons name="cash-outline" size={18} color={paymentMethod === 'cash' ? CYAN : 'rgba(255,255,255,0.4)'} />
+                    <Text style={[s.payOptionText, paymentMethod === 'cash' && s.payOptionTextActive]}>Cash</Text>
+                </TouchableOpacity>
+            </View>
+
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 20 }]}>
                 <TouchableOpacity style={s.ctaButton} onPress={handleSchedule} disabled={loading} activeOpacity={0.88}>
                     <LinearGradient
@@ -181,6 +239,21 @@ const s = StyleSheet.create({
     features: { gap: 12, paddingVertical: 8 },
     featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     featureText: { fontSize: 14, color: 'rgba(255,255,255,0.7)' },
+    paymentToggle: {
+        flexDirection: 'row', gap: 12, paddingHorizontal: 20, paddingVertical: 12,
+    },
+    payOption: {
+        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        paddingVertical: 14, borderRadius: 16,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        ...ghostBorder(0.1),
+    },
+    payOptionActive: {
+        backgroundColor: 'rgba(6,182,212,0.12)',
+        borderColor: CYAN,
+    },
+    payOptionText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
+    payOptionTextActive: { color: CYAN },
     ctaContainer: { paddingHorizontal: 20, paddingTop: 12 },
     ctaButton: { borderRadius: 20, overflow: 'hidden' },
     ctaGradient: {

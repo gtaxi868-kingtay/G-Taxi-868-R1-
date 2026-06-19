@@ -653,7 +653,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             case 'ride': openDestinationSearch(); break;
             case 'market': navigation.navigate('GroceryStorefront'); break;
             case 'laundry': navigation.navigate('LaundryLanding'); break;
-            case 'escape': navigation.navigate('TravelStorefront'); break;
+            case 'escape': navigation.navigate('EscapeStorefront'); break;
             case 'tap': (navigation.navigate as any)('NfcScan'); break;
             default: break;
         }

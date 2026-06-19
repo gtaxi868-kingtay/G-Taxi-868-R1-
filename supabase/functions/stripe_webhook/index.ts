@@ -161,7 +161,7 @@ Deno.serve(async (req: Request) => {
 
             const { data: order, error: orderErr } = await supabaseAdmin
                 .from("orders")
-                .select("id, merchant_id, total_cents")
+                .select("id, merchant_id, total_cents, delivery_fee_cents")
                 .eq("id", orderId)
                 .single();
 
@@ -185,15 +185,11 @@ Deno.serve(async (req: Request) => {
                 return new Response("Order update failed", { status: 500 });
             }
 
-            // Read platform rate from pricing_config; fallback to 0.19
-            const { data: platRateRow } = await supabaseAdmin
-                .from("pricing_config")
-                .select("value_cents")
-                .eq("key", "PLATFORM_RATE_CENTS_DELIVERY")
-                .maybeSingle()
-                .catch(() => ({ data: null }));
-            const platRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
-            const merchantCutCents = Math.round(order.total_cents * (1 - platRate));
+            // Split: subtotal → merchant (85%), delivery fee → platform margin
+            // Driver paid separately from delivery fee funds when delivery completes
+            const subTotalCents = order.total_cents - (order.delivery_fee_cents ?? 0);
+            const COMMISSION_RATE = 0.15;
+            const merchantCutCents = Math.round(subTotalCents * (1 - COMMISSION_RATE));
             const platformFeeCents = order.total_cents - merchantCutCents;
 
             if (merchantId) {

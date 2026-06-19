@@ -21,6 +21,7 @@ interface Merchant {
     category: string;
     address: string;
     is_active: boolean;
+    delivery_fee_cents: number;
 }
 
 interface RegularItem {
@@ -61,7 +62,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
         try {
             const { data, error } = await supabase
                 .from('merchants')
-                .select('id, name, category, address, is_active')
+                .select('id, name, category, address, is_active, delivery_fee_cents')
                 .eq('is_active', true)
                 .order('name', { ascending: true });
 

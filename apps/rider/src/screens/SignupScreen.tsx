@@ -251,9 +251,13 @@ export function SignupScreen({ navigation }: any) {
                                         </View>
                                         <Text style={s.termsText}>
                                             I accept the{' '}
-                                            <Text style={s.termsLink}>Terms of Service</Text>
+                                            <Text style={s.termsLink} onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}>
+                                                Terms of Service
+                                            </Text>
                                             {' '}and{' '}
-                                            <Text style={s.termsLink}>Privacy Policy</Text>
+                                            <Text style={s.termsLink} onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}>
+                                                Privacy Policy
+                                            </Text>
                                         </Text>
                                     </TouchableOpacity>
 

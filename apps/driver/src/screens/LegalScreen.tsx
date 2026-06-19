@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,18 +22,57 @@ export function LegalScreen({ navigation }: { navigation: any }) {
             </View>
 
             <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 40 }}>
-                <Text style={{ marginBottom: 12, fontSize: 16, fontWeight: '700', color: '#FFF' }}>
-                    Privacy & Telemetry Policy
-                </Text>
-                <Text style={{ marginBottom: 24, lineHeight: 24, fontSize: 14, fontWeight: '400', color: 'rgba(255,255,255,0.6)' }}>
-                    As an operator, G-Taxi requires persistent background location tracking while you are online to dispatch trips effectively. We log ride events for dispute resolution. You may terminate your account and erase your telemetry data permanently via the Profile Settings.
-                </Text>
+                <TouchableOpacity
+                    style={s.docLink}
+                    onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}
+                >
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF', marginBottom: 4 }}>
+                        Terms of Service
+                    </Text>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                        Full Terms of Service governing the G-Taxi platform.
+                        G-Taxi is a technology platform connecting independent providers with clients — not a transportation carrier.
+                    </Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#06B6D4' }}>
+                        View Full Document →
+                    </Text>
+                </TouchableOpacity>
 
-                <Text style={{ marginBottom: 12, fontSize: 16, fontWeight: '700', color: '#FFF' }}>
-                    Platform Terms of Service
-                </Text>
-                <Text style={{ lineHeight: 24, fontSize: 14, fontWeight: '400', color: 'rgba(255,255,255,0.6)' }}>
-                     You are acting as an independent contractor. Financial payouts are handled via the Platform Ledger minus the automated routing fee (19% Pioneer / 22% Standard). Indebted operators below the threshold will face automated dispatch lockouts until the balance is resolved.
+                <TouchableOpacity
+                    style={[s.docLink, { marginTop: 0 }]}
+                    onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}
+                >
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF', marginBottom: 4 }}>
+                        Privacy Policy
+                    </Text>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                        Data collection, processing, and protection. Compliant with the Data Protection Act, 2011 of Trinidad and Tobago.
+                    </Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#06B6D4' }}>
+                        View Full Document →
+                    </Text>
+                </TouchableOpacity>
+
+                <View style={s.summaryCard}>
+                    <Text style={{ marginBottom: 8, fontSize: 15, fontWeight: '700', color: '#FFF' }}>
+                        Independent Contractor Status
+                    </Text>
+                    <Text style={{ lineHeight: 22, fontSize: 13, fontWeight: '400', color: 'rgba(255,255,255,0.6)' }}>
+                        You operate as an independent contractor — not an employee of G-Taxi. You control your hours, routes, and service decisions. Payouts are processed through the Platform Ledger with applicable platform fees deducted. See the full Terms of Service above for complete details.
+                    </Text>
+                </View>
+
+                <View style={s.summaryCard}>
+                    <Text style={{ marginBottom: 8, fontSize: 15, fontWeight: '700', color: '#FFF' }}>
+                        Privacy & Telemetry
+                    </Text>
+                    <Text style={{ lineHeight: 22, fontSize: 13, fontWeight: '400', color: 'rgba(255,255,255,0.6)' }}>
+                        G-Taxi requires background location tracking while you are online for dispatch. Ride events are logged for dispute resolution. You may request account and data deletion via Profile Settings. Full details in our Privacy Policy.
+                    </Text>
+                </View>
+
+                <Text style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.2)', marginTop: 32 }}>
+                    Governed by the laws of Trinidad and Tobago. Caribbean-region scalable. Last updated 2026-06-18.
                 </Text>
             </ScrollView>
         </View>
@@ -44,4 +83,21 @@ const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#0A0718' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 32 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+    docLink: {
+        padding: 20,
+        borderRadius: 16,
+        backgroundColor: 'rgba(6,182,212,0.06)',
+        borderWidth: 1,
+        borderColor: 'rgba(6,182,212,0.15)',
+        marginBottom: 16,
+        marginTop: 8,
+    },
+    summaryCard: {
+        padding: 20,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        marginBottom: 16,
+    },
 });
