@@ -23,7 +23,7 @@ const WARNING = '#F59E0B';
 const ERROR = '#EF4444';
 const SUCCESS = '#00FF94';
 
-const DEFAULT_DRIVER_SHARE = 0.81; // 19% commission (Standard)
+const DEFAULT_DRIVER_SHARE = 0.82; // 82% driver / 15% platform / 3% reserve
 const ARC_SIZE = 180;
 
 function paymentLabel(method: string | null): string {

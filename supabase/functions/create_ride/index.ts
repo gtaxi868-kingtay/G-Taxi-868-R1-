@@ -11,13 +11,6 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
 
-const PRICING = {
-    BASE_FARE_CENTS: 1600,
-    PER_KM_CENTS: 175,
-    PER_MIN_CENTS: 95,
-    MIN_FARE_CENTS: 2200,
-};
-
 const VEHICLE_MULTIPLIERS: Record<string, number> = {
     "Standard": 1.0,
     "XL": 1.5,
@@ -121,6 +114,10 @@ serve(async (req: Request) => {
             guest_name,
             guest_phone,
             billed_to_merchant_id,
+            band_id,
+            carnival_event_id,
+            organizer_id,
+            event_id,
             idempotency_key
         } = body;
 
@@ -163,6 +160,36 @@ serve(async (req: Request) => {
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
+
+        // ASYMMETRIC LOCK: Verify pickup only (supply control). Not a wall.
+        // Dropoff and stops are 100% open island-wide — passengers go anywhere.
+        // If inside active zone: priority mapping, guaranteed driver density.
+        // If outside active zone: ride proceeds normally (standard dispatch).
+        //   The coordinate is tagged as a Demand Signal (seeded_zone).
+        //   This does NOT block the ride — it prioritises Expansion over Exclusion.
+        // FAIL CLOSED: If the DB errors, ride proceeds (no stranding).
+        const { data: pickupVerified } = await adminClient
+            .rpc('is_verified_location', { p_lat: pickup_lat, p_lng: pickup_lng })
+            .catch(() => ({ data: null }));
+
+        const insideActiveZone = pickupVerified === true;
+
+        if (!insideActiveZone) {
+            log("INFO", "Pickup outside active zone — tagging demand signal", { requestId, rider_id, pickup_lat, pickup_lng });
+            await adminClient
+                .rpc('seed_zone', { p_lat: pickup_lat, p_lng: pickup_lng, p_territory_name: 'Demand Signal' })
+                .catch((e: unknown) => console.error("seed_zone (demand signal) failed:", e));
+        }
+        // Dropoff + stops: no verification. Destination utility is open island-wide.
+
+        // Fetch rider level for dispatch priority
+        const { data: progression } = await adminClient
+            .from("rider_progression")
+            .select("level")
+            .eq("rider_id", rider_id)
+            .maybeSingle()
+            .catch(() => ({ data: null }));
+        const riderLevel = progression?.level ?? 0;
 
         const activeStatuses = ["requested", "searching", "assigned", "arrived", "in_progress"];
         const { data: existingRide } = await supabaseClient
@@ -252,31 +279,14 @@ serve(async (req: Request) => {
             );
         }
 
-        // Read platform rate from config; falls back to 0.19 / 0.14 (node)
-        const { data: platRateRow } = await adminClient
-            .from("pricing_config")
-            .select("value_cents")
-            .eq("key", "PLATFORM_RATE_CENTS")
-            .maybeSingle()
-            .catch(() => ({ data: null }));
-        const defaultPlatRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
-
-        const hasNode = !!(kiosk_id || billed_to_merchant_id);
-        const driverSharePct = 1 - defaultPlatRate;
-        // Read node commission spread from pricing_config; fallback to 0.05
-        const { data: nodeSpreadRow } = await adminClient
-            .from("pricing_config")
-            .select("value_cents")
-            .eq("key", "NODE_COMMISSION_SPREAD_CENTS")
-            .maybeSingle()
-            .catch(() => ({ data: null }));
-        const nodeSpread = nodeSpreadRow ? (nodeSpreadRow.value_cents ?? 500) / 10000 : 0.05;
-        const platformSharePct = hasNode ? defaultPlatRate - nodeSpread : defaultPlatRate;
-        const merchantSharePct = hasNode ? nodeSpread : 0.0;
-
-        const driverPayoutCents = Math.floor(fareCents * driverSharePct);
-        const platformRevenueCents = Math.floor(fareCents * platformSharePct);
-        const merchantRevenueCents = Math.floor(fareCents * merchantSharePct);
+        // Canonical 82/15/3 splits enforced by trigger tr_ensure_fare_waterfall.
+        // p_driver_payout_cents → rides.driver_payout_cents (overwritten by trigger — pass 0).
+        // p_driver_cut / p_platform_cut / p_merchant_cut → revenue_splits (not overwritten).
+        const platformFee = Math.round(fareCents * 0.15);
+        const driverShareCents = fareCents - platformFee - Math.round(fareCents * 0.03);
+        const driverPayoutCents = 0; // trigger overwrites this
+        const platformRevenueCents = platformFee;
+        const merchantRevenueCents = 0;
 
         const ridePin = Math.floor(1000 + Math.random() * 9000).toString();
 
@@ -287,6 +297,10 @@ serve(async (req: Request) => {
             taxi_stand_id: taxi_stand_id || null,
             guest_name: guest_name || null,
             guest_phone: guest_phone || null,
+            band_id: band_id || null,
+            carnival_event_id: carnival_event_id || null,
+            organizer_id: organizer_id || null,
+            event_id: event_id || null,
         };
 
         const { data: identityPayload, error: identityError } = body.identity_verified
@@ -331,7 +345,7 @@ serve(async (req: Request) => {
             p_taxi_stand_id: taxi_stand_id || null,
             p_billed_to_merchant_id: billed_to_merchant_id || null,
             p_node_id: kiosk_id || null,
-            p_driver_cut: driverPayoutCents,
+            p_driver_cut: driverShareCents,
             p_platform_cut: platformRevenueCents,
             p_merchant_cut: merchantRevenueCents,
         });
@@ -424,6 +438,24 @@ serve(async (req: Request) => {
                 has_stops: stops.length > 0
             }
         });
+
+        // ── Enqueue into dispatch_queue ──────────────────────────────────
+        try {
+            const priority = insideActiveZone ? 100 + (riderLevel ?? 0) * 10 : 0;
+            await adminClient.from("dispatch_queue").insert({
+                task_type: "RIDE",
+                ride_id: newRideId,
+                order_id: null,
+                pickup_lat,
+                pickup_lng,
+                priority,
+                status: "pending",
+                attempts: 0,
+                expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+            });
+        } catch (err) {
+            console.error("Failed to enqueue dispatch task (non-fatal):", err);
+        }
 
         // ── Push Notification to Rider ─────────────────────────────────────
         try {

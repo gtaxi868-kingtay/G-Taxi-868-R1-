@@ -110,8 +110,8 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
     setActingOrders(prev => new Set(prev).add(orderId));
 
     try {
-      const { error } = await supabase.functions.invoke('merchant_update_order_status', {
-        body: { order_id: orderId, new_status: newStatus },
+      const { error } = await supabase.functions.invoke('merchant', {
+        body: { action: 'update_order_status', order_id: orderId, new_status: newStatus },
       });
 
       if (error) {

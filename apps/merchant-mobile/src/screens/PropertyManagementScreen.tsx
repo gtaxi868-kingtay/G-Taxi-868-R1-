@@ -93,8 +93,8 @@ export function PropertyManagementScreen({ navigation }: any) {
         if (!property) return;
         setSyncing(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        const { data, error } = await supabase.functions.invoke('sync_property_ical', {
-            body: { property_id: property.id },
+        const { data, error } = await supabase.functions.invoke('travel', {
+            body: { action: 'sync_ical', property_id: property.id },
         });
         setSyncing(false);
         if (error || data?.error) {

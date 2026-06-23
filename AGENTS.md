@@ -3,7 +3,7 @@
 # Do not skip sections. Do not assume you know the state of any file.
 # Do not fix multiple phases in one session unless explicitly told to.
 
-# Last updated: 2026-06-27
+# Last updated: 2026-06-28
 # Plain English summary (based on code in this repo):
 # THIS IS NOT JUST A RIDE-HAILING APP. It is a multiplex ecosystem
 # connecting riders to drivers, stores, travel, and services through
@@ -85,6 +85,8 @@ confirmed resolved by reading the actual source code on 2026-05-30.
    - TWILIO_ACCOUNT_SID / TOKEN     → SMS fails
    - UPSTASH_REDIS_REST_URL / TOKEN → driver Redis cache fails (non-fatal)
    - SENTRY_DSN                     → error reporting fails
+   - AMADEUS_API_KEY / AMADEUS_API_SECRET → sync_flight_availability returns 503
+   - BOOKING_API_KEY                → sync_lodging_availability returns 503
 
 2. NFC DISPATCH LAYER NOT YET DEPLOYED
    - supabase/migrations/20260530000005_nfc_dispatch_layer.sql — unapplied
@@ -300,6 +302,76 @@ payment_ledger table — read only for users:
 - TTD $35/mo = impulse-buy price (~$5 USD). One tier, not three.
 - No credit card needed on sign-up. No rider feels blocked.
 
+### 2026-06-28 — Asymmetric lock + zone system + perimeter hardening reconciliation
+
+**What we did this session:**
+
+1. **Phase 1 — Asymmetric lock (pickup zones, 100% open dropoff):**
+   - Removed dropoff + stops zone validation from `create_ride` v55 and `estimate_fare` v44.
+   - Pickup-only `is_verified_location` check. Error code `UNVERIFIED_PICKUP_ZONE` returned when pickup outside active zone. Deployed.
+
+2. **Phase 2 — `active_zones` polygon table + Sangre Grande seed:**
+   - Created `active_zones` table with geography boundary column.
+   - Rewrote `is_verified_location` → uses `ST_Intersects` with geography boundaries.
+   - Seeded Sangre Grande Alpha Hub polygon. Verified: Sangre Grande passes, Chaguanas/POS blocked.
+
+3. **Phase 3 — `seeded_zones` demand tracker:**
+   - `seed_zone()` upsert with 3-decimal coordinate rounding (~110m grid).
+
+4. **Phase 6 — Event-loop seeding wired:**
+   - `complete_ride` v58 payload extended with pickup/dropoff coords.
+   - `process_event_queue` v3 handler — calls `is_coordinate_inside_active_zones`, seeds if outside, bypasses if inside.
+
+5. **Phase 5 — Settlement grace period deployed:**
+   - `settlement_requests` columns: `grace_period_until`, `bank_confirmed_at`, `bank_reference`.
+   - `verify_settlement` v2 — conditional credit with 30-min grace status.
+   - `process_settlement_grace` v1 sweep function + RPC deployed.
+   - WalletScreen OCR wired into both `handleManualDeposit` and `handleSmartAtmDeposit`.
+
+6. **Phase 4 — `parse_receipt` OCR edge function:**
+   - Google Cloud Vision API integration (requires `FIREBASE_SERVICE_ACCOUNT_JSON` secret).
+   - Extracts amount_cents, reference_token, deposit_date, bank_name. Fallback returns nulls.
+
+7. **DISCOVERED: sovereign_foundation migration collision (June 22):**
+   - Pre-existing `sovereign_foundation` migration already had correct `active_zones`, `seeded_zones` (with geography/GiST/ST_DWithin 500m), `is_verified_location` (FAILS CLOSED SECURITY DEFINER), `is_coordinate_inside_active_zones` (SECURITY DEFINER null-safe), `seed_zone` (ST_DWithin 500m clustering), `record_pool_entry` (17% waterfall), `ecosystem_pool_ledger`, `event_queue` — all prior to this session.
+   - My June 28 migrations created **3 function overload collisions** that broke the asymmetric lock:
+     - `is_verified_location`: 2 overloads (2-param SECURITY DEFINER + 3-param) → Postgres "function not unique" error
+     - `seed_zone`: 2 overloads (2-param + 3-param numeric) → same ambiguity
+     - `is_coordinate_inside_active_zones`: overwritten — lost SECURITY DEFINER and fail-closed exception handler
+   - `.catch(() => ({ data: true }))` in `create_ride`/`estimate_fare` silently swallowed the Postgres error → **asymmetric lock was a no-op**
+   - `seeded_zones` schema mismatch: my `approx_lat`/`approx_lng`/`hit_count` vs sovereign's `lat`/`lng`/`location(geography)`/`seed_count`/`territory_name` with GiST spatial index
+   - `record_pool_entry` paid 7+4+3+3 = **17% of gross** but platform only collects 15% → 2% overpayment bug
+
+8. **FIXED: Canonical reconciliation — zero overloads, 15% economic model:**
+   - Migration `20260628000014_canonical_reconciliation`: Dropped all 6 overloads. Deployed single canonical versions:
+     - `is_coordinate_inside_active_zones(lat, lng)` — SECURITY DEFINER, ST_Covers, null-safe
+     - `is_verified_location(lat, lng)` — FAILS CLOSED (exception handler returns false)
+     - `seed_zone(lat, lng, territory_name)` — ST_DWithin 500m geography clustering
+     - `record_pool_entry(...)` — **15% economic model**: platform_fee = ROUND(gross * 0.15); shares carved from 15% slice: commander 26.7% (4% gross), merchant 13.3% (2% gross), referral 13.3% (2% gross), platform keeps remainder. Mathematically incapable of exceeding 15%.
+     - `process_settlement_grace` — expanded expired split sessions + settled pool entries sweeper
+   - Confirmed zero overloaded versions in DB.
+
+9. **Perimeter audit — 3 CRITICAL auth gaps fixed:**
+   - `generate_b2b_invoices`: Had **zero auth** — anyone could trigger Stripe invoicing for all Net-30 merchants. Added `requireAdmin` inline guard, deployed v1.
+   - `verify_settlement`: Authenticated but **never checked admin role** — any logged-in user could approve/reject wallet credit settlements. Added `requireAdmin` inline guard, deployed v3.
+   - `process_settlement_grace`: Same gap. Added conditional admin check (auth header present → require admin; cron calls bypass). Deployed v2.
+   - Found: 6 admin functions (`admin_create_ride`, `admin_force_complete`, etc.) have no local source files — consolidated into `admin/index.ts` which IS guarded.
+   - Found: `admin_manage_surge_zones` and `admin_get_pending_drivers` reimplement `requireAdmin` inline instead of importing from shared. Functionally correct but fragile.
+
+10. **Cron schedules added:**
+    - `process_event_queue` — jobid 32, every 60 seconds
+    - `process_settlement_grace` — jobid 33, every 5 minutes
+    - 16 total active cron schedules now
+
+**Key decisions (corrected 2026-06-28):**
+- **Asymmetric lock is NOT a wall.** Pickup zone check is a **prioritization engine**: verified riders are never stranded. Inside active zone → priority matching + guaranteed density. Outside active zone → ride proceeds (standard dispatch), coordinate tagged as Demand Signal via `seed_zone`. Only blocks on genuine technical failure (DB down). See `create_ride` v56.
+- sovereign's ST_Covers + exception handler pattern is canonical for zone detection.
+- 15% platform fee = primary divider. Downstream shares are percentages of the 15% slice, not of gross. System now incapable of overpaying.
+- `record_pool_entry` uses remainder math: all four shares sum exactly to platform_fee. No rounding drift.
+- `seeded_zones` uses sovereign's geography column with ST_DWithin 500m clustering — superior to coordinate rounding.
+- `.catch(() => ({ data: true }))` was already fixed in prior session (now `{ data: false }`).
+- Inlined auth guards to avoid Supabase deploy bundler's `_shared/` import path issues.
+
 ### 2026-06-16 — Council audit fixes (pre-commit bugfixes)
 
 **Council findings and fixes this session:**
@@ -401,6 +473,40 @@ payment_ledger table — read only for users:
 - Grocery/laundry checkout still doesn't charge rider
 - Dispatch queue still a no-op
 - `credit_wallet` RPC now exists but was the only truly missing DB object
+
+### 2026-06-20 — Pod Commander + Territory system: backend built, 5 functions deployed
+
+**What we did this session:**
+
+1. **Created `user_role` ENUM** — Migrated `profiles.role` from TEXT CHECK to real ENUM (`rider`, `driver`, `admin`, `pod_commander`, `merchant`). Dropped old CHECK constraint. Migrated `'user'` → `'rider'`. Recreated all 33 RLS policies that referenced the role column.
+
+2. **Built Territory system** — New `territories` table with name/code/region_id/boundary_geojson/commander_id/geography tracking. RLS: admins full, commanders read own, public read active.
+
+3. **Built Pod Commander system** — New `pod_commanders` table with auto-generated `onboarding_code` trigger + auto-create trigger when `profiles.role` changes to `pod_commander`. RLS: service_role only.
+
+4. **Extended puck lifecycle** — Added to `kiosk_nodes`: `lifecycle_status` (manufactured→assigned→activated→live→suspended→replaced), `hardware_version`, `firmware_version`, `battery_level`, `last_heartbeat`, `replaced_by`, `assigned_to`, `commissioned_at`, `decommissioned_at`, `territory_id`.
+
+5. **Created `puck_events` analytics table** — Event types: tap/scan/ride_requested/ride_completed/first_ride/revenue/heartbeat/status_change/battery_alert. Proper indexes.
+
+6. **Updated `_shared/auth.ts`** — Added `requireCommander()` helper (checks `profiles.role = 'pod_commander'` + `pod_commanders.status = 'active'`).
+
+7. **Deployed 5 edge functions:**
+   - `admin_manage_territories` — CRUD for territories
+   - `admin_manage_commanders` — CRUD for commanders, territory assignment
+   - `admin_manage_puck_inventory` — Register/assign/update lifecycle for pucks
+   - `commander_get_territory` — Territory overview + metrics
+   - `commander_get_pucks` — List pucks in territory
+
+8. **Created source for 7 more edge functions** (blocked by Supabase 60-function limit, project has ~96):
+   - `commander_update_puck_status`, `commander_onboard_driver`, `commander_onboard_merchant`, `commander_get_driver_queue`, `puck_heartbeat`, `register_driver_with_code`, `merchant_register_with_code`
+
+**Updated next steps in this session:**
+- Deleted 8 unused functions: approve_driver, merchant_signup, track_flight_status, sync_flight_availability, sync_lodging_availability, whatsapp_webhook, confirm_escape_payment, admin_manage_nodes ✅
+- Deployed remaining 7 edge functions: commander_update_puck_status, commander_onboard_driver, commander_onboard_merchant, commander_get_driver_queue, puck_heartbeat, register_driver_with_code, merchant_register_with_code ✅
+
+**Next steps:**
+- Build Territories/Commanders/PuckManager admin pages
+- Build CommanderDashboardScreen in driver app
 
 ### 2026-06-14 — Cleanup purge + pricing strategy clarified
 

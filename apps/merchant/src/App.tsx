@@ -426,8 +426,9 @@ const DispatchModal = ({ merchant, onClose, onSuccess, result }: any) => {
         if (!selectedLoc) return alert("Select a valid destination");
         setLoading(true);
         try {
-            const { data, error } = await supabase.functions.invoke('concierge_dispatch', {
+            const { data, error } = await supabase.functions.invoke('merchant', {
                 body: {
+                    action: 'concierge_dispatch',
                     guest_name: name,
                     guest_phone: phone,
                     destination_lat: selectedLoc.latitude,

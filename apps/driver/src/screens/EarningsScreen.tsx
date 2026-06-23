@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
-const DRIVER_SHARE = 0.81;
+const DRIVER_SHARE = 0.82;
 
 interface TripData {
     id: string;

@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@gtaxi/shared';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
+import { JoinWithCodeScreen } from './src/screens/JoinWithCodeScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { OrdersScreen } from './src/screens/OrdersScreen';
 import { DispatchScreen } from './src/screens/DispatchScreen';
@@ -26,6 +27,7 @@ function AuthNavigator() {
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="JoinWithCode" component={JoinWithCodeScreen} />
     </AuthStack.Navigator>
   );
 }

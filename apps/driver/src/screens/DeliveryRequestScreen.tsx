@@ -143,9 +143,9 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
     };
 
     const deliveryEarnings = offer?.delivery_fee_cents
-        ? (offer.delivery_fee_cents * 0.81 / 100).toFixed(2)
+        ? (offer.delivery_fee_cents * 0.82 / 100).toFixed(2)
         : orderDetail?.delivery_fee_cents
-            ? (orderDetail.delivery_fee_cents * 0.81 / 100).toFixed(2)
+            ? (orderDetail.delivery_fee_cents * 0.82 / 100).toFixed(2)
             : '?';
 
     const arcColor = timeLeft > 5 ? FOOD_ORANGE : timeLeft > 2 ? WARNING : ERROR;
@@ -171,7 +171,7 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
                                 <Ionicons name="restaurant-sharp" size={14} color={FOOD_ORANGE} />
                                 <Text style={s.typeBadgeText}>FOOD DELIVERY</Text>
                             </View>
-                            <Text style={s.subLabel}>81% of delivery fee</Text>
+                            <Text style={s.subLabel}>82% of delivery fee</Text>
                         </View>
 
                         <View style={s.timerOuter}>

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    "apps/rider": {
+      "entry": ["App.tsx", "index.js", "app.config.js"],
+      "project": "src/**/*.{ts,tsx}"
+    },
+    "apps/driver": {
+      "entry": ["App.tsx", "index.js", "app.config.js"],
+      "project": "src/**/*.{ts,tsx}"
+    },
+    "apps/merchant-mobile": {
+      "entry": ["App.tsx", "index.js", "app.config.js"],
+      "project": "src/**/*.{ts,tsx}"
+    },
+    "apps/admin-mobile": {
+      "entry": ["App.tsx", "index.js", "app.config.js"],
+      "project": "src/**/*.{ts,tsx}"
+    },
+    "apps/admin": {
+      "entry": ["src/main.tsx", "index.html"],
+      "project": "src/**/*.{ts,tsx}"
+    },
+    "apps/merchant": {
+      "entry": ["src/main.tsx", "index.html"],
+      "project": "src/**/*.{ts,tsx}"
+    },
+    "packages/*": {
+      "entry": ["src/index.ts", "src/index.tsx", "index.ts", "index.tsx", "src/native/index.ts"],
+      "project": "src/**/*.{ts,tsx}"
+    }
+  },
+  "ignore": [
+    "**/*.test.{ts,tsx}",
+    "**/__tests__/**",
+    "supabase/functions/**",
+    "scripts/**"
+  ],
+  "ignoreBinaries": ["eas", "expo", "supabase"],
+  "ignoreExportsUsedInFile": true
+}

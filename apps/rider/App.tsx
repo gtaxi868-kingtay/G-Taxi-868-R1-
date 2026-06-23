@@ -20,7 +20,6 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { AnimatedSplash } from './src/components/AnimatedSplash';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
-import { DeleteAccountScreen } from './src/screens/DeleteAccountScreen';
 import { DestinationSearchScreen } from './src/screens/DestinationSearchScreen';
 import { RideConfirmationScreen } from './src/screens/RideConfirmationScreen';
 import { SearchingDriverScreen } from './src/screens/SearchingDriverScreen';
@@ -66,6 +65,9 @@ import EscapeStorefrontScreen from './src/screens/EscapeStorefrontScreen';
 import EscapeCheckoutScreen from './src/screens/EscapeCheckoutScreen';
 import ActivePassScreen from './src/screens/ActivePassScreen';
 import PassportSubmissionScreen from './src/screens/PassportSubmissionScreen';
+import CarnivalScreen from './src/screens/CarnivalScreen';
+import EventsScreen from './src/screens/EventsScreen';
+import { BecomeCommanderScreen } from './src/screens/BecomeCommander';
 import { EscapeTripProvider } from './src/context/EscapeContext';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -166,7 +168,6 @@ function AppNavigator() {
                 <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
                 <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
                 <AppStack.Screen name="Legal" component={LegalScreen} />
-                <AppStack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
                 <AppStack.Screen name="TravelStorefront" component={TravelStorefrontScreen} />
                 <AppStack.Screen name="TravelPackageDetail" component={TravelPackageDetailScreen} />
                 <AppStack.Screen name="TravelBookingConfirmation" component={TravelBookingConfirmationScreen} />
@@ -178,6 +179,9 @@ function AppNavigator() {
                 <AppStack.Screen name="EscapeCheckout" component={EscapeCheckoutScreen} />
                 <AppStack.Screen name="ActivePass" component={ActivePassScreen} />
                 <AppStack.Screen name="PassportSubmission" component={PassportSubmissionScreen} />
+                <AppStack.Screen name="Carnival" component={CarnivalScreen} />
+                <AppStack.Screen name="Events" component={EventsScreen} />
+                <AppStack.Screen name="BecomeCommander" component={BecomeCommanderScreen} />
             </AppStack.Navigator>
         </>
     );
@@ -203,6 +207,7 @@ const linking = {
             },
             EscapeStorefront: 'escape/:packageId?',
             TravelPackageDetail: 'travel/:packageId',
+            BecomeCommander: 'become-commander',
         }
     }
 };

@@ -130,7 +130,7 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
     const currentStepData = STEPS.find(s => s.key === step) ?? STEPS[0];
     const currentIdx = STEPS.findIndex(s => s.key === step);
     const nextStepData = STEPS[currentIdx + 1];
-    const earnings = order?.delivery_fee_cents ? (order.delivery_fee_cents * 0.81 / 100).toFixed(2) : '?';
+    const earnings = order?.delivery_fee_cents ? (order.delivery_fee_cents * 0.82 / 100).toFixed(2) : '?';
 
     return (
         <View style={[s.root, { paddingTop: insets.top }]}>

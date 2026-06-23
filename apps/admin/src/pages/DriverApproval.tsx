@@ -47,7 +47,7 @@ export const DriverApproval = ({ onRefresh }: { onRefresh: () => void }) => {
   const fetchPendingDrivers = async () => {
     try {
       setLoading(true);
-      const data = await adminFetch('admin_get_pending_drivers', {});
+      const data = await adminFetch('admin', { action: 'get_pending_drivers' });
       setPendingDrivers(data.pending || []);
       setStats({
         total: data.count || 0,
@@ -68,9 +68,10 @@ export const DriverApproval = ({ onRefresh }: { onRefresh: () => void }) => {
     
     setProcessing(driver.id);
     try {
-      await adminFetch('admin_toggle_driver', { 
+      await adminFetch('admin', { 
+        action: 'toggle_driver',
         user_id: driver.id, 
-        action: 'authorize',
+        sub_action: 'authorize',
         name: driver.name 
       });
       

@@ -18,6 +18,7 @@ const { supabase } = initializeSupabaseClient('native');
 type RootStackParamList = {
   Dashboard: undefined;
   TagMarker: undefined;
+  RegisterPuck: undefined;
 };
 
 type DashboardNavProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
@@ -47,8 +48,8 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
 
   const fetchNodes = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('admin_manage_nodes', {
-        body: { action: 'list' },
+      const { data, error } = await supabase.functions.invoke('admin', {
+        body: { action: 'manage_nodes', action_type: 'list' },
       });
       if (error) throw error;
       if (data?.success) {
@@ -75,8 +76,8 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setTogglingId(nodeId);
     try {
-      const { data, error } = await supabase.functions.invoke('admin_manage_nodes', {
-        body: { action: 'toggle_active', node_id: nodeId },
+      const { data, error } = await supabase.functions.invoke('admin', {
+        body: { action: 'manage_nodes', action_type: 'toggle_active', node_id: nodeId },
       });
       if (error) throw error;
       if (data?.success) {
@@ -102,8 +103,8 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
           text: 'Delete', style: 'destructive',
           onPress: async () => {
             try {
-              const { data, error } = await supabase.functions.invoke('admin_manage_nodes', {
-                body: { action: 'delete', node_id: nodeId },
+              const { data, error } = await supabase.functions.invoke('admin', {
+                body: { action: 'manage_nodes', action_type: 'delete', node_id: nodeId },
               });
               if (error) throw error;
               if (data?.success) {
@@ -194,10 +195,43 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
     <LinearGradient colors={[SURFACE.base, '#1A0A0A']} style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View>
-          <Text style={styles.headerTitle}>Kiosk Nodes</Text>
+          <Text style={styles.headerTitle}>G-Touch Points</Text>
           <Text style={styles.headerCount}>{nodes.length} deployed</Text>
         </View>
         <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('RegisterPuck'); }}
+            style={styles.logoutBtn}
+          >
+            <Ionicons name="keypad-outline" size={20} color="rgba(255,255,255,0.5)" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                'Delete Account',
+                'Permanently delete your account and all associated data? This cannot be undone.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete Permanently',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        const { error } = await supabase.functions.invoke('delete_account');
+                        if (error) throw error;
+                        await signOut();
+                      } catch (err: any) {
+                        Alert.alert('Error', err?.message || 'Could not delete account.');
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+            style={styles.logoutBtn}
+          >
+            <Ionicons name="trash-outline" size={20} color="rgba(255,255,255,0.5)" />
+          </TouchableOpacity>
           <TouchableOpacity onPress={signOut} style={styles.logoutBtn}>
             <Ionicons name="log-out-outline" size={20} color="rgba(255,255,255,0.5)" />
           </TouchableOpacity>
@@ -216,7 +250,7 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
           <View style={styles.empty}>
             <Ionicons name="radio-outline" size={48} color="rgba(255,255,255,0.15)" />
             <Text style={styles.emptyText}>No nodes deployed</Text>
-            <Text style={styles.emptySubtext}>Tap + to provision a puck</Text>
+            <Text style={styles.emptySubtext}>Tap + to provision a G-Touch Point</Text>
           </View>
         }
       />

@@ -10,9 +10,7 @@
 // Auth: Not required — read-only fare estimate, no personal data written.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { checkRateLimit } from "../_shared/rateLimit.ts";
-import { secureFetch } from "../_shared/networkUtility.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
@@ -64,6 +62,8 @@ serve(async (req: Request) => {
             );
         }
 
+        // Dropoff: no verification. Mapbox route estimation executes globally.
+
         let distanceMeters = 0;
         let durationSeconds = 0;
         let mapboxSuccess = false;
@@ -72,7 +72,10 @@ serve(async (req: Request) => {
         if (MAPBOX_TOKEN) {
             try {
                 const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${pickup_lng},${pickup_lat};${dropoff_lng},${dropoff_lat}?access_token=${MAPBOX_TOKEN}`;
-                const response = await secureFetch(url);
+                const ac = new AbortController();
+                const timeout = setTimeout(() => ac.abort(), 10000);
+                const response = await fetch(url, { signal: ac.signal });
+                clearTimeout(timeout);
                 const data = await response.json();
 
                 if (data.routes && data.routes.length > 0) {
@@ -191,6 +194,7 @@ serve(async (req: Request) => {
                         stop_base_pharmacy_cents: PRICING.STOP_BASE_PHARMACY_CENTS,
                         stop_base_other_cents: PRICING.STOP_BASE_OTHER_CENTS,
                         wait_fee_per_minute_cents: livePerMin,
+                        stop_wait_fee_per_minute_cents: cfg["STOP_WAIT_FEE_PER_MIN_CENTS"] ?? PRICING.STOP_WAIT_FEE_PER_MIN_CENTS,
                     },
                 },
             }),

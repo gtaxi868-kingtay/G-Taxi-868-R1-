@@ -30,12 +30,17 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
     return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function estimateFareCents(pickupLat: number, pickupLng: number, dropoffLat: number, dropoffLng: number, vehicleType: string): number {
+function estimateFareCents(
+    pickupLat: number, pickupLng: number, dropoffLat: number, dropoffLng: number,
+    vehicleType: string,
+    p?: { base: number; perKm: number; perMin: number; min: number }
+): number {
     const distanceMeters = haversineMeters(pickupLat, pickupLng, dropoffLat, dropoffLng);
     const durationMinutes = Math.max(8, (distanceMeters / 1000 / 28) * 60);
     const multiplier = VEHICLE_MULTIPLIERS[vehicleType] ?? VEHICLE_MULTIPLIERS.Standard;
-    const fare = (1600 + (distanceMeters / 1000) * 175 + durationMinutes * 95) * multiplier;
-    return Math.max(2200, Math.round(fare));
+    const b = p?.base ?? 1600, pk = p?.perKm ?? 175, pm = p?.perMin ?? 95, mn = p?.min ?? 2200;
+    const fare = (b + (distanceMeters / 1000) * pk + durationMinutes * pm) * multiplier;
+    return Math.max(mn, Math.round(fare));
 }
 
 // Extremely simple hashing for the sake of the Edge environment. 
@@ -125,9 +130,22 @@ serve(async (req: Request) => {
             billedMerchantId = merchant.id;
         }
 
-        // 7. Dispatch the Headless Ride Request
+        // 7. Read pricing config from DB
+        const { data: pricingRows } = await adminClient
+            .from("pricing_config")
+            .select("key, value_cents")
+            .catch(() => ({ data: null }));
+        const pcfg: Record<string, number> = {};
+        if (pricingRows) for (const r of pricingRows) pcfg[r.key] = r.value_cents;
+
+        // 8. Dispatch the Headless Ride Request
         const ridePin = Math.floor(1000 + Math.random() * 9000).toString();
-        const fareCents = estimateFareCents(merchant.lat, merchant.lng, destination_lat, destination_lng, vehicle_type);
+        const fareCents = estimateFareCents(merchant.lat, merchant.lng, destination_lat, destination_lng, vehicle_type, {
+            base: pcfg["BASE_FARE_CENTS"] ?? 1600,
+            perKm: pcfg["PER_KM_CENTS"] ?? 175,
+            perMin: pcfg["PER_MIN_CENTS"] ?? 95,
+            min: pcfg["MIN_FARE_CENTS"] ?? 2200,
+        });
 
         const { data: newRide, error: insertError } = await adminClient
             .from("rides")

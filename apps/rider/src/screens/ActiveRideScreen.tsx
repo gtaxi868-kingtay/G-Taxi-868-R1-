@@ -759,30 +759,34 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     );
 }
 
-function IsolatedWaitClock({ arrivedAt, setAiInsight }: { arrivedAt: string, setAiInsight: any }) {
+const EDGE_OUT_FEE_PER_MIN_CENTS = 150; // TT$1.50/min — Edge Out stop charge (no grace period)
+
+function IsolatedWaitClock({ arrivedAt, setAiInsight, isStop }: { arrivedAt: string, setAiInsight: any, isStop?: boolean }) {
     const [stats, setStats] = useState({ mins: 0, cents: 0 });
 
     useEffect(() => {
         const timer = setInterval(() => {
             const diffMs = Date.now() - new Date(arrivedAt).getTime();
             const mins = Math.max(0, Math.floor(diffMs / 60000));
-            const cents = Math.floor((diffMs / 60000) * 90);
+            const cents = Math.floor((diffMs / 60000) * EDGE_OUT_FEE_PER_MIN_CENTS);
             setStats({ mins, cents });
 
-            if (mins === 4 && stats.mins !== 4) {
-                setAiInsight("Wait fee is now active ($0.90/min). Your driver is still waiting.");
+            if (mins >= 1 && stats.mins !== mins && isStop) {
+                setAiInsight(`Edge Out wait fee active: TTD $${(cents / 100).toFixed(2)} at TT$1.50/min.`);
             }
         }, 1000);
         return () => clearInterval(timer);
-    }, [arrivedAt, stats.mins]);
+    }, [arrivedAt, stats.mins, isStop]);
 
     return (
         <View style={s.waitClockRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Ionicons name="time" size={16} color={WARNING} />
-                <Text style={s.lateFeeValue}>LATE FEE: TTD ${ (stats.cents / 100).toFixed(2) }</Text>
+                <Text style={s.lateFeeValue}>
+                    {isStop ? 'EDGE OUT: TTD $' : 'LATE FEE: TTD $'}{(stats.cents / 100).toFixed(2)}
+                </Text>
             </View>
-            <Text style={s.lateFeeLabel}>{stats.mins}m elapsed</Text>
+            <Text style={s.lateFeeLabel}>{stats.mins}m elapsed · TT$1.50/min {isStop ? '(no grace period)' : ''}</Text>
         </View>
     );
 }

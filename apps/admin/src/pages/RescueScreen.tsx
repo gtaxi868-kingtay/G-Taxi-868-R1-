@@ -41,7 +41,7 @@ export function RescueScreen() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const result = await adminFetch('admin_get_rides');
+            const result = await adminFetch('admin', { action: 'get_rides' });
             const trips: TripRescue[] = (result?.data || []).filter((r: any) =>
                 r.status === 'completed' || r.status === 'cancelled'
             ).slice(0, 20).map((r: any) => ({
@@ -166,8 +166,8 @@ export function RescueScreen() {
                                         )}
                                         <button
                                             onClick={async () => {
-                                                await supabase.functions.invoke('admin_manage_nodes', {
-                                                    body: { action: 'resolve_alert', alert_id: alert.id }
+                                                await supabase.functions.invoke('admin', {
+                                                    body: { action: 'manage_nodes', action_type: 'resolve_alert', alert_id: alert.id }
                                                 }).catch(() => {});
                                                 loadData();
                                             }}
@@ -227,7 +227,8 @@ export function RescueScreen() {
                                 <button
                                     onClick={async () => {
                                         try {
-                                            const result = await adminFetch('admin_assign_driver', {
+                                            const result = await adminFetch('admin', {
+                                                action: 'assign_driver',
                                                 ride_id: trip.ride_id,
                                                 re_dispatch: true,
                                             });

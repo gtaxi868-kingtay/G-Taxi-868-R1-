@@ -1,10 +1,10 @@
 // Supabase Edge Function: stripe_webhook — ATOMIC SETTLEMENT (2026-06-04)
 // ============================================================
-// Settlement math (server-side only):
-//   reserve      = round(gross * 0.015)     → capital_reserve_ledger
-//   platform_fee = round(gross * rate)      → platform wallet credit
-//   rate         = pricing_config['PLATFORM_RATE_CENTS'] / 10000
-//   driver_payout = gross - platform_fee     → driver wallet credit
+// Settlement math (server-side only, reads from pricing_config):
+//   platform_fee = round(gross * plat_rate)     → platform wallet credit
+//   reserve      = round(gross * reserve_rate)  → capital_reserve_ledger
+//   driver_payout = gross - platform_fee - reserve
+//   Defaults (82/15/3): plat_rate=0.15, reserve_rate=0.03
 //
 // Security rules:
 //   - req.text() is called FIRST — before any JSON parsing.

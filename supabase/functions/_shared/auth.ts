@@ -72,3 +72,44 @@ export async function requireAdmin(req: Request) {
 
     return { user, supabaseAdmin }
 }
+
+export async function requireCommander(req: Request) {
+  const user = await requireAuth(req)
+
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profileError || profile?.role !== 'pod_commander') {
+    throw new Response(JSON.stringify({ error: 'Forbidden: commander role required' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+
+  const { data: commander, error: commanderError } = await supabaseAdmin
+    .from('pod_commanders')
+    .select('id, user_id, territory_id, status, onboarding_code, metrics')
+    .eq('user_id', user.id)
+    .single()
+
+  if (commanderError || !commander) {
+    throw new Response(JSON.stringify({ error: 'Commander record not found' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+
+  if (commander.status !== 'active') {
+    throw new Response(JSON.stringify({ error: 'Commander account is not active' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    })
+  }
+
+  return { user, supabaseAdmin, commander }
+}

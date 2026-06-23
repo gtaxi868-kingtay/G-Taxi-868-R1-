@@ -56,10 +56,10 @@ function groupFlags(flags: FeatureFlag[]): Record<string, FeatureFlag[]> {
             groups['Service Tiles'].push(f);
         } else if (['ai_assistant_active', 'opt_in_ai_routing', 'sponsored_stops'].includes(f.id)) {
             groups['AI & Routing'].push(f);
-        } else if (['promo_codes_active', 'merchant_commission_enabled', 'kiosk_active'].includes(f.id)) {
+        } else if (['promo_codes_active', 'merchant_commission_enabled', 'kiosk_active', 'wallet_active'].includes(f.id)) {
             groups['Commerce'].push(f);
         } else if (['driver_registration_active', 'scheduled_rides_enabled',
-            'airline_active', 'hotel_active'].includes(f.id)) {
+            'airline_active', 'hotel_active', 'commander_system_active'].includes(f.id)) {
             groups['Driver & Operations'].push(f);
         } else {
             groups['Other'].push(f);
@@ -86,7 +86,20 @@ export function PlatformControl() {
             supabase.from('system_feature_flags').select('*').order('id'),
         ]);
         setVerticals((vRes.data as Vertical[]) || []);
-        setFlags((fRes.data as FeatureFlag[]) || []);
+        
+        let loadedFlags = (fRes.data as FeatureFlag[]) || [];
+        const requiredFlags = [
+            { id: 'wallet_active', description: 'Enable Wallet system across all apps', applies_to: 'global' },
+            { id: 'commander_system_active', description: 'Enable Pod Commander hierarchy', applies_to: 'global' }
+        ];
+        
+        for (const req of requiredFlags) {
+            if (!loadedFlags.find(f => f.id === req.id)) {
+                loadedFlags.push({ ...req, is_active: false, toggled_at: null });
+            }
+        }
+        
+        setFlags(loadedFlags);
         setLoading(false);
     }, []);
 

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reference: The Agent Loop Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0B0E12; color: #E4E4E7;
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.6; padding: 40px 20px;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 2rem; font-weight: 800; color: #1DE0E6; margin-bottom: 1.5rem; letter-spacing: -0.02em; }
+  h2 { font-size: 1.2rem; font-weight: 700; color: #FFF; margin-top: 2rem; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.5rem; }
+  .glossary { margin: 1.5rem 0; }
+  .term { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .term-name { min-width: 180px; font-weight: 700; color: #1DE0E6; font-size: 0.9rem; }
+  .term-def { color: rgba(255,255,255,0.7); font-size: 0.9rem; }
+  code { font-family: 'JetBrains Mono', monospace; background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; font-size: 0.8rem; color: #1DE0E6; }
+  .diagram-small { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 20px; margin: 1rem 0; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; line-height: 1.7; overflow-x: auto; }
+  @media print { body { background: #FFF; color: #222; } .term-name { color: #069; } h1 { color: #069; } code { background: #F0F0F0; } .diagram-small { background: #F8F8F8; border-color: #DDD; } }
+  @media (max-width: 600px) { h1 { font-size: 1.4rem; } .term { flex-direction: column; gap: 4px; } .term-name { min-width: auto; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Agent Loop Architecture</h1>
+
+<h2>The 4-Phase Loop</h2>
+<div class="diagram-small">
+<pre>
+ DISCOVERY → DECISION → FIX → VERIFY → (repeat)
+ (auto)      (agent+human) (coder+human) (auto)
+</pre>
+</div>
+
+<h2>Glossary</h2>
+
+<div class="glossary">
+  <div class="term">
+    <div class="term-name">Agent Preset</div>
+    <div class="term-def">A config that bundles an agent persona, tools, memory file, and instructions. Created via <code>jarvis init --preset &lt;name&gt;</code>. Each audit type gets its own preset.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Sub-Agent</div>
+    <div class="term-def">A specialized agent focused on one domain (DB audit, frontend audit, gap scan). Each sub-agent is a separate preset with its own prompt and tools. Can be run independently or orchestrated.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Strategy Agent</div>
+    <div class="term-def">A sub-agent with a decision layer: check code → check web → ask human. Uses <code>web_search</code> tool for docs lookup and writes questions to a queue when stuck. Prevents false assumptions.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Skill</div>
+    <div class="term-def">A reusable capability (Python script, shell script, prompt template) stored in <code>~/.openjarvis/skills/</code>. Agents can invoke skills as tools. Reference: <a href="https://open-jarvis.github.io/OpenJarvis/agent-development/skills/" style="color:#1DE0E6;">OpenJarvis Skills docs</a>.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Memory File</div>
+    <div class="term-def">A markdown file (<code>MEMORY.md</code>) that persists information between agent sessions. The agent reads it on start and can update it. Used to track known issues, architecture decisions, and audit history.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Discovery Phase</div>
+    <div class="term-def">Automated checks: run <code>tsc --noEmit</code>, grep for patterns, query Supabase, read AGENTS.md. All sub-agents run in parallel. Output: a list of findings with evidence.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Decision Phase</div>
+    <div class="term-def">Each finding is classified: <strong>Confirmed</strong> (clear evidence), <strong>Uncertain</strong> (needs more context), <strong>Unknown</strong> (cannot determine). Unknowns generate questions for the human.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Fix Phase</div>
+    <div class="term-def">Findings routed to a coding agent (or human). Simple fixes auto-applied. Complex changes written by the coding agent. Each fix tagged with the finding ID for traceability.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Verify Phase</div>
+    <div class="term-def">Re-run the same discovery checks. Confirm the finding is resolved. <code>tsc --noEmit</code> must pass. Update AGENTS.md session history to record the fix.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Coding Agent</div>
+    <div class="term-def">The agent actually writing code (me, in the current session). Separate from Jarvis. Jarvis discovers and reports; the coding agent implements. Findings can be dropped as files or fed via API.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Question Queue</div>
+    <div class="term-def">A directory (<code>~/.openjarvis/questions/</code>) where Jarvis writes pending questions. Each question file includes: finding context, what was checked, what's unknown, suggested answers. The user answers when convenient.</div>
+  </div>
+  <div class="term">
+    <div class="term-name">Runbook</div>
+    <div class="term-def">A prompt template that tells an agent how to execute a specific operational task (deploy, rollback, check health). Stored as a skill. Can be triggered manually or on schedule.</div>
+  </div>
+</div>
+
+<h2>Tool Connectivity</h2>
+<div class="diagram-small">
+<pre>
+ Jarvis Engine ──┬── Ollama (local inference, privacy)
+                 ├── shell_exec (supabase CLI, gh CLI, tsc, grep)
+                 ├── web_search (API docs, error lookup)
+                 ├── file_read/write (codebase access)
+                 └── code_interpreter (Python scripts for analysis)
+</pre>
+<p style="margin-top:0.5rem; color:rgba(255,255,255,0.5);font-size:0.8rem;">No plugin system needed — every tool is either built-in (Ollama, web_search) or accessed via shell commands you already have installed.</p>
+
+<h2 style="margin-top:1.5rem;">Key Commands</h2>
+<div class="diagram-small">
+<pre>
+jarvis                          Start chat (default: chat-simple preset)
+jarvis init --preset &lt;name&gt;     Create a new agent preset
+jarvis ask "prompt"             Run a one-shot query against the default agent
+jarvis model pull &lt;name&gt;        Download a model via Ollama
+jarvis doctor                   Check installation health
+jarvis skill install &lt;path&gt;     Install a skill from file
+jarvis memory index &lt;dir&gt;       Index a directory for the agent to search
+</pre>
+
+</div>
+</body>
+</html>

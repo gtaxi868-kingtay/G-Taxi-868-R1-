@@ -92,8 +92,8 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
     setResult(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('dispatch_for_client', {
-        body: { client_phone: phone, note: note.trim() || undefined },
+      const { data, error } = await supabase.functions.invoke('merchant', {
+        body: { action: 'dispatch_client', client_phone: phone, note: note.trim() || undefined },
         headers: session?.access_token
           ? { Authorization: `Bearer ${session.access_token}` }
           : undefined,

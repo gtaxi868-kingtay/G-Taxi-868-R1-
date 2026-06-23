@@ -86,8 +86,8 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
         setLoading(true);
         setError(null);
         try {
-            const { data, error: fnErr } = await supabase.functions.invoke('get_travel_packages', {
-                body: {},
+            const { data, error: fnErr } = await supabase.functions.invoke('travel', {
+                body: { action: 'get_packages' },
             });
             if (fnErr) throw fnErr;
             const found = data?.packages?.find((p: any) => p.id === packageId);
@@ -139,12 +139,8 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         setBooking(true);
                         try {
-                            const { data, error } = await supabase.functions.invoke('book_travel_package', {
-                                body: {
-                                    package_id: packageId,
-                                    traveler_count: travelerCount,
-                                    payment_method: 'wallet',
-                                },
+                            const { data, error } = await supabase.functions.invoke('travel', {
+                                body: { action: 'book_travel_package', package_id: packageId, traveler_count: travelerCount, payment_method: 'wallet' },
                             });
                             if (error || data?.error) throw new Error(error?.message || data?.error);
                             navigation.replace('TravelBookingConfirmation', {

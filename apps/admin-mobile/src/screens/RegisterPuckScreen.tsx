@@ -49,15 +49,15 @@ export const RegisterPuckScreen: React.FC = () => {
 
   const handleRegisterNode = async () => {
     if (!puckId.trim() || !merchantName.trim()) {
-      Alert.alert('Validation Error', 'Hardware Puck UID and Merchant Label cannot be empty.');
+      Alert.alert('Validation Error', 'Hardware G-Touch Point UID and G-Partner Label cannot be empty.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('admin_manage_nodes', {
+      const { data, error } = await supabase.functions.invoke('admin', {
         body: {
-          action: 'upsert',
+          action: 'manage_nodes', action_type: 'upsert',
           node: {
             tag_uid: puckId.trim().toUpperCase(),
             location_name: merchantName.trim(),
@@ -70,7 +70,7 @@ export const RegisterPuckScreen: React.FC = () => {
 
       if (error) throw error;
 
-      Alert.alert('Node Provisioned', `Puck ${puckId.toUpperCase()} is active at ${merchantName}.`);
+      Alert.alert('Node Provisioned', `G-Touch Point ${puckId.toUpperCase()} is active at ${merchantName}.`);
       setPuckId('');
       setMerchantName('');
     } catch (err: any) {
@@ -87,7 +87,7 @@ export const RegisterPuckScreen: React.FC = () => {
         <Text style={styles.subtitle}>Bind raw NFC tags directly to network coordinates from the sidewalk.</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>HARDWARE PUCK UID</Text>
+          <Text style={styles.label}>HARDWARE G-TOUCH POINT UID</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g., 046F32A29C5E80"
@@ -100,7 +100,7 @@ export const RegisterPuckScreen: React.FC = () => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>MERCHANT BUSINESS ENTITY NAME</Text>
+          <Text style={styles.label}>G-PARTNER BUSINESS NAME</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g., Sangre Grande Barber Elite"

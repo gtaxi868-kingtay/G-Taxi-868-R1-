@@ -12,6 +12,7 @@ import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/u
 type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  JoinWithCode: undefined;
 };
 
 type LoginNavProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -66,6 +67,10 @@ export function LoginScreen({ navigation }: { navigation: LoginNavProp }) {
 
             <TouchableOpacity style={s.registerLink} onPress={() => navigation.navigate('Register')}>
               <Text style={s.registerText}>Don't have an account? Register</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.registerLink} onPress={() => navigation.navigate('JoinWithCode')}>
+              <Text style={s.registerText}>Have a G-Lead code? Join here</Text>
             </TouchableOpacity>
           </View>
         </BlurView>

@@ -350,6 +350,100 @@ async function checkProgressionUnlocks(supabase: ReturnType<typeof createClient>
     }
 }
 
+// ── PRE-STEP 6: Orchestrate dispatch queue ──────────────────────────────────
+// Reads pending dispatch_queue tasks (RIDE, GROCERY, LAUNDRY, DELIVERY),
+// sorts by priority DESC + created_at ASC, soft-pings nearest idle driver.
+// Deduped: each task is only assigned once (status → 'assigned' after ping).
+async function orchestrateLiquidity(supabase: ReturnType<typeof createClient>) {
+    const { data: tasks } = await supabase
+        .from("dispatch_queue")
+        .select("id, task_type, order_id, ride_id, priority, pickup_lat, pickup_lng, attempts, created_at, expires_at")
+        .eq("status", "pending")
+        .lt("attempts", 3)
+        .order("priority", { ascending: false })
+        .order("created_at", { ascending: true });
+
+    if (!tasks?.length) return;
+
+    // Filter out expired tasks
+    const now = new Date();
+    const active = tasks.filter(t => !t.expires_at || new Date(t.expires_at) > now);
+
+    if (active.length !== tasks.length) {
+        const expiredIds = tasks.filter(t => t.expires_at && new Date(t.expires_at) <= now).map(t => t.id);
+        if (expiredIds.length > 0) {
+            await supabase.from("dispatch_queue")
+                .update({ status: "expired" })
+                .in("id", expiredIds)
+                .catch(() => null);
+        }
+    }
+
+    const assignmentPromises = active.map(async (task) => {
+        if (!task.pickup_lat || !task.pickup_lng) {
+            await supabase.from("dispatch_queue")
+                .update({ status: "failed", last_attempted: now.toISOString() })
+                .eq("id", task.id);
+            return;
+        }
+
+        const searchRadius = task.attempts === 0 ? 3000 : task.attempts === 1 ? 6000 : 10000;
+
+        const { data: drivers } = await supabase
+            .rpc("find_nearest_online_drivers", {
+                p_lat: task.pickup_lat,
+                p_lng: task.pickup_lng,
+                p_radius_meters: searchRadius,
+                p_limit: 1,
+            })
+            .catch(() => ({ data: [] }));
+
+        if (!drivers?.length) {
+            await supabase.from("dispatch_queue")
+                .update({
+                    attempts: task.attempts + 1,
+                    last_attempted: now.toISOString(),
+                })
+                .eq("id", task.id);
+            return;
+        }
+
+        const driver = drivers[0];
+
+        const taskLabel = task.task_type === "RIDE" ? "Ride request"
+            : task.task_type === "GROCERY" ? "Grocery delivery"
+            : task.task_type === "LAUNDRY" ? "Laundry pickup"
+            : "Delivery task";
+
+        await sendExpoPush(
+            driver.push_token ?? null,
+            `New ${taskLabel} available`,
+            `Priority ${task.priority} ${task.task_type} — tap to accept.`,
+            { task_id: task.id, task_type: task.task_type, ride_id: task.ride_id, order_id: task.order_id, type: "dispatch_task" },
+        );
+
+        await supabase.from("dispatch_queue")
+            .update({
+                status: "assigned",
+                driver_id: driver.driver_id,
+                last_attempted: now.toISOString(),
+            })
+            .eq("id", task.id);
+
+        await supabase.from("agent_decision_log").insert({
+            decision_type: "dispatch_assigned",
+            reasoning: `${task.task_type} task ${task.id} (priority ${task.priority}) assigned to driver ${driver.driver_id}`,
+            tool_used: "orchestrateLiquidity",
+            payload: { task_id: task.id, driver_id: driver.driver_id, task_type: task.task_type, priority: task.priority },
+            outcome: "driver soft-pinged",
+        }).catch(() => null);
+
+        console.log(`[orchestrateLiquidity] ${task.task_type} task ${task.id} → driver ${driver.driver_id}`);
+    });
+
+    await Promise.allSettled(assignmentPromises);
+}
+
 // ── Tool definitions for Groq AI loop ────────────────────────────────────────
 
 const TOOLS = [
@@ -665,26 +759,28 @@ serve(async (req) => {
         });
     }
 
-    if (!GROQ_API_KEY) {
-        console.error("[platform_intelligence] GROQ_API_KEY not set");
-        return new Response(JSON.stringify({ error: "GROQ_API_KEY not configured" }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-    }
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const runId = crypto.randomUUID();
 
     try {
-        // ── DETERMINISTIC PRE-STEPS (run every invocation before the AI loop) ──
+        // ── DETERMINISTIC PRE-STEPS (run every invocation, always) ──────────────
         await Promise.allSettled([
             activateScheduledTransfers(supabase),
             sendTravelReminders(supabase),
             sendMerchantOverdueWarnings(supabase),
             checkRateExpiry(supabase),
             checkProgressionUnlocks(supabase),
+            orchestrateLiquidity(supabase),
         ]);
+
+        // ── GROQ AI LOOP (only runs if API key is configured) ───────────────────
+        if (!GROQ_API_KEY) {
+            console.log("[platform_intelligence] GROQ_API_KEY not set — pre-steps only");
+            return new Response(
+                JSON.stringify({ success: true, run_id: runId, pre_steps_only: true }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+        }
 
         // ── GROQ AI LOOP ────────────────────────────────────────────────────────
         const systemPrompt = `You are the G-Taxi Platform Intelligence Agent for Trinidad and Tobago.

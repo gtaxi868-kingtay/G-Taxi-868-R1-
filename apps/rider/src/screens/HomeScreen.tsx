@@ -26,7 +26,7 @@ import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
 import { LayerDeck, Layer } from '../components/home/LayerDeck';
-import { GlassCard, Skeleton } from '@gtaxi/design-system/native';
+import { LiquidGlass, Skeleton } from '@gtaxi/design-system/native';
 import { ANIMATION, SURFACE, VOICES } from '@gtaxi/design-system';
 import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
@@ -62,7 +62,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
+    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, fete: false, events: false });
     const [nextUnlock, setNextUnlock] = useState<{ vertical: string; progress: number; required: number; label: string } | null>(null);
     const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
@@ -177,9 +177,11 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         const fetchEnabledVerticals = async () => {
             setIsVerticalsLoading(true);
             try {
-                const [progressRes, kioskFlagRes] = await Promise.all([
+                const [progressRes, kioskFlagRes, carnivalFlagRes, eventsFlagRes] = await Promise.all([
                     supabase.functions.invoke('get_rider_progress'),
                     supabase.from('system_feature_flags').select('is_active').eq('id', 'kiosk_active').maybeSingle(),
+                    supabase.from('system_feature_flags').select('is_active').eq('id', 'carnival_active').maybeSingle(),
+                    supabase.from('system_feature_flags').select('is_active').eq('id', 'events_active').maybeSingle(),
                 ]);
 
                 if (progressRes.error) throw progressRes.error;
@@ -199,13 +201,15 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     merchant: unlocked.includes('merchant_delivery'),
                     kiosk: (unlocked.includes('laundry_nfc') || unlocked.includes('kiosk')) && (kioskFlagRes.data?.is_active === true),
                     caribbean_travel: unlocked.includes('g_escape') || unlocked.includes('caribbean_travel'),
+                    fete: carnivalFlagRes.data?.is_active === true,
+                    events: eventsFlagRes.data?.is_active === true,
                 };
 
                 setFeatureFlags(flags);
                 setNextUnlock(progressRes.data?.data?.next_unlock ?? null);
             } catch (err) {
                 console.warn('[HomeScreen] Failed to fetch rider progress:', err);
-                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false });
+                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, fete: false, events: false });
                 setNextUnlock(null);
             } finally {
                 setIsVerticalsLoading(false);
@@ -629,8 +633,11 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         ];
         if (featureFlags.grocery) arr.push({ id: 'market', name: 'Market', sub: 'Groceries delivered', accent: '#F59E0B', icon: 'cart-sharp', search: 'Shop groceries & more' });
         if (featureFlags.laundry) arr.push({ id: 'laundry', name: 'Laundry', sub: 'Fresh & folded', accent: '#38BDF8', icon: 'shirt-sharp', search: 'Schedule a pickup' });
+        if (featureFlags.merchant) arr.push({ id: 'merchant', name: 'Food', sub: 'Delivery from local spots', accent: '#F97316', icon: 'fast-food-sharp', search: 'Order food & more' });
         if (featureFlags.caribbean_travel) arr.push({ id: 'escape', name: 'G-Escape', sub: 'Caribbean packages', accent: '#D4AF37', icon: 'airplane-sharp', search: 'Browse escapes' });
         if (featureFlags.kiosk) arr.push({ id: 'tap', name: 'Tap', sub: 'Scan a puck', accent: BRAND, icon: 'radio-sharp', search: 'Open NFC scanner' });
+        if (featureFlags.events) arr.push({ id: 'events', name: 'Events', sub: 'Nightlife & fetes', accent: '#8B5CF6', icon: 'calendar-sharp', search: 'What\'s happening' });
+        if (featureFlags.fete) arr.push({ id: 'fete', name: 'Carnival', sub: 'Bands & fetes', accent: '#FF2D55', icon: 'musical-notes-sharp', search: 'Find your band' });
         if (nextUnlock) arr.push({ id: 'locked', name: nextUnlock.vertical, accent: '#38BDF8', icon: 'lock-closed', locked: true, progress: nextUnlock.progress, need: nextUnlock.required, label: nextUnlock.label });
         return arr;
     }, [featureFlags, nextUnlock, driverSubText, homeSuggestion]);
@@ -653,8 +660,11 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             case 'ride': openDestinationSearch(); break;
             case 'market': navigation.navigate('GroceryStorefront'); break;
             case 'laundry': navigation.navigate('LaundryLanding'); break;
+            case 'merchant': navigation.navigate('FoodDelivery'); break;
             case 'escape': navigation.navigate('EscapeStorefront'); break;
             case 'tap': (navigation.navigate as any)('NfcScan'); break;
+            case 'events': navigation.navigate('Events'); break;
+            case 'fete': navigation.navigate('Carnival'); break;
             default: break;
         }
     };
@@ -720,7 +730,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
             {/* Top bar — absolute over the map */}
             <View style={[s.topBarContainer, { top: insets.top + 12 }, width > 600 && { alignItems: 'center' }]}>
-                <GlassCard style={[s.topBarBlur, width > 600 && { maxWidth: 600 }]}>
+                <LiquidGlass tier="chrome" voice="rider" style={[s.topBarBlur, width > 600 && { maxWidth: 600 }]}>
                     <View style={s.topBar}>
                         <Image
                             source={require('../../assets/logo.png')}
@@ -731,6 +741,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         <View style={s.topBarRight}>
                             <TouchableOpacity
                                 style={s.iconButton}
+                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                                 onPress={() => {
                                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                     (navigation.navigate as any)('Notifications');
@@ -744,6 +755,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
                             <TouchableOpacity
                                 style={s.avatarButton}
+                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsMenuOpen(true); }}
                                 accessibilityLabel="Open menu"
                                 accessibilityRole="button"
@@ -758,7 +770,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </GlassCard>
+                </LiquidGlass>
             </View>
 
             {!systemStatus.stripe_ready && (
@@ -788,7 +800,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     exiting={FadeOut}
                     style={s.aiBubbleContainer}
                 >
-                    <GlassCard style={s.aiBlur}>
+                    <LiquidGlass tier="panel" voice="rider" style={s.aiBlur}>
                         <View style={s.aiAvatar}>
                             <Ionicons name={visionLoading ? "scan" : "sparkles"} size={16} color={VOICES.rider.accent} />
                         </View>
@@ -799,7 +811,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                 <Text style={s.aiThinking}>AI is thinking...</Text>
                             )}
                         </View>
-                    </GlassCard>
+                    </LiquidGlass>
                 </Reanimated.View>
             )}
 
@@ -826,6 +838,14 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300 },
                 ]}
             >
+                {/* Liquid Glass substrate — floats the booking sheet over the live map */}
+                <LiquidGlass
+                    tier="panel"
+                    voice="rider"
+                    pointerEvents="none"
+                    style={[StyleSheet.absoluteFillObject, s.sheetGlass]}
+                />
+
                 {/* Drag handle — always visible in peek zone */}
                 <View {...panResponder.panHandlers} style={s.handleZone}>
                     <TouchableOpacity onPress={expandSheet} activeOpacity={0.7} accessibilityLabel="Expand options" accessibilityRole="button">
@@ -1273,8 +1293,6 @@ const s = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: 'rgba(5, 5, 5, 0.7)',
-        ...ghostBorder(),
     },
     topBarLogo: {
         width: 48,
@@ -1355,8 +1373,13 @@ const s = StyleSheet.create({
         zIndex: Z.sheet,
         borderTopLeftRadius: 28,
         borderTopRightRadius: 28,
-        backgroundColor: SURFACE.containerLow,
         ...elevationGlow(12),
+    },
+    sheetGlass: {
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
     },
     handleZone: {
         alignItems: 'center',
@@ -1392,9 +1415,6 @@ const s = StyleSheet.create({
         alignItems: 'center',
         padding: 14,
         borderRadius: 20,
-        overflow: 'hidden',
-        backgroundColor: 'rgba(5, 5, 5, 0.85)',
-        ...ghostBorder(),
     },
     aiAvatar: {
         width: 36,
@@ -1915,11 +1935,13 @@ const s = StyleSheet.create({
         zIndex: Z.lockOverlay,
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: 'rgba(5, 7, 10, 0.6)',
     },
     lockBlur: {
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
+        borderRadius: 24,
         backgroundColor: 'rgba(13, 11, 30, 0.95)',
     },
     hudLockRing: {

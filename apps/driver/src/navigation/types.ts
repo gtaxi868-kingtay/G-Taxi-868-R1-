@@ -12,8 +12,10 @@ export type ActiveTripParams = {
 export type AppStackParamList = {
   Dashboard: undefined;
   PendingApproval: undefined;
-  TripRequest: undefined;
+  TripRequest: { rideId: string; offer: any };
   ActiveTrip: ActiveTripParams;
+  DeliveryRequest: { orderId: string; offer: any };
+  ActiveDelivery: { orderId: string };
   Earnings: undefined;
   Wallet: undefined;
   ScheduledRides: undefined;
@@ -35,6 +37,8 @@ export type AppStackParamList = {
   VehicleSales: undefined;
   Lease: undefined;
   LeaseConsent: undefined;
+  CommanderDashboard: undefined;
+  CommanderConsole: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;

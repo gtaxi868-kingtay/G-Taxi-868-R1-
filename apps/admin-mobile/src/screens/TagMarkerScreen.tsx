@@ -158,8 +158,8 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
     try {
       if (spotType === 'business') {
         const { data: merchantResult, error: merchantError } = await supabase.functions.invoke(
-          'admin_create_merchant_user',
-          { body: { email: merchantEmail.trim(), password: merchantPassword, full_name: merchantName.trim() } }
+          'admin',
+          { body: { action: 'create_merchant_user', email: merchantEmail.trim(), password: merchantPassword, full_name: merchantName.trim() } }
         );
 
         if (merchantError || !merchantResult?.success) {
@@ -167,10 +167,10 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
         }
 
         const { data: nodeResult, error: nodeError } = await supabase.functions.invoke(
-          'admin_manage_nodes',
+          'admin',
           {
             body: {
-              action: 'upsert',
+              action: 'manage_nodes', action_type: 'upsert',
               node: {
                 tag_uid: tagUid.trim(),
                 merchant_id: merchantResult.merchant_id,
@@ -194,10 +194,10 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
         );
       } else {
         const { data: nodeResult, error: nodeError } = await supabase.functions.invoke(
-          'admin_manage_nodes',
+          'admin',
           {
             body: {
-              action: 'upsert',
+              action: 'manage_nodes', action_type: 'upsert',
               node: {
                 tag_uid: tagUid.trim(),
                 merchant_id: null,
@@ -237,7 +237,7 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Provision Puck</Text>
+        <Text style={styles.headerTitle}>Provision G-Touch Point</Text>
         <View style={{ width: 38 }} />
       </View>
 

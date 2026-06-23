@@ -94,3 +94,18 @@ entrypoint = "./functions/send_b2b_tracking_sms/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/send_b2b_tracking_sms/*.html" ]
+
+# ── Perimeter fixes (entry-point audit) ───────────────────────────────────
+# Cron-invoked queue worker: the pg_cron job calls it without a JWT, so it
+# must skip platform JWT. It only drains idempotent pending events (no body
+# injection), so an open endpoint is low-risk.
+[functions.process_event_queue]
+verify_jwt = false
+
+# External WiPay callbacks carry no Supabase JWT — they authenticate via the
+# WIPAY_WEBHOOK_SECRET checked inside the function (same pattern as stripe_webhook).
+[functions.wipay_webhook]
+verify_jwt = false
+
+[functions.wipay_payment]
+verify_jwt = false

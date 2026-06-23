@@ -179,9 +179,20 @@ Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned loc
       }
     }
 
+    const { data: pricingRows } = await supabaseAdmin
+      .from("pricing_config")
+      .select("key, value_cents")
+      .catch(() => ({ data: null }));
+    const pcfg: Record<string, number> = {};
+    if (pricingRows) for (const r of pricingRows) pcfg[r.key] = r.value_cents;
+    const BASE = pcfg["BASE_FARE_CENTS"] ?? 1600;
+    const PER_KM = pcfg["PER_KM_CENTS"] ?? 175;
+    const PER_MIN = pcfg["PER_MIN_CENTS"] ?? 95;
+    const MIN_FARE = pcfg["MIN_FARE_CENTS"] ?? 2200;
+
     const STOP_FEE_CENTS = validStops.length > 2 ? (validStops.length - 2) * 500 : 0;
-    const fareCents = 1600 + Math.round(total_distance_meters / 1000) * 175 + Math.round(total_duration_seconds / 60) * 95 + STOP_FEE_CENTS;
-    const finalFare = Math.max(fareCents, 2200);
+    const fareCents = BASE + Math.round(total_distance_meters / 1000) * PER_KM + Math.round(total_duration_seconds / 60) * PER_MIN + STOP_FEE_CENTS;
+    const finalFare = Math.max(fareCents, MIN_FARE);
 
     const allPois: Array<{ name: string; address: string; lat: number; lng: number; category: string }> = [];
     if (MAPBOX_TOKEN && nluSucceeded) {

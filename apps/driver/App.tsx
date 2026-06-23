@@ -17,6 +17,8 @@ import { RegisterScreen } from './src/screens/RegisterScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { TripRequestScreen } from './src/screens/TripRequestScreen';
 import { ActiveTripScreen } from './src/screens/ActiveTripScreen';
+import { DeliveryRequestScreen } from './src/screens/DeliveryRequestScreen';
+import { ActiveDeliveryScreen } from './src/screens/ActiveDeliveryScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
 import { WalletScreen } from './src/screens/WalletScreen';
 import { ScheduledRidesScreen } from './src/screens/ScheduledRidesScreen';
@@ -32,6 +34,8 @@ import { DriverReferralScreen } from './src/screens/DriverReferralScreen';
 import { VehicleSalesScreen } from './src/screens/VehicleSalesScreen';
 import LeaseScreen from './src/screens/LeaseScreen';
 import LeaseConsentScreen from './src/screens/LeaseConsentScreen';
+import { CommanderDashboardScreen } from './src/screens/CommanderDashboardScreen';
+import { CommanderConsoleScreen } from './src/screens/CommanderConsoleScreen';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { DriverActiveRideRestorationHandler } from './src/components/DriverActiveRideRestorationHandler';
@@ -165,6 +169,8 @@ function AppNavigator() {
                 component={ActiveTripScreen}
                 initialParams={activeRideId ? { rideId: activeRideId } : undefined}
             />
+            <AppStack.Screen name="DeliveryRequest" component={DeliveryRequestScreen} />
+            <AppStack.Screen name="ActiveDelivery" component={ActiveDeliveryScreen} />
             <AppStack.Screen name="Earnings" component={EarningsScreen} />
             <AppStack.Screen name="Wallet" component={WalletScreen} />
             <AppStack.Screen name="ScheduledRides" component={ScheduledRidesScreen} />
@@ -179,6 +185,8 @@ function AppNavigator() {
             <AppStack.Screen name="VehicleSales" component={VehicleSalesScreen} />
             <AppStack.Screen name="Lease" component={LeaseScreen} />
             <AppStack.Screen name="LeaseConsent" component={LeaseConsentScreen} />
+            <AppStack.Screen name="CommanderDashboard" component={CommanderDashboardScreen} />
+            <AppStack.Screen name="CommanderConsole" component={CommanderConsoleScreen} />
         </AppStack.Navigator>
         </>);
 }
@@ -202,7 +210,15 @@ function App() {
                     <AuthProvider>
                         <View style={{ flex: 1 }}>
                             <OfflineBanner />
-                            <NavigationContainer>
+                            <NavigationContainer linking={{
+                                prefixes: ['gtaxi-driver://'],
+                                config: {
+                                    screens: {
+                                        CommanderDashboard: 'commander',
+                                        CommanderConsole: 'commander-console'
+                                    }
+                                }
+                            }}>
                                 <StatusBar style="dark" />
                                 <RootNavigator />
                             </NavigationContainer>

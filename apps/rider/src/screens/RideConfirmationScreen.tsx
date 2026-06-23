@@ -16,7 +16,7 @@ import { initializeSupabaseClient, ENV } from '@gtaxi/core';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
 import { PaymentSelector, PaymentMethod } from '../components/PaymentSelector';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { GlassCard } from '@gtaxi/design-system/native';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { formatTTDDollars } from '../utils/currency';
 
@@ -424,7 +424,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             </View>
 
             <View style={s.bottomContainer}>
-                <GlassCard variant="rider" style={s.panel}>
+                <LiquidGlass tier="panel" voice="rider" style={s.panel}>
                     <View style={s.handle} />
                     
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
@@ -656,7 +656,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             </LinearGradient>
                         </TouchableOpacity>
                     </ScrollView>
-                </GlassCard>
+                </LiquidGlass>
             </View>
         </View>
     );

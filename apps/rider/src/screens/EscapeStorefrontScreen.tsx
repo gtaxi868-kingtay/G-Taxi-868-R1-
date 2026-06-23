@@ -177,11 +177,8 @@ export default function EscapeStorefrontScreen() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('join_escape_group', {
-        body: {
-          package_id: selectedPackage.id,
-          party_size: guestCount,
-        },
+      const { data, error } = await supabase.functions.invoke('travel', {
+        body: { action: 'join_escape_group', package_id: selectedPackage.id, party_size: guestCount },
       });
 
       if (error) throw error;

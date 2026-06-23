@@ -16,6 +16,8 @@
     "build:admin": "npm --workspace apps/admin run build",
     "build:merchant": "npm --workspace apps/merchant run build",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "orphans": "knip",
+    "orphans:files": "knip --include files",
     "lint:strict": "npm run lint && npm run typecheck",
     "typecheck": "npm --workspace apps/rider run typecheck && npm --workspace apps/driver run typecheck && npm --workspace apps/admin run typecheck && npm --workspace apps/merchant run typecheck",
     "test": "npm --workspace apps/rider run test && npm --workspace apps/driver run test && npm --workspace apps/admin run test && npm --workspace apps/merchant run test",
@@ -42,6 +44,7 @@
     "eslint-import-resolver-alias": "^1.1.2",
     "eslint-import-resolver-typescript": "^3.6.0",
     "eslint-plugin-import": "^2.32.0",
+    "knip": "^5.88.1",
     "prettier": "^3.8.3",
     "syncpack": "^15.3.1",
     "turbo": "^2.9.16"

@@ -50,8 +50,9 @@ export function ReportProblemScreen({ navigation, route }: any) {
         setSubmitting(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        const { data, error } = await supabase.functions.invoke('submit_dispute', {
+        const { data, error } = await supabase.functions.invoke('merchant', {
             body: {
+                action: 'submit_dispute',
                 ride_id: ride?.id ?? null,
                 category,
                 description: description.trim(),

@@ -96,12 +96,8 @@ export default function EscapeCheckoutScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase.functions.invoke('book_escape', {
-        body: {
-          escape_package_id: packageId,
-          guest_count: guestCount,
-          payment_method: 'stripe',
-        },
+      const { data, error } = await supabase.functions.invoke('travel', {
+        body: { action: 'book_escape', escape_package_id: packageId, guest_count: guestCount, payment_method: 'stripe' },
       });
 
       if (error) throw error;

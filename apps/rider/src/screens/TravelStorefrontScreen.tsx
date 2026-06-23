@@ -49,8 +49,8 @@ export function TravelStorefrontScreen({ navigation }: AppScreenProps<'TravelSto
         if (!silent) setLoading(true);
         setError(null);
         try {
-            const { data, error: fnError } = await supabase.functions.invoke('get_travel_packages', {
-                body: destFilter !== 'ALL' ? { destination_code: destFilter } : {},
+            const { data, error: fnError } = await supabase.functions.invoke('travel', {
+                body: destFilter !== 'ALL' ? { action: 'get_packages', destination_code: destFilter } : { action: 'get_packages' },
             });
             if (fnError) {
                 setError(fnError.message || 'Failed to load packages');

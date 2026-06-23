@@ -61,22 +61,35 @@ export class FinancialLedgerShadow {
     /**
      * SHADOW: simulateCompletionSplit
      * Predicts the payout split based on commission tiers.
+     * Current model: 82% driver / 15% platform / 3% growth reserve.
+     * Loyalty: 88% driver / 12% platform (waived growth reserve).
+     * Pioneer: 85% driver / 12% platform / 3% reserve.
      */
     public simulateCompletionSplit(totalFareCents: number, commissionTier: string = 'standard') {
         const rates: Record<string, number> = {
-            'standard': 0.22,
-            'pioneer': 0.19
+            'standard': 0.15,
+            'pioneer': 0.12,
+            'loyalty': 0.12,
+        };
+        const reserves: Record<string, number> = {
+            'standard': 0.03,
+            'pioneer': 0.03,
+            'loyalty': 0,
         };
 
-        const rate = rates[commissionTier] || 0.22;
+        const rate = rates[commissionTier] || 0.15;
+        const reserve = reserves[commissionTier] || 0.03;
         const platformFee = Math.round(totalFareCents * rate);
-        const driverPayout = totalFareCents - platformFee;
+        const reserveFee = Math.round(totalFareCents * reserve);
+        const driverPayout = totalFareCents - platformFee - reserveFee;
 
         const result = {
             grossCents: totalFareCents,
             platformFeeCents: platformFee,
+            reserveFeeCents: reserveFee,
             driverPayoutCents: driverPayout,
-            rateUsed: rate
+            rateUsed: rate,
+            reserveRate: reserve,
         };
 
         this.log('simulateCompletionSplit', { totalFareCents, commissionTier }, result);

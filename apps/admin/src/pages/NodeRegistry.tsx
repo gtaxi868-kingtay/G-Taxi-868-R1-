@@ -50,7 +50,7 @@ export function NodeRegistry() {
             }));
             setNodes(mapped);
 
-            const result = await adminFetch('admin_get_users');
+            const result = await adminFetch('admin', { action: 'get_users' });
             if (result?.merchants) {
                 setMerchants(result.merchants);
             } else {
@@ -71,9 +71,9 @@ export function NodeRegistry() {
         if (!editNode?.tag_uid || !editNode?.location_name) return;
         setSaving(true);
         try {
-            await supabase.functions.invoke('admin_manage_nodes', {
+            await supabase.functions.invoke('admin', {
                 body: {
-                    action: 'upsert',
+                    action: 'manage_nodes', action_type: 'upsert',
                     node: {
                         id: editNode.id || undefined,
                         tag_uid: editNode.tag_uid,
@@ -99,9 +99,9 @@ export function NodeRegistry() {
 
     const toggleActive = async (node: KioskNode) => {
         try {
-            await supabase.functions.invoke('admin_manage_nodes', {
+            await supabase.functions.invoke('admin', {
                 body: {
-                    action: 'upsert',
+                    action: 'manage_nodes', action_type: 'upsert',
                     node: { id: node.id, is_active: !node.is_active },
                 },
             });
@@ -115,7 +115,8 @@ export function NodeRegistry() {
         setDispatchOverride(node.id);
         setOverrideResult(null);
         try {
-            const result = await adminFetch('admin_assign_driver', {
+            const result = await adminFetch('admin', {
+                action: 'assign_driver',
                 ride_id: null,
                 kiosk_node_id: node.id,
                 location_name: node.location_name,

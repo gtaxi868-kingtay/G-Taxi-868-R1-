@@ -165,7 +165,7 @@ export function TravelPackages() {
         };
         if (form.id) body.id = form.id;
 
-        const { data, error: fnError } = await supabase.functions.invoke('admin_upsert_travel_package', { body });
+        const { data, error: fnError } = await supabase.functions.invoke('admin', { body: { action: 'upsert_travel_package', sub_action: body.action, ...body, action: 'upsert_travel_package' } });
         if (fnError || data?.error) {
             setError(fnError?.message || data?.error || 'Save failed');
         } else {
@@ -177,14 +177,14 @@ export function TravelPackages() {
 
     const handleDelete = async (id: string, title: string) => {
         if (!confirm(`Delete package "${title}"? This cannot be undone.`)) return;
-        await supabase.functions.invoke('admin_upsert_travel_package', { body: { action: 'delete', id } });
+        await supabase.functions.invoke('admin', { body: { action: 'upsert_travel_package', sub_action: 'delete', id } });
         await load();
     };
 
     const toggleStatus = async (pkg: any) => {
         const nextStatus = pkg.status === 'active' ? 'draft' : 'active';
-        await supabase.functions.invoke('admin_upsert_travel_package', {
-            body: { action: 'upsert', id: pkg.id, status: nextStatus },
+        await supabase.functions.invoke('admin', {
+            body: { action: 'upsert_travel_package', sub_action: 'upsert', id: pkg.id, status: nextStatus },
         });
         await load();
     };

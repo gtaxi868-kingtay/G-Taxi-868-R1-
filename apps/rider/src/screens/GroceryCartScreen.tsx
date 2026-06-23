@@ -111,8 +111,8 @@ export function GroceryCartScreen({ navigation, route }: any) {
                     return;
                 }
 
-                const { error: matchErr } = await supabase.functions.invoke('match_order_delivery', {
-                    body: { order_id: order.id },
+                const { error: matchErr } = await supabase.functions.invoke('merchant', {
+                    body: { action: 'match_delivery', order_id: order.id },
                 });
                 if (matchErr) {
                     Alert.alert(
@@ -128,8 +128,8 @@ export function GroceryCartScreen({ navigation, route }: any) {
                     );
                 }
             } else {
-                const { error: matchErr } = await supabase.functions.invoke('match_order_delivery', {
-                    body: { order_id: order.id },
+                const { error: matchErr } = await supabase.functions.invoke('merchant', {
+                    body: { action: 'match_delivery', order_id: order.id },
                 });
                 if (matchErr) {
                     console.warn('[Checkout] match_order_delivery:', matchErr.message);

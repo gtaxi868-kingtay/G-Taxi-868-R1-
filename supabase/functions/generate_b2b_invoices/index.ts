@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "npm:stripe@14.10.0";
-import { captureException } from "../_shared/sentry.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "sk_test_placeholder", {
   apiVersion: "2023-10-16",
@@ -11,10 +10,21 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "sk_test_placehol
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+async function requireAdminInline(req: Request): Promise<void> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) throw new Response(JSON.stringify({ error: 'Missing authorization header' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  const anon = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!);
+  const { data: { user }, error } = await anon.auth.getUser(authHeader.replace('Bearer ', ''));
+  if (error || !user) throw new Response(JSON.stringify({ error: 'Invalid or expired token' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: profile, error: pErr } = await admin.from('profiles').select('role').eq('id', user.id).single();
+  if (pErr || profile?.role !== 'admin') throw new Response(JSON.stringify({ error: 'Forbidden: admin role required' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+}
+
 serve(async (req) => {
   try {
-    // Only allow POST (or could be triggered via pg_cron GET if configured so, let's allow both for cron)
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await requireAdminInline(req);
 
     // 1. Find all Net-30 merchants with outstanding debt
     const { data: merchants, error: merchantsErr } = await supabaseAdmin
@@ -101,7 +111,6 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error("generate_b2b_invoices error:", error);
-    await captureException(error, { function: "generate_b2b_invoices" });
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 });

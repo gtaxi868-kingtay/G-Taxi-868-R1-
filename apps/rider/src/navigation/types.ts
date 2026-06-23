@@ -183,7 +183,6 @@ export type AppStackParamList = {
     pickup?: { latitude: number; longitude: number; address: string };
   };
   Legal: undefined;
-  DeleteAccount: undefined;
   TravelStorefront: undefined;
   TravelPackageDetail: { packageId: string };
   TravelBookingConfirmation: { bookingId: string; packageTitle: string; totalCents: number; travelerCount: number; departureAt: string; airportTransferRideId?: string };
@@ -196,6 +195,9 @@ export type AppStackParamList = {
   EscapeCheckout: { packageId: string; guestCount: number; userLocation: { latitude: number; longitude: number } };
   ActivePass: undefined;
   PassportSubmission: { participantId: string };
+  Carnival: undefined;
+  Events: undefined;
+  BecomeCommander: undefined;
 };
 
 export type RootStackParamList = AppStackParamList;

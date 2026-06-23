@@ -33,10 +33,10 @@ export const Financials = () => {
 
     const loadFinancials = async () => {
         try {
-            const { data: revData } = await adminFetch('admin_get_revenue_logs');
+            const { data: revData } = await adminFetch('admin', { action: 'get_revenue_logs' });
             setLogs(revData || []);
             
-            const { data: depData } = await adminFetch('admin_get_pending_deposits');
+            const { data: depData } = await adminFetch('admin', { action: 'get_pending_deposits' });
             setPendingDeposits(depData || []);
 
             const totals = (revData || []).reduce((acc: any, curr: any) => ({
@@ -55,7 +55,8 @@ export const Financials = () => {
         if (isProcessing) return;
         setIsProcessing(true);
         try {
-            await adminFetch('admin_verify_deposit', { 
+            await adminFetch('admin', { 
+                action: 'verify_deposit',
                 deposit_id: depositId, 
                 status: action,
                 amount_cents: amountTtd ? Math.round(amountTtd * 100) : undefined

@@ -28,6 +28,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
     const [error, setError] = useState(false);
     const [recents, setRecents] = useState<RecentItem[]>([]);
     const [saved, setSaved] = useState<SavedPlace[]>([]);
+    const [nearbyPins, setNearbyPins] = useState<any[]>([]);
 
     const inputRef = useRef<TextInput>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -36,13 +37,13 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
     useEffect(() => {
         const timer = setTimeout(() => inputRef.current?.focus(), 100);
         loadLists();
+        loadNearbyPins();
         return () => {
             clearTimeout(timer);
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
     }, []);
 
-    // Real recents + saved places — no more hardcoded Piarco/Trincity placeholders.
     const loadLists = async () => {
         try {
             const [recentRides, savedPlaces] = await Promise.all([getRecentRides(), getSavedPlaces()]);
@@ -60,6 +61,25 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
             setSaved(savedPlaces || []);
         } catch (err) {
             console.warn('[DestinationSearch] could not load recents/saved:', err);
+        }
+    };
+
+    // P0: Zero Unverified Addresses — load verified pins near current location
+    const loadNearbyPins = async () => {
+        try {
+            const loc = currentLocation || (await import('expo-location')).getCurrentPositionAsync?.({});
+            if (!loc) return;
+            const lat = 'latitude' in loc ? loc.latitude : loc.coords?.latitude;
+            const lng = 'longitude' in loc ? loc.longitude : loc.coords?.longitude;
+            if (!lat || !lng) return;
+            const { data } = await supabase.functions.invoke('geocode', {
+                body: { lat, lng, limit: 8 },
+            });
+            if (data?.success && Array.isArray(data?.data)) {
+                setNearbyPins(data.data);
+            }
+        } catch (err) {
+            // Non-critical — nearby pins are just convenience
         }
     };
 
@@ -142,7 +162,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
         </TouchableOpacity>
     );
 
-    const placeholder = editPickupMode ? 'Search pickup address' : 'Where to?';
+    const placeholder = editPickupMode ? 'Select a verified pickup point' : 'Search verified locations';
 
     return (
         <View style={s.root}>
@@ -209,7 +229,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
                             ) : (
                                 <View style={s.empty}>
                                     <Text style={s.emptyText}>No match for "{query}"</Text>
-                                    <Text style={s.emptySub}>Try a landmark or a nearby street.</Text>
+                                    <Text style={s.emptySub}>Only Verified Merchant Pins and landmarks are available. Try a different search.</Text>
                                 </View>
                             )
                         }
@@ -270,13 +290,41 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
                                     </TouchableOpacity>
                                 ))}
                             </>
-                        ) : saved.length === 0 ? (
+                        ) : saved.length === 0 && nearbyPins.length === 0 ? (
                             <View style={s.empty}>
                                 <Ionicons name="navigate-outline" size={32} color="rgba(242,245,248,0.3)" />
-                                <Text style={s.emptyText}>Search for where you're headed</Text>
-                                <Text style={s.emptySub}>Your saved places and recent trips will show here.</Text>
+                                <Text style={s.emptyText}>Select a verified location</Text>
+                                <Text style={s.emptySub}>Only Verified Merchant Pins, landmarks, and your saved places are available for safety.</Text>
                             </View>
                         ) : null}
+
+                        {nearbyPins.length > 0 && query.length === 0 && (
+                            <>
+                                <View style={s.sectionHeader}>
+                                    <Ionicons name="location-outline" size={15} color="rgba(242,245,248,0.5)" />
+                                    <Text style={s.sectionLabel}>Verified Pins Nearby</Text>
+                                </View>
+                                {nearbyPins.map((pin: any, i: number) => (
+                                    <TouchableOpacity
+                                        key={pin.id || `pin-${i}`}
+                                        style={s.row}
+                                        onPress={() => choose(pin.latitude, pin.longitude, pin.address || pin.name)}
+                                        accessibilityLabel={`Select ${pin.name}`}
+                                        accessibilityRole="button"
+                                    >
+                                        <View style={s.rowIconBrand}>
+                                            <Ionicons name="business" size={18} color="#FFF" />
+                                        </View>
+                                        <View style={s.rowInfo}>
+                                            <Text style={s.rowName}>{pin.name}</Text>
+                                            <Text style={s.rowAddress} numberOfLines={1}>
+                                                {pin.distance_meters ? `${Math.round(pin.distance_meters)}m` : ''} {pin.address}
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </>
+                        )}
                     </ScrollView>
                 )}
             </KeyboardAvoidingView>

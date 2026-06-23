@@ -126,6 +126,70 @@ export const GlassCard = ({ children, style, variant = 'rider' }: any) => {
 };
 
 /**
+ * 1b. LiquidGlass — Apple-style Liquid Glass surface (Expo 52 simulation).
+ *
+ * Apple's Liquid Glass principle: controls float ABOVE content as a distinct
+ * translucent layer (Hierarchy). Three tiers express that hierarchy:
+ *   chrome — floating nav bars / headers / FABs (most translucent + strongest sheen)
+ *   panel  — cards, sheets, modals (the default)
+ *   inlay  — quiet rows / input wells (least blur)
+ *
+ * Each app keeps its own voice via the accent (rider/driver cyan, merchant teal,
+ * admin purple). The dark substrate guarantees text contrast (WCAG 4.5:1) over a
+ * live map. Static specular = reduced-motion safe by default.
+ *
+ * Usage: <LiquidGlass tier="panel" voice="rider" style={{ padding: 16 }}>…</LiquidGlass>
+ */
+const GLASS_TIERS = {
+    chrome: { intensity: 48, radius: 24, tint: 'rgba(11,14,18,0.44)', specular: 0.20, edge: 0.16, specularH: 80 },
+    panel:  { intensity: 30, radius: 20, tint: 'rgba(11,14,18,0.55)', specular: 0.14, edge: 0.10, specularH: 64 },
+    inlay:  { intensity: 14, radius: 14, tint: 'rgba(11,14,18,0.34)', specular: 0.08, edge: 0.08, specularH: 40 },
+};
+const GLASS_VOICE = {
+    rider: '#1DE0E6',
+    driver: '#1DE0E6',
+    merchant: '#007070',
+    admin: '#8B5CF6',
+};
+
+export const LiquidGlass = ({ children, style, tier = 'panel', voice = 'rider', accentEdge = false, ...rest }: any) => {
+    const t = GLASS_TIERS[tier] || GLASS_TIERS.panel;
+    const accent = GLASS_VOICE[voice] || GLASS_VOICE.rider;
+    return (
+        <BlurView
+            intensity={t.intensity}
+            tint="dark"
+            style={[
+                {
+                    borderRadius: t.radius,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: accentEdge ? accent + '40' : `rgba(255,255,255,${t.edge})`,
+                    shadowColor: accent,
+                    shadowOpacity: 0.1,
+                    shadowRadius: 24,
+                    shadowOffset: { width: 0, height: 10 },
+                },
+                style,
+            ]}
+            {...rest}
+        >
+            {/* Translucent dark substrate — keeps text legible over the map (contrast guard). */}
+            <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: t.tint }]} />
+            {/* Specular highlight — top-edge light bend (the Liquid Glass sheen). */}
+            <LinearGradient
+                pointerEvents="none"
+                colors={[`rgba(255,255,255,${t.specular})`, `rgba(255,255,255,${t.specular * 0.25})`, 'transparent']}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.45, y: 1 }}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: t.specularH }}
+            />
+            {children}
+        </BlurView>
+    );
+};
+
+/**
  * 2. PrimaryButton
  */
 export const PrimaryButton = ({ label, onPress, loading, disabled, style }: any) => (

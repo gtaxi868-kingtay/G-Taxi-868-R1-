@@ -16,6 +16,7 @@ import Reanimated, {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { ENV } from '@gtaxi/shared/env';
 import { supabase } from '@gtaxi/core';
@@ -340,8 +341,8 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                     </Reanimated.View>
                 )}
 
-                {/* Status Card - Glassmorphism */}
-                <View style={s.statusCard}>
+                {/* Status Card - Liquid Glass */}
+                <LiquidGlass tier="panel" voice="rider" style={s.statusCard}>
                     {isInQueue ? (
                         <>
                             <Text style={s.queueTitle}>
@@ -363,7 +364,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                             </Text>
                         </>
                     )}
-                </View>
+                </LiquidGlass>
 
                 {/* Cancel Button - Ghost Style */}
                 <Reanimated.View style={[s.cancelWrap, { opacity: cancelOpacity }]}>
@@ -554,11 +555,11 @@ const s = StyleSheet.create({
         marginTop: 2,
     },
     
-    statusCard: { 
-        backgroundColor: SURFACE.containerLow, 
-        borderRadius: 28, 
-        padding: 28, 
-        width: '100%', 
+    statusCard: {
+        borderRadius: 28,
+        padding: 28,
+        width: '100%',
+        overflow: 'hidden',
         ...ghostBorder(0.2),
         ...elevationGlow(6),
     },

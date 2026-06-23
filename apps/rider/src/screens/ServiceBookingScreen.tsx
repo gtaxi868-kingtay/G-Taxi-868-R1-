@@ -62,8 +62,9 @@ export function ServiceBookingScreen({ navigation, route }: any) {
 
         setSubmitting(true);
         try {
-            const { data, error } = await supabase.functions.invoke('create_appointment', {
+            const { data, error } = await supabase.functions.invoke('merchant', {
                 body: {
+                    action: 'create_appointment',
                     merchant_id: merchantId,
                     service_id: selectedService.id,
                     scheduled_at: selectedTime.toISOString(),

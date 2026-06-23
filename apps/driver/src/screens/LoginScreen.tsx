@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { RegisterScreen } from './RegisterScreen';
+import { JoinWithCodeScreen } from './JoinWithCodeScreen';
 import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
@@ -27,6 +28,7 @@ export function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [registrationActive, setRegistrationActive] = useState(false);
     const [showRegister, setShowRegister] = useState(false);
+    const [showJoinCode, setShowJoinCode] = useState(false);
     const { signIn } = useAuth();
     const insets = useSafeAreaInsets();
 
@@ -73,6 +75,13 @@ export function LoginScreen() {
         return <RegisterScreen onBack={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setShowRegister(false);
+        }} />;
+    }
+
+    if (showJoinCode) {
+        return <JoinWithCodeScreen onBack={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowJoinCode(false);
         }} />;
     }
 
@@ -164,6 +173,18 @@ export function LoginScreen() {
                             </Text>
                         </TouchableOpacity>
                     )}
+
+                    <TouchableOpacity
+                        style={s.registerLink}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setShowJoinCode(true);
+                        }}
+                    >
+                        <Text style={s.registerText}>
+                            HAVE A G-LEAD CODE? <Text style={s.registerHighlight}>JOIN HERE</Text>
+                        </Text>
+                    </TouchableOpacity>
                 </Reanimated.View>
             </KeyboardAvoidingView>
         </View>

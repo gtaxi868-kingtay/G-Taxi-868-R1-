@@ -50,7 +50,7 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
         const action = user.is_driver ? 'revoke' : 'authorize';
         if (!window.confirm(`${action.toUpperCase()} driver access for ${user.name}?`)) return;
         try {
-            await adminFetch('admin_toggle_driver', { user_id: user.id, action, name: user.name });
+            await adminFetch('admin', { action: 'toggle_driver', user_id: user.id, sub_action: action, name: user.name });
             onRefresh();
         } catch (err: any) { alert(err.message); }
     };
@@ -59,7 +59,7 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
         const nextStatus = !user.suspended;
         if (!window.confirm(`${nextStatus ? 'SUSPEND' : 'REACTIVATE'} this rider?`)) return;
         try {
-            await adminFetch('admin_suspend_rider', { rider_id: user.id, suspend: nextStatus });
+            await adminFetch('admin', { action: 'suspend_rider', rider_id: user.id, suspend: nextStatus });
             onRefresh();
         } catch (err: any) { alert(err.message); }
     };

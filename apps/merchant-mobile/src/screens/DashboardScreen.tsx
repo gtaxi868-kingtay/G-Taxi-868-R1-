@@ -168,6 +168,40 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileLabel}>Sign Out</Text>
             <Text style={s.tileDesc}>End your session</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[s.tile, glassSurface(0.15), { width: tileWidth }]}
+            accessibilityLabel="Delete your account permanently"
+            accessibilityRole="button"
+            onPress={() => {
+              Alert.alert(
+                'Delete Account',
+                'This permanently deletes your business account and all associated data. This cannot be undone.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Delete Permanently',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        const { error } = await supabase.functions.invoke('delete_account');
+                        if (error) throw error;
+                        await signOut();
+                      } catch (err: any) {
+                        Alert.alert('Error', err?.message || 'Could not delete account. Contact support.');
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <View style={[s.tileIcon, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
+              <Ionicons name="trash-outline" size={28} color="#EF4444" />
+            </View>
+            <Text style={s.tileLabel}>Delete Account</Text>
+            <Text style={s.tileDesc}>Permanently erase data</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>

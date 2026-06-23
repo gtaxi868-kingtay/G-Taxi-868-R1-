@@ -7,6 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import Reanimated, {
     useSharedValue, withTiming, useDerivedValue,
 } from 'react-native-reanimated';
@@ -35,13 +36,13 @@ const INFO_ROWS = [
         icon: 'cash-outline' as const,
         color: '#10B981',
         title: 'Cash Trips',
-        body: 'You collect & keep all cash. G-Taxi debits our 19% cut from this ledger.',
+        body: 'You collect & keep all cash. G-Taxi debits our 15% + 3% reserve from this ledger.',
     },
     {
         icon: 'card-outline' as const,
         color: VOICES.driver.accent,
         title: 'Card / Wallet Trips',
-        body: 'We collect the payment. Your 81% share is credited to this ledger.',
+        body: 'We collect the payment. Your 82% share is credited to this ledger.',
     },
     {
         icon: 'lock-closed-outline' as const,
@@ -254,21 +255,148 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
 
             if (uploadError) throw uploadError;
 
+            const receiptPath = uploadData.path;
+            const receiptUrl = supabase.storage.from('receipts').getPublicUrl(receiptPath).data.publicUrl;
+
+            // Phase 4: OCR parse the receipt
+            let parsedAmount = 0;
+            let referenceToken: string | null = null;
+            try {
+                const { data: ocrData } = await supabase.functions.invoke('parse_receipt', {
+                    body: { photo_url: receiptPath },
+                });
+                if (ocrData?.success && ocrData?.data?.amount_cents) {
+                    parsedAmount = ocrData.data.amount_cents;
+                }
+                if (ocrData?.success && ocrData?.data?.reference_token) {
+                    referenceToken = ocrData.data.reference_token;
+                }
+            } catch {
+                // OCR is best-effort; fall back to manual admin review
+            }
+
+            // Duplicate-transaction guard: never let the same bank/ATM reference
+            // be submitted (and later credited) twice.
+            if (referenceToken) {
+                const { data: dupe } = await supabase
+                    .from('manual_deposits')
+                    .select('id')
+                    .eq('reference_token', referenceToken)
+                    .maybeSingle();
+                if (dupe) {
+                    Alert.alert('Already Submitted', 'This receipt (transaction ' + referenceToken + ') has already been submitted. It cannot be credited twice.');
+                    return;
+                }
+            }
+
             const { error: dbError } = await supabase
                 .from('manual_deposits')
                 .insert({
                     user_id: driver?.id,
-                    amount_cents: 0,
-                    receipt_url: uploadData.path,
+                    amount_cents: parsedAmount,
+                    receipt_url: receiptPath,
+                    reference_token: referenceToken,
                     status: 'pending'
                 });
 
-            if (dbError) throw dbError;
+            if (dbError) {
+                // 23505 = unique violation on reference_token (race with another upload)
+                if ((dbError as any).code === '23505') {
+                    Alert.alert('Already Submitted', 'This receipt has already been submitted. It cannot be credited twice.');
+                    return;
+                }
+                throw dbError;
+            }
 
-            Alert.alert('Success', 'Receipt uploaded! Admin will verify and credit your wallet shortly.');
+            const msg = parsedAmount > 0
+                ? `Receipt uploaded! Amount detected: TTD ${(parsedAmount / 100).toFixed(2)}. Admin will verify shortly.`
+                : 'Receipt uploaded! Admin will verify and credit your wallet shortly.';
+            Alert.alert('Success', msg);
             fetchData();
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Upload failed';
+            Alert.alert('Error', message);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleSmartAtmDeposit = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.7,
+            });
+            if (result.canceled || !result.assets[0]) return;
+
+            setProcessing(true);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('No session');
+
+            const amountCents = Math.round(Math.abs(balance || 0) * 100);
+
+            const asset = result.assets[0];
+            const fileExt = asset.uri.split('.').pop();
+            const fileName = `settlements/${driver?.id}/${Date.now()}.${fileExt}`;
+
+            const imgRes = await fetch(asset.uri);
+            const blob = await imgRes.blob();
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('receipts')
+                .upload(fileName, blob);
+            if (uploadError) throw uploadError;
+
+            const receiptPath = fileName;
+            const receiptUrl = supabase.storage.from('receipts').getPublicUrl(receiptPath).data.publicUrl;
+
+            // Phase 4: OCR parse the receipt to auto-detect amount + transaction id
+            let parsedAmount = amountCents;
+            let referenceToken: string | null = null;
+            try {
+                const { data: ocrData } = await supabase.functions.invoke('parse_receipt', {
+                    body: { photo_url: receiptPath },
+                });
+                if (ocrData?.success && ocrData?.data?.amount_cents) {
+                    parsedAmount = ocrData.data.amount_cents;
+                }
+                if (ocrData?.success && ocrData?.data?.reference_token) {
+                    referenceToken = ocrData.data.reference_token;
+                }
+            } catch {
+                // OCR is best-effort; fall back to wallet-based amount
+            }
+
+            const position = await Location.getCurrentPositionAsync({});
+            const deposit_lat = position?.coords?.latitude;
+            const deposit_lng = position?.coords?.longitude;
+
+            const { data: settleData, error: settleErr } = await supabase.functions.invoke('submit_settlement', {
+                body: {
+                    amount_cents: parsedAmount,
+                    method: 'smart_atm',
+                    reference_token: referenceToken,
+                    receipt_photo_url: receiptUrl,
+                    deposit_lat,
+                    deposit_lng,
+                },
+            });
+
+            if (settleErr || !settleData?.success) {
+                const dupHit = /duplicate|already|23505|reference/i.test(settleData?.error || settleErr?.message || '');
+                throw new Error(dupHit
+                    ? 'This receipt has already been submitted. It cannot be credited twice.'
+                    : (settleData?.error || settleErr?.message || 'Settlement submission failed'));
+            }
+
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            const parsedMsg = parsedAmount !== amountCents
+                ? ` (OCR detected TTD ${(parsedAmount / 100).toFixed(2)})`
+                : '';
+            Alert.alert('Submitted', `ATM deposit submitted${parsedMsg}! Admin will verify and credit your wallet shortly.`);
+            fetchData();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Submission failed';
             Alert.alert('Error', message);
         } finally {
             setProcessing(false);
@@ -282,6 +410,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
             "How would you like to top up your wallet?",
             [
                 { text: "$100 Top Up (Card)", onPress: () => handleCardTopUp(100) },
+                { text: "Smart ATM Deposit", onPress: handleSmartAtmDeposit },
                 { text: "Upload Bank Receipt", onPress: handleManualDeposit },
                 { text: "Contact Support (WA)", onPress: () => Linking.openURL('https://wa.me/18687031000?text=I need to settle my G-Taxi commission balance.') },
                 { text: "Cancel", style: "cancel" }
@@ -305,7 +434,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         : [SURFACE.base, '#0A2A1A'];
     const heroStatusColor = isOwed ? '#FF4D4D' : '#10B981';
     const heroStatusLabel = isOwed
-        ? `You owe the platform TTD ${(Math.abs(balance || 0) * 0.19 / 0.81).toFixed(0)} (19% cut)`
+        ? `You owe the platform TTD ${(Math.abs(balance || 0) * 0.18 / 0.82).toFixed(0)} (18% platform + reserve)`
         : 'Balance all clear ✓';
 
     return (

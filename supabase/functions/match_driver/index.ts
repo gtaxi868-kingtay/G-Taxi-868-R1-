@@ -210,14 +210,14 @@ serve(async (req: Request) => {
         // Append distance for the offer insertion below
         selectedDriver._distance = selectedDriverSummary.distance_km * 1000;
 
-        // Read platform rate from pricing_config; fallback to 0.19
+        // Read platform rate from pricing_config; fallback to 0.15
         const { data: platRateRow } = await supabaseAdmin
             .from("pricing_config")
             .select("value_cents")
             .eq("key", "PLATFORM_RATE_CENTS")
             .maybeSingle()
             .catch(() => ({ data: null }));
-        const platRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
+        const platRate = platRateRow ? (platRateRow.value_cents ?? 1500) / 10000 : 0.15;
         // Pioneer tier gets 3% lower rate
         const commissionRate = selectedDriver.commission_tier === 'pioneer'
             ? Math.max(0.01, platRate - 0.03)

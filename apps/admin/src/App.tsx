@@ -19,8 +19,10 @@ import { MerchantNetwork } from './pages/MerchantNetwork';
 import { Support } from './pages/Support';
 import { Progression } from './pages/Progression';
 import { EscapeManagement } from './pages/EscapeManagement';
+import { RevshareSettlement } from './pages/RevshareSettlement';
+import { CommanderManagement } from './pages/CommanderManagement';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign } from 'lucide-react';
 
 // ── AdminSecurityGate ──────────────────────────────────────────────────────────
 // Blocks all rendering unless the user has a verified Supabase session AND
@@ -48,7 +50,8 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
         // profiles table to confirm admin role. FastPath: admin_get_flags
         // is the lightest admin-gated endpoint.
         try {
-            await supabase.functions.invoke('admin_get_flags', {
+            await supabase.functions.invoke('admin', {
+                body: { action: 'get_flags' },
                 headers: { Authorization: `Bearer ${session.access_token}` }
             });
             setGateState('authorized');
@@ -89,11 +92,12 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'pricing' | 'merchants' | 'support' | 'progression';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
     fleet: 'Fleet & Personnel',
+    commander: 'Commanders',
     financials: 'Financials',
     approval: 'Driver Approval',
     nodes: 'Node Registry',
@@ -108,6 +112,7 @@ const TAB_LABELS: Record<AdminView, string> = {
     merchants: 'Merchant Network',
     support: 'Support Tickets',
     progression: 'Rider Progression',
+    revshare: 'Revshare Settlement',
 };
 
 function App() {
@@ -121,10 +126,10 @@ function App() {
 
         setSyncError(null);
         try {
-            const { data: rideData } = await adminFetch('admin_get_rides');
+            const { data: rideData } = await adminFetch('admin', { action: 'get_rides' });
             setRides(rideData || []);
 
-            const { users } = await adminFetch('admin_get_users');
+            const { users } = await adminFetch('admin', { action: 'get_users' });
             setAllUsers(users || []);
 
             const { data: orderData } = await supabase
@@ -201,6 +206,7 @@ function App() {
                     <nav className="flex-1 space-y-2">
                         <NavItem active={activeTab === 'dashboard'} onClick={() => handleNav('dashboard')} icon={<LayoutDashboard size={20}/>} label="Operations Overview" />
                         <NavItem active={activeTab === 'fleet'} onClick={() => handleNav('fleet')} icon={<Users size={20}/>} label="Fleet & Personnel" />
+                        <NavItem active={activeTab === 'commander'} onClick={() => handleNav('commander')} icon={<ShieldCheck size={20}/>} label="Commanders" />
                         <NavItem active={activeTab === 'approval'} onClick={() => handleNav('approval')} icon={<UserCheck size={20}/>} label="Driver Approval" />
                         <NavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Index" />
                         <NavItem active={activeTab === 'nodes'} onClick={() => handleNav('nodes')} icon={<Radio size={20}/>} label="Node Registry" />
@@ -215,6 +221,7 @@ function App() {
                         <NavItem active={activeTab === 'merchants'} onClick={() => handleNav('merchants')} icon={<Store size={20}/>} label="Merchant Network" />
                         <NavItem active={activeTab === 'support'} onClick={() => handleNav('support')} icon={<Flag size={20}/>} label="Support Tickets" />
                         <NavItem active={activeTab === 'progression'} onClick={() => handleNav('progression')} icon={<TrendingUp size={20}/>} label="Progression" />
+                        <NavItem active={activeTab === 'revshare'} onClick={() => handleNav('revshare')} icon={<DollarSign size={20}/>} label="Revshare Settlement" />
                     </nav>
 
                     <div className="pt-8 mt-8 border-t border-white/5">
@@ -231,6 +238,21 @@ function App() {
                         >
                             <LogOut size={16} />
                             Sign out
+                        </button>
+                        <button
+                            onClick={async () => {
+                                if (!window.confirm('Permanently delete your account and all associated data? This cannot be undone.')) return;
+                                try {
+                                    const { error } = await supabase.functions.invoke('delete_account');
+                                    if (error) throw error;
+                                    await supabase.auth.signOut();
+                                } catch (err: any) {
+                                    alert('Could not delete account: ' + (err?.message || 'unknown error'));
+                                }
+                            }}
+                            className="w-full mt-3 h-10 flex items-center justify-center gap-2 rounded-xl text-white/30 font-bold text-[10px] uppercase tracking-widest hover:text-red-400 transition-all"
+                        >
+                            Delete account
                         </button>
                     </div>
                 </aside>
@@ -264,6 +286,7 @@ function App() {
                     <div className="max-w-7xl">
                         {activeTab === 'dashboard' && <Dashboard rides={rides} />}
                         {activeTab === 'fleet' && <FleetManager rides={rides} allUsers={allUsers} orders={orders} onRefresh={fetchData} />}
+                        {activeTab === 'commander' && <CommanderManagement />}
                         {activeTab === 'approval' && <DriverApproval onRefresh={fetchData} />}
                         {activeTab === 'financials' && <Financials />}
                         {activeTab === 'nodes' && <NodeRegistry />}
@@ -278,6 +301,7 @@ function App() {
                         {activeTab === 'merchants' && <MerchantNetwork />}
                         {activeTab === 'support' && <Support />}
                         {activeTab === 'progression' && <Progression />}
+                        {activeTab === 'revshare' && <RevshareSettlement />}
                     </div>
                 </main>
 

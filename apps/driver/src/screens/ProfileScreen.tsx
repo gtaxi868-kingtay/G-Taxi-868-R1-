@@ -35,6 +35,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
     const [editModel, setEditModel] = useState('');
     const [editPlate, setEditPlate] = useState('');
     const [saving, setSaving] = useState(false);
+    const [role, setRole] = useState<string | null>(null);
 
     const loadProfileData = useCallback(async () => {
         if (!driver?.id || !user?.id) return;
@@ -51,7 +52,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                 supabase.from('drivers').select('*').eq('user_id', user.id).single(),
                 supabase.from('rides').select('id', { count: 'exact' }).eq('driver_id', driver.id).eq('status', 'completed').gte('created_at', today.toISOString()),
                 supabase.from('rides').select('id', { count: 'exact' }).eq('driver_id', driver.id).eq('status', 'completed'),
-                supabase.from('profiles').select('created_at').eq('id', user.id).single()
+                supabase.from('profiles').select('created_at, role').eq('id', user.id).single()
             ]);
 
             setStats({
@@ -59,6 +60,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                 total_trips: totalTripsData?.length || 0,
                 member_since: userData?.created_at ? new Date(userData.created_at).toLocaleDateString([], { month: 'short', year: 'numeric' }) : '...'
             });
+            setRole((userData as any)?.role ?? null);
 
             setEditModel(driverData?.vehicle_model || driver.vehicle_model || '');
             setEditPlate(driverData?.plate_number || driver.plate_number || '');
@@ -257,6 +259,36 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                         </TouchableOpacity>
                     </View>
                 )}
+
+                {role === 'pod_commander' && (
+                    <TouchableOpacity
+                        style={s.menuRow}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            navigation.navigate('CommanderDashboard');
+                        }}
+                    >
+                        <View style={[s.rowIcon, { backgroundColor: 'rgba(29,224,230,0.10)' }]}>
+                            <Ionicons name="shield-checkmark" size={20} color="#1DE0E6" />
+                        </View>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>G-LEAD CENTER</Text>
+                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+                    </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                    style={s.menuRow}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate('Ratings');
+                    }}
+                >
+                    <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
+                        <Ionicons name="star-outline" size={20} color="#FBBF24" />
+                    </View>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>MY RATINGS</Text>
+                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
 
                 <TouchableOpacity
                     style={s.menuRow}

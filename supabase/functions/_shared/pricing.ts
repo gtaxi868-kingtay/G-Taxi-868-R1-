@@ -6,6 +6,7 @@ export const PRICING = {
     STOP_BASE_GROCERY_CENTS: 3500,
     STOP_BASE_PHARMACY_CENTS: 2500,
     STOP_BASE_OTHER_CENTS: 1500,
+    STOP_WAIT_FEE_PER_MIN_CENTS: 150, // TT$1.50/min Edge Out charge at merchant pin stops
 };
 
 export const VEHICLE_MULTIPLIERS: Record<string, number> = {

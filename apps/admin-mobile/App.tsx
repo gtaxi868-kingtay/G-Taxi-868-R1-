@@ -55,7 +55,7 @@ function RootNavigator() {
       setAdminState('unauthorized');
       return;
     }
-    supabase.functions.invoke('admin_get_flags')
+    supabase.functions.invoke('admin', { body: { action: 'get_flags' } })
       .then(() => setAdminState('authorized'))
       .catch(() => setAdminState('unauthorized'));
   }, [user]);

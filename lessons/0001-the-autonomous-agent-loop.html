@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lesson 1: The Autonomous Agent Loop</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0B0E12;
+    color: #E4E4E7;
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.7;
+    padding: 40px 20px;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+  h1 {
+    font-size: 2.5rem; font-weight: 800; color: #1DE0E6;
+    margin-bottom: 0.5rem; letter-spacing: -0.02em;
+  }
+  .subtitle {
+    font-size: 1.1rem; color: rgba(255,255,255,0.5);
+    margin-bottom: 2.5rem; border-left: 3px solid #1DE0E6;
+    padding-left: 1rem;
+  }
+  h2 {
+    font-size: 1.4rem; font-weight: 700; color: #FFF;
+    margin-top: 2.5rem; margin-bottom: 1rem;
+  }
+  h3 {
+    font-size: 1.1rem; font-weight: 600; color: #1DE0E6;
+    margin-top: 1.5rem; margin-bottom: 0.5rem;
+  }
+  p { margin-bottom: 1rem; color: rgba(255,255,255,0.8); }
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 24px; margin: 1.5rem 0;
+  }
+  .card-title { font-weight: 700; color: #FFF; margin-bottom: 0.5rem; font-size: 1rem; }
+  .diagram {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px; padding: 32px 20px;
+    margin: 2rem 0; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem; line-height: 1.9;
+    overflow-x: auto;
+  }
+  .diagram pre { color: rgba(255,255,255,0.7); }
+  .highlight { color: #1DE0E6; font-weight: 600; }
+  .highlight-green { color: #22C55E; }
+  .highlight-yellow { color: #F59E0B; }
+  .highlight-red { color: #FF4D4D; }
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 99px;
+    font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; margin-right: 4px;
+  }
+  .tag-blue { background: #1DE0E633; color: #1DE0E6; }
+  .tag-green { background: #22C55E33; color: #22C55E; }
+  .tag-yellow { background: #F59E0B33; color: #F59E0B; }
+  .tag-red { background: #FF4D4D33; color: #FF4D4D; }
+  .callout {
+    border-radius: 12px; padding: 16px 20px; margin: 1.5rem 0;
+    border-left: 4px solid #1DE0E6;
+    background: rgba(29,224,230,0.06);
+  }
+  .callout-title { font-weight: 700; color: #1DE0E6; margin-bottom: 4px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  ul, ol { margin-bottom: 1rem; padding-left: 1.5rem; color: rgba(255,255,255,0.8); }
+  li { margin-bottom: 0.5rem; }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(255,255,255,0.06);
+    padding: 2px 8px; border-radius: 6px;
+    font-size: 0.85rem; color: #1DE0E6;
+  }
+  .step { margin-bottom: 1rem; padding-left: 2rem; position: relative; }
+  .step::before {
+    content: attr(data-step);
+    position: absolute; left: 0; top: 0;
+    width: 24px; height: 24px; border-radius: 12px;
+    background: #1DE0E633; color: #1DE0E6;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700;
+  }
+  @media (max-width: 600px) {
+    h1 { font-size: 1.8rem; }
+    .diagram { font-size: 0.65rem; padding: 20px 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>The Autonomous Agent Loop</h1>
+<div class="subtitle">How Jarvis becomes a permanent part of your development and operations cycle — not just a reviewer but a system that runs continuously and asks you questions when stuck.</div>
+
+<div class="callout">
+  <div class="callout-title">🎯 Mission Connection</div>
+  You're building G-Taxi (72K lines, 7 apps, 23 edge functions). Every audit finds new gaps because the surface area is too large. You need an automated system that <strong>continuously</strong> monitors, audits, and reports — so you only involve your coding agent for actual fixes, not for discovery.
+</div>
+
+<h2>The Core Loop</h2>
+<p>Here's the full cycle. This is what you asked for — what happens when gaps are found, how strategy agents work, and where you (and I) fit in.</p>
+
+<div class="diagram">
+<pre>
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                   THE AUTONOMOUS AGENT LOOP                     │
+  └─────────────────────────────────────────────────────────────────┘
+                                                                      
+  ╔═══════════════════════════════════════════════════════════════╗
+  ║               PHASE 1: DISCOVERY (automated)                 ║
+  ╚═══════════════════════════════════════════════════════════════╝
+                                                                      
+  Jarvis runs on schedule (nightly / on-commit / on-demand)
+       │
+       ├── <span class="highlight">db-auditor</span>      →  check RLS, FK, migrations, schema drift
+       ├── <span class="highlight">fn-auditor</span>      →  check edge functions: JWT pattern, port 6543
+       ├── <span class="highlight">rider-auditor</span>   →  tsc --noEmit, style parity, AGENTS.md compliance
+       ├── <span class="highlight">admin-auditor</span>   →  same + verify no service key in bundle
+       └── <span class="highlight">gap-scanner</span>     →  read AGENTS.md claimed fixes → verify in source
+                                                                      
+  ╔═══════════════════════════════════════════════════════════════╗
+  ║              PHASE 2: DECISION (agent + human)               ║
+  ╚═══════════════════════════════════════════════════════════════╝
+                                                                      
+  For each finding:
+       │
+       ├── <span class="highlight-green">CONFIRMED</span>  →  clear evidence in source code
+       │     └── tagged with severity (CRITICAL / HIGH / MED / LOW)
+       │
+       ├── <span class="highlight-yellow">UNCERTAIN</span>  →  needs more context to judge
+       │     └── Jarvis asks YOU: "The fare calculation uses a flat
+       │          19% rate at line 241. AGENTS.md says this was
+       │          fixed to read from pricing_config. Should I
+       │          verify this against the DB value?"
+       │
+       └── <span class="highlight-red">UNKNOWN</span>     →  cannot determine from code or web
+             └── Jarvis asks YOU: "There's a new table
+                   'merchant_payouts' with no RLS policy.
+                   Should this be service-role only like
+                   payment_ledger?"
+                                                                      
+  ╔═══════════════════════════════════════════════════════════════╗
+  ║              PHASE 3: FIX (coding agent + human)             ║
+  ╚═══════════════════════════════════════════════════════════════╝
+                                                                      
+  Findings + your answers → consolidated gap report
+       │
+       └── <span class="highlight">→ routing to coding agent (me, or another)</span>
+             │
+             ├── AUTO-FIX:  trivial (typo, missing semicolon)
+             ├── SCRIPTED:  known pattern (add RLS policy, add import)
+             └── <span class="highlight-yellow">COMPLEX:</span>  needs human-directed changes
+                   └── You or your coding agent writes the fix
+                                                                      
+  ╔═══════════════════════════════════════════════════════════════╗
+  ║              PHASE 4: VERIFY (automated)                     ║
+  ╚═══════════════════════════════════════════════════════════════╝
+                                                                      
+  After fix:
+       │
+       ├── <span class="highlight">Re-run all auditors</span>  →  gap closed?
+       ├── <span class="highlight">tsc --noEmit</span>        →  still compiles?
+       └── <span class="highlight">Update AGENTS.md</span>    →  record the fix in session history
+                                                                      
+  ──→ back to Phase 1 (continuous, never stops)
+</pre>
+</div>
+
+<h2>What Are "Strategy Agents"?</h2>
+
+<p>You asked about <strong>strategy agents</strong> that ask questions when they can't source info. Here's how that works:</p>
+
+<div class="card">
+  <div class="card-title">🧠 Strategy Agent = an auditor that can <em>decide what to do when it's unsure</em></div>
+  <p>A normal auditor just runs checks and reports. A <strong>strategy agent</strong> has a decision layer:</p>
+  <ol>
+    <li><strong>Check code</strong> — grep, read files, run typecheck</li>
+    <li><strong>Check web</strong> — search docs (Supabase, Stripe, Amadeus) for reference</li>
+    <li><strong>If still unsure → ask the human</strong> — write a clear question with context</li>
+    <li><strong>Await answer</strong> — wait for your input before completing the report</li>
+  </ol>
+  <p style="margin-top: 0.5rem;">This prevents the agent from making false assumptions or silently skipping issues it doesn't understand.</p>
+</div>
+
+<h3>Example: Gap Scanner Strategy Agent Flow</h3>
+
+<div class="step" data-step="1">Reads AGENTS.md "Genuine Remaining Gaps" section</div>
+<div class="step" data-step="2">Picks first gap: "SUPABASE EDGE FUNCTION SECRETS NOT CONFIGURED"</div>
+<div class="step" data-step="3">Checks source: greps for <code>Deno.env.get("STRIPE_SECRET_KEY")</code> in every edge function</div>
+<div class="step" data-step="4">Found uses? Yes — confirms gap is real</div>
+<div class="step" data-step="5">Checks: can I auto-fix this? No — requires dashboard config → tags as <span class="tag tag-yellow">DASHBOARD</span></div>
+<div class="step" data-step="6">Moves to next gap. For anything unclear, checks web for API docs. If still unclear → writes question.</div>
+
+<h2>The Interface — What You See</h2>
+
+<p>You asked about the TikTok-style Jarvis interface. There are two paths:</p>
+
+<div class="card">
+  <div class="card-title">🖥️ Path A: Web Dashboard (recommended)</div>
+  <p>OpenJarvis ships with a desktop app (download <code>.dmg</code> from <a href="https://github.com/open-jarvis/OpenJarvis/releases" style="color:#1DE0E6;">GitHub Releases</a>). It gives you:</p>
+  <ul>
+    <li>A chat interface with your Jarvis agent</li>
+    <li>Activity log showing what auditors found</li>
+    <li>Question queue — unanswered questions Jarvis needs your input on</li>
+    <li>Workflow triggers — buttons to run audits on demand</li>
+  </ul>
+</div>
+
+<div class="card">
+  <div class="card-title">📟 Path B: CLI + Terminal Notifications</div>
+  <p>If you prefer terminal:</p>
+  <ul>
+    <li><code>jarvis ask "audit the payment flow"</code> — runs the audit synchronously</li>
+    <li>Results printed to stdout as structured report</li>
+    <li>Jarvis writes questions to a file (<code>~/.openjarvis/questions/</code>) and pings you via terminal-notifier</li>
+  </ul>
+</div>
+
+<h2>Jarvis Running the App (Not Just Code Review)</h2>
+
+<p>You asked about Jarvis being <em>part of running the app</em>. Here's what that means operationally:</p>
+
+<table style="width:100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem;">
+  <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+    <th style="text-align:left; padding: 10px 12px; color:#1DE0E6; font-weight:600;">Capability</th>
+    <th style="text-align:left; padding: 10px 12px; color:#1DE0E6; font-weight:600;">How</th>
+    <th style="text-align:left; padding: 10px 12px; color:#1DE0E6; font-weight:600;">Tools</th>
+  </tr>
+  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <td style="padding: 10px 12px; color:#FFF;">Monitor Supabase logs</td>
+    <td style="padding: 10px 12px;">Runs <code>supabase logs</code> daily, alerts on 5xx spikes</td>
+    <td style="padding: 10px 12px;"><span class="tag tag-blue">shell_exec</span></td>
+  </tr>
+  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <td style="padding: 10px 12px; color:#FFF;">Check cron health</td>
+    <td style="padding: 10px 12px;">Verifies scheduled functions ran within expected window</td>
+    <td style="padding: 10px 12px;"><span class="tag tag-blue">supabase</span></td>
+  </tr>
+  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <td style="padding: 10px 12px; color:#FFF;">Detect leaked secrets</td>
+    <td style="padding: 10px 12px;">Greps for <code>service_role</code> or <code>sk_live</code> in client bundles</td>
+    <td style="padding: 10px 12px;"><span class="tag tag-blue">file_read</span></td>
+  </tr>
+  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <td style="padding: 10px 12px; color:#FFF;">Type-check all 7 apps</td>
+    <td style="padding: 10px 12px;">Runs <code>turbo run typecheck</code> on schedule</td>
+    <td style="padding: 10px 12px;"><span class="tag tag-blue">shell_exec</span></td>
+  </tr>
+  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <td style="padding: 10px 12px; color:#FFF;">Verify RLS policies intact</td>
+    <td style="padding: 10px 12px;">Queries <code>pg_policies</code> for known tables</td>
+    <td style="padding: 10px 12px;"><span class="tag tag-blue">supabase</span></td>
+  </tr>
+  <tr>
+    <td style="padding: 10px 12px; color:#FFF;">Check Stripe webhook health</td>
+    <td style="padding: 10px 12px;">Calls Stripe API to verify webhook endpoint is enabled</td>
+    <td style="padding: 10px 12px;"><span class="tag tag-blue">web_search</span></td>
+  </tr>
+</table>
+
+<h2>The Multi-Tool Connection</h2>
+
+<p>You said you want <em>all your tools connected</em>. Here's the architecture:</p>
+
+<div class="diagram">
+<pre>
+  ┌─────────────────────────────────────────────────────┐
+  │                   JARVIS ENGINE                      │
+  │  (local — runs on your MacBook)                     │
+  └─────────────────────────────────────────────────────┘
+       │           │           │           │
+       ▼           ▼           ▼           ▼
+  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────────┐
+  │ Ollama │ │ GitHub │ │Supabase│ │ Local Files   │
+  │ Qwen   │ │  CLI   │ │  CLI   │ │ (grep, read,  │
+  │ 3.5:9b │ │  (gh)  │ │(supabase│ │  write, tsc)  │
+  └────────┘ └────────┘ └────────┘ └──────────────┘
+       │           │           │           │
+       ▼           ▼           ▼           ▼
+  Local models  PR audits  DB queries   Full codebase
+  for privacy   + reviews  + RLS check  access + edits
+</pre>
+</div>
+
+<p>The <span class="highlight">key insight</span>: Jarvis doesn't need its own interface to everything. It uses <strong>your existing CLI tools</strong> (<code>supabase</code>, <code>gh</code>, <code>tsc</code>, <code>grep</code>) via the <code>shell_exec</code> tool. You don't need to install new integrations — just give Jarvis permission to run these commands.</p>
+
+<h2>What Comes Next</h2>
+
+<div class="card">
+  <ol>
+    <li><strong>Lesson 2</strong>: Install the desktop app and configure Jarvis to know about G-Taxi</li>
+    <li><strong>Lesson 3</strong>: Build your first sub-agent (gap-scanner) and test it against AGENTS.md</li>
+    <li><strong>Lesson 4</strong>: Set up the automated schedule (nightly audit via launchd/cron)</li>
+    <li><strong>Lesson 5</strong>: Create strategy agents that ask you questions when uncertain</li>
+    <li><strong>Lesson 6</strong>: Connect production monitoring (Supabase logs, error alerts)</li>
+    <li><strong>Lesson 7</strong>: Reuse the same agent system for new projects</li>
+  </ol>
+</div>
+
+<div class="callout">
+  <div class="callout-title">💬 Questions?</div>
+  This is the high-level picture. Want me to go deeper on anything before we move to Lesson 2? Specifically:
+  <ul style="margin-top: 0.5rem;">
+    <li>How strategy agents ask questions (the exact mechanism)?</li>
+    <li>What the web dashboard looks like?</li>
+    <li>How sub-agents pass findings to each other?</li>
+    <li>How you could route findings back to me (your coding agent)?</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

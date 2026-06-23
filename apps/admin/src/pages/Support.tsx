@@ -96,7 +96,7 @@ export const Support = () => {
 
             if (action === 'resolved' && ticket.category === 'refund_request' && refundAmount) {
                 const cents = Math.round(parseFloat(refundAmount) * 100);
-                await adminFetch('admin_refund', { ride_id: ticket.ride_id, reason: resolutionNote });
+                await adminFetch('admin', { action: 'refund', ride_id: ticket.ride_id, reason: resolutionNote });
                 await supabase.from('support_tickets').update({
                     status: action,
                     resolution_note: resolutionNote,
@@ -127,9 +127,10 @@ export const Support = () => {
         setProcessing(true);
         const reason = action === 'reject' ? prompt('Rejection reason (optional):') : undefined;
         try {
-            await adminFetch('admin_process_payout', {
+            await adminFetch('admin', {
+                action: 'process_payout',
                 request_id: request.id,
-                action,
+                sub_action: action,
                 reason: reason || null,
             });
             load();

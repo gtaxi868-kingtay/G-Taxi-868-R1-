@@ -70,7 +70,7 @@ export function Progression() {
         setError(null);
         try {
             const [ridersRes, rulesRes, aiRes] = await Promise.all([
-                adminFetch('admin_get_rider_progression'),
+                adminFetch('admin', { action: 'get_rider_progression' }),
                 supabase.from('progression_config').select('*').order('level', { ascending: true }),
                 supabase
                     .from('agent_decision_log')
