@@ -29,9 +29,13 @@ export const Financials = () => {
         totalNet: 0,
         payouts: 0
     });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
     const loadFinancials = async () => {
+        setLoading(true);
+        setError(null);
         try {
             const { data: revData } = await adminFetch('admin', { action: 'get_revenue_logs' });
             setLogs(revData || []);
@@ -47,7 +51,11 @@ export const Financials = () => {
             
             setStats(totals);
         } catch (err) {
-            console.error('Failed to load financials:', err);
+            const msg = err instanceof Error ? err.message : 'Failed to load financials';
+            console.error('Failed to load financials:', msg);
+            setError(msg);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -71,8 +79,45 @@ export const Financials = () => {
 
     useEffect(() => { loadFinancials(); }, []);
 
+    if (loading) {
+        return (
+            <div className="space-y-8 animate-in">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[0,1,2].map(i => (
+                        <div key={i} className="p-8 rounded-[2.5rem]">
+                            <div className="skeleton w-24 h-3 mb-6" />
+                            <div className="skeleton w-32 h-10" />
+                        </div>
+                    ))}
+                </div>
+                <div className="rounded-[2.5rem] p-8">
+                    <div className="skeleton w-48 h-4 mb-6" />
+                    {[0,1,2,3].map(i => (
+                        <div key={i} className="skeleton-row">
+                            <div className="skeleton" style={{ width: '30%', height: 14 }} />
+                            <div className="skeleton" style={{ width: '15%', height: 14 }} />
+                            <div className="skeleton" style={{ width: '15%', height: 14 }} />
+                            <div className="skeleton" style={{ width: '15%', height: 14 }} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="animate-in">
+                <div className="error-banner">
+                    <span>{error}</span>
+                    <button onClick={loadFinancials}>Retry</button>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="space-y-8 animate-in">
             {/* KPI GRID */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StatCard 
