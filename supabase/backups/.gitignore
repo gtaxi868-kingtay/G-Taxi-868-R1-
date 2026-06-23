@@ -1,0 +1,10 @@
+# Local-only backup artifacts — contain PII and/or live secrets. NEVER commit.
+# remote_data_*.sql : full pg_dump data incl. auth.users (emails, password hashes)
+# cron_jobs_*.sql   : pg_cron defs include a live x-cron-secret
+remote_data_*.sql
+cron_jobs_*.sql
+
+# Safe to commit (DDL only, no data, no secret values):
+!remote_schema_*.sql
+!README.md
+!.gitignore
