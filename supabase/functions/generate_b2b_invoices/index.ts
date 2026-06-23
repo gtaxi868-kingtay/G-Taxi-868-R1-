@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "npm:stripe@14.10.0";
-import { captureException } from "../_shared/sentry.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "sk_test_placeholder", {
   apiVersion: "2023-10-16",
@@ -11,12 +10,22 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "sk_test_placehol
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+async function requireAdminInline(req: Request): Promise<void> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) throw new Response(JSON.stringify({ error: 'Missing authorization header' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  const anon = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!);
+  const { data: { user }, error } = await anon.auth.getUser(authHeader.replace('Bearer ', ''));
+  if (error || !user) throw new Response(JSON.stringify({ error: 'Invalid or expired token' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: profile, error: pErr } = await admin.from('profiles').select('role').eq('id', user.id).single();
+  if (pErr || profile?.role !== 'admin') throw new Response(JSON.stringify({ error: 'Forbidden: admin role required' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+}
+
 serve(async (req) => {
   try {
-    // Only allow POST (or could be triggered via pg_cron GET if configured so, let's allow both for cron)
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    await requireAdminInline(req);
 
-    // 1. Find all Net-30 merchants with outstanding debt
     const { data: merchants, error: merchantsErr } = await supabaseAdmin
       .from("merchants")
       .select("id, business_name, stripe_customer_id, current_debt_cents")
@@ -38,7 +47,6 @@ serve(async (req) => {
       try {
         let customerId = merchant.stripe_customer_id;
 
-        // If merchant has no Stripe customer ID, we skip or create one
         if (!customerId) {
           const customer = await stripe.customers.create({
             name: merchant.business_name,
@@ -51,7 +59,6 @@ serve(async (req) => {
             .eq("id", merchant.id);
         }
 
-        // Create an invoice item for the outstanding debt
         await stripe.invoiceItems.create({
           customer: customerId,
           amount: merchant.current_debt_cents,
@@ -59,31 +66,27 @@ serve(async (req) => {
           description: `G-Taxi Platform B2B Billing (Net-30) - Outstanding Balance`,
         });
 
-        // Generate the invoice
         const invoice = await stripe.invoices.create({
           customer: customerId,
           collection_method: "send_invoice",
-          days_until_due: 30, // Net-30
+          days_until_due: 30,
           metadata: { merchant_id: merchant.id },
         });
 
-        // Send the invoice automatically
         await stripe.invoices.sendInvoice(invoice.id);
 
-        // Reset the merchant's current debt in the database
         await supabaseAdmin
           .from("merchants")
           .update({ current_debt_cents: 0 })
           .eq("id", merchant.id);
 
-        // Record the invoice in the platform ledger
         await supabaseAdmin.from("platform_revenue_logs").insert({
           merchant_id: merchant.id,
           gross_cents: merchant.current_debt_cents,
           payout_cents: 0,
           merchant_earnings_cents: 0,
-          reserve_cents: Math.round(merchant.current_debt_cents * 0.015), // War chest contribution
-          status: "invoiced", // custom status
+          reserve_cents: Math.round(merchant.current_debt_cents * 0.015),
+          status: "invoiced",
           metadata: { stripe_invoice_id: invoice.id }
         });
 
@@ -101,7 +104,6 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error("generate_b2b_invoices error:", error);
-    await captureException(error, { function: "generate_b2b_invoices" });
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 });

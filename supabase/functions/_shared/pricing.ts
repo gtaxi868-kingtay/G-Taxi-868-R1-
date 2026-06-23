@@ -6,6 +6,7 @@ export const PRICING = {
     STOP_BASE_GROCERY_CENTS: 3500,
     STOP_BASE_PHARMACY_CENTS: 2500,
     STOP_BASE_OTHER_CENTS: 1500,
+    STOP_WAIT_FEE_PER_MIN_CENTS: 150,
 };
 
 export const VEHICLE_MULTIPLIERS: Record<string, number> = {
@@ -19,15 +20,14 @@ export function calculateStopsFee(stops: Array<{ stop_type?: string; estimated_w
         let stopBase = PRICING.STOP_BASE_OTHER_CENTS;
         if (stop.stop_type === "grocery") stopBase = PRICING.STOP_BASE_GROCERY_CENTS;
         if (stop.stop_type === "pharmacy") stopBase = PRICING.STOP_BASE_PHARMACY_CENTS;
-
         const waitFee = Math.round((stop.estimated_wait_minutes || 0) * PRICING.PER_MIN_CENTS);
         return total + stopBase + waitFee;
     }, 0);
 }
 
 export function calculateFare(
-    distanceMeters: number, 
-    durationSeconds: number, 
+    distanceMeters: number,
+    durationSeconds: number,
     vehicleType: string = "Standard",
     surgeMultiplier: number = 1.0,
     stopsFeeCents: number = 0

@@ -12,6 +12,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Escape values interpolated into HTML body context (prevents stored XSS from
+// driver-controlled fields like name / vehicle_model / plate_number).
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Escape values interpolated inside a single-quoted JS string literal.
+function escapeJs(value: unknown): string {
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/</g, "\\u003C")
+    .replace(/>/g, "\\u003E")
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n");
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -66,6 +88,21 @@ serve(async (req: Request) => {
     const authHeader = req.headers.get("Authorization");
     const userJwt = authHeader?.replace("Bearer ", "") || "";
 
+    // Pre-sanitize every interpolated value by context.
+    const driverName = escapeHtml(ride.drivers?.name || "Driver");
+    const driverInitial = escapeHtml((ride.drivers?.name || "D").charAt(0));
+    const dropoffAddress = escapeHtml(ride.dropoff_address || "Destination");
+    const vehicleModel = escapeHtml(ride.drivers?.vehicle_model || "Premium Vehicle");
+    const plateNumber = escapeHtml(ride.drivers?.plate_number || "GT-868");
+    // Numeric coords coerced to Number (NaN-safe), can never carry markup.
+    const centerLng = Number(ride.drivers?.lng ?? ride.pickup_lng) || 0;
+    const centerLat = Number(ride.drivers?.lat ?? ride.pickup_lat) || 0;
+    // JS-string contexts.
+    const jsJwt = escapeJs(userJwt);
+    const jsRideId = escapeJs(rideId);
+    const jsDriverId = escapeJs(ride.driver_id);
+    const jsStatus = escapeJs(ride.status);
+
     const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -92,14 +129,14 @@ serve(async (req: Request) => {
         <div id="map"></div>
         <div id="hud">
             <div class="badge">Guardian Shield Restricted Access</div>
-            <h1>${ride.drivers?.name || 'Driver'}</h1>
-            <p>Heading to ${ride.dropoff_address || 'Destination'}</p>
-            
+            <h1>${driverName}</h1>
+            <p>Heading to ${dropoffAddress}</p>
+
             <div class="driver-info">
-                <div class="avatar">${(ride.drivers?.name || 'D').charAt(0)}</div>
+                <div class="avatar">${driverInitial}</div>
                 <div>
-                    <p style="color: #fff; font-weight: 700;">${ride.drivers?.vehicle_model || 'Premium Vehicle'}</p>
-                    <span class="plate">${ride.drivers?.plate_number || 'GT-868'}</span>
+                    <p style="color: #fff; font-weight: 700;">${vehicleModel}</p>
+                    <span class="plate">${plateNumber}</span>
                 </div>
             </div>
             
@@ -108,29 +145,29 @@ serve(async (req: Request) => {
 
         <script>
             const supabaseClient = supabase.createClient('${SUPABASE_URL}', '${SUPABASE_ANON_KEY}', {
-                global: { headers: { Authorization: 'Bearer ${userJwt}' } }
+                global: { headers: { Authorization: 'Bearer ${jsJwt}' } }
             });
             mapboxgl.accessToken = '${MAPBOX_TOKEN}';
-            
+
             const map = new mapboxgl.Map({
                 container: 'map',
                 style: 'mapbox://styles/mapbox/dark-v11',
-                center: [${ride.drivers?.lng ?? ride.pickup_lng}, ${ride.drivers?.lat ?? ride.pickup_lat}],
+                center: [${centerLng}, ${centerLat}],
                 zoom: 14,
                 pitch: 45
             });
 
             const marker = new mapboxgl.Marker({ color: '#00FFFF' })
-                .setLngLat([${ride.drivers?.lng ?? ride.pickup_lng}, ${ride.drivers?.lat ?? ride.pickup_lat}])
+                .setLngLat([${centerLng}, ${centerLat}])
                 .addTo(map);
 
             const channel = supabaseClient
-                .channel('ride-mirror-${rideId}')
-                .on('postgres_changes', { 
-                    event: 'UPDATE', 
-                    schema: 'public', 
-                    table: 'rides', 
-                    filter: 'id=eq.${rideId}' 
+                .channel('ride-mirror-${jsRideId}')
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'rides',
+                    filter: 'id=eq.${jsRideId}'
                 }, payload => {
                     const { driver_lat, driver_lng, status } = payload.new;
                     if (driver_lat && driver_lng) {
@@ -143,7 +180,7 @@ serve(async (req: Request) => {
                     event: 'UPDATE',
                     schema: 'public',
                     table: 'drivers',
-                    filter: 'id=eq.${ride.driver_id}'
+                    filter: 'id=eq.${jsDriverId}'
                 }, payload => {
                     const { lat, lng } = payload.new;
                     if (lat && lng) {
@@ -153,7 +190,7 @@ serve(async (req: Request) => {
                 })
                 .subscribe();
 
-            document.getElementById('status').innerText = 'LIVE · ${ride.status.toUpperCase()}';
+            document.getElementById('status').innerText = 'LIVE · ${jsStatus}'.toUpperCase();
         </script>
     </body>
     </html>

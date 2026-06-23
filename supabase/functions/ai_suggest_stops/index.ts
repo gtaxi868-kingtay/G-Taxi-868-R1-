@@ -24,7 +24,7 @@ serve(async (req) => {
 
     const { data: ride, error: rideError } = await supabaseAdmin
       .from('rides')
-      .select('id, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, rider_id')
+      .select('id, origin_lat, origin_lng, dest_lat, dest_lng, rider_id')
       .eq('id', ride_id)
       .single()
 
@@ -44,7 +44,7 @@ serve(async (req) => {
         },
         {
           role: "user",
-          content: `Route traces from [${ride.pickup_lat}, ${ride.pickup_lng}] to [${ride.dropoff_lat}, ${ride.dropoff_lng}]. Generate exactly 2 local points of interest in Trinidad adjacent to this route. Return strictly a raw JSON array containing objects with keys: "name", "reason", and "estimated_delay_mins". No markdown tags.`
+          content: `Route traces from [${ride.origin_lat}, ${ride.origin_lng}] to [${ride.dest_lat}, ${ride.dest_lng}]. Generate exactly 2 local points of interest in Trinidad adjacent to this route. Return strictly a raw JSON array containing objects with keys: "name", "reason", and "estimated_delay_mins". No markdown tags.`
         }
       ],
       temperature: 0.3

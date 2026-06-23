@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { requireAuth } from '../_shared/auth.ts';
-import { checkRateLimit } from '../_shared/rateLimit.ts';
+import { requireAuth } from './_shared/auth.ts';
+import { checkRateLimit } from './_shared/rateLimit.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -59,6 +59,64 @@ serve(async (req) => {
       .single();
 
     if (!kiosk) {
+      const { data: keychain } = await supabase
+        .from('band_keychains')
+        .select('id, band_id, label, is_active')
+        .eq('tag_uid', tag_uid)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (keychain) {
+        const { data: band } = await supabase
+          .from('carnival_bands')
+          .select('id, name, description, logo_url')
+          .eq('id', keychain.band_id)
+          .single();
+
+        const { data: events } = await supabase
+          .from('carnival_events')
+          .select('id, name, venue, lat, lng, event_date, ticket_price_cents')
+          .eq('band_id', keychain.band_id)
+          .gte('event_date', new Date().toISOString())
+          .order('event_date', { ascending: true })
+          .limit(5);
+
+        await supabase
+          .from('band_members')
+          .upsert(
+            { rider_id: user.id, band_id: keychain.band_id, keychain_id: keychain.id },
+            { onConflict: 'rider_id, band_id' }
+          );
+
+        await supabase
+          .from('nfc_event_logs')
+          .insert({
+            tag_uid,
+            profile_id: user.id,
+            event_type: 'FETESUMMON',
+            location_context: { band_id: keychain.band_id, keychain_id: keychain.id },
+          })
+          .maybeSingle();
+
+        return new Response(
+          JSON.stringify({
+            type: 'FETESUMMON',
+            band: band ? {
+              id: band.id,
+              name: band.name,
+              description: band.description,
+              logo_url: band.logo_url,
+            } : null,
+            events: events || [],
+            keychain_label: keychain.label,
+            message: band
+              ? `Welcome ${band.name} masquerader! Book a ride to your next fete.`
+              : 'Carnival band keychain detected!',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
       return new Response(
         JSON.stringify({
           type: 'PERSONAL_TAG',

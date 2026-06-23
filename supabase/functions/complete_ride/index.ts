@@ -3,14 +3,15 @@
 // CAPITAL RESERVE LOCK — Settlement Engine (2026-06-14)
 // ============================================================
 // Settlement math (server-side only — app is purely display):
-//   platform_fee  = round(gross * rate)     → platform_revenue_logs
-//                   rate = pricing_config['PLATFORM_RATE_CENTS'] / 10000
-//                   default 0.19 / loyalty = rate - 0.03 (min 0.01)
-//   reserve       = round(gross * 0.015)    → capital_reserve_ledger
-//                   (sub-ledger within platform_fee — NOT an extra deduction)
-//   driver_payout = gross - platform_fee    → wallet / cash
-//   Invariant: platform_fee + driver_payout = gross
-//   Net platform revenue: platform_fee - reserve = 17.5% (14.5% loyalty)
+//   Business-plan split 82/15/3:
+//   platform_fee  = round(gross * platform_rate)  → platform_revenue_logs
+//                   platform_rate = pricing_config['PLATFORM_RATE_CENTS']/10000
+//                   default 0.15 / loyalty = rate - 0.03 (min 0.01) = 0.12
+//   reserve       = round(gross * reserve_rate)   → capital_reserve_ledger
+//                   reserve_rate = pricing_config['RESERVE_RATE_CENTS']/10000 (0.03)
+//                   Growth Reserve — a THIRD bucket deducted from gross.
+//   driver_payout = gross - platform_fee - reserve → wallet / cash  (= 82%)
+//   Invariant: platform_fee + reserve + driver_payout = gross
 //
 // ALL payment paths (wallet, cash, card) converge on this math.
 // No client-supplied value is trusted for payout calculation.
@@ -71,10 +72,14 @@ const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
 /**
  * Server-side settlement calculation — single source of truth.
  * No client-supplied values are used in this computation.
- * platformRate: 0.19 standard, 0.16 for loyalty drivers (balance ≥ TTD $500).
- * reserve is a 1.5% sub-ledger within platformFee — not an extra charge.
+ *
+ * Business-plan split 82/15/3:
+ *   platformRate: 0.15 standard, 0.12 for loyalty drivers (rate − 0.03).
+ *   reserveRate:  0.03 Growth Reserve — a THIRD bucket deducted from gross.
+ *   driver_payout = gross − platform_fee − reserve  (= 82%, loyalty 85%).
+ *   Invariant: platform_fee + reserve + driver_payout = gross.
  */
-function computeSettlement(grossCents: number, platformRate = 0.19): {
+function computeSettlement(grossCents: number, platformRate = 0.15, reserveRate = 0.03): {
   reserveCents: number;
   netFare: number;
   platformFee: number;
@@ -82,8 +87,8 @@ function computeSettlement(grossCents: number, platformRate = 0.19): {
   platformRate: number;
 } {
   const platformFee = Math.round(grossCents * platformRate);
-  const reserveCents = Math.round(grossCents * 0.015);
-  const driverPayoutCents = grossCents - platformFee;
+  const reserveCents = Math.round(grossCents * reserveRate);
+  const driverPayoutCents = grossCents - platformFee - reserveCents;
   const netFare = driverPayoutCents;
   return { reserveCents, netFare, platformFee, driverPayoutCents, platformRate };
 }
@@ -198,12 +203,17 @@ serve(async (req: Request) => {
     }
 
     // ── GROSS FARE CALCULATION (server-side, fully) ─────────────────────────
+    const STOP_WAIT_FEE_PER_MIN = Deno.env.get("STOP_WAIT_FEE_PER_MIN_CENTS")
+        ? parseInt(Deno.env.get("STOP_WAIT_FEE_PER_MIN_CENTS")!) : 150;
+    const PICKUP_WAIT_FEE_PER_MIN = 90; // TT$0.90/min after 3-min grace for pickup
+
     const pickupWaitSec = ride.pickup_wait_seconds || 0;
     const billablePickupSec = Math.max(0, pickupWaitSec - 180);
-    const billablePickupFareCents = Math.floor((billablePickupSec / 60) * 90);
+    const billablePickupFareCents = Math.floor((billablePickupSec / 60) * PICKUP_WAIT_FEE_PER_MIN);
 
+    // Edge Out: TT$1.50/min at merchant pin stops — no grace period
     const stopWaitSec = ride.stop_wait_seconds || 0;
-    const billableStopFareCents = Math.floor((stopWaitSec / 60) * 90);
+    const billableStopFareCents = Math.floor((stopWaitSec / 60) * STOP_WAIT_FEE_PER_MIN);
 
     let gridlockSurchargeCents = 0;
     if (ride.duration_seconds && ride.status === "in_progress") {
@@ -221,19 +231,27 @@ serve(async (req: Request) => {
     const effectiveFare =
       (ride.total_fare_cents || 0) + totalWaitFareCents + gridlockSurchargeCents;
 
-    // ── PLATFORM RATE FROM CONFIG ─────────────────────────────────────────────
-    // Read from pricing_config table; admin can change without redeploy.
-    // Falls back to 0.19 (1900 basis points) if table is empty or unreachable.
+    // ── PLATFORM + RESERVE RATES FROM CONFIG ──────────────────────────────────
+    // Business-plan split 82/15/3. Admin can change without redeploy.
+    // Falls back to 0.15 platform / 0.03 reserve if table is empty/unreachable.
     const { data: platRateRow } = await supabaseAdmin
       .from("pricing_config")
       .select("value_cents")
       .eq("key", "PLATFORM_RATE_CENTS")
       .maybeSingle()
       .catch(() => ({ data: null }));
-    const defaultPlatformRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
+    const defaultPlatformRate = platRateRow ? (platRateRow.value_cents ?? 1500) / 10000 : 0.15;
+
+    const { data: reserveRateRow } = await supabaseAdmin
+      .from("pricing_config")
+      .select("value_cents")
+      .eq("key", "RESERVE_RATE_CENTS")
+      .maybeSingle()
+      .catch(() => ({ data: null }));
+    const reserveRate = reserveRateRow ? (reserveRateRow.value_cents ?? 300) / 10000 : 0.03;
 
     // ── LOYALTY RATE TIER ───────────────────────────────────────────────────
-    // Drivers with wallet balance ≥ TTD $500 get 16% instead of 19%.
+    // Drivers with wallet balance ≥ TTD $500 get 12% instead of 15%.
     const driverUserIdForLoyalty = await resolveDriverAuthUserId(supabaseAdmin, driverRecord, ride.driver_id);
     let platformRate = defaultPlatformRate;
     let loyaltyApplied = false;
@@ -251,17 +269,17 @@ serve(async (req: Request) => {
             .eq("key", "LOYALTY_FEE_PCT")
             .maybeSingle()
             .catch(() => ({ data: null }));
-        const loyaltyRate = loyaltyRow ? (loyaltyRow.value_cents ?? 16) / 100 : Math.max(0.01, defaultPlatformRate - 0.03);
+        const loyaltyRate = loyaltyRow ? (loyaltyRow.value_cents ?? 12) / 100 : Math.max(0.01, defaultPlatformRate - 0.03);
         platformRate = Math.max(0.01, Math.min(defaultPlatformRate, loyaltyRate));
         loyaltyApplied = true;
-        console.log(`[LOYALTY_TIER] Driver ${driverUserIdForLoyalty} qualifies — 16% rate applied`);
+        console.log(`[LOYALTY_TIER] Driver ${driverUserIdForLoyalty} qualifies — 12% rate applied`);
 
         // Notify driver on first qualification
         if (driverRecord && (driverRecord as any).push_token && !(driverRecord as any).loyalty_tier_notified) {
           sendPushNotification(
             (driverRecord as any).push_token,
             '🏆 Driver Loyalty Tier Unlocked',
-            'Your wallet balance qualifies you for a reduced 16% platform fee! You\'re saving money on every ride.',
+            'Your wallet balance qualifies you for a reduced 12% platform fee! You\'re saving money on every ride.',
             { type: 'LOYALTY_TIER_UNLOCKED' }
           ).catch((err: unknown) => console.error('Loyalty notification failed:', err));
           await supabaseAdmin
@@ -274,7 +292,7 @@ serve(async (req: Request) => {
     }
 
     // ── SETTLEMENT MATH (single source of truth — server only) ──────────────
-    const { reserveCents, platformFee, driverPayoutCents } = computeSettlement(effectiveFare, platformRate);
+    const { reserveCents, platformFee, driverPayoutCents } = computeSettlement(effectiveFare, platformRate, reserveRate);
 
     // ── PAYMENT PROCESSING ──────────────────────────────────────────────────
     if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
@@ -334,7 +352,7 @@ serve(async (req: Request) => {
         p_driver_user_id: driverUserId,
         p_ride_id: ride_id,
         p_amount_cents: totalPlatformCents,
-        p_description: `Platform (${(platformRate * 100).toFixed(1)}%${loyaltyApplied ? " loyalty" : ""}) on cash ride — war chest (1.5%) sub-ledgered within`
+        p_description: `Platform (${(platformRate * 100).toFixed(1)}%${loyaltyApplied ? " loyalty" : ""}) on cash ride — growth reserve (3%) settled separately`
       }).catch((err) => console.error("deduct_driver_commission_hardened failed:", err));
 
       await supabaseAdmin.rpc("post_reserve_contribution", {
@@ -366,14 +384,14 @@ serve(async (req: Request) => {
     }
 
     // ── UPDATE RIDE RECORD (atomic guard) ─────────────────────────────────
+    // total_fare_cents updated to effectiveFare (includes wait/gridlock)
+    // so trigger tr_ensure_fare_waterfall recalculates 82/15/3 splits.
     const { error: updateError, count } = await supabaseAdmin
       .from("rides")
       .update({
         status: "completed",
         completed_at: new Date().toISOString(),
-        driver_payout_cents: driverPayoutCents,
-        reserve_cents: reserveCents,
-        platform_fee_cents: platformFee,
+        total_fare_cents: effectiveFare,
       }, { count: "exact" })
       .eq("id", ride_id)
       .in("status", ["in_progress"]);
@@ -435,9 +453,30 @@ serve(async (req: Request) => {
       })
       .catch((err) => console.error("Ledger logging failed:", err));
 
+    // ── ASYNC ECOSYSTEM COG ───────────────────────────────────────────────────
+    // Enqueue ride.completed off the hot path. The cron'd process_event_queue
+    // worker picks it up → record_pool_entry (17% waterfall) + seed_zone for any
+    // dropoff outside an active zone. Non-fatal: never blocks ride completion.
+    await supabaseAdmin
+      .from("event_queue")
+      .insert({
+        event_type: "ride.completed",
+        payload: {
+          ride_id: ride_id,
+          pickup_lat: ride.pickup_lat,
+          pickup_lng: ride.pickup_lng,
+          dropoff_lat: ride.dropoff_lat,
+          dropoff_lng: ride.dropoff_lng,
+          gross_cents: effectiveFare,
+          platform_cents: platformFee,
+          reserve_cents: reserveCents,
+        },
+      })
+      .catch((err) => console.error("event_queue enqueue (ride.completed) failed:", err));
+
     // ── VENDOR COMMISSION (5% to kiosk merchant when ride from a node) ─────────
-    // Vendor 5% comes FROM the platform's 19% cut — not added on top.
-    // Net platform on merchant rides = 19% - 5% = 14%.
+    // Vendor 5% comes FROM the platform's 15% cut — not added on top.
+    // Net platform on merchant rides = 15% - 5% = 10%.
     // Per-kiosk dispatch_premium_pct controls the fare uplift applied at estimate_fare.
     if (ride.vendor_node_id) {
       try {
@@ -484,6 +523,42 @@ serve(async (req: Request) => {
         }
       } catch (err) {
         console.error("Vendor commission recording failed (non-fatal):", err);
+      }
+    }
+
+    // ── ARRIVAL TAX — Pin Fee (usage-based) ──────────────────────────────
+    // If a pinned merchant received a rider, log an arrival event.
+    // The cron'd charge_merchant_pin_fees worker aggregates pending events
+    // and deducts from the merchant's wallet. Non-fatal.
+    if (ride.billed_to_merchant_id || ride.merchant_id) {
+      const merchantId = ride.billed_to_merchant_id || ride.merchant_id;
+
+      const { data: merchant } = await supabaseAdmin
+        .from("merchants")
+        .select("is_pinned")
+        .eq("id", merchantId)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+
+      if (merchant?.is_pinned) {
+        const { data: subscription } = await supabaseAdmin
+          .from("merchant_subscriptions")
+          .select("pin_fee_cents")
+          .eq("merchant_id", merchantId)
+          .maybeSingle()
+          .catch(() => ({ data: null }));
+
+        if (subscription && (subscription.pin_fee_cents || 0) > 0) {
+          await supabaseAdmin
+            .from("arrival_events")
+            .insert({
+              ride_id: ride_id,
+              merchant_id: merchantId,
+              arrival_type: "dropoff",
+              pin_fee_cents: subscription.pin_fee_cents,
+            })
+            .catch((err) => console.error("arrival_events insert failed (non-fatal):", err));
+        }
       }
     }
 
@@ -592,6 +667,68 @@ serve(async (req: Request) => {
         .catch((err) => console.error("record_rider_activity failed (non-fatal):", err));
     }
 
+    // ── BAND REVSHARE: if ride was tagged with a carnival band (non-blocking) ─
+    if (ride.metadata?.band_id) {
+      const bandId = ride.metadata.band_id;
+      const eventId = ride.metadata.carnival_event_id || null;
+
+      const { data: bandInfo } = await supabaseAdmin
+        .from('carnival_bands')
+        .select('revshare_percent')
+        .eq('id', bandId)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+
+      const effectivePct = bandInfo?.revshare_percent ?? 5;
+      const revshareCents = Math.floor(effectiveFare * (effectivePct / 100));
+
+      if (revshareCents > 0) {
+        await supabaseAdmin
+          .from('band_revshare_ledger')
+          .insert({
+            ride_id: ride_id,
+            band_id: bandId,
+            event_id: eventId,
+            rider_id: ride.rider_id,
+            fare_cents: effectiveFare,
+            revshare_cents: revshareCents,
+            status: 'pending',
+          })
+          .catch((err) => console.error('Band revshare insert failed (non-fatal):', err));
+      }
+    }
+
+    // ── EVENT REVSHARE: if ride was tagged with a general event organizer ─────
+    if (ride.metadata?.organizer_id) {
+      const organizerId = ride.metadata.organizer_id;
+      const sourceEventId = ride.metadata.event_id || null;
+
+      const { data: orgInfo } = await supabaseAdmin
+        .from('event_organizers')
+        .select('revshare_percent')
+        .eq('id', organizerId)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+
+      const effectivePct = orgInfo?.revshare_percent ?? 5;
+      const revshareCents = Math.floor(effectiveFare * (effectivePct / 100));
+
+      if (revshareCents > 0) {
+        await supabaseAdmin
+          .from('event_revshare_ledger')
+          .insert({
+            ride_id: ride_id,
+            organizer_id: organizerId,
+            event_id: sourceEventId,
+            rider_id: ride.rider_id,
+            fare_cents: effectiveFare,
+            revshare_cents: revshareCents,
+            status: 'pending',
+          })
+          .catch((err) => console.error('Event revshare insert failed (non-fatal):', err));
+      }
+    }
+
     // ── DRIVER LEASE ELIGIBILITY: refresh active-day count (non-blocking) ────
     if (ride.driver_id) {
       supabaseAdmin
@@ -625,6 +762,24 @@ serve(async (req: Request) => {
         })
         .catch((err) => console.error("refresh_driver_lease_eligibility failed (non-fatal):", err));
     }
+
+    // P3.2: Enqueue ride.completed event for pool ledger + cog processing
+    supabaseAdmin
+      .rpc("enqueue_event", {
+        p_event_type: "ride.completed",
+        p_payload: {
+          ride_id,
+          pickup_lat: ride.pickup_lat,
+          pickup_lng: ride.pickup_lng,
+          dropoff_lat: ride.dropoff_lat,
+          dropoff_lng: ride.dropoff_lng,
+          gross_cents: effectiveFare,
+          platform_cents: platformFee,
+          reserve_cents: reserveCents,
+        },
+      })
+      .then(() => console.log(`Event enqueued: ride.completed for ${ride_id}`))
+      .catch((err) => console.error("Failed to enqueue event:", err));
 
     return new Response(
       JSON.stringify({

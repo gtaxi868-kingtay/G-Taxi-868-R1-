@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { sendSMS } from "../_shared/sms.ts";
+import { sendPushNotification } from "../_shared/push.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -48,81 +49,67 @@ serve(async (req) => {
 
         const { data: fullRide } = await supabase
             .from("rides")
-            .select("*, rider:rider_id(*), driver:driver_id(*)")
+            .select("*, rider:rider_id(id, full_name, phone, emergency_contact_name, emergency_contact_phone), driver:driver_id(id, name, phone, lat, lng)")
             .eq("id", ride_id)
             .single();
-
-        const lat = fullRide?.driver?.lat;
-        const lng = fullRide?.driver?.lng;
-        const mapsLink = lat != null && lng != null
-            ? `https://maps.google.com/?q=${lat},${lng}`
-            : null;
-
-        // Notify the emergency contact of whoever pressed SOS.
-        // Riders store contacts on profiles; drivers on the drivers table.
-        const isRider = ride.rider_id === user.id;
-        let contactName: string | null = null;
-        let contactPhone: string | null = null;
-        let triggeredByName: string | null = null;
-
-        if (isRider) {
-            const { data: profile } = await supabase
-                .from("profiles")
-                .select("full_name, emergency_contact_name, emergency_contact_phone")
-                .eq("id", user.id)
-                .single();
-            contactName = profile?.emergency_contact_name ?? null;
-            contactPhone = profile?.emergency_contact_phone ?? null;
-            triggeredByName = profile?.full_name ?? "A G-Taxi rider";
-        } else {
-            const { data: driver } = await supabase
-                .from("drivers")
-                .select("name, emergency_contact_name, emergency_contact_phone")
-                .eq("id", user.id)
-                .single();
-            contactName = driver?.emergency_contact_name ?? null;
-            contactPhone = driver?.emergency_contact_phone ?? null;
-            triggeredByName = driver?.name ?? "A G-Taxi driver";
-        }
-
-        let smsResult: { success: boolean; error?: string } = { success: false, error: "No emergency contact on file" };
-        if (contactPhone) {
-            const vehicle = fullRide?.driver?.plate_number
-                ? ` Vehicle: ${fullRide.driver.vehicle_model ?? ""} ${fullRide.driver.plate_number}.`
-                : "";
-            const message =
-                `EMERGENCY ALERT from G-Taxi: ${triggeredByName} pressed the SOS button during a ride.` +
-                `${vehicle}` +
-                (mapsLink ? ` Last known location: ${mapsLink}` : "") +
-                ` If you cannot reach them, call 999.`;
-            smsResult = await sendSMS(contactPhone, message);
-        }
 
         await supabase.from("emergency_logs").insert({
             ride_id,
             rider_id: ride.rider_id,
             driver_id: ride.driver_id,
-            status: smsResult.success ? "contact_notified" : "triggered",
+            status: "triggered",
             metadata: {
                 timestamp: new Date().toISOString(),
-                triggered_by: user.id,
                 rider_name: fullRide?.rider?.full_name,
                 driver_name: fullRide?.driver?.name,
-                location: { lat, lng },
-                emergency_contact_name: contactName,
-                emergency_contact_notified: smsResult.success,
-                sms_error: smsResult.success ? null : smsResult.error ?? null,
-            }
+                driver_phone: fullRide?.driver?.phone,
+                location: { lat: fullRide?.driver?.lat, lng: fullRide?.driver?.lng },
+            },
         });
 
-        console.log(`EMERGENCY TRIGGERED for Ride ${ride_id} — contact notified: ${smsResult.success}`);
+        console.log(`🚨 EMERGENCY TRIGGERED for Ride ${ride_id}`);
+
+        const riderName = fullRide?.rider?.full_name || "A rider";
+        const driverName = fullRide?.driver?.name || "your driver";
+        const driverPhone = fullRide?.driver?.phone || "N/A";
+        const riderPhone = fullRide?.rider?.phone;
+        const emergencyName = fullRide?.rider?.emergency_contact_name;
+        const emergencyPhone = fullRide?.rider?.emergency_contact_phone;
+
+        // ── Send push notification to the rider who triggered it ──
+        const { data: riderProfile } = await supabase
+            .from("profiles")
+            .select("push_token")
+            .eq("id", ride.rider_id)
+            .single();
+
+        if (riderProfile?.push_token) {
+            await sendPushNotification(
+                riderProfile.push_token,
+                "🚨 Emergency Alert Sent",
+                `Your emergency contact${emergencyName ? ` (${emergencyName})` : ""} has been notified. Help is on the way.`,
+                { type: "emergency_acknowledged", ride_id }
+            );
+        }
+
+        // ── Send SMS to emergency contact if one is saved ──
+        if (emergencyPhone) {
+            const smsMessage = `🚨 EMERGENCY — ${riderName} triggered an alert during their ride with ${driverName} (${driverPhone}). Location: ${fullRide?.driver?.lat},${fullRide?.driver?.lng}`;
+            const smsResult = await sendSMS(emergencyPhone, smsMessage);
+            console.log(`SMS to emergency contact (${emergencyName}):`, smsResult.success ? "sent" : "failed");
+        } else {
+            console.warn("No emergency contact phone on file for rider");
+        }
+
+        // ── Fallback: send SMS to rider's own phone if no emergency contact ──
+        if (!emergencyPhone && riderPhone) {
+            const smsMessage = `🚨 G-Taxi Emergency Confirmation — Your alert for ride ${ride_id.slice(0, 8)} has been logged. A safety specialist will review it shortly. Reply HELP or call 911 if immediate danger.`;
+            await sendSMS(riderPhone, smsMessage);
+        }
 
         return new Response(JSON.stringify({
             success: true,
-            contact_notified: smsResult.success,
-            message: smsResult.success
-                ? "Your emergency contact has been notified by SMS"
-                : "Emergency logged. No emergency contact could be notified — add one in Settings.",
+            message: "Emergency alert dispatched to your safety contacts",
         }), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },

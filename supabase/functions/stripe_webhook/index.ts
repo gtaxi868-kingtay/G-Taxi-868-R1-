@@ -2,9 +2,9 @@
 // ============================================================
 // Settlement math (server-side only):
 //   reserve      = round(gross * 0.015)     → capital_reserve_ledger
-//   platform_fee = round(gross * rate)      → platform wallet credit
-//   rate         = pricing_config['PLATFORM_RATE_CENTS'] / 10000
-//   driver_payout = gross - platform_fee     → driver wallet credit
+//   net          = gross - reserve
+//   platform_fee = round(net * 0.185)       → platform wallet credit
+//   driver_payout = net - platform_fee       → driver wallet credit
 //
 // Security rules:
 //   - req.text() is called FIRST — before any JSON parsing.
@@ -97,7 +97,6 @@ Deno.serve(async (req: Request) => {
                     provider: 'stripe',
                     provider_ref: pi.id,
                     stripe_event_id: event.id,
-                    processing_status: 'processing',
                 });
 
             if (ledgerError) {
@@ -116,22 +115,12 @@ Deno.serve(async (req: Request) => {
             );
 
             if (creditError) {
-                await supabaseAdmin
-                    .from('payment_ledger')
-                    .update({ processing_status: 'failed' })
-                    .eq('stripe_event_id', event.id)
-                    .catch(err => console.error('Failed to mark ledger as failed:', err));
                 console.error('stripe_webhook: wallet credit RPC failed:', creditError);
                 return new Response('Wallet credit failed', { status: 500 });
             }
 
             if (creditSuccess === false) {
                 console.log(`stripe_webhook: Duplicate topup blocked for event ${event.id}`);
-                await supabaseAdmin
-                    .from('payment_ledger')
-                    .update({ processing_status: 'completed' })
-                    .eq('stripe_event_id', event.id)
-                    .catch(err => console.error('Failed to mark duplicate ledger as completed:', err));
                 return new Response(JSON.stringify({ status: 'ignored_duplicate' }), {
                     status: 200,
                     headers: { 'Content-Type': 'application/json' },
@@ -146,87 +135,6 @@ Deno.serve(async (req: Request) => {
             return new Response(JSON.stringify({ status: 'wallet_topup_processed' }), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' },
-            });
-        }
-
-        // ── ORDER PAYMENT (GROCERY/LAUNDRY etc.) ──────────────
-        if (eventType === 'order_payment') {
-            const orderId = pi.metadata?.order_id;
-            const merchantId = pi.metadata?.merchant_id;
-            const userId = pi.metadata?.user_id;
-
-            if (!orderId || !userId) {
-                return new Response("Missing order_id/user_id in order_payment metadata", { status: 400 });
-            }
-
-            const { data: order, error: orderErr } = await supabaseAdmin
-                .from("orders")
-                .select("id, merchant_id, total_cents, delivery_fee_cents")
-                .eq("id", orderId)
-                .single();
-
-            if (orderErr || !order) {
-                console.error("stripe_webhook: Order not found:", orderId);
-                return new Response("Order not found", { status: 404 });
-            }
-
-            // Mark order as paid
-            const { error: updateErr } = await supabaseAdmin
-                .from("orders")
-                .update({
-                    payment_status: "paid",
-                    paid_at: new Date().toISOString(),
-                    payment_method: "card",
-                })
-                .eq("id", orderId);
-
-            if (updateErr) {
-                console.error("stripe_webhook: Failed to update order payment:", updateErr);
-                return new Response("Order update failed", { status: 500 });
-            }
-
-            // Split: subtotal → merchant (85%), delivery fee → platform margin
-            // Driver paid separately from delivery fee funds when delivery completes
-            const subTotalCents = order.total_cents - (order.delivery_fee_cents ?? 0);
-            const COMMISSION_RATE = 0.15;
-            const merchantCutCents = Math.round(subTotalCents * (1 - COMMISSION_RATE));
-            const platformFeeCents = order.total_cents - merchantCutCents;
-
-            if (merchantId) {
-                const { data: merchant } = await supabaseAdmin
-                    .from("merchants")
-                    .select("created_by")
-                    .eq("id", merchantId)
-                    .single();
-
-                if (merchant?.created_by) {
-                    await supabaseAdmin.rpc('process_wallet_credit_idempotent', {
-                        p_user_id: merchant.created_by,
-                        p_amount_cents: merchantCutCents,
-                        p_reference_id: event.id + '_merchant',
-                        p_provider: 'stripe',
-                    }).catch(e => console.error("Merchant credit failed:", e));
-                }
-            }
-
-            // Log to payment_ledger
-            await supabaseAdmin
-                .from('payment_ledger')
-                .insert({
-                    order_id: orderId,
-                    user_id: userId,
-                    amount: pi.amount / 100.0,
-                    currency: pi.currency.toUpperCase(),
-                    status: 'captured',
-                    provider: 'stripe',
-                    provider_ref: pi.id,
-                    stripe_event_id: event.id,
-                    processing_status: 'completed',
-                });
-
-            return new Response(JSON.stringify({ status: 'order_payment_processed' }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
             });
         }
 
@@ -284,23 +192,7 @@ Deno.serve(async (req: Request) => {
 
         if (result?.status === 'SUCCESS') {
             console.log(`stripe_webhook: Atomic settlement SUCCESS for ride ${rideId}`, result);
-
-            // Confirm processing_status was set by the RPC
-            const { data: ledgerConfirm } = await supabaseAdmin
-                .from('payment_ledger')
-                .select('processing_status')
-                .eq('stripe_event_id', event.id)
-                .maybeSingle();
-
-            if (ledgerConfirm && ledgerConfirm.processing_status !== 'completed') {
-                console.warn(`stripe_webhook: processing_status is '${ledgerConfirm.processing_status}', correcting to 'completed'`);
-                await supabaseAdmin
-                    .from('payment_ledger')
-                    .update({ processing_status: 'completed' })
-                    .eq('stripe_event_id', event.id);
-            }
-
-            return new Response(JSON.stringify({ received: true, settlement: result, processing_status: 'completed' }), {
+            return new Response(JSON.stringify({ received: true, settlement: result }), {
                 status: 200,
                 headers: { "Content-Type": "application/json" },
             });

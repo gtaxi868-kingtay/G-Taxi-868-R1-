@@ -1,7 +1,7 @@
 // Supabase Edge Function: cancel_ride
 // REBUILT - Clean implementation with proper Supabase auth
 //
-// Cancels a ride request. Rider or assigned driver can cancel.
+// Cancels a ride request. Only the rider can cancel.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -95,7 +95,7 @@ serve(async (req: Request) => {
         }
 
         // Check if ride can be cancelled
-        const cancellableStatuses = ["requested", "searching", "assigned", "arrived", "scheduled"];
+        const cancellableStatuses = ["requested", "searching", "assigned", "arrived"];
 
         if (!cancellableStatuses.includes(ride.status)) {
             return new Response(
@@ -154,7 +154,7 @@ serve(async (req: Request) => {
                     description: "Nearby cancellation fee ($5 TTD)",
                     status: "completed"
                 }, {
-                    user_id: driverData?.user_id || ride.driver_id, // Driver (resolved auth.users.id)
+                    user_id: ride.driver_id, // Driver
                     ride_id: ride_id,
                     amount: 500,
                     transaction_type: "cancellation_fee",

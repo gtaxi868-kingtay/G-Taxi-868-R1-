@@ -65,14 +65,6 @@ serve(async (req: Request) => {
             return new Response(JSON.stringify({ success: false, error: "Ride not found" }), { status: 404, headers: corsHeaders });
         }
 
-        // Verify caller owns this ride
-        if (ride.rider_id !== userId) {
-            return new Response(
-                JSON.stringify({ success: false, error: "Forbidden: you can only match drivers to your own rides" }),
-                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-        }
-
         // --- Fix 4.7: Skip rides that have admin override active ---
         if (ride.admin_override === true) {
             console.log(`Skipping match for ride ${ride_id} - admin_override is ON.`);
@@ -141,47 +133,7 @@ serve(async (req: Request) => {
             });
 
         if (claimError || !claimedDrivers || claimedDrivers.length === 0) {
-            console.log("No live drivers available. Trying bot fallback...");
-
-            // Bot fallback: assign closest online bot driver
-            const { data: botDrivers } = await supabaseAdmin
-                .from("drivers")
-                .select("id, name, lat, lng, vehicle_type, vehicle_model, plate_number, rating")
-                .eq("is_bot", true)
-                .eq("is_online", true)
-                .eq("status", "online")
-                .limit(5);
-
-            if (botDrivers && botDrivers.length > 0) {
-                const pickClosest = (drivers: any[]) =>
-                    drivers.reduce((closest, driver) => {
-                        const dist = Math.sqrt(
-                            Math.pow(driver.lat - ride.pickup_lat, 2) +
-                            Math.pow(driver.lng - ride.pickup_lng, 2)
-                        );
-                        return (!closest || dist < closest.dist) ? { ...driver, dist } : closest;
-                    }, null);
-
-                const botDriver = pickClosest(botDrivers);
-                if (botDriver) {
-                    const { error: assignError } = await supabaseAdmin
-                        .from("rides")
-                        .update({ driver_id: botDriver.id, status: "assigned", updated_at: new Date().toISOString() })
-                        .eq("id", ride_id)
-                        .in("status", ["requested", "searching", "waiting_queue"]);
-
-                    if (!assignError) {
-                        await supabaseAdmin.from("drivers").update({ status: "busy" }).eq("id", botDriver.id);
-                        console.log(`Bot driver ${botDriver.id} assigned to ride ${ride_id}`);
-                        return new Response(JSON.stringify({
-                            success: true, data: { ride_id, status: "assigned", driver: botDriver },
-                            message: `Bot driver ${botDriver.name} assigned`,
-                        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-                    }
-                }
-            }
-
-            console.log("No bot drivers either. Moving to waiting_queue.");
+            console.log("No drivers available/claimed via RPC. Moving to waiting_queue.");
             await supabaseAdmin
                 .from("rides")
                 .update({ status: "waiting_queue" })
@@ -210,19 +162,13 @@ serve(async (req: Request) => {
         // Append distance for the offer insertion below
         selectedDriver._distance = selectedDriverSummary.distance_km * 1000;
 
-        // Read platform rate from pricing_config; fallback to 0.19
-        const { data: platRateRow } = await supabaseAdmin
-            .from("pricing_config")
-            .select("value_cents")
-            .eq("key", "PLATFORM_RATE_CENTS")
-            .maybeSingle()
-            .catch(() => ({ data: null }));
-        const platRate = platRateRow ? (platRateRow.value_cents ?? 1900) / 10000 : 0.19;
-        // Pioneer tier gets 3% lower rate
-        const commissionRate = selectedDriver.commission_tier === 'pioneer'
-            ? Math.max(0.01, platRate - 0.03)
-            : platRate;
-
+        // Calculate Payout based on Commission Tier (Phase 11.5)
+        let commissionRate = 0.22; // Default Standard
+        if (selectedDriver.commission_tier === 'pioneer') {
+            commissionRate = 0.19;
+        }
+        // User Feedback: 17% tier removed to protect margins
+        
         const totalFare = ride.total_fare_cents || 0;
         const driverPayout = Math.round(totalFare * (1 - commissionRate));
 
