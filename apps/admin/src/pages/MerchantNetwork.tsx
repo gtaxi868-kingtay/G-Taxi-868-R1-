@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Store, RefreshCw, CheckCircle, Clock, AlertTriangle, XCircle, Ban, MapPin, DollarSign, Calendar, ChevronDown, ChevronUp, Package, Wifi, Star } from 'lucide-react';
+import { Store, RefreshCw, CheckCircle, Clock, AlertTriangle, XCircle, Ban, MapPin, DollarSign, Calendar, ChevronDown, ChevronUp, Package, Wifi, Star, Power, Save } from 'lucide-react';
 
 interface MerchantRow {
     id: string;
@@ -20,6 +20,7 @@ interface MerchantRow {
         trial_end_at: string;
         monthly_fee_cents: number;
         pin_fee_cents: number;
+        billing_enabled: boolean;
         next_billing_at: string | null;
         last_billed_at: string | null;
         overdue_since: string | null;
@@ -64,6 +65,51 @@ export function MerchantNetwork() {
     const [details, setDetails] = useState<Record<string, MerchantDetail>>({});
     const [detailLoading, setDetailLoading] = useState<string | null>(null);
 
+    // Billing program controls (master switch + global editable monthly fee)
+    const [masterOn, setMasterOn] = useState<boolean | null>(null);
+    const [feeCents, setFeeCents] = useState<number | null>(null);
+    const [feeDraft, setFeeDraft] = useState<string>('');
+    const [programBusy, setProgramBusy] = useState(false);
+
+    const loadProgram = useCallback(async () => {
+        const [{ data: flag }, { data: pricing }] = await Promise.all([
+            supabase.from('system_feature_flags').select('is_active').eq('id', 'merchant_billing_enabled').maybeSingle(),
+            supabase.rpc('admin_get_pricing'),
+        ]);
+        setMasterOn(flag?.is_active ?? false);
+        const row = (pricing || []).find((p: any) => p.key === 'MERCHANT_MONTHLY_FEE_CENTS');
+        const cents = row?.value_cents ?? 15000;
+        setFeeCents(cents);
+        setFeeDraft((cents / 100).toFixed(0));
+    }, []);
+
+    const toggleMaster = async () => {
+        if (masterOn === null) return;
+        const next = !masterOn;
+        if (next && !confirm('Turn the merchant billing program ON for the whole network?\nMerchants past their 90-day trial will be charged on the next daily run.')) return;
+        setProgramBusy(true);
+        const { error: err } = await supabase.rpc('admin_toggle_feature_flag', { p_id: 'merchant_billing_enabled', p_is_active: next });
+        if (err) alert(err.message); else setMasterOn(next);
+        setProgramBusy(false);
+    };
+
+    const saveGlobalFee = async () => {
+        const ttd = Number(feeDraft);
+        if (isNaN(ttd) || ttd < 0) { alert('Enter a valid TTD amount.'); return; }
+        const cents = Math.round(ttd * 100);
+        setProgramBusy(true);
+        const { error: err } = await supabase.rpc('admin_set_pricing', { p_key: 'MERCHANT_MONTHLY_FEE_CENTS', p_value_cents: cents });
+        if (err) alert(err.message); else setFeeCents(cents);
+        setProgramBusy(false);
+    };
+
+    const toggleListing = async (merchantId: string, enabled: boolean) => {
+        setActionLoading(merchantId + 'listing');
+        const { error: err } = await supabase.rpc('admin_set_merchant_billing', { p_merchant_id: merchantId, p_enabled: !enabled });
+        if (err) alert(err.message); else await load();
+        setActionLoading(null);
+    };
+
     const load = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -74,7 +120,7 @@ export function MerchantNetwork() {
                     id, name, category, address, lat, lng, is_active, is_pinned, commission_rate, created_at,
                     merchant_subscriptions (
                         id, status, trial_start_at, trial_end_at,
-                        monthly_fee_cents, pin_fee_cents, next_billing_at, last_billed_at, overdue_since
+                        monthly_fee_cents, pin_fee_cents, billing_enabled, next_billing_at, last_billed_at, overdue_since
                     )
                 `)
                 .order('is_pinned', { ascending: false })
@@ -93,7 +139,7 @@ export function MerchantNetwork() {
         }
     }, []);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => { load(); loadProgram(); }, [load, loadProgram]);
 
     const loadDetail = useCallback(async (merchantId: string) => {
         if (details[merchantId]) return;
@@ -169,28 +215,9 @@ export function MerchantNetwork() {
         setActionLoading(null);
     };
 
-    const setFee = async (subId: string) => {
-        const input = prompt('New monthly fee in TTD (e.g. 150):');
-        if (!input || isNaN(Number(input))) return;
-        const cents = Math.round(Number(input) * 100);
-        const { error: err } = await supabase
-            .from('merchant_subscriptions')
-            .update({ monthly_fee_cents: cents })
-            .eq('id', subId);
-        if (err) alert(err.message);
-        else await load();
-    };
-
     const toggleActive = async (merchantId: string, current: boolean) => {
         setActionLoading(merchantId + 'toggle');
         await supabase.from('merchants').update({ is_active: !current }).eq('id', merchantId);
-        await load();
-        setActionLoading(null);
-    };
-
-    const togglePin = async (merchantId: string, current: boolean) => {
-        setActionLoading(merchantId + 'pin');
-        await supabase.from('merchants').update({ is_pinned: !current }).eq('id', merchantId);
         await load();
         setActionLoading(null);
     };
@@ -211,8 +238,10 @@ export function MerchantNetwork() {
         setActionLoading('billing');
         const { data, error: err } = await supabase.rpc('process_merchant_billing');
         if (err) alert(err.message);
+        else if (data?.skipped) alert('Billing did not run — the master switch is OFF. Turn it on to charge merchants.');
         else alert(`Billing run complete.\nActivated: ${data.activated}\nCharged: ${data.charged}\nOverdue: ${data.overdue}`);
         await load();
+        await loadProgram();
         setActionLoading(null);
     };
 
@@ -255,6 +284,68 @@ export function MerchantNetwork() {
                         <RefreshCw size={14} />
                         Refresh
                     </button>
+                </div>
+            </div>
+
+            {/* Billing program control panel */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Master switch */}
+                <div className={`rounded-2xl p-6 border flex items-center justify-between gap-4 transition-all ${
+                    masterOn ? 'bg-green-500/[0.06] border-green-500/30' : 'bg-white/[0.03] border-white/[0.08]'
+                }`}>
+                    <div className="flex items-start gap-4">
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${masterOn ? 'bg-green-500/20' : 'bg-white/5'}`}>
+                            <Power size={20} className={masterOn ? 'text-green-400' : 'text-white/40'} />
+                        </div>
+                        <div>
+                            <p className="font-black text-white text-sm">Billing Program</p>
+                            <p className="text-xs text-white/40 mt-0.5 max-w-xs">
+                                {masterOn === null ? 'Loading…'
+                                    : masterOn ? 'ON — merchants are charged monthly after their 90-day trial.'
+                                    : 'OFF — no merchant is charged. Trials still count down.'}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={toggleMaster}
+                        disabled={programBusy || masterOn === null}
+                        className={`relative w-16 h-9 rounded-full transition-all shrink-0 disabled:opacity-40 ${masterOn ? 'bg-green-500' : 'bg-white/15'}`}
+                        aria-label="Toggle billing program"
+                    >
+                        <span className={`absolute top-1 w-7 h-7 rounded-full bg-white transition-all ${masterOn ? 'left-8' : 'left-1'}`} />
+                    </button>
+                </div>
+
+                {/* Global monthly fee */}
+                <div className="rounded-2xl p-6 border border-white/[0.08] bg-white/[0.03] flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                        <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                            <DollarSign size={20} className="text-amber-400" />
+                        </div>
+                        <div>
+                            <p className="font-black text-white text-sm">Monthly Listing Fee</p>
+                            <p className="text-xs text-white/40 mt-0.5">Charged to every billed merchant each month (TTD).</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center bg-black/40 border border-white/10 rounded-xl overflow-hidden">
+                            <span className="px-3 text-white/40 text-xs font-black">TTD $</span>
+                            <input
+                                value={feeDraft}
+                                onChange={e => setFeeDraft(e.target.value.replace(/[^0-9.]/g, ''))}
+                                inputMode="decimal"
+                                className="w-20 bg-transparent py-2.5 text-white font-black text-sm outline-none"
+                            />
+                        </div>
+                        <button
+                            onClick={saveGlobalFee}
+                            disabled={programBusy || feeDraft === '' || Math.round(Number(feeDraft) * 100) === feeCents}
+                            className="flex items-center gap-1.5 px-3 py-2.5 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-400 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/25 transition-all disabled:opacity-30"
+                        >
+                            <Save size={13} />
+                            Save
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -358,7 +449,11 @@ export function MerchantNetwork() {
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                             <div className="bg-white/[0.03] rounded-xl p-3">
                                                 <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">Monthly Fee</p>
-                                                <p className="text-sm font-black text-white">{fmtTTD(sub.monthly_fee_cents)}</p>
+                                                <p className="text-sm font-black text-white">
+                                                    {sub.billing_enabled === false
+                                                        ? <span className="text-white/40">Exempt</span>
+                                                        : fmtTTD((feeCents ?? sub.monthly_fee_cents) + (sub.pin_fee_cents || 0))}
+                                                </p>
                                             </div>
                                             <div className="bg-white/[0.03] rounded-xl p-3">
                                                 <p className="text-[9px] text-white/30 uppercase tracking-widest mb-1">
@@ -383,19 +478,20 @@ export function MerchantNetwork() {
                                     )}
 
                                     {/* Admin action buttons */}
-                                    {/* Pin toggle */}
+                                    {/* Network listing (billing + map pin) toggle */}
                                     <div className="flex flex-wrap gap-2 pt-1">
                                         <button
-                                            onClick={() => togglePin(m.id, m.is_pinned)}
+                                            onClick={() => toggleListing(m.id, sub?.billing_enabled ?? true)}
                                             disabled={!!actionLoading}
+                                            title="On = this merchant is billed monthly and pinned on the map. Off = exempt from billing and hidden pin."
                                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-40 ${
-                                                m.is_pinned
-                                                    ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/30'
-                                                    : 'bg-white/5 border border-white/10 text-white/40 hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/20'
+                                                (sub?.billing_enabled ?? true)
+                                                    ? 'bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/30'
+                                                    : 'bg-white/5 border border-white/10 text-white/40 hover:bg-green-500/10 hover:text-green-400 hover:border-green-500/20'
                                             }`}
                                         >
-                                            <Star size={11} />
-                                            {m.is_pinned ? 'Unpin' : 'Pin'}
+                                            <Power size={11} />
+                                            {(sub?.billing_enabled ?? true) ? 'On Network' : 'Off — Enable'}
                                         </button>
                                         {m.is_pinned && sub && (
                                             <button
@@ -459,14 +555,6 @@ export function MerchantNetwork() {
                                                     Cancel
                                                 </button>
                                             )}
-                                            <button
-                                                onClick={() => setFee(sub.id)}
-                                                disabled={!!actionLoading}
-                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-400 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500/20 transition-all disabled:opacity-40"
-                                            >
-                                                <DollarSign size={11} />
-                                                Set Fee
-                                            </button>
                                         </div>
                                     )}
                                 </div>
