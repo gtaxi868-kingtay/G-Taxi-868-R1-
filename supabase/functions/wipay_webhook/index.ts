@@ -37,7 +37,6 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── PAYOUT CALLBACK ────────────────────────────────────────
-  // orderId format: "payout_<request_id_prefix>_<timestamp>"
   if (orderId.startsWith("payout_")) {
     const { data: payout } = await supabaseAdmin
       .from("wipay_payouts")

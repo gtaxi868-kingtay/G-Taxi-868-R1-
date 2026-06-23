@@ -1,9 +1,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Returns the driver's full lease situation in one call:
-//   eligibility progress, active lease details, installment summary, sad-path reason codes.
-// The LeaseScreen uses this to branch between 5 states without additional fetches.
+// Returns the driver's full lease situation in one call.
+// The LeaseScreen branches on named status codes without additional fetches.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,14 +14,6 @@ const json = (body: unknown, status = 200) =>
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
-
-// Named sad-path reason codes — the LeaseScreen branches on these, not strings.
-type LeaseBlockReason =
-  | 'NOT_ELIGIBLE_YET'
-  | 'NO_ACTIVE_LEASE'
-  | 'LEASE_SUSPENDED'
-  | 'DISPUTE_OPEN'
-  | 'LEASE_ENDED';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -44,7 +35,6 @@ serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   );
 
-  // Resolve driver record
   const { data: driver } = await supabaseAdmin
     .from('drivers')
     .select('id')
@@ -53,14 +43,12 @@ serve(async (req) => {
 
   if (!driver) return json({ error: 'Driver profile not found' }, 404);
 
-  // Eligibility
   const { data: eligibility } = await supabaseAdmin
     .from('driver_lease_eligibility')
     .select('*')
     .eq('driver_id', driver.id)
     .maybeSingle();
 
-  // If no eligibility row exists yet, bootstrap it (non-blocking)
   if (!eligibility) {
     await supabaseAdmin
       .rpc('refresh_driver_lease_eligibility', { p_driver_id: driver.id })
@@ -70,12 +58,11 @@ serve(async (req) => {
   const activeDays = eligibility?.active_days_count ?? 0;
   const qualified = eligibility?.qualified ?? false;
 
-  // If not yet qualified, return progress-to-goal view
   if (!qualified) {
     return json({
       success: true,
       data: {
-        status: 'NOT_ELIGIBLE_YET' satisfies LeaseBlockReason,
+        status: 'NOT_ELIGIBLE_YET',
         active_days_count: activeDays,
         days_needed: Math.max(0, 90 - activeDays),
         progress_pct: Math.min(100, Math.round((activeDays / 90) * 100)),
@@ -87,14 +74,11 @@ serve(async (req) => {
     });
   }
 
-  // Active lease lookup
   const { data: lease } = await supabaseAdmin
     .from('fleet_leases')
-    .select(`
-      id, status, per_ride_installment_cents, dispute_open,
+    .select(`id, status, per_ride_installment_cents, dispute_open,
       suspension_reason, reserve_funded, start_date, end_date, daily_rate_cents,
-      fleet_vehicles ( make, model, year, license_plate, ownership_type )
-    `)
+      fleet_vehicles ( make, model, year, license_plate, ownership_type )`)
     .eq('driver_id', driver.id)
     .in('status', ['active', 'suspended', 'ended'])
     .order('created_at', { ascending: false })
@@ -105,7 +89,7 @@ serve(async (req) => {
     return json({
       success: true,
       data: {
-        status: 'NO_ACTIVE_LEASE' satisfies LeaseBlockReason,
+        status: 'NO_ACTIVE_LEASE',
         active_days_count: activeDays,
         qualified: true,
         qualified_at: eligibility?.qualified_at,
@@ -120,7 +104,7 @@ serve(async (req) => {
     return json({
       success: true,
       data: {
-        status: 'LEASE_ENDED' satisfies LeaseBlockReason,
+        status: 'LEASE_ENDED',
         active_days_count: activeDays,
         qualified: true,
         lease: { id: lease.id, vehicle: lease.fleet_vehicles, end_date: lease.end_date },
@@ -130,7 +114,6 @@ serve(async (req) => {
     });
   }
 
-  // Open dispute
   const { data: dispute } = await supabaseAdmin
     .from('lease_disputes')
     .select('id, reason, disputed_at, amount_cents, status')
@@ -142,7 +125,7 @@ serve(async (req) => {
     return json({
       success: true,
       data: {
-        status: 'DISPUTE_OPEN' satisfies LeaseBlockReason,
+        status: 'DISPUTE_OPEN',
         active_days_count: activeDays,
         qualified: true,
         lease: { id: lease.id, vehicle: lease.fleet_vehicles },
@@ -156,7 +139,7 @@ serve(async (req) => {
     return json({
       success: true,
       data: {
-        status: 'LEASE_SUSPENDED' satisfies LeaseBlockReason,
+        status: 'LEASE_SUSPENDED',
         active_days_count: activeDays,
         qualified: true,
         lease: { id: lease.id, vehicle: lease.fleet_vehicles, suspension_reason: lease.suspension_reason },
@@ -166,7 +149,6 @@ serve(async (req) => {
     });
   }
 
-  // Happy path — active lease, no dispute
   const { count: rideCount } = await supabaseAdmin
     .from('lease_payments')
     .select('id', { count: 'exact', head: true })

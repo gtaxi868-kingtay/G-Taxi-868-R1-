@@ -50,6 +50,27 @@ serve(async (req: Request) => {
             );
         }
 
+        // ── DRIVER APPROVAL GUARD ─────────────────────────────────
+        // Only admin-approved drivers may accept rides. is_verified is a
+        // server-protected flag (DB trigger blocks driver self-edit) set by the
+        // approve_driver function. This is enforced server-side regardless of the
+        // overloaded `status` column so an unapproved driver can never accept.
+        const { data: verifyRow, error: verifyError } = await supabaseAdmin
+            .from("drivers")
+            .select("is_verified")
+            .eq("id", driver.id)
+            .single();
+
+        if (verifyError || !verifyRow?.is_verified) {
+            return new Response(
+                JSON.stringify({
+                    success: false,
+                    error: "Your driver account is pending approval. You cannot accept rides yet.",
+                }),
+                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // ── DRIVER CAPACITY CHECK ─────────────────────────────────
         // Prevent driver from accepting if they already have an active ride
         const { data: activeRides, error: activeRidesError } = await supabaseAdmin

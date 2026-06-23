@@ -2,8 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // One-call endpoint for the HomeScreen: progression level, unlock status,
-// next-level carrot, and contextual suggestion. Rider gets everything they
-// need for the home screen in a single round-trip.
+// next-level carrot, and contextual suggestion.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,7 +43,7 @@ serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   );
 
-  // Progression row (create on first visit)
+  // Progression row
   const { data: prog } = await supabaseAdmin
     .from('rider_progression')
     .select('*')
@@ -54,34 +53,7 @@ serve(async (req) => {
   const level = prog?.level ?? 1;
   const unlockedVerticals: string[] = prog?.unlocked_verticals ?? ['rides'];
 
-  // Current level perks
-  const { data: currentPerks } = await supabaseAdmin
-    .from('progression_config')
-    .select('discount_percent, priority_matching, free_wait_minutes')
-    .eq('level', level)
-    .maybeSingle();
-
-  const perks = {
-    discount_percent: currentPerks?.discount_percent ?? (level >= 1 ? 0 : 0),
-    priority_matching: currentPerks?.priority_matching ?? false,
-    free_wait_minutes: currentPerks?.free_wait_minutes ?? 3,
-  };
-
-  // G-Member overrides
-  const { data: profileCheck } = await supabaseAdmin
-    .from('profiles')
-    .select('subscription_tier')
-    .eq('id', user.id)
-    .single()
-    .catch(() => ({ data: null }));
-
-  if (profileCheck?.subscription_tier === 'g_member') {
-    perks.discount_percent = 15;
-    perks.priority_matching = true;
-    perks.free_wait_minutes = 20;
-  }
-
-  // Next level config for the carrot display
+  // Next level config for the carrot
   const { data: nextCfg } = await supabaseAdmin
     .from('progression_config')
     .select('*')
@@ -111,13 +83,11 @@ serve(async (req) => {
     .maybeSingle()
     .catch(() => ({ data: null }));
 
-  // Ensure rider_progression row exists for future calls
+  // Ensure row exists for future calls
   if (!prog) {
     await supabaseAdmin
       .from('rider_progression')
       .insert({ rider_id: user.id })
-      .onConflict('rider_id')
-      .ignore()
       .catch(() => {});
   }
 
@@ -126,7 +96,6 @@ serve(async (req) => {
     data: {
       level,
       level_label: LEVEL_LABELS[level] ?? 'Rider',
-      perks,
       unlocked_verticals: unlockedVerticals,
       total_rides: prog?.total_rides ?? 0,
       total_grocery_orders: prog?.total_grocery_orders ?? 0,

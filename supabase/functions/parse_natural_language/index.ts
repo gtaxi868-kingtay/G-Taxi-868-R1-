@@ -71,7 +71,7 @@ Rules:
 6. "work" → keep as "work"
 
 Output ONLY valid JSON. No markdown. No explanation.
-Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned location name" }], "service_type": "ride" }`;
+Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned location name" }], "service_type": "ride"" }`;
 
       const groqBody = {
         model: "llama-3.3-70b-versatile",

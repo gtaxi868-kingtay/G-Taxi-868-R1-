@@ -26,7 +26,6 @@ serve(async (req) => {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     await requireAdminInline(req);
 
-    // 1. Find all Net-30 merchants with outstanding debt
     const { data: merchants, error: merchantsErr } = await supabaseAdmin
       .from("merchants")
       .select("id, business_name, stripe_customer_id, current_debt_cents")
@@ -48,7 +47,6 @@ serve(async (req) => {
       try {
         let customerId = merchant.stripe_customer_id;
 
-        // If merchant has no Stripe customer ID, we skip or create one
         if (!customerId) {
           const customer = await stripe.customers.create({
             name: merchant.business_name,
@@ -61,7 +59,6 @@ serve(async (req) => {
             .eq("id", merchant.id);
         }
 
-        // Create an invoice item for the outstanding debt
         await stripe.invoiceItems.create({
           customer: customerId,
           amount: merchant.current_debt_cents,
@@ -69,31 +66,27 @@ serve(async (req) => {
           description: `G-Taxi Platform B2B Billing (Net-30) - Outstanding Balance`,
         });
 
-        // Generate the invoice
         const invoice = await stripe.invoices.create({
           customer: customerId,
           collection_method: "send_invoice",
-          days_until_due: 30, // Net-30
+          days_until_due: 30,
           metadata: { merchant_id: merchant.id },
         });
 
-        // Send the invoice automatically
         await stripe.invoices.sendInvoice(invoice.id);
 
-        // Reset the merchant's current debt in the database
         await supabaseAdmin
           .from("merchants")
           .update({ current_debt_cents: 0 })
           .eq("id", merchant.id);
 
-        // Record the invoice in the platform ledger
         await supabaseAdmin.from("platform_revenue_logs").insert({
           merchant_id: merchant.id,
           gross_cents: merchant.current_debt_cents,
           payout_cents: 0,
           merchant_earnings_cents: 0,
-          reserve_cents: Math.round(merchant.current_debt_cents * 0.015), // War chest contribution
-          status: "invoiced", // custom status
+          reserve_cents: Math.round(merchant.current_debt_cents * 0.015),
+          status: "invoiced",
           metadata: { stripe_invoice_id: invoice.id }
         });
 

@@ -136,7 +136,6 @@ Deno.serve(async (req) => {
       .single()
 
     if (insertErr) {
-      // Duplicate idempotency_key → already submitted
       if (insertErr.message?.includes('duplicate key')) {
         return new Response(
           JSON.stringify({ error: 'Disbursement already initiated for this payout' }),
@@ -171,7 +170,6 @@ Deno.serve(async (req) => {
         body: JSON.stringify(wipayPayload),
       })
     } catch (fetchErr) {
-      // Network error — mark for retry
       await supabaseAdmin
         .from('wipay_payouts')
         .update({ status: 'pending', raw_response: JSON.stringify({ error: 'Network error: ' + (fetchErr as Error).message }) })
@@ -186,7 +184,6 @@ Deno.serve(async (req) => {
     const wipayResult = await wipayResponse.json()
 
     if (!wipayResponse.ok) {
-      // WiPay rejected — mark failed
       await supabaseAdmin
         .from('wipay_payouts')
         .update({
