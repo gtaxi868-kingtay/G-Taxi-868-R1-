@@ -1,7 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
-import { requireAuth } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -250,7 +249,8 @@ serve(async (req) => {
         const {
           escape_package_id,
           guest_count = 1,
-          payment_method = 'stripe',
+          payment_method = 'wipay',
+          return_url = 'gtaxi://escape',
           pickup_address,
           pickup_lat,
           pickup_lng,
@@ -259,8 +259,8 @@ serve(async (req) => {
         } = body;
 
         if (!escape_package_id) return json({ error: 'escape_package_id required' }, 400);
-        if (!['stripe', 'wallet'].includes(payment_method)) {
-          return json({ error: 'payment_method must be stripe or wallet' }, 400);
+        if (!['wipay', 'stripe', 'wallet'].includes(payment_method)) {
+          return json({ error: 'payment_method must be wipay, stripe, or wallet' }, 400);
         }
 
         const { data: existing } = await supabase
@@ -350,6 +350,61 @@ serve(async (req) => {
           });
         }
 
+        // ── WiPay (primary) ────────────────────────────────────────────
+        if (payment_method === 'wipay') {
+          const WIPAY_ACCOUNT_NUMBER = Deno.env.get('WIPAY_ACCOUNT_NUMBER') ?? '';
+          const WIPAY_API_KEY = Deno.env.get('WIPAY_API_KEY') ?? '';
+          const WIPAY_ENV = Deno.env.get('WIPAY_ENV') ?? 'sandbox';
+
+          if (!WIPAY_ACCOUNT_NUMBER || !WIPAY_API_KEY) {
+            // Fall back to Stripe if WiPay not configured
+            console.log('WiPay not configured, falling back to Stripe');
+          } else {
+            const WIPAY_BASE_URL = WIPAY_ENV === 'live'
+              ? 'https://wipayfinancial.com/v1/gateway'
+              : 'https://sandbox.wipayfinancial.com/v1/gateway'
+
+            const orderId = `gescape-${reservationId.slice(0, 8)}-${reservationId}`
+            const totalTTD = (totalCents / 100).toFixed(2)
+
+            await supabase
+              .from('wipay_sessions')
+              .insert({
+                user_id: user.id,
+                order_id: orderId,
+                form_fields: { reservation_id: reservationId, escape_package_id },
+                status: 'pending',
+              })
+              .catch((err: unknown) => console.error('[book_escape] wipay_session insert error:', err))
+
+            const wipayParams = new URLSearchParams({
+              account_number: WIPAY_ACCOUNT_NUMBER,
+              avs: '0',
+              currency: 'TTD',
+              environment: WIPAY_ENV,
+              fee_structure: 'merchant_absorb',
+              method: 'credit_card',
+              order_id: orderId,
+              return_url,
+              total: totalTTD,
+            })
+
+            const redirectUrl = `${WIPAY_BASE_URL}?${wipayParams.toString()}`
+
+            return json({
+              reservation_id: reservationId, booking_ref: bookingRef,
+              total_price_cents: totalCents, hold_expires_at: holdExpiresAt,
+              seats_remaining: seatsRemaining,
+              requires_verification: requiresVerification,
+              payment_method: 'wipay',
+              status: 'ACTIVE_HOLD',
+              redirect_url: redirectUrl,
+              order_id: orderId,
+            })
+          }
+        }
+
+        // ── Stripe (fallback) ──────────────────────────────────────────
         const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
         if (!stripeKey) {
           await releaseHold();
@@ -634,7 +689,7 @@ serve(async (req) => {
           cancelled: true, booking_id, refunded,
           refund_amount_cents: refunded ? booking.total_cents : 0,
           message: refunded
-            ? `Refund of TTD $${(booking.total_cents / 100).toFixed(2)} will appear in your wallet shortly.`
+            ? `Refund of TTD \$${(booking.total_cents / 100).toFixed(2)} will appear in your wallet shortly.`
             : 'Booking cancelled. No refund applicable.',
         });
       }
@@ -645,6 +700,7 @@ serve(async (req) => {
         const destination_code = url.searchParams.get('destination_code') || body.destination_code || undefined;
         const departure_month = url.searchParams.get('departure_month') || body.departure_month || undefined;
         const max_price_cents = parseInt(url.searchParams.get('max_price_cents') || body.max_price_cents) || undefined;
+        const package_id = body.package_id || undefined;
 
         let query = supabase
           .from('travel_packages')
@@ -659,6 +715,7 @@ serve(async (req) => {
           .gt('departure_at', new Date().toISOString())
           .order('departure_at', { ascending: true });
 
+        if (package_id) query = query.eq('id', package_id);
         if (destination_code) query = query.eq('destination_code', destination_code);
         if (max_price_cents) query = query.lte('price_per_person_cents', max_price_cents);
 
