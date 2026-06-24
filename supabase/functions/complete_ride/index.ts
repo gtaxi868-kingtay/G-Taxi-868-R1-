@@ -729,6 +729,44 @@ serve(async (req: Request) => {
       }
     }
 
+    // ── COMMANDER REVSHARE: rider recruited by a commander (non-blocking) ─────
+    // Carved FROM the platform's 15% — the 82/15/3 split above is untouched.
+    // Net platform on commander-attributed rides = 15% − 3% = 12%.
+    {
+      const { data: riderRef } = await supabaseAdmin
+        .from("profiles")
+        .select("referred_by_commander_id")
+        .eq("id", ride.rider_id)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+
+      const commanderId = riderRef?.referred_by_commander_id;
+      if (commanderId) {
+        const { data: cmdRateRow } = await supabaseAdmin
+          .from("pricing_config")
+          .select("value_cents")
+          .eq("key", "COMMANDER_REVSHARE_RATE_CENTS")
+          .maybeSingle()
+          .catch(() => ({ data: null }));
+        const commanderRate = cmdRateRow?.value_cents ? cmdRateRow.value_cents / 10000 : 0.03;
+        const commanderCents = Math.floor(effectiveFare * commanderRate);
+
+        if (commanderCents > 0) {
+          await supabaseAdmin
+            .from("commander_revshare_ledger")
+            .insert({
+              ride_id: ride_id,
+              commander_id: commanderId,
+              rider_id: ride.rider_id,
+              fare_cents: effectiveFare,
+              revshare_cents: commanderCents,
+              status: "pending",
+            })
+            .catch((err) => console.error("Commander revshare insert failed (non-fatal):", err));
+        }
+      }
+    }
+
     // ── DRIVER LEASE ELIGIBILITY: refresh active-day count (non-blocking) ────
     if (ride.driver_id) {
       supabaseAdmin
