@@ -3,7 +3,7 @@
 # Do not skip sections. Do not assume you know the state of any file.
 # Do not fix multiple phases in one session unless explicitly told to.
 
-# Last updated: 2026-06-28
+# Last updated: 2026-07-01
 # Plain English summary (based on code in this repo):
 # THIS IS NOT JUST A RIDE-HAILING APP. It is a multiplex ecosystem
 # connecting riders to drivers, stores, travel, and services through
@@ -507,6 +507,31 @@ payment_ledger table — read only for users:
 **Next steps:**
 - Build Territories/Commanders/PuckManager admin pages
 - Build CommanderDashboardScreen in driver app
+
+### 2026-07-01 — Stabilization Ladder (Rungs 0–4) + admin design errors fixed
+
+**What we did:**
+
+1. **Rung 0 — Migration reconciliation**: Fixed a year of migration drift. ~87 remote-only tracking entries (from MCP direct-SQL operations) were repaired as `reverted`. ~38 local-only tracking entries repaired as `applied`. Renamed 3 short-name migration files (`20260617_nfc_pipeline_fix`, `20260618_wipay_payouts`, `20260618_cron_schedules_deploy`) to proper 14-digit timestamps. Resolved `20260622000000` filename collision. Final state: 0 local-only, 0 remote-only. Fresh backup exists.
+
+2. **Rung 1 — Redis ON**: `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `REDIS_URL` confirmed SET in Supabase edge function secrets. Lazy-init `redis.ts` auto-detects config at runtime.
+
+3. **Rung 2 — Killed dual polling**: `realtime.ts` `useRideSubscription` and `useDriverLocationSubscription` both had unconditional polling running alongside Realtime subscriptions. Rewired to poll ONLY when WebSocket disconnects (TIMED_OUT / CHANNEL_ERROR), with 30s reconnect attempt. `useNearbyDrivers` poll reduced from 3s → 10s.
+
+4. **Rung 3 — FK indexes + dead index cleanup**: Created migration `20260701_fk_indexes_cleanup` adding critical missing FK indexes on `dispatch_queue`, `drivers(active_ride_id)`, `rides(merchant_id)`, `rides(admin_id)`, `ride_offers`, `orders` (3 cols), `order_items` (2 cols), `emergency_logs`, `incident_reports`, `payout_requests`, `admin_audit_log`, `platform_revenue_logs`, `user_events`, `split_sessions`, `nfc_sessions`, `support_tickets`. Dropped 17 unused indexes (all `idx_scan = 0`, small but write-overhead).
+
+5. **Rung 4 — Plan check**: Org on **Free plan**. Pro ($25/mo) needed before launch for PITR, 8GB DB, 50GB bandwidth, 7-day log retention.
+
+6. **Admin CSS token fixes**: `index.css` neon classes referenced `var(--neon-cyan)`/`var(--neon-purple)`/`var(--dark-hud)`/`var(--elegant-purple)` that were never defined in `:root` — rendering those elements invisible. Fixed to use `var(--cyan)`, `var(--accent)`, `var(--surface-base)`. Removed duplicate `img` and scrollbar blocks. `Login.tsx` updated to use `var(--accent)` instead of undefined `var(--elegant-purple)`.
+
+**Key decisions:**
+- No `supabase db pull` — Docker timeout on shadow DB. Tracking table is clean; existing backup `remote_schema_20260623.sql` (24K lines) is sufficient.
+- Subscription fallback polling at 5s intervals (not 3s), with auto-reconnect at 30s. Save ~1 DB query/3s per active rider when WS is healthy.
+- 17 unused indexes dropped — at 16kB each they're negligible size but every INSERT/UPDATE paid the write cost.
+
+**Still pending:**
+- Upgrade Supabase org to Pro plan (~$25/mo)
+- Rung 5+ (realtime channel count monitoring, query planner tuning, connection pooling) — deferred until after feature launch
 
 ### 2026-06-14 — Cleanup purge + pricing strategy clarified
 

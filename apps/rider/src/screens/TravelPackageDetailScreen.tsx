@@ -87,10 +87,10 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
         setError(null);
         try {
             const { data, error: fnErr } = await supabase.functions.invoke('travel', {
-                body: { action: 'get_packages' },
+                body: { action: 'get_packages', package_id: packageId },
             });
             if (fnErr) throw fnErr;
-            const found = data?.packages?.find((p: any) => p.id === packageId);
+            const found = data?.packages?.[0];
             if (found) {
                 setPkg(found);
             } else {

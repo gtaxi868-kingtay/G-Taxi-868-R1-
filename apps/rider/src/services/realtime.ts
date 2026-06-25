@@ -22,137 +22,204 @@ export interface RideUpdate {
 /**
  * Hook to subscribe to realtime ride status updates
  * Uses Supabase Realtime to listen for changes to a specific ride
- * ALSO includes polling fallback for when Realtime times out
+ * Polling fallback activates ONLY when WebSocket disconnects
  */
 export function useRideSubscription(rideId: string | null) {
     const [rideUpdate, setRideUpdate] = useState<RideUpdate | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [connectionLost, setConnectionLost] = useState(false);
 
     useEffect(() => {
-        if (!rideId) {
-            return;
-        }
+        if (!rideId) return;
 
         let channel: any;
         let pollInterval: NodeJS.Timeout;
+        let reconnectTimer: NodeJS.Timeout;
+        let mounted = true;
 
-        const setupSubscription = async () => {
+        const doPoll = async () => {
             try {
-                // Subscribe to changes on this specific ride
-                channel = supabase
-                    .channel(`ride:${rideId}`)
-                    .on(
-                        'postgres_changes',
-                        {
-                            event: 'UPDATE',
-                            schema: 'public',
-                            table: 'rides',
-                            filter: `id=eq.${rideId}`,
-                        },
-                        (payload) => {
-                            console.log('[Realtime] Ride update received:', payload);
-                            const ride = payload.new as any;
+                const { data: ride, error: pollError } = await supabase
+                    .from('rides')
+                    .select('id, status, driver_id, payment_method, total_fare_cents')
+                    .eq('id', rideId)
+                    .single();
 
-                            setRideUpdate({
-                                ride_id: ride.id,
-                                status: ride.status,
-                                driver_id: ride.driver_id,
-                                payment_method: ride.payment_method,
-                                total_fare_cents: ride.total_fare_cents,
-                                // Driver info would come from a join - for now we'll fetch separately
-                            });
-                        }
-                    )
-                    .subscribe((status) => {
-                        console.log('[Realtime] Subscription status:', status);
-                        setIsConnected(status === 'SUBSCRIBED');
-                        if (status === 'CHANNEL_ERROR') {
-                            setError('Failed to connect to realtime updates');
-                        }
-                        if (status === 'TIMED_OUT') {
-                            console.log('[Realtime] Timed out - polling fallback active');
-                        }
-                    });
-            } catch (err) {
-                console.error('[Realtime] Subscription error:', err);
-                setError('Failed to setup realtime subscription');
+                if (pollError || !ride || !mounted) return;
+
+                setRideUpdate(prev => {
+                    if (prev?.status !== ride.status || prev?.driver_id !== ride.driver_id) {
+                        return {
+                            ride_id: ride.id,
+                            status: ride.status,
+                            driver_id: ride.driver_id,
+                            payment_method: ride.payment_method,
+                            total_fare_cents: ride.total_fare_cents,
+                        };
+                    }
+                    return prev;
+                });
+            } catch {
+                // poll errors are non-fatal
             }
         };
 
-        // POLLING FALLBACK - checks ride status every 3 seconds
-        // This catches updates even when Realtime times out
         const startPolling = () => {
-            pollInterval = setInterval(async () => {
-                try {
-                    const { data: ride, error: pollError } = await supabase
-                        .from('rides')
-                        .select('id, status, driver_id, payment_method, total_fare_cents')
-                        .eq('id', rideId)
-                        .single();
+            setConnectionLost(true);
+            doPoll();
+            pollInterval = setInterval(doPoll, 5000);
+        };
 
-                    if (pollError) {
-                        console.log('[Poll] Error:', pollError.message);
-                        return;
-                    }
+        const stopPolling = () => {
+            setConnectionLost(false);
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = undefined as any;
+            }
+        };
 
-                    if (ride) {
-                        // Only update if status actually changed
-                        setRideUpdate(prev => {
-                            if (prev?.status !== ride.status || prev?.driver_id !== ride.driver_id) {
-                                console.log('[Poll] Ride update detected:', ride.status, ride.driver_id);
-                                return {
-                                    ride_id: ride.id,
-                                    status: ride.status,
-                                    driver_id: ride.driver_id,
-                                    payment_method: ride.payment_method,
-                                    total_fare_cents: ride.total_fare_cents,
-                                };
-                            }
-                            return prev;
+        const tryReconnect = () => {
+            if (!mounted) return;
+            channel = supabase
+                .channel(`ride:${rideId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'rides',
+                        filter: `id=eq.${rideId}`,
+                    },
+                    (payload) => {
+                        if (!mounted) return;
+                        const ride = payload.new as any;
+                        setRideUpdate({
+                            ride_id: ride.id,
+                            status: ride.status,
+                            driver_id: ride.driver_id,
+                            payment_method: ride.payment_method,
+                            total_fare_cents: ride.total_fare_cents,
                         });
                     }
-                } catch (err) {
-                    console.log('[Poll] Fetch error:', err);
-                }
-            }, 3000); // Poll every 3 seconds
+                )
+                .subscribe((status) => {
+                    if (!mounted) return;
+                    if (status === 'SUBSCRIBED') {
+                        setIsConnected(true);
+                        stopPolling();
+                    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                        setIsConnected(false);
+                        if (!pollInterval) startPolling();
+                    }
+                });
+        };
+
+        const setupSubscription = () => {
+            channel = supabase
+                .channel(`ride:${rideId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'rides',
+                        filter: `id=eq.${rideId}`,
+                    },
+                    (payload) => {
+                        if (!mounted) return;
+                        const ride = payload.new as any;
+                        setRideUpdate({
+                            ride_id: ride.id,
+                            status: ride.status,
+                            driver_id: ride.driver_id,
+                            payment_method: ride.payment_method,
+                            total_fare_cents: ride.total_fare_cents,
+                        });
+                    }
+                )
+                .subscribe((status) => {
+                    if (!mounted) return;
+                    setIsConnected(status === 'SUBSCRIBED');
+                    if (status === 'CHANNEL_ERROR') {
+                        setError('Failed to connect to realtime updates');
+                        startPolling();
+                    }
+                    if (status === 'TIMED_OUT') {
+                        startPolling();
+                        reconnectTimer = setTimeout(tryReconnect, 30_000);
+                    }
+                });
         };
 
         setupSubscription();
-        startPolling();
 
-        // Cleanup on unmount
         return () => {
-            if (channel) {
-                supabase.removeChannel(channel);
-            }
-            if (pollInterval) {
-                clearInterval(pollInterval);
-            }
+            mounted = false;
+            if (channel) supabase.removeChannel(channel);
+            if (pollInterval) clearInterval(pollInterval);
+            if (reconnectTimer) clearTimeout(reconnectTimer);
         };
     }, [rideId]);
 
-    return { rideUpdate, isConnected, error };
+    return { rideUpdate, isConnected, error, connectionLost };
 }
 
 /**
  * Hook to subscribe to driver location updates
- * Useful for showing driver position on map during pickup
- * ALSO includes polling fallback for when Realtime times out
+ * Shows driver position on map during pickup
+ * Polling fallback activates ONLY when WebSocket disconnects
  */
 export function useDriverLocationSubscription(driverId: string | null) {
     const [driverLocation, setDriverLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
     useEffect(() => {
-        if (!driverId) {
-            return;
-        }
+        if (!driverId) return;
 
         let channel: any;
         let pollInterval: NodeJS.Timeout;
+        let reconnectTimer: NodeJS.Timeout;
+        let mounted = true;
 
-        const setupSubscription = async () => {
-            // Synchronously create and subscribe to the channel so cleanup works if unmounted during fetch
+        const doPoll = async () => {
+            if (!mounted) return;
+            try {
+                const { data, error } = await supabase
+                    .from('driver_locations')
+                    .select('lat, lng')
+                    .eq('driver_id', driverId)
+                    .single();
+
+                if (error || !data || !mounted) return;
+
+                if (data.lat && data.lng) {
+                    setDriverLocation(prev => {
+                        if (prev?.latitude !== data.lat || prev?.longitude !== data.lng) {
+                            return { latitude: data.lat, longitude: data.lng };
+                        }
+                        return prev;
+                    });
+                }
+            } catch {
+                // non-fatal
+            }
+        };
+
+        const startPolling = () => {
+            doPoll();
+            if (!pollInterval) {
+                pollInterval = setInterval(doPoll, 5000);
+            }
+        };
+
+        const stopPolling = () => {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = undefined as any;
+            }
+        };
+
+        const setupSubscription = () => {
             channel = supabase
                 .channel(`driver_location:${driverId}`)
                 .on(
@@ -164,8 +231,8 @@ export function useDriverLocationSubscription(driverId: string | null) {
                         filter: `id=eq.${driverId}`,
                     },
                     (payload) => {
+                        if (!mounted) return;
                         const driver = payload.new as any;
-                        console.log('[Realtime] Driver location update:', driver.lat, driver.lng);
                         if (driver.lat !== undefined && driver.lng !== undefined) {
                             setDriverLocation({
                                 latitude: driver.lat,
@@ -175,67 +242,25 @@ export function useDriverLocationSubscription(driverId: string | null) {
                     }
                 )
                 .subscribe((status) => {
-                    console.log('[Driver Realtime] Status:', status);
-                    if (status === 'TIMED_OUT') {
-                        console.log('[Driver Realtime] Timed out - using polling fallback');
+                    if (!mounted) return;
+                    if (status === 'SUBSCRIBED') {
+                        stopPolling();
+                    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                        startPolling();
+                        reconnectTimer = setTimeout(setupSubscription, 30_000);
                     }
                 });
-
-            // Fetch initial driver location after subscription starts
-            try {
-                const { data } = await supabase
-                    .from('driver_locations')
-                    .select('lat, lng')
-                    .eq('driver_id', driverId)
-                    .single();
-
-                if (data?.lat && data?.lng) {
-                    setDriverLocation({ latitude: data.lat, longitude: data.lng });
-                }
-            } catch (err) {
-                console.log('[Driver] Initial fetch failed:', err);
-            }
         };
 
-        // POLLING FALLBACK - fetches driver location every 2 seconds
-        const startPolling = () => {
-            pollInterval = setInterval(async () => {
-                try {
-                    const { data, error } = await supabase
-                        .from('driver_locations')
-                        .select('lat, lng')
-                        .eq('driver_id', driverId)
-                        .single();
-
-                    if (error) {
-                        return;
-                    }
-
-                    if (data?.lat && data?.lng) {
-                        setDriverLocation(prev => {
-                            // Only update if position changed
-                            if (prev?.latitude !== data.lat || prev?.longitude !== data.lng) {
-                                return { latitude: data.lat, longitude: data.lng };
-                            }
-                            return prev;
-                        });
-                    }
-                } catch (err) {
-                    // Silently ignore polling errors
-                }
-            }, 2000); // Poll every 2 seconds for smooth map updates
-        };
-
+        // Fetch initial location
+        doPoll();
         setupSubscription();
-        startPolling();
 
         return () => {
-            if (channel) {
-                supabase.removeChannel(channel);
-            }
-            if (pollInterval) {
-                clearInterval(pollInterval);
-            }
+            mounted = false;
+            if (channel) supabase.removeChannel(channel);
+            if (pollInterval) clearInterval(pollInterval);
+            if (reconnectTimer) clearTimeout(reconnectTimer);
         };
     }, [driverId]);
 

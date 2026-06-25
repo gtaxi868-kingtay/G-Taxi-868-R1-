@@ -61,8 +61,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 {/* Main Login Card */}
                 <div className="admin-login-card">
                     <div style={{ width: '100%', textAlign: 'center', marginBottom: '2.5rem' }}>
-                        <div className="hud-label-small" style={{ color: 'var(--elegant-purple)', opacity: 0.6 }}>Verification Required</div>
-                        <div style={{ height: '1px', width: '3rem', background: 'linear-gradient(90deg, transparent, var(--elegant-purple), transparent)', margin: '8px auto' }} />
+                        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>Verification Required</div>
+                        <div style={{ height: '1px', width: '3rem', background: 'linear-gradient(90deg, transparent, var(--accent), transparent)', margin: '8px auto' }} />
                     </div>
 
                     <form onSubmit={handleLogin} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

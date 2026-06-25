@@ -42,7 +42,7 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
     const { count, error } = await supabase
       .from('merchant_orders')
       .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', user.id)
+      .eq('merchant_user_id', user.id)
       .in('status', ['pending', 'confirmed']);
     if (error) { console.warn('Failed to load order count:', error.message); return; }
     setOrderCount(count ?? 0);

@@ -83,7 +83,7 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
       const { data, error } = await supabase
         .from('merchant_orders')
         .select('id, status, created_at, total')
-        .eq('merchant_id', session.user.id)
+        .eq('merchant_user_id', session.user.id)
         .order('created_at', { ascending: false });
 
       if (error) {

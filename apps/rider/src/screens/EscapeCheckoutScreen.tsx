@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Alert, SafeAreaView,
+  ActivityIndicator, Alert, SafeAreaView, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -97,10 +97,22 @@ export default function EscapeCheckoutScreen() {
       if (!session) throw new Error('Not authenticated');
 
       const { data, error } = await supabase.functions.invoke('travel', {
-        body: { action: 'book_escape', escape_package_id: packageId, guest_count: guestCount, payment_method: 'stripe' },
+        body: {
+          action: 'book_escape',
+          escape_package_id: packageId,
+          guest_count: guestCount,
+          payment_method: 'wipay',
+          return_url: 'gtaxi://escape',
+        },
       });
 
       if (error) throw error;
+      if (data?.redirect_url) {
+        await Linking.openURL(data.redirect_url);
+        navigation.replace('ActivePass');
+        return;
+      }
+
       if (!data?.client_secret) throw new Error(data?.error ?? 'Booking failed');
 
       const { error: initErr } = await initPaymentSheet({

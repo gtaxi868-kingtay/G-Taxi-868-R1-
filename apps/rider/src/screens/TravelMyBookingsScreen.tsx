@@ -112,13 +112,16 @@ export function TravelMyBookingsScreen({ navigation }: AppScreenProps<'TravelMyB
                     onPress: async () => {
                         setCancelling(booking.id);
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                        const { error } = await supabase
-                            .from('travel_bookings')
-                            .update({ status: 'cancelled' })
-                            .eq('id', booking.id);
-                        if (error) {
-                            Alert.alert('Error', 'Could not cancel. Please contact support.');
+                        const { data, error } = await supabase.functions.invoke('travel', {
+                            body: { action: 'cancel_booking', booking_id: booking.id },
+                        });
+                        if (error || !data?.cancelled) {
+                            Alert.alert('Error', data?.error || 'Could not cancel. Please contact support.');
                         } else {
+                            Alert.alert(
+                                data.refunded ? 'Cancelled & Refunded' : 'Cancelled',
+                                data.message || 'Booking cancelled.',
+                            );
                             await load(true);
                         }
                         setCancelling(null);

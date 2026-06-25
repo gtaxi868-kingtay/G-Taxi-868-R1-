@@ -144,8 +144,8 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
         // Initial fetch
         fetchNearbyFromRedis();
 
-        // High-frequency poll (Every 3 seconds) — MUCH safer than Postgres Realtime for location
-        pollTimer = setInterval(fetchNearbyFromRedis, 3000);
+        // Poll every 10 seconds — Redis-backed edge function, cheap but 3s is excessive
+        pollTimer = setInterval(fetchNearbyFromRedis, 10_000);
 
         return () => {
             if (pollTimer) clearInterval(pollTimer);

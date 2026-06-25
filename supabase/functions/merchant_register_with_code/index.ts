@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       .insert({
         name: business_name,
         category: 'local',
-        created_by: commander.user_id,
+        created_by: newUser.user.id,
         territory_id: commander.territory_id,
         activation_status: 'pending',
         is_active: false,
