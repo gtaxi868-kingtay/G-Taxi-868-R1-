@@ -81,14 +81,14 @@ export const VOICES = {
     text: '#F2F5F8',
     textMuted: 'rgba(242,245,248,0.68)',
     gold: '#F59E0B',
-    accent: '#1DE0E6',
-    accentDark: '#0A9CA6',
+    accent: '#8B5CF6',
+    accentDark: '#7C3AED',
   },
   admin: {
     bg: '#0F172A',
     surface: '#1E293B',
-    accent: '#3b374a',
-    accentDark: '#2a2735',
+    accent: '#8B5CF6',
+    accentDark: '#7C3AED',
     text: '#F1F5F9',
   },
   merchant: {

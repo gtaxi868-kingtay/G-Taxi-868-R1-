@@ -3,306 +3,339 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>G-Taxi</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0D0B1E 0%, #160B32 100%);
+            background: #0B0E12;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: white;
+            color: #F2F5F8;
             padding: 20px;
+            -webkit-font-smoothing: antialiased;
         }
         .logo {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #7B5CF0 0%, #00E5FF 100%);
-            border-radius: 20px;
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 36px;
-            font-weight: bold;
-            margin-bottom: 24px;
-            box-shadow: 0 10px 40px rgba(123, 92, 240, 0.3);
-        }
-        h1 {
             font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+        .logo-ride { background: linear-gradient(135deg, #8B5CF6, #1DE0E6); }
+        .logo-merchant { background: linear-gradient(135deg, #14B8A6, #0D9488); }
+        .logo-driver { background: linear-gradient(135deg, #F59E0B, #D97706); }
+        .logo-default { background: linear-gradient(135deg, #8B5CF6, #1DE0E6); }
+        h1 {
+            font-size: 24px;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             text-align: center;
+            letter-spacing: -0.3px;
         }
         .subtitle {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 16px;
-            margin-bottom: 32px;
+            color: rgba(242,245,248,0.55);
+            font-size: 14px;
+            margin-bottom: 28px;
             text-align: center;
+            line-height: 1.4;
         }
-        .location, .status-card {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(123, 92, 240, 0.3);
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 16px;
-            padding: 16px 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 32px;
+            padding: 20px;
             max-width: 340px;
             width: 100%;
+            margin-bottom: 20px;
         }
-        .location-icon, .status-icon {
-            font-size: 24px;
+        .card-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
         }
-        .location-text, .status-text {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.8);
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 18px;
         }
-        .location-text strong, .status-text strong {
-            color: white;
-            display: block;
-            font-size: 16px;
-            margin-bottom: 2px;
-        }
+        .card-icon-ride { background: rgba(139,92,246,0.15); }
+        .card-icon-merchant { background: rgba(20,184,166,0.15); }
+        .card-icon-driver { background: rgba(245,158,11,0.15); }
+        .card-icon-default { background: rgba(139,92,246,0.15); }
+        .card-label { font-size: 11px; font-weight: 600; color: rgba(242,245,248,0.35); letter-spacing: 0.5px; text-transform: uppercase; }
+        .card-value { font-size: 15px; font-weight: 600; color: #F2F5F8; margin-top: 2px; }
+        .card-desc { font-size: 12px; color: rgba(242,245,248,0.45); margin-top: 2px; line-height: 1.3; }
         .btn {
             width: 100%;
             max-width: 340px;
-            padding: 18px 24px;
+            padding: 16px 24px;
             border-radius: 12px;
             border: none;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.15s;
             text-decoration: none;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
         }
         .btn-primary {
-            background: linear-gradient(135deg, #7B5CF0 0%, #00E5FF 100%);
+            background: #8B5CF6;
             color: white;
-            margin-bottom: 12px;
-            box-shadow: 0 4px 20px rgba(123, 92, 240, 0.4);
+            margin-bottom: 10px;
         }
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px rgba(123, 92, 240, 0.5);
+        .btn-primary:active { background: #7C3AED; }
+        .btn-teal {
+            background: #14B8A6;
+            color: white;
+            margin-bottom: 10px;
         }
-        .btn-primary:active {
-            transform: translateY(0);
+        .btn-teal:active { background: #0D9488; }
+        .btn-amber {
+            background: #F59E0B;
+            color: white;
+            margin-bottom: 10px;
         }
+        .btn-amber:active { background: #D97706; }
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255,255,255,0.06);
+            color: rgba(242,245,248,0.7);
+            border: 1px solid rgba(255,255,255,0.1);
         }
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
+        .btn-secondary:active { background: rgba(255,255,255,0.1); }
         .footer {
-            margin-top: 40px;
+            margin-top: 32px;
             text-align: center;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.4);
+            font-size: 11px;
+            color: rgba(242,245,248,0.25);
+            line-height: 1.5;
         }
+        .footer a { color: #1DE0E6; text-decoration: none; }
         .loading {
             display: none;
             margin-top: 20px;
             text-align: center;
         }
-        .loading.show {
-            display: block;
-        }
+        .loading.show { display: block; }
         .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(123, 92, 240, 0.3);
-            border-top-color: #7B5CF0;
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(139,92,246,0.2);
+            border-top-color: #8B5CF6;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 12px;
+            margin: 0 auto 10px;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .hidden { display: none !important; }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
-        .hidden {
-            display: none !important;
-        }
-        #map {
-            width: 100%;
-            max-width: 340px;
-            height: 200px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 16px;
-            margin-bottom: 20px;
-            border: 1px solid rgba(255,255,255,0.1);
-            display: none;
-        }
+        .badge-ride { background: rgba(139,92,246,0.15); color: #8B5CF6; }
+        .badge-merchant { background: rgba(20,184,166,0.15); color: #14B8A6; }
+        .badge-driver { background: rgba(245,158,11,0.15); color: #F59E0B; }
+        .badge-default { background: rgba(139,92,246,0.15); color: #8B5CF6; }
     </style>
 </head>
 <body>
-    <div class="logo">G</div>
-    <h1 id="mainTitle">Request Your Ride</h1>
-    <p class="subtitle" id="mainSubtitle">Fast, safe rides in Trinidad & Tobago</p>
-    
-    <div id="requestUI">
-        <div class="location" id="locationBox">
-            <span class="location-icon">📍</span>
-            <div class="location-text">
-                <strong id="standName">Loading location...</strong>
-                <span id="standAddress">Please allow location access</span>
+    <div class="logo logo-default" id="logo">G</div>
+    <h1 id="mainTitle">Welcome to G-Taxi</h1>
+    <p class="subtitle" id="mainSubtitle">Trinidad & Tobago's ride ecosystem</p>
+
+    <div class="card" id="infoCard">
+        <div class="card-row">
+            <div class="card-icon card-icon-default" id="cardIcon">🚗</div>
+            <div>
+                <div class="card-label" id="cardBadge">RIDE</div>
+                <div class="card-value" id="cardValue">Quick ride request</div>
+                <div class="card-desc" id="cardDesc">Open G-Taxi to get picked up</div>
             </div>
         </div>
-
-        <button class="btn btn-primary" id="requestBtn" onclick="requestRide()">
-            <span>🚗</span> Open G-Taxi App
-        </button>
-        
-        <a class="btn btn-secondary" id="whatsappBtn" href="#" onclick="openWhatsAppFallback()">
-            <span>💬</span> Request via WhatsApp
-        </a>
     </div>
 
-    <div id="trackUI" class="hidden">
-        <div id="map"></div>
-        <div class="status-card">
-            <span class="status-icon" id="statusEmoji">🚕</span>
-            <div class="status-text">
-                <strong id="statusTitle">Searching for Driver</strong>
-                <span id="statusSub">Hang tight, your G-Taxi is coming.</span>
-            </div>
-        </div>
-        <button class="btn btn-primary" onclick="window.location.reload()">
-            <span>🔄</span> Refresh Status
-        </button>
-    </div>
+    <button class="btn btn-primary" id="ctaBtn" onclick="handlePrimaryCta()">
+        Open G-Taxi App
+    </button>
+
+    <a class="btn btn-secondary" id="fallbackBtn" href="#" onclick="handleFallback()">
+        Request via WhatsApp
+    </a>
 
     <div class="loading" id="loadingState">
         <div class="spinner"></div>
         <p id="loadingMsg">Opening G-Taxi...</p>
     </div>
 
-    <p class="footer">
+    <p class="footer" id="footer">
         Don't have the app?<br>
-        <a href="#" onclick="openAppStore()" style="color: #00E5FF;">Download on App Store</a> or 
-        <a href="#" onclick="openPlayStore()" style="color: #00E5FF;">Google Play</a>
+        <a href="#" onclick="openAppStore()">Download on App Store</a> or
+        <a href="#" onclick="openPlayStore()">Google Play</a>
     </p>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // Supabase Initialization (Headless Client)
-        const SUPABASE_URL = "https://ffbbuafgeypvkpcuvdnv.supabase.co"; 
+        const SUPABASE_URL = "https://ffbbuafgeypvkpcuvdnv.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmYmJ1YWZnZXlwdmtwY3V2ZG52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mzc5ODAsImV4cCI6MjA4NjUxMzk4MH0.0bvE6YskOdVROtbto3RrJA9Vj--9M2hKg76oZkOxia8";
-        const supabase = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+        let qrType = 'ride';
+        let qrData = null;
+        let userLocation = null;
 
-        // Configuration
-        const STAND_LOCATIONS = {
-            'san-grande': { name: 'San Grande Taxi Stand', lat: 10.65, lng: -61.4 },
-            'pos-central': { name: 'Port of Spain Central', lat: 10.65, lng: -61.5167 },
-            'arima': { name: 'Arima Taxi Stand', lat: 10.6333, lng: -61.2833 },
-            'chaguanas': { name: 'Chaguanas Taxi Stand', lat: 10.5167, lng: -61.4167 },
-        };
+        function detectQrType() {
+            const params = new URLSearchParams(window.location.search);
 
-        // Parse URL params
-        const urlParams = new URLSearchParams(window.location.search);
-        const rideId = urlParams.get('ride');
-        const standId = urlParams.get('stand') || 'san-grande';
-        const stand = STAND_LOCATIONS[standId] || STAND_LOCATIONS['san-grande'];
-
-        if (rideId) {
-            initTracking(rideId);
-        } else {
-            initRequest();
-        }
-
-        function initRequest() {
-            document.getElementById('standName').textContent = stand.name;
-            document.getElementById('standAddress').textContent = 'Taxi Stand · GPS Located';
-            
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => { userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
-                    () => { userLocation = { lat: stand.lat, lng: stand.lng }; }
-                );
+            if (params.has('merchant') || params.has('store')) {
+                qrType = 'merchant';
+                qrData = params.get('merchant') || params.get('store');
+            } else if (params.has('driver') || params.has('ref')) {
+                qrType = 'driver';
+                qrData = params.get('driver') || params.get('ref');
+            } else if (params.has('ride') || params.has('r')) {
+                qrType = 'ride';
+                qrData = params.get('ride') || params.get('r');
+            } else {
+                qrType = 'ride';
+                qrData = params.get('stand') || 'san-grande';
             }
         }
 
-        async function initTracking(id) {
-            document.getElementById('requestUI').classList.add('hidden');
-            document.getElementById('trackUI').classList.remove('hidden');
-            document.getElementById('mainTitle').textContent = "Track Your G-Taxi";
-            document.getElementById('mainSubtitle').textContent = "Real-time guest monitoring";
-            
-            if (!supabase) return;
+        function applyQrTheme() {
+            const logo = document.getElementById('logo');
+            const ctaBtn = document.getElementById('ctaBtn');
+            const cardIcon = document.getElementById('cardIcon');
+            const cardBadge = document.getElementById('cardBadge');
+            const cardValue = document.getElementById('cardValue');
+            const cardDesc = document.getElementById('cardDesc');
+            const mainTitle = document.getElementById('mainTitle');
+            const mainSubtitle = document.getElementById('mainSubtitle');
+            const fallbackBtn = document.getElementById('fallbackBtn');
+            const loadingMsg = document.getElementById('loadingMsg');
 
-            // Initial fetch
-            const { data: ride } = await supabase.from('rides').select('*, driver:driver_id(full_name, car_model, car_number)').eq('id', id).single();
-            if (ride) updateTrackingUI(ride);
-
-            // Real-time subscription
-            supabase.channel('public:rides')
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${id}` }, 
-                payload => updateTrackingUI(payload.new))
-                .subscribe();
+            if (qrType === 'merchant') {
+                logo.className = 'logo logo-merchant';
+                ctaBtn.className = 'btn btn-teal';
+                cardIcon.className = 'card-icon card-icon-merchant';
+                cardBadge.className = 'badge badge-merchant';
+                mainTitle.textContent = 'Welcome to G-Taxi';
+                mainSubtitle.textContent = 'Visit this store via G-Taxi';
+                cardValue.textContent = 'Store QR';
+                cardDesc.textContent = 'Open G-Taxi to browse or order from this merchant.';
+                cardBadge.textContent = 'MERCHANT';
+                fallbackBtn.textContent = 'Contact store via WhatsApp';
+                loadingMsg.textContent = 'Opening G-Taxi...';
+            } else if (qrType === 'driver') {
+                logo.className = 'logo logo-driver';
+                ctaBtn.className = 'btn btn-amber';
+                cardIcon.className = 'card-icon card-icon-driver';
+                cardBadge.className = 'badge badge-driver';
+                mainTitle.textContent = 'Driver Referral';
+                mainSubtitle.textContent = 'Join the G-Taxi driver network';
+                cardValue.textContent = 'Driver signup';
+                cardDesc.textContent = 'Become a G-Taxi driver partner. Earn on every ride.';
+                cardBadge.textContent = 'DRIVER';
+                fallbackBtn.textContent = 'Learn more via WhatsApp';
+                loadingMsg.textContent = 'Opening driver portal...';
+            } else {
+                logo.className = 'logo logo-ride';
+                ctaBtn.className = 'btn btn-primary';
+                cardIcon.className = 'card-icon card-icon-ride';
+                cardBadge.className = 'badge badge-ride';
+                mainTitle.textContent = 'Request Your Ride';
+                mainSubtitle.textContent = 'Fast, safe rides in Trinidad & Tobago';
+                cardValue.textContent = 'Quick ride request';
+                cardDesc.textContent = 'Open G-Taxi to get picked up at your location.';
+                cardBadge.textContent = 'RIDE';
+                fallbackBtn.textContent = 'Request via WhatsApp';
+                loadingMsg.textContent = 'Opening G-Taxi...';
+            }
         }
 
-        function updateTrackingUI(ride) {
-            const statusMap = {
-                'requested': { title: 'Waiting for Confirmation', sub: 'Your request is being processed', emoji: '⏳' },
-                'searching': { title: 'Searching...', sub: 'Finding your driver near ' + ride.pickup_address, emoji: '🔎' },
-                'assigned': { title: 'Driver Dispatched', sub: `${ride.driver?.full_name || 'A driver'} is on the way in a ${ride.driver?.car_model || 'vehicle'}`, emoji: '🚗' },
-                'arrived': { title: 'Driver is Outside', sub: `Look for ${ride.driver?.car_model || 'the vehicle'} - ${ride.driver?.car_number || ''}`, emoji: '📍' },
-                'in_progress': { title: 'Ride in Progress', sub: 'Heading to ' + ride.dropoff_address, emoji: '⚡' },
-                'completed': { title: 'Ride Completed', sub: 'Hope you enjoyed your G-Taxi trip!', emoji: '✅' },
-                'cancelled': { title: 'Ride Cancelled', sub: 'This ride has been cancelled', emoji: '❌' }
-            };
-
-            const info = statusMap[ride.status] || { title: 'Processing...', sub: 'Updating ride status', emoji: '🔄' };
-            document.getElementById('statusTitle').textContent = info.title;
-            document.getElementById('statusSub').textContent = info.sub;
-            document.getElementById('statusEmoji').textContent = info.emoji;
-        }
-
-        let userLocation = null;
-
-        function requestRide() {
+        function handlePrimaryCta() {
             const loading = document.getElementById('loadingState');
-            const btn = document.getElementById('requestBtn');
+            const btn = document.getElementById('ctaBtn');
             loading.classList.add('show');
             btn.classList.add('hidden');
 
-            const lat = userLocation?.lat || stand.lat;
-            const lng = userLocation?.lng || stand.lng;
-            const deepLink = `gtaxi://request?lat=${lat}&lng=${lng}&stand=${standId}&source=qr`;
-            
+            let deepLink = 'gtaxi://';
+
+            if (qrType === 'merchant') {
+                deepLink += `merchant/${qrData || ''}?source=qr`;
+            } else if (qrType === 'driver') {
+                deepLink += `driver/signup?ref=${qrData || ''}&source=qr`;
+            } else {
+                const lat = userLocation?.lat || 10.65;
+                const lng = userLocation?.lng || -61.4;
+                deepLink += `request?lat=${lat}&lng=${lng}&source=qr`;
+                if (qrData && qrData !== 'san-grande') {
+                    deepLink += `&stand=${qrData}`;
+                }
+            }
+
             window.location.href = deepLink;
 
             setTimeout(() => {
-                document.getElementById('whatsappBtn').style.display = 'flex';
-                document.getElementById('whatsappBtn').style.background = 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)';
-                document.getElementById('whatsappBtn').style.border = 'none';
+                const fallback = document.getElementById('fallbackBtn');
+                if (qrType === 'merchant') {
+                    fallback.style.background = '#134E4A';
+                    fallback.style.border = 'none';
+                } else if (qrType === 'driver') {
+                    fallback.style.background = '#78350F';
+                    fallback.style.border = 'none';
+                } else {
+                    fallback.style.background = '#4C1D95';
+                    fallback.style.border = 'none';
+                }
                 loading.classList.remove('show');
-                document.getElementById('mainSubtitle').textContent = 'App not installed? Use WhatsApp instead:';
+                mainSubtitle.textContent = 'App not found? Use WhatsApp instead:';
             }, 2500);
         }
 
-        function openWhatsAppFallback() {
-            const lat = userLocation?.lat || stand.lat;
-            const lng = userLocation?.lng || stand.lng;
-            const message = encodeURIComponent(`Hi! I'd like to request a G-Taxi ride from ${stand.name}. Location: https://maps.google.com/?q=${lat},${lng}`);
-            window.location.href = `https://wa.me/18687031000?text=${message}`;
+        function handleFallback() {
+            if (qrType === 'merchant') {
+                const msg = encodeURIComponent("Hi! I scanned a QR at your store and would like to learn more about G-Taxi services.");
+                window.location.href = `https://wa.me/18687031000?text=${msg}`;
+            } else if (qrType === 'driver') {
+                const msg = encodeURIComponent("Hi! I'm interested in becoming a G-Taxi driver partner. Can you share more details?");
+                window.location.href = `https://wa.me/18687031000?text=${msg}`;
+            } else {
+                const lat = userLocation?.lat || 10.65;
+                const lng = userLocation?.lng || -61.4;
+                const msg = encodeURIComponent(`Hi! I'd like to request a G-Taxi ride. My location: https://maps.google.com/?q=${lat},${lng}`);
+                window.location.href = `https://wa.me/18687031000?text=${msg}`;
+            }
         }
 
         function openAppStore() { window.location.href = 'https://apps.apple.com/app/g-taxi'; }
         function openPlayStore() { window.location.href = 'https://play.google.com/store/apps/details?id=com.gtaxi.rider'; }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => { userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+                () => {}
+            );
+        }
+
+        detectQrType();
+        applyQrTheme();
     </script>
 </body>
 </html>

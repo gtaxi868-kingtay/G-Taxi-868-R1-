@@ -10,7 +10,8 @@ jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), notificationAsync: je
 describe('HelpScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
-    const { getByText } = render(<HelpScreen navigation={navigation as any} />);
+    const route = { params: {}, key: 'test', name: 'Help' as const };
+    const { getByText } = render(<HelpScreen navigation={navigation as any} route={route as any} />);
     expect(getByText(/Help Center/i)).toBeTruthy();
   });
 });

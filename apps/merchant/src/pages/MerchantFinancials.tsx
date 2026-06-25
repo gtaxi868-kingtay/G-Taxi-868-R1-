@@ -128,7 +128,7 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-8 rounded-[2rem] text-white shadow-xl">
+            <div className="bg-gradient-to-br from-[#007070] to-[#004f4f] p-8 rounded-[2rem] text-white shadow-xl">
                 <div className="flex items-center justify-between mb-2">
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-70">Live Node Earnings</p>
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
@@ -142,44 +142,44 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-[3rem] p-10 border border-slate-200">
+            <div className="bg-[#13171D] rounded-[3rem] p-10 border border-[#007070]/20">
                 <div className="flex items-center gap-6 mb-10">
-                    <div className="w-16 h-16 bg-green-500/10 rounded-3xl flex items-center justify-center border border-green-500/20">
-                        <DollarSign className="text-green-600" size={32} />
+                    <div className="w-16 h-16 bg-[#007070]/20 rounded-3xl flex items-center justify-center border border-[#007070]/30">
+                        <DollarSign className="text-[#0D9488]" size={32} />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-black tracking-tight">Financial Health</h2>
-                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Real-time Revenue Split Engine</p>
+                        <h2 className="text-2xl font-black tracking-tight text-white">Financial Health</h2>
+                        <p className="text-xs font-black text-[#5A5F66] uppercase tracking-widest mt-1">Real-time Revenue Split Engine</p>
                     </div>
                 </div>
 
                 <div className="space-y-4">
                     {summary.map((row, i) => (
-                        <div key={i} className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6 group hover:border-purple-500/20 transition-all">
+                        <div key={i} className="p-8 bg-[#0B0E12] rounded-[2.5rem] border border-[#007070]/20 flex flex-col md:flex-row items-center justify-between gap-6 group hover:border-[#0D9488]/30 transition-all">
                             <div className="flex items-center gap-8">
                                 <div className="text-center md:text-left">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Billing Period</p>
+                                    <p className="text-[10px] font-black text-[#5A5F66] uppercase tracking-widest mb-1">Billing Period</p>
                                     <div className="flex items-center gap-3">
-                                        <Calendar size={16} className="text-purple-600" />
-                                        <span className="text-xl font-black">{new Date(row.month).toLocaleDateString([], { month: 'long', year: 'numeric' })}</span>
+                                        <Calendar size={16} className="text-[#0D9488]" />
+                                        <span className="text-xl font-black text-white">{new Date(row.month).toLocaleDateString([], { month: 'long', year: 'numeric' })}</span>
                                     </div>
                                 </div>
-                                <div className="w-px h-12 bg-slate-200 hidden md:block" />
+                                <div className="w-px h-12 bg-[#007070]/20 hidden md:block" />
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Guest Rides</p>
-                                    <span className="text-lg font-black text-slate-900">{row.total_transactions} Total</span>
+                                    <p className="text-[10px] font-black text-[#5A5F66] uppercase tracking-widest mb-1">Guest Rides</p>
+                                    <span className="text-lg font-black text-white">{row.total_transactions} Total</span>
                                 </div>
                             </div>
 
                             <div className="flex flex-col md:items-end">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Gross Managed Volume</p>
-                                <span className="text-3xl font-black text-slate-900">${(row.total_gross_cents / 100).toFixed(2)} <span className="text-sm opacity-30">TTD</span></span>
-                                <p className="text-[9px] font-bold text-slate-300 uppercase mt-1">Platform Commission: ${(row.total_platform_commission_cents / 100).toFixed(2)}</p>
+                                <p className="text-[10px] font-black text-[#5A5F66] uppercase tracking-widest mb-1">Gross Managed Volume</p>
+                                <span className="text-3xl font-black text-white">${(row.total_gross_cents / 100).toFixed(2)} <span className="text-sm opacity-30">TTD</span></span>
+                                <p className="text-[9px] font-bold text-[#5A5F66] uppercase mt-1">Platform Commission: ${(row.total_platform_commission_cents / 100).toFixed(2)}</p>
                             </div>
 
                             <button
                                 onClick={() => handleExport(row.month)}
-                                className="h-16 px-10 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-black transition-all shadow-xl shadow-slate-900/10"
+                                className="h-16 px-10 bg-[#007070] text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:bg-[#004f4f] transition-all shadow-xl shadow-[#007070]/10"
                             >
                                 <Download size={18} />
                                 Download Manifest
@@ -187,12 +187,12 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
                         </div>
                     ))}
                     {summary.length === 0 && !loading && (
-                        <div className="py-20 text-center opacity-20 italic">No Financial Records Found Yet</div>
+                        <div className="py-20 text-center text-[#5A5F66] italic">No Financial Records Found Yet</div>
                     )}
                 </div>
             </div>
 
-            <div className="bg-purple-600 rounded-[3rem] p-12 text-white flex items-center justify-between overflow-hidden relative">
+            <div className="bg-[#007070] rounded-[3rem] p-12 text-white flex items-center justify-between overflow-hidden relative">
                 <div className="relative z-10 max-w-lg">
                     <h3 className="text-2xl font-black mb-4 italic">B2B REFERRAL BONUS</h3>
                     <p className="opacity-70 font-medium leading-relaxed">Earn a 3% kickback on every guest ride exceeding $50 TTD. Revenue reflected in next month's statement.</p>

@@ -6,11 +6,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 const { supabase } = initializeSupabaseClient('native');
-const ACCENT = '#8B5CF6';
 
 function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-TT', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -72,7 +74,6 @@ export function PropertyManagementScreen({ navigation }: any) {
             }
             setAvailability(grouped);
 
-            // Filter to only bookings for packages that belong to THIS property
             const { data: bkgs } = await supabase
                 .from('travel_bookings')
                 .select('id, traveler_count, total_cents, confirmed_at, travel_packages!inner(title, departure_at, property_id)')
@@ -151,7 +152,7 @@ export function PropertyManagementScreen({ navigation }: any) {
     if (loading) {
         return (
             <View style={[styles.root, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color={ACCENT} />
+                <ActivityIndicator size="large" color={VOICES.merchant.accent} />
             </View>
         );
     }
@@ -159,6 +160,7 @@ export function PropertyManagementScreen({ navigation }: any) {
     if (!property) {
         return (
             <View style={[styles.root, { paddingTop: insets.top }]}>
+                <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                         <Ionicons name="chevron-back" size={22} color="#FFF" />
@@ -189,6 +191,7 @@ export function PropertyManagementScreen({ navigation }: any) {
 
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
+            <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Ionicons name="chevron-back" size={22} color="#FFF" />
@@ -206,18 +209,17 @@ export function PropertyManagementScreen({ navigation }: any) {
 
             <ScrollView
                 contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={ACCENT} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={VOICES.merchant.accent} />}
             >
-                {/* Sync controls */}
                 <View style={styles.section}>
                     <View style={styles.sectionRow}>
-                        <Text style={styles.sectionTitle}>iCAL SYNC</Text>
+                        <Text style={styles.sectionTitle}>ICAL SYNC</Text>
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                             <TouchableOpacity
                                 onPress={() => setIcalEditing(e => !e)}
-                                style={styles.iconBtn}
+                                style={[styles.iconBtn, { backgroundColor: VOICES.merchant.accent + '18' }]}
                             >
-                                <Ionicons name="pencil-outline" size={16} color={ACCENT} />
+                                <Ionicons name="pencil-outline" size={16} color={VOICES.merchant.accent} />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={syncIcal}
@@ -237,7 +239,7 @@ export function PropertyManagementScreen({ navigation }: any) {
                     )}
 
                     {icalEditing && (
-                        <View style={styles.icalCard}>
+                        <View style={[styles.icalCard, glassSurface(0.15), ghostBorder(0.12)]}>
                             <Text style={styles.icalHint}>Paste your Airbnb or Vrbo iCal URL for each room type. Find it in your listing calendar settings.</Text>
                             {allRoomTypes.length === 0 && (
                                 <TextInput
@@ -264,10 +266,10 @@ export function PropertyManagementScreen({ navigation }: any) {
                             <TouchableOpacity
                                 onPress={saveIcalUrls}
                                 disabled={savingIcal}
-                                style={styles.saveBtn}
+                                style={[styles.saveBtn, { backgroundColor: VOICES.merchant.accent }]}
                             >
                                 {savingIcal
-                                    ? <ActivityIndicator size="small" color="#FFF" />
+                                    ? <ActivityIndicator size="small" color="#000" />
                                     : <Text style={styles.saveBtnText}>Save iCal URLs</Text>
                                 }
                             </TouchableOpacity>
@@ -275,7 +277,6 @@ export function PropertyManagementScreen({ navigation }: any) {
                     )}
                 </View>
 
-                {/* 30-day calendar grid per room type */}
                 {allRoomTypes.length > 0 && (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>30-DAY AVAILABILITY</Text>
@@ -291,7 +292,7 @@ export function PropertyManagementScreen({ navigation }: any) {
                                                 <View key={date} style={[
                                                     styles.dayCell,
                                                     { backgroundColor: avail === true ? '#22C55E22' : avail === false ? '#EF444422' : 'rgba(255,255,255,0.04)' },
-                                                    isToday && { borderColor: ACCENT, borderWidth: 1 },
+                                                    isToday && { borderColor: VOICES.merchant.accent, borderWidth: 1 },
                                                 ]}>
                                                     <Text style={styles.dayNum}>{new Date(date).getDate()}</Text>
                                                     <Text style={styles.dayMon}>{new Date(date).toLocaleDateString('en', { month: 'short' }).slice(0, 3)}</Text>
@@ -312,21 +313,20 @@ export function PropertyManagementScreen({ navigation }: any) {
                     </View>
                 )}
 
-                {/* Bookings from travel packages */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>TRAVEL PACKAGE BOOKINGS</Text>
                     {bookings.length === 0 ? (
-                        <Text style={styles.emptySub}>No package bookings yet. Your rooms appear in packages once supply is synced.</Text>
+                        <Text style={[styles.emptySub, { textAlign: 'center' }]}>No package bookings yet. Your rooms appear in packages once supply is synced.</Text>
                     ) : (
                         bookings.map(b => {
                             const pkg = (b as any).travel_packages;
                             return (
-                                <View key={b.id} style={styles.bookingRow}>
+                                <View key={b.id} style={[styles.bookingRow, glassSurface(0.1)]}>
                                     <View style={{ flex: 1 }}>
                                         <Text style={styles.bookingTitle}>{pkg?.title || 'Package booking'}</Text>
                                         <Text style={styles.bookingMeta}>{b.traveler_count} guest{b.traveler_count > 1 ? 's' : ''} · {pkg?.departure_at ? fmtDate(pkg.departure_at) : ''}</Text>
                                     </View>
-                                    <Text style={styles.bookingAmt}>TTD ${(b.total_cents / 100).toFixed(0)}</Text>
+                                    <Text style={[styles.bookingAmt, { color: VOICES.merchant.accent }]}>TTD ${(b.total_cents / 100).toFixed(0)}</Text>
                                 </View>
                             );
                         })
@@ -338,42 +338,42 @@ export function PropertyManagementScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0A0F' },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 14, gap: 8 },
     backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 17 },
-    headerSub: { color: 'rgba(255,255,255,0.35)', fontSize: 12 },
+    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 17, fontFamily: 'SpaceGrotesk' },
+    headerSub: { color: VOICES.merchant.textMuted, fontSize: 12, fontFamily: 'Manrope' },
     syncBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
-    emptyTitle: { color: '#FFF', fontWeight: '700', fontSize: 18, textAlign: 'center' },
-    emptySub: { color: 'rgba(255,255,255,0.35)', fontSize: 13, lineHeight: 19, textAlign: 'center' },
-    registerBtn: { backgroundColor: ACCENT, borderRadius: 18, paddingHorizontal: 24, paddingVertical: 13 },
-    registerBtnText: { color: '#FFF', fontWeight: '700' },
+    emptyTitle: { color: '#FFF', fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
+    emptySub: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center', fontFamily: 'Manrope' },
+    registerBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 18, paddingHorizontal: 24, paddingVertical: 13 },
+    registerBtnText: { color: '#FFF', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
     scroll: { paddingTop: 8, paddingHorizontal: 20, gap: 28 },
     section: { gap: 8 },
     sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    sectionTitle: { color: 'rgba(255,255,255,0.3)', fontWeight: '700', fontSize: 11, letterSpacing: 2 },
-    syncTime: { color: 'rgba(255,255,255,0.3)', fontSize: 12 },
-    iconBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.12)', alignItems: 'center', justifyContent: 'center' },
-    syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: ACCENT, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
-    syncBtnText: { color: '#FFF', fontWeight: '700', fontSize: 12 },
-    icalCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, padding: 16, gap: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-    icalHint: { color: 'rgba(255,255,255,0.35)', fontSize: 12, lineHeight: 18, marginBottom: 10 },
-    icalInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, color: '#FFF', fontSize: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-    roomLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', textTransform: 'capitalize', marginBottom: 4 },
-    saveBtn: { backgroundColor: ACCENT, borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
-    saveBtnText: { color: '#FFF', fontWeight: '700' },
+    sectionTitle: { color: 'rgba(255,255,255,0.3)', fontWeight: '700', fontSize: 11, letterSpacing: 2, fontFamily: 'SpaceGrotesk' },
+    syncTime: { color: 'rgba(255,255,255,0.3)', fontSize: 12, fontFamily: 'Manrope' },
+    iconBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: VOICES.merchant.accent, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
+    syncBtnText: { color: '#FFF', fontWeight: '700', fontSize: 12, fontFamily: 'SpaceGrotesk' },
+    icalCard: { borderRadius: 18, padding: 16, gap: 4 },
+    icalHint: { color: VOICES.merchant.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 10, fontFamily: 'Manrope' },
+    icalInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, color: '#FFF', fontSize: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', fontFamily: 'Manrope' },
+    roomLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', textTransform: 'capitalize', marginBottom: 4, fontFamily: 'Manrope' },
+    saveBtn: { borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+    saveBtnText: { color: '#000', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
     dayCell: { width: 40, height: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 2 },
-    dayNum: { color: '#FFF', fontWeight: '700', fontSize: 13 },
-    dayMon: { color: 'rgba(255,255,255,0.35)', fontSize: 9 },
+    dayNum: { color: '#FFF', fontWeight: '700', fontSize: 13, fontFamily: 'SpaceGrotesk' },
+    dayMon: { color: 'rgba(255,255,255,0.35)', fontSize: 9, fontFamily: 'Manrope' },
     dotGreen: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' },
     dotRed: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#EF4444' },
     legend: { flexDirection: 'row', gap: 16, marginTop: 4 },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     legendDot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { color: 'rgba(255,255,255,0.35)', fontSize: 11 },
-    bookingRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14 },
-    bookingTitle: { color: '#FFF', fontWeight: '600', fontSize: 14 },
-    bookingMeta: { color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 2 },
-    bookingAmt: { color: ACCENT, fontWeight: '700', fontSize: 15 },
+    legendText: { color: 'rgba(255,255,255,0.35)', fontSize: 11, fontFamily: 'Manrope' },
+    bookingRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14 },
+    bookingTitle: { color: '#FFF', fontWeight: '600', fontSize: 14, fontFamily: 'SpaceGrotesk' },
+    bookingMeta: { color: VOICES.merchant.textMuted, fontSize: 12, marginTop: 2, fontFamily: 'Manrope' },
+    bookingAmt: { fontWeight: '700', fontSize: 15, fontFamily: 'SpaceGrotesk' },
 });

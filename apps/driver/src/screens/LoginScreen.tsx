@@ -5,7 +5,6 @@ import {
     Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
@@ -19,6 +18,7 @@ import { RegisterScreen } from './RegisterScreen';
 import { JoinWithCodeScreen } from './JoinWithCodeScreen';
 import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 export function LoginScreen() {
@@ -105,8 +105,7 @@ export function LoginScreen() {
                         <Text style={s.logoText}>G-TAXI DRIVER</Text>
                     </View>
 
-                    <View style={s.form}>
-                        <BlurView intensity={30} style={StyleSheet.absoluteFillObject} tint="dark" />
+                    <LiquidGlass voice="driver" style={s.form}>
                         <View style={s.inputContainer}>
                             <Text style={[s.inputLabel, { marginBottom: 8, marginLeft: 4 }]}>
                                 EMAIL IDENTIFIER
@@ -158,7 +157,7 @@ export function LoginScreen() {
                                 <Text style={s.loginBtnText}>AUTHORIZE DEVICE</Text>
                             )}
                         </TouchableOpacity>
-                    </View>
+                    </LiquidGlass>
 
                     {registrationActive && (
                         <TouchableOpacity
@@ -196,7 +195,7 @@ const s = StyleSheet.create({
     content: { flex: 1, paddingHorizontal: 24, justifyContent: 'center' },
     header: { alignItems: 'center', marginBottom: 48 },
     logoText: { fontSize: 28, fontWeight: '900', color: VOICES.driver.accent, letterSpacing: 3, fontFamily: 'SpaceGrotesk-Bold' },
-    form: { width: '100%', padding: 24, borderRadius: 24, overflow: 'hidden', backgroundColor: SURFACE.containerLow, ...ghostBorder(0.15) },
+    form: { width: '100%', padding: 24, marginBottom: 16 },
     inputContainer: { width: '100%' },
     inputLabel: { fontSize: 12, fontWeight: '800', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, fontFamily: 'SpaceGrotesk-Bold' },
     inputWrap: {

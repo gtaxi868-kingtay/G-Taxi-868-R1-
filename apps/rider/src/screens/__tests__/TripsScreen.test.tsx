@@ -17,7 +17,8 @@ jest.mock('@gtaxi/design-system', () => ({ GlassCard: 'GlassCard', SURFACE: { ba
 describe('TripsScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
-    const { getByText } = render(<TripsScreen navigation={navigation as any} />);
+    const route = { params: {}, key: 'test', name: 'Trips' as const };
+    const { getByText } = render(<TripsScreen navigation={navigation as any} route={route as any} />);
     expect(getByText(/ENGAGEMENT LOG/i)).toBeTruthy();
   });
 });

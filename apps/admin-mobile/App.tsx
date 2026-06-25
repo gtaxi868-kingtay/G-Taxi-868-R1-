@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StatusBar } from 'react-native';
+import { View, Text, ActivityIndicator, StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -16,6 +16,8 @@ import type { AuthStackParamList, AppStackParamList } from './src/navigation/typ
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
+const ACCENT = VOICES.admin.accent;
+const BG = VOICES.admin.bg;
 
 function AuthNavigator() {
   return (
@@ -37,10 +39,13 @@ function AppNavigator() {
 
 function UnauthorizedScreen() {
   return (
-    <View style={{ flex: 1, backgroundColor: SURFACE.base, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-      <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '700', textAlign: 'center' }}>Access Denied</Text>
-      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', marginTop: 12 }}>
-        You do not have admin privileges. Please sign in with an admin account.
+    <View style={styles.unauthorized}>
+      <View style={styles.lockIcon}>
+        <Text style={styles.lockEmoji}>🔐</Text>
+      </View>
+      <Text style={styles.deniedTitle}>Access Denied</Text>
+      <Text style={styles.deniedDesc}>
+        You do not have admin privileges. Sign in with an admin account.
       </Text>
     </View>
   );
@@ -62,8 +67,11 @@ function RootNavigator() {
 
   if (loading || (user && adminState === 'checking')) {
     return (
-      <View style={{ flex: 1, backgroundColor: SURFACE.base, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={VOICES.admin.accent} />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={ACCENT} />
+        <Text style={styles.loadingText}>
+          {!user ? 'Initializing...' : 'Verifying credentials...'}
+        </Text>
       </View>
     );
   }
@@ -77,8 +85,8 @@ export default function App() {
     <ErrorBoundary moduleName="AdminMobile">
       <SafeAreaProvider>
         <AuthProvider>
-          <View style={{ flex: 1 }}>
-            <StatusBar barStyle="light-content" />
+          <View style={{ flex: 1, backgroundColor: BG }}>
+            <StatusBar barStyle="light-content" backgroundColor={BG} />
             <NavigationContainer>
               <RootNavigator />
             </NavigationContainer>
@@ -88,3 +96,50 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: BG,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  unauthorized: {
+    flex: 1,
+    backgroundColor: BG,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    gap: 16,
+  },
+  lockIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: `${ACCENT}20`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  lockEmoji: {
+    fontSize: 32,
+  },
+  deniedTitle: {
+    color: '#F1F5F9',
+    fontSize: 22,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  deniedDesc: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+});

@@ -17,6 +17,7 @@ import { PropertyManagementScreen } from './src/screens/PropertyManagementScreen
 import { EquityProgressScreen } from './src/screens/EquityProgressScreen';
 import { ProductCatalogScreen } from './src/screens/ProductCatalogScreen';
 import { AppointmentsScreen } from './src/screens/AppointmentsScreen';
+import { StaffScreen } from './src/screens/StaffScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -43,6 +44,7 @@ function AppNavigator() {
       <AppStack.Screen name="Appointments" component={AppointmentsScreen} />
       <AppStack.Screen name="PropertyManagement" component={PropertyManagementScreen} />
       <AppStack.Screen name="EquityProgress" component={EquityProgressScreen} />
+      <AppStack.Screen name="Staff" component={StaffScreen} />
     </AppStack.Navigator>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Shield, ShieldAlert, CheckCircle, XCircle, Map, RefreshCw, Inbox } from 'lucide-react';
+import { Shield, ShieldAlert, CheckCircle, XCircle, Map, RefreshCw, Inbox, DollarSign, TrendingUp, Clock } from 'lucide-react';
 
 interface Application {
     id: string;
@@ -14,12 +14,7 @@ interface Application {
     referral_code: string | null;
     status: string;
     created_at: string;
-    user: {
-        id: string;
-        email: string;
-        full_name: string;
-        role: string;
-    } | null;
+    user: { id: string; email: string; full_name: string; role: string } | null;
 }
 
 interface Commander {
@@ -28,23 +23,39 @@ interface Commander {
     status: string;
     metrics: any;
     created_at: string;
-    user: {
-        id: string;
-        email: string;
-        full_name: string;
-        role: string;
-    } | null;
-    territory: {
-        id: string;
-        name: string;
-        code: string;
-    } | null;
+    user: { id: string; email: string; full_name: string; role: string } | null;
+    territory: { id: string; name: string; code: string } | null;
 }
 
 interface Territory {
     id: string;
     name: string;
     code: string;
+}
+
+interface RevshareEntry {
+    id: string;
+    commander_id: string;
+    ride_id: string;
+    rider_id: string;
+    fare_cents: number;
+    revshare_cents: number;
+    status: string;
+    created_at: string;
+    paid_at: string | null;
+    commander: { id: string } | null;
+    ride: { id: string; fare_cents: number; status: string; created_at: string } | null;
+}
+
+interface RevshareSummary {
+    paid_total_cents: number;
+    pending_total_cents: number;
+    void_total_cents: number;
+    total_entries: number;
+}
+
+function fmtTTD(cents: number) {
+    return `TTD $${(cents / 100).toLocaleString('en-TT', { minimumFractionDigits: 2 })}`;
 }
 
 export function CommanderManagement() {
@@ -54,22 +65,32 @@ export function CommanderManagement() {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+    const [revshareEntries, setRevshareEntries] = useState<RevshareEntry[]>([]);
+    const [revshareSummary, setRevshareSummary] = useState<RevshareSummary | null>(null);
+    const [revshareLoading, setRevshareLoading] = useState(true);
+
     const loadData = async () => {
         setLoading(true);
         try {
-            const [appRes, cmdRes, terrRes] = await Promise.all([
+            const [appRes, cmdRes, terrRes, revRes] = await Promise.all([
                 supabase.functions.invoke('admin', { body: { action: 'manage_commanders', action_type: 'list_applications' } }),
                 supabase.functions.invoke('admin', { body: { action: 'manage_commanders', action_type: 'list' } }),
-                supabase.functions.invoke('admin', { body: { action: 'manage_territories', action_type: 'list' } })
+                supabase.functions.invoke('admin', { body: { action: 'manage_territories', action_type: 'list' } }),
+                supabase.functions.invoke('admin', { body: { action: 'manage_commanders', action_type: 'list_revshare' } }),
             ]);
 
             if (appRes.data?.success) setApplications(appRes.data.applications || []);
             if (cmdRes.data?.success) setCommanders(cmdRes.data.commanders || []);
             if (terrRes.data?.success) setTerritories(terrRes.data.territories || []);
+            if (revRes.data?.success) {
+                setRevshareEntries(revRes.data.revshare_entries || []);
+                setRevshareSummary(revRes.data.summary || null);
+            }
         } catch (err) {
             console.error('Failed to load commander data:', err);
         } finally {
             setLoading(false);
+            setRevshareLoading(false);
         }
     };
 
@@ -146,7 +167,7 @@ export function CommanderManagement() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h2 className="text-2xl sm:text-3xl font-black text-white italic tracking-tight">G-LEAD MANAGEMENT</h2>
-                    <p className="text-xs font-medium text-white/20 uppercase tracking-[0.4em] mt-1">G-Leads // Territory Assignments</p>
+                    <p className="text-xs font-medium text-white/20 uppercase tracking-[0.4em] mt-1">Commanders // Territory Assignments // Revshare</p>
                 </div>
                 <button
                     onClick={loadData}
@@ -155,6 +176,103 @@ export function CommanderManagement() {
                     <RefreshCw size={18} /> Refresh
                 </button>
             </div>
+
+            {/* ─── REVSHARE METRICS ─── */}
+            <section className="space-y-3">
+                <div className="flex items-center gap-3">
+                    <DollarSign size={16} className="text-purple-400" />
+                    <h3 className="text-sm font-black text-white uppercase tracking-widest">Commander Revshare</h3>
+                </div>
+
+                {revshareLoading ? (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[1,2,3,4].map(i => (
+                            <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-5 animate-pulse">
+                                <div className="h-3 bg-white/10 rounded w-20 mb-3" />
+                                <div className="h-6 bg-white/10 rounded w-28" />
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-500/20 rounded-2xl p-5">
+                            <div className="flex items-center gap-2 mb-3">
+                                <DollarSign size={14} className="text-purple-400" />
+                                <span className="text-[10px] font-black text-purple-400/70 uppercase tracking-widest">Pending Payout</span>
+                            </div>
+                            <div className="text-white font-black text-2xl">{revshareSummary ? fmtTTD(revshareSummary.pending_total_cents) : '—'}</div>
+                        </div>
+                        <div className="bg-gradient-to-br from-green-500/10 to-transparent border border-green-500/20 rounded-2xl p-5">
+                            <div className="flex items-center gap-2 mb-3">
+                                <TrendingUp size={14} className="text-green-400" />
+                                <span className="text-[10px] font-black text-green-400/70 uppercase tracking-widest">Paid Out</span>
+                            </div>
+                            <div className="text-white font-black text-2xl">{revshareSummary ? fmtTTD(revshareSummary.paid_total_cents) : '—'}</div>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Clock size={14} className="text-white/40" />
+                                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Voided</span>
+                            </div>
+                            <div className="text-white font-black text-2xl">{revshareSummary ? fmtTTD(revshareSummary.void_total_cents) : '—'}</div>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                            <div className="flex items-center gap-2 mb-3">
+                                <TrendingUp size={14} className="text-cyan-400" />
+                                <span className="text-[10px] font-black text-cyan-400/70 uppercase tracking-widest">Total Entries</span>
+                            </div>
+                            <div className="text-white font-black text-2xl">{revshareSummary ? revshareSummary.total_entries : '—'}</div>
+                        </div>
+                    </div>
+                )}
+
+                {revshareEntries.length > 0 && (
+                    <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-white/[0.01] border-b border-white/5">
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Date</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Ride</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Fare</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Revshare</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {revshareEntries.slice(0, 20).map(entry => (
+                                        <tr key={entry.id} className="hover:bg-white/[0.02]">
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-bold text-white/60 font-mono">
+                                                    {new Date(entry.created_at).toLocaleDateString('en-TT', { day: 'numeric', month: 'short' })}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs text-white/40 font-mono">{entry.ride_id?.slice(0, 8) || '—'}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-bold text-white">{fmtTTD(entry.fare_cents)}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-bold text-purple-400">{fmtTTD(entry.revshare_cents)}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`text-[10px] font-black px-2.5 py-1 rounded-md border uppercase tracking-widest ${
+                                                    entry.status === 'paid' ? 'text-green-400 bg-green-400/10 border-green-500/20' :
+                                                    entry.status === 'pending' ? 'text-amber-400 bg-amber-400/10 border-amber-500/20' :
+                                                    'text-red-400 bg-red-400/10 border-red-500/20'
+                                                }`}>
+                                                    {entry.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </section>
 
             {/* ─── PENDING APPLICATIONS ─── */}
             <section className="space-y-3">

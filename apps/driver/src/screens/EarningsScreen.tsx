@@ -4,7 +4,6 @@ import {
     ActivityIndicator, RefreshControl, Text, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
     useSharedValue, withTiming,
@@ -14,7 +13,7 @@ import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 
 const DRIVER_SHARE = 0.82;
 
@@ -76,7 +75,7 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
             .order('created_at', { ascending: false });
 
         if (error) {
-             Alert.alert("Sync Defect", "Could not fetch recent earnings. Swipe to try again.");
+            Alert.alert("Sync Defect", "Could not fetch recent earnings. Swipe to try again.");
         } else if (data) {
             let todayCents = 0, weekCents = 0, monthCents = 0, tripsToday = 0;
             data.forEach(trip => {
@@ -102,38 +101,23 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
 
     useEffect(() => {
         if (!driver?.id) return;
-
         fetchEarnings();
 
         const channel = supabase
             .channel(`driver_earnings:${driver.id}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'rides',
-                    filter: `driver_id=eq.${driver.id}`,
-                },
-                (payload) => {
-                    const ride = payload.new as TripData | null;
-                    if (ride?.status === 'completed' || ride?.status === 'cancelled') {
-                        fetchEarnings();
-                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    }
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'rides', filter: `driver_id=eq.${driver.id}` }, (payload) => {
+                const ride = payload.new as TripData | null;
+                if (ride?.status === 'completed' || ride?.status === 'cancelled') {
+                    fetchEarnings();
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }
-            )
+            })
             .subscribe();
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
+        return () => { supabase.removeChannel(channel); };
     }, [driver?.id, fetchEarnings]);
 
-    const onRefresh = () => {
-        setRefreshing(true);
-        fetchEarnings();
-    };
+    const onRefresh = () => { setRefreshing(true); fetchEarnings(); };
 
     if (loading) {
         return (
@@ -145,69 +129,64 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
 
     return (
         <View style={s.root}>
-            <BlurView tint="dark" intensity={90} style={[s.headerBlur, { paddingTop: insets.top }, glassSurface(90, 0.2)]}>
+            <LiquidGlass voice="driver" style={[s.headerBlur, { paddingTop: insets.top }]} tier="chrome">
                 <View style={s.headerInner}>
                     <TouchableOpacity
                         style={s.backBtn}
-                        onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            navigation.goBack();
-                        }}
+                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }}
                         accessibilityLabel="Go back"
                         accessibilityRole="button"
                     >
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
                     </TouchableOpacity>
-                    <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>Partner Hub</Text>
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF' }}>Partner Hub</Text>
                     <View style={{ width: 44 }} />
                 </View>
-            </BlurView>
+            </LiquidGlass>
 
             <ScrollView
                 contentContainerStyle={[s.scroll, { paddingTop: insets.top + 80 }]}
                 showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} colors={[VOICES.driver.accent]} />
-                }
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} colors={[VOICES.driver.accent]} />}
             >
-                <View style={[s.heroCard, glassSurface(0.15)]}>
-                    <Text style={{fontSize: 11, fontWeight: '700', color: VOICES.driver.accent, letterSpacing: 1.5, marginBottom: 12 }}>
+                <LiquidGlass voice="driver" style={s.heroCard} accentEdge>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: VOICES.driver.gold, letterSpacing: 1.5, marginBottom: 12 }}>
                         Today's earnings
                     </Text>
 
                     <Reanimated.Text style={s.earningsNum}>
                         {earningsDisplay.value}
                     </Reanimated.Text>
-                    <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginTop: 4}}>TTD total</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>TTD total</Text>
 
                     <View style={s.heroDivider} />
 
                     <View style={s.subRow}>
                         <View style={s.subItem}>
-                            <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>{stats.trips}</Text>
-                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>Trips</Text>
+                            <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFF' }}>{stats.trips}</Text>
+                            <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Trips</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
-                            <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.week.toFixed(0)}</Text>
-                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>Week</Text>
+                            <Text style={{ fontSize: 20, fontWeight: '800', color: VOICES.driver.gold }}>${stats.week.toFixed(0)}</Text>
+                            <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Week</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
-                            <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.month.toFixed(0)}</Text>
-                            <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>Month</Text>
+                            <Text style={{ fontSize: 20, fontWeight: '800', color: VOICES.driver.gold }}>${stats.month.toFixed(0)}</Text>
+                            <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Month</Text>
                         </View>
                     </View>
-                </View>
+                </LiquidGlass>
 
-                <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginBottom: 16, letterSpacing: 2}}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginBottom: 16, letterSpacing: 2 }}>
                     Recent trips
                 </Text>
 
                 {recentTrips.length === 0 ? (
                     <View style={s.emptyWrap}>
                         <Ionicons name="receipt-outline" size={48} color="rgba(255,255,255,0.1)" />
-                        <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 16, textAlign: 'center'}}>
+                        <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 16, textAlign: 'center' }}>
                             No completed trips recorded in this session.
                         </Text>
                     </View>
@@ -234,15 +213,15 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
                                     </View>
 
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}} numberOfLines={1}>
+                                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF' }} numberOfLines={1}>
                                             {trip.dropoff_address || 'Logistics Completion'}
                                         </Text>
-                                        <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 4}}>
+                                        <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 4 }}>
                                             {dateStr} · {timeStr}
                                         </Text>
                                     </View>
 
-                                    <Text style={{fontSize: 14, fontWeight: '700', color: '#10B981'}}>+${earnings}</Text>
+                                    <Text style={{ fontSize: 14, fontWeight: '700', color: VOICES.driver.gold }}>+${earnings}</Text>
                                 </TouchableOpacity>
                             );
                         })}
@@ -259,10 +238,9 @@ const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
     center: { justifyContent: 'center', alignItems: 'center' },
     scroll: { paddingHorizontal: 20 },
-
     headerBlur: {
         position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 20, ...ghostBorder(0.15),
+        zIndex: 20, borderWidth: 0,
     },
     headerInner: {
         flexDirection: 'row', alignItems: 'center',
@@ -274,16 +252,14 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.05)',
         alignItems: 'center', justifyContent: 'center',
     },
-
     heroCard: {
         padding: 24,
         marginBottom: 32,
         alignItems: 'center',
-        borderRadius: 24,
     },
     earningsNum: {
         fontSize: 56, fontWeight: '800',
-        color: VOICES.driver.accent, letterSpacing: -2,
+        color: VOICES.driver.gold, letterSpacing: -2,
         marginVertical: 4,
     },
     heroDivider: {
@@ -297,13 +273,12 @@ const s = StyleSheet.create({
     },
     subItem: { flex: 1, alignItems: 'center', gap: 4 },
     subSep: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
-
     sectionLabel: { marginBottom: 16 },
-
     tripList: {
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: 'rgba(139,92,246,0.04)',
         borderRadius: 24,
-        ...ghostBorder(0.15),
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
         overflow: 'hidden',
     },
     tripRow: {
@@ -316,10 +291,10 @@ const s = StyleSheet.create({
         width: 44, height: 44, borderRadius: 14,
         alignItems: 'center', justifyContent: 'center',
     },
-
     emptyWrap: {
         paddingVertical: 64, alignItems: 'center',
-        ...ghostBorder(0.15),
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
         borderRadius: 24, borderStyle: 'dotted',
     },
 });

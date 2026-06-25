@@ -17,7 +17,8 @@ jest.mock('@gtaxi/design-system', () => ({ GlassCard: 'GlassCard', SURFACE: { ba
 describe('LegalScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
-    const { getByText } = render(<LegalScreen navigation={navigation as any} />);
+    const route = { params: {}, key: 'test', name: 'Legal' as const };
+    const { getByText } = render(<LegalScreen navigation={navigation as any} route={route as any} />);
     expect(getByText(/LEGAL PROTOCOL/i)).toBeTruthy();
   });
 });

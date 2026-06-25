@@ -13,8 +13,10 @@ import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { LiquidGlass } from '@gtaxi/design-system/native';
+import type { AppScreenProps } from '../navigation/types';
 
-const CYAN = '#06B6D4';
+const CYAN = '#1DE0E6';
 
 const R = {
     bg: SURFACE.base,
@@ -27,7 +29,7 @@ const R = {
     muted: '#AEA9B5',
 };
 
-export function SettingsScreen({ navigation }: any) {
+export function SettingsScreen({ navigation }: AppScreenProps<'Settings'>) {
     const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -128,10 +130,12 @@ export function SettingsScreen({ navigation }: any) {
             <StatusBar style="light" />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Settings</Txt>
+                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                    <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Settings</Txt>
+                </LiquidGlass>
             </View>
 
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
@@ -203,7 +207,7 @@ export function SettingsScreen({ navigation }: any) {
                 </View>
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>G-LEVEL</Txt>
-                <TouchableOpacity style={s.card} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); (navigation as any).navigate('Subscription'); }}>
+                <TouchableOpacity style={s.card} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Subscription'); }}>
                     <View style={{ padding: 20 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                             <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 99, backgroundColor: progTier === 'g_member' ? '#D4AF37' : R.purple }}>
@@ -235,7 +239,7 @@ export function SettingsScreen({ navigation }: any) {
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>EARN</Txt>
                 <View style={s.card}>
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); (navigation as any).navigate('Referral'); }}>
+                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('Referral'); }}>
                         <View style={{ flex: 1 }}>
                             <Txt variant="bodyBold" color="#FFF">Refer & Earn</Txt>
                             <Txt variant="small" color={R.muted}>Give TTD $15, get TTD $15</Txt>

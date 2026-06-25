@@ -2,19 +2,19 @@
 
 @layer base {
   body {
-    @apply bg-black text-white antialiased;
+    @apply bg-[#0B0E12] text-[#F2F5F8] antialiased;
   }
 }
 
 .merchant-card {
-  background: white;
+  background: #13171D;
   border-radius: 1.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 112, 112, 0.15);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
 }
 
 .merchant-btn-primary {
-  background: #7C3AED;
+  background: #007070;
   color: white;
   border-radius: 1rem;
   font-weight: 700;
@@ -24,5 +24,5 @@
 .merchant-btn-primary:hover {
   transform: translateY(-1px);
   filter: brightness(1.1);
-  box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 10px 15px -3px rgba(0, 112, 112, 0.3);
 }

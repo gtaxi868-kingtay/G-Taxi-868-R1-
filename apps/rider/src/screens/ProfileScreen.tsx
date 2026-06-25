@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 import { AppScreenProps, AppStackParamList } from '../navigation/types';
 
 export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
@@ -158,10 +159,12 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
             <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
 
                 <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Text style={[s.headerTitle, { marginLeft: 16 }]}>Profile</Text>
+                    <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
+                        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                            <Ionicons name="chevron-back" size={24} color="#FFF" />
+                        </TouchableOpacity>
+                        <Text style={[s.headerTitle, { marginLeft: 16 }]}>Profile</Text>
+                    </LiquidGlass>
                 </View>
 
                 <View style={s.hero}>
@@ -202,7 +205,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                     </LinearGradient>
                 </View>
 
-                <View style={s.grid}>
+                <LiquidGlass tier="panel" voice="rider" style={{ flexDirection: 'row', marginHorizontal: 20, borderRadius: 32, paddingVertical: 24, marginBottom: 32 }}>
                     <View style={s.gridItem}>
                         <Text style={s.gridValue}>{stats.totalTrips}</Text>
                         <Text style={s.gridLabel}>Trips</Text>
@@ -217,9 +220,9 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                         <Text style={s.gridValue}>{stats.memberSince}</Text>
                         <Text style={s.gridLabel}>Member since</Text>
                     </View>
-                </View>
+                </LiquidGlass>
 
-                <View style={s.menu}>
+                <LiquidGlass tier="panel" voice="rider" style={{ marginHorizontal: 20, borderRadius: 32, padding: 12, marginBottom: 32 }}>
                     {menuItems.map((item, idx) => (
                         <TouchableOpacity
                             key={idx}
@@ -235,7 +238,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                             <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
                         </TouchableOpacity>
                     ))}
-                </View>
+                </LiquidGlass>
 
                 <TouchableOpacity style={s.logoutBtn} onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); signOut(); }}>
                     <Text style={s.logoutText}>Sign out</Text>
@@ -267,13 +270,12 @@ const s = StyleSheet.create({
     displayName: { fontSize: 22, fontWeight: '700', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
     emailText: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.6)', fontFamily: 'Manrope-Medium' },
 
-    grid: { flexDirection: 'row', backgroundColor: SURFACE.containerLow, marginHorizontal: 20, borderRadius: 32, paddingVertical: 24, ...elevationGlow(0.12), marginBottom: 32 },
+    grid: { flexDirection: 'row', marginHorizontal: 20, borderRadius: 32, paddingVertical: 24, marginBottom: 32 },
     gridItem: { flex: 1, alignItems: 'center' },
     gridDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
     gridValue: { fontSize: 18, fontWeight: '800', color: '#FFF', marginBottom: 4, fontFamily: 'SpaceGrotesk-Bold' },
     gridLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, fontFamily: 'SpaceGrotesk-Bold' },
 
-    menu: { marginHorizontal: 20, backgroundColor: SURFACE.containerLow, borderRadius: 32, padding: 12, ...elevationGlow(0.12) },
     menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18 },
     menuItemLeft: { flexDirection: 'row', alignItems: 'center' },
     iconWrapper: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

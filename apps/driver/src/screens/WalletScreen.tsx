@@ -5,7 +5,6 @@ import {
     Modal, TextInput, KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import Reanimated, {
@@ -19,7 +18,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { ENV } from '@gtaxi/shared/env';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { elevationGlow, ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { LiquidGlass } from '@gtaxi/design-system/native';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface Transaction {
     id: string;
@@ -103,24 +103,19 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
             .eq('user_id', driver.id)
             .order('created_at', { ascending: false })
             .limit(30);
-        
+
         if (balanceError) {
-             Alert.alert("Sync Issue", "Failed to retrieve the latest wallet balance. Please pull down to refresh.");
+            Alert.alert("Sync Issue", "Failed to retrieve the latest wallet balance. Please pull down to refresh.");
         }
-        
+
         if (txs) setTransactions(txs);
         setLoading(false);
         setRefreshing(false);
     }, [driver?.id, balanceAnim]);
 
-    const onRefresh = () => {
-        setRefreshing(true);
-        fetchData();
-    };
+    const onRefresh = () => { setRefreshing(true); fetchData(); };
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     const handleSaveBankDetails = async () => {
         if (!driver?.id) return;
@@ -131,19 +126,12 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         setSavingBank(true);
         const { error } = await supabase
             .from('drivers')
-            .update({
-                bank_details: {
-                    bank_name: bankName.trim(),
-                    account_holder: accountHolder.trim(),
-                    account_number: accountNumber.trim(),
-                },
-            })
+            .update({ bank_details: { bank_name: bankName.trim(), account_holder: accountHolder.trim(), account_number: accountNumber.trim() } })
             .eq('id', driver.id);
         setSavingBank(false);
 
-        if (error) {
-            Alert.alert("Error", "Could not save bank details. Please try again.");
-        } else {
+        if (error) { Alert.alert("Error", "Could not save bank details. Please try again."); }
+        else {
             setHasBankDetails(true);
             setBankModalVisible(false);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -155,35 +143,20 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         if (!balance || balance <= 0) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-        if (!hasBankDetails) {
-            setBankModalVisible(true);
-            return;
-        }
+        if (!hasBankDetails) { setBankModalVisible(true); return; }
 
-        Alert.alert(
-            "Request Payout",
-            `Would you like to request a payout of $${balance.toFixed(2)} TTD to ${bankName} ····${accountNumber.slice(-4)}?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Request",
-                    onPress: async () => {
-                        const { data, error } = await supabase.functions.invoke('request_payout', {
-                            body: { amount_cents: Math.round(balance * 100) },
-                        });
-
-                        if (error || data?.error) {
-                            const message = data?.error
-                                || (error as { context?: { json?: { error?: string } } })?.context?.json?.error
-                                || "Could not submit payout request. Please try again.";
-                            Alert.alert("Payout Failed", message);
-                        } else {
-                            Alert.alert("Success", "Payout request submitted! Admin will process this within 24-48 hours.");
-                        }
-                    }
+        Alert.alert("Request Payout", `Would you like to request a payout of $${balance.toFixed(2)} TTD to ${bankName} ····${accountNumber.slice(-4)}?`, [
+            { text: "Cancel", style: "cancel" },
+            {
+                text: "Request", onPress: async () => {
+                    const { data, error } = await supabase.functions.invoke('request_payout', { body: { amount_cents: Math.round(balance * 100) } });
+                    if (error || data?.error) {
+                        const message = data?.error || (error as { context?: { json?: { error?: string } } })?.context?.json?.error || "Could not submit payout request. Please try again.";
+                        Alert.alert("Payout Failed", message);
+                    } else { Alert.alert("Success", "Payout request submitted! Admin will process this within 24-48 hours."); }
                 }
-            ]
-        );
+            }
+        ]);
     };
 
     const handleCardTopUp = async (amountTtd: number) => {
@@ -194,31 +167,18 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
 
             const response = await fetch(`${ENV.SUPABASE_URL}/functions/v1/create_wallet_topup`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
                 body: JSON.stringify({ amount_ttd: amountTtd }),
             });
 
             const { clientSecret, error } = await response.json();
             if (error) throw new Error(error);
 
-            const { error: initError } = await initPaymentSheet({
-                paymentIntentClientSecret: clientSecret,
-                merchantDisplayName: 'G-Taxi Ltd',
-                defaultBillingDetails: { email: user?.email },
-            });
-
+            const { error: initError } = await initPaymentSheet({ paymentIntentClientSecret: clientSecret, merchantDisplayName: 'G-Taxi Ltd', defaultBillingDetails: { email: user?.email } });
             if (initError) throw initError;
 
             const { error: presentError } = await presentPaymentSheet();
-            if (presentError) {
-                if (presentError.code !== 'Canceled') {
-                    Alert.alert('Payment Error', presentError.message);
-                }
-                return;
-            }
+            if (presentError) { if (presentError.code !== 'Canceled') Alert.alert('Payment Error', presentError.message); return; }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             Alert.alert('Success', 'Wallet topped up successfully!');
@@ -226,108 +186,58 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Payment failed';
             Alert.alert('Error', message);
-        } finally {
-            setProcessing(false);
-        }
+        } finally { setProcessing(false); }
     };
 
     const handleManualDeposit = async () => {
         try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                quality: 0.7,
-            });
-
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.7 });
             if (result.canceled || !result.assets[0]) return;
 
             setProcessing(true);
             const asset = result.assets[0];
             const fileExt = asset.uri.split('.').pop();
             const fileName = `${driver?.id}/${Date.now()}.${fileExt}`;
-            
+
             const response = await fetch(asset.uri);
             const blob = await response.blob();
 
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('receipts')
-                .upload(fileName, blob);
-
+            const { data: uploadData, error: uploadError } = await supabase.storage.from('receipts').upload(fileName, blob);
             if (uploadError) throw uploadError;
 
             const receiptPath = uploadData.path;
-            const receiptUrl = supabase.storage.from('receipts').getPublicUrl(receiptPath).data.publicUrl;
 
-            // Phase 4: OCR parse the receipt
             let parsedAmount = 0;
             let referenceToken: string | null = null;
             try {
-                const { data: ocrData } = await supabase.functions.invoke('parse_receipt', {
-                    body: { photo_url: receiptPath },
-                });
-                if (ocrData?.success && ocrData?.data?.amount_cents) {
-                    parsedAmount = ocrData.data.amount_cents;
-                }
-                if (ocrData?.success && ocrData?.data?.reference_token) {
-                    referenceToken = ocrData.data.reference_token;
-                }
-            } catch {
-                // OCR is best-effort; fall back to manual admin review
-            }
+                const { data: ocrData } = await supabase.functions.invoke('parse_receipt', { body: { photo_url: receiptPath } });
+                if (ocrData?.success && ocrData?.data?.amount_cents) parsedAmount = ocrData.data.amount_cents;
+                if (ocrData?.success && ocrData?.data?.reference_token) referenceToken = ocrData.data.reference_token;
+            } catch { }
 
-            // Duplicate-transaction guard: never let the same bank/ATM reference
-            // be submitted (and later credited) twice.
             if (referenceToken) {
-                const { data: dupe } = await supabase
-                    .from('manual_deposits')
-                    .select('id')
-                    .eq('reference_token', referenceToken)
-                    .maybeSingle();
-                if (dupe) {
-                    Alert.alert('Already Submitted', 'This receipt (transaction ' + referenceToken + ') has already been submitted. It cannot be credited twice.');
-                    return;
-                }
+                const { data: dupe } = await supabase.from('manual_deposits').select('id').eq('reference_token', referenceToken).maybeSingle();
+                if (dupe) { Alert.alert('Already Submitted', 'This receipt has already been submitted.'); return; }
             }
 
-            const { error: dbError } = await supabase
-                .from('manual_deposits')
-                .insert({
-                    user_id: driver?.id,
-                    amount_cents: parsedAmount,
-                    receipt_url: receiptPath,
-                    reference_token: referenceToken,
-                    status: 'pending'
-                });
-
+            const { error: dbError } = await supabase.from('manual_deposits').insert({ user_id: driver?.id, amount_cents: parsedAmount, receipt_url: receiptPath, reference_token: referenceToken, status: 'pending' });
             if (dbError) {
-                // 23505 = unique violation on reference_token (race with another upload)
-                if ((dbError as any).code === '23505') {
-                    Alert.alert('Already Submitted', 'This receipt has already been submitted. It cannot be credited twice.');
-                    return;
-                }
+                if ((dbError as any).code === '23505') { Alert.alert('Already Submitted', 'This receipt has already been submitted.'); return; }
                 throw dbError;
             }
 
-            const msg = parsedAmount > 0
-                ? `Receipt uploaded! Amount detected: TTD ${(parsedAmount / 100).toFixed(2)}. Admin will verify shortly.`
-                : 'Receipt uploaded! Admin will verify and credit your wallet shortly.';
+            const msg = parsedAmount > 0 ? `Receipt uploaded! Amount detected: TTD ${(parsedAmount / 100).toFixed(2)}. Admin will verify shortly.` : 'Receipt uploaded! Admin will verify and credit your wallet shortly.';
             Alert.alert('Success', msg);
             fetchData();
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Upload failed';
             Alert.alert('Error', message);
-        } finally {
-            setProcessing(false);
-        }
+        } finally { setProcessing(false); }
     };
 
     const handleSmartAtmDeposit = async () => {
         try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                quality: 0.7,
-            });
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, quality: 0.7 });
             if (result.canceled || !result.assets[0]) return;
 
             setProcessing(true);
@@ -335,87 +245,56 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
             if (!session) throw new Error('No session');
 
             const amountCents = Math.round(Math.abs(balance || 0) * 100);
-
             const asset = result.assets[0];
             const fileExt = asset.uri.split('.').pop();
             const fileName = `settlements/${driver?.id}/${Date.now()}.${fileExt}`;
 
             const imgRes = await fetch(asset.uri);
             const blob = await imgRes.blob();
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('receipts')
-                .upload(fileName, blob);
+            const { data: uploadData, error: uploadError } = await supabase.storage.from('receipts').upload(fileName, blob);
             if (uploadError) throw uploadError;
 
             const receiptPath = fileName;
             const receiptUrl = supabase.storage.from('receipts').getPublicUrl(receiptPath).data.publicUrl;
 
-            // Phase 4: OCR parse the receipt to auto-detect amount + transaction id
             let parsedAmount = amountCents;
             let referenceToken: string | null = null;
             try {
-                const { data: ocrData } = await supabase.functions.invoke('parse_receipt', {
-                    body: { photo_url: receiptPath },
-                });
-                if (ocrData?.success && ocrData?.data?.amount_cents) {
-                    parsedAmount = ocrData.data.amount_cents;
-                }
-                if (ocrData?.success && ocrData?.data?.reference_token) {
-                    referenceToken = ocrData.data.reference_token;
-                }
-            } catch {
-                // OCR is best-effort; fall back to wallet-based amount
-            }
+                const { data: ocrData } = await supabase.functions.invoke('parse_receipt', { body: { photo_url: receiptPath } });
+                if (ocrData?.success && ocrData?.data?.amount_cents) parsedAmount = ocrData.data.amount_cents;
+                if (ocrData?.success && ocrData?.data?.reference_token) referenceToken = ocrData.data.reference_token;
+            } catch { }
 
             const position = await Location.getCurrentPositionAsync({});
             const deposit_lat = position?.coords?.latitude;
             const deposit_lng = position?.coords?.longitude;
 
-            const { data: settleData, error: settleErr } = await supabase.functions.invoke('submit_settlement', {
-                body: {
-                    amount_cents: parsedAmount,
-                    method: 'smart_atm',
-                    reference_token: referenceToken,
-                    receipt_photo_url: receiptUrl,
-                    deposit_lat,
-                    deposit_lng,
-                },
-            });
+            const { data: settleData, error: settleErr } = await supabase.functions.invoke('submit_settlement', { body: { amount_cents: parsedAmount, method: 'smart_atm', reference_token: referenceToken, receipt_photo_url: receiptUrl, deposit_lat, deposit_lng } });
 
             if (settleErr || !settleData?.success) {
                 const dupHit = /duplicate|already|23505|reference/i.test(settleData?.error || settleErr?.message || '');
-                throw new Error(dupHit
-                    ? 'This receipt has already been submitted. It cannot be credited twice.'
-                    : (settleData?.error || settleErr?.message || 'Settlement submission failed'));
+                throw new Error(dupHit ? 'This receipt has already been submitted.' : (settleData?.error || settleErr?.message || 'Settlement submission failed'));
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            const parsedMsg = parsedAmount !== amountCents
-                ? ` (OCR detected TTD ${(parsedAmount / 100).toFixed(2)})`
-                : '';
+            const parsedMsg = parsedAmount !== amountCents ? ` (OCR detected TTD ${(parsedAmount / 100).toFixed(2)})` : '';
             Alert.alert('Submitted', `ATM deposit submitted${parsedMsg}! Admin will verify and credit your wallet shortly.`);
             fetchData();
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Submission failed';
             Alert.alert('Error', message);
-        } finally {
-            setProcessing(false);
-        }
+        } finally { setProcessing(false); }
     };
 
     const handleSettlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        Alert.alert(
-            "Settle Balance",
-            "How would you like to top up your wallet?",
-            [
-                { text: "$100 Top Up (Card)", onPress: () => handleCardTopUp(100) },
-                { text: "Smart ATM Deposit", onPress: handleSmartAtmDeposit },
-                { text: "Upload Bank Receipt", onPress: handleManualDeposit },
-                { text: "Contact Support (WA)", onPress: () => Linking.openURL('https://wa.me/18687031000?text=I need to settle my G-Taxi commission balance.') },
-                { text: "Cancel", style: "cancel" }
-            ]
-        );
+        Alert.alert("Settle Balance", "How would you like to top up your wallet?", [
+            { text: "$100 Top Up (Card)", onPress: () => handleCardTopUp(100) },
+            { text: "Smart ATM Deposit", onPress: handleSmartAtmDeposit },
+            { text: "Upload Bank Receipt", onPress: handleManualDeposit },
+            { text: "Contact Support (WA)", onPress: () => Linking.openURL('https://wa.me/18687031000?text=I need to settle my G-Taxi commission balance.') },
+            { text: "Cancel", style: "cancel" }
+        ]);
     };
 
     const isOwed = balance !== null && balance < 0;
@@ -429,118 +308,86 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         );
     }
 
-    const heroGradient: readonly [string, string] = isOwed
-        ? [SURFACE.base, '#2A0A0A']
-        : [SURFACE.base, '#0A2A1A'];
+    const heroGradient: readonly [string, string] = isOwed ? [SURFACE.base, '#2A0A0A'] : [SURFACE.base, '#0A2A1A'];
     const heroStatusColor = isOwed ? '#FF4D4D' : '#10B981';
-    const heroStatusLabel = isOwed
-        ? `You owe the platform TTD ${(Math.abs(balance || 0) * 0.18 / 0.82).toFixed(0)} (18% platform + reserve)`
-        : 'Balance all clear ✓';
+    const heroStatusLabel = isOwed ? `You owe the platform TTD ${(Math.abs(balance || 0) * 0.18 / 0.82).toFixed(0)} (18% platform + reserve)` : 'Balance all clear ✓';
 
     return (
         <View style={s.root}>
-            <BlurView tint="dark" intensity={80} style={[s.headerBlur, { paddingTop: insets.top + 8 }, glassSurface(80, 0.2)]}>
+            <LiquidGlass voice="driver" style={[s.headerBlur, { paddingTop: insets.top + 8 }]} tier="chrome">
                 <View style={s.headerInner}>
-                    <TouchableOpacity
-                        style={s.backBtn}
-                        onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            navigation.goBack();
-                        }}
-                        activeOpacity={0.8}
-                    >
+                    <TouchableOpacity style={s.backBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }} activeOpacity={0.8}>
                         <Ionicons name="chevron-back" size={22} color="#FFF" />
                     </TouchableOpacity>
-
-                    <Text style={{fontSize: 20, fontWeight: '700', color: '#FFF'}}>Wallet</Text>
-
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFF' }}>Wallet</Text>
                     <View style={s.backBtn} pointerEvents="none" />
                 </View>
-            </BlurView>
+            </LiquidGlass>
 
             <ScrollView
                 contentContainerStyle={[s.scroll, { paddingTop: insets.top + 64 }]}
                 showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} colors={[VOICES.driver.accent]} />
-                }
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} colors={[VOICES.driver.accent]} />}
             >
-                <LinearGradient
-                    colors={heroGradient}
-                    style={[s.heroCard, elevationGlow(0.12)]}
-                >
-                    <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 6 }}>
+                <LinearGradient colors={heroGradient} style={s.heroCard}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 6 }}>
                         Commission balance
                     </Text>
 
-                    <Reanimated.Text style={[s.balanceNum, { color: isOwed ? '#FF4D4D' : VOICES.driver.accent }]}>
+                    <Reanimated.Text style={[s.balanceNum, { color: isOwed ? '#FF4D4D' : VOICES.driver.gold }]}>
                         {isOwed ? '-' : ''}{balanceDisplay.value}
                     </Reanimated.Text>
 
-                    <Text style={{fontSize: 10, color: heroStatusColor, marginTop: 6, fontWeight: '600' }}>
+                    <Text style={{ fontSize: 10, color: heroStatusColor, marginTop: 6, fontWeight: '600' }}>
                         {heroStatusLabel}
                     </Text>
 
                     {isOwed && (balance || 0) <= -600 && (
-                        <View style={s.lockBadge}>
+                        <LiquidGlass voice="driver" style={s.lockBadge} tier="inlay">
                             <Ionicons name="lock-closed" size={14} color="#FFF" />
-                            <Text style={{fontSize: 11, fontWeight: '700', color: '#FFF', marginLeft: 6 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFF', marginLeft: 6 }}>
                                 ACCOUNT RESTRICTED — CAP REACHED
                             </Text>
-                        </View>
+                        </LiquidGlass>
                     )}
 
                     {isOwed && (
-                        <TouchableOpacity
-                            style={s.settleBtn}
-                            onPress={handleSettlePress}
-                            activeOpacity={0.85}
-                        >
+                        <TouchableOpacity style={s.settleBtn} onPress={handleSettlePress} activeOpacity={0.85}>
                             <Ionicons name="logo-whatsapp" size={16} color="#FFF" />
-                            <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', marginLeft: 8 }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF', marginLeft: 8 }}>
                                 Settle Balance via Transfer
                             </Text>
                         </TouchableOpacity>
                     )}
 
                     {isGood && balance > 0 && (
-                        <TouchableOpacity
-                            style={[s.settleBtn, { backgroundColor: VOICES.driver.accent }]}
-                            onPress={handlePayoutRequest}
-                            activeOpacity={0.85}
-                        >
+                        <TouchableOpacity style={[s.settleBtn, { backgroundColor: VOICES.driver.accent }]} onPress={handlePayoutRequest} activeOpacity={0.85}>
                             <Ionicons name="cash-outline" size={16} color={SURFACE.base} />
-                            <Text style={{fontSize: 14, fontWeight: '700', color: SURFACE.base, marginLeft: 8 }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: SURFACE.base, marginLeft: 8 }}>
                                 Request Payout
                             </Text>
                         </TouchableOpacity>
                     )}
 
-                    <TouchableOpacity
-                        style={s.bankLink}
-                        onPress={() => setBankModalVisible(true)}
-                        activeOpacity={0.7}
-                    >
+                    <TouchableOpacity style={s.bankLink} onPress={() => setBankModalVisible(true)} activeOpacity={0.7}>
                         <Ionicons name="business-outline" size={14} color="rgba(255,255,255,0.7)" />
                         <Text style={s.bankLinkText}>
-                            {hasBankDetails
-                                ? `Payout account: ${bankName} ····${accountNumber.slice(-4)}`
-                                : 'Add bank details for payouts'}
+                            {hasBankDetails ? `Payout account: ${bankName} ····${accountNumber.slice(-4)}` : 'Add bank details for payouts'}
                         </Text>
                     </TouchableOpacity>
                 </LinearGradient>
 
-                <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 12 }}>
                     TRANSACTION HISTORY
                 </Text>
 
                 {transactions.length === 0 ? (
-                    <View style={s.emptyWrap}>
+                    <LiquidGlass voice="driver" style={s.emptyWrap} tier="inlay">
                         <Ionicons name="receipt-outline" size={36} color="rgba(255,255,255,0.6)" />
-                        <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 12, textAlign: 'center' }}>
+                        <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 12, textAlign: 'center' }}>
                             No transactions yet.
                         </Text>
-                    </View>
+                    </LiquidGlass>
                 ) : (
                     <View style={s.txList}>
                         {transactions.map((tx, idx) => {
@@ -552,30 +399,23 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                             const isLast = idx === transactions.length - 1;
 
                             const txIcon = isCredit ? 'arrow-down-outline' : 'arrow-up-outline';
-                            const txColor = isCredit ? '#10B981' : '#FF4D4D';
-                            const txBg = isCredit ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+                            const txColor = isCredit ? VOICES.driver.gold : '#FF4D4D';
+                            const txBg = isCredit ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)';
 
                             return (
-                                <TouchableOpacity
-                                    key={tx.id}
-                                    style={[s.txRow, isLast && { borderBottomWidth: 0 }]}
-                                    onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-                                    activeOpacity={0.75}
-                                >
+                                <TouchableOpacity key={tx.id} style={[s.txRow, isLast && { borderBottomWidth: 0 }]} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)} activeOpacity={0.75}>
                                     <View style={[s.txIcon, { backgroundColor: txBg }]}>
                                         <Ionicons name={txIcon as 'arrow-down-outline' | 'arrow-up-outline'} size={18} color={txColor} />
                                     </View>
-
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}} numberOfLines={1}>
+                                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF' }} numberOfLines={1}>
                                             {tx.description || (isCredit ? 'Commission Credit' : 'Commission Debit')}
                                         </Text>
-                                        <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>
+                                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>
                                             {dateStr} · {timeStr}
                                         </Text>
                                     </View>
-
-                                    <Text style={{fontSize: 14, fontWeight: '700', color: txColor}}>
+                                    <Text style={{ fontSize: 14, fontWeight: '700', color: txColor }}>
                                         {isCredit ? '+' : '-'}${amount}
                                     </Text>
                                 </TouchableOpacity>
@@ -584,7 +424,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                     </View>
                 )}
 
-                <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginTop: 28, marginBottom: 12 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginTop: 28, marginBottom: 12 }}>
                     HOW IT WORKS
                 </Text>
 
@@ -596,8 +436,8 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                                     <Ionicons name={row.icon} size={20} color={row.color} />
                                 </View>
                                 <View style={{ flex: 1, gap: 3 }}>
-                                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{row.title}</Text>
-                                    <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.6)'}}>{row.body}</Text>
+                                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFF' }}>{row.title}</Text>
+                                    <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)' }}>{row.body}</Text>
                                 </View>
                             </View>
                             {i < INFO_ROWS.length - 1 && <View style={s.infoDivider} />}
@@ -608,66 +448,23 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                 <View style={{ height: insets.bottom + 32 }} />
             </ScrollView>
 
-            <Modal
-                visible={bankModalVisible}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setBankModalVisible(false)}
-            >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={s.modalOverlay}
-                >
-                    <View style={s.modalCard}>
+            <Modal visible={bankModalVisible} transparent animationType="slide" onRequestClose={() => setBankModalVisible(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalOverlay}>
+                    <LiquidGlass voice="driver" style={s.modalCard}>
                         <Text style={s.modalTitle}>Payout Bank Account</Text>
-                        <Text style={s.modalSubtitle}>
-                            Local T&T bank transfers. Payouts are sent to this account after admin approval.
-                        </Text>
+                        <Text style={s.modalSubtitle}>Local T&T bank transfers. Payouts are sent to this account after admin approval.</Text>
 
-                        <TextInput
-                            style={s.modalInput}
-                            placeholder="Bank name (e.g. Republic Bank)"
-                            placeholderTextColor="rgba(255,255,255,0.4)"
-                            value={bankName}
-                            onChangeText={setBankName}
-                        />
-                        <TextInput
-                            style={s.modalInput}
-                            placeholder="Account holder name"
-                            placeholderTextColor="rgba(255,255,255,0.4)"
-                            value={accountHolder}
-                            onChangeText={setAccountHolder}
-                        />
-                        <TextInput
-                            style={s.modalInput}
-                            placeholder="Account number"
-                            placeholderTextColor="rgba(255,255,255,0.4)"
-                            value={accountNumber}
-                            onChangeText={setAccountNumber}
-                            keyboardType="number-pad"
-                        />
+                        <TextInput style={s.modalInput} placeholder="Bank name (e.g. Republic Bank)" placeholderTextColor="rgba(255,255,255,0.4)" value={bankName} onChangeText={setBankName} />
+                        <TextInput style={s.modalInput} placeholder="Account holder name" placeholderTextColor="rgba(255,255,255,0.4)" value={accountHolder} onChangeText={setAccountHolder} />
+                        <TextInput style={s.modalInput} placeholder="Account number" placeholderTextColor="rgba(255,255,255,0.4)" value={accountNumber} onChangeText={setAccountNumber} keyboardType="number-pad" />
 
-                        <TouchableOpacity
-                            style={[s.settleBtn, { backgroundColor: VOICES.driver.accent, marginTop: 16 }]}
-                            onPress={handleSaveBankDetails}
-                            disabled={savingBank}
-                            activeOpacity={0.85}
-                        >
-                            {savingBank ? (
-                                <ActivityIndicator size="small" color={SURFACE.base} />
-                            ) : (
-                                <Text style={{ fontSize: 14, fontWeight: '700', color: SURFACE.base }}>
-                                    Save Bank Details
-                                </Text>
-                            )}
+                        <TouchableOpacity style={[s.actionBtn, { backgroundColor: VOICES.driver.accent, marginTop: 16 }]} onPress={handleSaveBankDetails} disabled={savingBank} activeOpacity={0.85}>
+                            {savingBank ? <ActivityIndicator size="small" color={SURFACE.base} /> : <Text style={{ fontSize: 14, fontWeight: '700', color: SURFACE.base }}>Save Bank Details</Text>}
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={{ alignItems: 'center', paddingVertical: 14 }}
-                            onPress={() => setBankModalVisible(false)}
-                        >
+                        <TouchableOpacity style={{ alignItems: 'center', paddingVertical: 14 }} onPress={() => setBankModalVisible(false)}>
                             <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Cancel</Text>
                         </TouchableOpacity>
-                    </View>
+                    </LiquidGlass>
                 </KeyboardAvoidingView>
             </Modal>
         </View>
@@ -678,10 +475,9 @@ const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
     center: { justifyContent: 'center', alignItems: 'center' },
     scroll: { paddingHorizontal: 20 },
-
     headerBlur: {
         position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 20, ...ghostBorder(0.15),
+        zIndex: 20, borderWidth: 0,
     },
     headerInner: {
         flexDirection: 'row', alignItems: 'center',
@@ -693,7 +489,6 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.06)',
         alignItems: 'center', justifyContent: 'center',
     },
-
     heroCard: {
         borderRadius: 24, padding: 24,
         alignItems: 'center',
@@ -705,9 +500,8 @@ const s = StyleSheet.create({
     },
     lockBadge: {
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#FF4D4D',
         paddingHorizontal: 14, paddingVertical: 7,
-        borderRadius: 20, marginTop: 14,
+        marginTop: 14,
     },
     settleBtn: {
         flexDirection: 'row', alignItems: 'center',
@@ -715,7 +509,6 @@ const s = StyleSheet.create({
         paddingHorizontal: 22, paddingVertical: 12,
         borderRadius: 50, marginTop: 18, gap: 6,
     },
-
     bankLink: {
         flexDirection: 'row', alignItems: 'center',
         marginTop: 14, gap: 6,
@@ -725,16 +518,13 @@ const s = StyleSheet.create({
         color: 'rgba(255,255,255,0.7)',
         textDecorationLine: 'underline',
     },
-
     modalOverlay: {
         flex: 1, justifyContent: 'flex-end',
         backgroundColor: 'rgba(0,0,0,0.6)',
     },
     modalCard: {
-        backgroundColor: SURFACE.containerLow,
-        borderTopLeftRadius: 28, borderTopRightRadius: 28,
         padding: 24, paddingBottom: 40,
-        ...ghostBorder(0.15),
+        borderWidth: 0,
     },
     modalTitle: {
         fontSize: 18, fontWeight: '800', color: '#FFF',
@@ -748,12 +538,19 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.06)',
         borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
         fontSize: 15, color: '#FFF', marginBottom: 12,
-        ...ghostBorder(0.12),
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
     },
-
+    actionBtn: {
+        borderRadius: 50, paddingVertical: 14,
+        alignItems: 'center', justifyContent: 'center',
+    },
     txList: {
-        backgroundColor: SURFACE.containerLow,
-        borderRadius: 20, ...ghostBorder(0.15), overflow: 'hidden',
+        backgroundColor: 'rgba(139,92,246,0.04)',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        overflow: 'hidden',
         marginBottom: 28,
     },
     txRow: {
@@ -766,17 +563,16 @@ const s = StyleSheet.create({
         width: 40, height: 40, borderRadius: 12,
         alignItems: 'center', justifyContent: 'center',
     },
-
     emptyWrap: {
         paddingVertical: 40, alignItems: 'center',
-        ...ghostBorder(0.15),
-        borderRadius: 20, borderStyle: 'dashed',
         marginBottom: 28,
     },
-
     infoCard: {
-        backgroundColor: SURFACE.containerLow,
-        borderRadius: 20, ...ghostBorder(0.15), overflow: 'hidden',
+        backgroundColor: 'rgba(139,92,246,0.03)',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        overflow: 'hidden',
     },
     infoRow: {
         flexDirection: 'row', alignItems: 'flex-start',

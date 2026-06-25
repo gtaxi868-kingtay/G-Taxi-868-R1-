@@ -13,6 +13,8 @@ import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { LiquidGlass } from '@gtaxi/design-system/native';
+import type { AppScreenProps } from '../navigation/types';
 
 const CYAN = '#06B6D4';
 
@@ -36,7 +38,7 @@ interface SavedPlace {
     icon: string;
 }
 
-export function SavedPlacesScreen({ navigation }: any) {
+export function SavedPlacesScreen({ navigation }: AppScreenProps<'SavedPlaces'>) {
     const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -88,18 +90,20 @@ export function SavedPlacesScreen({ navigation }: any) {
     };
 
     const renderItem = ({ item }: { item: SavedPlace }) => (
-        <View style={s.card}>
-            <View style={s.iconWrap}>
-                <Txt style={{ fontSize: 20 }}>{item.icon || '📍'}</Txt>
+        <LiquidGlass tier="inlay" voice="rider" style={{ marginBottom: 12 }}>
+            <View style={s.card}>
+                <View style={s.iconWrap}>
+                    <Txt style={{ fontSize: 20 }}>{item.icon || '📍'}</Txt>
+                </View>
+                <View style={s.info}>
+                    <Txt variant="bodyBold" color="#FFF">{item.label}</Txt>
+                    <Txt variant="small" color={R.muted} numberOfLines={1}>{item.address}</Txt>
+                </View>
+                <TouchableOpacity onPress={() => handleDelete(item.id, item.label)} style={s.deleteBtn}>
+                    <Ionicons name="trash-outline" size={20} color={R.muted} />
+                </TouchableOpacity>
             </View>
-            <View style={s.info}>
-                <Txt variant="bodyBold" color="#FFF">{item.label}</Txt>
-                <Txt variant="small" color={R.muted} numberOfLines={1}>{item.address}</Txt>
-            </View>
-            <TouchableOpacity onPress={() => handleDelete(item.id, item.label)} style={s.deleteBtn}>
-                <Ionicons name="trash-outline" size={20} color={R.muted} />
-            </TouchableOpacity>
-        </View>
+        </LiquidGlass>
     );
 
     return (
@@ -107,10 +111,12 @@ export function SavedPlacesScreen({ navigation }: any) {
             <StatusBar style="light" />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Saved Places</Txt>
+                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                    <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Saved Places</Txt>
+                </LiquidGlass>
             </View>
 
             {loading ? (
@@ -133,7 +139,7 @@ export function SavedPlacesScreen({ navigation }: any) {
             <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                 <TouchableOpacity
                     style={s.addBtn}
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('DestinationSearch'); }}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('DestinationSearch', {}); }}
                 >
                     <LinearGradient
                         colors={[VOICES.rider.accent, CYAN]}

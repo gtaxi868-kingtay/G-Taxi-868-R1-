@@ -9,10 +9,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 const { supabase } = initializeSupabaseClient('native');
 const GOLD = '#F59E0B';
-const ACCENT = '#8B5CF6';
 
 function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-TT', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -68,6 +69,7 @@ export function EquityProgressScreen({ navigation, route }: any) {
 
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
+            <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Ionicons name="chevron-back" size={22} color="#FFF" />
@@ -91,12 +93,11 @@ export function EquityProgressScreen({ navigation, route }: any) {
                         const vestT2 = contract.current_room_nights_delivered >= contract.tier_2_rooms;
 
                         return (
-                            <View key={contract.id} style={styles.contractCard}>
+                            <View key={contract.id} style={[styles.contractCard, ghostBorder(0.15)]}>
                                 <LinearGradient
                                     colors={['rgba(245,158,11,0.12)', 'rgba(245,158,11,0.04)']}
                                     style={styles.contractGrad}
                                 >
-                                    {/* Property name + status */}
                                     <View style={styles.contractHeader}>
                                         <View style={{ flex: 1 }}>
                                             <Text style={styles.propName}>{prop?.name || 'Property'}</Text>
@@ -109,13 +110,11 @@ export function EquityProgressScreen({ navigation, route }: any) {
                                         </View>
                                     </View>
 
-                                    {/* Room nights counter */}
                                     <View style={styles.nightsRow}>
                                         <Text style={styles.nightsNum}>{contract.current_room_nights_delivered}</Text>
                                         <Text style={styles.nightsLabel}>room-nights delivered</Text>
                                     </View>
 
-                                    {/* Tier 1 progress */}
                                     <View style={styles.tierSection}>
                                         <View style={styles.tierRow}>
                                             <Text style={styles.tierLabel}>
@@ -126,7 +125,7 @@ export function EquityProgressScreen({ navigation, route }: any) {
                                             </Text>
                                         </View>
                                         <View style={styles.progressBar}>
-                                            <View style={[styles.progressFill, { width: `${t1pct}%` as any, backgroundColor: vestT1 ? GOLD : ACCENT }]} />
+                                            <View style={[styles.progressFill, { width: `${t1pct}%` as any, backgroundColor: vestT1 ? GOLD : VOICES.merchant.accent }]} />
                                         </View>
                                         {!vestT1 && (
                                             <Text style={styles.projectedLabel}>
@@ -135,7 +134,6 @@ export function EquityProgressScreen({ navigation, route }: any) {
                                         )}
                                     </View>
 
-                                    {/* Tier 2 progress */}
                                     <View style={styles.tierSection}>
                                         <View style={styles.tierRow}>
                                             <Text style={styles.tierLabel}>
@@ -150,7 +148,6 @@ export function EquityProgressScreen({ navigation, route }: any) {
                                         </View>
                                     </View>
 
-                                    {/* Capital deployed */}
                                     {contract.capital_deployed_cents > 0 && (
                                         <View style={styles.capitalRow}>
                                             <Ionicons name="cash-outline" size={16} color={GOLD} />
@@ -160,12 +157,10 @@ export function EquityProgressScreen({ navigation, route }: any) {
                                         </View>
                                     )}
 
-                                    {/* Contract details */}
                                     {contract.signed_at && (
                                         <Text style={styles.signedDate}>Contract signed {fmtDate(contract.signed_at)}</Text>
                                     )}
 
-                                    {/* Legal document */}
                                     {contract.legal_document_url && (
                                         <TouchableOpacity
                                             style={styles.legalBtn}
@@ -174,7 +169,7 @@ export function EquityProgressScreen({ navigation, route }: any) {
                                                 Linking.openURL(contract.legal_document_url);
                                             }}
                                         >
-                                            <Ionicons name="document-text-outline" size={16} color={ACCENT} />
+                                            <Ionicons name="document-text-outline" size={16} color={VOICES.merchant.accent} />
                                             <Text style={styles.legalBtnText}>View Contract Document</Text>
                                         </TouchableOpacity>
                                     )}
@@ -183,8 +178,7 @@ export function EquityProgressScreen({ navigation, route }: any) {
                         );
                     })}
 
-                    {/* Explainer */}
-                    <View style={styles.explainer}>
+                    <View style={[styles.explainer, glassSurface(0.12), ghostBorder(0.1)]}>
                         <Text style={styles.explainerTitle}>How Equity Vesting Works</Text>
                         <Text style={styles.explainerBody}>
                             G-Taxi routes travelers to your property through Caribbean Escapes packages. Every confirmed guest-night counts toward your vesting milestones.{'\n\n'}
@@ -200,37 +194,37 @@ export function EquityProgressScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0A0F' },
+    root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 14, gap: 10 },
     backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20 },
+    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20, fontFamily: 'SpaceGrotesk' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
-    emptyTitle: { color: '#FFF', fontWeight: '700', fontSize: 18, textAlign: 'center' },
-    emptySub: { color: 'rgba(255,255,255,0.35)', fontSize: 13, lineHeight: 19, textAlign: 'center' },
+    emptyTitle: { color: '#FFF', fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
+    emptySub: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center', fontFamily: 'Manrope' },
     scroll: { padding: 20, gap: 20 },
-    contractCard: { borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(245,158,11,0.15)' },
+    contractCard: { borderRadius: 24, overflow: 'hidden', borderColor: 'rgba(245,158,11,0.15)' },
     contractGrad: { padding: 22, gap: 16 },
     contractHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-    propName: { color: '#FFF', fontWeight: '800', fontSize: 18 },
-    propDest: { color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 2 },
+    propName: { color: '#FFF', fontWeight: '800', fontSize: 18, fontFamily: 'SpaceGrotesk' },
+    propDest: { color: VOICES.merchant.textMuted, fontSize: 13, marginTop: 2, fontFamily: 'Manrope' },
     statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
-    statusText: { fontWeight: '700', fontSize: 11, textTransform: 'capitalize' },
+    statusText: { fontWeight: '700', fontSize: 11, textTransform: 'capitalize', fontFamily: 'SpaceGrotesk' },
     nightsRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-    nightsNum: { color: GOLD, fontWeight: '900', fontSize: 40 },
-    nightsLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 13 },
+    nightsNum: { color: GOLD, fontWeight: '900', fontSize: 40, fontFamily: 'SpaceGrotesk' },
+    nightsLabel: { color: VOICES.merchant.textMuted, fontSize: 13, fontFamily: 'Manrope' },
     tierSection: { gap: 6 },
     tierRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    tierLabel: { color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 13 },
-    tierTarget: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
+    tierLabel: { color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 13, fontFamily: 'Manrope' },
+    tierTarget: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontFamily: 'Manrope' },
     progressBar: { height: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden' },
     progressFill: { height: 8, borderRadius: 99 },
-    projectedLabel: { color: 'rgba(255,255,255,0.3)', fontSize: 11 },
+    projectedLabel: { color: 'rgba(255,255,255,0.3)', fontSize: 11, fontFamily: 'Manrope' },
     capitalRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 12, padding: 12 },
-    capitalText: { color: GOLD, fontSize: 13, fontWeight: '600' },
-    signedDate: { color: 'rgba(255,255,255,0.25)', fontSize: 12 },
-    legalBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(139,92,246,0.08)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(139,92,246,0.15)' },
-    legalBtnText: { color: ACCENT, fontWeight: '600', fontSize: 13 },
-    explainer: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-    explainerTitle: { color: '#FFF', fontWeight: '700', fontSize: 15, marginBottom: 10 },
-    explainerBody: { color: 'rgba(255,255,255,0.4)', fontSize: 13, lineHeight: 20 },
+    capitalText: { color: GOLD, fontSize: 13, fontWeight: '600', fontFamily: 'Manrope' },
+    signedDate: { color: 'rgba(255,255,255,0.25)', fontSize: 12, fontFamily: 'Manrope' },
+    legalBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,112,112,0.08)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(0,112,112,0.15)' },
+    legalBtnText: { color: VOICES.merchant.accent, fontWeight: '600', fontSize: 13, fontFamily: 'Manrope' },
+    explainer: { borderRadius: 20, padding: 20 },
+    explainerTitle: { color: '#FFF', fontWeight: '700', fontSize: 15, marginBottom: 10, fontFamily: 'SpaceGrotesk' },
+    explainerBody: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 20, fontFamily: 'Manrope' },
 });

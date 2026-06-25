@@ -147,7 +147,7 @@ const GLASS_TIERS = {
 };
 const GLASS_VOICE = {
     rider: '#1DE0E6',
-    driver: '#1DE0E6',
+    driver: '#8B5CF6',
     merchant: '#007070',
     admin: '#8B5CF6',
 };

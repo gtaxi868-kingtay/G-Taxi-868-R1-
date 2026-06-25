@@ -233,7 +233,7 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
 
                 <TouchableOpacity
                     style={s.reportBtn}
-                    onPress={() => (navigation as any).navigate('ReportProblem', { ride })}
+                    onPress={() => navigation.navigate('ReportProblem', { ride })}
                 >
                     <Text style={s.reportBtnText}>Report a problem with this trip</Text>
                 </TouchableOpacity>

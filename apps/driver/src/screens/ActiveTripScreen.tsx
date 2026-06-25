@@ -19,7 +19,6 @@ const getAsyncStorage = () => {
 const AsyncStorage = getAsyncStorage();
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
@@ -27,7 +26,9 @@ import { ENV } from '@gtaxi/shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { updateRideStatus } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
-import { ghostBorder, elevationGlow, glassSurface, tokens } from '../components/telemetry/designTokens';
+import { VOICES } from '@gtaxi/design-system';
+import { LiquidGlass } from '@gtaxi/design-system/native';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { NavigationAndStatusControl } from '../components/NavigationAndStatusControl';
 
 function decodePolyline(encoded: string) {
@@ -143,9 +144,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
         fetchStops();
 
         const subStops = supabase.channel(`stops_${rideId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_stops', filter: `ride_id=eq.${rideId}` }, () => {
-                fetchStops();
-            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_stops', filter: `ride_id=eq.${rideId}` }, () => { fetchStops(); })
             .subscribe();
 
         const subEvents = supabase.channel(`ride_events_${rideId}`)
@@ -154,31 +153,19 @@ export function ActiveTripScreen({ route, navigation }: any) {
                     const stopName = payload.new.metadata?.place_name || 'New Stop';
                     Alert.alert('NEW STOP ADDED', `Rider added ${stopName} to the route. Rerouting...`);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-
                     supabase.from('ride_stops')
                         .select('*')
                         .eq('ride_id', rideId)
                         .order('stop_order', { ascending: true })
-                        .then(({ data }) => {
-                            if (data) {
-                                setStops(data);
-                                fetchNewRoute(data);
-                            }
-                        });
+                        .then(({ data }) => { if (data) { setStops(data); fetchNewRoute(data); } });
                 }
             })
             .subscribe();
 
         const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
-            if (ride?.status === 'completed' || ride?.status === 'cancelled' || ride?.status === 'closed') {
-                return;
-            }
+            if (ride?.status === 'completed' || ride?.status === 'cancelled' || ride?.status === 'closed') return;
             e.preventDefault();
-            Alert.alert(
-                'Active Trip',
-                'You are currently in an active trip. Please complete or cancel the trip through the official protocol before leaving this screen.',
-                [{ text: 'Stay in Trip', style: 'cancel' }]
-            );
+            Alert.alert('Active Trip', 'You are currently in an active trip. Please complete or cancel the trip through the official protocol before leaving this screen.', [{ text: 'Stay in Trip', style: 'cancel' }]);
         });
 
         return () => {
@@ -202,12 +189,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
 
         const orderCh = supabase
             .channel(`order_sync_${orderId}`)
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'orders',
-                filter: `id=eq.${orderId}`,
-            }, (payload: any) => {
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, (payload: any) => {
                 if (payload.new?.status === 'ready_for_pickup') {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     Alert.alert('PACKAGE READY', 'Merchant confirmed the order is ready for pickup.');
@@ -221,11 +203,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const fetchNewRoute = async (currentStops: any[]) => {
         if (!ride || !location) return;
         const coords = (location as any).coords;
-        const waypoints = currentStops
-            .filter(s => s.status === 'pending')
-            .map(s => `${s.lng},${s.lat}`)
-            .join(';');
-
+        const waypoints = currentStops.filter(s => s.status === 'pending').map(s => `${s.lng},${s.lat}`).join(';');
         const dest = `${ride?.dropoff_lng || 0},${ride?.dropoff_lat || 0}`;
         const points = `${coords.longitude},${coords.latitude};${waypoints ? waypoints + ';' : ''}${dest}`;
 
@@ -275,9 +253,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
         const payload: any = {};
         if (entStatus) payload.entertainment_status = entStatus;
 
-        if (Object.keys(payload).length === 0) {
-            return true;
-        }
+        if (Object.keys(payload).length === 0) return true;
 
         const { error } = await supabase.functions.invoke('update_ride_status', { body: { ride_id: rideId, ...payload } });
 
@@ -298,10 +274,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
             { text: 'Complete', onPress: async () => {
                 const lat = (location as any)?.coords?.latitude;
                 const lng = (location as any)?.coords?.longitude;
-                if (!lat || !lng) {
-                    Alert.alert('GPS Required');
-                    return;
-                }
+                if (!lat || !lng) { Alert.alert('GPS Required'); return; }
                 const { data, error } = await updateRideStatus(rideId, 'completed', lat, lng);
                 if (error) Alert.alert('Error');
                 else if (data) {
@@ -323,15 +296,9 @@ export function ActiveTripScreen({ route, navigation }: any) {
             { text: 'Confirm', onPress: async () => {
                 const lat = (location as any)?.coords?.latitude;
                 const lng = (location as any)?.coords?.longitude;
-                if (!lat || !lng) {
-                    Alert.alert('GPS Required', 'Location required to start trip');
-                    return;
-                }
+                if (!lat || !lng) { Alert.alert('GPS Required', 'Location required to start trip'); return; }
                 const { error } = await updateRideStatus(rideId, 'in_progress', lat, lng);
-                if (error) {
-                    Alert.alert('Error', error.message);
-                    return;
-                }
+                if (error) { Alert.alert('Error', error.message); return; }
                 setRide((prev: any) => ({ ...prev, status: 'in_progress' }));
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }}
@@ -357,36 +324,22 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 try {
                     await supabase.functions.invoke('trigger_emergency', { body: { ride_id: rideId } });
                     Alert.alert('SOS Triggered');
-                } catch {
-                    Alert.alert('Failed');
-                } finally { setIsSosLoading(false); }
+                } catch { Alert.alert('Failed'); }
+                finally { setIsSosLoading(false); }
             }}
         ]);
     };
 
-    const handleEntertainmentAccept = async () => {
-        await handleStatusChange(ride?.status, undefined, 'accepted');
-    };
-
-    const handleEntertainmentReject = async () => {
-        await handleStatusChange(ride?.status, undefined, 'rejected');
-    };
+    const handleEntertainmentAccept = async () => { await handleStatusChange(ride?.status, undefined, 'accepted'); };
+    const handleEntertainmentReject = async () => { await handleStatusChange(ride?.status, undefined, 'rejected'); };
 
     const openNavigation = () => {
         if (!ride) return;
         const dest = ride?.status === 'assigned' ? `${ride?.pickup_lat},${ride?.pickup_lng}` : `${ride?.dropoff_lat},${ride?.dropoff_lng}`;
-
         Alert.alert('Navigation', 'Choose your navigation app', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Waze', onPress: () => {
-                Linking.openURL(`waze://?ll=${dest}&navigate=yes`).catch(() => {
-                    Alert.alert('Error', 'Waze is not installed.');
-                });
-            }},
-            { text: 'Google / Apple Maps', onPress: () => {
-                const url = Platform.select({ ios: `maps://app?daddr=${dest}`, android: `google.navigation:q=${dest}` });
-                if (url) Linking.openURL(url);
-            }}
+            { text: 'Waze', onPress: () => { Linking.openURL(`waze://?ll=${dest}&navigate=yes`).catch(() => { Alert.alert('Error', 'Waze is not installed.'); }); }},
+            { text: 'Google / Apple Maps', onPress: () => { const url = Platform.select({ ios: `maps://app?daddr=${dest}`, android: `google.navigation:q=${dest}` }); if (url) Linking.openURL(url); }}
         ]);
     };
 
@@ -395,31 +348,26 @@ export function ActiveTripScreen({ route, navigation }: any) {
 
     if (!ride) {
         return (
-            <View style={{ flex: 1, backgroundColor: tokens.colors.bg, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                <ActivityIndicator size="large" color={tokens.colors.cyan} />
-                <Text style={{ marginTop: 16, color: tokens.colors.textMuted, fontSize: 15 }}>Loading your trip...</Text>
+            <View style={{ flex: 1, backgroundColor: SURFACE.base, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                <ActivityIndicator size="large" color={VOICES.driver.accent} />
+                <Text style={{ marginTop: 16, color: VOICES.driver.textMuted, fontSize: 15 }}>Loading your trip...</Text>
             </View>
         );
     }
 
     if (ride?.status === 'completed' || ride?.status === 'closed') {
         const payoutCents = ride?.driver_payout_cents;
-        const earnings = payoutCents != null
-            ? (payoutCents / 100).toFixed(2)
-            : '--';
+        const earnings = payoutCents != null ? (payoutCents / 100).toFixed(2) : '--';
         const isCash = ride?.payment_method === 'cash' || ride?.payment_method === null || ride?.payment_method === undefined;
 
         if (isCash && !cashConfirmed) {
             return (
                 <View style={[s.root, { justifyContent: 'center', padding: 24 }]}>
-                    <LinearGradient
-                        colors={['#1a3a2a', '#0d2818']}
-                        style={StyleSheet.absoluteFillObject}
-                    />
-                    <BlurView intensity={60} tint="dark" style={[s.completedCardBlur, glassSurface(60, 0.2)]}>
+                    <LinearGradient colors={['#1a3a2a', '#0d2818']} style={StyleSheet.absoluteFillObject} />
+                    <LiquidGlass voice="driver" style={s.completedCardBlur} accentEdge>
                         <View style={s.completedCardInner}>
-                            <View style={[s.successCircle, { borderColor: tokens.colors.warning }]}>
-                                <Ionicons name="cash-outline" size={44} color={tokens.colors.warning} />
+                            <View style={[s.successCircle, { borderColor: VOICES.driver.gold }]}>
+                                <Ionicons name="cash-outline" size={44} color={VOICES.driver.gold} />
                             </View>
                             <Text style={s.completedTitle}>Cash Collected?</Text>
                             <Text style={s.cashPromptText}>
@@ -438,36 +386,28 @@ export function ActiveTripScreen({ route, navigation }: any) {
                                                 .eq('ride_id', rideId)
                                                 .maybeSingle();
                                             if (orderData?.id) {
-                                                await supabase.functions.invoke('confirm_cash_collection', {
-                                                    body: { order_id: orderData.id }
-                                                });
+                                                await supabase.functions.invoke('confirm_cash_collection', { body: { order_id: orderData.id } });
                                             } else {
-                                                const { error } = await supabase.functions.invoke('update_ride_status', {
-                                                    body: { ride_id: rideId, cash_confirmed: true }
-                                                });
+                                                const { error } = await supabase.functions.invoke('update_ride_status', { body: { ride_id: rideId, cash_confirmed: true } });
                                                 if (error) console.error('cash confirm fallback failed:', error);
                                             }
-                                        } catch (err) {
-                                            console.error('cash confirmation error:', err);
-                                        } finally {
-                                            setCashConfirming(false);
-                                            setCashConfirmed(true);
-                                        }
+                                        } catch (err) { console.error('cash confirmation error:', err); }
+                                        finally { setCashConfirming(false); setCashConfirmed(true); }
                                     }}
                                     accessibilityLabel="Confirm cash collected"
                                     accessibilityRole="button"
                                 >
                                     <LinearGradient
-                                        colors={[tokens.colors.warning, '#e68a00']}
+                                        colors={[VOICES.driver.gold, '#B8860B']}
                                         style={s.dashBtnGradient}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
                                     >
                                         {cashConfirming ? (
-                                            <ActivityIndicator color={tokens.colors.bg} />
+                                            <ActivityIndicator color={SURFACE.base} />
                                         ) : (
                                             <>
-                                                <Ionicons name="cash-outline" size={18} color={tokens.colors.bg} style={{ marginRight: 6 }} />
+                                                <Ionicons name="cash-outline" size={18} color={SURFACE.base} style={{ marginRight: 6 }} />
                                                 <Text style={s.dashBtnText}>CONFIRM CASH COLLECTED</Text>
                                             </>
                                         )}
@@ -475,21 +415,18 @@ export function ActiveTripScreen({ route, navigation }: any) {
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    </BlurView>
+                    </LiquidGlass>
                 </View>
             );
         }
 
         return (
             <View style={[s.root, { justifyContent: 'center', padding: 24 }]}>
-                <LinearGradient
-                    colors={[tokens.colors.cyan, tokens.colors.purple]}
-                    style={StyleSheet.absoluteFillObject}
-                />
-                <BlurView intensity={60} tint="dark" style={[s.completedCardBlur, glassSurface(60, 0.2)]}>
+                <LinearGradient colors={[VOICES.driver.accent, VOICES.driver.accentDark]} style={StyleSheet.absoluteFillObject} />
+                <LiquidGlass voice="driver" style={s.completedCardBlur} accentEdge>
                     <View style={s.completedCardInner}>
                         <View style={s.successCircle}>
-                            <Ionicons name="checkmark-circle" size={48} color={tokens.colors.success} />
+                            <Ionicons name="checkmark-circle" size={48} color={VOICES.driver.gold} />
                         </View>
                         <Text style={s.completedTitle}>Trip Completed!</Text>
                         <View style={s.earningsBlock}>
@@ -497,27 +434,19 @@ export function ActiveTripScreen({ route, navigation }: any) {
                             <Text style={s.earningsValueLarge}>TTD ${earnings}</Text>
                         </View>
                         <TouchableOpacity style={s.dashBtn} onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] })} accessibilityLabel="Back to dashboard" accessibilityRole="button">
-                            <LinearGradient
-                                colors={[tokens.colors.cyan, tokens.colors.purple]}
-                                style={s.dashBtnGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
+                            <LinearGradient colors={[VOICES.driver.accent, VOICES.driver.accentDark]} style={s.dashBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                                 <Text style={s.dashBtnText}>Back to Dashboard</Text>
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
-                </BlurView>
+                </LiquidGlass>
             </View>
         );
     }
 
     return (
         <View style={s.root} pointerEvents="box-none">
-            <LinearGradient
-                colors={[tokens.colors.cyan, tokens.colors.purple]}
-                style={StyleSheet.absoluteFillObject}
-            />
+            <LinearGradient colors={[VOICES.driver.accent, VOICES.driver.accentDark]} style={StyleSheet.absoluteFillObject} />
 
             <MapView
                 style={StyleSheet.absoluteFillObject}
@@ -527,18 +456,15 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
                 <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
                     <View style={s.driverMarker}>
-                        <Ionicons name="car-sport" size={22} color={tokens.colors.cyan} />
+                        <Ionicons name="car-sport" size={22} color={VOICES.driver.accent} />
                     </View>
                 </Marker>
                 {ride && (
-                    <Marker coordinate={{
-                        latitude: ride?.status === 'assigned' ? ride?.pickup_lat || 0 : ride?.dropoff_lat || 0,
-                        longitude: ride?.status === 'assigned' ? ride?.pickup_lng || 0 : ride?.dropoff_lng || 0
-                    }}>
+                    <Marker coordinate={{ latitude: ride?.status === 'assigned' ? ride?.pickup_lat || 0 : ride?.dropoff_lat || 0, longitude: ride?.status === 'assigned' ? ride?.pickup_lng || 0 : ride?.dropoff_lng || 0 }}>
                         <View style={s.destMarker} />
                     </Marker>
                 )}
-                {routeCoords.length > 0 && <Polyline coordinates={routeCoords} strokeColor={tokens.colors.cyan} strokeWidth={4} />}
+                {routeCoords.length > 0 && <Polyline coordinates={routeCoords} strokeColor={VOICES.driver.accent} strokeWidth={4} />}
             </MapView>
 
             <NavigationAndStatusControl
@@ -558,13 +484,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 onSOS={handleSOS}
                 onOpenNavigation={openNavigation}
                 onChat={() => navigation.navigate('Chat', { rideId, rider })}
-                onCall={() => {
-                    if (rider?.phone_number) {
-                        Linking.openURL(`tel:${rider.phone_number}`);
-                    } else {
-                        Alert.alert('No Number', 'This rider has no phone number on file. Use chat instead.');
-                    }
-                }}
+                onCall={() => { if (rider?.phone_number) { Linking.openURL(`tel:${rider.phone_number}`); } else { Alert.alert('No Number', 'This rider has no phone number on file. Use chat instead.'); }}}
                 onDeliveryConfirmPickup={handleDeliveryConfirmPickup}
                 onEntertainmentAccept={handleEntertainmentAccept}
                 onEntertainmentReject={handleEntertainmentReject}
@@ -572,7 +492,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
 
             <Modal visible={showPinModal} transparent animationType="fade">
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
-                    <BlurView tint="dark" intensity={100} style={s.modalContent}>
+                    <LiquidGlass voice="driver" style={s.modalContent}>
                         <Text style={s.modalTitle}>ENTER VERIFICATION PIN</Text>
                         <TextInput style={s.pinInput} keyboardType="number-pad" maxLength={4} value={pinInput} onChangeText={setPinInput} placeholder="0000" placeholderTextColor="rgba(255,255,255,0.2)" autoFocus />
                         <View style={s.modalActions}>
@@ -583,33 +503,31 @@ export function ActiveTripScreen({ route, navigation }: any) {
                                 <Text style={s.modalConfirmText}>VERIFY</Text>
                             </TouchableOpacity>
                         </View>
-                    </BlurView>
+                    </LiquidGlass>
                 </KeyboardAvoidingView>
             </Modal>
         </View>
     );
 }
 
+const SURFACE = { base: '#0B0E12' };
+
 const s = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: tokens.colors.bg,
+        backgroundColor: SURFACE.base,
     },
-
     completedCardBlur: {
-        borderRadius: 28,
-        overflow: 'hidden',
-        ...ghostBorder(0.2),
+        borderWidth: 0,
     },
     completedCardInner: {
         padding: 28,
-        backgroundColor: tokens.colors.containerLow,
         alignItems: 'center',
     },
     completedTitle: {
         fontSize: 22,
         fontWeight: '800',
-        color: tokens.colors.text,
+        color: '#FFF',
         textAlign: 'center',
         marginTop: 16,
         fontFamily: 'SpaceGrotesk-Bold',
@@ -617,7 +535,7 @@ const s = StyleSheet.create({
     earningsLabelSmall: {
         fontSize: 12,
         fontWeight: '800',
-        color: tokens.colors.cyan,
+        color: VOICES.driver.gold,
         letterSpacing: 1.5,
         marginBottom: 8,
         fontFamily: 'SpaceGrotesk-Bold',
@@ -625,7 +543,7 @@ const s = StyleSheet.create({
     earningsValueLarge: {
         fontSize: 42,
         fontWeight: '800',
-        color: tokens.colors.cyan,
+        color: VOICES.driver.gold,
         letterSpacing: -0.5,
         fontFamily: 'SpaceGrotesk-Bold',
     },
@@ -643,18 +561,17 @@ const s = StyleSheet.create({
     dashBtnText: {
         fontSize: 16,
         fontWeight: '800',
-        color: tokens.colors.bg,
+        color: SURFACE.base,
         letterSpacing: 0.5,
         fontFamily: 'SpaceGrotesk-Bold',
     },
-
     driverMarker: {
         width: 40,
         height: 40,
         borderRadius: 14,
-        backgroundColor: tokens.colors.bg,
+        backgroundColor: SURFACE.base,
         borderWidth: 2,
-        borderColor: tokens.colors.cyan,
+        borderColor: VOICES.driver.accent,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -662,9 +579,8 @@ const s = StyleSheet.create({
         width: 14,
         height: 14,
         borderRadius: 4,
-        backgroundColor: tokens.colors.cyan,
+        backgroundColor: VOICES.driver.accent,
     },
-
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(20,17,34,0.95)',
@@ -673,15 +589,12 @@ const s = StyleSheet.create({
     },
     modalContent: {
         padding: 28,
-        borderRadius: 28,
-        ...ghostBorder(0.2),
-        overflow: 'hidden',
-        backgroundColor: tokens.colors.containerLow,
+        borderWidth: 0,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: '800',
-        color: tokens.colors.text,
+        color: '#FFF',
         textAlign: 'center',
         marginBottom: 20,
         fontFamily: 'SpaceGrotesk-Bold',
@@ -691,7 +604,7 @@ const s = StyleSheet.create({
         height: 70,
         fontSize: 42,
         textAlign: 'center',
-        color: tokens.colors.cyan,
+        color: VOICES.driver.accent,
         marginVertical: 20,
         letterSpacing: 12,
         fontFamily: 'SpaceGrotesk-Bold',
@@ -707,19 +620,20 @@ const s = StyleSheet.create({
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: tokens.colors.containerLow,
-        ...ghostBorder(0.2),
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
     },
     modalCancelText: {
         fontSize: 15,
         fontWeight: '700',
-        color: tokens.colors.textMuted,
+        color: 'rgba(255,255,255,0.6)',
         fontFamily: 'SpaceGrotesk-Bold',
     },
     modalConfirm: {
         flex: 1,
         height: 52,
-        backgroundColor: tokens.colors.cyan,
+        backgroundColor: VOICES.driver.accent,
         borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
@@ -728,13 +642,13 @@ const s = StyleSheet.create({
     modalConfirmText: {
         fontSize: 15,
         fontWeight: '800',
-        color: tokens.colors.bg,
+        color: SURFACE.base,
         fontFamily: 'SpaceGrotesk-Bold',
     },
     successCircle: {
         width: 80, height: 80, borderRadius: 40,
-        backgroundColor: 'rgba(0,200,81,0.15)',
-        borderWidth: 2, borderColor: tokens.colors.success,
+        backgroundColor: 'rgba(255,200,0,0.12)',
+        borderWidth: 2, borderColor: VOICES.driver.gold,
         alignItems: 'center', justifyContent: 'center',
         alignSelf: 'center', marginBottom: 16,
     },
@@ -742,13 +656,14 @@ const s = StyleSheet.create({
         alignItems: 'center', paddingVertical: 16,
         paddingHorizontal: 24, borderRadius: 16,
         backgroundColor: 'rgba(255,255,255,0.06)',
-        ...ghostBorder(0.2),
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
         marginTop: 1,
     },
     cashPromptText: {
         fontSize: 15,
         fontWeight: '600',
-        color: tokens.colors.textMuted,
+        color: 'rgba(255,255,255,0.7)',
         textAlign: 'center',
         lineHeight: 22,
         marginTop: 8,

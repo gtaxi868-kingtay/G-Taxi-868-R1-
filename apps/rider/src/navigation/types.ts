@@ -52,6 +52,7 @@ export type ChatParams = {
   rideId?: string;
   userId?: string;
   userName?: string;
+  driver?: { name?: string };
 };
 
 export type LaundryOrderStatusParams = {
@@ -181,6 +182,7 @@ export type AppStackParamList = {
     kioskNodeId?: string;
     tagUid?: string;
     pickup?: { latitude: number; longitude: number; address: string };
+    destination?: { latitude: number; longitude: number; address: string };
   };
   Legal: undefined;
   TravelStorefront: undefined;

@@ -4,7 +4,6 @@ import {
     ActivityIndicator, useWindowDimensions, Alert, Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
@@ -12,7 +11,8 @@ import Reanimated, {
     useAnimatedStyle, Easing, useReducedMotion,
 } from 'react-native-reanimated';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { LiquidGlass } from '@gtaxi/design-system/native';
+import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { useAuth } from '../context/AuthContext';
 import { acceptRide, declineRide } from '../services/api';
 import { supabase } from '@gtaxi/core';
@@ -23,7 +23,7 @@ const WARNING = '#F59E0B';
 const ERROR = '#EF4444';
 const SUCCESS = '#00FF94';
 
-const DEFAULT_DRIVER_SHARE = 0.82; // 82% driver / 15% platform / 3% reserve
+const DEFAULT_DRIVER_SHARE = 0.82;
 const ARC_SIZE = 180;
 
 function paymentLabel(method: string | null): string {
@@ -91,20 +91,15 @@ export function TripRequestScreen({ navigation, route }: any) {
     useEffect(() => {
         const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
             if (isHandling || timeLeft <= 0) return;
-
             e.preventDefault();
-            Alert.alert(
-                'Discard Offer?',
-                'Leaving this screen will ignore the current trip offer. Are you sure?',
-                [
-                    { text: 'Keep Offer', style: 'cancel' },
-                    { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) }
-                ]
-            );
+            Alert.alert('Discard Offer?', 'Leaving this screen will ignore the current trip offer. Are you sure?', [
+                { text: 'Keep Offer', style: 'cancel' },
+                { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) }
+            ]);
         });
 
-        if (!offer?.ride_id) { 
-            setDetailLoading(false); 
+        if (!offer?.ride_id) {
+            setDetailLoading(false);
             return () => beforeRemoveListener();
         }
         const fetchDetails = async () => {
@@ -167,8 +162,8 @@ export function TripRequestScreen({ navigation, route }: any) {
         navigation.goBack();
     };
 
-    const driverEarnings = offer?.driver_payout_cents 
-        ? (offer.driver_payout_cents / 100) 
+    const driverEarnings = offer?.driver_payout_cents
+        ? (offer.driver_payout_cents / 100)
         : (rideDetail?.total_fare_cents || offer?.fare_cents || 0) * DEFAULT_DRIVER_SHARE / 100;
     const distanceKm = offer?.distance_meters ? (offer.distance_meters / 1000).toFixed(1) : '?';
     const arcColor = timeLeft > 5 ? VOICES.driver.accent : timeLeft > 2 ? WARNING : ERROR;
@@ -178,24 +173,15 @@ export function TripRequestScreen({ navigation, route }: any) {
 
     return (
         <View style={s.root} pointerEvents="box-none">
-            {/* Deep Gradient Background */}
-            <LinearGradient
-                colors={[SURFACE.containerLow, SURFACE.base]}
-                                style={StyleSheet.absoluteFillObject}
-                            />
-                            
-                            {/* Glass Overlay */}
-                            <BlurView tint="dark" intensity={60} style={[StyleSheet.absoluteFillObject, glassSurface(60, 0.2)]} />
-            
+            <LinearGradient colors={[SURFACE.containerLow, SURFACE.base]} style={StyleSheet.absoluteFillObject} />
             <Reanimated.View style={[s.sheet, { paddingBottom: insets.bottom + 20 }, sheetStyle]}>
-                <BlurView intensity={60} tint="dark" style={[s.cardBlur, glassSurface(60, 0.2)]}>
+                <LiquidGlass voice="driver" style={s.cardBlur} tier="chrome">
                     <View style={s.cardInner}>
                         <View style={s.handle} />
-                        
-                        {/* Header with Logo and Status */}
+
                         <View style={s.headerRow}>
-                            <Image 
-                                source={require('../../assets/logo.png')} 
+                            <Image
+                                source={require('../../assets/logo.png')}
                                 style={s.headerLogo}
                                 resizeMode="contain"
                             />
@@ -221,10 +207,9 @@ export function TripRequestScreen({ navigation, route }: any) {
                             </View>
                         </View>
 
-                        {/* Earnings Circle with Countdown */}
                         <View style={s.timerOuter}>
                             <LinearGradient
-                                colors={['rgba(0,229,255,0.05)', 'transparent']}
+                                colors={[VOICES.driver.accent + '08', 'transparent']}
                                 style={[s.arc, { borderColor: arcColor }]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
@@ -237,11 +222,10 @@ export function TripRequestScreen({ navigation, route }: any) {
                             </LinearGradient>
                         </View>
 
-                        {/* Address Details */}
                         {detailLoading ? (
                             <ActivityIndicator color={VOICES.driver.accent} style={{ marginVertical: 40 }} />
                         ) : (
-                            <View style={s.addressLayer}>
+                            <LiquidGlass voice="driver" style={s.addressLayer} tier="inlay">
                                 <Reanimated.View style={[s.addrRow, useAnimatedStyle(() => ({ transform: [{ translateX: pickupX.value }], opacity: pickupOp.value }))]}>
                                     <View style={s.dot} />
                                     <View style={{ flex: 1 }}>
@@ -257,10 +241,9 @@ export function TripRequestScreen({ navigation, route }: any) {
                                         <Text style={s.addrText} numberOfLines={1}>{rideDetail?.dropoff_address || offer?.dropoff_address || 'Destination'}</Text>
                                     </View>
                                 </Reanimated.View>
-                            </View>
+                            </LiquidGlass>
                         )}
 
-                        {/* Stats Grid */}
                         <View style={s.statsGrid}>
                             <View style={s.statPill}>
                                 <Ionicons name="navigate-outline" size={16} color={VOICES.driver.accent} />
@@ -276,15 +259,14 @@ export function TripRequestScreen({ navigation, route }: any) {
                             </View>
                         </View>
 
-                        {/* Action Buttons */}
                         <View style={s.actionRow}>
                             <TouchableOpacity style={s.declineBtn} onPress={() => handleDecline(false)} disabled={isHandling} accessibilityLabel="Decline trip" accessibilityRole="button">
                                 <Text style={s.declineText}>DECLINE</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={s.acceptBtn} onPress={handleAccept} disabled={isHandling} activeOpacity={0.9} accessibilityLabel="Accept trip" accessibilityRole="button">
-                                <LinearGradient 
-                                    colors={[VOICES.driver.accent, VOICES.driver.accentDark]} 
+                                <LinearGradient
+                                    colors={[VOICES.driver.accent, VOICES.driver.accentDark]}
                                     style={s.acceptGradient}
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 1 }}
@@ -299,46 +281,39 @@ export function TripRequestScreen({ navigation, route }: any) {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </BlurView>
+                </LiquidGlass>
             </Reanimated.View>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    root: { 
-        flex: 1, 
+    root: {
+        flex: 1,
         backgroundColor: SURFACE.base,
         justifyContent: 'flex-end',
     },
-    sheet: { 
+    sheet: {
         paddingHorizontal: 16,
     },
-
     cardBlur: {
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        overflow: 'hidden',
-        ...ghostBorder(0.2),
+        borderWidth: 0,
     },
-    cardInner: { 
-        padding: 24, 
-        backgroundColor: SURFACE.containerLow,
+    cardInner: {
+        padding: 24,
     },
-
-    handle: { 
-        width: 44, 
-        height: 5, 
-        borderRadius: 3, 
-        backgroundColor: 'rgba(255,255,255,0.15)', 
-        alignSelf: 'center', 
+    handle: {
+        width: 44,
+        height: 5,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        alignSelf: 'center',
         marginBottom: 24,
     },
-
-    headerRow: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 28,
     },
     headerLogo: {
@@ -350,14 +325,15 @@ const s = StyleSheet.create({
         flexWrap: 'wrap',
         gap: 6,
     },
-    prefBadge: { 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        backgroundColor: 'rgba(0,229,255,0.1)', 
-        paddingHorizontal: 12, 
-        paddingVertical: 6, 
-        borderRadius: 16, 
-        ...ghostBorder(0.2),
+    prefBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(139,92,246,0.1)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(139,92,246,0.2)',
         gap: 6,
     },
     prefBadgeText: {
@@ -370,11 +346,12 @@ const s = StyleSheet.create({
     premiumBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(123,92,240,0.15)',
+        backgroundColor: 'rgba(139,92,246,0.15)',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
-        ...ghostBorder(0.3),
+        borderWidth: 1,
+        borderColor: 'rgba(139,92,246,0.3)',
         gap: 6,
     },
     premiumBadgeText: {
@@ -391,7 +368,8 @@ const s = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 16,
-        ...ghostBorder(0.25),
+        borderWidth: 1,
+        borderColor: 'rgba(0,255,148,0.25)',
         gap: 6,
     },
     verifiedBadgeText: {
@@ -401,23 +379,22 @@ const s = StyleSheet.create({
         letterSpacing: 0.5,
         fontFamily: 'SpaceGrotesk-Bold',
     },
-    
-    timerOuter: { 
-        alignItems: 'center', 
-        marginBottom: 32, 
+    timerOuter: {
+        alignItems: 'center',
+        marginBottom: 32,
         ...elevationGlow(20),
     },
-    arc: { 
-        width: ARC_SIZE, 
-        height: ARC_SIZE, 
-        borderRadius: ARC_SIZE / 2, 
-        borderWidth: 3, 
-        alignItems: 'center', 
-        justifyContent: 'center', 
+    arc: {
+        width: ARC_SIZE,
+        height: ARC_SIZE,
+        borderRadius: ARC_SIZE / 2,
+        borderWidth: 3,
+        alignItems: 'center',
+        justifyContent: 'center',
         borderStyle: 'solid',
-        backgroundColor: 'rgba(0,229,255,0.05)',
+        backgroundColor: 'rgba(139,92,246,0.05)',
     },
-    fareBox: { 
+    fareBox: {
         alignItems: 'center',
     },
     earningsLabel: {
@@ -431,7 +408,7 @@ const s = StyleSheet.create({
     earningsValue: {
         fontSize: 42,
         fontWeight: '800',
-        color: VOICES.driver.accent,
+        color: VOICES.driver.gold,
         letterSpacing: -1,
         marginBottom: 4,
         fontFamily: 'SpaceGrotesk-Bold',
@@ -442,16 +419,12 @@ const s = StyleSheet.create({
         letterSpacing: 1,
         fontFamily: 'SpaceGrotesk-Bold',
     },
-    
-    addressLayer: { 
-        backgroundColor: SURFACE.containerLow, 
-        borderRadius: 20, 
-        padding: 20, 
-        marginBottom: 28, 
-        ...ghostBorder(0.2),
+    addressLayer: {
+        marginBottom: 28,
+        padding: 20,
     },
-    addrRow: { 
-        flexDirection: 'row', 
+    addrRow: {
+        flexDirection: 'row',
         alignItems: 'center',
     },
     addrLabel: {
@@ -468,42 +441,42 @@ const s = StyleSheet.create({
         color: '#FFFFFF',
         fontFamily: 'Manrope-Medium',
     },
-    dot: { 
-        width: 12, 
-        height: 12, 
-        borderRadius: 6, 
-        backgroundColor: VOICES.driver.accent, 
+    dot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: VOICES.driver.accent,
         marginRight: 14,
     },
-    square: { 
-        width: 12, 
-        height: 12, 
-        borderRadius: 3, 
-        backgroundColor: WARNING, 
+    square: {
+        width: 12,
+        height: 12,
+        borderRadius: 3,
+        backgroundColor: WARNING,
         marginRight: 14,
     },
-    line: { 
-        width: 2, 
-        height: 28, 
-        backgroundColor: 'rgba(255,255,255,0.1)', 
-        marginLeft: 5, 
+    line: {
+        width: 2,
+        height: 28,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        marginLeft: 5,
         marginVertical: 4,
     },
-
-    statsGrid: { 
-        flexDirection: 'row', 
-        gap: 10, 
+    statsGrid: {
+        flexDirection: 'row',
+        gap: 10,
         marginBottom: 28,
     },
-    statPill: { 
-        flex: 1, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        backgroundColor: SURFACE.containerLow, 
-        paddingVertical: 12, 
-        borderRadius: 14, 
-        ...ghostBorder(0.2),
+    statPill: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(139,92,246,0.06)',
+        paddingVertical: 12,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
         gap: 6,
     },
     statPillText: {
@@ -512,18 +485,18 @@ const s = StyleSheet.create({
         color: '#FFFFFF',
         fontFamily: 'SpaceGrotesk-Bold',
     },
-
-    actionRow: { 
-        flexDirection: 'row', 
+    actionRow: {
+        flexDirection: 'row',
         gap: 12,
     },
-    declineBtn: { 
-        flex: 1, 
-        height: 56, 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        borderRadius: 16, 
-        ...ghostBorder(0.3),
+    declineBtn: {
+        flex: 1,
+        height: 56,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(239,68,68,0.3)',
         backgroundColor: 'rgba(239,68,68,0.08)',
     },
     declineText: {
@@ -533,17 +506,17 @@ const s = StyleSheet.create({
         letterSpacing: 0.5,
         fontFamily: 'SpaceGrotesk-Bold',
     },
-    acceptBtn: { 
-        flex: 2, 
-        height: 56, 
-        borderRadius: 16, 
-        overflow: 'hidden', 
+    acceptBtn: {
+        flex: 2,
+        height: 56,
+        borderRadius: 16,
+        overflow: 'hidden',
         ...elevationGlow(6),
     },
-    acceptGradient: { 
-        flex: 1, 
-        flexDirection: 'row', 
-        alignItems: 'center', 
+    acceptGradient: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
     },

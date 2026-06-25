@@ -16,6 +16,8 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
 import { decode } from 'base64-arraybuffer';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { LiquidGlass } from '@gtaxi/design-system/native';
+import type { AppScreenProps } from '../navigation/types';
 
 const CYAN = '#06B6D4';
 
@@ -29,7 +31,7 @@ const R = {
     muted: 'rgba(255,255,255,0.7)',
 };
 
-export function EditProfileScreen({ navigation }: any) {
+export function EditProfileScreen({ navigation }: AppScreenProps<'EditProfile'>) {
     const { width } = useWindowDimensions();
     const { profile, refreshProfile, user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -97,11 +99,13 @@ export function EditProfileScreen({ navigation }: any) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <View style={[s.header, { marginTop: insets.top }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Edit Profile</Txt>
+            <View style={[s.header, { marginTop: insets.top, paddingHorizontal: 24, marginBottom: 32 }]}>
+                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                    <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Edit Profile</Txt>
+                </LiquidGlass>
             </View>
 
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -122,28 +126,30 @@ export function EditProfileScreen({ navigation }: any) {
                     </TouchableOpacity>
 
                     <View style={s.form}>
-                        <View style={s.inputWrapper}>
-                            <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>FULL NAME</Txt>
-                            <TextInput
-                                style={s.input}
-                                value={fullName}
-                                onChangeText={setFullName}
-                                placeholder="Enter your full name"
-                                placeholderTextColor="rgba(255,255,255,0.2)"
-                            />
-                        </View>
+                        <LiquidGlass tier="inlay" voice="rider" style={{ padding: 20, marginBottom: 24 }}>
+                            <View style={s.inputWrapper}>
+                                <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>FULL NAME</Txt>
+                                <TextInput
+                                    style={s.input}
+                                    value={fullName}
+                                    onChangeText={setFullName}
+                                    placeholder="Enter your full name"
+                                    placeholderTextColor="rgba(255,255,255,0.2)"
+                                />
+                            </View>
 
-                        <View style={s.inputWrapper}>
-                            <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>PHONE NUMBER</Txt>
-                            <TextInput
-                                style={s.input}
-                                value={phone}
-                                onChangeText={setPhone}
-                                placeholder="868-000-0000"
-                                placeholderTextColor="rgba(255,255,255,0.2)"
-                                keyboardType="phone-pad"
-                            />
-                        </View>
+                            <View style={s.inputWrapper}>
+                                <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>PHONE NUMBER</Txt>
+                                <TextInput
+                                    style={s.input}
+                                    value={phone}
+                                    onChangeText={setPhone}
+                                    placeholder="868-000-0000"
+                                    placeholderTextColor="rgba(255,255,255,0.2)"
+                                    keyboardType="phone-pad"
+                                />
+                            </View>
+                        </LiquidGlass>
 
                         <TouchableOpacity style={s.saveBtn} onPress={handleSave} disabled={saving}>
                             <LinearGradient

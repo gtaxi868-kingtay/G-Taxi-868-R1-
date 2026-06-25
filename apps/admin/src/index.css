@@ -5,26 +5,30 @@
 @tailwind utilities;
 
 :root {
-  --ink: #F1F5F9;
-  --ink-muted: rgba(255,255,255,0.55);
-  --ink-faint: rgba(255,255,255,0.3);
-  --ink-dim: rgba(255,255,255,0.18);
+  --text-primary: #F2F5F8;
+  --text-muted: rgba(242,245,248,0.68);
 
-  --surface-base: #05050A;
+  --ink: #F2F5F8;
+  --ink-muted: rgba(242,245,248,0.68);
+  --ink-faint: rgba(242,245,248,0.3);
+  --ink-dim: rgba(242,245,248,0.18);
+
+  --surface-base: #0B0E12;
+  --surface-elevated: #13171D;
   --surface-raised: rgba(255,255,255,0.03);
   --surface-card: rgba(255,255,255,0.05);
   --surface-hover: rgba(255,255,255,0.08);
   --surface-active: rgba(255,255,255,0.12);
 
-  --glass-bg: rgba(7,5,15,0.75);
+  --glass-bg: rgba(11,14,18,0.85);
   --glass-border: rgba(255,255,255,0.07);
   --glass-shine: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%);
 
   --accent: #8B5CF6;
   --accent-glow: rgba(139,92,246,0.35);
   --accent-soft: rgba(139,92,246,0.12);
-  --cyan: #22D3EE;
-  --cyan-glow: rgba(34,211,238,0.3);
+  --cyan: #00FFFF;
+  --cyan-glow: rgba(0,255,255,0.3);
   --gold: #F59E0B;
   --gold-glow: rgba(245,158,11,0.3);
   --green: #34D399;
@@ -306,6 +310,119 @@ img {
 ::-webkit-scrollbar-track { background: var(--surface-base); }
 ::-webkit-scrollbar-thumb { background: var(--ink-dim); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── Login Page ─────────────────────────────────────────────── */
+.admin-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-base);
+  background-image:
+    radial-gradient(ellipse 50% 30% at 10% 20%, rgba(139,92,246,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 25% at 90% 80%, rgba(0,255,255,0.04) 0%, transparent 50%);
+  padding: 1.5rem;
+}
+
+.admin-login-card {
+  background: var(--surface-elevated);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 3rem 2.5rem;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.admin-input-group {
+  width: 100%;
+  max-width: 320px;
+  margin-bottom: 1.25rem;
+}
+
+.admin-input-label {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  margin-bottom: 0.5rem;
+}
+
+.admin-input {
+  width: 100%;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 0.875rem 1rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+  outline: none;
+  transition: all 0.2s var(--ease-out-quart);
+}
+
+.admin-input::placeholder {
+  color: var(--ink-dim);
+}
+
+.admin-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.admin-btn-tactical {
+  width: 100%;
+  max-width: 320px;
+  height: 3rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: all 0.2s var(--ease-out-quart);
+  box-shadow: 0 4px 14px var(--accent-glow);
+  margin-top: 0.5rem;
+}
+
+.admin-btn-tactical:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 6px 24px var(--accent-glow);
+}
+
+.admin-btn-tactical:active {
+  transform: scale(0.97);
+}
+
+.admin-btn-tactical:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.hud-label-small {
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--ink-muted);
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

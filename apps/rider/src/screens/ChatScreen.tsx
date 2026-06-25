@@ -14,6 +14,8 @@ import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { LiquidGlass } from '@gtaxi/design-system/native';
+import type { AppScreenProps } from '../navigation/types';
 
 const CYAN = '#06B6D4';
 
@@ -38,7 +40,7 @@ interface Message {
     created_at: string;
 }
 
-export function ChatScreen({ route, navigation }: any) {
+export function ChatScreen({ route, navigation }: AppScreenProps<'Chat'>) {
     const { width } = useWindowDimensions();
     const { rideId, driver } = route.params;
     const { user } = useAuth();
@@ -125,19 +127,21 @@ export function ChatScreen({ route, navigation }: any) {
             <StatusBar style="light" />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
-                </TouchableOpacity>
-                <View style={s.headerTitle}>
-                    <Txt variant="bodyBold" color="#FFF">{driver?.name || 'Driver'}</Txt>
-                    <View style={s.statusRow}>
-                        <View style={[s.statusDot, { backgroundColor: CYAN }]} />
-                        <Txt variant="caption" color={R.muted}>Active Engagement</Txt>
+                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                    <View style={s.headerTitle}>
+                        <Txt variant="bodyBold" color="#FFF">{driver?.name || 'Driver'}</Txt>
+                        <View style={s.statusRow}>
+                            <View style={[s.statusDot, { backgroundColor: CYAN }]} />
+                            <Txt variant="caption" color={R.muted}>Active Engagement</Txt>
+                        </View>
                     </View>
-                </View>
-                <TouchableOpacity style={s.headerBtn}>
-                    <Ionicons name="call" size={20} color="#FFF" />
-                </TouchableOpacity>
+                    <TouchableOpacity style={s.headerBtn}>
+                        <Ionicons name="call" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                </LiquidGlass>
             </View>
 
             <KeyboardAvoidingView
@@ -169,7 +173,7 @@ export function ChatScreen({ route, navigation }: any) {
                     />
                 </View>
 
-                <View style={[s.inputArea, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+                <LiquidGlass tier="inlay" voice="rider" style={[s.inputArea, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                     <View style={s.inputWrap}>
                         <TextInput
                             style={s.input}
@@ -188,7 +192,7 @@ export function ChatScreen({ route, navigation }: any) {
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
-                </View>
+                </LiquidGlass>
             </KeyboardAvoidingView>
         </View>
     );

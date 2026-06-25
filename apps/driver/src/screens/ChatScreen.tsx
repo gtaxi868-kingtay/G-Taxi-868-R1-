@@ -5,14 +5,14 @@ import {
     Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { LiquidGlass } from '@gtaxi/design-system/native';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface Message {
     id: string;
@@ -85,7 +85,7 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
         if (error) Alert.alert('Error', 'Failed to send message');
     };
 
-    const quickReplies = ["I'm arriving now 🚗", "Traffic is slow", "I'm at the entrance", "Ok, got it! 👍", "Almost there"];
+    const quickReplies = ["I'm arriving now", "Traffic is slow", "I'm at the entrance", "Ok, got it!", "Almost there"];
 
     const renderMessage = ({ item }: { item: Message }) => {
         const isSelf = item.sender_id === user?.id;
@@ -96,9 +96,9 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
                         <Text style={{ fontSize: 10, fontWeight: '700', color: VOICES.driver.gold }}>RI</Text>
                     </View>
                 )}
-                <View style={[s.bubble, isSelf ? s.bubbleSelf : s.bubbleOther]}>
+                <LiquidGlass voice="driver" style={[s.bubble, isSelf ? s.bubbleSelf : s.bubbleOther]} tier="inlay">
                     <Text style={[s.msgText, { color: isSelf ? '#0A0718' : '#FFF' }]}>{item.content}</Text>
-                </View>
+                </LiquidGlass>
             </View>
         );
     };
@@ -107,7 +107,7 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <View style={[s.header, { paddingTop: insets.top }, glassSurface()]}>
+            <LiquidGlass voice="driver" style={[s.header, { paddingTop: insets.top }]} tier="chrome">
                 <View style={s.headerInner}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
                         <Ionicons name="chevron-back" size={24} color="#FFF" />
@@ -123,7 +123,7 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
                         <Ionicons name="call" size={20} color={VOICES.driver.gold} />
                     </TouchableOpacity>
                 </View>
-            </View>
+            </LiquidGlass>
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -165,9 +165,9 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
                             multiline
                         />
                         <TouchableOpacity style={s.sendBtn} onPress={() => handleSend()}>
-                            <LinearGradient colors={[VOICES.driver.gold, SURFACE.base]} style={s.sendGrad}>
+                            <View style={s.sendInner}>
                                 <Ionicons name="send" size={18} color="#0A0718" />
-                            </LinearGradient>
+                            </View>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -178,7 +178,7 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
 
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#0A0718' },
-    header: { zIndex: 20, ...ghostBorder() },
+    header: { zIndex: 20, borderWidth: 0 },
     headerInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 16 },
     headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { flex: 1, marginLeft: 16 },
@@ -190,9 +190,9 @@ const s = StyleSheet.create({
     msgSelf: { justifyContent: 'flex-end' },
     msgOther: { justifyContent: 'flex-start' },
     msgAvatar: { width: 28, height: 28, borderRadius: 10, backgroundColor: VOICES.driver.accent + '0D', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.1) },
-    bubble: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20 },
+    bubble: { maxWidth: '80%', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, borderWidth: 0 },
     bubbleSelf: { backgroundColor: VOICES.driver.gold, borderBottomRightRadius: 4 },
-    bubbleOther: { backgroundColor: 'rgba(255,255,255,0.03)', borderBottomLeftRadius: 4, ...ghostBorder(0.05) },
+    bubbleOther: { backgroundColor: 'rgba(255,255,255,0.03)', borderBottomLeftRadius: 4 },
     msgText: { fontSize: 15, fontWeight: '600' },
 
     quickReplies: { paddingVertical: 12 },
@@ -201,6 +201,6 @@ const s = StyleSheet.create({
     inputArea: { paddingHorizontal: 16, paddingTop: 8 },
     inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 30, paddingLeft: 20, paddingRight: 6, paddingVertical: 6, ...ghostBorder(0.05) },
     input: { flex: 1, color: '#FFF', fontSize: 16, maxHeight: 100, paddingVertical: 8, fontWeight: '600' },
-    sendBtn: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' },
-    sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    sendBtn: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden', backgroundColor: VOICES.driver.accent },
+    sendInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

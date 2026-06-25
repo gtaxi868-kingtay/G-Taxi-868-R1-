@@ -12,12 +12,13 @@ import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { GlassCard } from '@gtaxi/design-system/native';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import type { AppScreenProps } from '../navigation/types';
 
 const CYAN = '#06B6D4';
 
-export function TripsScreen({ navigation }: any) {
+export function TripsScreen({ navigation }: AppScreenProps<'Trips'>) {
     const { width, height } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -63,7 +64,7 @@ export function TripsScreen({ navigation }: any) {
                     navigation.navigate('Receipt', { ride: item }); 
                 }}
             >
-                <GlassCard variant="rider" style={s.card}>
+                <LiquidGlass tier="panel" voice="rider" style={s.card}>
                     <View style={s.cardHeader}>
                         <Txt variant="caption" weight="bold" color="#AEA9B5">
                             {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -94,7 +95,7 @@ export function TripsScreen({ navigation }: any) {
                         </View>
                         <Ionicons name="chevron-forward" size={16} color="rgba(174, 169, 181, 0.45)" />
                     </View>
-                </GlassCard>
+                </LiquidGlass>
             </TouchableOpacity>
         );
     };
@@ -109,11 +110,13 @@ export function TripsScreen({ navigation }: any) {
             />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <View style={[StyleSheet.absoluteFillObject, glassSurface(20, 0.2)]} />
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={s.title}>ENGAGEMENT LOG</Txt>
+                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
+                    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                        <View style={[StyleSheet.absoluteFillObject, glassSurface(20, 0.2)]} />
+                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.title}>ENGAGEMENT LOG</Txt>
+                </LiquidGlass>
             </View>
 
             {loading ? (

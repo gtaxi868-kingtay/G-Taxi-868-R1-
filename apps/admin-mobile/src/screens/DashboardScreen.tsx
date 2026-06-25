@@ -10,8 +10,7 @@ import * as Haptics from 'expo-haptics';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { SURFACE, VOICES } from '@gtaxi/design-system';
 
 const { supabase } = initializeSupabaseClient('native');
 
@@ -37,6 +36,7 @@ interface KioskNode {
 }
 
 const ACCENT = VOICES.admin.accent;
+const BG = VOICES.admin.bg;
 
 export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }) {
   const insets = useSafeAreaInsets();
@@ -56,7 +56,6 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
         setNodes(data.nodes || []);
       }
     } catch (err) {
-      // silent
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -121,29 +120,31 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
     );
   };
 
-  const getNodeTypeLabel = (node: KioskNode) => {
-    if (node.merchant_id) return { label: 'Business Spot', icon: 'storefront' as const, color: ACCENT };
-    return { label: 'Taxi Stand', icon: 'car' as const, color: ACCENT };
+  const getNodeTypeIcon = (node: KioskNode) => {
+    if (node.merchant_id) return 'storefront';
+    return 'car';
   };
 
   const renderNode = ({ item }: { item: KioskNode }) => {
-    const typeInfo = getNodeTypeLabel(item);
+    const isBusiness = !!item.merchant_id;
     return (
-      <View style={[styles.nodeCard, glassSurface(0.1)]}>
+      <View style={styles.nodeCard}>
         <View style={styles.nodeHeader}>
-          <View style={[styles.typeBadge, { backgroundColor: `${typeInfo.color}15`, ...ghostBorder(0.15) }]}>
-            <Ionicons name={typeInfo.icon} size={14} color={typeInfo.color} />
-            <Text style={[styles.typeLabel, { color: typeInfo.color }]}>{typeInfo.label}</Text>
+          <View style={[styles.typeBadge, { backgroundColor: `${ACCENT}15` }]}>
+            <Ionicons name={isBusiness ? 'storefront' : 'car'} size={12} color={ACCENT} />
+            <Text style={[styles.typeLabel, { color: ACCENT }]}>
+              {isBusiness ? 'BUSINESS' : 'TAXI STAND'}
+            </Text>
           </View>
           <TouchableOpacity
-            style={[styles.activeToggle, item.is_active ? styles.activeOn : styles.activeOff]}
+            style={[styles.powerBtn, item.is_active ? styles.powerActive : styles.powerInactive]}
             onPress={() => toggleActive(item.id)}
             disabled={togglingId === item.id}
           >
             {togglingId === item.id ? (
               <ActivityIndicator size="small" color="#FFF" />
             ) : (
-              <Ionicons name={item.is_active ? 'power' : 'power-outline'} size={16} color="#FFF" />
+              <Ionicons name={item.is_active ? 'power' : 'power-outline'} size={14} color="#FFF" />
             )}
           </TouchableOpacity>
         </View>
@@ -152,20 +153,18 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
 
         {item.merchants && (
           <Text style={styles.merchantName}>
-            <Ionicons name="business-outline" size={12} color="rgba(255,255,255,0.4)" /> {item.merchants.name}
+            {item.merchants.name}
           </Text>
         )}
 
-        <View style={styles.nodeMeta}>
-          <Text style={styles.metaText}>
-            <Ionicons name="key-outline" size={11} color="rgba(255,255,255,0.3)" /> {item.tag_uid.slice(0, 12)}...
-          </Text>
+        <View style={styles.footer}>
+          <Text style={styles.meta}>{item.tag_uid.slice(0, 12)}...</Text>
           {item.lat && item.lng ? (
-            <Text style={styles.metaText}>{item.lat.toFixed(4)}, {item.lng.toFixed(4)}</Text>
+            <Text style={styles.meta}>{item.lat.toFixed(4)}, {item.lng.toFixed(4)}</Text>
           ) : null}
         </View>
 
-        <View style={styles.serviceRow}>
+        <View style={styles.services}>
           {item.default_services?.map(s => (
             <View key={s} style={styles.serviceTag}>
               <Text style={styles.serviceText}>{s}</Text>
@@ -174,7 +173,7 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
         </View>
 
         <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteNode(item.id)}>
-          <Ionicons name="trash-outline" size={16} color="#FF4D4D" />
+          <Ionicons name="trash-outline" size={15} color="#FF4D4D" />
         </TouchableOpacity>
       </View>
     );
@@ -182,7 +181,7 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
 
   if (loading) {
     return (
-      <LinearGradient colors={[SURFACE.base, '#1A0A0A']} style={styles.container}>
+      <LinearGradient colors={[BG, '#0B1120']} style={styles.container}>
         <View style={[styles.center, { paddingTop: insets.top + 80 }]}>
           <ActivityIndicator size="large" color={ACCENT} />
           <Text style={styles.loadingText}>Scanning network...</Text>
@@ -192,49 +191,50 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
   }
 
   return (
-    <LinearGradient colors={[SURFACE.base, '#1A0A0A']} style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <View>
-          <Text style={styles.headerTitle}>G-Touch Points</Text>
-          <Text style={styles.headerCount}>{nodes.length} deployed</Text>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('RegisterPuck'); }}
-            style={styles.logoutBtn}
-          >
-            <Ionicons name="keypad-outline" size={20} color="rgba(255,255,255,0.5)" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              Alert.alert(
-                'Delete Account',
-                'Permanently delete your account and all associated data? This cannot be undone.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete Permanently',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        const { error } = await supabase.functions.invoke('delete_account');
-                        if (error) throw error;
-                        await signOut();
-                      } catch (err: any) {
-                        Alert.alert('Error', err?.message || 'Could not delete account.');
-                      }
+    <LinearGradient colors={[BG, '#0B1120']} style={styles.container}>
+      <View style={[styles.headerPad, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>G-Touch Points</Text>
+            <Text style={styles.headerMeta}>{nodes.length} deployed · {nodes.filter(n => n.is_active).length} active</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('RegisterPuck'); }}
+              style={styles.iconBtn}
+            >
+              <Ionicons name="keypad-outline" size={18} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  'Delete Account',
+                  'Permanently delete your account and all associated data? This cannot be undone.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete Permanently', style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          const { error } = await supabase.functions.invoke('delete_account');
+                          if (error) throw error;
+                          await signOut();
+                        } catch (err: any) {
+                          Alert.alert('Error', err?.message || 'Could not delete account.');
+                        }
+                      },
                     },
-                  },
-                ]
-              );
-            }}
-            style={styles.logoutBtn}
-          >
-            <Ionicons name="trash-outline" size={20} color="rgba(255,255,255,0.5)" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={signOut} style={styles.logoutBtn}>
-            <Ionicons name="log-out-outline" size={20} color="rgba(255,255,255,0.5)" />
-          </TouchableOpacity>
+                  ]
+                );
+              }}
+              style={styles.iconBtn}
+            >
+              <Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={signOut} style={styles.iconBtn}>
+              <Ionicons name="log-out-outline" size={18} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -244,13 +244,18 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
         renderItem={renderNode}
         contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={ACCENT}
+            progressBackgroundColor={VOICES.admin.surface}
+          />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="radio-outline" size={48} color="rgba(255,255,255,0.15)" />
-            <Text style={styles.emptyText}>No nodes deployed</Text>
-            <Text style={styles.emptySubtext}>Tap + to provision a G-Touch Point</Text>
+            <Ionicons name="radio-outline" size={44} color="rgba(255,255,255,0.12)" />
+            <Text style={styles.emptyTitle}>No nodes deployed</Text>
+            <Text style={styles.emptyDesc}>Tap + to provision a G-Touch Point</Text>
           </View>
         }
       />
@@ -260,8 +265,8 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
         onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('TagMarker'); }}
         activeOpacity={0.85}
       >
-        <LinearGradient colors={[ACCENT, ACCENT + 'CC']} style={styles.fabGradient}>
-          <Ionicons name="add" size={28} color="#FFF" />
+        <LinearGradient colors={[ACCENT, ACCENT]} style={styles.fabInner}>
+          <Ionicons name="add" size={26} color="#FFF" />
         </LinearGradient>
       </TouchableOpacity>
     </LinearGradient>
@@ -271,46 +276,114 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 12 },
+  loadingText: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 12,
+    marginTop: 12,
+    fontWeight: '500',
+  },
+  headerPad: {
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    paddingBottom: 12,
+  },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingBottom: 12,
-    ...ghostBorder(0.15),
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#F1F5F9' },
-  headerCount: { fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-  headerActions: { flexDirection: 'row', gap: 12 },
-  logoutBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-  list: { padding: 16, gap: 12 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: '#F1F5F9' },
+  headerMeta: { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2, fontWeight: '500' },
+  headerActions: { flexDirection: 'row', gap: 8 },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  list: { padding: 16, gap: 10 },
   nodeCard: {
-    borderRadius: 20, overflow: 'hidden', padding: 18,
+    backgroundColor: 'rgba(30,41,59,0.6)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  nodeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  nodeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   typeBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  typeLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  activeToggle: {
-    width: 32, height: 32, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center',
+  typeLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  powerBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  activeOn: { backgroundColor: 'rgba(16,185,129,0.3)' },
-  activeOff: { backgroundColor: 'rgba(255,255,255,0.08)' },
-  locationName: { fontSize: 16, fontWeight: '700', color: '#F1F5F9' },
-  merchantName: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
-  nodeMeta: { flexDirection: 'row', gap: 16, marginTop: 8 },
-  metaText: { fontSize: 11, color: 'rgba(255,255,255,0.3)' },
-  serviceRow: { flexDirection: 'row', gap: 6, marginTop: 10, flexWrap: 'wrap' },
+  powerActive: { backgroundColor: `${ACCENT}40` },
+  powerInactive: { backgroundColor: 'rgba(255,255,255,0.06)' },
+  locationName: { fontSize: 15, fontWeight: '700', color: '#F1F5F9' },
+  merchantName: { fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 },
+  footer: { flexDirection: 'row', gap: 14, marginTop: 6 },
+  meta: { fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' },
+  services: { flexDirection: 'row', gap: 5, marginTop: 8, flexWrap: 'wrap' },
   serviceTag: {
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  serviceText: { fontSize: 10, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 },
-  deleteBtn: { position: 'absolute', top: 18, right: 56, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,77,77,0.1)', alignItems: 'center', justifyContent: 'center' },
-  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 8 },
-  emptyText: { fontSize: 16, color: 'rgba(255,255,255,0.3)', fontWeight: '600' },
-  emptySubtext: { fontSize: 13, color: 'rgba(255,255,255,0.2)' },
-  fab: { position: 'absolute', right: 24, width: 56, height: 56, borderRadius: 28, ...elevationGlow() },
-  fabGradient: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  serviceText: {
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.35)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    fontWeight: '600',
+  },
+  deleteBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 50,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,77,77,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  empty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+    gap: 6,
+  },
+  emptyTitle: { fontSize: 15, color: 'rgba(255,255,255,0.25)', fontWeight: '600' },
+  emptyDesc: { fontSize: 12, color: 'rgba(255,255,255,0.18)' },
+  fab: { position: 'absolute', right: 24, width: 52, height: 52, borderRadius: 26 },
+  fabInner: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+  },
 });

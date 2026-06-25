@@ -758,6 +758,27 @@ Deno.serve(async (req) => {
             if (error) throw error
             return json({ success: true, application: data })
           }
+          case 'list_revshare': {
+            const { data: entries, error: revErr } = await supabaseAdmin
+              .from('commander_revshare_ledger')
+              .select('*, commander:commander_id(id), ride:ride_id(id, fare_cents, status, created_at)')
+              .order('created_at', { ascending: false })
+              .limit(200)
+            if (revErr) throw revErr
+            const paidTotal = (entries || []).filter(e => e.status === 'paid').reduce((s: number, e: any) => s + e.revshare_cents, 0)
+            const pendingTotal = (entries || []).filter(e => e.status === 'pending').reduce((s: number, e: any) => s + e.revshare_cents, 0)
+            const voidTotal = (entries || []).filter(e => e.status === 'void').reduce((s: number, e: any) => s + e.revshare_cents, 0)
+            return json({
+              success: true,
+              revshare_entries: entries || [],
+              summary: {
+                paid_total_cents: paidTotal,
+                pending_total_cents: pendingTotal,
+                void_total_cents: voidTotal,
+                total_entries: entries?.length || 0,
+              },
+            })
+          }
           default:
             return json({ error: `Unknown action_type: ${body.action_type}` }, 400)
         }

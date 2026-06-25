@@ -10,7 +10,8 @@ jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), notificationAsync: je
 describe('SavedPlacesScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
-    const { getByText } = render(<SavedPlacesScreen navigation={navigation as any} />);
+    const route = { params: {}, key: 'test', name: 'SavedPlaces' as const };
+    const { getByText } = render(<SavedPlacesScreen navigation={navigation as any} route={route as any} />);
     expect(getByText(/Saved Places/i)).toBeTruthy();
   });
 });

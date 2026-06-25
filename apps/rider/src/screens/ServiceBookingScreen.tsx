@@ -8,12 +8,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
-import { GlassCard } from '@gtaxi/design-system/native';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { formatTTDDollars } from '../utils/currency';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import type { AppScreenProps } from '../navigation/types';
 
-const CYAN = '#06B6D4';
+const CYAN = '#1DE0E6';
 
 interface Service {
     id: string;
@@ -23,7 +24,7 @@ interface Service {
     duration_minutes: number;
 }
 
-export function ServiceBookingScreen({ navigation, route }: any) {
+export function ServiceBookingScreen({ navigation, route }: AppScreenProps<'ServiceBooking'>) {
     const { width } = useWindowDimensions();
     const { merchantId, merchantName, pickup, destination } = route.params;
     const insets = useSafeAreaInsets();
@@ -69,9 +70,9 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                     service_id: selectedService.id,
                     scheduled_at: selectedTime.toISOString(),
                     ride_requested: true,
-                    pickup_address: pickup.address,
-                    pickup_lat: pickup.latitude,
-                    pickup_lng: pickup.longitude,
+                    pickup_address: pickup?.address,
+                    pickup_lat: pickup?.latitude,
+                    pickup_lng: pickup?.longitude,
                 }
             });
 
@@ -82,7 +83,7 @@ export function ServiceBookingScreen({ navigation, route }: any) {
             Alert.alert(
                 "Booking Sent!",
                 "Your request has been sent to " + merchantName + ". We'll notify you once they approve the ride.",
-                [{ text: "OK", onPress: () => navigation.navigate('Home') }]
+                [{ text: "OK", onPress: () => navigation.navigate('Home', {}) }]
             );
         } catch (err: any) {
             Alert.alert("Booking Failed", err.message);
@@ -101,17 +102,18 @@ export function ServiceBookingScreen({ navigation, route }: any) {
 
     return (
         <View style={s.root}>
-            <LinearGradient colors={['#0A0A1F', '#12122A']} style={StyleSheet.absoluteFillObject} />
             
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="close" size={24} color="#FFF" />
-                </TouchableOpacity>
-                <View>
-                    <Txt variant="bodyBold" weight="heavy" color="#FFF">{merchantName}</Txt>
-                    <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Select Service & Time</Txt>
-                </View>
-                <View style={{ width: 44 }} />
+                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                        <Ionicons name="close" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                    <View>
+                        <Txt variant="bodyBold" weight="heavy" color="#FFF">{merchantName}</Txt>
+                        <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Select Service & Time</Txt>
+                    </View>
+                    <View style={{ width: 44 }} />
+                </LiquidGlass>
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 100 }}>
@@ -120,17 +122,18 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                     <ActivityIndicator color={VOICES.rider.accent} style={{ marginTop: 20 }} />
                 ) : (
                     services.map(svc => (
-                        <TouchableOpacity 
-                            key={svc.id} 
-                            style={[s.serviceCard, selectedService?.id === svc.id && s.activeCard]}
-                            onPress={() => setSelectedService(svc)}
-                        >
-                            <View style={{ flex: 1 }}>
-                                <Txt variant="bodyBold" weight="heavy" color="#FFF">{svc.name}</Txt>
-                                <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">{svc.duration_minutes} mins</Txt>
-                            </View>
-                            <Txt variant="bodyReg" weight="heavy" color={CYAN}>{formatTTDDollars(svc.price_cents / 100)}</Txt>
-                        </TouchableOpacity>
+                        <LiquidGlass key={svc.id} tier="inlay" voice="rider" style={[s.serviceCard, selectedService?.id === svc.id && s.activeCard]}>
+                            <TouchableOpacity 
+                                style={{ flexDirection: 'row', alignItems: 'center', padding: 20 }}
+                                onPress={() => setSelectedService(svc)}
+                            >
+                                <View style={{ flex: 1 }}>
+                                    <Txt variant="bodyBold" weight="heavy" color="#FFF">{svc.name}</Txt>
+                                    <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">{svc.duration_minutes} mins</Txt>
+                                </View>
+                                <Txt variant="bodyReg" weight="heavy" color={CYAN}>{formatTTDDollars(svc.price_cents / 100)}</Txt>
+                            </TouchableOpacity>
+                        </LiquidGlass>
                     ))
                 )}
 
@@ -152,14 +155,14 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                     })}
                 </View>
 
-                <GlassCard variant="rider" style={s.logisticsCard}>
+                <LiquidGlass tier="inlay" voice="rider" style={s.logisticsCard}>
                     <Ionicons name="car" size={24} color={VOICES.rider.accent} />
                     <View style={{ flex: 1, marginLeft: 16 }}>
                         <Txt variant="bodyBold" weight="heavy" color="#FFF">Include G-Taxi Ride</Txt>
                         <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Coordinated pickup 15m before</Txt>
                     </View>
                     <Ionicons name="checkbox" size={24} color={CYAN} />
-                </GlassCard>
+                </LiquidGlass>
             </ScrollView>
 
             <View style={[s.footer, { paddingBottom: insets.bottom + 20 }]}>

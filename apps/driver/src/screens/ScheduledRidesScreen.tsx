@@ -4,13 +4,12 @@ import {
     TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { elevationGlow, ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 
 interface ScheduledRide {
     id: string;
@@ -52,11 +51,7 @@ export function ScheduledRidesScreen({ navigation }: { navigation: NavigationPro
         const formattedDate = dateObj.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
         return (
-            <TouchableOpacity
-                activeOpacity={0.9}
-                style={s.card}
-                onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            >
+            <TouchableOpacity activeOpacity={0.9} style={s.card} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
                 <View style={s.cardTop}>
                     <Ionicons name="calendar-outline" size={16} color={VOICES.driver.accent} />
                     <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#FFF' }}>{formattedDate}</Text>
@@ -75,10 +70,10 @@ export function ScheduledRidesScreen({ navigation }: { navigation: NavigationPro
                 <View style={s.cardDivider} />
 
                 <View style={s.cardBottom}>
-                    <Text style={{fontSize: 16, fontWeight: '800', color: VOICES.driver.accent}}>${fair}</Text>
-                    <View style={s.tag}>
-                        <Text style={{fontSize: 11, fontWeight: '700', color: VOICES.driver.accent}}>{item.vehicle_type ? item.vehicle_type.charAt(0).toUpperCase() + item.vehicle_type.slice(1).replace('_', ' ') : 'Standard'}</Text>
-                    </View>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: VOICES.driver.gold }}>${fair}</Text>
+                    <LiquidGlass voice="driver" style={s.tag} tier="inlay">
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: VOICES.driver.accent }}>{item.vehicle_type ? item.vehicle_type.charAt(0).toUpperCase() + item.vehicle_type.slice(1).replace('_', ' ') : 'Standard'}</Text>
+                    </LiquidGlass>
                 </View>
             </TouchableOpacity>
         );
@@ -88,16 +83,13 @@ export function ScheduledRidesScreen({ navigation }: { navigation: NavigationPro
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <BlurView tint="dark" intensity={80} style={[s.header, { paddingTop: insets.top + 8 }, glassSurface(80, 0.2)]}>
-                <TouchableOpacity
-                    style={s.headerBtn}
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }}
-                >
+            <LiquidGlass voice="driver" style={[s.header, { paddingTop: insets.top + 8 }]} tier="chrome">
+                <TouchableOpacity style={s.headerBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }}>
                     <Ionicons name="chevron-back" size={24} color="#FFF" />
                 </TouchableOpacity>
-                <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Scheduled</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF' }}>Scheduled</Text>
                 <View style={s.headerBtn} pointerEvents="none" />
-            </BlurView>
+            </LiquidGlass>
 
             {loading ? (
                 <View style={s.center}><ActivityIndicator color={VOICES.driver.accent} /></View>
@@ -126,14 +118,15 @@ const s = StyleSheet.create({
     header: {
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, paddingBottom: 12, ...ghostBorder(0.15),
+        paddingHorizontal: 16, paddingBottom: 12, borderWidth: 0,
     },
     headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     list: { paddingHorizontal: 20 },
     card: {
-        backgroundColor: SURFACE.containerLow,
+        backgroundColor: 'rgba(139,92,246,0.04)',
         borderRadius: 16, padding: 20, marginBottom: 16,
-        ...elevationGlow(0.12),
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
     },
     cardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
     addressRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
@@ -141,6 +134,6 @@ const s = StyleSheet.create({
     square: { width: 8, height: 8, backgroundColor: VOICES.driver.accent, marginRight: 12 },
     cardDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 8 },
     cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
-    tag: { backgroundColor: VOICES.driver.accent + '1A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+    tag: { paddingHorizontal: 10, paddingVertical: 4 },
     empty: { marginTop: 100, alignItems: 'center', paddingHorizontal: 40 },
 });

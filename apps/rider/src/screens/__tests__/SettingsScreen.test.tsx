@@ -16,7 +16,8 @@ jest.mock('@/design-system/primitives', () => {
 describe('SettingsScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
-    const { getByText } = render(<SettingsScreen navigation={navigation as any} />);
+    const route = { params: {}, key: 'test', name: 'Settings' as const };
+    const { getByText } = render(<SettingsScreen navigation={navigation as any} route={route as any} />);
     expect(getByText(/Settings/i)).toBeTruthy();
   });
 });

@@ -13,8 +13,9 @@ import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 
-const CYAN = '#06B6D4';
+const CYAN = '#1DE0E6';
 
 interface ServiceType {
     id: string;
@@ -32,6 +33,19 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
     const [weight, setWeight] = useState(5);
     const [loading, setLoading] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
+
+    if (!service) {
+        return (
+            <View style={[s.container, { justifyContent: 'center', alignItems: 'center', padding: 40 }]}>
+                <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+                <Text style={{ color: '#EF4444', fontSize: 18, fontWeight: '700', marginTop: 16 }}>Service not found</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, textAlign: 'center', marginTop: 8 }}>Could not load the selected service.</Text>
+                <TouchableOpacity style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 99, backgroundColor: 'rgba(6,182,212,0.15)', borderWidth: 1, borderColor: CYAN }} onPress={() => navigation.goBack()}>
+                    <Text style={{ color: CYAN, fontWeight: '700' }}>Go Back →</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     const priceCents = Math.round(service.baseRate * weight);
 
@@ -111,13 +125,15 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
     }, [user, priceCents, service, weight, navigation, paymentMethod, initPaymentSheet, presentPaymentSheet]);
 
     return (
-        <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
+        <View style={s.container}>
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>{service.label}</Text>
-                <View style={{ width: 38 }} />
+                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                        <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    </TouchableOpacity>
+                    <Text style={s.headerTitle}>{service.label}</Text>
+                    <View style={{ width: 38 }} />
+                </LiquidGlass>
             </View>
 
             <View style={s.content}>
@@ -199,12 +215,12 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                     </LinearGradient>
                 </TouchableOpacity>
             </View>
-        </LinearGradient>
+        </View>
     );
 }
 
 const s = StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: SURFACE.base },
     header: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingHorizontal: 20, paddingBottom: 12,

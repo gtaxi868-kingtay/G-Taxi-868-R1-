@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { LoadingOverlay } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { LiquidGlass } from '@gtaxi/design-system/native';
 
 const CYAN = '#06B6D4';
 
@@ -148,16 +149,18 @@ export function GroceryStorefrontScreen({ navigation }: any) {
     );
 
     return (
-        <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
+        <View style={s.container}>
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-                <TouchableOpacity
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
-                    style={s.backBtn}
-                >
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>Stores Near You</Text>
-                <View style={{ width: 38 }} />
+                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
+                    <TouchableOpacity
+                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
+                        style={s.backBtn}
+                    >
+                        <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    </TouchableOpacity>
+                    <Text style={s.headerTitle}>Stores Near You</Text>
+                    <View style={{ width: 38 }} />
+                </LiquidGlass>
             </View>
 
             <ScrollView
@@ -220,6 +223,9 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     <Text style={s.emptyEmoji}>⚠️</Text>
                     <Text style={[s.emptyText, { color: '#EF4444' }]}>Failed to load stores</Text>
                     <Text style={s.emptySubtext}>{fetchError}</Text>
+                    <TouchableOpacity style={s.retryBtn} onPress={() => { setLoading(true); fetchMerchants(); }}>
+                        <Text style={s.retryBtnText}>Retry →</Text>
+                    </TouchableOpacity>
                 </View>
             ) : !loading && filteredMerchants.length === 0 ? (
                 <View style={s.center}>
@@ -243,12 +249,12 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     }
                 />
             )}
-        </LinearGradient>
+        </View>
     );
 }
 
 const s = StyleSheet.create({
-    container: { flex: 1 },
+    container: { flex: 1, backgroundColor: SURFACE.base },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -299,6 +305,8 @@ const s = StyleSheet.create({
     emptyEmoji: { fontSize: 48, marginBottom: 16 },
     emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
     emptySubtext: { color: 'rgba(255,255,255,0.4)', fontSize: 14, marginTop: 6 },
+    retryBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 99, backgroundColor: 'rgba(6,182,212,0.15)', borderWidth: 1, borderColor: CYAN },
+    retryBtnText: { color: CYAN, fontWeight: '700' },
 
     regularsContainer: { marginTop: 12, marginBottom: 24 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12, gap: 6 },
