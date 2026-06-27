@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
+import { useAuth } from '../context/AuthContext';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { elevationGlow, ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
@@ -28,15 +29,21 @@ interface NavigationProp {
 
 export function ScheduledRidesScreen({ navigation }: { navigation: NavigationProp }) {
     const insets = useSafeAreaInsets();
+    const { driver } = useAuth();
     const [rides, setRides] = useState<ScheduledRide[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!driver?.id) { setLoading(false); return; }
         const fetchScheduled = async () => {
+            // Explicitly scope to this driver's own scheduled rides. RLS already
+            // restricts a driver to assigned/offered/searching rides, but scoping
+            // here makes intent clear and avoids fetching rows RLS would drop anyway.
             const { data } = await supabase
                 .from('rides')
                 .select('id, pickup_address, dropoff_address, total_fare_cents, scheduled_for, vehicle_type')
                 .eq('status', 'scheduled')
+                .eq('driver_id', driver.id)
                 .order('scheduled_for', { ascending: true })
                 .limit(30);
 
@@ -44,7 +51,7 @@ export function ScheduledRidesScreen({ navigation }: { navigation: NavigationPro
             setLoading(false);
         };
         fetchScheduled();
-    }, []);
+    }, [driver?.id]);
 
     const renderItem = ({ item }: { item: ScheduledRide }) => {
         const fair = (item.total_fare_cents / 100).toFixed(2);
