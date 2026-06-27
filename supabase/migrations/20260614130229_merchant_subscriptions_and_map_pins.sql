@@ -189,13 +189,25 @@ GRANT EXECUTE ON FUNCTION get_merchant_map_pins(DOUBLE PRECISION, DOUBLE PRECISI
 -- ── pg_cron: run billing daily at 06:00 UTC ──────────────────────────────────
 DO $$
 BEGIN
-    PERFORM cron.unschedule('merchant-daily-billing');
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.unschedule('merchant-daily-billing');
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
 EXCEPTION WHEN OTHERS THEN NULL;
 END;
 $$;
 
-SELECT cron.schedule(
+DO $cronguard$ BEGIN
+  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+    PERFORM cron.schedule(
     'merchant-daily-billing',
     '0 6 * * *',
-    $$ SELECT process_merchant_billing(); $$
+    $$ SELECT process_merchant_billing();
+  ELSE
+    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+  END IF;
+END $cronguard$; $$
 );

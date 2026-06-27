@@ -21,8 +21,16 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
 
     -- ── sync_flight_availability: every 6 hours ────────────────
-    PERFORM cron.unschedule('sync-flight-availability-6h');
-    PERFORM cron.schedule(
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.unschedule('sync-flight-availability-6h');
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.schedule(
       'sync-flight-availability-6h',
       '0 */6 * * *',
       $$SELECT net.http_post(
@@ -31,10 +39,22 @@ BEGIN
         body := '{}'::jsonb
       )$$
     );
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
 
     -- ── sync_lodging_availability: every 6 hours ───────────────
-    PERFORM cron.unschedule('sync-lodging-availability-6h');
-    PERFORM cron.schedule(
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.unschedule('sync-lodging-availability-6h');
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.schedule(
       'sync-lodging-availability-6h',
       '0 */6 * * *',
       $$SELECT net.http_post(
@@ -43,10 +63,22 @@ BEGIN
         body := '{}'::jsonb
       )$$
     );
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
 
     -- ── auto_charge_escape_group: every 5 minutes ──────────────
-    PERFORM cron.unschedule('auto-charge-escape-group-5min');
-    PERFORM cron.schedule(
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.unschedule('auto-charge-escape-group-5min');
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.schedule(
       'auto-charge-escape-group-5min',
       '*/5 * * * *',
       $$SELECT net.http_post(
@@ -55,6 +87,10 @@ BEGIN
         body := '{}'::jsonb
       )$$
     );
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
 
     -- ── process_dispatch_queue: confirm existing cron ──────────
     -- Already created in 20260617000002 as process-dispatch-queue-1min
@@ -62,7 +98,9 @@ BEGIN
     IF NOT EXISTS (
       SELECT 1 FROM cron.job WHERE jobname = 'process-dispatch-queue-1min'
     ) THEN
-      PERFORM cron.schedule(
+      DO $cronguard$ BEGIN
+        IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+          PERFORM cron.schedule(
         'process-dispatch-queue-1min',
         '* * * * *',
         $$SELECT net.http_post(
@@ -71,6 +109,10 @@ BEGIN
           body := '{}'::jsonb
         )$$
       );
+        ELSE
+          RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+        END IF;
+      END $cronguard$;
     END IF;
 
   END IF;

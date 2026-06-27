@@ -346,9 +346,17 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
 
     -- Event queue worker — every 60 seconds.
-    PERFORM cron.unschedule('process-event-queue-1min')
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.unschedule('process-event-queue-1min')
       WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'process-event-queue-1min');
-    PERFORM cron.schedule(
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.schedule(
       'process-event-queue-1min',
       '* * * * *',
       $$SELECT net.http_post(
@@ -357,15 +365,31 @@ BEGIN
         body := '{}'::jsonb
       )$$
     );
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
 
     -- Settlement grace sweep — every 5 minutes (calls the DB RPC directly).
-    PERFORM cron.unschedule('settlement-grace-sweep-5min')
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.unschedule('settlement-grace-sweep-5min')
       WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'settlement-grace-sweep-5min');
-    PERFORM cron.schedule(
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
+    DO $cronguard$ BEGIN
+      IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
+        PERFORM cron.schedule(
       'settlement-grace-sweep-5min',
       '*/5 * * * *',
       $$SELECT public.process_settlement_grace()$$
     );
+      ELSE
+        RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
+      END IF;
+    END $cronguard$;
 
   END IF;
 END;
