@@ -266,7 +266,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
         DO $cronguard$ BEGIN
           IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'platform-intelligence-15min') THEN PERFORM cron.unschedule('platform-intelligence-15min'); END IF;
+            PERFORM cron.unschedule('platform-intelligence-15min');
           ELSE
             RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
           END IF;
