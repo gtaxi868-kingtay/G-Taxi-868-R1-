@@ -166,6 +166,7 @@ jest.mock('@gtaxi/design-system', () => {
   const { View, Text } = require('react-native');
   return {
     SURFACE: { base: '#050505', containerLow: '#0A0A0A', containerHigh: '#1A1A1A', containerHighest: '#2A2A2A' },
+    Z: { mapContent: 1, mapOverlay: 10, panel: 20, lockOverlay: 30, locationConfirm: 40, sidebar: 50, modal: 60, toast: 70, offlineBanner: 80 },
     SHADOW_PROFILE: { shadowColor: '#00FFFF', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 24 },
     ANIMATION: { easing: [0.16, 1, 0.3, 1], spring: { damping: 18, stiffness: 150, mass: 1 } },
     VOICES: {
@@ -282,35 +283,33 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 jest.mock('@gtaxi/core', () => {
+  const ok = (data = null) => Promise.resolve({ data, error: null });
+  const builder = {};
+  for (const m of ['select','insert','update','delete','upsert','eq','neq','in','not','is',
+                   'gte','lte','gt','lt','like','ilike','order','limit','range','filter',
+                   'contains','match','or','overlaps']) { builder[m] = () => builder; }
+  builder.single = () => ok(null);
+  builder.maybeSingle = () => ok(null);
+  builder.then = (cb) => ok([]).then(cb);
+  const channelObj = { on: () => channelObj, subscribe: jest.fn(() => channelObj), unsubscribe: jest.fn() };
   const supabaseMock = {
-    channel: () => ({ on: () => ({ subscribe: jest.fn() }) }),
-    from: () => ({
-      select: () => ({
-        eq: () => ({ single: jest.fn(), maybeSingle: jest.fn(), order: () => ({ limit: () => ({ data: null }) }) }),
-        in: () => ({ single: jest.fn(), maybeSingle: jest.fn(), order: () => ({ limit: () => ({ data: null }) }) }),
-        order: () => ({ limit: () => ({ data: null }) }),
-      }),
-      insert: () => ({ select: () => ({ single: jest.fn() }) }),
-      update: () => ({ eq: () => ({ select: () => ({ single: jest.fn() }) }) }),
-      delete: () => ({ eq: () => ({ select: () => ({ single: jest.fn() }) }) }),
-    }),
+    channel: () => channelObj, removeChannel: jest.fn(), removeAllChannels: jest.fn(),
+    from: () => builder, rpc: () => builder,
+    functions: { invoke: jest.fn(() => ok(null)) },
     auth: {
       getSession: () => Promise.resolve({ data: { session: { user: { id: 'test-user' }, access_token: 'test-token' } }, error: null }),
-      signOut: jest.fn(),
+      getUser: () => Promise.resolve({ data: { user: { id: 'test-user' } }, error: null }),
+      signOut: jest.fn(() => ok(null)),
       onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
     },
+    storage: { from: () => ({ upload: jest.fn(() => ok(null)), getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
   };
   return {
     supabase: supabaseMock,
-    OutboxService: {
-      getInstance: () => ({
-        enqueue: jest.fn(),
-        process: jest.fn(),
-        getPendingCount: jest.fn(() => Promise.resolve(0)),
-        clear: jest.fn(),
-        start: jest.fn(),
-        stop: jest.fn(),
-      }),
-    },
+    initializeSupabaseClient: () => ({ supabase: supabaseMock }),
+    ENV: { SUPABASE_URL: 'http://localhost', SUPABASE_ANON_KEY: 'anon', MAPBOX_PUBLIC_TOKEN: '', STRIPE_PUBLISHABLE_KEY: '' },
+    DEFAULT_LOCATION: { latitude: 10.6918, longitude: -61.2225 },
+    haversineMeters: jest.fn(() => 0), isWithinRadius: jest.fn(() => true), checkGeofenceZone: jest.fn(() => null),
+    OutboxService: { getInstance: () => ({ enqueue: jest.fn(), process: jest.fn(), getPendingCount: jest.fn(() => Promise.resolve(0)), clear: jest.fn(), start: jest.fn(), stop: jest.fn() }) },
   };
 });

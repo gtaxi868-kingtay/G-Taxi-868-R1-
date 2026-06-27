@@ -6,7 +6,7 @@ jest.mock('@gtaxi/core', () => ({ supabase: { channel: () => ({ on: () => ({ sub
 jest.mock('@gtaxi/shared/env', () => ({ DEFAULT_LOCATION: { latitude: 10.6918, longitude: -61.2225 }, ENV: { MAPBOX_PUBLIC_TOKEN: 'test' } }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'test' }, session: { access_token: 'test' }, loading: false, driver: { id: 'test', is_online: false, name: 'Test', verified_status: 'approved' }, toggleOnline: jest.fn(), signOut: jest.fn(), refreshPushToken: jest.fn() }) }));
 jest.mock('../../hooks/useLocationTracking', () => ({ useLocationTracking: () => ({ location: null, signalStatus: 'none' }) }));
-jest.mock('../../services/realtime', () => ({ useRideOfferSubscription: () => ({ offer: null, clearOffer: jest.fn() }) }));
+jest.mock('../../services/realtime', () => ({ useRideOfferSubscription: () => ({ offer: null, clearOffer: jest.fn() }), useDeliveryOfferSubscription: () => ({ offer: null, clearOffer: jest.fn() }) }));
 
 describe('DashboardScreen', () => {
   it('renders without crashing', () => {
