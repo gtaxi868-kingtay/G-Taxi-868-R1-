@@ -306,3 +306,85 @@ jest.mock('@gtaxi/core', () => {
     },
   };
 });
+
+// ---- Stripe (unmocked -> NativeEventEmitter crash on import) ----
+jest.mock('@stripe/stripe-react-native', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    useStripe: () => ({
+      initPaymentSheet: jest.fn(() => Promise.resolve({ error: null })),
+      presentPaymentSheet: jest.fn(() => Promise.resolve({ error: null })),
+      confirmPayment: jest.fn(() => Promise.resolve({ error: null })),
+      createPaymentMethod: jest.fn(() => Promise.resolve({ error: null })),
+    }),
+    useConfirmPayment: () => ({ confirmPayment: jest.fn(() => Promise.resolve({ error: null })), loading: false }),
+    StripeProvider: ({ children }) => React.createElement(View, null, children),
+    CardField: 'CardField',
+    initStripe: jest.fn(),
+  };
+});
+
+// ---- design-system /native subpath (slash) — screens import LiquidGlass from here ----
+jest.mock('@gtaxi/design-system/native', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+  const Pass = ({ children }) => React.createElement(View, null, children);
+  return {
+    LiquidGlass: Pass,
+    GlassCard: Pass,
+    Skeleton: () => React.createElement(View, null),
+    Logo: () => React.createElement(View, null, React.createElement(Text, null, 'Logo')),
+    WalletCard: () => React.createElement(View, null),
+    LoadingOverlay: () => React.createElement(View, null),
+    PrimaryButton: Pass,
+    InfoChip: Pass,
+    StatusBadge: Pass,
+    Txt: ({ children }) => React.createElement(Text, null, children),
+    VOICES: { rider: { accent: '#00FFFF' }, driver: { accent: '#00FFFF' }, admin: {}, merchant: {} },
+    SURFACE: { base: '#050505', containerLow: '#0A0A0A', containerHigh: '#1A1A1A', containerHighest: '#2A2A2A' },
+    ANIMATION: { spring: { damping: 18, stiffness: 150, mass: 1 } },
+  };
+});
+
+// ---- Complete @gtaxi/core mock (overrides the partial one above) ----
+jest.mock('@gtaxi/core', () => {
+  const ok = (data = null) => Promise.resolve({ data, error: null });
+  // chainable query builder: every filter/modifier returns itself; terminal
+  // resolvers (.single/.maybeSingle/await) resolve to { data, error }.
+  const builder = {};
+  for (const m of ['select','insert','update','delete','upsert','eq','neq','in','not','is',
+                   'gte','lte','gt','lt','like','ilike','order','limit','range','filter',
+                   'contains','match','or','overlaps']) {
+    builder[m] = () => builder;
+  }
+  builder.single = () => ok(null);
+  builder.maybeSingle = () => ok(null);
+  builder.then = (cb) => ok([]).then(cb);
+  const channelObj = { on: () => channelObj, subscribe: jest.fn(() => channelObj), unsubscribe: jest.fn() };
+  const supabaseMock = {
+    channel: () => channelObj,
+    removeChannel: jest.fn(),
+    removeAllChannels: jest.fn(),
+    from: () => builder,
+    rpc: () => builder,
+    functions: { invoke: jest.fn(() => ok(null)) },
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: { user: { id: 'test-user' }, access_token: 'test-token' } }, error: null }),
+      getUser: () => Promise.resolve({ data: { user: { id: 'test-user' } }, error: null }),
+      signOut: jest.fn(() => ok(null)),
+      onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
+    },
+    storage: { from: () => ({ upload: jest.fn(() => ok(null)), getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
+  };
+  return {
+    supabase: supabaseMock,
+    initializeSupabaseClient: () => ({ supabase: supabaseMock }),
+    ENV: { SUPABASE_URL: 'http://localhost', SUPABASE_ANON_KEY: 'anon', MAPBOX_PUBLIC_TOKEN: '', STRIPE_PUBLISHABLE_KEY: '' },
+    DEFAULT_LOCATION: { latitude: 10.6918, longitude: -61.2225 },
+    haversineMeters: jest.fn(() => 0),
+    isWithinRadius: jest.fn(() => true),
+    checkGeofenceZone: jest.fn(() => null),
+    OutboxService: { getInstance: () => ({ enqueue: jest.fn(), process: jest.fn(), getPendingCount: jest.fn(() => Promise.resolve(0)), clear: jest.fn(), start: jest.fn(), stop: jest.fn() }) },
+  };
+});
