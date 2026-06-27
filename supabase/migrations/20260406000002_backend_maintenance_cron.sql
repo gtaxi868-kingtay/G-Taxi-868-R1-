@@ -75,31 +75,13 @@ $$;
 -- ============================================================
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
-DO $cronguard$ BEGIN
-  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'ghost-ride-cleanup';
+SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'ghost-ride-cleanup';
 SELECT cron.schedule('ghost-ride-cleanup', '*/2 * * * *', $$SELECT public.cleanup_ghost_rides()$$);
-  ELSE
-    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-  END IF;
-END $cronguard$;
 
-DO $cronguard$ BEGIN
-  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'merchant-cleanup';
+SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'merchant-cleanup';
 SELECT cron.schedule('merchant-cleanup', '* * * * *', $$SELECT public.cleanup_merchant_appointments()$$);
-  ELSE
-    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-  END IF;
-END $cronguard$;
 
-DO $cronguard$ BEGIN
-  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'top-earner-settlement';
+SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'top-earner-settlement';
 SELECT cron.schedule('top-earner-settlement', '0 0 * * *', $$SELECT public.settle_top_earner_of_the_day()$$);
-  ELSE
-    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-  END IF;
-END $cronguard$;
 
 COMMIT;

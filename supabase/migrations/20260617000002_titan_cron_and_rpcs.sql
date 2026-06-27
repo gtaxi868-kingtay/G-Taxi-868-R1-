@@ -33,16 +33,8 @@ $$;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        DO $cronguard$ BEGIN
-          IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            PERFORM cron.unschedule('process-dispatch-queue-1min');
-          ELSE
-            RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-          END IF;
-        END $cronguard$;
-        DO $cronguard$ BEGIN
-          IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            PERFORM cron.schedule(
+        PERFORM cron.unschedule('process-dispatch-queue-1min');
+        PERFORM cron.schedule(
             'process-dispatch-queue-1min',
             '* * * * *',
             $$
@@ -56,10 +48,6 @@ BEGIN
             )
             $$
         );
-          ELSE
-            RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-          END IF;
-        END $cronguard$;
     END IF;
 END;
 $$;
@@ -68,16 +56,8 @@ $$;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        DO $cronguard$ BEGIN
-          IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            PERFORM cron.unschedule('generate-b2b-invoices-monthly');
-          ELSE
-            RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-          END IF;
-        END $cronguard$;
-        DO $cronguard$ BEGIN
-          IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            PERFORM cron.schedule(
+        PERFORM cron.unschedule('generate-b2b-invoices-monthly');
+        PERFORM cron.schedule(
             'generate-b2b-invoices-monthly',
             '0 0 1 * *',
             $$
@@ -91,10 +71,6 @@ BEGIN
             )
             $$
         );
-          ELSE
-            RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-          END IF;
-        END $cronguard$;
     END IF;
 END;
 $$;

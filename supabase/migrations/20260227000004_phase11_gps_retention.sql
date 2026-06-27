@@ -42,44 +42,20 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 -- Schedule driver locations cleanup (Runs daily at 3:00 AM UTC)
 -- Note: 'cron.schedule' does an UPSERT based on job name in recent pg_cron versions,
 -- but to be safe and idempotent, we drop it first.
-DO $cronguard$ BEGIN
-  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.unschedule('cleanup-driver-locations');
-  ELSE
-    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-  END IF;
-END $cronguard$;
-DO $cronguard$ BEGIN
-  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.schedule(
+SELECT cron.unschedule('cleanup-driver-locations');
+SELECT cron.schedule(
     'cleanup-driver-locations',
     '0 3 * * *',
     $$SELECT public.cleanup_driver_locations()$$
 );
-  ELSE
-    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-  END IF;
-END $cronguard$;
 -- Schedule rate limit log cleanup (Runs every hour at minute 0)
 -- Function created in Phase 10 migration.
-DO $cronguard$ BEGIN
-  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.unschedule('cleanup-rate-limit-log');
-  ELSE
-    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-  END IF;
-END $cronguard$;
-DO $cronguard$ BEGIN
-  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.schedule(
+SELECT cron.unschedule('cleanup-rate-limit-log');
+SELECT cron.schedule(
     'cleanup-rate-limit-log',
     '0 * * * *',
     $$SELECT public.cleanup_rate_limit_log()$$
 );
-  ELSE
-    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-  END IF;
-END $cronguard$;
 -- =============================================================================
 -- STEP 4 — Add performance indexes
 -- =============================================================================

@@ -264,16 +264,8 @@ CREATE TRIGGER trg_enqueue_order_dispatch
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        DO $cronguard$ BEGIN
-          IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            PERFORM cron.unschedule('platform-intelligence-15min');
-          ELSE
-            RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-          END IF;
-        END $cronguard$;
-        DO $cronguard$ BEGIN
-          IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            PERFORM cron.schedule(
+        PERFORM cron.unschedule('platform-intelligence-15min');
+        PERFORM cron.schedule(
             'platform-intelligence-15min',
             '*/15 * * * *',
             $$
@@ -287,10 +279,6 @@ BEGIN
             )
             $$
         );
-          ELSE
-            RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-          END IF;
-        END $cronguard$;
     END IF;
 END;
 $$;

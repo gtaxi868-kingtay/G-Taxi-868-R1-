@@ -20,12 +20,6 @@ END;
 $$;
 -- 2. NOTE FOR OPERATOR:
 -- To automate this, run the following in Supabase SQL Editor:
--- DO $cronguard$ BEGIN
-   IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-     PERFORM cron.schedule('driver-heartbeat-cleanup', '*/5 * * * *', 'SELECT public.cleanup_stale_drivers()');
-   ELSE
-     RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-   END IF;
- END $cronguard$;
+-- SELECT cron.schedule('driver-heartbeat-cleanup', '*/5 * * * *', 'SELECT public.cleanup_stale_drivers()');
 
 COMMIT;

@@ -539,18 +539,12 @@ $$;
 
 -- ── 11. pg_cron: daily driver eligibility refresh ────────────────────────
 
-DO $cronguard$ BEGIN
-  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.schedule(
-      'refresh-driver-lease-eligibility',
-      '0 6 * * *',
-      $$
-      SELECT public.refresh_driver_lease_eligibility(d.id)
-      FROM public.drivers d
-      WHERE d.status = 'active'
-      $$
-    );
-  ELSE
-    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-  END IF;
-END $cronguard$;
+SELECT cron.schedule(
+  'refresh-driver-lease-eligibility',
+  '0 6 * * *',
+  $$
+  SELECT public.refresh_driver_lease_eligibility(d.id)
+  FROM public.drivers d
+  WHERE d.status = 'active'
+  $$
+) ON CONFLICT DO NOTHING;

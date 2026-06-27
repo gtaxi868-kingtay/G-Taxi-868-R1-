@@ -24,9 +24,7 @@ BEGIN
 END;
 $$;
 
-DO $cronguard$ BEGIN
-  IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.schedule(
+SELECT cron.schedule(
   'audit-stripe-reconciliation',
   '0 4 * * *',
   $$
@@ -39,7 +37,3 @@ DO $cronguard$ BEGIN
   ) AS request_id;
   $$
 );
-  ELSE
-    RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-  END IF;
-END $cronguard$;

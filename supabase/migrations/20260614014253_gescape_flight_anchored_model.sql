@@ -561,27 +561,15 @@ GRANT EXECUTE ON FUNCTION public.admin_upsert_escape_package TO service_role, au
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        DO $cronguard$ BEGIN
-          IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            PERFORM cron.schedule(
+        PERFORM cron.schedule(
             'release-expired-escape-holds',
             '* * * * *',
-            $cron$SELECT public.release_expired_holds();
-          ELSE
-            RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-          END IF;
-        END $cronguard$;$cron$
+            $cron$SELECT public.release_expired_holds();$cron$
         );
-        DO $cronguard$ BEGIN
-          IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            PERFORM cron.schedule(
+        PERFORM cron.schedule(
             'check-escape-tipping-points',
             '0 6 * * *',
-            $cron$SELECT public.check_flight_tipping_points();
-          ELSE
-            RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
-          END IF;
-        END $cronguard$;$cron$
+            $cron$SELECT public.check_flight_tipping_points();$cron$
         );
     END IF;
 EXCEPTION WHEN OTHERS THEN
