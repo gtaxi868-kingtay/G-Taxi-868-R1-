@@ -17,11 +17,9 @@ jobs:
         if: always()
       - run: npm run typecheck
         if: always()
-      # Rider test suite has broad pre-existing breakage (shared import / mock drift).
-      # Kept running (advisory) so failures stay visible, but NON-blocking until the
-      # suite is repaired as a dedicated task — then remove continue-on-error.
+      # All app suites repaired and green (rider 42, driver 12, admin 2, merchant 2)
+      # — tests are now a hard gate again.
       - run: npm test
         if: always()
-        continue-on-error: true
       - run: npx turbo run build
         continue-on-error: true
