@@ -189,7 +189,7 @@ GRANT EXECUTE ON FUNCTION get_merchant_map_pins(DOUBLE PRECISION, DOUBLE PRECISI
 -- ── pg_cron: run billing daily at 06:00 UTC ──────────────────────────────────
 DO $$
 BEGIN
-    PERFORM cron.unschedule('merchant-daily-billing');
+    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'merchant-daily-billing';
 EXCEPTION WHEN OTHERS THEN NULL;
 END;
 $$;

@@ -21,7 +21,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
 
     -- ── sync_flight_availability: every 6 hours ────────────────
-    PERFORM cron.unschedule('sync-flight-availability-6h');
+    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'sync-flight-availability-6h';
     PERFORM cron.schedule(
       'sync-flight-availability-6h',
       '0 */6 * * *',
@@ -33,7 +33,7 @@ BEGIN
     );
 
     -- ── sync_lodging_availability: every 6 hours ───────────────
-    PERFORM cron.unschedule('sync-lodging-availability-6h');
+    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'sync-lodging-availability-6h';
     PERFORM cron.schedule(
       'sync-lodging-availability-6h',
       '0 */6 * * *',
@@ -45,7 +45,7 @@ BEGIN
     );
 
     -- ── auto_charge_escape_group: every 5 minutes ──────────────
-    PERFORM cron.unschedule('auto-charge-escape-group-5min');
+    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'auto-charge-escape-group-5min';
     PERFORM cron.schedule(
       'auto-charge-escape-group-5min',
       '*/5 * * * *',

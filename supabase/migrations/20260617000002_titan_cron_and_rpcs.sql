@@ -33,7 +33,7 @@ $$;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        PERFORM cron.unschedule('process-dispatch-queue-1min');
+        PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'process-dispatch-queue-1min';
         PERFORM cron.schedule(
             'process-dispatch-queue-1min',
             '* * * * *',
@@ -56,7 +56,7 @@ $$;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        PERFORM cron.unschedule('generate-b2b-invoices-monthly');
+        PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'generate-b2b-invoices-monthly';
         PERFORM cron.schedule(
             'generate-b2b-invoices-monthly',
             '0 0 1 * *',
