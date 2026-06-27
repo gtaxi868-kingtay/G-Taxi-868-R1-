@@ -23,7 +23,7 @@ BEGIN
     -- ── sync_flight_availability: every 6 hours ────────────────
     DO $cronguard$ BEGIN
       IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-        PERFORM cron.unschedule('sync-flight-availability-6h');
+        IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'sync-flight-availability-6h') THEN PERFORM cron.unschedule('sync-flight-availability-6h'); END IF;
       ELSE
         RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
       END IF;
@@ -47,7 +47,7 @@ BEGIN
     -- ── sync_lodging_availability: every 6 hours ───────────────
     DO $cronguard$ BEGIN
       IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-        PERFORM cron.unschedule('sync-lodging-availability-6h');
+        IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'sync-lodging-availability-6h') THEN PERFORM cron.unschedule('sync-lodging-availability-6h'); END IF;
       ELSE
         RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
       END IF;
@@ -71,7 +71,7 @@ BEGIN
     -- ── auto_charge_escape_group: every 5 minutes ──────────────
     DO $cronguard$ BEGIN
       IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-        PERFORM cron.unschedule('auto-charge-escape-group-5min');
+        IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'auto-charge-escape-group-5min') THEN PERFORM cron.unschedule('auto-charge-escape-group-5min'); END IF;
       ELSE
         RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
       END IF;

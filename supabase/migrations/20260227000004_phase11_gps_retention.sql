@@ -44,7 +44,7 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 -- but to be safe and idempotent, we drop it first.
 DO $cronguard$ BEGIN
   IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.unschedule('cleanup-driver-locations');
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'cleanup-driver-locations') THEN PERFORM cron.unschedule('cleanup-driver-locations'); END IF;
   ELSE
     RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
   END IF;
@@ -64,7 +64,7 @@ END $cronguard$;
 -- Function created in Phase 10 migration.
 DO $cronguard$ BEGIN
   IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-    PERFORM cron.unschedule('cleanup-rate-limit-log');
+    IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'cleanup-rate-limit-log') THEN PERFORM cron.unschedule('cleanup-rate-limit-log'); END IF;
   ELSE
     RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
   END IF;

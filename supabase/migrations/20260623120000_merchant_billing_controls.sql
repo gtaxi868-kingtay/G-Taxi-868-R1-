@@ -211,7 +211,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'charge-merchant-pin-fees') THEN
         DO $cronguard$ BEGIN
           IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-            PERFORM cron.unschedule('charge-merchant-pin-fees');
+            IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'charge-merchant-pin-fees') THEN PERFORM cron.unschedule('charge-merchant-pin-fees'); END IF;
           ELSE
             RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
           END IF;

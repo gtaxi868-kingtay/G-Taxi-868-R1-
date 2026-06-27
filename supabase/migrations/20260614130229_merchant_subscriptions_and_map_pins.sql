@@ -191,7 +191,7 @@ DO $$
 BEGIN
     DO $cronguard$ BEGIN
       IF current_setting('cron.database_name', true) IS NOT DISTINCT FROM current_database() THEN
-        PERFORM cron.unschedule('merchant-daily-billing');
+        IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'merchant-daily-billing') THEN PERFORM cron.unschedule('merchant-daily-billing'); END IF;
       ELSE
         RAISE NOTICE 'pg_cron not operational in % — skipping cron op', current_database();
       END IF;
