@@ -13,7 +13,7 @@ jest.mock('@gtaxi/design-system/utils/style-rules', () => ({ elevationGlow: () =
 describe('Merchant RegisterScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
-    const { getByText } = render(<RegisterScreen navigation={navigation as any} />);
-    expect(getByText(/Register/i)).toBeTruthy();
+    const { getAllByText } = render(<RegisterScreen navigation={navigation as any} />);
+    expect(getAllByText(/Register/i).length).toBeGreaterThan(0);
   });
 });
