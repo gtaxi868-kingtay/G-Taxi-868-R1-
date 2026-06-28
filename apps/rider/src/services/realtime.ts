@@ -115,7 +115,7 @@ export function useRideSubscription(rideId: string | null) {
                 } catch (err) {
                     console.log('[Poll] Fetch error:', err);
                 }
-            }, 3000); // Poll every 3 seconds
+            }, 20000); // Safety-net only — Realtime subscription above handles live updates. Slow poll catches anything missed if Realtime times out, without hammering the DB.
         };
 
         setupSubscription();
@@ -223,7 +223,7 @@ export function useDriverLocationSubscription(driverId: string | null) {
                 } catch (err) {
                     // Silently ignore polling errors
                 }
-            }, 2000); // Poll every 2 seconds for smooth map updates
+            }, 12000); // Safety-net only — Realtime UPDATE subscription above drives smooth live map movement. Slow poll is the fallback if Realtime times out.
         };
 
         setupSubscription();
