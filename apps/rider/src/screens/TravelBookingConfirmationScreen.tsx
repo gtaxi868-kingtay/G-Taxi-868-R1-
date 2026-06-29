@@ -39,7 +39,7 @@ export function TravelBookingConfirmationScreen({ route, navigation }: AppScreen
             <StatusBar style="light" />
 
             <LinearGradient
-                colors={['rgba(59,130,246,0.15)', 'transparent']}
+                colors={['rgba(29,224,230,0.15)', 'transparent']}
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
             />
@@ -72,7 +72,7 @@ export function TravelBookingConfirmationScreen({ route, navigation }: AppScreen
 
                 {airportTransferRideId && (
                     <View style={styles.transferNote}>
-                        <Ionicons name="information-circle-outline" size={16} color="#3B82F6" />
+                        <Ionicons name="information-circle-outline" size={16} color="#1DE0E6" />
                         <Text style={styles.transferNoteText}>
                             Your G-Taxi to Piarco Airport is scheduled. You'll be able to update the pickup address from My Bookings.
                         </Text>
@@ -121,15 +121,15 @@ const styles = StyleSheet.create({
     checkCircle: { width: 88, height: 88, borderRadius: 44, backgroundColor: '#22C55E', alignItems: 'center', justifyContent: 'center', marginBottom: 24, shadowColor: '#22C55E', shadowOpacity: 0.4, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } },
     title: { color: 'rgba(255,255,255,0.5)', fontSize: 16, marginBottom: 4 },
     packageTitle: { color: '#FFF', fontWeight: '800', fontSize: 24, textAlign: 'center', marginBottom: 28 },
-    countdownCard: { alignItems: 'center', backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: 24, paddingVertical: 20, paddingHorizontal: 40, borderWidth: 1, borderColor: 'rgba(59,130,246,0.2)', marginBottom: 24, width: '100%' },
-    countdownNum: { color: '#3B82F6', fontWeight: '900', fontSize: 48 },
+    countdownCard: { alignItems: 'center', backgroundColor: 'rgba(29,224,230,0.1)', borderRadius: 24, paddingVertical: 20, paddingHorizontal: 40, borderWidth: 1, borderColor: 'rgba(29,224,230,0.2)', marginBottom: 24, width: '100%' },
+    countdownNum: { color: '#1DE0E6', fontWeight: '900', fontSize: 48 },
     countdownLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 14, marginTop: -4 },
     countdownDate: { color: '#FFF', fontWeight: '600', fontSize: 14, marginTop: 6 },
     summaryCard: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', width: '100%', overflow: 'hidden', marginBottom: 16 },
-    transferNote: { flexDirection: 'row', gap: 8, backgroundColor: 'rgba(59,130,246,0.08)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(59,130,246,0.15)' },
+    transferNote: { flexDirection: 'row', gap: 8, backgroundColor: 'rgba(29,224,230,0.08)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(29,224,230,0.15)' },
     transferNoteText: { color: 'rgba(255,255,255,0.5)', fontSize: 12, flex: 1, lineHeight: 18 },
     actions: { paddingHorizontal: 24, gap: 10 },
-    myBookingsBtn: { backgroundColor: '#3B82F6', borderRadius: 20, alignItems: 'center', paddingVertical: 16 },
+    myBookingsBtn: { backgroundColor: '#8B5CF6', borderRadius: 20, alignItems: 'center', paddingVertical: 16 },
     myBookingsBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
     homeBtn: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 20, alignItems: 'center', paddingVertical: 16 },
     homeBtnText: { color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 15 },

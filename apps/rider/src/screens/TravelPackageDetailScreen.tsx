@@ -168,7 +168,7 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
     if (loading) {
         return (
             <View style={[styles.root, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center' }]}>
-                <ActivityIndicator size="large" color="#3B82F6" />
+                <ActivityIndicator size="large" color="#1DE0E6" />
             </View>
         );
     }
@@ -182,7 +182,7 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
                 </Text>
                 <TouchableOpacity
                     onPress={fetchPkg}
-                    style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#3B82F6', borderRadius: 12 }}
+                    style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#8B5CF6', borderRadius: 12 }}
                 >
                     <Text style={{ color: '#FFF', fontWeight: '700' }}>Try Again</Text>
                 </TouchableOpacity>
@@ -212,13 +212,13 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
             <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 120 }]}>
                 {/* Title card */}
                 <LinearGradient
-                    colors={['rgba(59,130,246,0.2)', 'rgba(59,130,246,0.05)']}
+                    colors={['rgba(29,224,230,0.2)', 'rgba(29,224,230,0.05)']}
                     style={styles.titleCard}
                 >
                     <Text style={styles.title}>{pkg.title}</Text>
                     <Text style={styles.destination}>{pkg.destination_name}</Text>
                     <View style={styles.departurePill}>
-                        <Ionicons name="calendar-outline" size={14} color="#3B82F6" />
+                        <Ionicons name="calendar-outline" size={14} color="#1DE0E6" />
                         <Text style={styles.departureText}>Departs {fmtDate(pkg.departure_at)}</Text>
                     </View>
                     <Text style={styles.seatsLeft}>{pkg.seats_remaining} seats remaining</Text>
@@ -378,11 +378,11 @@ const styles = StyleSheet.create({
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { color: 'rgba(255,255,255,0.6)', fontWeight: '700', fontSize: 16 },
     scroll: { paddingTop: 8 },
-    titleCard: { marginHorizontal: 20, borderRadius: 24, padding: 24, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(59,130,246,0.2)' },
+    titleCard: { marginHorizontal: 20, borderRadius: 24, padding: 24, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(29,224,230,0.2)' },
     title: { color: '#FFF', fontWeight: '800', fontSize: 22 },
     destination: { color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 4 },
-    departurePill: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, backgroundColor: 'rgba(59,130,246,0.12)', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
-    departureText: { color: '#3B82F6', fontSize: 13, fontWeight: '600' },
+    departurePill: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, backgroundColor: 'rgba(29,224,230,0.12)', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
+    departureText: { color: '#1DE0E6', fontSize: 13, fontWeight: '600' },
     seatsLeft: { color: 'rgba(255,255,255,0.35)', fontSize: 13, marginTop: 8 },
     section: { marginBottom: 20, paddingHorizontal: 20 },
     sectionTitle: { color: 'rgba(255,255,255,0.3)', fontWeight: '700', fontSize: 11, letterSpacing: 2, marginBottom: 8 },
@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     ctaBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 20, backgroundColor: 'rgba(10,10,15,0.95)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
     ctaLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
     ctaPrice: { color: '#FFF', fontWeight: '800', fontSize: 22 },
-    ctaBtn: { backgroundColor: '#3B82F6', borderRadius: 20, paddingHorizontal: 32, paddingVertical: 16 },
+    ctaBtn: { backgroundColor: '#8B5CF6', borderRadius: 20, paddingHorizontal: 32, paddingVertical: 16 },
     ctaBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16 },
     experienceCard: { borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(200,169,110,0.2)' },
     experienceTagline: { color: '#C8A96E', fontWeight: '700', fontSize: 17, fontStyle: 'italic', marginBottom: 16, lineHeight: 24 },
