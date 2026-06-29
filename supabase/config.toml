@@ -33,9 +33,6 @@ verify_jwt = true
 [functions.nfc_event_handler]
 verify_jwt = true
 
-[functions.concierge_dispatch]
-verify_jwt = true
-
 [functions.merchant_gateway]
 verify_jwt = false
 
@@ -52,9 +49,6 @@ import_map = "./functions/update_ride_status/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/update_ride_status/index.ts"
-
-[functions.whatsapp_webhook]
-verify_jwt = false
 
 [functions.stripe_webhook]
 verify_jwt = false
