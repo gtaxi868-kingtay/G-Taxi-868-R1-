@@ -86,6 +86,60 @@ Deno.serve(async (req: Request) => {
     return serveHtml("Processing", "Payout is being processed...", "info");
   }
 
+  // ── G-ESCAPE CALLBACK ──────────────────────────────────────
+  if (orderId.startsWith("gescape-")) {
+    const reservationId = orderId.split("-").slice(2).join("-");
+    if (!reservationId) {
+      return serveHtml("Error", "Invalid order_id format", "error");
+    }
+
+    const { data: session } = await supabaseAdmin
+      .from("wipay_sessions")
+      .select("*")
+      .eq("order_id", orderId)
+      .maybeSingle();
+
+    if (status === "success" || status === "completed") {
+      const { error: captureErr } = await supabaseAdmin
+        .rpc("capture_escape_wipay_payment", {
+          p_reservation_id: reservationId,
+          p_wipay_transaction_id: txnId || null,
+        });
+
+      if (captureErr) {
+        console.error("[WiPay Webhook] escape capture error:", captureErr);
+        return serveHtml("Error", "Failed to capture payment. Contact support.", "error");
+      }
+
+      if (session) {
+        await supabaseAdmin
+          .from("wipay_sessions")
+          .update({ status: "completed", transaction_id: txnId || null })
+          .eq("id", session.id);
+      }
+
+      console.log("[WiPay Webhook] G-Escape payment captured:", { reservation_id: reservationId, transaction_id: txnId });
+      return serveHtml("Escape Booked!", "Your G-Escape package is confirmed. You can close this window.", "success");
+    }
+
+    if (status === "cancelled" || status === "failed" || errorMsg) {
+      await supabaseAdmin.rpc("release_single_reservation", { p_reservation_id: reservationId })
+        .catch(() => {});
+
+      if (session) {
+        await supabaseAdmin
+          .from("wipay_sessions")
+          .update({ status: "failed", error_message: errorMsg || `Status: ${status}` })
+          .eq("id", session.id);
+      }
+
+      console.error("[WiPay Webhook] G-Escape payment failed:", { order_id: orderId, status, error: errorMsg });
+      return serveHtml("Payment Failed", errorMsg || `Payment was not completed. Your hold has been released.`, "error");
+    }
+
+    return serveHtml("Processing", "Escape booking is being processed...", "info");
+  }
+
   // ── PAYMENT SESSION CALLBACK (ride/grocery) ────────────────
   let rideId: string | null = null;
   let userId: string | null = null;
@@ -103,7 +157,7 @@ Deno.serve(async (req: Request) => {
     .from("wipay_sessions")
     .select("*")
     .eq("order_id", orderId)
-    .single();
+    .maybeSingle();
 
   if (!rideId && session?.ride_id) {
     rideId = session.ride_id;

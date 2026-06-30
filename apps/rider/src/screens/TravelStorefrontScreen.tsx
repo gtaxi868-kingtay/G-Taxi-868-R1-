@@ -26,7 +26,7 @@ const DEST_COLORS: Record<string, [string, string]> = {
     GND: ['#10B981', '#047857'],
     ANU: ['#F59E0B', '#B45309'],
     SKB: ['#EC4899', '#BE185D'],
-    DEFAULT: ['#3B82F6', '#1D4ED8'],
+    DEFAULT: ['#1A0533', '#0D1B4B'],
 };
 
 function fmtPrice(cents: number) {
@@ -162,7 +162,7 @@ export function TravelStorefrontScreen({ navigation }: AppScreenProps<'TravelSto
                     onPress={() => navigation.navigate('TravelMyBookings')}
                     style={styles.myBookingsBtn}
                 >
-                    <Ionicons name="receipt-outline" size={20} color="#3B82F6" />
+                    <Ionicons name="receipt-outline" size={20} color="#1DE0E6" />
                 </TouchableOpacity>
             </View>
 
@@ -191,7 +191,7 @@ export function TravelStorefrontScreen({ navigation }: AppScreenProps<'TravelSto
 
             {loading ? (
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#3B82F6" />
+                    <ActivityIndicator size="large" color="#1DE0E6" />
                 </View>
             ) : error ? (
                 <View style={styles.center}>
@@ -224,13 +224,13 @@ export function TravelStorefrontScreen({ navigation }: AppScreenProps<'TravelSto
                     keyExtractor={i => i.id}
                     renderItem={renderPackage}
                     contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 32 }]}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" />}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1DE0E6" />}
                     ListFooterComponent={
                         <TouchableOpacity
                             style={styles.waitlistFooter}
                             onPress={() => navigation.navigate('TravelWaitlist')}
                         >
-                            <Ionicons name="notifications-outline" size={16} color="#3B82F6" />
+                            <Ionicons name="notifications-outline" size={16} color="#1DE0E6" />
                             <Text style={styles.waitlistFooterText}>Get notified about new destinations</Text>
                         </TouchableOpacity>
                     }
@@ -246,20 +246,20 @@ const styles = StyleSheet.create({
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20 },
     headerSub: { color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 1 },
-    myBookingsBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(59,130,246,0.12)', alignItems: 'center', justifyContent: 'center' },
+    myBookingsBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(29,224,230,0.12)', alignItems: 'center', justifyContent: 'center' },
 
     chipsScroll: { flexGrow: 0 },
     chips: { paddingHorizontal: 20, gap: 8, paddingBottom: 16 },
     chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-    chipActive: { backgroundColor: 'rgba(59,130,246,0.2)', borderColor: '#3B82F6' },
+    chipActive: { backgroundColor: 'rgba(29,224,230,0.2)', borderColor: '#1DE0E6' },
     chipText: { color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 13 },
-    chipTextActive: { color: '#3B82F6' },
+    chipTextActive: { color: '#1DE0E6' },
 
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
     emptyTitle: { color: '#FFF', fontWeight: '700', fontSize: 18, textAlign: 'center' },
     emptySub: { color: 'rgba(255,255,255,0.4)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
-    waitlistBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 99, backgroundColor: 'rgba(59,130,246,0.15)', borderWidth: 1, borderColor: '#3B82F6' },
-    waitlistBtnText: { color: '#3B82F6', fontWeight: '700' },
+    waitlistBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 99, backgroundColor: 'rgba(29,224,230,0.15)', borderWidth: 1, borderColor: '#1DE0E6' },
+    waitlistBtnText: { color: '#1DE0E6', fontWeight: '700' },
 
     list: { padding: 20, gap: 16 },
     card: { borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
@@ -280,5 +280,5 @@ const styles = StyleSheet.create({
     price: { color: '#FFF', fontWeight: '800', fontSize: 22 },
 
     waitlistFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8, padding: 16 },
-    waitlistFooterText: { color: '#3B82F6', fontSize: 14, fontWeight: '600' },
+    waitlistFooterText: { color: '#1DE0E6', fontSize: 14, fontWeight: '600' },
 });

@@ -165,7 +165,7 @@ export function TravelPackages() {
         };
         if (form.id) body.id = form.id;
 
-        const { data, error: fnError } = await supabase.functions.invoke('admin', { body: { action: 'upsert_travel_package', sub_action: body.action, ...body, action: 'upsert_travel_package' } });
+        const { data, error: fnError } = await supabase.functions.invoke('admin', { body: { sub_action: body.action, ...body, action: 'upsert_travel_package' } });
         if (fnError || data?.error) {
             setError(fnError?.message || data?.error || 'Save failed');
         } else {

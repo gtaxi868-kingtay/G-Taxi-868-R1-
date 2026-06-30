@@ -1,0 +1,15 @@
+-- Restore pg_net (applied to live DB ffbbuafgeypvkpcuvdnv on 2026-06-24).
+--
+-- pg_net had been dropped entirely (pg_extension had no row; no http_post fn).
+-- Every pg_cron job that calls net.http_post was therefore failing 100% with
+-- "ERROR: schema \"net\" does not exist", silently taking down the whole async
+-- layer since ~2026-06-13:
+--   * process-dispatch-queue-1min   (orders not auto-dispatched)
+--   * process-event-queue           (event queue not draining)
+--   * platform_intelligence         (AI agent never ran)
+--   * auto-charge-escape-group-5min (escape group charges never fired)
+--   * process-settlement-grace      (settlements stalled)
+--
+-- Recreating the extension restores the net.* API the cron commands reference.
+-- Verified: jobs flipped from failed -> succeeded on the next tick.
+CREATE EXTENSION IF NOT EXISTS pg_net;

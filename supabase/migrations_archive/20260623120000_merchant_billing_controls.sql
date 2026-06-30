@@ -209,7 +209,7 @@ GRANT EXECUTE ON FUNCTION public.admin_get_merchant_billing_overview() TO authen
 DO $cron$
 BEGIN
     IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'charge-merchant-pin-fees') THEN
-        PERFORM cron.unschedule('charge-merchant-pin-fees');
+        PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'charge-merchant-pin-fees';
     END IF;
 END
 $cron$;

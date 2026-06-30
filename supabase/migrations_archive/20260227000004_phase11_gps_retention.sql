@@ -42,7 +42,7 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 -- Schedule driver locations cleanup (Runs daily at 3:00 AM UTC)
 -- Note: 'cron.schedule' does an UPSERT based on job name in recent pg_cron versions,
 -- but to be safe and idempotent, we drop it first.
-SELECT cron.unschedule('cleanup-driver-locations');
+SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'cleanup-driver-locations';
 SELECT cron.schedule(
     'cleanup-driver-locations',
     '0 3 * * *',
@@ -50,7 +50,7 @@ SELECT cron.schedule(
 );
 -- Schedule rate limit log cleanup (Runs every hour at minute 0)
 -- Function created in Phase 10 migration.
-SELECT cron.unschedule('cleanup-rate-limit-log');
+SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'cleanup-rate-limit-log';
 SELECT cron.schedule(
     'cleanup-rate-limit-log',
     '0 * * * *',

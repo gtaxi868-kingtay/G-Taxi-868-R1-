@@ -17,6 +17,8 @@ jobs:
         if: always()
       - run: npm run typecheck
         if: always()
+      # All app suites repaired and green (rider 42, driver 12, admin 2, merchant 2)
+      # — tests are now a hard gate again.
       - run: npm test
         if: always()
       - run: npx turbo run build

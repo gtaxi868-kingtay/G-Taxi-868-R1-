@@ -67,7 +67,8 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
     // P0: Zero Unverified Addresses — load verified pins near current location
     const loadNearbyPins = async () => {
         try {
-            const loc = currentLocation || (await import('expo-location')).getCurrentPositionAsync?.({});
+            const mod = await import('expo-location');
+            const loc = currentLocation || (await mod.getCurrentPositionAsync?.({}));
             if (!loc) return;
             const lat = 'latitude' in loc ? loc.latitude : loc.coords?.latitude;
             const lng = 'longitude' in loc ? loc.longitude : loc.coords?.longitude;
