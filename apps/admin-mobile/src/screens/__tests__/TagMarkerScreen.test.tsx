@@ -2,7 +2,6 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { TagMarkerScreen } from '../TagMarkerScreen';
 
-jest.mock('@gtaxi/core', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ single: jest.fn() }), maybeSingle: jest.fn() }), insert: () => ({ single: jest.fn() }) }), functions: { invoke: jest.fn() } }, ENV: {} }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'admin-1' } }) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));

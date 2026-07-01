@@ -50,6 +50,32 @@ export const ANIMATION = {
   spring: { damping: 18, stiffness: 150, mass: 1 },
 };
 
+// RIDER "LUXE COOL" language (approved 2026-06-30) — sleek, cool, alluring, glass-tech,
+// logo-aligned (violet↔cyan glass over circuitry). See [[project_brand_palette]] memory.
+// Rule: the `signature` gradient is a LIT EDGE used ONCE per screen (hairline / route /
+// selection), never a fill. Money/values render in `platinum`. Display type is the serif.
+export const LUXE = {
+  base: '#07070F',            // violet-black canvas
+  ink: '#05060B',             // deeper well (behind glass)
+  ice: '#EAF3F6',             // cool white (replaces pure #FFF)
+  iceMuted: 'rgba(234,243,246,0.55)',
+  iceFaint: 'rgba(234,243,246,0.40)',
+  iceGhost: 'rgba(234,243,246,0.72)',
+  platinum: '#CBD6DE',        // cool metallic — prices, fares, balances
+  violet: '#6D28D9',
+  cyan: '#34E6EC',
+  cyanBright: '#5BF0F5',
+  signature: ['#6D28D9', '#34E6EC'] as [string, string], // lit edge, once per screen
+  ctaWash: ['rgba(109,40,217,0.26)', 'rgba(52,230,236,0.13)'] as [string, string],
+  glassFill: 'rgba(255,255,255,0.045)',
+  glassBorder: 'rgba(255,255,255,0.10)',
+  hairline: 'rgba(255,255,255,0.06)',
+  serif: 'CormorantGaramond_500Medium',
+  serifSemi: 'CormorantGaramond_600SemiBold',
+  tracking: { micro: 2, wide: 2.5 },
+  glow: { shadowColor: '#34E6EC', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 18 },
+} as const;
+
 // Semantic z-index scale — use these across all apps instead of arbitrary magic numbers.
 // Layers are: map content → overlays → panels → modals → banners/toasts
 export const Z = {
@@ -66,23 +92,34 @@ export const Z = {
 
 export const VOICES = {
   rider: {
-    bg: '#0B0E12',
-    surface: 'rgba(255,255,255,0.04)',
-    text: '#F2F5F8',
-    textMuted: 'rgba(242,245,248,0.68)',
+    bg: '#07070F',
+    surface: 'rgba(255,255,255,0.045)',
+    text: '#EAF3F6',
+    textMuted: 'rgba(234,243,246,0.55)',
     border: 'rgba(255, 255, 255, 0.10)',
-    accent: '#1DE0E6',
-    accentDark: '#0A9CA6',
+    accent: '#34E6EC',
+    accentDark: '#0F9CA6',
+    violet: '#6D28D9',
+    platinum: '#CBD6DE',
+    serif: 'CormorantGaramond_500Medium',
+    serifSemi: 'CormorantGaramond_600SemiBold',
   },
+  // DRIVER "Luxe" voice — the earner's identity: cool graphite base, ice text,
+  // GOLD as the metal (earnings/values), electric cyan accent, cyan→gold lit signature.
+  // Distinct from rider (violet→cyan + platinum) while sharing the serif + glass system.
   driver: {
-    bg: '#0B0E12',
-    surface: '#13171D',
-    surfaceHigh: 'rgba(19, 23, 29, 0.8)',
-    text: '#F2F5F8',
-    textMuted: 'rgba(242,245,248,0.68)',
-    gold: '#F59E0B',
-    accent: '#8B5CF6',
-    accentDark: '#7C3AED',
+    bg: '#08090D',
+    surface: '#0F1218',
+    surfaceHigh: 'rgba(255,255,255,0.06)',
+    text: '#EAF3F6',
+    textMuted: 'rgba(234,243,246,0.55)',
+    gold: '#E6B450',
+    goldBright: '#F4CE77',
+    accent: '#34E6EC',
+    accentDark: '#0F9CA6',
+    signature: ['#34E6EC', '#E6B450'] as [string, string],
+    serif: 'CormorantGaramond_500Medium',
+    serifSemi: 'CormorantGaramond_600SemiBold',
   },
   admin: {
     bg: '#0F172A',

@@ -11,9 +11,9 @@ import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rul
 import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
 
-const FOOD_ORANGE = '#F97316';
+const FOOD_ORANGE = '#E6B450';
 const SUCCESS = '#10B981';
-const WARNING = '#F59E0B';
+const WARNING = '#E6B450';
 const ERROR = '#EF4444';
 
 type DeliveryStep = 'en_route_pickup' | 'picked_up' | 'en_route_dropoff' | 'delivered';
@@ -159,8 +159,8 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
                             i > currentIdx && { backgroundColor: 'transparent' },
                         ]}>
                             {i < currentIdx
-                                ? <Ionicons name="checkmark" size={10} color="#FFF" />
-                                : <Text style={[s.progressNum, i <= currentIdx && { color: '#FFF' }]}>{i + 1}</Text>
+                                ? <Ionicons name="checkmark" size={10} color="#EAF3F6" />
+                                : <Text style={[s.progressNum, i <= currentIdx && { color: '#EAF3F6' }]}>{i + 1}</Text>
                             }
                         </View>
                         {i < STEPS.length - 1 && (
@@ -234,7 +234,7 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                         >
-                            <Ionicons name={nextStepData.icon as any} size={22} color="#FFF" />
+                            <Ionicons name={nextStepData.icon as any} size={22} color="#EAF3F6" />
                             <Text style={s.advanceText}>{nextStepData.label}</Text>
                         </LinearGradient>
                     </TouchableOpacity>
@@ -264,11 +264,11 @@ const s = StyleSheet.create({
     infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     infoIconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     infoLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1, fontFamily: 'SpaceGrotesk-Bold', marginBottom: 4 },
-    infoValue: { fontSize: 15, fontWeight: '700', color: '#FFF', fontFamily: 'Manrope-Medium' },
+    infoValue: { fontSize: 15, fontWeight: '700', color: '#EAF3F6', fontFamily: 'Manrope-Medium' },
     infoSub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: 'Manrope-Medium', marginTop: 2 },
     callBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: SUCCESS + '15', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.2) },
     footer: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: SURFACE.base },
     advanceBtn: { borderRadius: 18, overflow: 'hidden', ...elevationGlow(8) },
     advanceGradient: { height: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-    advanceText: { fontSize: 16, fontWeight: '800', color: '#FFF', letterSpacing: 0.5, fontFamily: 'SpaceGrotesk-Bold' },
+    advanceText: { fontSize: 16, fontWeight: '800', color: '#EAF3F6', letterSpacing: 0.5, fontFamily: 'SpaceGrotesk-Bold' },
 });

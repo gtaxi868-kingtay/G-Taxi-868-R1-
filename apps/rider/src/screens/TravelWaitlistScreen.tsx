@@ -98,7 +98,7 @@ export function TravelWaitlistScreen({ navigation }: AppScreenProps<'TravelWaitl
 
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
                 <View style={{ marginLeft: 12 }}>
                     <Text style={styles.headerTitle}>Destination Wishlist</Text>
@@ -126,7 +126,7 @@ export function TravelWaitlistScreen({ navigation }: AppScreenProps<'TravelWaitl
                                 <Text style={styles.destDesc}>{d.desc}</Text>
                             </View>
                             <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-                                {isSelected && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                                {isSelected && <Ionicons name="checkmark" size={14} color="#EAF3F6" />}
                             </View>
                         </TouchableOpacity>
                     );
@@ -140,7 +140,7 @@ export function TravelWaitlistScreen({ navigation }: AppScreenProps<'TravelWaitl
                     disabled={saving}
                 >
                     {saving
-                        ? <ActivityIndicator size="small" color="#FFF" />
+                        ? <ActivityIndicator size="small" color="#EAF3F6" />
                         : <Text style={styles.saveBtnText}>
                             Save {selected.size > 0 ? `(${selected.size} destination${selected.size > 1 ? 's' : ''})` : ''}
                           </Text>
@@ -152,21 +152,21 @@ export function TravelWaitlistScreen({ navigation }: AppScreenProps<'TravelWaitl
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0A0F' },
+    root: { flex: 1, backgroundColor: '#07070F' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 8 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20 },
+    headerTitle: { color: '#EAF3F6', fontWeight: '800', fontSize: 20 },
     headerSub: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 1 },
     scroll: { padding: 20, gap: 12 },
     intro: { color: 'rgba(255,255,255,0.4)', fontSize: 14, lineHeight: 20, marginBottom: 8 },
     destCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-    destCardSelected: { backgroundColor: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.3)' },
+    destCardSelected: { backgroundColor: 'rgba(52,230,236,0.1)', borderColor: 'rgba(52,230,236,0.3)' },
     emoji: { fontSize: 28 },
-    destLabel: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+    destLabel: { color: '#EAF3F6', fontWeight: '700', fontSize: 16 },
     destDesc: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 },
     checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-    checkboxSelected: { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
+    checkboxSelected: { backgroundColor: '#6D28D9', borderColor: '#6D28D9' },
     ctaBar: { paddingHorizontal: 20, paddingTop: 16, backgroundColor: 'rgba(10,10,15,0.95)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
-    saveBtn: { backgroundColor: '#3B82F6', borderRadius: 20, paddingVertical: 16, alignItems: 'center' },
-    saveBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+    saveBtn: { backgroundColor: '#6D28D9', borderRadius: 20, paddingVertical: 16, alignItems: 'center' },
+    saveBtnText: { color: '#EAF3F6', fontWeight: '700', fontSize: 16 },
 });

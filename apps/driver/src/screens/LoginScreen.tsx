@@ -207,7 +207,7 @@ const s = StyleSheet.create({
         ...ghostBorder(0.15),
     },
     passwordWrap: { flexDirection: 'row', alignItems: 'center' },
-    input: { flex: 1, color: '#FFF', fontSize: 16, fontWeight: '600', fontFamily: 'Manrope-Medium' },
+    input: { flex: 1, color: '#EAF3F6', fontSize: 16, fontWeight: '600', fontFamily: 'Manrope-Medium' },
     loginBtn: {
         height: 60,
         backgroundColor: VOICES.driver.accent,

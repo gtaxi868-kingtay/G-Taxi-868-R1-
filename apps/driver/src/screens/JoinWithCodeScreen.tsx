@@ -119,9 +119,9 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
                 <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20 }]} showsVerticalScrollIndicator={false}>
                     <View style={s.headerRow}>
                         <TouchableOpacity style={s.backBtn} onPress={goBack}>
-                            <Ionicons name="chevron-back" size={24} color="#FFF" />
+                            <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                         </TouchableOpacity>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF' }}>Join with a Code</Text>
+                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#EAF3F6' }}>Join with a Code</Text>
                         <View style={{ width: 44 }} />
                     </View>
 
@@ -130,7 +130,7 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
                             <Ionicons name="shield-checkmark" size={20} color={VOICES.driver.accent} />
                             <Text style={s.badgeText}>G-LEAD RECRUIT</Text>
                         </View>
-                        <Text style={[s.title, { fontSize: 22, fontWeight: '800', color: '#FFF' }]}>
+                        <Text style={[s.title, { fontSize: 22, fontWeight: '800', color: '#EAF3F6' }]}>
                             Join your local territory
                         </Text>
                         <Text style={s.subtitle}>
@@ -157,13 +157,13 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
                                         setVehicleType(type);
                                     }}
                                 >
-                                    <Text style={{ fontSize: 14, fontWeight: '600', color: vehicleType === type ? '#FFF' : 'rgba(255,255,255,0.6)' }}>{type}</Text>
+                                    <Text style={{ fontSize: 14, fontWeight: '600', color: vehicleType === type ? '#EAF3F6' : 'rgba(255,255,255,0.6)' }}>{type}</Text>
                                 </TouchableOpacity>
                             ))}
                         </View>
 
                         <TouchableOpacity style={[s.primaryBtn, loading && s.disabled]} onPress={handleJoin} disabled={loading}>
-                            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF' }}>Join Territory</Text>}
+                            {loading ? <ActivityIndicator color="#EAF3F6" /> : <Text style={{ fontSize: 16, fontWeight: '700', color: '#EAF3F6' }}>Join Territory</Text>}
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
@@ -183,7 +183,7 @@ const s = StyleSheet.create({
     title: { marginBottom: 10, letterSpacing: -1 },
     subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 20, marginBottom: 28 },
     inputWrap: { height: 64, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginBottom: 16, ...ghostBorder(0.15) },
-    input: { flex: 1, color: '#FFF', fontSize: 16 },
+    input: { flex: 1, color: '#EAF3F6', fontSize: 16 },
     label: { marginTop: 8, marginBottom: 12, marginLeft: 4, letterSpacing: 1, fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)' },
     typeSelector: { flexDirection: 'row', gap: 10, marginBottom: 32 },
     typePill: { flex: 1, height: 50, borderRadius: 15, ...ghostBorder(0.15), alignItems: 'center', justifyContent: 'center' },

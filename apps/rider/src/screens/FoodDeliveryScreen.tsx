@@ -388,7 +388,7 @@ const s = StyleSheet.create({
     },
     headerTitle: {
         flex: 1,
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 20,
         fontWeight: '600',
     },
@@ -422,7 +422,7 @@ const s = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 14,
         height: 42,
     },
@@ -530,7 +530,7 @@ const s = StyleSheet.create({
         marginBottom: 3,
     },
     cardName: {
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 15,
         fontWeight: '600',
         flex: 1,

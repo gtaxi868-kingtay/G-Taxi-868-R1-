@@ -19,8 +19,8 @@
     "orphans": "knip",
     "orphans:files": "knip --include files",
     "lint:strict": "npm run lint && npm run typecheck",
-    "typecheck": "npm --workspace apps/rider run typecheck && npm --workspace apps/driver run typecheck && npm --workspace apps/admin run typecheck && npm --workspace apps/merchant run typecheck",
-    "test": "npm --workspace apps/rider run test && npm --workspace apps/driver run test && npm --workspace apps/admin run test && npm --workspace apps/merchant run test",
+    "typecheck": "npm --workspace apps/rider run typecheck && npm --workspace apps/driver run typecheck && npm --workspace apps/admin run typecheck && npm --workspace apps/merchant run typecheck && npm --workspace apps/merchant-mobile run typecheck && npm --workspace apps/admin-mobile run typecheck",
+    "test": "npm --workspace apps/rider run test && npm --workspace apps/driver run test && npm --workspace apps/admin run test && npm --workspace apps/merchant run test && npm --workspace apps/merchant-mobile run test && npm --workspace apps/admin-mobile run test",
     "turbo:build": "npx turbo run build",
     "format": "prettier --write \"apps/**/*.{ts,tsx,js,jsx}\" \"packages/**/*.{ts,tsx,js,jsx}\" \"supabase/functions/**/*.ts\"",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,js,jsx}\" \"packages/**/*.{ts,tsx,js,jsx}\" \"supabase/functions/**/*.ts\"",
@@ -29,6 +29,7 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "expo": "~52.0.49",
     "react": "18.3.1",
     "react-dom": "18.3.1",

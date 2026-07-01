@@ -24,7 +24,7 @@ const R = {
     purple: VOICES.rider.accent,
     purpleLight: CYAN,
     gold: '#F59E0B',
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: 'rgba(255,255,255,0.7)',
 };
 
@@ -92,9 +92,9 @@ export function PromoScreen({ navigation }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Promotions</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Promotions</Txt>
             </View>
 
             <KeyboardAvoidingView
@@ -113,11 +113,11 @@ export function PromoScreen({ navigation }: any) {
                         autoCapitalize="characters"
                     />
                     <TouchableOpacity style={s.applyBtn} onPress={handleApply} disabled={loading || !code}>
-                        {loading ? <ActivityIndicator color="#FFF" /> : <Txt variant="bodyBold" color="#FFF">Apply</Txt>}
+                        {loading ? <ActivityIndicator color="#EAF3F6" /> : <Txt variant="bodyBold" color="#EAF3F6">Apply</Txt>}
                     </TouchableOpacity>
                 </View>
 
-                <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 20 }}>Available Offers</Txt>
+                <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 20 }}>Available Offers</Txt>
 
                 {promos.length === 0 ? (
                     <View style={s.empty}>
@@ -133,7 +133,7 @@ export function PromoScreen({ navigation }: any) {
                             <View style={s.promoContent}>
                                 <View style={s.promoTop}>
                                     <View style={{ flex: 1 }}>
-                                        <Txt variant="headingM" weight="heavy" color="#FFF">{p.code}</Txt>
+                                        <Txt variant="headingM" weight="heavy" color="#EAF3F6">{p.code}</Txt>
                                         <Txt variant="small" color={R.muted} style={{ marginTop: 4 }}>{p.description}</Txt>
                                     </View>
                                     <View style={s.discountBadge}>
@@ -165,7 +165,7 @@ const s = StyleSheet.create({
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
 
     inputCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, padding: 8, marginBottom: 32, ...ghostBorder(0.05), overflow: 'hidden' },
-    input: { flex: 1, height: 56, color: '#FFF', paddingHorizontal: 20, fontSize: 16, fontWeight: '700', letterSpacing: 2 },
+    input: { flex: 1, height: 56, color: '#EAF3F6', paddingHorizontal: 20, fontSize: 16, fontWeight: '700', letterSpacing: 2 },
     applyBtn: { paddingHorizontal: 24, height: 56, borderRadius: 18, backgroundColor: VOICES.rider.accent, alignItems: 'center', justifyContent: 'center' },
 
     promoCard: { borderRadius: 32, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)', marginBottom: 16, ...ghostBorder(0.05) },

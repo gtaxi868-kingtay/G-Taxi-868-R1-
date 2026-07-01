@@ -2,7 +2,8 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { ScheduledRidesScreen } from '../ScheduledRidesScreen';
 
-jest.mock('@gtaxi/core', () => ({ supabase: { channel: () => ({ on: () => ({ subscribe: jest.fn() }) }), from: () => ({ select: () => ({ eq: () => ({ order: () => ({ limit: () => ({ data: null }) }) }) }) }) } }));
+// @gtaxi/core mocked completely in jest.setup.js (chainable builder)
+jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ driver: { id: 'test-driver' } }) }));
 
 describe('ScheduledRidesScreen', () => {
   it('renders without crashing', () => {

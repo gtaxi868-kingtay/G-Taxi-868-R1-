@@ -39,7 +39,7 @@ const LEVEL_META: Record<number, { label: string; icon: string; gradient: [strin
     2: { label: 'Regular', icon: 'bicycle-outline', gradient: ['#4A6741', '#2D4A26'] },
     3: { label: 'Loyal', icon: 'star-outline', gradient: ['#6B4E8A', '#3D2A5A'] },
     4: { label: 'Elite', icon: 'shield-checkmark-outline', gradient: ['#8A6E2A', '#5A4A1A'] },
-    5: { label: 'G-Member Eligible', icon: 'diamond-outline', gradient: ['#D4AF37', '#8A6E2A'] },
+    5: { label: 'G-Member Eligible', icon: 'diamond-outline', gradient: ['#CBD6DE', '#8A6E2A'] },
 };
 
 const PERK_ICONS: Record<string, string> = {
@@ -169,7 +169,7 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
             <StatusBar style="light" />
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>G-Level</Text>
                 <View style={{ width: 44 }} />
@@ -227,7 +227,7 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                                         end={{ x: 1, y: 1 }}
                                     />
                                     <View style={s.stepHead}>
-                                        <View style={[s.stepIcon, isUnlocked && { backgroundColor: '#FFF' }]}>
+                                        <View style={[s.stepIcon, isUnlocked && { backgroundColor: '#EAF3F6' }]}>
                                             <Ionicons
                                                 name={(isUnlocked ? PERK_ICONS[cfg?.unlock_vertical ?? ''] : 'lock-closed') as any}
                                                 size={18}
@@ -277,14 +277,14 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                     {currentLevel >= 5 && (
                         <View style={s.gMemberCard}>
                             <LinearGradient
-                                colors={isGMember ? ['#D4AF37', '#8A6E2A'] : ['#2A2F3A', '#1A1F27']}
+                                colors={isGMember ? ['#CBD6DE', '#8A6E2A'] : ['#2A2F3A', '#1A1F27']}
                                 style={StyleSheet.absoluteFillObject}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 1 }}
                             />
                             <View style={s.gMemberContent}>
                                 <View style={s.gMemberHead}>
-                                    <Ionicons name="diamond" size={28} color={isGMember ? '#FFF' : '#D4AF37'} />
+                                    <Ionicons name="diamond" size={28} color={isGMember ? '#EAF3F6' : '#CBD6DE'} />
                                     <View style={{ flex: 1, marginLeft: 14 }}>
                                         <Text style={s.gMemberTitle}>G-Member</Text>
                                         <Text style={s.gMemberPrice}>{fmtPrice(3500)}/mo</Text>
@@ -306,8 +306,8 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                                         'Dedicated support',
                                     ].map((f, i) => (
                                         <View key={i} style={s.featureRow}>
-                                            <Ionicons name="checkmark-circle" size={18} color={isGMember ? '#FFF' : '#D4AF37'} />
-                                            <Text style={[s.featureText, isGMember && { color: '#FFF' }]}>{f}</Text>
+                                            <Ionicons name="checkmark-circle" size={18} color={isGMember ? '#EAF3F6' : '#CBD6DE'} />
+                                            <Text style={[s.featureText, isGMember && { color: '#EAF3F6' }]}>{f}</Text>
                                         </View>
                                     ))}
                                 </View>
@@ -319,14 +319,14 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                                         disabled={activating}
                                     >
                                         {activating ? (
-                                            <ActivityIndicator size="small" color="#FFF" />
+                                            <ActivityIndicator size="small" color="#EAF3F6" />
                                         ) : (
-                                            <Text style={[s.gMemberBtnText, { color: '#FFF' }]}>Cancel Membership</Text>
+                                            <Text style={[s.gMemberBtnText, { color: '#EAF3F6' }]}>Cancel Membership</Text>
                                         )}
                                     </TouchableOpacity>
                                 ) : (
                                     <TouchableOpacity
-                                        style={[s.gMemberBtn, { backgroundColor: '#D4AF37' }]}
+                                        style={[s.gMemberBtn, { backgroundColor: '#CBD6DE' }]}
                                         onPress={handleJoinGMember}
                                         disabled={activating}
                                     >
@@ -379,13 +379,13 @@ const s = StyleSheet.create({
         ...ghostBorder(0.15),
     },
     headerTitle: {
-        fontSize: 20, fontWeight: '800', color: '#FFF',
+        fontSize: 20, fontWeight: '800', color: '#EAF3F6',
         fontFamily: 'SpaceGrotesk-Bold',
     },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     scroll: { paddingHorizontal: 20, paddingTop: 8 },
     heading: {
-        fontSize: 26, fontWeight: '900', color: '#FFF',
+        fontSize: 26, fontWeight: '900', color: '#EAF3F6',
         fontFamily: 'SpaceGrotesk-Bold', marginBottom: 8,
     },
     subheading: {
@@ -405,7 +405,7 @@ const s = StyleSheet.create({
     },
     levelBadgeTextWrap: { flex: 1, marginLeft: 12 },
     levelBadgeLabel: {
-        fontSize: 18, fontWeight: '800', color: '#FFF',
+        fontSize: 18, fontWeight: '800', color: '#EAF3F6',
         fontFamily: 'SpaceGrotesk-Bold',
     },
     levelBadgePerks: {
@@ -434,7 +434,7 @@ const s = StyleSheet.create({
         fontSize: 15, fontWeight: '800', color: 'rgba(255,255,255,0.5)',
         fontFamily: 'SpaceGrotesk-Bold',
     },
-    stepLvlUnlocked: { color: '#FFF' },
+    stepLvlUnlocked: { color: '#EAF3F6' },
     stepUnlock: {
         fontSize: 12, fontWeight: '600', color: 'rgba(242,245,248,0.6)',
         fontFamily: 'Manrope-Medium', marginTop: 2,
@@ -469,7 +469,7 @@ const s = StyleSheet.create({
 
     gMemberCard: {
         borderRadius: 24, overflow: 'hidden',
-        borderWidth: 1, borderColor: 'rgba(212,175,55,0.3)',
+        borderWidth: 1, borderColor: 'rgba(203,214,222,0.3)',
         marginBottom: 20,
     },
     gMemberLocked: {
@@ -479,11 +479,11 @@ const s = StyleSheet.create({
     gMemberContent: { padding: 24 },
     gMemberHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
     gMemberTitle: {
-        fontSize: 22, fontWeight: '900', color: '#FFF',
+        fontSize: 22, fontWeight: '900', color: '#EAF3F6',
         fontFamily: 'SpaceGrotesk-Bold',
     },
     gMemberPrice: {
-        fontSize: 15, fontWeight: '700', color: '#D4AF37',
+        fontSize: 15, fontWeight: '700', color: '#CBD6DE',
         fontFamily: 'SpaceGrotesk-Bold', marginTop: 2,
     },
     gMemberDesc: {

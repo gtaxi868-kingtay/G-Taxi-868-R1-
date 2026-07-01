@@ -137,7 +137,7 @@ export function SignupScreen({ navigation }: any) {
 
                     {/* Back Button */}
                     <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color={'#FFF'} />
+                        <Ionicons name="chevron-back" size={24} color={'#EAF3F6'} />
                     </TouchableOpacity>
 
                     {/* Logo Section */}
@@ -247,7 +247,7 @@ export function SignupScreen({ navigation }: any) {
                                         }}
                                     >
                                         <View style={[s.checkbox, formData.termsAccepted && s.checkboxActive]}>
-                                            {formData.termsAccepted && <Ionicons name="checkmark" size={14} color="#FFF" />}
+                                            {formData.termsAccepted && <Ionicons name="checkmark" size={14} color="#EAF3F6" />}
                                         </View>
                                         <Text style={s.termsText}>
                                             I accept the{' '}
@@ -456,7 +456,7 @@ const s = StyleSheet.create({
         ...elevationGlow(),
     },
     input: {
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 15,
         fontWeight: '500',
     },
@@ -472,7 +472,7 @@ const s = StyleSheet.create({
         ...ghostBorder(0.15),
     },
     aiLabel: {
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 13,
         fontWeight: '700',
         marginLeft: 8,
@@ -496,7 +496,7 @@ const s = StyleSheet.create({
         width: 20, 
         height: 20, 
         borderRadius: 10, 
-        backgroundColor: '#FFF',
+        backgroundColor: '#EAF3F6',
         ...elevationGlow(),
     },
 

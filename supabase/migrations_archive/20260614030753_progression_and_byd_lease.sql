@@ -378,7 +378,7 @@ BEGIN
   -- Record the payment
   INSERT INTO public.lease_payments (lease_id, ride_id, amount_cents, status)
   VALUES (p_lease_id, p_ride_id, v_installment, 'paid')
-  ON CONFLICT DO NOTHING;
+  ;
 
   RETURN QUERY SELECT p_gross_cents, v_installment, p_gross_cents - v_installment, true, NULL::text;
 END;
@@ -547,4 +547,4 @@ SELECT cron.schedule(
   FROM public.drivers d
   WHERE d.status = 'active'
   $$
-) ON CONFLICT DO NOTHING;
+) ;

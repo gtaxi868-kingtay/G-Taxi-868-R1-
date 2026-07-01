@@ -175,7 +175,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
         <LinearGradient colors={[SURFACE.base, '#12122A']} style={s.container} pointerEvents="box-none">
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>Order Status</Text>
                 <View style={{ width: 38 }} />
@@ -326,9 +326,9 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                 <View style={StyleSheet.absoluteFillObject}>
                     <BlurView intensity={60} tint="dark" style={s.approvalOverlay}>
                         <View style={s.approvalCard}>
-                            <LinearGradient colors={['rgba(191,64,255,0.2)', 'rgba(6,182,212,0.1)']} style={StyleSheet.absoluteFillObject} />
+                            <LinearGradient colors={['rgba(191,64,255,0.2)', 'rgba(52,230,236,0.1)']} style={StyleSheet.absoluteFillObject} />
                             <Ionicons name="shield-checkmark" size={44} color={CYAN} style={{ alignSelf: 'center', marginBottom: 16 }} />
-                            <Txt variant="headingM" color="#FFF" style={{ textAlign: 'center' }}>Verify Your Items</Txt>
+                            <Txt variant="headingM" color="#EAF3F6" style={{ textAlign: 'center' }}>Verify Your Items</Txt>
                             <Txt variant="bodyReg" color="rgba(255,255,255,0.6)" style={{ textAlign: 'center', marginBottom: 24 }}>
                                 The merchant has received your order. Please confirm to begin preparation.
                             </Txt>
@@ -336,7 +336,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                             <View style={s.itemList}>
                                 {Object.entries(intakeLog.items).map(([key, val]: [string, any]) => (
                                     <View key={key} style={s.itemRow}>
-                                        <Txt variant="bodyBold" color="#FFF">{key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}</Txt>
+                                        <Txt variant="bodyBold" color="#EAF3F6">{key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}</Txt>
                                         <Txt variant="bodyBold" color={CYAN}>{val} units</Txt>
                                     </View>
                                 ))}
@@ -392,7 +392,7 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
         ...elevationGlow(),
     },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
     mapContainer: { height: 220, marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', marginBottom: 16, ...elevationGlow() },
     map: { flex: 1 },
     searchingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
@@ -401,7 +401,7 @@ const s = StyleSheet.create({
         ...glassSurface(60, 0.2),
         ...ghostBorder(0.3),
     },
-    searchingText: { fontSize: 16, fontWeight: '700', color: '#FFF', marginTop: 12, fontFamily: 'SpaceGrotesk' },
+    searchingText: { fontSize: 16, fontWeight: '700', color: '#EAF3F6', marginTop: 12, fontFamily: 'SpaceGrotesk' },
     searchingSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4, fontFamily: 'Manrope' },
     driverBadge: { position: 'absolute', top: 12, left: 12 },
     driverBadgeBlur: {
@@ -410,7 +410,7 @@ const s = StyleSheet.create({
         ...glassSurface(60, 0.2),
         ...ghostBorder(0.1),
     },
-    driverBadgeText: { fontSize: 12, fontWeight: '600', color: '#FFF', fontFamily: 'Manrope' },
+    driverBadgeText: { fontSize: 12, fontWeight: '600', color: '#EAF3F6', fontFamily: 'Manrope' },
     summaryCard: {
         marginHorizontal: 20, borderRadius: 20,
         padding: 18, marginBottom: 20, alignItems: 'center',
@@ -457,11 +457,11 @@ const s = StyleSheet.create({
     stepLabel: { flex: 1 },
     stepText: { fontSize: 15, color: 'rgba(255,255,255,0.35)', fontWeight: '300', fontFamily: 'Manrope' },
     stepTextDone: { color: SUCCESS },
-    stepTextActive: { color: '#FFF', fontWeight: '700' },
+    stepTextActive: { color: '#EAF3F6', fontWeight: '700' },
     ctaContainer: { padding: 20, marginTop: 'auto' },
     ctaButton: { borderRadius: 20, overflow: 'hidden', ...ghostBorder(0.3) },
     ctaGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
-    ctaText: { fontSize: 16, fontWeight: '700', color: '#FFF', fontFamily: 'SpaceGrotesk' },
+    ctaText: { fontSize: 16, fontWeight: '700', color: '#EAF3F6', fontFamily: 'SpaceGrotesk' },
     pinSection: { paddingHorizontal: 40, marginTop: 20 },
     pinCard: {
         padding: 24, borderRadius: 24, alignItems: 'center',

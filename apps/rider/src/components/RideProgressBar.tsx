@@ -66,7 +66,7 @@ export function RideProgressBar({ phase }: RideProgressBarProps) {
                 {/* Moving Car */}
                 <Animated.View style={[styles.carWrapper, { left: leftPosition }]}>
                     <View style={styles.carIcon}>
-                        <Ionicons name="car-sport" size={18} color="#00FFFF" />
+                        <Ionicons name="car-sport" size={18} color="#34E6EC" />
                     </View>
                     <View style={styles.glow} />
                 </Animated.View>

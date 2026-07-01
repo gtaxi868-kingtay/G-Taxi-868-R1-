@@ -26,7 +26,7 @@ export function StopWaitHUD({ stopId, isActive }: StopWaitHUDProps) {
                     <Text style={{fontSize: 11, fontWeight: '700', color: VOICES.driver.gold, letterSpacing: 1}}>
                         {isActive ? 'TRUTHFUL WAIT TIMER' : 'FINAL WAIT TIME'}
                     </Text>
-                    <Text style={[styles.timerText, {fontWeight: '700', color: '#FFF'}]}>{timeStr}</Text>
+                    <Text style={[styles.timerText, {fontWeight: '700', color: '#EAF3F6'}]}>{timeStr}</Text>
                 </View>
             </View>
 
@@ -42,7 +42,7 @@ export function StopWaitHUD({ stopId, isActive }: StopWaitHUDProps) {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: 'rgba(245,158,11,0.05)',
+        backgroundColor: 'rgba(230,180,80,0.05)',
         borderRadius: 20,
         padding: 16,
         flexDirection: 'row',
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     left: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     pulseDot: {
         width: 8, height: 8, borderRadius: 4,
-        backgroundColor: 'rgba(245,158,11,0.2)',
+        backgroundColor: 'rgba(230,180,80,0.2)',
     },
     pulseDotActive: {
         backgroundColor: VOICES.driver.gold,

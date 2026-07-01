@@ -273,7 +273,7 @@ export default function CarnivalScreen() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: '#07070F',
   },
   header: {
     flexDirection: 'row',
@@ -453,7 +453,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1DE0E6',
+    backgroundColor: '#34E6EC',
     paddingVertical: 8,
     borderRadius: 8,
     marginTop: 8,

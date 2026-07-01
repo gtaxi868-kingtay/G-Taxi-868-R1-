@@ -12,7 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { ENV } from '@gtaxi/shared/env';
 import type { AppScreenProps } from '../navigation/types';
 
-const ACCENT = '#F59E0B';
+const ACCENT = '#E6B450';
 
 interface Vehicle {
     id: string;
@@ -170,7 +170,7 @@ export function VehicleSalesScreen({ navigation }: AppScreenProps<'VehicleSales'
 
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
                 <View>
                     <Text style={styles.headerTitle}>Vehicle Sales</Text>
@@ -231,10 +231,10 @@ export function VehicleSalesScreen({ navigation }: AppScreenProps<'VehicleSales'
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0A0F' },
+    root: { flex: 1, backgroundColor: '#08090D' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, gap: 12 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20 },
+    headerTitle: { color: '#EAF3F6', fontWeight: '800', fontSize: 20 },
     headerSub: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 },
     filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingBottom: 12, flexWrap: 'wrap' },
     filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     filterChipText: { color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '600' },
     filterChipTextActive: { color: ACCENT },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
-    emptyTitle: { color: '#FFF', fontSize: 18, fontWeight: '700', textAlign: 'center' },
+    emptyTitle: { color: '#EAF3F6', fontSize: 18, fontWeight: '700', textAlign: 'center' },
     emptySub: { color: 'rgba(255,255,255,0.4)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
     retryBtn: { backgroundColor: ACCENT, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16, marginTop: 8 },
     retryBtnText: { color: '#000', fontWeight: '700', fontSize: 14 },
@@ -250,12 +250,12 @@ const styles = StyleSheet.create({
     listHint: { color: 'rgba(255,255,255,0.3)', fontSize: 12, lineHeight: 18, marginBottom: 8, textAlign: 'center' },
     card: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 24, padding: 20, gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
     cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    typeChip: { backgroundColor: 'rgba(245,158,11,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99 },
+    typeChip: { backgroundColor: 'rgba(230,180,80,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99 },
     typeChipText: { color: ACCENT, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
     price: { color: ACCENT, fontSize: 18, fontWeight: '800' },
-    vehicleName: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+    vehicleName: { color: '#EAF3F6', fontSize: 18, fontWeight: '700' },
     vehicleSub: { color: 'rgba(255,255,255,0.4)', fontSize: 13 },
-    noteInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 12, color: '#FFF', fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginTop: 4 },
+    noteInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 12, color: '#EAF3F6', fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginTop: 4 },
     cardActions: { flexDirection: 'row', gap: 10, marginTop: 8, alignItems: 'center' },
     noteBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
     interestBtn: { flex: 1, height: 40, borderRadius: 12, backgroundColor: ACCENT, alignItems: 'center', justifyContent: 'center' },

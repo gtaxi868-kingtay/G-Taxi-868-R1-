@@ -2,7 +2,6 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { DashboardScreen } from '../DashboardScreen';
 
-jest.mock('@gtaxi/core', () => ({ supabase: { channel: () => ({ on: () => ({ subscribe: jest.fn() }) }), from: () => ({ select: () => ({ eq: () => ({ order: () => ({ limit: () => ({ data: { data: [] } }) }), single: jest.fn() }) }) }), functions: { invoke: jest.fn() } }, ENV: {} }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ merchant: { id: 'm-1', name: 'Test Merchant' } }) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
@@ -15,6 +14,6 @@ describe('Merchant DashboardScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn() };
     const { getByText } = render(<DashboardScreen navigation={navigation as any} />);
-    expect(getByText(/Dashboard/i)).toBeTruthy();
+    expect(getByText('Quick Actions')).toBeTruthy();
   });
 });

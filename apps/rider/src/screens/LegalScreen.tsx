@@ -3,72 +3,71 @@ import { View, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Txt } from '@/design-system/primitives';
-import { LiquidGlass } from '@gtaxi/design-system/native';
+import { GlassCard } from '@gtaxi/design-system/native';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
-import type { AppScreenProps } from '../navigation/types';
 
-const CYAN = '#1DE0E6';
+const CYAN = '#06B6D4';
 
-export function LegalScreen({ navigation }: AppScreenProps<'Legal'>) {
+export function LegalScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
 
     return (
         <View style={s.root}>
             <StatusBar style="light" />
+            
+            <LinearGradient
+                colors={['#0F172A', '#1E1B4B', '#312E81']}
+                style={StyleSheet.absoluteFillObject}
+            />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
-                    <TouchableOpacity 
-                        style={s.backBtn} 
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={22} color="#FFF" />
-                    </TouchableOpacity>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.headerTitle}>
-                        LEGAL PROTOCOL
-                    </Txt>
-                </LiquidGlass>
+                <TouchableOpacity 
+                    style={s.backBtn} 
+                    onPress={() => navigation.goBack()}
+                >
+                    <Ionicons name="chevron-back" size={22} color="#EAF3F6" />
+                </TouchableOpacity>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.headerTitle}>
+                    LEGAL PROTOCOL
+                </Txt>
             </View>
 
             <ScrollView
                 contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 40 }]}
                 showsVerticalScrollIndicator={false}
             >
-                <LiquidGlass tier="panel" voice="rider" style={s.card}>
-                    <TouchableOpacity onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}>
-                        <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
-                            Terms of Service
-                        </Txt>
-                        <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
-                            Read the full Terms of Service — governing your use of the G-Taxi platform.
-                            G-Taxi is a technology platform, not a transportation carrier.
-                            Governed by the laws of Trinidad and Tobago.
-                        </Txt>
-                        <View style={s.docLinkRow}>
-                            <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>
-                        </View>
-                    </TouchableOpacity>
-                </LiquidGlass>
+                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
+                        Terms of Service
+                    </Txt>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
+                        Read the full Terms of Service — governing your use of the G-Taxi platform.
+                        G-Taxi is a technology platform, not a transportation carrier.
+                        Governed by the laws of Trinidad and Tobago.
+                    </Txt>
+                    <View style={s.docLinkRow}>
+                        <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>
+                    </View>
+                </TouchableOpacity>
 
-                <LiquidGlass tier="panel" voice="rider" style={s.card}>
-                    <TouchableOpacity onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}>
-                        <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
-                            Privacy Policy
-                        </Txt>
-                        <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
-                            How we collect, use, and protect your personal data. Compliant with the
-                            Data Protection Act, 2011 of Trinidad and Tobago and applicable Caribbean data protection laws.
-                        </Txt>
-                        <View style={s.docLinkRow}>
-                            <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>
-                        </View>
-                    </TouchableOpacity>
-                </LiquidGlass>
+                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
+                        Privacy Policy
+                    </Txt>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
+                        How we collect, use, and protect your personal data. Compliant with the
+                        Data Protection Act, 2011 of Trinidad and Tobago and applicable Caribbean data protection laws.
+                    </Txt>
+                    <View style={s.docLinkRow}>
+                        <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>
+                    </View>
+                </TouchableOpacity>
 
-                <LiquidGlass tier="panel" voice="rider" style={s.card}>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
+                <GlassCard style={s.card}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
                         DATA SECURITY & PRIVACY
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
@@ -77,10 +76,10 @@ export function LegalScreen({ navigation }: AppScreenProps<'Legal'>) {
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
                         You retain control over your data and may request permanent deletion through your account settings or by contacting privacy@gtaxi.tt.
                     </Txt>
-                </LiquidGlass>
+                </GlassCard>
 
-                <LiquidGlass tier="panel" voice="rider" style={s.card}>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
+                <GlassCard style={s.card}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
                         NETWORK CONDUCT
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
@@ -89,7 +88,7 @@ export function LegalScreen({ navigation }: AppScreenProps<'Legal'>) {
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
                         Platform fees vary by service vertical and are disclosed before each transaction. Violations of the Platform's conduct standards may result in account suspension or termination.
                     </Txt>
-                </LiquidGlass>
+                </GlassCard>
 
                 <View style={s.footer}>
                     <Txt variant="caption" color="#AEA9B5" center style={{ opacity: 0.4 }}>
@@ -105,7 +104,7 @@ export function LegalScreen({ navigation }: AppScreenProps<'Legal'>) {
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
+    root: { flex: 1 },
     header: { 
         flexDirection: 'row', 
         alignItems: 'center', 
@@ -146,6 +145,14 @@ const s = StyleSheet.create({
     footer: {
         marginTop: 40,
         paddingBottom: 20,
+    },
+    docLinkCard: {
+        marginBottom: 20,
+        padding: 24,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(52,230,236,0.2)',
+        backgroundColor: 'rgba(52,230,236,0.05)',
     },
     docLinkRow: {
         flexDirection: 'row',

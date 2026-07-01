@@ -19,7 +19,7 @@ import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
 import { Ride } from '@gtaxi/core';
 
-const WARNING = '#F59E0B';
+const WARNING = '#E6B450';
 const ERROR = '#EF4444';
 const SUCCESS = '#00FF94';
 
@@ -194,7 +194,7 @@ export function TripRequestScreen({ navigation, route }: any) {
                                 )}
                                 {hasNode && (
                                     <View style={s.premiumBadge}>
-                                        <Ionicons name="storefront" size={12} color="#FFF" />
+                                        <Ionicons name="storefront" size={12} color="#EAF3F6" />
                                         <Text style={s.premiumBadgeText}>MERCHANT PICKUP</Text>
                                     </View>
                                 )}
@@ -357,7 +357,7 @@ const s = StyleSheet.create({
     premiumBadgeText: {
         fontSize: 10,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
         letterSpacing: 0.5,
         fontFamily: 'SpaceGrotesk-Bold',
     },
@@ -438,7 +438,7 @@ const s = StyleSheet.create({
     addrText: {
         fontSize: 15,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontFamily: 'Manrope-Medium',
     },
     dot: {
@@ -482,7 +482,7 @@ const s = StyleSheet.create({
     statPillText: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontFamily: 'SpaceGrotesk-Bold',
     },
     actionRow: {

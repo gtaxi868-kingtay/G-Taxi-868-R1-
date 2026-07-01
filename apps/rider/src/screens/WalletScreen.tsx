@@ -30,7 +30,7 @@ const R = {
     gold: '#F59E0B',
     green: '#32D74B',
     red: '#FF6E84',
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: '#AEA9B5',
 };
 
@@ -131,7 +131,7 @@ export function WalletScreen({ navigation }: any) {
                     <Txt variant="bodyBold" color={R.white} style={{ fontSize: 16 }}>{item.description || 'Transaction'}</Txt>
                     <Txt variant="small" color={R.muted}>{date.toLocaleDateString()} · {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Txt>
                 </View>
-                <Txt variant="bodyBold" color={isPositive ? '#BF40FF' : '#FFF'}>
+                <Txt variant="bodyBold" color={isPositive ? '#BF40FF' : '#EAF3F6'}>
                     {isPositive ? '+' : '-'}${Math.abs(item.amount / 100).toFixed(2)}
                 </Txt>
             </View>
@@ -151,9 +151,9 @@ export function WalletScreen({ navigation }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Wallet</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: VOICES.rider.serifSemi }}>Wallet</Txt>
             </View>
 
             <FlatList<any>
@@ -175,7 +175,7 @@ export function WalletScreen({ navigation }: any) {
                                 </TouchableOpacity>
                             ) : (
                                 <View style={s.balanceRow}>
-                                    <Txt variant="headingL" weight="heavy" color="#FFF" style={{ fontSize: 48 }}>${balance.toFixed(2)}</Txt>
+                                    <Txt variant="headingL" weight="heavy" color="#EAF3F6" style={{ fontSize: 48, fontFamily: VOICES.rider.serifSemi, fontVariant: ['tabular-nums'] }}>${balance.toFixed(2)}</Txt>
                                     <Txt variant="bodyBold" color="rgba(255,255,255,0.7)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
                                 </View>
                             )}
@@ -192,9 +192,9 @@ export function WalletScreen({ navigation }: any) {
                                         colors={[VOICES.rider.accent, CYAN]} 
                                         style={StyleSheet.absoluteFillObject} 
                                     />
-                                    <Ionicons name="add" size={24} color="#FFF" />
+                                    <Ionicons name="add" size={24} color="#EAF3F6" />
                                 </View>
-                                <Txt variant="caption" weight="heavy" color="#FFF" style={{ marginTop: 12 }}>ADD FUNDS</Txt>
+                                <Txt variant="caption" weight="heavy" color="#EAF3F6" style={{ marginTop: 12 }}>ADD FUNDS</Txt>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.actionBtn} accessibilityLabel="Withdraw funds" accessibilityRole="button" onPress={() => Alert.alert(
                                 'Withdraw Funds',
@@ -210,7 +210,7 @@ export function WalletScreen({ navigation }: any) {
                             </TouchableOpacity>
                         </View>
 
-                        <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>RECENT ACTIVITY</Txt>
+                        <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 16 }}>RECENT ACTIVITY</Txt>
                     </>
                 }
                 ListEmptyComponent={

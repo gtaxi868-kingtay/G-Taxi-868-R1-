@@ -91,7 +91,7 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
             <View style={[s.container, { paddingTop: insets.top }]}>
                 <View style={s.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                        <Ionicons name="arrow-back" size={22} color="#FFF" />
+                        <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                     </TouchableOpacity>
                     <Text style={s.headerTitle}>Earnings Addendum</Text>
                 </View>
@@ -115,7 +115,7 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
         <View style={[s.container, { paddingTop: insets.top }]}>
             <View style={s.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>Earnings Addendum</Text>
             </View>
@@ -126,11 +126,11 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
             >
                 <View style={s.introCard}>
                     <LinearGradient
-                        colors={['rgba(212,175,55,0.15)', 'rgba(212,175,55,0.04)']}
+                        colors={['rgba(230,180,80,0.15)', 'rgba(230,180,80,0.04)']}
                         style={s.introGradient}
                     >
                         <View style={s.introIcon}>
-                            <Ionicons name="document-text-sharp" size={32} color="#D4AF37" />
+                            <Ionicons name="document-text-sharp" size={32} color="#E6B450" />
                         </View>
                         <Text style={s.introTitle}>Earnings Assignment Addendum</Text>
                         <Text style={s.introSubtitle}>
@@ -201,21 +201,21 @@ const s = StyleSheet.create({
         borderBottomColor: 'rgba(255,255,255,0.06)',
     },
     backBtn: { marginRight: 16, padding: 4 },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
     scroll: { padding: 20, paddingBottom: 60 },
 
-    introCard: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(212,175,55,0.2)', marginBottom: 28 },
+    introCard: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(230,180,80,0.2)', marginBottom: 28 },
     introGradient: { padding: 24 },
     introIcon: {
         width: 60, height: 60, borderRadius: 18,
-        backgroundColor: 'rgba(212,175,55,0.15)',
+        backgroundColor: 'rgba(230,180,80,0.15)',
         alignItems: 'center', justifyContent: 'center', marginBottom: 16,
     },
-    introTitle: { fontSize: 20, fontWeight: '800', color: '#D4AF37', marginBottom: 10 },
+    introTitle: { fontSize: 20, fontWeight: '800', color: '#E6B450', marginBottom: 10 },
     introSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 22, marginBottom: 16 },
     versionRow: { flexDirection: 'row', gap: 8 },
     versionLabel: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: '600' },
-    versionValue: { fontSize: 12, color: '#D4AF37', fontWeight: '700' },
+    versionValue: { fontSize: 12, color: '#E6B450', fontWeight: '700' },
 
     clause: {
         flexDirection: 'row',
@@ -227,7 +227,7 @@ const s = StyleSheet.create({
     },
     clauseNumber: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.2)', marginTop: 2, minWidth: 22 },
     clauseBody: { flex: 1 },
-    clauseHeading: { fontSize: 14, fontWeight: '700', color: '#FFF', marginBottom: 6 },
+    clauseHeading: { fontSize: 14, fontWeight: '700', color: '#EAF3F6', marginBottom: 6 },
     clauseText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 20 },
 
     checkRow: {
@@ -247,11 +247,11 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
         marginTop: 1, flexShrink: 0,
     },
-    checkboxChecked: { backgroundColor: '#D4AF37', borderColor: '#D4AF37' },
+    checkboxChecked: { backgroundColor: '#E6B450', borderColor: '#E6B450' },
     checkLabel: { fontSize: 13, color: 'rgba(255,255,255,0.7)', flex: 1, lineHeight: 20 },
 
     signCta: {
-        backgroundColor: '#D4AF37',
+        backgroundColor: '#E6B450',
         borderRadius: 16,
         paddingVertical: 16,
         flexDirection: 'row',

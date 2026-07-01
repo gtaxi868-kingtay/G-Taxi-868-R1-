@@ -12,13 +12,12 @@ import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
+import { GlassCard } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
-import type { AppScreenProps } from '../navigation/types';
 
 const CYAN = '#06B6D4';
 
-export function TripsScreen({ navigation }: AppScreenProps<'Trips'>) {
+export function TripsScreen({ navigation }: any) {
     const { width, height } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -64,7 +63,7 @@ export function TripsScreen({ navigation }: AppScreenProps<'Trips'>) {
                     navigation.navigate('Receipt', { ride: item }); 
                 }}
             >
-                <LiquidGlass tier="panel" voice="rider" style={s.card}>
+                <GlassCard variant="rider" style={s.card}>
                     <View style={s.cardHeader}>
                         <Txt variant="caption" weight="bold" color="#AEA9B5">
                             {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -81,7 +80,7 @@ export function TripsScreen({ navigation }: AppScreenProps<'Trips'>) {
                             <View style={[s.marker, { backgroundColor: '#F59E0B' }]} />
                         </View>
                         <View style={s.addressWrap}>
-                            <Txt variant="small" color="#FFF" numberOfLines={1}>{item.pickup_address}</Txt>
+                            <Txt variant="small" color="#EAF3F6" numberOfLines={1}>{item.pickup_address}</Txt>
                             <View style={{ height: 12 }} />
                             <Txt variant="small" color="#AEA9B5" numberOfLines={1}>{item.dropoff_address}</Txt>
                         </View>
@@ -95,7 +94,7 @@ export function TripsScreen({ navigation }: AppScreenProps<'Trips'>) {
                         </View>
                         <Ionicons name="chevron-forward" size={16} color="rgba(174, 169, 181, 0.45)" />
                     </View>
-                </LiquidGlass>
+                </GlassCard>
             </TouchableOpacity>
         );
     };
@@ -110,13 +109,11 @@ export function TripsScreen({ navigation }: AppScreenProps<'Trips'>) {
             />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
-                    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                        <View style={[StyleSheet.absoluteFillObject, glassSurface(20, 0.2)]} />
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.title}>ENGAGEMENT LOG</Txt>
-                </LiquidGlass>
+                <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+                    <View style={[StyleSheet.absoluteFillObject, glassSurface(20, 0.2)]} />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
+                </TouchableOpacity>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.title}>ENGAGEMENT LOG</Txt>
             </View>
 
             {loading ? (

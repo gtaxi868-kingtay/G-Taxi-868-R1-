@@ -16,8 +16,6 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
 import { decode } from 'base64-arraybuffer';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
-import type { AppScreenProps } from '../navigation/types';
 
 const CYAN = '#06B6D4';
 
@@ -27,11 +25,11 @@ const R = {
     border: 'rgba(255,255,255,0.15)',
     purple: VOICES.rider.accent,
     purpleLight: CYAN,
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: 'rgba(255,255,255,0.7)',
 };
 
-export function EditProfileScreen({ navigation }: AppScreenProps<'EditProfile'>) {
+export function EditProfileScreen({ navigation }: any) {
     const { width } = useWindowDimensions();
     const { profile, refreshProfile, user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -99,13 +97,11 @@ export function EditProfileScreen({ navigation }: AppScreenProps<'EditProfile'>)
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <View style={[s.header, { marginTop: insets.top, paddingHorizontal: 24, marginBottom: 32 }]}>
-                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Edit Profile</Txt>
-                </LiquidGlass>
+            <View style={[s.header, { marginTop: insets.top }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
+                </TouchableOpacity>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Edit Profile</Txt>
             </View>
 
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -117,39 +113,37 @@ export function EditProfileScreen({ navigation }: AppScreenProps<'EditProfile'>)
                                 {avatarUrl ? (
                                     <Image source={{ uri: avatarUrl }} style={s.image} />
                                 ) : (
-                                    <Txt variant="headingL" weight="heavy" color="#FFF">{fullName.charAt(0) || '?'}</Txt>
+                                    <Txt variant="headingL" weight="heavy" color="#EAF3F6">{fullName.charAt(0) || '?'}</Txt>
                                 )}
-                                {uploading && <View style={s.overlay}><ActivityIndicator color="#FFF" /></View>}
+                                {uploading && <View style={s.overlay}><ActivityIndicator color="#EAF3F6" /></View>}
                             </View>
                         </LinearGradient>
                         <Txt variant="caption" weight="heavy" color={R.purpleLight} style={{ marginTop: 16 }}>CHANGE PHOTO</Txt>
                     </TouchableOpacity>
 
                     <View style={s.form}>
-                        <LiquidGlass tier="inlay" voice="rider" style={{ padding: 20, marginBottom: 24 }}>
-                            <View style={s.inputWrapper}>
-                                <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>FULL NAME</Txt>
-                                <TextInput
-                                    style={s.input}
-                                    value={fullName}
-                                    onChangeText={setFullName}
-                                    placeholder="Enter your full name"
-                                    placeholderTextColor="rgba(255,255,255,0.2)"
-                                />
-                            </View>
+                        <View style={s.inputWrapper}>
+                            <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>FULL NAME</Txt>
+                            <TextInput
+                                style={s.input}
+                                value={fullName}
+                                onChangeText={setFullName}
+                                placeholder="Enter your full name"
+                                placeholderTextColor="rgba(255,255,255,0.2)"
+                            />
+                        </View>
 
-                            <View style={s.inputWrapper}>
-                                <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>PHONE NUMBER</Txt>
-                                <TextInput
-                                    style={s.input}
-                                    value={phone}
-                                    onChangeText={setPhone}
-                                    placeholder="868-000-0000"
-                                    placeholderTextColor="rgba(255,255,255,0.2)"
-                                    keyboardType="phone-pad"
-                                />
-                            </View>
-                        </LiquidGlass>
+                        <View style={s.inputWrapper}>
+                            <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>PHONE NUMBER</Txt>
+                            <TextInput
+                                style={s.input}
+                                value={phone}
+                                onChangeText={setPhone}
+                                placeholder="868-000-0000"
+                                placeholderTextColor="rgba(255,255,255,0.2)"
+                                keyboardType="phone-pad"
+                            />
+                        </View>
 
                         <TouchableOpacity style={s.saveBtn} onPress={handleSave} disabled={saving}>
                             <LinearGradient
@@ -158,8 +152,8 @@ export function EditProfileScreen({ navigation }: AppScreenProps<'EditProfile'>)
                                 end={{x: 1, y: 0}}
                                 style={s.btnGradient}
                             >
-                                {saving ? <ActivityIndicator color="#FFF" /> : (
-                                    <Txt variant="bodyBold" color="#FFF">SAVE CHANGES</Txt>
+                                {saving ? <ActivityIndicator color="#EAF3F6" /> : (
+                                    <Txt variant="bodyBold" color="#EAF3F6">SAVE CHANGES</Txt>
                                 )}
                             </LinearGradient>
                         </TouchableOpacity>
@@ -186,7 +180,7 @@ const s = StyleSheet.create({
     form: { paddingHorizontal: 20 },
     inputWrapper: { marginBottom: 24, gap: 10 },
     label: { marginLeft: 8, opacity: 0.8 },
-    input: { height: 60, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 24, color: '#FFF', fontSize: 16, ...ghostBorder(0.05) },
+    input: { height: 60, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, paddingHorizontal: 24, color: '#EAF3F6', fontSize: 16, ...ghostBorder(0.05) },
 
     saveBtn: { height: 64, borderRadius: 24, overflow: 'hidden', marginTop: 32, ...elevationGlow() },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },

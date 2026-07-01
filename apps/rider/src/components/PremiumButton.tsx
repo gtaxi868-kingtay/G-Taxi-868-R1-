@@ -97,7 +97,7 @@ export function PremiumButton({
                         {/* Content */}
                         <View style={styles.content}>
                             {loading ? (
-                                <ActivityIndicator color="#FFFFFF" size="small" />
+                                <ActivityIndicator color="#EAF3F6" size="small" />
                             ) : (
                                 <>
                                     {icon && <View style={styles.iconContainer}>{icon}</View>}
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
         marginRight: 8,
     },
     primaryText: {
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 18,
         fontWeight: '600',
         letterSpacing: 0.5,
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     secondaryText: {
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 16,
         fontWeight: '500',
     },
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     glassText: {
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 16,
         fontWeight: '600',
     },

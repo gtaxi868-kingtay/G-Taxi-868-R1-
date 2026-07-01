@@ -90,7 +90,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
         const isPaid = item.status === 'paid';
         return (
             <View style={styles.earningRow}>
-                <View style={[styles.earningDot, { backgroundColor: isPaid ? GREEN : '#F59E0B' }]} />
+                <View style={[styles.earningDot, { backgroundColor: isPaid ? GREEN : '#E6B450' }]} />
                 <View style={{ flex: 1 }}>
                     <Text style={styles.earningLabel}>Driver commission (1%)</Text>
                     <Text style={styles.earningDate}>
@@ -101,7 +101,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                     <Text style={[styles.earningAmount, { color: isPaid ? GREEN : 'rgba(255,255,255,0.4)' }]}>
                         {fmt(item.amount_cents)}
                     </Text>
-                    <Text style={[styles.earningStatus, { color: isPaid ? GREEN : '#F59E0B' }]}>
+                    <Text style={[styles.earningStatus, { color: isPaid ? GREEN : '#E6B450' }]}>
                         {item.status}
                     </Text>
                 </View>
@@ -115,7 +115,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
 
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Refer a Driver</Text>
             </View>
@@ -131,7 +131,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                     ListHeaderComponent={
                         <>
                             <View style={styles.hero}>
-                                <Ionicons name="car-sport-outline" size={48} color="#00FFFF" />
+                                <Ionicons name="car-sport-outline" size={48} color="#34E6EC" />
                                 <Text style={styles.heroTitle}>Earn on Every Ride They Take</Text>
                                 <Text style={styles.heroSub}>
                                     Refer a driver and earn 1% of their platform fee for 90 days.
@@ -149,8 +149,8 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                                             <Text style={styles.codeBtnText}>{copying ? 'Copied!' : 'Copy'}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity style={[styles.codeBtn, styles.shareBtn]} onPress={shareCode}>
-                                            <Ionicons name="share-social-outline" size={18} color="#FFF" />
-                                            <Text style={[styles.codeBtnText, { color: '#FFF' }]}>Share</Text>
+                                            <Ionicons name="share-social-outline" size={18} color="#EAF3F6" />
+                                            <Text style={[styles.codeBtnText, { color: '#EAF3F6' }]}>Share</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -211,38 +211,38 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0A0F' },
+    root: { flex: 1, backgroundColor: '#08090D' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 8, gap: 12 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20 },
+    headerTitle: { color: '#EAF3F6', fontWeight: '800', fontSize: 20 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     scroll: { padding: 20, gap: 16 },
     hero: { alignItems: 'center', paddingVertical: 16 },
     heroEmoji: { fontSize: 48, marginBottom: 12 },
-    heroTitle: { color: '#FFF', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
+    heroTitle: { color: '#EAF3F6', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
     heroSub: { color: 'rgba(255,255,255,0.45)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
     codeCard: { backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)', padding: 24, alignItems: 'center' },
     codeLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 },
-    codeText: { color: '#FFF', fontSize: 40, fontWeight: '900', letterSpacing: 6, marginBottom: 20 },
+    codeText: { color: '#EAF3F6', fontSize: 40, fontWeight: '900', letterSpacing: 6, marginBottom: 20 },
     codeActions: { flexDirection: 'row', gap: 12 },
     codeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 99, backgroundColor: 'rgba(16,185,129,0.15)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.4)' },
     shareBtn: { backgroundColor: ACCENT, borderColor: ACCENT },
     codeBtnText: { color: ACCENT, fontWeight: '700', fontSize: 14 },
     statsRow: { flexDirection: 'row', gap: 12 },
     statBox: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-    statNum: { color: '#FFF', fontSize: 24, fontWeight: '800' },
+    statNum: { color: '#EAF3F6', fontSize: 24, fontWeight: '800' },
     statLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 },
     infoCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-    infoTitle: { color: '#FFF', fontWeight: '700', fontSize: 15, marginBottom: 8 },
+    infoTitle: { color: '#EAF3F6', fontWeight: '700', fontSize: 15, marginBottom: 8 },
     infoText: { color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 20 },
-    sectionTitle: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+    sectionTitle: { color: '#EAF3F6', fontSize: 16, fontWeight: '700' },
     stepRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 10 },
     stepNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(16,185,129,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 6 },
     stepNumText: { color: ACCENT, fontWeight: '700', fontSize: 12 },
     stepText: { color: 'rgba(255,255,255,0.6)', fontSize: 14, flex: 1 },
     earningRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     earningDot: { width: 10, height: 10, borderRadius: 5 },
-    earningLabel: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+    earningLabel: { color: '#EAF3F6', fontSize: 14, fontWeight: '600' },
     earningDate: { color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 2 },
     earningAmount: { fontSize: 15, fontWeight: '700' },
     earningStatus: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize', marginTop: 2 },

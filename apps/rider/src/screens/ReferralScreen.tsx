@@ -118,11 +118,11 @@ export function ReferralScreen({ navigation }: AppScreenProps<'Referral'>) {
     };
 
     return (
-        <LinearGradient colors={['#0B0E12', '#0B0E12']} style={st.root}>
+        <LinearGradient colors={['#07070F', '#07070F']} style={st.root}>
             <StatusBar style="light" />
             <View style={[st.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={st.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={st.headerTitle}>Refer & Earn</Text>
                 <View style={{ width: 38 }} />
@@ -158,7 +158,7 @@ export function ReferralScreen({ navigation }: AppScreenProps<'Referral'>) {
                                             <Text style={st.copyBtnText}>{copying ? 'Copied!' : 'Copy'}</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity style={st.shareBtn} onPress={shareCode}>
-                                            <Ionicons name="share-social-outline" size={18} color="#FFF" />
+                                            <Ionicons name="share-social-outline" size={18} color="#EAF3F6" />
                                             <Text style={st.shareBtnText}>Share</Text>
                                         </TouchableOpacity>
                                     </View>
@@ -224,7 +224,7 @@ const st = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
         ...elevationGlow(),
     },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20 },
+    headerTitle: { color: '#EAF3F6', fontWeight: '800', fontSize: 20 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     scroll: { padding: 20, gap: 16 },
     hero: { alignItems: 'center', paddingVertical: 16 },
@@ -232,7 +232,7 @@ const st = StyleSheet.create({
         width: 80, height: 80, borderRadius: 40,
         alignItems: 'center', justifyContent: 'center', marginBottom: 12,
     },
-    heroTitle: { color: '#FFF', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
+    heroTitle: { color: '#EAF3F6', fontSize: 22, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
     heroSub: { color: 'rgba(255,255,255,0.45)', fontSize: 14, textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
     codeCard: {
         borderRadius: 24, padding: 24, alignItems: 'center', overflow: 'hidden',
@@ -240,7 +240,7 @@ const st = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.03)',
     },
     codeLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 11, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 },
-    codeText: { color: '#FFF', fontSize: 40, fontWeight: '900', letterSpacing: 6, marginBottom: 20 },
+    codeText: { color: '#EAF3F6', fontSize: 40, fontWeight: '900', letterSpacing: 6, marginBottom: 20 },
     codeActions: { flexDirection: 'row', gap: 12 },
     copyBtn: {
         flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -253,23 +253,23 @@ const st = StyleSheet.create({
         backgroundColor: CYAN,
     },
     copyBtnText: { color: CYAN, fontWeight: '700', fontSize: 14 },
-    shareBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+    shareBtnText: { color: '#EAF3F6', fontWeight: '700', fontSize: 14 },
     statsRow: { flexDirection: 'row', gap: 12 },
     statBox: {
         flex: 1, borderRadius: 20, padding: 20, alignItems: 'center',
         overflow: 'hidden', ...ghostBorder(0.1),
         backgroundColor: 'rgba(255,255,255,0.03)',
     },
-    statNum: { color: '#FFF', fontSize: 24, fontWeight: '800' },
+    statNum: { color: '#EAF3F6', fontSize: 24, fontWeight: '800' },
     statLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 },
-    sectionTitle: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+    sectionTitle: { color: '#EAF3F6', fontSize: 16, fontWeight: '700' },
     stepRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 10 },
     stepNum: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
     stepNumText: { fontWeight: '700', fontSize: 12 },
     stepText: { color: 'rgba(255,255,255,0.6)', fontSize: 14, flex: 1 },
     earningRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     earningDot: { width: 10, height: 10, borderRadius: 5 },
-    earningLabel: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+    earningLabel: { color: '#EAF3F6', fontSize: 14, fontWeight: '600' },
     earningDate: { color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 2 },
     earningAmount: { fontSize: 15, fontWeight: '700' },
     earningStatus: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize', marginTop: 2 },

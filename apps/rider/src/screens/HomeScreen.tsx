@@ -34,12 +34,12 @@ const { supabase } = initializeSupabaseClient('native');
 
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
-const BRAND = '#1DE0E6';
+const BRAND = '#34E6EC';
 
 const DARK_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: '#0B0E12' }] },
+    { elementType: 'geometry', stylers: [{ color: '#07070F' }] },
     { elementType: 'labels.text.fill', stylers: [{ color: BRAND }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#0B0E12' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#07070F' }] },
     { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#13171D' }] },
     { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: BRAND, weight: 0.5 }] },
     { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0A2E33', lightness: -80 }] },
@@ -632,13 +632,13 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             { id: 'ride', name: 'Ride', sub: driverSubText, accent: BRAND, icon: 'car-sport-sharp', search: homeSuggestion || 'Where to?' },
         ];
         if (featureFlags.grocery) arr.push({ id: 'market', name: 'Market', sub: 'Groceries delivered', accent: '#F59E0B', icon: 'cart-sharp', search: 'Shop groceries & more' });
-        if (featureFlags.laundry) arr.push({ id: 'laundry', name: 'Laundry', sub: 'Fresh & folded', accent: '#38BDF8', icon: 'shirt-sharp', search: 'Schedule a pickup' });
+        if (featureFlags.laundry) arr.push({ id: 'laundry', name: 'Laundry', sub: 'Fresh & folded', accent: '#34E6EC', icon: 'shirt-sharp', search: 'Schedule a pickup' });
         if (featureFlags.merchant) arr.push({ id: 'merchant', name: 'Food', sub: 'Delivery from local spots', accent: '#F97316', icon: 'fast-food-sharp', search: 'Order food & more' });
-        if (featureFlags.caribbean_travel) arr.push({ id: 'escape', name: 'G-Escape', sub: 'Caribbean packages', accent: '#D4AF37', icon: 'airplane-sharp', search: 'Browse escapes' });
+        if (featureFlags.caribbean_travel) arr.push({ id: 'escape', name: 'G-Escape', sub: 'Caribbean packages', accent: '#CBD6DE', icon: 'airplane-sharp', search: 'Browse escapes' });
         if (featureFlags.kiosk) arr.push({ id: 'tap', name: 'Tap', sub: 'Scan a puck', accent: BRAND, icon: 'radio-sharp', search: 'Open NFC scanner' });
-        if (featureFlags.events) arr.push({ id: 'events', name: 'Events', sub: 'Nightlife & fetes', accent: '#8B5CF6', icon: 'calendar-sharp', search: 'What\'s happening' });
+        if (featureFlags.events) arr.push({ id: 'events', name: 'Events', sub: 'Nightlife & fetes', accent: '#6D28D9', icon: 'calendar-sharp', search: 'What\'s happening' });
         if (featureFlags.fete) arr.push({ id: 'fete', name: 'Carnival', sub: 'Bands & fetes', accent: '#FF2D55', icon: 'musical-notes-sharp', search: 'Find your band' });
-        if (nextUnlock) arr.push({ id: 'locked', name: nextUnlock.vertical, accent: '#38BDF8', icon: 'lock-closed', locked: true, progress: nextUnlock.progress, need: nextUnlock.required, label: nextUnlock.label });
+        if (nextUnlock) arr.push({ id: 'locked', name: nextUnlock.vertical, accent: '#34E6EC', icon: 'lock-closed', locked: true, progress: nextUnlock.progress, need: nextUnlock.required, label: nextUnlock.label });
         return arr;
     }, [featureFlags, nextUnlock, driverSubText, homeSuggestion]);
 
@@ -722,7 +722,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         }}
                     >
                         <View style={s.savedPlacePin}>
-                            <Ionicons name="heart" size={16} color="#FFF" />
+                            <Ionicons name="heart" size={16} color="#EAF3F6" />
                         </View>
                     </Marker>
                 ))}
@@ -749,7 +749,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                 accessibilityLabel="View notifications"
                                 accessibilityRole="button"
                             >
-                                <Ionicons name="notifications-outline" size={22} color="#FFF" />
+                                <Ionicons name="notifications-outline" size={22} color="#EAF3F6" />
                                 {unreadCount > 0 && <View style={s.notificationBadge} />}
                             </TouchableOpacity>
 
@@ -1018,7 +1018,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     {/* Nearby merchants */}
                     {nearbyVendors.length > 0 && (
                         <View style={{ marginTop: 20 }}>
-                            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 18, paddingHorizontal: 20, marginBottom: 12 }}>Nearby Merchants</Text>
+                            <Text style={{ color: '#EAF3F6', fontWeight: '700', fontSize: 18, paddingHorizontal: 20, marginBottom: 12 }}>Nearby Merchants</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
                                 {nearbyVendors.map(v => (
                                     <TouchableOpacity
@@ -1032,13 +1032,13 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                         accessibilityRole="button"
                                         style={{ width: 160, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                                     >
-                                        <LinearGradient colors={['rgba(139,92,246,0.15)', 'rgba(6,182,212,0.08)']} style={{ padding: 16 }}>
+                                        <LinearGradient colors={['rgba(109,40,217,0.15)', 'rgba(52,230,236,0.08)']} style={{ padding: 16 }}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                                                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.25)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                                                    <Ionicons name="storefront-outline" size={18} color="#8B5CF6" />
+                                                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(109,40,217,0.25)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                                                    <Ionicons name="storefront-outline" size={18} color="#6D28D9" />
                                                 </View>
                                                 <View style={{ flex: 1 }}>
-                                                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{v.name}</Text>
+                                                    <Text style={{ color: '#EAF3F6', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{v.name}</Text>
                                                     <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{v.is_open ? 'Open' : 'Closed'}</Text>
                                                 </View>
                                             </View>
@@ -1096,7 +1096,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
                                 <View style={[glassSurface(100), s.lockBlur]}>
                                     <Ionicons name="cloud-download" size={64} color={VOICES.rider.accent} />
-                                    <Text style={[s.lockTitle, { color: '#FFF' }]}>Update Required</Text>
+                                    <Text style={[s.lockTitle, { color: '#EAF3F6' }]}>Update Required</Text>
                                     <Text style={s.lockSubtitle}>
                                         A critical security update is available. Please update your app to continue using G-TAXI.
                                     </Text>
@@ -1237,7 +1237,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                     end={{ x: 1, y: 1 }}
                                     style={s.voiceModalSendGradient}
                                 >
-                                    <Ionicons name="send" size={16} color="#FFF" />
+                                    <Ionicons name="send" size={16} color="#EAF3F6" />
                                     <Text style={s.voiceModalSendText}>Send</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
@@ -1466,7 +1466,7 @@ const s = StyleSheet.create({
         flex: 1,
         fontSize: 15,
         fontWeight: '700',
-        color: '#F2F5F8',
+        color: '#EAF3F6',
         lineHeight: 20,
     },
     micBtn: {
@@ -1522,7 +1522,7 @@ const s = StyleSheet.create({
         marginLeft: 8,
         fontSize: 14,
         fontWeight: '600',
-        color: '#FFF',
+        color: '#EAF3F6',
     },
     recentPill: {
         width: 48,
@@ -1550,7 +1550,7 @@ const s = StyleSheet.create({
         marginLeft: 10,
         fontSize: 13,
         fontWeight: '500',
-        color: '#FFF',
+        color: '#EAF3F6',
     },
     aiIndicator: {
         width: 28,
@@ -1601,7 +1601,7 @@ const s = StyleSheet.create({
     heroCardTitle: {
         fontSize: 22,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         letterSpacing: -0.5,
     },
     heroCardSub: {
@@ -1652,7 +1652,7 @@ const s = StyleSheet.create({
     gridCardTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         textAlign: 'center',
     },
     gridCardSub: {
@@ -1673,7 +1673,7 @@ const s = StyleSheet.create({
         borderRadius: 20,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(212,175,55,0.3)',
+        borderColor: 'rgba(203,214,222,0.3)',
         ...elevationGlow(),
     },
     escapeHeroGradient: {
@@ -1692,16 +1692,16 @@ const s = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 10,
-        backgroundColor: 'rgba(212,175,55,0.15)',
+        backgroundColor: 'rgba(203,214,222,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(212,175,55,0.25)',
+        borderColor: 'rgba(203,214,222,0.25)',
     },
     escapeHeroTitle: {
         fontSize: 15,
         fontWeight: '800',
-        color: '#D4AF37',
+        color: '#CBD6DE',
         letterSpacing: 0.2,
     },
     escapeHeroSub: {
@@ -1714,18 +1714,18 @@ const s = StyleSheet.create({
     },
     escapeHeroFrom: {
         fontSize: 10,
-        color: 'rgba(212,175,55,0.6)',
+        color: 'rgba(203,214,222,0.6)',
         fontWeight: '500',
     },
     escapeHeroPrice: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#D4AF37',
+        color: '#CBD6DE',
         lineHeight: 22,
     },
     escapeHeroCurrency: {
         fontSize: 10,
-        color: 'rgba(212,175,55,0.7)',
+        color: 'rgba(203,214,222,0.7)',
         fontWeight: '600',
     },
 
@@ -1806,7 +1806,7 @@ const s = StyleSheet.create({
     fareAmount: {
         fontSize: 20,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
     },
     fareLabel: {
         fontSize: 13,
@@ -1838,7 +1838,7 @@ const s = StyleSheet.create({
         borderColor: `${BRAND}33`,
     },
     stopSuggestionLabel: {
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 13,
         fontWeight: '600',
     },
@@ -1875,7 +1875,7 @@ const s = StyleSheet.create({
     voiceModalTitle: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
     },
     voiceModalSubtitle: {
         fontSize: 13,
@@ -1890,7 +1890,7 @@ const s = StyleSheet.create({
         paddingHorizontal: 18,
         paddingVertical: 14,
         fontSize: 16,
-        color: '#FFF',
+        color: '#EAF3F6',
         marginBottom: 20,
     },
     voiceModalButtons: {
@@ -1927,7 +1927,7 @@ const s = StyleSheet.create({
     voiceModalSendText: {
         fontSize: 15,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
     },
 
     // Lock overlays
@@ -1977,7 +1977,7 @@ const s = StyleSheet.create({
     updateBtnText: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#FFF',
+        color: '#EAF3F6',
     },
 
     // Location confirm overlay
@@ -1998,7 +1998,7 @@ const s = StyleSheet.create({
     locationConfirmTitle: {
         fontSize: 20,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
         marginBottom: 8,
         textAlign: 'center',
     },
@@ -2038,7 +2038,7 @@ const s = StyleSheet.create({
         borderRadius: 8,
         backgroundColor: '#F59E0B',
         borderWidth: 3,
-        borderColor: '#FFF',
+        borderColor: '#EAF3F6',
     },
     locationConfirmButtons: {
         width: '100%',
@@ -2065,7 +2065,7 @@ const s = StyleSheet.create({
         ...ghostBorder(),
     },
     locationConfirmBtnSecondaryText: {
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 16,
         fontWeight: '700',
     },

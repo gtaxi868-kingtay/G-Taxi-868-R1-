@@ -13,9 +13,8 @@ import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
 
-const CYAN = '#1DE0E6';
+const CYAN = '#06B6D4';
 
 interface ServiceType {
     id: string;
@@ -33,19 +32,6 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
     const [weight, setWeight] = useState(5);
     const [loading, setLoading] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
-
-    if (!service) {
-        return (
-            <View style={[s.container, { justifyContent: 'center', alignItems: 'center', padding: 40 }]}>
-                <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-                <Text style={{ color: '#EF4444', fontSize: 18, fontWeight: '700', marginTop: 16 }}>Service not found</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, textAlign: 'center', marginTop: 8 }}>Could not load the selected service.</Text>
-                <TouchableOpacity style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 99, backgroundColor: 'rgba(6,182,212,0.15)', borderWidth: 1, borderColor: CYAN }} onPress={() => navigation.goBack()}>
-                    <Text style={{ color: CYAN, fontWeight: '700' }}>Go Back →</Text>
-                </TouchableOpacity>
-            </View>
-        );
-    }
 
     const priceCents = Math.round(service.baseRate * weight);
 
@@ -125,15 +111,13 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
     }, [user, priceCents, service, weight, navigation, paymentMethod, initPaymentSheet, presentPaymentSheet]);
 
     return (
-        <View style={s.container}>
+        <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                        <Ionicons name="arrow-back" size={22} color="#FFF" />
-                    </TouchableOpacity>
-                    <Text style={s.headerTitle}>{service.label}</Text>
-                    <View style={{ width: 38 }} />
-                </LiquidGlass>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
+                </TouchableOpacity>
+                <Text style={s.headerTitle}>{service.label}</Text>
+                <View style={{ width: 38 }} />
             </View>
 
             <View style={s.content}>
@@ -210,17 +194,17 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                         style={s.ctaGradient}
                     >
-                        <Ionicons name="calendar-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
+                        <Ionicons name="calendar-outline" size={22} color="#EAF3F6" style={{ marginRight: 8 }} />
                         <Text style={s.ctaText}>{loading ? 'Scheduling...' : `Schedule Pickup  ·  $${(priceCents / 100).toFixed(2)} TTD`}</Text>
                     </LinearGradient>
                 </TouchableOpacity>
             </View>
-        </View>
+        </LinearGradient>
     );
 }
 
 const s = StyleSheet.create({
-    container: { flex: 1, backgroundColor: SURFACE.base },
+    container: { flex: 1 },
     header: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         paddingHorizontal: 20, paddingBottom: 12,
@@ -230,7 +214,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center', justifyContent: 'center',
     },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
     content: { flex: 1, padding: 20, gap: 16 },
     scaleBox: {
         borderRadius: 28, overflow: 'hidden', padding: 28, alignItems: 'center',
@@ -265,7 +249,7 @@ const s = StyleSheet.create({
         ...ghostBorder(0.1),
     },
     payOptionActive: {
-        backgroundColor: 'rgba(6,182,212,0.12)',
+        backgroundColor: 'rgba(52,230,236,0.12)',
         borderColor: CYAN,
     },
     payOptionText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
@@ -275,5 +259,5 @@ const s = StyleSheet.create({
     ctaGradient: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18,
     },
-    ctaText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
+    ctaText: { fontSize: 16, fontWeight: '800', color: '#EAF3F6' },
 });

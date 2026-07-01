@@ -8,13 +8,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { Txt } from '@/design-system/primitives';
-import { LiquidGlass } from '@gtaxi/design-system/native';
+import { GlassCard } from '@gtaxi/design-system/native';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { formatTTDDollars } from '../utils/currency';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-import type { AppScreenProps } from '../navigation/types';
 
-const CYAN = '#1DE0E6';
+const CYAN = '#06B6D4';
 
 interface Service {
     id: string;
@@ -24,7 +23,7 @@ interface Service {
     duration_minutes: number;
 }
 
-export function ServiceBookingScreen({ navigation, route }: AppScreenProps<'ServiceBooking'>) {
+export function ServiceBookingScreen({ navigation, route }: any) {
     const { width } = useWindowDimensions();
     const { merchantId, merchantName, pickup, destination } = route.params;
     const insets = useSafeAreaInsets();
@@ -70,9 +69,9 @@ export function ServiceBookingScreen({ navigation, route }: AppScreenProps<'Serv
                     service_id: selectedService.id,
                     scheduled_at: selectedTime.toISOString(),
                     ride_requested: true,
-                    pickup_address: pickup?.address,
-                    pickup_lat: pickup?.latitude,
-                    pickup_lng: pickup?.longitude,
+                    pickup_address: pickup.address,
+                    pickup_lat: pickup.latitude,
+                    pickup_lng: pickup.longitude,
                 }
             });
 
@@ -83,7 +82,7 @@ export function ServiceBookingScreen({ navigation, route }: AppScreenProps<'Serv
             Alert.alert(
                 "Booking Sent!",
                 "Your request has been sent to " + merchantName + ". We'll notify you once they approve the ride.",
-                [{ text: "OK", onPress: () => navigation.navigate('Home', {}) }]
+                [{ text: "OK", onPress: () => navigation.navigate('Home') }]
             );
         } catch (err: any) {
             Alert.alert("Booking Failed", err.message);
@@ -102,18 +101,17 @@ export function ServiceBookingScreen({ navigation, route }: AppScreenProps<'Serv
 
     return (
         <View style={s.root}>
+            <LinearGradient colors={['#0A0A1F', '#12122A']} style={StyleSheet.absoluteFillObject} />
             
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                        <Ionicons name="close" size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <View>
-                        <Txt variant="bodyBold" weight="heavy" color="#FFF">{merchantName}</Txt>
-                        <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Select Service & Time</Txt>
-                    </View>
-                    <View style={{ width: 44 }} />
-                </LiquidGlass>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                    <Ionicons name="close" size={24} color="#EAF3F6" />
+                </TouchableOpacity>
+                <View>
+                    <Txt variant="bodyBold" weight="heavy" color="#EAF3F6">{merchantName}</Txt>
+                    <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Select Service & Time</Txt>
+                </View>
+                <View style={{ width: 44 }} />
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 100 }}>
@@ -122,18 +120,17 @@ export function ServiceBookingScreen({ navigation, route }: AppScreenProps<'Serv
                     <ActivityIndicator color={VOICES.rider.accent} style={{ marginTop: 20 }} />
                 ) : (
                     services.map(svc => (
-                        <LiquidGlass key={svc.id} tier="inlay" voice="rider" style={[s.serviceCard, selectedService?.id === svc.id && s.activeCard]}>
-                            <TouchableOpacity 
-                                style={{ flexDirection: 'row', alignItems: 'center', padding: 20 }}
-                                onPress={() => setSelectedService(svc)}
-                            >
-                                <View style={{ flex: 1 }}>
-                                    <Txt variant="bodyBold" weight="heavy" color="#FFF">{svc.name}</Txt>
-                                    <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">{svc.duration_minutes} mins</Txt>
-                                </View>
-                                <Txt variant="bodyReg" weight="heavy" color={CYAN}>{formatTTDDollars(svc.price_cents / 100)}</Txt>
-                            </TouchableOpacity>
-                        </LiquidGlass>
+                        <TouchableOpacity 
+                            key={svc.id} 
+                            style={[s.serviceCard, selectedService?.id === svc.id && s.activeCard]}
+                            onPress={() => setSelectedService(svc)}
+                        >
+                            <View style={{ flex: 1 }}>
+                                <Txt variant="bodyBold" weight="heavy" color="#EAF3F6">{svc.name}</Txt>
+                                <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">{svc.duration_minutes} mins</Txt>
+                            </View>
+                            <Txt variant="bodyReg" weight="heavy" color={CYAN}>{formatTTDDollars(svc.price_cents / 100)}</Txt>
+                        </TouchableOpacity>
                     ))
                 )}
 
@@ -147,7 +144,7 @@ export function ServiceBookingScreen({ navigation, route }: AppScreenProps<'Serv
                                 style={[s.timeSlot, { width: (width - 60) / 3 }, isSelected && s.activeTime]}
                                 onPress={() => setSelectedTime(time)}
                             >
-                                <Txt variant="bodyReg" weight="heavy" color={isSelected ? "#FFF" : "rgba(255,255,255,0.6)"}>
+                                <Txt variant="bodyReg" weight="heavy" color={isSelected ? "#EAF3F6" : "rgba(255,255,255,0.6)"}>
                                     {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </Txt>
                             </TouchableOpacity>
@@ -155,14 +152,14 @@ export function ServiceBookingScreen({ navigation, route }: AppScreenProps<'Serv
                     })}
                 </View>
 
-                <LiquidGlass tier="inlay" voice="rider" style={s.logisticsCard}>
+                <GlassCard variant="rider" style={s.logisticsCard}>
                     <Ionicons name="car" size={24} color={VOICES.rider.accent} />
                     <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Txt variant="bodyBold" weight="heavy" color="#FFF">Include G-Taxi Ride</Txt>
+                        <Txt variant="bodyBold" weight="heavy" color="#EAF3F6">Include G-Taxi Ride</Txt>
                         <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Coordinated pickup 15m before</Txt>
                     </View>
                     <Ionicons name="checkbox" size={24} color={CYAN} />
-                </LiquidGlass>
+                </GlassCard>
             </ScrollView>
 
             <View style={[s.footer, { paddingBottom: insets.bottom + 20 }]}>
@@ -177,8 +174,8 @@ export function ServiceBookingScreen({ navigation, route }: AppScreenProps<'Serv
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                     >
-                        {submitting ? <ActivityIndicator color="#FFF" /> : (
-                            <Txt variant="bodyReg" weight="heavy" color="#FFF">REQUEST APPOINTMENT</Txt>
+                        {submitting ? <ActivityIndicator color="#EAF3F6" /> : (
+                            <Txt variant="bodyReg" weight="heavy" color="#EAF3F6">REQUEST APPOINTMENT</Txt>
                         )}
                     </LinearGradient>
                 </TouchableOpacity>

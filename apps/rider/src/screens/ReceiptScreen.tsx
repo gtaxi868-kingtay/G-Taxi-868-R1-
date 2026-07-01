@@ -137,7 +137,7 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
 
                             <View style={s.statusHeader}>
                                 <View style={s.checkCircle}>
-                                    <Ionicons name="checkmark" size={32} color="#FFF" />
+                                    <Ionicons name="checkmark" size={32} color="#EAF3F6" />
                                 </View>
                                 <Text style={s.paidText}>PAID SUCCESS</Text>
                                 <Text style={s.dateText}>{dateStr} · {timeStr}</Text>
@@ -328,7 +328,7 @@ const s = StyleSheet.create({
     statValue: {
         fontSize: 28,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
         letterSpacing: -0.5,
     },
     statLabel: {
@@ -360,7 +360,7 @@ const s = StyleSheet.create({
     rowValue: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#FFF',
+        color: '#EAF3F6',
     },
     rowLabelWarning: {
         fontSize: 15,
@@ -410,7 +410,7 @@ const s = StyleSheet.create({
     totalLabel: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
     },
     totalValue: {
         fontSize: 22,
@@ -471,7 +471,7 @@ const s = StyleSheet.create({
     doneBtnText: {
         fontSize: 16,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
         letterSpacing: 1,
     },
     reportBtn: {

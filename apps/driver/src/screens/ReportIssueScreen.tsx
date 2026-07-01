@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, TextInput,
-    ActivityIndicator, Alert, ScrollView,
+    ActivityIndicator, Alert, ScrollView, useWindowDimensions,
     KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { initializeSupabaseClient } from '@gtaxi/core';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
+import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
+import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
 const { supabase } = initializeSupabaseClient('native');
 
@@ -22,6 +23,7 @@ const ISSUE_TYPES = [
 ];
 
 export function ReportIssueScreen({ navigation }: { navigation: any }) {
+    const { height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
 
     const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -77,13 +79,16 @@ export function ReportIssueScreen({ navigation }: { navigation: any }) {
 
     return (
         <View style={s.root}>
+            <LinearGradient colors={[SURFACE.base, '#08090D']} style={StyleSheet.absoluteFillObject} />
+            <View style={[StyleSheet.absoluteFillObject, glassSurface(20)]} />
+
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
             <ScrollView contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={24} color="#FFF" />
+                    <Ionicons name="arrow-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
 
                 <View style={s.headerSection}>
@@ -104,7 +109,7 @@ export function ReportIssueScreen({ navigation }: { navigation: any }) {
                             activeOpacity={0.7}
                         >
                             <View style={[s.issueIcon, selectedType === type.id && s.issueIconActive]}>
-                                <Ionicons name={type.icon as any} size={22} color={selectedType === type.id ? '#FFF' : VOICES.driver.gold} />
+                                <Ionicons name={type.icon as any} size={22} color={selectedType === type.id ? '#EAF3F6' : VOICES.driver.gold} />
                             </View>
                             <Text style={[s.issueLabel, selectedType === type.id && s.issueLabelActive]}>{type.label}</Text>
                             <Text style={s.issueDesc}>{type.desc}</Text>
@@ -143,16 +148,16 @@ export function ReportIssueScreen({ navigation }: { navigation: any }) {
                     disabled={!selectedType || !description.trim() || submitting}
                     activeOpacity={0.8}
                 >
-                    <LiquidGlass voice="driver" style={s.submitInner} tier="chrome">
+                    <LinearGradient colors={['#EF4444', '#DC2626']} style={s.submitGradient}>
                         {submitting ? (
-                            <ActivityIndicator color="#FFF" />
+                            <ActivityIndicator color="#EAF3F6" />
                         ) : (
                             <>
-                                <Ionicons name="warning" size={20} color="#FFF" />
+                                <Ionicons name="warning" size={20} color="#EAF3F6" />
                                 <Text style={s.submitText}>TRANSMIT HIGH-PRIORITY ALERT</Text>
                             </>
                         )}
-                    </LiquidGlass>
+                    </LinearGradient>
                 </TouchableOpacity>
 
                 <Text style={s.footerNote}>
@@ -168,23 +173,23 @@ const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
     backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
     headerSection: { alignItems: 'center', marginBottom: 32 },
-    iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(239,68,68,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
-    headerTitle: { fontSize: 28, fontWeight: '900', color: '#FFF', marginBottom: 8 },
+    iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(239,68,68,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 16, ...ghostBorder(0.3) },
+    headerTitle: { fontSize: 28, fontWeight: '900', color: '#EAF3F6', marginBottom: 8 },
     headerSub: { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 22, paddingHorizontal: 20 },
     sectionLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 12, marginTop: 24, textTransform: 'uppercase' },
     issueGrid: { gap: 12 },
-    issueCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+    issueCard: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, ...ghostBorder() },
     issueCardActive: { backgroundColor: 'rgba(239,68,68,0.1)', borderColor: 'rgba(239,68,68,0.4)' },
     issueIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: VOICES.driver.accent + '1A', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
     issueIconActive: { backgroundColor: 'rgba(239,68,68,0.35)' },
-    issueLabel: { fontSize: 15, fontWeight: '800', color: '#FFF', marginBottom: 4 },
+    issueLabel: { fontSize: 15, fontWeight: '800', color: '#EAF3F6', marginBottom: 4 },
     issueLabelActive: { color: 'rgba(239,68,68,0.35)' },
     issueDesc: { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 18 },
-    inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-    textInput: { flex: 1, height: 52, color: '#FFF', fontSize: 15, fontWeight: '600' },
-    textArea: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', color: '#FFF', fontSize: 15, fontWeight: '600', minHeight: 120 },
-    submitBtn: { marginTop: 32, height: 60, borderRadius: 30, overflow: 'hidden' },
-    submitInner: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderWidth: 0 },
-    submitText: { fontSize: 15, fontWeight: '900', color: '#FFF', letterSpacing: 0.5 },
+    inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, paddingHorizontal: 16, ...ghostBorder() },
+    textInput: { flex: 1, height: 52, color: '#EAF3F6', fontSize: 15, fontWeight: '600' },
+    textArea: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 16, ...ghostBorder(), color: '#EAF3F6', fontSize: 15, fontWeight: '600', minHeight: 120 },
+    submitBtn: { marginTop: 32, height: 60, borderRadius: 30, overflow: 'hidden', ...elevationGlow() },
+    submitGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    submitText: { fontSize: 15, fontWeight: '900', color: '#EAF3F6', letterSpacing: 0.5 },
     footerNote: { marginTop: 24, fontSize: 12, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 20, paddingHorizontal: 20 },
 });

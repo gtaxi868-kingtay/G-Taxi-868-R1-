@@ -250,6 +250,7 @@ export function useDriverLocationSubscription(driverId: string | null) {
                         reconnectTimer = setTimeout(setupSubscription, 30_000);
                     }
                 });
+
         };
 
         // Fetch initial location

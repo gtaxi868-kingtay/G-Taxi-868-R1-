@@ -264,7 +264,7 @@ CREATE TRIGGER trg_enqueue_order_dispatch
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-        PERFORM cron.unschedule('platform-intelligence-15min');
+        PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'platform-intelligence-15min';
         PERFORM cron.schedule(
             'platform-intelligence-15min',
             '*/15 * * * *',

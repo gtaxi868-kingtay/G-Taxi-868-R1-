@@ -181,7 +181,7 @@ export function LoginScreen({ navigation }: any) {
                                         end={{ x: 1, y: 1 }}
                                     >
                                         {loading ? (
-                                            <ActivityIndicator color="#FFF" />
+                                            <ActivityIndicator color="#EAF3F6" />
                                         ) : (
                                             <Text style={s.buttonText}>Sign In</Text>
                                         )}
@@ -321,7 +321,7 @@ const s = StyleSheet.create({
         ...elevationGlow(),
     },
     input: {
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'Manrope-Medium',
@@ -341,7 +341,7 @@ const s = StyleSheet.create({
         alignItems: 'center',
     },
     buttonText: {
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 17,
         fontWeight: '700',
         letterSpacing: 0.5,
@@ -373,7 +373,7 @@ const s = StyleSheet.create({
         opacity: 0.3,
     },
     watermarkText: {
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 18,
         fontWeight: '900',
         letterSpacing: 4,

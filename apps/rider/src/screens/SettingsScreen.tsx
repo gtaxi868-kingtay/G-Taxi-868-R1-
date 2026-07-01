@@ -13,10 +13,8 @@ import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-import { LiquidGlass } from '@gtaxi/design-system/native';
-import type { AppScreenProps } from '../navigation/types';
 
-const CYAN = '#1DE0E6';
+const CYAN = '#06B6D4';
 
 const R = {
     bg: SURFACE.base,
@@ -25,11 +23,11 @@ const R = {
     purple: VOICES.rider.accent,
     purpleLight: VOICES.rider.accent,
     gold: '#F59E0B',
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: '#AEA9B5',
 };
 
-export function SettingsScreen({ navigation }: AppScreenProps<'Settings'>) {
+export function SettingsScreen({ navigation }: any) {
     const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -130,12 +128,10 @@ export function SettingsScreen({ navigation }: AppScreenProps<'Settings'>) {
             <StatusBar style="light" />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <LiquidGlass tier="chrome" voice="rider" style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 8, paddingHorizontal: 12 }}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Settings</Txt>
-                </LiquidGlass>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
+                </TouchableOpacity>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Settings</Txt>
             </View>
 
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
@@ -181,9 +177,9 @@ export function SettingsScreen({ navigation }: AppScreenProps<'Settings'>) {
                     />
                     <TouchableOpacity style={s.saveBtn} onPress={saveEmergencyContact} disabled={savingContact}>
                         {savingContact ? (
-                            <ActivityIndicator size="small" color="#FFF" />
+                            <ActivityIndicator size="small" color="#EAF3F6" />
                         ) : (
-                            <Txt variant="bodyBold" color="#FFF">Save Emergency Contact</Txt>
+                            <Txt variant="bodyBold" color="#EAF3F6">Save Emergency Contact</Txt>
                         )}
                     </TouchableOpacity>
                 </View>
@@ -199,7 +195,7 @@ export function SettingsScreen({ navigation }: AppScreenProps<'Settings'>) {
                     <View style={s.divider} />
                     <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Alert.alert('Cache Cleared'); }}>
                         <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color="#FFF">Clear App Cache</Txt>
+                            <Txt variant="bodyBold" color="#EAF3F6">Clear App Cache</Txt>
                             <Txt variant="small" color={R.muted}>Refresh local storage</Txt>
                         </View>
                         <Ionicons name="trash-outline" size={20} color={R.muted} />
@@ -207,11 +203,11 @@ export function SettingsScreen({ navigation }: AppScreenProps<'Settings'>) {
                 </View>
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>G-LEVEL</Txt>
-                <TouchableOpacity style={s.card} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Subscription'); }}>
+                <TouchableOpacity style={s.card} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); (navigation as any).navigate('Subscription'); }}>
                     <View style={{ padding: 20 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                            <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 99, backgroundColor: progTier === 'g_member' ? '#D4AF37' : R.purple }}>
-                                <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 12, textTransform: 'uppercase' }}>
+                            <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 99, backgroundColor: progTier === 'g_member' ? '#CBD6DE' : R.purple }}>
+                                <Text style={{ color: '#EAF3F6', fontWeight: '800', fontSize: 12, textTransform: 'uppercase' }}>
                                     {progTier === 'g_member' ? 'G-Member' : `Level ${progLevel}`}
                                 </Text>
                             </View>
@@ -239,9 +235,9 @@ export function SettingsScreen({ navigation }: AppScreenProps<'Settings'>) {
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>EARN</Txt>
                 <View style={s.card}>
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('Referral'); }}>
+                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); (navigation as any).navigate('Referral'); }}>
                         <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color="#FFF">Refer & Earn</Txt>
+                            <Txt variant="bodyBold" color="#EAF3F6">Refer & Earn</Txt>
                             <Txt variant="small" color={R.muted}>Give TTD $15, get TTD $15</Txt>
                         </View>
                         <Ionicons name="gift-outline" size={20} color={R.purple} />
@@ -251,17 +247,17 @@ export function SettingsScreen({ navigation }: AppScreenProps<'Settings'>) {
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>ABOUT</Txt>
                 <View style={s.card}>
                     <TouchableOpacity style={s.row}>
-                        <Txt variant="bodyBold" color="#FFF">Terms of Service</Txt>
+                        <Txt variant="bodyBold" color="#EAF3F6">Terms of Service</Txt>
                         <Ionicons name="chevron-forward" size={18} color={R.muted} />
                     </TouchableOpacity>
                     <View style={s.divider} />
                     <TouchableOpacity style={s.row}>
-                        <Txt variant="bodyBold" color="#FFF">Privacy Policy</Txt>
+                        <Txt variant="bodyBold" color="#EAF3F6">Privacy Policy</Txt>
                         <Ionicons name="chevron-forward" size={18} color={R.muted} />
                     </TouchableOpacity>
                     <View style={s.divider} />
                     <View style={s.row}>
-                        <Txt variant="bodyBold" color="#FFF">Version</Txt>
+                        <Txt variant="bodyBold" color="#EAF3F6">Version</Txt>
                         <Txt variant="small" color={R.muted}>2.4.0 (Nano Banana)</Txt>
                     </View>
                 </View>
@@ -275,14 +271,14 @@ function SettingRow({ label, sub, value, onToggle }: any) {
     return (
         <View style={s.row}>
             <View style={{ flex: 1 }}>
-                <Txt variant="bodyBold" color="#FFF">{label}</Txt>
+                <Txt variant="bodyBold" color="#EAF3F6">{label}</Txt>
                 <Txt variant="small" color={R.muted}>{sub}</Txt>
             </View>
             <Switch
                 value={value}
                 onValueChange={onToggle}
                 trackColor={{ false: '#333', true: R.purple }}
-                thumbColor="#FFF"
+                thumbColor="#EAF3F6"
             />
         </View>
     );
@@ -300,7 +296,7 @@ const s = StyleSheet.create({
     divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 20 },
     input: {
         backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16,
-        paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: '#FFF',
+        paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: '#EAF3F6',
         marginHorizontal: 12, marginTop: 10, ...ghostBorder(0.12),
     },
     saveBtn: {

@@ -18,16 +18,16 @@ const Activity = (p: IconProps) => <Ionicons name="pulse" {...p} />;
 // Local token bridge mapped to the real @gtaxi/design-system palette.
 // (The design system does not export COLORS/TYPOGRAPHY; these mirror tokens.ts.)
 const COLORS = {
-    primary: '#1DE0E6',
-    background: '#0B0E12',
+    primary: '#34E6EC',
+    background: '#08090D',
     borderLight: 'rgba(255,255,255,0.10)',
-    textPrimary: '#F2F5F8',
+    textPrimary: '#EAF3F6',
     textSecondary: 'rgba(242,245,248,0.68)',
     textTertiary: 'rgba(242,245,248,0.42)',
     success: '#10B981',
     error: '#EF4444',
 };
-const SURFACE = { base: '#0B0E12', elevated: '#1A1F27' };
+const SURFACE = { base: '#08090D', elevated: '#141821' };
 const TYPOGRAPHY = {
     h1: { fontSize: 28, fontWeight: '800' as const, color: COLORS.textPrimary },
     h2: { fontSize: 22, fontWeight: '800' as const, color: COLORS.textPrimary },

@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import * as ImagePicker from 'expo-image-picker';
 import { VOICES } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
+import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface NavigationProp {
     navigate: (screen: string, params?: object) => void;
@@ -23,24 +23,31 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState<1 | 2>(1);
 
+    // Personal Info
     const [fullName, setFullName] = useState('');
     const [phone, setPhone] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
+    // Vehicle Info
     const [vehicleModel, setVehicleModel] = useState('');
     const [licensePlate, setLicensePlate] = useState('');
-    const [vehicleType, setVehicleType] = useState('Standard');
+    const [vehicleType, setVehicleType] = useState('Standard'); // Standard, XL, Premium
 
+    // KYC Documents
     const [licenseFront, setLicenseFront] = useState<string | null>(null);
     const [licenseBack, setLicenseBack] = useState<string | null>(null);
     const [vehiclePhoto, setVehiclePhoto] = useState<string | null>(null);
 
+    // Terms
     const [termsAccepted, setTermsAccepted] = useState(false);
 
     const handleNext = () => {
         if (!termsAccepted) {
-            Alert.alert('Terms Required', 'You must accept the Terms of Service and Privacy Policy to continue.');
+            Alert.alert(
+                'Terms Required',
+                'You must accept the Terms of Service and Privacy Policy to continue.'
+            );
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             return;
         }
@@ -85,7 +92,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                 contentType: 'image/jpeg',
                 upsert: true
             });
-
+        
         if (error) throw error;
         return data.path;
     };
@@ -119,6 +126,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             if (!authData.user) throw new Error('Signup failed');
             const requiresEmailConfirmation = !authData.session;
 
+            // 1. Upload Documents
             const ts = Date.now();
             const [frontPath, backPath, vehiclePathResult] = await Promise.all([
                 uploadImage(licenseFront, `${authData.user.id}/license_front_${ts}.jpg`),
@@ -126,6 +134,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                 uploadImage(vehiclePhoto, `${authData.user.id}/vehicle_${ts}.jpg`),
             ]);
 
+            // 2. Create Driver Record
             const { data: driverData, error: driverError } = await supabase.from('drivers').insert({
                 user_id: authData.user.id,
                 name: fullName.trim(),
@@ -141,6 +150,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
 
             if (driverError) throw driverError;
 
+            // 3. Create Document Records
             await supabase.from('driver_documents').insert([
                 { driver_id: driverData.id, document_type: 'permit_front', storage_path: frontPath },
                 { driver_id: driverData.id, document_type: 'permit_back', storage_path: backPath },
@@ -151,18 +161,31 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             if (requiresEmailConfirmation) {
-                Alert.alert('Check Your Email', 'Your application is submitted. Please verify your email to activate your account.\n\nDidn\'t get the code?', [
-                    { text: 'Verify via WhatsApp', onPress: () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(email)) },
-                    { text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }
-                ]);
+                Alert.alert(
+                    'Check Your Email',
+                    'Your application is submitted. Please verify your email to activate your account.\n\nDidn\'t get the code?',
+                    [
+                        { text: 'Verify via WhatsApp', onPress: () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(email)) },
+                        { text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }
+                    ]
+                );
             } else {
-                Alert.alert('Application Submitted', 'Your application is under review. You will be notified once approved.', [{ text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }]);
+                Alert.alert(
+                    'Application Submitted',
+                    'Your application is under review. You will be notified once approved.',
+                    [{ text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }]
+                );
             }
         } catch (err) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             const message = err instanceof Error ? err.message : String(err);
-            if (message.includes("already registered as a rider") || message.includes("already registered as a driver")) {
-                Alert.alert("Phone Already Registered", "This phone number is already linked to a G-Taxi account. Each phone number can only be used for one account.");
+            if (message.includes("already registered as a rider") ||
+                message.includes("already registered as a driver")) {
+                Alert.alert(
+                    "Phone Already Registered",
+                    "This phone number is already linked to a G-Taxi account. " +
+                    "Each phone number can only be used for one account."
+                );
             } else {
                 Alert.alert('Error', message);
             }
@@ -190,25 +213,31 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             <StatusBar style="light" />
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 20 }]} showsVerticalScrollIndicator={false}>
+
+                    {/* Header: [← back] | ["Become a Driver" centered] | step indicator (1 of 2) */}
                     <View style={s.headerRow}>
                         <TouchableOpacity style={s.backBtn} onPress={step === 2 ? () => setStep(1) : () => { onBack?.(); navigation?.goBack(); }}>
-                            <Ionicons name="chevron-back" size={24} color="#FFF" />
+                            <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                         </TouchableOpacity>
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF' }}>Become a Driver</Text>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: VOICES.driver.accent }}>{step} of 2</Text>
+                        <Text style={{fontSize: 16, fontWeight: '700', color: '#EAF3F6'}}>Become a Driver</Text>
+                        <Text style={{fontSize: 14, fontWeight: '600', color: VOICES.driver.accent}}>{step} of 2</Text>
                     </View>
 
                     {step === 1 ? (
-                        <LiquidGlass voice="driver" style={s.container}>
-                            <Text style={[s.title, { fontSize: 22, fontWeight: '800', color: '#FFF' }]}>Account Info</Text>
+                        <View style={s.container}>
+                            <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#EAF3F6'}]}>Account Info</Text>
                             {renderInput('Full Name', fullName, setFullName)}
                             {renderInput('Phone Number', phone, setPhone, { keyboardType: 'phone-pad' })}
                             {renderInput('Email Address', email, setEmail, { keyboardType: 'email-address', autoCapitalize: 'none' })}
                             {renderInput('Password', password, setPassword, { secureTextEntry: true })}
 
+                            {/* Terms Checkbox */}
                             <TouchableOpacity
                                 style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTermsAccepted(!termsAccepted); }}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                    setTermsAccepted(!termsAccepted);
+                                }}
                             >
                                 <View style={{
                                     width: 24, height: 24, borderRadius: 6,
@@ -221,58 +250,73 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                                 </View>
                                 <Text style={{ flex: 1, color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' }}>
                                     I accept the{' '}
-                                    <Text style={{ color: VOICES.driver.accent, fontWeight: '700' }} onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}>Terms of Service</Text>
+                                    <Text
+                                        style={{ color: VOICES.driver.accent, fontWeight: '700' }}
+                                        onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}
+                                    >
+                                        Terms of Service
+                                    </Text>
                                     {' '}and{' '}
-                                    <Text style={{ color: VOICES.driver.accent, fontWeight: '700' }} onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}>Privacy Policy</Text>
+                                    <Text
+                                        style={{ color: VOICES.driver.accent, fontWeight: '700' }}
+                                        onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}
+                                    >
+                                        Privacy Policy
+                                    </Text>
                                 </Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity style={s.primaryBtn} onPress={handleNext}>
-                                <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF' }}>Next →</Text>
+                                <Text style={{fontSize: 16, fontWeight: '700', color: '#EAF3F6'}}>Next →</Text>
                             </TouchableOpacity>
-                        </LiquidGlass>
+                        </View>
                     ) : (
-                        <LiquidGlass voice="driver" style={s.container}>
-                            <Text style={[s.title, { fontSize: 22, fontWeight: '800', color: '#FFF' }]}>Vehicle Info</Text>
+                        <View style={s.container}>
+                            <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#EAF3F6'}]}>Vehicle Info</Text>
                             {renderInput('Vehicle Model (e.g. 2022 Toyota Aqua)', vehicleModel, setVehicleModel)}
                             {renderInput('Plate Number', licensePlate, setLicensePlate, { autoCapitalize: 'characters' })}
 
-                            <Text style={[s.label, { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)' }]}>VEHICLE CLASS</Text>
+                            {/* Vehicle type selector: 3 pill options [Standard] [XL] [Premium] */}
+                            <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}]}>VEHICLE CLASS</Text>
                             <View style={s.typeSelector}>
                                 {['Standard', 'XL', 'Premium'].map(type => (
                                     <TouchableOpacity
                                         key={type}
                                         style={[s.typePill, vehicleType === type && s.typePillActive]}
-                                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setVehicleType(type); }}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            setVehicleType(type);
+                                        }}
                                     >
-                                        <Text style={{ fontSize: 14, fontWeight: '600', color: vehicleType === type ? "#FFF" : 'rgba(255,255,255,0.6)' }}>{type}</Text>
+                                        <Text style={{fontSize: 14, fontWeight: '600', color: vehicleType === type ? "#EAF3F6" : 'rgba(255,255,255,0.6)'}}>{type}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
 
-                            <Text style={[s.label, { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)' }]}>KYC DOCUMENTS</Text>
-                            <View style={s.docGrid}>
-                                <TouchableOpacity style={[s.docCard, licenseFront && s.docCardActive]} onPress={() => pickImage(setLicenseFront)}>
-                                    <Ionicons name={licenseFront ? "checkmark-circle" : "card-outline"} size={24} color={licenseFront ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
-                                    <Text style={{ fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8 }}>License Front</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={[s.docCard, licenseBack && s.docCardActive]} onPress={() => pickImage(setLicenseBack)}>
-                                    <Ionicons name={licenseBack ? "checkmark-circle" : "card-outline"} size={24} color={licenseBack ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
-                                    <Text style={{ fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8 }}>License Back</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={[s.docCard, vehiclePhoto && s.docCardActive]} onPress={() => pickImage(setVehiclePhoto)}>
-                                    <Ionicons name={vehiclePhoto ? "checkmark-circle" : "car-outline"} size={24} color={vehiclePhoto ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
-                                    <Text style={{ fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8 }}>Vehicle Photo</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <TouchableOpacity style={[s.primaryBtn, loading && s.disabled]} onPress={handleRegister} disabled={loading}>
-                                {loading ? <ActivityIndicator color="#FFF" /> : <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF' }}>Submit Application</Text>}
+                            <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}]}>KYC DOCUMENTS</Text>
+                                                     <View style={s.docGrid}>
+                            <TouchableOpacity style={[s.docCard, licenseFront && s.docCardActive]} onPress={() => pickImage(setLicenseFront)}>
+                                <Ionicons name={licenseFront ? "checkmark-circle" : "card-outline"} size={24} color={licenseFront ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
+                                <Text style={{fontSize: 11, fontWeight: '500', color: '#EAF3F6', marginTop: 8}}>License Front</Text>
                             </TouchableOpacity>
-                        </LiquidGlass>
+ 
+                            <TouchableOpacity style={[s.docCard, licenseBack && s.docCardActive]} onPress={() => pickImage(setLicenseBack)}>
+                                <Ionicons name={licenseBack ? "checkmark-circle" : "card-outline"} size={24} color={licenseBack ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
+                                <Text style={{fontSize: 11, fontWeight: '500', color: '#EAF3F6', marginTop: 8}}>License Back</Text>
+                            </TouchableOpacity>
+ 
+                            <TouchableOpacity style={[s.docCard, vehiclePhoto && s.docCardActive]} onPress={() => pickImage(setVehiclePhoto)}>
+                                <Ionicons name={vehiclePhoto ? "checkmark-circle" : "car-outline"} size={24} color={vehiclePhoto ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
+                                <Text style={{fontSize: 11, fontWeight: '500', color: '#EAF3F6', marginTop: 8}}>Vehicle Photo</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity style={[s.primaryBtn, loading && s.disabled]} onPress={handleRegister} disabled={loading}>
+                            {loading ? <ActivityIndicator color="#EAF3F6" /> : <Text style={{fontSize: 16, fontWeight: '700', color: '#EAF3F6'}}>Submit Application</Text>}
+                        </TouchableOpacity>
+                        </View>
                     )}
+
                 </ScrollView>
             </KeyboardAvoidingView>
         </View>
@@ -284,17 +328,21 @@ const s = StyleSheet.create({
     scroll: { paddingHorizontal: 24, paddingBottom: 40 },
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40 },
     backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    container: { width: '100%', padding: 24, marginBottom: 20 },
+    container: { width: '100%' },
     title: { marginBottom: 32, letterSpacing: -1 },
-    inputWrap: { height: 64, backgroundColor: 'rgba(139,92,246,0.06)', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-    input: { flex: 1, color: '#FFF', fontSize: 16 },
+ 
+    inputWrap: { height: 64, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginBottom: 16, ...ghostBorder(0.15) },
+    input: { flex: 1, color: '#EAF3F6', fontSize: 16 },
+ 
     label: { marginTop: 16, marginBottom: 12, marginLeft: 4, letterSpacing: 1 },
     typeSelector: { flexDirection: 'row', gap: 10, marginBottom: 40 },
-    typePill: { flex: 1, height: 50, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+    typePill: { flex: 1, height: 50, borderRadius: 15, ...ghostBorder(0.15), alignItems: 'center', justifyContent: 'center' },
     typePillActive: { backgroundColor: VOICES.driver.accent, borderColor: VOICES.driver.accent },
+ 
     primaryBtn: { height: 64, backgroundColor: VOICES.driver.accent, borderRadius: 32, alignItems: 'center', justifyContent: 'center', shadowColor: VOICES.driver.accent, shadowRadius: 15, shadowOpacity: 0.3, elevation: 8, marginTop: 10 },
     disabled: { opacity: 0.7 },
+ 
     docGrid: { flexDirection: 'row', gap: 10, marginBottom: 30 },
-    docCard: { flex: 1, height: 90, backgroundColor: 'rgba(139,92,246,0.04)', borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    docCard: { flex: 1, height: 90, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 15, alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.15) },
     docCardActive: { borderColor: VOICES.driver.accent, backgroundColor: VOICES.driver.accent + '0D' },
 });

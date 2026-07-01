@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
     useSharedValue, withSpring, withTiming, withRepeat, withDelay,
@@ -24,8 +25,7 @@ import { Sidebar } from '../components/Sidebar';
 import { Ionicons } from '@expo/vector-icons';
 import { NfcIdentityHandler } from '../components/NfcIdentityHandler';
 import { SURFACE, ANIMATION, VOICES } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
-import { elevationGlow, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 const CAR_SIZE = 120;
 const LOCKOUT_THRESHOLD_CENTS = -60000;
@@ -94,12 +94,14 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
 
     useEffect(() => {
         panelY.value = withSpring(0, ANIMATION.spring);
+        // gentle float only — no rotation gimmick
         carY.value = withRepeat(
             withSequence(
                 withTiming(-28, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
                 withTiming(-12, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
             ),
-            -1, true,
+            -1,
+            true,
         );
         [card0, card1].forEach((c, i) => {
             c.value = withDelay(i * 80, withSpring(1, ANIMATION.spring));
@@ -121,11 +123,12 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                 setTodayTrips(rides.length);
                 setTodayEarnings(rides.reduce((sum, r: any) => sum + (r.total_fare ?? 0), 0));
             }
-        } catch (e) { }
+        } catch (e) { /* stats unavailable */ }
     }, [driver?.id]);
 
     useEffect(() => {
         const earningsAnim = withTiming(todayEarnings, { duration: 900 });
+        // earningsVal is not needed here — display todayEarnings directly
     }, [todayEarnings]);
 
     useEffect(() => {
@@ -153,7 +156,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             try {
                 const { data, error } = await supabase.functions.invoke('get_system_status');
                 if (!error && data?.success) setSystemStatus(data.data as Record<string, unknown>);
-            } catch (err) { }
+            } catch (err) { /* System status failed */ }
         };
         fetchStatus();
         const checkActiveTrip = async () => {
@@ -161,7 +164,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             try {
                 const { data } = await supabase.from('rides').select('id').eq('driver_id', driver.id).in('status', ['assigned', 'arrived', 'in_progress']).maybeSingle();
                 if (data?.id) navigation.replace('ActiveTrip', { rideId: data.id });
-            } catch (e) { }
+            } catch (e) { /* Recovery failed */ }
         };
         checkActiveTrip();
         const fetchBalance = async () => {
@@ -169,7 +172,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             try {
                 const { data, error } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
                 if (!error && data != null) setBalanceCents(data as number);
-            } catch (e) { }
+            } catch (e) { /* Balance fetch failed */ }
         };
         fetchBalance();
         fetchStats();
@@ -240,7 +243,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         try {
             const { data } = await supabase.functions.invoke('get_system_status');
             if (data?.success) setSystemStatus(data.data as Record<string, unknown>);
-        } catch (e) { }
+        } catch (e) { /* Refresh failed */ }
         await fetchStats();
         setRefreshing(false);
     }, [fetchStats]);
@@ -252,10 +255,8 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         <View style={[s.root, s.center]}>
             <StatusBar style="light" />
             <LinearGradient colors={['#1A1200', SURFACE.base]} style={StyleSheet.absoluteFillObject} />
-            <LiquidGlass voice="driver" style={s.iconCircle}>
-                <Ionicons name="hourglass-outline" size={32} color={VOICES.driver.accent} />
-            </LiquidGlass>
-            <Text style={[s.centerTitle, { fontSize: 22, fontWeight: '700', color: '#FFF' }]}>Application under review</Text>
+            <View style={s.iconCircle}><Ionicons name="hourglass-outline" size={32} color={VOICES.driver.accent} /></View>
+            <Text style={[s.centerTitle, { fontSize: 22, fontWeight: '700', color: '#EAF3F6' }]}>Application under review</Text>
             <Text style={[s.centerBody, { fontSize: 14, fontWeight: '400', color: 'rgba(255,255,255,0.6)', lineHeight: 22 }]}>We're reviewing your documents. You'll be notified once an administrator approves your account — usually within 1–2 days.</Text>
             <TouchableOpacity style={s.outlineBtn} onPress={signOut} accessibilityLabel="Sign out" accessibilityRole="button">
                 <Ionicons name="log-out-outline" size={16} color="#FF4D4D" />
@@ -264,7 +265,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         </View>
     );
 
-    const tileWidth = (width - 40 - 24) / 4;
+    const tileWidth = (width - 40 - 24) / 4; // 4 columns, 20px padding each side, 8px gaps × 3
 
     return (
         <View style={s.root}>
@@ -297,7 +298,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
 
                 <View style={[s.mapOverlay, { top: insets.top + 12 }]} pointerEvents="box-none">
                     <TouchableOpacity style={s.mapBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSidebarVisible(true); }} activeOpacity={0.8} accessibilityLabel="Open driver menu" accessibilityRole="button">
-                        <Ionicons name="menu-outline" size={22} color="#FFFFFF" />
+                        <Ionicons name="menu-outline" size={22} color="#EAF3F6" />
                     </TouchableOpacity>
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                         <TouchableOpacity style={[s.mapBtn, { backgroundColor: VOICES.driver.accent + '20', borderColor: VOICES.driver.accent + '40', borderWidth: 1 }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setNfcVisible(true); }} activeOpacity={0.8} accessibilityLabel="Scan NFC kiosk" accessibilityRole="button">
@@ -321,10 +322,12 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             </Reanimated.View>
 
             <Reanimated.View style={[s.panelOuter, { height: panelHeightLocal }, panelStyle, width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300 }]}>
-                <LiquidGlass voice="driver" style={{ flex: 1, borderWidth: 0 }} tier="chrome">
+                <BlurView tint="dark" intensity={50} style={{ flex: 1, borderWidth: 0 }}>
                     <View style={s.panelInner}>
                         <View style={s.handle} />
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} />}>
+
+                            {/* Greeting + Online toggle */}
                             <View style={s.greetingRow}>
                                 <View>
                                     <Text style={s.greetingText}>{getGreeting()}</Text>
@@ -352,6 +355,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                                 </TouchableOpacity>
                             </View>
 
+                            {/* Hero earnings block */}
                             <Reanimated.View style={[s.heroBlock, card0Style]}>
                                 <TouchableOpacity
                                     activeOpacity={0.85}
@@ -393,14 +397,16 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                                 )}
                             </Reanimated.View>
 
+                            {/* Push notification banner */}
                             {pushMissing && (
                                 <TouchableOpacity style={s.pushBanner} onPress={handleFixPush} disabled={isFixingPush} activeOpacity={0.8} accessibilityLabel="Fix push notifications" accessibilityRole="button">
-                                    <Ionicons name="notifications-off-outline" size={16} color="#F59E0B" />
+                                    <Ionicons name="notifications-off-outline" size={16} color="#E6B450" />
                                     <Text style={s.pushBannerText}>Notifications off — tap to fix</Text>
-                                    {isFixingPush && <ActivityIndicator size="small" color="#F59E0B" style={{ marginLeft: 8 }} />}
+                                    {isFixingPush && <ActivityIndicator size="small" color="#E6B450" style={{ marginLeft: 8 }} />}
                                 </TouchableOpacity>
                             )}
 
+                            {/* Quick access — 4-column wrap grid */}
                             <Text style={s.sectionLabel}>Quick access</Text>
                             <Reanimated.View style={[s.quickGrid, card1Style]}>
                                 {QUICK_NAV.map((item, i) => (
@@ -420,9 +426,10 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                                     </Reanimated.View>
                                 ))}
                             </Reanimated.View>
+
                         </ScrollView>
                     </View>
-                </LiquidGlass>
+                </BlurView>
             </Reanimated.View>
 
             <Sidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} user={{ name: driver?.name || 'Driver', rating: 5.0 }} navigation={navigation} />
@@ -433,33 +440,47 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
 const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: '#0A0718' },
     center: { justifyContent: 'center', alignItems: 'center', padding: 32 },
-    iconCircle: { width: 80, height: 80, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+    iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: VOICES.driver.accent + '14', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
     centerTitle: { textAlign: 'center', marginBottom: 12 },
     centerBody: { textAlign: 'center', lineHeight: 24, paddingHorizontal: 24, marginBottom: 32 },
     outlineBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 50, ...ghostBorder(0.35) },
     solidBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 50, gap: 8 },
+
+    // Map layer
     mapContainer: { width: '100%', overflow: 'hidden' },
     mapOverlay: { position: 'absolute', left: 20, right: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     mapBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(7,5,15,0.85)', justifyContent: 'center', alignItems: 'center', ...ghostBorder(0.05) },
     logoText: { fontSize: 22, fontWeight: '900', color: VOICES.driver.accent, letterSpacing: 2, alignSelf: 'center' },
+
+    // Marker
     markerWrap: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
     markerRing: { position: 'absolute', width: 32, height: 32, borderRadius: 16, borderWidth: 2 },
     markerCore: { width: 12, height: 12, borderRadius: 6, borderWidth: 2.5, borderColor: '#0A0718' },
+
+    // Car
     carWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 10 },
     carGlow: {},
     carImg: { width: CAR_SIZE, height: CAR_SIZE },
     carLabel: { marginTop: 4, fontSize: 11, fontWeight: '600', color: VOICES.driver.accent, letterSpacing: 0.5, textAlign: 'center', backgroundColor: 'rgba(7,5,15,0.7)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+
+    // Panel
     panelOuter: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.06)' },
     panelInner: { flex: 1, paddingHorizontal: 20, paddingTop: 10 },
     handle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
+
+    // Greeting row
     greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
     greetingText: { fontSize: 13, fontWeight: '400', color: 'rgba(255,255,255,0.45)' },
-    driverName: { fontSize: 22, fontWeight: '700', color: '#FFF', marginTop: 1, letterSpacing: -0.3 },
+    driverName: { fontSize: 22, fontWeight: '700', color: '#EAF3F6', marginTop: 1, letterSpacing: -0.3 },
+
+    // Online/offline toggle
     statusPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 50 },
     statusPillOn: { backgroundColor: VOICES.driver.accent + '14', borderWidth: 1, borderColor: VOICES.driver.accent + '35' },
     statusPillOff: { backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     statusDot: { width: 7, height: 7, borderRadius: 3.5 },
     statusText: { fontSize: 13, fontWeight: '600' },
+
+    // Hero earnings block
     heroBlock: {
         backgroundColor: 'rgba(255,255,255,0.04)',
         borderRadius: 20,
@@ -475,8 +496,8 @@ const s = StyleSheet.create({
         paddingTop: 18,
         paddingBottom: 14,
     },
-    heroLabel: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.45)', marginBottom: 4 },
-    heroAmount: { fontSize: 34, fontWeight: '800', color: VOICES.driver.gold, letterSpacing: -0.5 },
+    heroLabel: { fontSize: 9, fontWeight: '500', color: 'rgba(234,243,246,0.4)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 },
+    heroAmount: { fontSize: 42, color: VOICES.driver.gold, fontFamily: VOICES.driver.serifSemi, fontVariant: ['tabular-nums'] },
     heroDetail: { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4 },
     heroRight: { paddingLeft: 12 },
     heroDivider: { height: 0.5, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 18 },
@@ -488,20 +509,24 @@ const s = StyleSheet.create({
         paddingVertical: 12,
     },
     walletLabel: { fontSize: 12, color: 'rgba(255,255,255,0.4)', flex: 1 },
-    walletAmount: { fontSize: 13, fontWeight: '600', color: VOICES.driver.gold },
+    walletAmount: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
+
+    // Push banner
     pushBanner: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        backgroundColor: 'rgba(245,158,11,0.08)',
+        backgroundColor: 'rgba(230,180,80,0.08)',
         borderRadius: 12,
         borderWidth: 0.5,
-        borderColor: 'rgba(245,158,11,0.25)',
+        borderColor: 'rgba(230,180,80,0.25)',
         paddingHorizontal: 14,
         paddingVertical: 10,
         marginBottom: 16,
     },
-    pushBannerText: { fontSize: 13, color: '#F59E0B', flex: 1 },
+    pushBannerText: { fontSize: 13, color: '#E6B450', flex: 1 },
+
+    // Quick access
     sectionLabel: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.35)', marginBottom: 12, letterSpacing: 0.2 },
     quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     quickCard: {

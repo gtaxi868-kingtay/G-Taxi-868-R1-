@@ -11,6 +11,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@expo-google-fonts/cormorant-garamond": "^0.4.1",
     "@expo/config-plugins": "9.0.17",
     "@expo/vector-icons": "14.0.4",
     "@gtaxi/core": "1.0.0",
@@ -30,6 +31,7 @@
     "expo-camera": "16.0.18",
     "expo-constants": "~17.0.8",
     "expo-device": "7.0.3",
+    "expo-font": "~13.0.4",
     "expo-haptics": "14.0.1",
     "expo-image-picker": "16.0.6",
     "expo-linear-gradient": "14.0.2",

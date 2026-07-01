@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -213,10 +214,21 @@ const linking = {
 };
 
 function App() {
+    const [fontsLoaded, fontError] = useFonts({
+        CormorantGaramond_500Medium,
+        CormorantGaramond_600SemiBold,
+    });
+
     useEffect(() => {
         installCrashReporter();
         OutboxService.getInstance().processQueue();
     }, []);
+
+    // Hold on the brand canvas until the serif is ready; if it errors, render anyway
+    // (system-font fallback) so a font hiccup never blocks the app.
+    if (!fontsLoaded && !fontError) {
+        return <View style={{ flex: 1, backgroundColor: '#07070F' }} />;
+    }
 
     const content = (
         <SafeAreaProvider>

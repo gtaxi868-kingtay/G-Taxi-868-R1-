@@ -25,7 +25,7 @@ const R = {
     purple: VOICES.rider.accent,
     purpleLight: CYAN,
     gold: '#F59E0B',
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: 'rgba(255,255,255,0.7)',
 };
 
@@ -114,9 +114,9 @@ export function AISettingsScreen({ navigation }: any) {
             <StatusBar style="light" />
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>AI & Safety</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>AI & Safety</Txt>
             </View>
 
             <ScrollView contentContainerStyle={s.scroll}>
@@ -125,7 +125,7 @@ export function AISettingsScreen({ navigation }: any) {
                     
                     <View style={s.row}>
                         <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color="#FFF">Smart Suggestions</Txt>
+                            <Txt variant="bodyBold" color="#EAF3F6">Smart Suggestions</Txt>
                             <Txt variant="small" color={R.muted}>AI learns your routines to suggest rides and stops.</Txt>
                         </View>
                         <Switch
@@ -139,7 +139,7 @@ export function AISettingsScreen({ navigation }: any) {
 
                     <View style={s.row}>
                         <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color="#FFF">Quiet Ride Preference</Txt>
+                            <Txt variant="bodyBold" color="#EAF3F6">Quiet Ride Preference</Txt>
                             <Txt variant="small" color={R.muted}>Nudge drivers to keep music low and talk minimal.</Txt>
                         </View>
                         <Switch
@@ -154,7 +154,7 @@ export function AISettingsScreen({ navigation }: any) {
                     <View style={[s.row, { opacity: 0.45 }]}>
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <Txt variant="bodyBold" color="#FFF">Predictive Grocery Carts</Txt>
+                                <Txt variant="bodyBold" color="#EAF3F6">Predictive Grocery Carts</Txt>
                                 <View style={{ backgroundColor: R.gold, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 50 }}>
                                     <Txt variant="small" color="#000" style={{ fontWeight: '900', fontSize: 8, letterSpacing: 1 }}>SOON</Txt>
                                 </View>

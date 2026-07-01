@@ -120,7 +120,7 @@ export function LaundryLandingScreen({ navigation }: any) {
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
                     style={s.backBtn}
                 >
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>Laundry Service</Text>
                 <View style={{ width: 38 }} />
@@ -207,7 +207,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center', justifyContent: 'center',
     },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
     section: { marginTop: 24, gap: 12 },
     sectionTitle: { fontSize: 10, fontWeight: '900', color: 'rgba(255,255,255,0.4)', letterSpacing: 2, paddingHorizontal: 24 },
     mCard: {
@@ -216,7 +216,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.04)',
     },
     mCardActive: { borderColor: CYAN, backgroundColor: 'rgba(0,255,255,0.05)' },
-    mName: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+    mName: { fontSize: 14, fontWeight: '700', color: '#EAF3F6' },
     mSub: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 },
     mCheck: { position: 'absolute', top: 12, right: 12 },
     serviceGrid: { flexDirection: 'row', gap: 12, paddingHorizontal: 20 },
@@ -229,7 +229,7 @@ const s = StyleSheet.create({
     serviceCardActive: { borderColor: VOICES.rider.accent },
     serviceIcon: { fontSize: 36 },
     serviceLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
-    serviceLabelActive: { color: '#FFF' },
+    serviceLabelActive: { color: '#EAF3F6' },
     featureRow: {
         flexDirection: 'row', justifyContent: 'center', gap: 10, paddingVertical: 24, paddingHorizontal: 20,
     },
@@ -242,7 +242,7 @@ const s = StyleSheet.create({
     ctaContainer: { paddingHorizontal: 20, paddingTop: 8, marginTop: 'auto' },
     ctaButton: { borderRadius: 20, overflow: 'hidden' },
     ctaGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 18 },
-    ctaText: { fontSize: 17, fontWeight: '800', color: '#FFF' },
+    ctaText: { fontSize: 17, fontWeight: '800', color: '#EAF3F6' },
     aiButton: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         paddingVertical: 18, borderRadius: 20,

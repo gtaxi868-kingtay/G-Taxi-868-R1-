@@ -22,8 +22,8 @@ import { formatTTDDollars } from '../utils/currency';
 
 const { supabase, getSupabase } = initializeSupabaseClient('native');
 
-const CYAN = '#1DE0E6';
-const CYAN_SOFT = 'rgba(29,224,230,0.1)';
+const CYAN = '#34E6EC';
+const CYAN_SOFT = 'rgba(52,230,236,0.1)';
 const WARNING = '#F59E0B';
 const ERROR = '#EF4444';
 const SUCCESS = '#10B981';
@@ -400,12 +400,12 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                         >
                             <View style={{
                                 backgroundColor: selectedStops.some(s => s.place_name === stop.place_name)
-                                    ? 'rgba(29, 224, 230, 0.9)'
-                                    : 'rgba(139, 92, 246, 0.85)',
+                                    ? 'rgba(52,230,236, 0.9)'
+                                    : 'rgba(109,40,217, 0.85)',
                                 borderRadius: 20,
                                 padding: 6,
                                 borderWidth: 1.5,
-                                borderColor: '#FFF',
+                                borderColor: '#EAF3F6',
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
@@ -419,7 +419,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                     style={[s.backBtn, { top: insets.top + 10 }]}
                     onPress={() => navigation.goBack()}
                 >
-                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                    <Ionicons name="arrow-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
             </View>
 
@@ -468,7 +468,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.type); }}
                                 >
                                     <Ionicons name={v.icon as any} size={24} color={selectedType === v.type ? SURFACE.base : VOICES.rider.accent} />
-                                    <Text style={[s.vehicleType, { color: selectedType === v.type ? SURFACE.base : '#FFFFFF' }]}>{v.type}</Text>
+                                    <Text style={[s.vehicleType, { color: selectedType === v.type ? SURFACE.base : '#EAF3F6' }]}>{v.type}</Text>
                                     <Text style={[s.vehicleMultiplier, { color: selectedType === v.type ? 'rgba(6,8,10,0.6)' : VOICES.rider.textMuted }]}>{v.multiplier}x</Text>
                                 </TouchableOpacity>
                             ))}
@@ -605,7 +605,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                 >
                                     <View style={{ flex: 1, justifyContent: 'flex-end', padding: 24, paddingBottom: 60 }}>
                                         <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 24, alignItems: 'center' }}>
-                                            <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800', marginBottom: 8 }}>
+                                            <Text style={{ color: '#EAF3F6', fontSize: 16, fontWeight: '800', marginBottom: 8 }}>
                                                 Identity Verification
                                             </Text>
                                             <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>
@@ -616,7 +616,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                                     onPress={() => setSelfieMode(false)}
                                                     style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}
                                                 >
-                                                    <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>Cancel</Text>
+                                                    <Text style={{ color: '#EAF3F6', fontWeight: '700', fontSize: 13 }}>Cancel</Text>
                                                 </TouchableOpacity>
                                                 <TouchableOpacity
                                                     onPress={handleSelfieCapture}
@@ -676,7 +676,7 @@ const s = StyleSheet.create({
     routeSquare: { width: 8, height: 8, borderRadius: 2, backgroundColor: WARNING },
     routeLine: { width: 1.5, height: 15, backgroundColor: SURFACE.containerHigh, marginLeft: 3.25, marginVertical: 4 },
     addrLabel: { fontSize: 11, fontWeight: '700', color: VOICES.rider.textMuted, letterSpacing: 1, marginBottom: 4 },
-    addrText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+    addrText: { fontSize: 15, fontWeight: '600', color: '#EAF3F6' },
 
     statsRow: { marginBottom: 24, alignItems: 'center' },
     logisticsText: { fontSize: 13, fontWeight: '600', color: VOICES.rider.textMuted, letterSpacing: 0.5 },
@@ -692,7 +692,7 @@ const s = StyleSheet.create({
     stopItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, backgroundColor: SURFACE.containerLow, marginBottom: 10, ...ghostBorder(0.06) },
     stopItemActive: { borderColor: VOICES.rider.accent, backgroundColor: CYAN_SOFT },
     stopEmojiWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    stopName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+    stopName: { fontSize: 15, fontWeight: '700', color: '#EAF3F6' },
     stopSubtext: { fontSize: 13, fontWeight: '500', color: VOICES.rider.textMuted },
     stopPrice: { fontSize: 15, fontWeight: '700' },
     bookServiceText: { fontSize: 12, fontWeight: '800', color: CYAN, letterSpacing: 0.5 },
@@ -714,8 +714,8 @@ const s = StyleSheet.create({
     confirmBtn: { height: 60, borderRadius: 30, overflow: 'hidden', ...elevationGlow(6) },
     btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     confirmBtnText: { fontSize: 16, fontWeight: '900', color: SURFACE.base, letterSpacing: 0.5 },
-    markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: CYAN, borderWidth: 2, borderColor: '#FFFFFF' },
-    markerDropoff: { width: 14, height: 14, borderRadius: 7, backgroundColor: WARNING, borderWidth: 2, borderColor: '#FFFFFF' },
+    markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: CYAN, borderWidth: 2, borderColor: '#EAF3F6' },
+    markerDropoff: { width: 14, height: 14, borderRadius: 7, backgroundColor: WARNING, borderWidth: 2, borderColor: '#EAF3F6' },
 
     statusBanner: {
         backgroundColor: 'rgba(245, 158, 11, 0.15)',
@@ -740,7 +740,7 @@ const s = StyleSheet.create({
         alignItems: 'center'
     },
     failureTitle: {
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 16,
         fontWeight: '700',
         marginBottom: 16,
@@ -757,7 +757,7 @@ const s = StyleSheet.create({
         borderRadius: 12
     },
     retryBtnText: {
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 14,
         fontWeight: '800'
     },
@@ -768,7 +768,7 @@ const s = StyleSheet.create({
         borderRadius: 12
     },
     whatsappBtnText: {
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 14,
         fontWeight: '800'
     }

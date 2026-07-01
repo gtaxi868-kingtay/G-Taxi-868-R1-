@@ -2,7 +2,6 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { OrdersScreen } from '../OrdersScreen';
 
-jest.mock('@gtaxi/core', () => ({ supabase: { from: () => ({ select: () => ({ eq: () => ({ order: () => ({ data: [] }) }) }) }) }, ENV: {} }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('expo-blur', () => ({ BlurView: 'BlurView' }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
@@ -13,7 +12,7 @@ jest.mock('@gtaxi/design-system/utils/style-rules', () => ({ elevationGlow: () =
 describe('Merchant OrdersScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn() };
-    const { getByText } = render(<OrdersScreen navigation={navigation as any} />);
-    expect(getByText(/Orders/i)).toBeTruthy();
+    const { getAllByText } = render(<OrdersScreen navigation={navigation as any} />);
+    expect(getAllByText(/Orders/i).length).toBeGreaterThan(0);
   });
 });

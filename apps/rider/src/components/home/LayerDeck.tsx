@@ -230,7 +230,7 @@ const s = StyleSheet.create({
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: 11 },
     cardIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    cardTitle: { fontSize: 18, fontWeight: '800', color: '#F2F5F8', letterSpacing: -0.3 },
+    cardTitle: { fontSize: 18, fontWeight: '800', color: '#EAF3F6', letterSpacing: -0.3 },
     cardSub: { fontSize: 11, color: 'rgba(242,245,248,0.5)', marginTop: 1 },
     cardSearch: {
         height: 44, borderRadius: 12,
@@ -252,7 +252,7 @@ const s = StyleSheet.create({
         gap: 7,
     },
     lockIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    lockTitle: { fontSize: 13, fontWeight: '800', color: '#F2F5F8' },
+    lockTitle: { fontSize: 13, fontWeight: '800', color: '#EAF3F6' },
     lockTrack: { width: 140, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
     lockFill: { height: 5, borderRadius: 3 },
     lockMeta: { fontSize: 10, color: 'rgba(242,245,248,0.5)', fontWeight: '600' },

@@ -4,14 +4,15 @@ import {
     ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
-import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface ProfileStats {
     trips_today: number;
@@ -64,6 +65,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
             setEditModel(driverData?.vehicle_model || driver.vehicle_model || '');
             setEditPlate(driverData?.plate_number || driver.plate_number || '');
         } catch (err) {
+            // Error loading profile
         } finally {
             setLoading(false);
         }
@@ -136,18 +138,18 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
         <View style={s.root}>
             <StatusBar style="light" />
 
-            <LiquidGlass voice="driver" style={[s.header, { paddingTop: insets.top }]} tier="chrome">
+            <BlurView tint="dark" intensity={90} style={[s.header, { paddingTop: insets.top }, glassSurface(90, 0.2)]}>
                 <View style={s.headerInner}>
                     <TouchableOpacity
                         style={s.headerBtn}
                         onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }}
                     >
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                        <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                     </TouchableOpacity>
-                    <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>Operator Profile</Text>
+                    <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>Operator Profile</Text>
                     <View style={{ width: 44 }} />
                 </View>
-            </LiquidGlass>
+            </BlurView>
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -155,13 +157,13 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
             >
             <ScrollView contentContainerStyle={{ paddingTop: insets.top + 80, paddingHorizontal: 24 }}>
                 <View style={s.identity}>
-                    <View style={s.avatar}>
+                    <LinearGradient colors={[VOICES.driver.accent, '#0891B2']} style={s.avatar}>
                         <Text style={{ fontWeight: '800', color: '#0A0718', fontSize: 32 }}>
                             {driver?.name?.charAt(0).toUpperCase()}
                         </Text>
-                    </View>
+                    </LinearGradient>
 
-                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFF', marginTop: 20 }}>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#EAF3F6', marginTop: 20 }}>
                         {driver?.name}
                     </Text>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginTop: 6, letterSpacing: 1 }}>
@@ -176,22 +178,22 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     </View>
                 </View>
 
-                <LiquidGlass voice="driver" style={s.statsRow} tier="inlay">
+                <View style={s.statsRow}>
                     <View style={s.statItem}>
-                        <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>{stats.trips_today}</Text>
+                        <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>{stats.trips_today}</Text>
                         <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}}>TODAY</Text>
                     </View>
                     <View style={s.statDivider} />
                     <View style={s.statItem}>
-                        <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>{stats.total_trips}</Text>
+                        <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>{stats.total_trips}</Text>
                         <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}}>TOTAL</Text>
                     </View>
                     <View style={s.statDivider} />
                     <View style={s.statItem}>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{stats.member_since}</Text>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>{stats.member_since}</Text>
                         <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}}>SINCE</Text>
                     </View>
-                </LiquidGlass>
+                </View>
 
                 <View style={s.mainDivider} />
 
@@ -200,12 +202,12 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                         <Ionicons
                             name={driver?.verified_status === 'approved' ? "shield-checkmark" : "shield-outline"}
                             size={20}
-                            color={driver?.verified_status === 'approved' ? '#10B981' : '#F59E0B'}
+                            color={driver?.verified_status === 'approved' ? '#10B981' : '#E6B450'}
                         />
                     </View>
                     <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>Security status</Text>
-                        <Text style={{fontSize: 11, fontWeight: '700', color: driver?.verified_status === 'approved' ? '#10B981' : '#F59E0B'}}>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>Security status</Text>
+                        <Text style={{fontSize: 11, fontWeight: '700', color: driver?.verified_status === 'approved' ? '#10B981' : '#E6B450'}}>
                             {driver?.verified_status === 'approved' ? 'Authorized' :
                                 driver?.verified_status === 'pending' ? 'Under review' :
                                     'Verification required'}
@@ -226,12 +228,12 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
                         <Ionicons name="car-outline" size={20} color={VOICES.driver.accent} />
                     </View>
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>VEHICLE CONFIGURATION</Text>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>VEHICLE CONFIGURATION</Text>
                     <Ionicons name={isEditing ? "chevron-up" : "chevron-forward"} size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
 
                 {isEditing && (
-                    <LiquidGlass voice="driver" style={s.editCard} tier="inlay">
+                    <View style={[s.editCard, glassSurface(0.15)]}>
                         <View style={s.inputField}>
                             <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginBottom: 8, marginLeft: 4}}>MODEL</Text>
                             <TextInput
@@ -255,7 +257,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                         <TouchableOpacity style={s.saveBtn} onPress={handleSave} disabled={saving}>
                             {saving ? <ActivityIndicator color="#0A0718" /> : <Text style={{fontSize: 14, fontWeight: '700', color: '#0A0718'}}>SAVE CHANGES</Text>}
                         </TouchableOpacity>
-                    </LiquidGlass>
+                    </View>
                 )}
 
                 {role === 'pod_commander' && (
@@ -266,10 +268,10 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                             navigation.navigate('CommanderDashboard');
                         }}
                     >
-                        <View style={[s.rowIcon, { backgroundColor: 'rgba(139,92,246,0.10)' }]}>
-                            <Ionicons name="shield-checkmark" size={20} color={VOICES.driver.accent} />
+                        <View style={[s.rowIcon, { backgroundColor: 'rgba(52,230,236,0.10)' }]}>
+                            <Ionicons name="shield-checkmark" size={20} color="#34E6EC" />
                         </View>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>G-LEAD CENTER</Text>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>G-LEAD CENTER</Text>
                         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                     </TouchableOpacity>
                 )}
@@ -284,7 +286,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
                         <Ionicons name="star-outline" size={20} color="#FBBF24" />
                     </View>
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>MY RATINGS</Text>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>MY RATINGS</Text>
                     <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
 
@@ -296,9 +298,9 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     }}
                 >
                     <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
-                        <Ionicons name="rocket-outline" size={20} color="#F59E0B" />
+                        <Ionicons name="rocket-outline" size={20} color="#E6B450" />
                     </View>
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>STRATEGY PROTOCOLS</Text>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>STRATEGY PROTOCOLS</Text>
                     <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
 
@@ -312,15 +314,15 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     }}
                 >
                     <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
-                        <Ionicons name="document-text-outline" size={20} color="#FFF" />
+                        <Ionicons name="document-text-outline" size={20} color="#EAF3F6" />
                     </View>
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>LEGAL AGREEMENTS</Text>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>LEGAL AGREEMENTS</Text>
                     <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
 
                 <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
-                    <Ionicons name="log-out-outline" size={20} color="#F59E0B" style={{ marginRight: 8 }} />
-                    <Text style={{fontSize: 14, fontWeight: '600', color: '#F59E0B'}}>Sign out</Text>
+                    <Ionicons name="log-out-outline" size={20} color="#E6B450" style={{ marginRight: 8 }} />
+                    <Text style={{fontSize: 14, fontWeight: '600', color: '#E6B450'}}>Sign out</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'rgba(239,68,68,0.4)' }]} onPress={handlePurgeAccount}>
@@ -330,7 +332,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
 
                 <View style={s.footerBranding}>
                     <Text style={{fontSize: 22, fontWeight: '900', color: VOICES.driver.accent, letterSpacing: 2}}>G-TAXI</Text>
-                    <Text style={{fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.6)', marginTop: 12}}>Trinidad & Tobago</Text>
+                    <Text style={{fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.6)', marginTop: 12}}>PILOT COMMAND V3.2 • EMPIRE OS</Text>
                 </View>
 
                 <View style={{ height: insets.bottom + 40 }} />
@@ -345,7 +347,7 @@ const s = StyleSheet.create({
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: {
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
-        borderWidth: 0,
+        ...ghostBorder(0.15),
     },
     headerInner: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -353,19 +355,19 @@ const s = StyleSheet.create({
     },
     headerBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     identity: { alignItems: 'center', paddingVertical: 24 },
-    avatar: { width: 88, height: 88, borderRadius: 44, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: VOICES.driver.accent, backgroundColor: VOICES.driver.accent },
+    avatar: { width: 88, height: 88, borderRadius: 44, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: VOICES.driver.accent },
     ratingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: VOICES.driver.accent, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, marginTop: 16 },
-    statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 28, paddingHorizontal: 16, marginVertical: 8, borderWidth: 0 },
+    statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 28, paddingHorizontal: 4 },
     statItem: { alignItems: 'center', flex: 1 },
     statDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.05)' },
     mainDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginVertical: 4 },
     menuRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 22 },
     rowIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.15) },
     kycCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 20 },
-    editCard: { padding: 20, marginTop: 4, marginBottom: 20, borderRadius: 20, borderWidth: 0 },
+    editCard: { padding: 20, marginTop: 4, marginBottom: 20, borderRadius: 20 },
     inputField: { width: '100%' },
-    input: { height: 56, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, paddingHorizontal: 16, color: '#FFF', fontSize: 16, fontWeight: '600', ...ghostBorder(0.15) },
-    saveBtn: { height: 56, backgroundColor: VOICES.driver.accent, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
+    input: { height: 56, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, paddingHorizontal: 16, color: '#EAF3F6', fontSize: 16, fontWeight: '600', ...ghostBorder(0.15) },
+    saveBtn: { height: 56, backgroundColor: VOICES.driver.accent, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginTop: 24, ...elevationGlow(5) },
     logoutBtn: { marginTop: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 18, ...ghostBorder(0.15), backgroundColor: 'rgba(239,68,68,0.03)' },
     footerBranding: { alignItems: 'center', marginTop: 40, opacity: 0.8 },
 });

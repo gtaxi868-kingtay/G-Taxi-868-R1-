@@ -24,7 +24,7 @@ const R = {
     purple: VOICES.rider.accent,
     purpleLight: CYAN,
     gold: '#F59E0B',
-    white: '#FFF',
+    white: '#EAF3F6',
     muted: '#AEA9B5',
 };
 
@@ -125,9 +125,9 @@ export function RatingScreen({ navigation, route }: any) {
             <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 40 }]}>
                 <View style={s.hero}>
                     <View style={[s.avatar, { backgroundColor: VOICES.rider.accent }]}>
-                        <Txt variant="headingM" color="#FFF" weight="heavy">{driver?.name?.charAt(0)}</Txt>
+                        <Txt variant="headingM" color="#EAF3F6" weight="heavy">{driver?.name?.charAt(0)}</Txt>
                     </View>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginTop: 24 }}>{driver?.name}</Txt>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginTop: 24 }}>{driver?.name}</Txt>
                     <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 8, letterSpacing: 1 }}>HOW WAS YOUR ENGAGEMENT?</Txt>
                 </View>
 
@@ -160,7 +160,7 @@ export function RatingScreen({ navigation, route }: any) {
                 </View>
 
                 <View style={s.tipSection}>
-                    <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>Add a Tip</Txt>
+                    <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 16 }}>Add a Tip</Txt>
                     <View style={s.tipRow}>
                         {[1, 3, 5].map(amt => (
                             <TouchableOpacity
@@ -168,7 +168,7 @@ export function RatingScreen({ navigation, route }: any) {
                                 style={[s.tipBtn, selectedTip === amt && s.tipBtnActive]}
                                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedTip(selectedTip === amt ? 0 : amt); }}
                             >
-                                <Txt variant="bodyBold" color={selectedTip === amt ? "#FFF" : R.white}>${amt}</Txt>
+                                <Txt variant="bodyBold" color={selectedTip === amt ? "#EAF3F6" : R.white}>${amt}</Txt>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -183,8 +183,8 @@ export function RatingScreen({ navigation, route }: any) {
                         end={{x: 1, y: 0}}
                         style={s.btnGradient}
                     >
-                        {submitting ? <ActivityIndicator color="#FFF" /> : (
-                            <Txt variant="headingM" weight="heavy" color="#FFF">COMPLETE ENGAGEMENT</Txt>
+                        {submitting ? <ActivityIndicator color="#EAF3F6" /> : (
+                            <Txt variant="headingM" weight="heavy" color="#EAF3F6">COMPLETE ENGAGEMENT</Txt>
                         )}
                     </LinearGradient>
                 </TouchableOpacity>
@@ -210,7 +210,7 @@ const s = StyleSheet.create({
     star: { shadowColor: R.gold, shadowRadius: 15, shadowOpacity: 0.4 },
 
     inputBox: { height: 140, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, padding: 20, marginBottom: 32, ...ghostBorder(0.05) },
-    textInput: { flex: 1, color: '#FFF', fontSize: 16, textAlignVertical: 'top' },
+    textInput: { flex: 1, color: '#EAF3F6', fontSize: 16, textAlignVertical: 'top' },
 
     tipSection: { marginBottom: 48 },
     tipRow: { flexDirection: 'row', gap: 12 },

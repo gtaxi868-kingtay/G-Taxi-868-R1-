@@ -72,7 +72,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                         style={[s.backBtn, { top: insets.top + 12 }]}
                         onPress={() => navigation.goBack()}
                     >
-                        <Ionicons name="chevron-back" size={28} color="#FFF" />
+                        <Ionicons name="chevron-back" size={28} color="#EAF3F6" />
                     </TouchableOpacity>
 
                     {/* Header Section */}
@@ -152,7 +152,7 @@ export function ForgotPasswordScreen({ navigation }: any) {
                                                 end={{ x: 1, y: 1 }}
                                             >
                                                 {loading ? (
-                                                    <ActivityIndicator color="#FFF" />
+                                                    <ActivityIndicator color="#EAF3F6" />
                                                 ) : (
                                                     <Text style={s.buttonText}>Send Reset Link</Text>
                                                 )}
@@ -223,7 +223,7 @@ const s = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
         marginBottom: 12,
         letterSpacing: 0.5,
     },
@@ -268,7 +268,7 @@ const s = StyleSheet.create({
     successTitle: {
         fontSize: 22,
         fontWeight: '800',
-        color: '#FFF',
+        color: '#EAF3F6',
         marginBottom: 12,
     },
     successText: {
@@ -311,7 +311,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.08)',
     },
     input: {
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 15,
         fontWeight: '500',
     },
@@ -330,7 +330,7 @@ const s = StyleSheet.create({
         alignItems: 'center',
     },
     buttonText: {
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 15,
         fontWeight: '700',
         letterSpacing: 0.5,

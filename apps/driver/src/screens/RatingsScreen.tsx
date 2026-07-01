@@ -78,9 +78,9 @@ export function RatingsScreen({ navigation }: { navigation: { goBack: () => void
             <BlurView tint="dark" intensity={80} style={[s.headerBlur, { paddingTop: insets.top + 8 }, glassSurface(80, 0.2)]}>
                 <View style={s.headerInner}>
                     <TouchableOpacity style={s.backBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }} activeOpacity={0.8}>
-                        <Ionicons name="chevron-back" size={22} color="#FFF" />
+                        <Ionicons name="chevron-back" size={22} color="#EAF3F6" />
                     </TouchableOpacity>
-                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFF' }}>My Ratings</Text>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#EAF3F6' }}>My Ratings</Text>
                     <View style={s.backBtn} pointerEvents="none" />
                 </View>
             </BlurView>
@@ -94,7 +94,7 @@ export function RatingsScreen({ navigation }: { navigation: { goBack: () => void
                     <Text style={s.heroRating}>{avgRating?.toFixed(1) || '0.0'}</Text>
                     <View style={s.starRow}>
                         {[1, 2, 3, 4, 5].map(i => (
-                            <Ionicons key={i} name={i <= starCount ? 'star' : 'star-outline'} size={22} color="#F59E0B" />
+                            <Ionicons key={i} name={i <= starCount ? 'star' : 'star-outline'} size={22} color="#E6B450" />
                         ))}
                     </View>
                     <Text style={s.heroSubtext}>{totalRatings} rating{totalRatings !== 1 ? 's' : ''}</Text>
@@ -116,7 +116,7 @@ export function RatingsScreen({ navigation }: { navigation: { goBack: () => void
                                 <View key={r.id} style={[s.row, idx === ratings.length - 1 && { borderBottomWidth: 0 }]}>
                                     <View style={s.rowLeft}>
                                         <Text style={s.rowRating}>{r.rating}</Text>
-                                        <Ionicons name="star" size={14} color="#F59E0B" />
+                                        <Ionicons name="star" size={14} color="#E6B450" />
                                     </View>
                                     <View style={{ flex: 1 }}>
                                         {r.comment ? (
@@ -146,15 +146,15 @@ const s = StyleSheet.create({
     headerInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12 },
     backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
     hero: { alignItems: 'center', paddingVertical: 32 },
-    heroRating: { fontSize: 64, fontWeight: '800', color: '#FFF', letterSpacing: -2 },
+    heroRating: { fontSize: 64, fontWeight: '800', color: '#EAF3F6', letterSpacing: -2 },
     starRow: { flexDirection: 'row', gap: 4, marginTop: 8 },
     heroSubtext: { fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 8 },
     emptyWrap: { paddingVertical: 40, alignItems: 'center', ...ghostBorder(0.15), borderRadius: 20, borderStyle: 'dashed', marginBottom: 28 },
     list: { backgroundColor: SURFACE.containerLow, borderRadius: 20, ...ghostBorder(0.15), overflow: 'hidden', marginBottom: 28 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' },
     rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 44 },
-    rowRating: { fontSize: 18, fontWeight: '800', color: '#F59E0B' },
-    rowComment: { fontSize: 14, color: '#FFF', lineHeight: 20 },
+    rowRating: { fontSize: 18, fontWeight: '800', color: '#E6B450' },
+    rowComment: { fontSize: 14, color: '#EAF3F6', lineHeight: 20 },
     rowNoComment: { fontSize: 13, color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' },
     rowDate: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
 });
