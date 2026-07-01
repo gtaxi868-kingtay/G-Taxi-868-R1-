@@ -92,13 +92,17 @@ export const Z = {
 
 export const VOICES = {
   rider: {
-    bg: '#0B0E12',
-    surface: 'rgba(255,255,255,0.04)',
-    text: '#F2F5F8',
-    textMuted: 'rgba(242,245,248,0.68)',
+    bg: '#07070F',
+    surface: 'rgba(255,255,255,0.045)',
+    text: '#EAF3F6',
+    textMuted: 'rgba(234,243,246,0.55)',
     border: 'rgba(255, 255, 255, 0.10)',
-    accent: '#1DE0E6',
-    accentDark: '#0A9CA6',
+    accent: '#34E6EC',
+    accentDark: '#0F9CA6',
+    violet: '#6D28D9',
+    platinum: '#CBD6DE',
+    serif: 'CormorantGaramond_500Medium',
+    serifSemi: 'CormorantGaramond_600SemiBold',
   },
   driver: {
     bg: '#0B0E12',
