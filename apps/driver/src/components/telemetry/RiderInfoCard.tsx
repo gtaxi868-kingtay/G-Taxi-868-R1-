@@ -23,17 +23,17 @@ export function RiderInfoCard({ name, paymentMethod, onChat, onCall }: RiderInfo
       <View style={{ flex: 1 }}>
         <Text style={s.name}>{name}</Text>
         <Text style={s.subtext}>
-          <Ionicons name="star" size={12} color="#F59E0B" /> 5.0 · {paymentLabel}
+          <Ionicons name="star" size={12} color="#E6B450" /> 5.0 · {paymentLabel}
         </Text>
       </View>
       {onCall && (
         <ScalePress style={s.chatBtn} onPress={onCall}>
-          <Ionicons name="call-outline" size={20} color="#FFF" />
+          <Ionicons name="call-outline" size={20} color="#EAF3F6" />
         </ScalePress>
       )}
       {onChat && (
         <ScalePress style={s.chatBtn} onPress={onChat}>
-          <Ionicons name="chatbubble-outline" size={20} color="#FFF" />
+          <Ionicons name="chatbubble-outline" size={20} color="#EAF3F6" />
         </ScalePress>
       )}
     </View>

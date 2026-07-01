@@ -84,11 +84,11 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
                 return (
                     <View style={s.card}>
                         <LinearGradient
-                            colors={['rgba(0,255,255,0.12)', 'rgba(0,255,255,0.03)']}
+                            colors={['rgba(52,230,236,0.12)', 'rgba(52,230,236,0.03)']}
                             style={s.cardGradient}
                         >
                             <View style={s.cardIcon}>
-                                <Ionicons name="car-sport-sharp" size={40} color="#00FFFF" />
+                                <Ionicons name="car-sport-sharp" size={40} color="#34E6EC" />
                             </View>
                             <Text style={s.cardTitle}>BYD Lease Programme</Text>
                             <Text style={s.cardSubtitle}>Drive consistently and qualify for a G-Taxi BYD.</Text>
@@ -135,13 +135,13 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
                 return (
                     <View style={s.card}>
                         <LinearGradient
-                            colors={['rgba(212,175,55,0.15)', 'rgba(212,175,55,0.03)']}
+                            colors={['rgba(230,180,80,0.15)', 'rgba(230,180,80,0.03)']}
                             style={s.cardGradient}
                         >
-                            <View style={[s.cardIcon, { backgroundColor: 'rgba(212,175,55,0.2)' }]}>
-                                <Ionicons name="checkmark-circle-sharp" size={40} color="#D4AF37" />
+                            <View style={[s.cardIcon, { backgroundColor: 'rgba(230,180,80,0.2)' }]}>
+                                <Ionicons name="checkmark-circle-sharp" size={40} color="#E6B450" />
                             </View>
-                            <Text style={[s.cardTitle, { color: '#D4AF37' }]}>You Qualify</Text>
+                            <Text style={[s.cardTitle, { color: '#E6B450' }]}>You Qualify</Text>
                             <Text style={s.cardSubtitle}>
                                 You have {data.active_days_count} active driving days. You are now eligible for a BYD lease. Contact G-Taxi admin to activate.
                             </Text>
@@ -154,8 +154,8 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
                                 <Text style={s.signAddendumCtaText}>Review &amp; Sign Earnings Addendum</Text>
                             </TouchableOpacity>
                             <View style={s.ctaRow}>
-                                <Ionicons name="information-circle-sharp" size={16} color="rgba(212,175,55,0.5)" />
-                                <Text style={[s.ctaText, { color: 'rgba(212,175,55,0.5)' }]}>Admin activates your lease after you sign</Text>
+                                <Ionicons name="information-circle-sharp" size={16} color="rgba(230,180,80,0.5)" />
+                                <Text style={[s.ctaText, { color: 'rgba(230,180,80,0.5)' }]}>Admin activates your lease after you sign</Text>
                             </View>
 
                             <View style={s.infoBlock}>
@@ -167,7 +167,7 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
                                     'Deductions capped at 15% per ride',
                                 ].map((line, i) => (
                                     <View key={i} style={s.infoRow}>
-                                        <View style={[s.infoDot, { backgroundColor: '#D4AF37' }]} />
+                                        <View style={[s.infoDot, { backgroundColor: '#E6B450' }]} />
                                         <Text style={s.infoText}>{line}</Text>
                                     </View>
                                 ))}
@@ -265,7 +265,7 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
                 return (
                     <View style={s.card}>
                         <LinearGradient
-                            colors={['rgba(0,255,255,0.12)', 'rgba(0,255,255,0.03)']}
+                            colors={['rgba(52,230,236,0.12)', 'rgba(52,230,236,0.03)']}
                             style={s.cardGradient}
                         >
                             <View style={s.leaseBadge}>
@@ -316,7 +316,7 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
                             <View style={s.earningsCard}>
                                 <Text style={s.earningsTitle}>Your Estimated Monthly Take-Home</Text>
                                 {[
-                                    { label: 'Gross driver earnings (160 rides × ~TTD $38)', value: 'TTD $6,080', color: '#FFF' },
+                                    { label: 'Gross driver earnings (160 rides × ~TTD $38)', value: 'TTD $6,080', color: '#EAF3F6' },
                                     { label: 'BYD lease deductions (≤15% per ride, auto-deducted)', value: '− TTD $3,480', color: '#EF4444' },
                                     { label: 'Net earnings after lease', value: '≈ TTD $2,600', color: '#4ADE80' },
                                 ].map((row, i) => (
@@ -349,20 +349,20 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
         <View style={[s.container, { paddingTop: insets.top }]}>
             <View style={s.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>Vehicle Lease</Text>
             </View>
 
             {loading ? (
                 <View style={s.loadingWrap}>
-                    <ActivityIndicator color="#00FFFF" size="large" />
+                    <ActivityIndicator color="#34E6EC" size="large" />
                 </View>
             ) : (
                 <ScrollView
                     contentContainerStyle={s.scroll}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#00FFFF" />
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#34E6EC" />
                     }
                     showsVerticalScrollIndicator={false}
                 >
@@ -384,7 +384,7 @@ const s = StyleSheet.create({
         borderBottomColor: 'rgba(255,255,255,0.06)',
     },
     backBtn: { marginRight: 16, padding: 4 },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
     loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     scroll: { padding: 20, paddingBottom: 60 },
     card: { borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
@@ -393,17 +393,17 @@ const s = StyleSheet.create({
         width: 72,
         height: 72,
         borderRadius: 22,
-        backgroundColor: 'rgba(0,255,255,0.15)',
+        backgroundColor: 'rgba(52,230,236,0.15)',
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 20,
     },
-    cardTitle: { fontSize: 26, fontWeight: '800', color: '#FFF', marginBottom: 8 },
+    cardTitle: { fontSize: 26, fontWeight: '800', color: '#EAF3F6', marginBottom: 8 },
     cardSubtitle: { fontSize: 15, color: 'rgba(255,255,255,0.65)', lineHeight: 22, marginBottom: 24 },
     progressSection: { marginBottom: 24 },
     progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
     progressLabel: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-    progressCount: { fontSize: 14, color: '#00FFFF', fontWeight: '700' },
+    progressCount: { fontSize: 14, color: '#34E6EC', fontWeight: '700' },
     progressTrack: {
         height: 6,
         backgroundColor: 'rgba(255,255,255,0.1)',
@@ -412,7 +412,7 @@ const s = StyleSheet.create({
     },
     progressFill: {
         height: '100%',
-        backgroundColor: '#00FFFF',
+        backgroundColor: '#34E6EC',
         borderRadius: 3,
     },
     progressHelp: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 8 },
@@ -424,7 +424,7 @@ const s = StyleSheet.create({
     },
     infoTitle: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
     infoRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-    infoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#00FFFF', marginTop: 6, marginRight: 10 },
+    infoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#34E6EC', marginTop: 6, marginRight: 10 },
     infoText: { fontSize: 14, color: 'rgba(255,255,255,0.7)', flex: 1, lineHeight: 20 },
     ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16 },
     ctaText: { fontSize: 13, fontWeight: '600', flex: 1 },
@@ -432,7 +432,7 @@ const s = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: '#00FFFF',
+        backgroundColor: '#34E6EC',
         alignSelf: 'flex-start',
         borderRadius: 20,
         paddingHorizontal: 14,
@@ -440,8 +440,8 @@ const s = StyleSheet.create({
         marginBottom: 20,
     },
     leaseBadgeText: { fontSize: 12, fontWeight: '800', color: '#000', letterSpacing: 1 },
-    vehicleName: { fontSize: 28, fontWeight: '800', color: '#FFF', marginBottom: 4 },
-    plateNumber: { fontSize: 16, color: '#00FFFF', fontFamily: 'monospace', fontWeight: '700', marginBottom: 24 },
+    vehicleName: { fontSize: 28, fontWeight: '800', color: '#EAF3F6', marginBottom: 4 },
+    plateNumber: { fontSize: 16, color: '#34E6EC', fontFamily: 'monospace', fontWeight: '700', marginBottom: 24 },
     statsRow: {
         flexDirection: 'row',
         backgroundColor: 'rgba(255,255,255,0.05)',
@@ -451,12 +451,12 @@ const s = StyleSheet.create({
         alignItems: 'center',
     },
     statBox: { flex: 1, alignItems: 'center' },
-    statValue: { fontSize: 16, fontWeight: '800', color: '#FFF', marginBottom: 4 },
+    statValue: { fontSize: 16, fontWeight: '800', color: '#EAF3F6', marginBottom: 4 },
     statLabel: { fontSize: 11, color: 'rgba(255,255,255,0.5)', textAlign: 'center' },
     statDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.1)' },
     detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
     detailLabel: { fontSize: 14, color: 'rgba(255,255,255,0.5)' },
-    detailValue: { fontSize: 14, color: '#FFF', fontWeight: '600', flex: 1, textAlign: 'right' },
+    detailValue: { fontSize: 14, color: '#EAF3F6', fontWeight: '600', flex: 1, textAlign: 'right' },
     secondaryCta: {
         marginTop: 20,
         borderWidth: 1,
@@ -465,7 +465,7 @@ const s = StyleSheet.create({
         paddingVertical: 14,
         alignItems: 'center',
     },
-    secondaryCtaText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+    secondaryCtaText: { fontSize: 15, fontWeight: '700', color: '#EAF3F6' },
     earningsCard: {
         backgroundColor: 'rgba(74,222,128,0.05)',
         borderWidth: 1,
@@ -484,7 +484,7 @@ const s = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#D4AF37',
+        backgroundColor: '#E6B450',
         borderRadius: 14,
         paddingVertical: 14,
         marginTop: 20,

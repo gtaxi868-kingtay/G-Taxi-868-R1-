@@ -144,9 +144,9 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                         style={s.headerBtn}
                         onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }}
                     >
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                        <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                     </TouchableOpacity>
-                    <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>Operator Profile</Text>
+                    <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>Operator Profile</Text>
                     <View style={{ width: 44 }} />
                 </View>
             </BlurView>
@@ -163,7 +163,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                         </Text>
                     </LinearGradient>
 
-                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#FFF', marginTop: 20 }}>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: '#EAF3F6', marginTop: 20 }}>
                         {driver?.name}
                     </Text>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginTop: 6, letterSpacing: 1 }}>
@@ -180,17 +180,17 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
 
                 <View style={s.statsRow}>
                     <View style={s.statItem}>
-                        <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>{stats.trips_today}</Text>
+                        <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>{stats.trips_today}</Text>
                         <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}}>TODAY</Text>
                     </View>
                     <View style={s.statDivider} />
                     <View style={s.statItem}>
-                        <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>{stats.total_trips}</Text>
+                        <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>{stats.total_trips}</Text>
                         <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}}>TOTAL</Text>
                     </View>
                     <View style={s.statDivider} />
                     <View style={s.statItem}>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{stats.member_since}</Text>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>{stats.member_since}</Text>
                         <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}}>SINCE</Text>
                     </View>
                 </View>
@@ -202,12 +202,12 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                         <Ionicons
                             name={driver?.verified_status === 'approved' ? "shield-checkmark" : "shield-outline"}
                             size={20}
-                            color={driver?.verified_status === 'approved' ? '#10B981' : '#F59E0B'}
+                            color={driver?.verified_status === 'approved' ? '#10B981' : '#E6B450'}
                         />
                     </View>
                     <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>Security status</Text>
-                        <Text style={{fontSize: 11, fontWeight: '700', color: driver?.verified_status === 'approved' ? '#10B981' : '#F59E0B'}}>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>Security status</Text>
+                        <Text style={{fontSize: 11, fontWeight: '700', color: driver?.verified_status === 'approved' ? '#10B981' : '#E6B450'}}>
                             {driver?.verified_status === 'approved' ? 'Authorized' :
                                 driver?.verified_status === 'pending' ? 'Under review' :
                                     'Verification required'}
@@ -228,7 +228,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
                         <Ionicons name="car-outline" size={20} color={VOICES.driver.accent} />
                     </View>
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>VEHICLE CONFIGURATION</Text>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>VEHICLE CONFIGURATION</Text>
                     <Ionicons name={isEditing ? "chevron-up" : "chevron-forward"} size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
 
@@ -268,10 +268,10 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                             navigation.navigate('CommanderDashboard');
                         }}
                     >
-                        <View style={[s.rowIcon, { backgroundColor: 'rgba(29,224,230,0.10)' }]}>
-                            <Ionicons name="shield-checkmark" size={20} color="#1DE0E6" />
+                        <View style={[s.rowIcon, { backgroundColor: 'rgba(52,230,236,0.10)' }]}>
+                            <Ionicons name="shield-checkmark" size={20} color="#34E6EC" />
                         </View>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>G-LEAD CENTER</Text>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>G-LEAD CENTER</Text>
                         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                     </TouchableOpacity>
                 )}
@@ -286,7 +286,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
                         <Ionicons name="star-outline" size={20} color="#FBBF24" />
                     </View>
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>MY RATINGS</Text>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>MY RATINGS</Text>
                     <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
 
@@ -298,9 +298,9 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     }}
                 >
                     <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
-                        <Ionicons name="rocket-outline" size={20} color="#F59E0B" />
+                        <Ionicons name="rocket-outline" size={20} color="#E6B450" />
                     </View>
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>STRATEGY PROTOCOLS</Text>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>STRATEGY PROTOCOLS</Text>
                     <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
 
@@ -314,15 +314,15 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     }}
                 >
                     <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
-                        <Ionicons name="document-text-outline" size={20} color="#FFF" />
+                        <Ionicons name="document-text-outline" size={20} color="#EAF3F6" />
                     </View>
-                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>LEGAL AGREEMENTS</Text>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>LEGAL AGREEMENTS</Text>
                     <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
 
                 <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
-                    <Ionicons name="log-out-outline" size={20} color="#F59E0B" style={{ marginRight: 8 }} />
-                    <Text style={{fontSize: 14, fontWeight: '600', color: '#F59E0B'}}>Sign out</Text>
+                    <Ionicons name="log-out-outline" size={20} color="#E6B450" style={{ marginRight: 8 }} />
+                    <Text style={{fontSize: 14, fontWeight: '600', color: '#E6B450'}}>Sign out</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={[s.logoutBtn, { marginTop: 16, borderColor: 'rgba(239,68,68,0.4)' }]} onPress={handlePurgeAccount}>
@@ -366,7 +366,7 @@ const s = StyleSheet.create({
     kycCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 20 },
     editCard: { padding: 20, marginTop: 4, marginBottom: 20, borderRadius: 20 },
     inputField: { width: '100%' },
-    input: { height: 56, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, paddingHorizontal: 16, color: '#FFF', fontSize: 16, fontWeight: '600', ...ghostBorder(0.15) },
+    input: { height: 56, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, paddingHorizontal: 16, color: '#EAF3F6', fontSize: 16, fontWeight: '600', ...ghostBorder(0.15) },
     saveBtn: { height: 56, backgroundColor: VOICES.driver.accent, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginTop: 24, ...elevationGlow(5) },
     logoutBtn: { marginTop: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 18, ...ghostBorder(0.15), backgroundColor: 'rgba(239,68,68,0.03)' },
     footerBranding: { alignItems: 'center', marginTop: 40, opacity: 0.8 },

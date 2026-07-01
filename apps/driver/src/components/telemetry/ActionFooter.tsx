@@ -79,7 +79,7 @@ export function ActionFooter({
     <View style={s.container}>
       {onOpenNavigation && (
         <ScalePress style={s.navBtn} onPress={onOpenNavigation}>
-          <LinearGradient colors={['rgba(0,255,255,0.2)', 'rgba(0,255,255,0.05)']} style={s.navBtnGradient}>
+          <LinearGradient colors={['rgba(52,230,236,0.2)', 'rgba(52,230,236,0.05)']} style={s.navBtnGradient}>
             <Ionicons name="navigate-outline" size={22} color={tokens.colors.cyan} />
           </LinearGradient>
         </ScalePress>
@@ -105,7 +105,7 @@ const s = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,255,255,0.08)',
+    backgroundColor: 'rgba(52,230,236,0.08)',
   },
   primaryBtn: {
     flex: 1,

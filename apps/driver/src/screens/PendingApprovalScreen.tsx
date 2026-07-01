@@ -61,7 +61,7 @@ export function PendingApprovalScreen() {
                     <Ionicons name="hourglass-outline" size={64} color={VOICES.driver.gold} />
                 </Reanimated.View>
 
-                <Text style={[s.title, {fontSize: 24, fontWeight: '800', color: '#FFF'}]}>
+                <Text style={[s.title, {fontSize: 24, fontWeight: '800', color: '#EAF3F6'}]}>
                     OPERATOR APPROVAL PENDING
                 </Text>
 

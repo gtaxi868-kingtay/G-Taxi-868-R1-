@@ -14,9 +14,9 @@ export function LegalScreen({ navigation }: { navigation: any }) {
             <StatusBar style="light" />
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Text style={{ marginLeft: 16, fontSize: 16, fontWeight: '800', color: '#FFF' }}>
+                <Text style={{ marginLeft: 16, fontSize: 16, fontWeight: '800', color: '#EAF3F6' }}>
                     Operator Agreements
                 </Text>
             </View>
@@ -26,7 +26,7 @@ export function LegalScreen({ navigation }: { navigation: any }) {
                     style={s.docLink}
                     onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}
                 >
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#EAF3F6', marginBottom: 4 }}>
                         Terms of Service
                     </Text>
                     <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
@@ -42,7 +42,7 @@ export function LegalScreen({ navigation }: { navigation: any }) {
                     style={[s.docLink, { marginTop: 0 }]}
                     onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}
                 >
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFF', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#EAF3F6', marginBottom: 4 }}>
                         Privacy Policy
                     </Text>
                     <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
@@ -54,7 +54,7 @@ export function LegalScreen({ navigation }: { navigation: any }) {
                 </TouchableOpacity>
 
                 <View style={s.summaryCard}>
-                    <Text style={{ marginBottom: 8, fontSize: 15, fontWeight: '700', color: '#FFF' }}>
+                    <Text style={{ marginBottom: 8, fontSize: 15, fontWeight: '700', color: '#EAF3F6' }}>
                         Independent Contractor Status
                     </Text>
                     <Text style={{ lineHeight: 22, fontSize: 13, fontWeight: '400', color: 'rgba(255,255,255,0.6)' }}>
@@ -63,7 +63,7 @@ export function LegalScreen({ navigation }: { navigation: any }) {
                 </View>
 
                 <View style={s.summaryCard}>
-                    <Text style={{ marginBottom: 8, fontSize: 15, fontWeight: '700', color: '#FFF' }}>
+                    <Text style={{ marginBottom: 8, fontSize: 15, fontWeight: '700', color: '#EAF3F6' }}>
                         Privacy & Telemetry
                     </Text>
                     <Text style={{ lineHeight: 22, fontSize: 13, fontWeight: '400', color: 'rgba(255,255,255,0.6)' }}>
@@ -86,9 +86,9 @@ const s = StyleSheet.create({
     docLink: {
         padding: 20,
         borderRadius: 16,
-        backgroundColor: 'rgba(6,182,212,0.06)',
+        backgroundColor: 'rgba(52,230,236,0.06)',
         borderWidth: 1,
-        borderColor: 'rgba(6,182,212,0.15)',
+        borderColor: 'rgba(52,230,236,0.15)',
         marginBottom: 16,
         marginTop: 8,
     },

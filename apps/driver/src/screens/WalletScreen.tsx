@@ -449,10 +449,10 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                         }}
                         activeOpacity={0.8}
                     >
-                        <Ionicons name="chevron-back" size={22} color="#FFF" />
+                        <Ionicons name="chevron-back" size={22} color="#EAF3F6" />
                     </TouchableOpacity>
 
-                    <Text style={{fontSize: 20, fontWeight: '700', color: '#FFF'}}>Wallet</Text>
+                    <Text style={{fontSize: 20, fontWeight: '700', color: '#EAF3F6'}}>Wallet</Text>
 
                     <View style={s.backBtn} pointerEvents="none" />
                 </View>
@@ -483,8 +483,8 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
 
                     {isOwed && (balance || 0) <= -600 && (
                         <View style={s.lockBadge}>
-                            <Ionicons name="lock-closed" size={14} color="#FFF" />
-                            <Text style={{fontSize: 11, fontWeight: '700', color: '#FFF', marginLeft: 6 }}>
+                            <Ionicons name="lock-closed" size={14} color="#EAF3F6" />
+                            <Text style={{fontSize: 11, fontWeight: '700', color: '#EAF3F6', marginLeft: 6 }}>
                                 ACCOUNT RESTRICTED — CAP REACHED
                             </Text>
                         </View>
@@ -496,8 +496,8 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                             onPress={handleSettlePress}
                             activeOpacity={0.85}
                         >
-                            <Ionicons name="logo-whatsapp" size={16} color="#FFF" />
-                            <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', marginLeft: 8 }}>
+                            <Ionicons name="logo-whatsapp" size={16} color="#EAF3F6" />
+                            <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', marginLeft: 8 }}>
                                 Settle Balance via Transfer
                             </Text>
                         </TouchableOpacity>
@@ -567,7 +567,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                                     </View>
 
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}} numberOfLines={1}>
+                                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}} numberOfLines={1}>
                                             {tx.description || (isCredit ? 'Commission Credit' : 'Commission Debit')}
                                         </Text>
                                         <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>
@@ -596,7 +596,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                                     <Ionicons name={row.icon} size={20} color={row.color} />
                                 </View>
                                 <View style={{ flex: 1, gap: 3 }}>
-                                    <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{row.title}</Text>
+                                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>{row.title}</Text>
                                     <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.6)'}}>{row.body}</Text>
                                 </View>
                             </View>
@@ -737,7 +737,7 @@ const s = StyleSheet.create({
         ...ghostBorder(0.15),
     },
     modalTitle: {
-        fontSize: 18, fontWeight: '800', color: '#FFF',
+        fontSize: 18, fontWeight: '800', color: '#EAF3F6',
         marginBottom: 6,
     },
     modalSubtitle: {
@@ -747,7 +747,7 @@ const s = StyleSheet.create({
     modalInput: {
         backgroundColor: 'rgba(255,255,255,0.06)',
         borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-        fontSize: 15, color: '#FFF', marginBottom: 12,
+        fontSize: 15, color: '#EAF3F6', marginBottom: 12,
         ...ghostBorder(0.12),
     },
 

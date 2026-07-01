@@ -10,8 +10,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 
-const GOLD = '#F59E0B';
-const SURFACE = '#0A0A0F';
+const GOLD = '#E6B450';
+const SURFACE = '#08090D';
 
 export function ScoutReferralScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
@@ -81,7 +81,7 @@ export function ScoutReferralScreen({ navigation }: any) {
         .reduce((s, r) => s + r.payout_amount_cents, 0);
 
     const STATUS_COLORS: Record<string, string> = {
-        pending: '#F59E0B',
+        pending: '#E6B450',
         qualified: '#3B82F6',
         paid: '#22C55E',
         expired: '#6B7280',
@@ -91,7 +91,7 @@ export function ScoutReferralScreen({ navigation }: any) {
         <View style={[styles.root, { paddingTop: insets.top }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={22} color="#FFF" />
+                    <Ionicons name="chevron-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Scout Referrals</Text>
             </View>
@@ -99,7 +99,7 @@ export function ScoutReferralScreen({ navigation }: any) {
             <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}>
                 {/* Hero */}
                 <LinearGradient
-                    colors={['rgba(245,158,11,0.15)', 'rgba(245,158,11,0.04)']}
+                    colors={['rgba(230,180,80,0.15)', 'rgba(230,180,80,0.04)']}
                     style={styles.hero}
                 >
                     <Text style={styles.heroAmount}>TTD $500</Text>
@@ -143,7 +143,7 @@ export function ScoutReferralScreen({ navigation }: any) {
                         style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
                     >
                         {submitting
-                            ? <ActivityIndicator size="small" color="#FFF" />
+                            ? <ActivityIndicator size="small" color="#EAF3F6" />
                             : <Text style={styles.submitBtnText}>Submit Lead</Text>
                         }
                     </TouchableOpacity>
@@ -187,7 +187,7 @@ export function ScoutReferralScreen({ navigation }: any) {
 
 function StatCard({ icon, label, value, gold }: { icon: string; label: string; value: string | number; gold?: boolean }) {
     return (
-        <View style={[styles.statCard, gold && { borderColor: 'rgba(245,158,11,0.2)' }]}>
+        <View style={[styles.statCard, gold && { borderColor: 'rgba(230,180,80,0.2)' }]}>
             <Ionicons name={icon as any} size={20} color={gold ? GOLD : 'rgba(255,255,255,0.4)'} />
             <Text style={[styles.statValue, gold && { color: GOLD }]}>{value}</Text>
             <Text style={styles.statLabel}>{label}</Text>
@@ -208,34 +208,34 @@ const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 14, gap: 10 },
     backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20 },
+    headerTitle: { color: '#EAF3F6', fontWeight: '800', fontSize: 20 },
     scroll: { padding: 20, gap: 20 },
-    hero: { borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'rgba(245,158,11,0.15)', alignItems: 'center' },
+    hero: { borderRadius: 24, padding: 24, borderWidth: 1, borderColor: 'rgba(230,180,80,0.15)', alignItems: 'center' },
     heroAmount: { color: GOLD, fontWeight: '900', fontSize: 40 },
-    heroLabel: { color: '#FFF', fontWeight: '700', fontSize: 15, marginTop: 4, textAlign: 'center' },
+    heroLabel: { color: '#EAF3F6', fontWeight: '700', fontSize: 15, marginTop: 4, textAlign: 'center' },
     heroSub: { color: 'rgba(255,255,255,0.4)', fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 10 },
     statsRow: { flexDirection: 'row', gap: 10 },
     statCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, padding: 14, alignItems: 'center', gap: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-    statValue: { color: '#FFF', fontWeight: '800', fontSize: 18 },
+    statValue: { color: '#EAF3F6', fontWeight: '800', fontSize: 18 },
     statLabel: { color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'center' },
     formCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 18, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-    formTitle: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+    formTitle: { color: '#EAF3F6', fontWeight: '700', fontSize: 16 },
     formHint: { color: 'rgba(255,255,255,0.35)', fontSize: 13, lineHeight: 18 },
-    input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, color: '#FFF', fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+    input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, color: '#EAF3F6', fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     submitBtn: { backgroundColor: GOLD, borderRadius: 16, alignItems: 'center', paddingVertical: 14 },
     submitBtnText: { color: '#000', fontWeight: '800', fontSize: 15 },
     section: { gap: 8 },
     sectionTitle: { color: 'rgba(255,255,255,0.3)', fontWeight: '700', fontSize: 11, letterSpacing: 2 },
     emptyText: { color: 'rgba(255,255,255,0.25)', fontSize: 13 },
     referralRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, gap: 10 },
-    refName: { color: '#FFF', fontWeight: '600', fontSize: 14 },
+    refName: { color: '#EAF3F6', fontWeight: '600', fontSize: 14 },
     refPhone: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 },
     refCode: { color: 'rgba(255,255,255,0.25)', fontSize: 11, marginTop: 2, fontFamily: 'monospace' },
     refBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
     refBadgeText: { fontWeight: '700', fontSize: 11, textTransform: 'capitalize' },
     howCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-    howTitle: { color: '#FFF', fontWeight: '700', fontSize: 15, marginBottom: 14 },
-    stepNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(245,158,11,0.15)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    howTitle: { color: '#EAF3F6', fontWeight: '700', fontSize: 15, marginBottom: 14 },
+    stepNum: { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(230,180,80,0.15)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
     stepNumText: { color: GOLD, fontWeight: '800', fontSize: 12 },
     stepText: { color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 19, flex: 1 },
 });

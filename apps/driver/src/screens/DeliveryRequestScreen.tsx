@@ -18,9 +18,9 @@ import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
 import type { DeliveryOffer } from '../services/realtime';
 
-const WARNING = '#F59E0B';
+const WARNING = '#E6B450';
 const ERROR = '#EF4444';
-const FOOD_ORANGE = '#F97316';
+const FOOD_ORANGE = '#E6B450';
 const SUCCESS = '#00FF94';
 
 const ARC_SIZE = 180;
@@ -290,14 +290,14 @@ const s = StyleSheet.create({
     addressLayer: { backgroundColor: SURFACE.containerLow, borderRadius: 20, padding: 20, marginBottom: 28, ...ghostBorder(0.2) },
     addrRow: { flexDirection: 'row', alignItems: 'flex-start' },
     addrLabel: { fontSize: 11, fontWeight: '600', color: VOICES.driver.textMuted, letterSpacing: 0.5, marginBottom: 2, fontFamily: 'SpaceGrotesk-Bold' },
-    addrText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Manrope-Medium' },
+    addrText: { fontSize: 15, fontWeight: '700', color: '#EAF3F6', fontFamily: 'Manrope-Medium' },
     addrSub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: 'Manrope-Medium', marginTop: 2 },
     dot: { width: 12, height: 12, borderRadius: 6, marginRight: 14, marginTop: 2 },
     square: { width: 12, height: 12, borderRadius: 3, backgroundColor: WARNING, marginRight: 14, marginTop: 2 },
     line: { width: 2, height: 28, backgroundColor: 'rgba(255,255,255,0.1)', marginLeft: 5, marginVertical: 4 },
     statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 28 },
     statPill: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE.containerLow, paddingVertical: 12, borderRadius: 14, ...ghostBorder(0.2), gap: 6 },
-    statPillText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk-Bold' },
+    statPillText: { fontSize: 13, fontWeight: '700', color: '#EAF3F6', fontFamily: 'SpaceGrotesk-Bold' },
     actionRow: { flexDirection: 'row', gap: 12 },
     declineBtn: { flex: 1, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 16, ...ghostBorder(0.3), backgroundColor: 'rgba(239,68,68,0.08)' },
     declineText: { fontSize: 15, fontWeight: '800', color: ERROR, letterSpacing: 0.5, fontFamily: 'SpaceGrotesk-Bold' },

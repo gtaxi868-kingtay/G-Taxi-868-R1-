@@ -256,7 +256,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             <StatusBar style="light" />
             <LinearGradient colors={['#1A1200', SURFACE.base]} style={StyleSheet.absoluteFillObject} />
             <View style={s.iconCircle}><Ionicons name="hourglass-outline" size={32} color={VOICES.driver.accent} /></View>
-            <Text style={[s.centerTitle, { fontSize: 22, fontWeight: '700', color: '#FFF' }]}>Application under review</Text>
+            <Text style={[s.centerTitle, { fontSize: 22, fontWeight: '700', color: '#EAF3F6' }]}>Application under review</Text>
             <Text style={[s.centerBody, { fontSize: 14, fontWeight: '400', color: 'rgba(255,255,255,0.6)', lineHeight: 22 }]}>We're reviewing your documents. You'll be notified once an administrator approves your account — usually within 1–2 days.</Text>
             <TouchableOpacity style={s.outlineBtn} onPress={signOut} accessibilityLabel="Sign out" accessibilityRole="button">
                 <Ionicons name="log-out-outline" size={16} color="#FF4D4D" />
@@ -298,7 +298,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
 
                 <View style={[s.mapOverlay, { top: insets.top + 12 }]} pointerEvents="box-none">
                     <TouchableOpacity style={s.mapBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSidebarVisible(true); }} activeOpacity={0.8} accessibilityLabel="Open driver menu" accessibilityRole="button">
-                        <Ionicons name="menu-outline" size={22} color="#FFFFFF" />
+                        <Ionicons name="menu-outline" size={22} color="#EAF3F6" />
                     </TouchableOpacity>
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                         <TouchableOpacity style={[s.mapBtn, { backgroundColor: VOICES.driver.accent + '20', borderColor: VOICES.driver.accent + '40', borderWidth: 1 }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setNfcVisible(true); }} activeOpacity={0.8} accessibilityLabel="Scan NFC kiosk" accessibilityRole="button">
@@ -400,9 +400,9 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                             {/* Push notification banner */}
                             {pushMissing && (
                                 <TouchableOpacity style={s.pushBanner} onPress={handleFixPush} disabled={isFixingPush} activeOpacity={0.8} accessibilityLabel="Fix push notifications" accessibilityRole="button">
-                                    <Ionicons name="notifications-off-outline" size={16} color="#F59E0B" />
+                                    <Ionicons name="notifications-off-outline" size={16} color="#E6B450" />
                                     <Text style={s.pushBannerText}>Notifications off — tap to fix</Text>
-                                    {isFixingPush && <ActivityIndicator size="small" color="#F59E0B" style={{ marginLeft: 8 }} />}
+                                    {isFixingPush && <ActivityIndicator size="small" color="#E6B450" style={{ marginLeft: 8 }} />}
                                 </TouchableOpacity>
                             )}
 
@@ -471,7 +471,7 @@ const s = StyleSheet.create({
     // Greeting row
     greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
     greetingText: { fontSize: 13, fontWeight: '400', color: 'rgba(255,255,255,0.45)' },
-    driverName: { fontSize: 22, fontWeight: '700', color: '#FFF', marginTop: 1, letterSpacing: -0.3 },
+    driverName: { fontSize: 22, fontWeight: '700', color: '#EAF3F6', marginTop: 1, letterSpacing: -0.3 },
 
     // Online/offline toggle
     statusPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 50 },
@@ -496,8 +496,8 @@ const s = StyleSheet.create({
         paddingTop: 18,
         paddingBottom: 14,
     },
-    heroLabel: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.45)', marginBottom: 4 },
-    heroAmount: { fontSize: 34, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.5 },
+    heroLabel: { fontSize: 9, fontWeight: '500', color: 'rgba(234,243,246,0.4)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 },
+    heroAmount: { fontSize: 42, color: VOICES.driver.gold, fontFamily: VOICES.driver.serifSemi, fontVariant: ['tabular-nums'] },
     heroDetail: { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4 },
     heroRight: { paddingLeft: 12 },
     heroDivider: { height: 0.5, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 18 },
@@ -516,15 +516,15 @@ const s = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        backgroundColor: 'rgba(245,158,11,0.08)',
+        backgroundColor: 'rgba(230,180,80,0.08)',
         borderRadius: 12,
         borderWidth: 0.5,
-        borderColor: 'rgba(245,158,11,0.25)',
+        borderColor: 'rgba(230,180,80,0.25)',
         paddingHorizontal: 14,
         paddingVertical: 10,
         marginBottom: 16,
     },
-    pushBannerText: { fontSize: 13, color: '#F59E0B', flex: 1 },
+    pushBannerText: { fontSize: 13, color: '#E6B450', flex: 1 },
 
     // Quick access
     sectionLabel: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.35)', marginBottom: 12, letterSpacing: 0.2 },

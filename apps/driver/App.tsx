@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -198,10 +199,19 @@ function RootNavigator() {
 }
 
 function App() {
+    const [fontsLoaded, fontError] = useFonts({
+        CormorantGaramond_500Medium,
+        CormorantGaramond_600SemiBold,
+    });
+
     useEffect(() => {
         installCrashReporter();
         OutboxService.getInstance().processQueue();
     }, []);
+
+    if (!fontsLoaded && !fontError) {
+        return <View style={{ flex: 1, backgroundColor: '#08090D' }} />;
+    }
 
     return (
         <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ENV.STRIPE_PUBLISHABLE_KEY}>
@@ -219,7 +229,7 @@ function App() {
                                     }
                                 }
                             }}>
-                                <StatusBar style="dark" />
+                                <StatusBar style="light" />
                                 <RootNavigator />
                             </NavigationContainer>
                         </View>

@@ -156,9 +156,9 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
                         accessibilityLabel="Go back"
                         accessibilityRole="button"
                     >
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                        <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                     </TouchableOpacity>
-                    <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>Partner Hub</Text>
+                    <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>Partner Hub</Text>
                     <View style={{ width: 44 }} />
                 </View>
             </BlurView>
@@ -184,17 +184,17 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
 
                     <View style={s.subRow}>
                         <View style={s.subItem}>
-                            <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>{stats.trips}</Text>
+                            <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>{stats.trips}</Text>
                             <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>Trips</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
-                            <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.week.toFixed(0)}</Text>
+                            <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>${stats.week.toFixed(0)}</Text>
                             <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>Week</Text>
                         </View>
                         <View style={s.subSep} />
                         <View style={s.subItem}>
-                            <Text style={{fontSize: 20, fontWeight: '800', color: '#FFF'}}>${stats.month.toFixed(0)}</Text>
+                            <Text style={{fontSize: 20, fontWeight: '800', color: '#EAF3F6'}}>${stats.month.toFixed(0)}</Text>
                             <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)'}}>Month</Text>
                         </View>
                     </View>
@@ -234,7 +234,7 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
                                     </View>
 
                                     <View style={{ flex: 1 }}>
-                                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}} numberOfLines={1}>
+                                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}} numberOfLines={1}>
                                             {trip.dropoff_address || 'Logistics Completion'}
                                         </Text>
                                         <Text style={{fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 4}}>

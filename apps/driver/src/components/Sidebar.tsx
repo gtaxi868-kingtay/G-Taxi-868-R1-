@@ -76,7 +76,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
             activeOpacity={0.7}
         >
             <Ionicons name={iconName as any} size={22} color={isWarning ? 'rgba(239,68,68,0.35)' : VOICES.driver.gold} style={{ width: 32 }} />
-            <Text style={{fontSize: 16, fontWeight: '600', color: isWarning ? 'rgba(239,68,68,0.35)' : '#FFF'}}>{label}</Text>
+            <Text style={{fontSize: 16, fontWeight: '600', color: isWarning ? 'rgba(239,68,68,0.35)' : '#EAF3F6'}}>{label}</Text>
         </TouchableOpacity>
     );
 
@@ -127,9 +127,9 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                     )}
                                 </View>
                                 <View style={styles.userInfo}>
-                                    <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>{user?.name || 'Driver'}</Text>
+                                    <Text style={{fontSize: 16, fontWeight: '700', color: '#EAF3F6'}}>{user?.name || 'Driver'}</Text>
                                     <View style={styles.ratingBadge}>
-                                        <Text style={{fontSize: 11, fontWeight: '600', color: '#FFF'}}>★ {user?.rating?.toFixed(2) || '5.00'}</Text>
+                                        <Text style={{fontSize: 11, fontWeight: '600', color: '#EAF3F6'}}>★ {user?.rating?.toFixed(2) || '5.00'}</Text>
                                     </View>
                                 </View>
                             </View>

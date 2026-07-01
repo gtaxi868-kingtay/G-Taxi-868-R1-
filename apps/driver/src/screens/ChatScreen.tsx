@@ -97,7 +97,7 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
                     </View>
                 )}
                 <View style={[s.bubble, isSelf ? s.bubbleSelf : s.bubbleOther]}>
-                    <Text style={[s.msgText, { color: isSelf ? '#0A0718' : '#FFF' }]}>{item.content}</Text>
+                    <Text style={[s.msgText, { color: isSelf ? '#0A0718' : '#EAF3F6' }]}>{item.content}</Text>
                 </View>
             </View>
         );
@@ -110,10 +110,10 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
             <View style={[s.header, { paddingTop: insets.top }, glassSurface()]}>
                 <View style={s.headerInner}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                        <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                     </TouchableOpacity>
                     <View style={s.headerTitle}>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF'}}>{rider?.name || 'Rider'}</Text>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>{rider?.name || 'Rider'}</Text>
                         <View style={s.statusRow}>
                             <View style={s.statusDot} />
                             <Text style={{fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.5)'}}>Active ride</Text>
@@ -147,7 +147,7 @@ export function ChatScreen({ route, navigation }: { route: any; navigation: any 
                         keyExtractor={item => item}
                         renderItem={({ item }) => (
                             <TouchableOpacity style={s.chip} onPress={() => handleSend(item)}>
-                                <Text style={{fontSize: 12, fontWeight: '600', color: '#FFF'}}>{item}</Text>
+                                <Text style={{fontSize: 12, fontWeight: '600', color: '#EAF3F6'}}>{item}</Text>
                             </TouchableOpacity>
                         )}
                         contentContainerStyle={{ paddingHorizontal: 12 } as any}
@@ -200,7 +200,7 @@ const s = StyleSheet.create({
 
     inputArea: { paddingHorizontal: 16, paddingTop: 8 },
     inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 30, paddingLeft: 20, paddingRight: 6, paddingVertical: 6, ...ghostBorder(0.05) },
-    input: { flex: 1, color: '#FFF', fontSize: 16, maxHeight: 100, paddingVertical: 8, fontWeight: '600' },
+    input: { flex: 1, color: '#EAF3F6', fontSize: 16, maxHeight: 100, paddingVertical: 8, fontWeight: '600' },
     sendBtn: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' },
     sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

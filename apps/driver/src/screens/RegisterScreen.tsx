@@ -217,15 +217,15 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                     {/* Header: [← back] | ["Become a Driver" centered] | step indicator (1 of 2) */}
                     <View style={s.headerRow}>
                         <TouchableOpacity style={s.backBtn} onPress={step === 2 ? () => setStep(1) : () => { onBack?.(); navigation?.goBack(); }}>
-                            <Ionicons name="chevron-back" size={24} color="#FFF" />
+                            <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                         </TouchableOpacity>
-                        <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Become a Driver</Text>
+                        <Text style={{fontSize: 16, fontWeight: '700', color: '#EAF3F6'}}>Become a Driver</Text>
                         <Text style={{fontSize: 14, fontWeight: '600', color: VOICES.driver.accent}}>{step} of 2</Text>
                     </View>
 
                     {step === 1 ? (
                         <View style={s.container}>
-                            <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#FFF'}]}>Account Info</Text>
+                            <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#EAF3F6'}]}>Account Info</Text>
                             {renderInput('Full Name', fullName, setFullName)}
                             {renderInput('Phone Number', phone, setPhone, { keyboardType: 'phone-pad' })}
                             {renderInput('Email Address', email, setEmail, { keyboardType: 'email-address', autoCapitalize: 'none' })}
@@ -267,12 +267,12 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                             </TouchableOpacity>
 
                             <TouchableOpacity style={s.primaryBtn} onPress={handleNext}>
-                                <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Next →</Text>
+                                <Text style={{fontSize: 16, fontWeight: '700', color: '#EAF3F6'}}>Next →</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
                         <View style={s.container}>
-                            <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#FFF'}]}>Vehicle Info</Text>
+                            <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#EAF3F6'}]}>Vehicle Info</Text>
                             {renderInput('Vehicle Model (e.g. 2022 Toyota Aqua)', vehicleModel, setVehicleModel)}
                             {renderInput('Plate Number', licensePlate, setLicensePlate, { autoCapitalize: 'characters' })}
 
@@ -288,7 +288,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                                             setVehicleType(type);
                                         }}
                                     >
-                                        <Text style={{fontSize: 14, fontWeight: '600', color: vehicleType === type ? "#FFF" : 'rgba(255,255,255,0.6)'}}>{type}</Text>
+                                        <Text style={{fontSize: 14, fontWeight: '600', color: vehicleType === type ? "#EAF3F6" : 'rgba(255,255,255,0.6)'}}>{type}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -297,22 +297,22 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                                                      <View style={s.docGrid}>
                             <TouchableOpacity style={[s.docCard, licenseFront && s.docCardActive]} onPress={() => pickImage(setLicenseFront)}>
                                 <Ionicons name={licenseFront ? "checkmark-circle" : "card-outline"} size={24} color={licenseFront ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
-                                <Text style={{fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8}}>License Front</Text>
+                                <Text style={{fontSize: 11, fontWeight: '500', color: '#EAF3F6', marginTop: 8}}>License Front</Text>
                             </TouchableOpacity>
  
                             <TouchableOpacity style={[s.docCard, licenseBack && s.docCardActive]} onPress={() => pickImage(setLicenseBack)}>
                                 <Ionicons name={licenseBack ? "checkmark-circle" : "card-outline"} size={24} color={licenseBack ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
-                                <Text style={{fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8}}>License Back</Text>
+                                <Text style={{fontSize: 11, fontWeight: '500', color: '#EAF3F6', marginTop: 8}}>License Back</Text>
                             </TouchableOpacity>
  
                             <TouchableOpacity style={[s.docCard, vehiclePhoto && s.docCardActive]} onPress={() => pickImage(setVehiclePhoto)}>
                                 <Ionicons name={vehiclePhoto ? "checkmark-circle" : "car-outline"} size={24} color={vehiclePhoto ? VOICES.driver.accent : 'rgba(255,255,255,0.6)'} />
-                                <Text style={{fontSize: 11, fontWeight: '500', color: '#FFF', marginTop: 8}}>Vehicle Photo</Text>
+                                <Text style={{fontSize: 11, fontWeight: '500', color: '#EAF3F6', marginTop: 8}}>Vehicle Photo</Text>
                             </TouchableOpacity>
                         </View>
 
                         <TouchableOpacity style={[s.primaryBtn, loading && s.disabled]} onPress={handleRegister} disabled={loading}>
-                            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Submit Application</Text>}
+                            {loading ? <ActivityIndicator color="#EAF3F6" /> : <Text style={{fontSize: 16, fontWeight: '700', color: '#EAF3F6'}}>Submit Application</Text>}
                         </TouchableOpacity>
                         </View>
                     )}
@@ -332,7 +332,7 @@ const s = StyleSheet.create({
     title: { marginBottom: 32, letterSpacing: -1 },
  
     inputWrap: { height: 64, backgroundColor: 'rgba(26, 21, 48, 0.4)', borderRadius: 20, paddingHorizontal: 20, justifyContent: 'center', marginBottom: 16, ...ghostBorder(0.15) },
-    input: { flex: 1, color: '#FFF', fontSize: 16 },
+    input: { flex: 1, color: '#EAF3F6', fontSize: 16 },
  
     label: { marginTop: 16, marginBottom: 12, marginLeft: 4, letterSpacing: 1 },
     typeSelector: { flexDirection: 'row', gap: 10, marginBottom: 40 },

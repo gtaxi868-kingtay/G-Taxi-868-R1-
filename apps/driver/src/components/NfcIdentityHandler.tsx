@@ -92,8 +92,8 @@ export function NfcIdentityHandler({ visible, onClose, rideId, onSuccess }: Prop
                     />
 
                     <View style={s.iconWrap}>
-                        {status === 'idle' && <Ionicons name="radio-outline" size={48} color="#00FFFF" />}
-                        {status === 'scanning' && <ActivityIndicator color="#00FFFF" size="large" />}
+                        {status === 'idle' && <Ionicons name="radio-outline" size={48} color="#34E6EC" />}
+                        {status === 'scanning' && <ActivityIndicator color="#34E6EC" size="large" />}
                         {status === 'success' && <Ionicons name="checkmark-circle" size={48} color="#4ADE80" />}
                         {status === 'error' && <Ionicons name="alert-circle" size={48} color="#EF4444" />}
                     </View>
@@ -135,13 +135,13 @@ const s = StyleSheet.create({
         width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)',
         alignItems: 'center', justifyContent: 'center', marginBottom: 24,
     },
-    title: { fontSize: 20, fontWeight: '900', color: '#FFF', letterSpacing: 1 },
+    title: { fontSize: 20, fontWeight: '900', color: '#EAF3F6', letterSpacing: 1 },
     sub: { fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: 8, marginBottom: 32 },
     btn: {
         width: '100%', height: 60, borderRadius: 16, backgroundColor: '#7C3AED',
         alignItems: 'center', justifyContent: 'center',
     },
-    btnText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
+    btnText: { fontSize: 16, fontWeight: '800', color: '#EAF3F6' },
     close: { marginTop: 20 },
     closeText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.3)', letterSpacing: 1 },
 });

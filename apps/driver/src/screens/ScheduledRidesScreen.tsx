@@ -66,17 +66,17 @@ export function ScheduledRidesScreen({ navigation }: { navigation: NavigationPro
             >
                 <View style={s.cardTop}>
                     <Ionicons name="calendar-outline" size={16} color={VOICES.driver.accent} />
-                    <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#FFF' }}>{formattedDate}</Text>
+                    <Text style={{ marginLeft: 8, fontSize: 14, fontWeight: '600', color: '#EAF3F6' }}>{formattedDate}</Text>
                 </View>
 
                 <View style={s.addressRow}>
                     <View style={s.dot} />
-                    <Text style={{ flex: 1, fontSize: 14, fontWeight: '400', color: '#FFF' }} numberOfLines={1}>{item.pickup_address}</Text>
+                    <Text style={{ flex: 1, fontSize: 14, fontWeight: '400', color: '#EAF3F6' }} numberOfLines={1}>{item.pickup_address}</Text>
                 </View>
 
                 <View style={s.addressRow}>
                     <View style={s.square} />
-                    <Text style={{ flex: 1, fontSize: 14, fontWeight: '400', color: '#FFF' }} numberOfLines={1}>{item.dropoff_address}</Text>
+                    <Text style={{ flex: 1, fontSize: 14, fontWeight: '400', color: '#EAF3F6' }} numberOfLines={1}>{item.dropoff_address}</Text>
                 </View>
 
                 <View style={s.cardDivider} />
@@ -100,9 +100,9 @@ export function ScheduledRidesScreen({ navigation }: { navigation: NavigationPro
                     style={s.headerBtn}
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.goBack(); }}
                 >
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Text style={{fontSize: 16, fontWeight: '700', color: '#FFF'}}>Scheduled</Text>
+                <Text style={{fontSize: 16, fontWeight: '700', color: '#EAF3F6'}}>Scheduled</Text>
                 <View style={s.headerBtn} pointerEvents="none" />
             </BlurView>
 
@@ -117,7 +117,7 @@ export function ScheduledRidesScreen({ navigation }: { navigation: NavigationPro
                     ListEmptyComponent={
                         <View style={s.empty}>
                             <Ionicons name="calendar-outline" size={48} color="rgba(255,255,255,0.6)" />
-                            <Text style={{ marginTop: 24, fontSize: 16, fontWeight: '700', color: '#FFF' }}>No scheduled rides</Text>
+                            <Text style={{ marginTop: 24, fontSize: 16, fontWeight: '700', color: '#EAF3F6' }}>No scheduled rides</Text>
                             <Text style={{ textAlign: 'center', marginTop: 8, fontSize: 14, fontWeight: '400', color: 'rgba(255,255,255,0.6)' }}>Go online to receive trips</Text>
                         </View>
                     }

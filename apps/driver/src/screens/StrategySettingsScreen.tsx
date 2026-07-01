@@ -86,9 +86,9 @@ export function StrategySettingsScreen({ navigation }: { navigation: any }) {
             <StatusBar style="light" />
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity style={s.headerBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Text style={{ marginLeft: 16, fontSize: 16, fontWeight: '700', color: '#FFF' }}>AI strategy</Text>
+                <Text style={{ marginLeft: 16, fontSize: 16, fontWeight: '700', color: '#EAF3F6' }}>AI strategy</Text>
             </View>
 
             <ScrollView contentContainerStyle={s.scroll}>
@@ -105,8 +105,8 @@ export function StrategySettingsScreen({ navigation }: { navigation: any }) {
                                 style={[s.modeItem, strategy.strategy_mode === m.id && s.modeItemActive]}
                                 onPress={() => updateStrategy('strategy_mode', m.id)}
                             >
-                                <Ionicons name={m.icon as any} size={24} color={strategy.strategy_mode === m.id ? '#FFF' : 'rgba(255,255,255,0.6)'} />
-                                <Text style={{ marginTop: 8, fontSize: 14, fontWeight: '600', color: strategy.strategy_mode === m.id ? '#FFF' : 'rgba(255,255,255,0.6)' }}>{m.label}</Text>
+                                <Ionicons name={m.icon as any} size={24} color={strategy.strategy_mode === m.id ? '#EAF3F6' : 'rgba(255,255,255,0.6)'} />
+                                <Text style={{ marginTop: 8, fontSize: 14, fontWeight: '600', color: strategy.strategy_mode === m.id ? '#EAF3F6' : 'rgba(255,255,255,0.6)' }}>{m.label}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -123,7 +123,7 @@ export function StrategySettingsScreen({ navigation }: { navigation: any }) {
                     <Text style={[s.sectionTitle, {fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)'}]}>HEALTH & SAFETY</Text>
                     <View style={s.row}>
                         <View style={{ flex: 1 }}>
-                            <Text style={{fontSize: 14, fontWeight: '600', color: '#FFF'}}>Fatigue & Wellness Alerts</Text>
+                            <Text style={{fontSize: 14, fontWeight: '600', color: '#EAF3F6'}}>Fatigue & Wellness Alerts</Text>
                             <Text style={{fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.6)'}}>AI monitors driving patterns to suggest breaks.</Text>
                         </View>
                         <Switch
