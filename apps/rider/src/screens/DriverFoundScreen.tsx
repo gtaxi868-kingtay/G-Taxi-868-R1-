@@ -204,7 +204,7 @@ const s = StyleSheet.create({
         fontSize: 14, fontWeight: '800', color: '#00E5FF',
         letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8,
     },
-    driverName: { fontSize: 34, fontWeight: '900', color: '#EAF3F6', marginBottom: 28, letterSpacing: -0.5 },
+    driverName: { fontSize: 38, color: '#EAF3F6', marginBottom: 28, fontFamily: 'CormorantGaramond_600SemiBold' },
     infoCard: {
         width: '100%', borderRadius: 24, overflow: 'hidden',
         ...ghostBorder(),

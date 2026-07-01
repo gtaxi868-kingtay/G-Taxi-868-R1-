@@ -911,12 +911,10 @@ const s = StyleSheet.create({
         color: SURFACE.base,
         fontFamily: 'SpaceGrotesk-Bold',
     },
-    driverName: { 
-        fontSize: 20, 
-        fontWeight: '800', 
+    driverName: {
+        fontSize: 23,
         color: '#EAF3F6',
-        letterSpacing: -0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
+        fontFamily: 'CormorantGaramond_600SemiBold',
     },
     vehicleInfo: { 
         fontSize: 13, 
