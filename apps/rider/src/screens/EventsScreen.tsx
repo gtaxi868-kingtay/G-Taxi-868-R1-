@@ -10,7 +10,7 @@ import { supabase } from '@gtaxi/core';
 import type { AppStackParamList } from '../navigation/types';
 
 const BRAND = '#FF2D55';
-const CYAN = '#1DE0E6';
+const CYAN = '#34E6EC';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'Events'>;
 
@@ -227,7 +227,7 @@ export default function EventsScreen() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A0F',
+    backgroundColor: '#07070F',
   },
   header: {
     flexDirection: 'row',

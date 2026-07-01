@@ -28,10 +28,10 @@ const TYPE_META: Record<string, { icon: string; color: string }> = {
     ride:     { icon: 'car-sport',      color: VOICES.rider.accent },
     payment:  { icon: 'wallet',         color: '#10B981' },
     promo:    { icon: 'pricetag',       color: '#F59E0B' },
-    escape:   { icon: 'airplane',       color: '#D4AF37' },
+    escape:   { icon: 'airplane',       color: '#CBD6DE' },
     grocery:  { icon: 'cart',           color: '#F59E0B' },
-    laundry:  { icon: 'shirt',          color: '#38BDF8' },
-    system:   { icon: 'information-circle', color: '#8B5CF6' },
+    laundry:  { icon: 'shirt',          color: '#34E6EC' },
+    system:   { icon: 'information-circle', color: '#6D28D9' },
 };
 
 function timeAgo(iso: string): string {
@@ -141,7 +141,7 @@ export function NotificationsScreen({ navigation }: AppScreenProps<'Notification
                 accessibilityLabel="Go back"
                 accessibilityRole="button"
             >
-                <Ionicons name="chevron-back" size={24} color="#FFF" />
+                <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
             </TouchableOpacity>
             <Text style={s.headerTitle}>Notifications</Text>
             <View style={{ width: 44 }} />
@@ -243,7 +243,7 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
         ...ghostBorder(0.1),
     },
-    headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: '#EAF3F6', fontFamily: 'SpaceGrotesk-Bold' },
 
     listContent: { paddingHorizontal: 20, paddingTop: 4, gap: 10, flexGrow: 1 },
 
@@ -258,7 +258,7 @@ const s = StyleSheet.create({
     },
     rowUnread: {
         backgroundColor: SURFACE.containerHigh,
-        borderColor: 'rgba(29,224,230,0.18)',
+        borderColor: 'rgba(52,230,236,0.18)',
         borderWidth: 1,
     },
     rowIcon: {
@@ -267,7 +267,7 @@ const s = StyleSheet.create({
         flexShrink: 0,
     },
     rowBody: { flex: 1 },
-    rowTitle: { fontSize: 15, fontWeight: '700', color: '#F2F5F8', fontFamily: 'Manrope-Bold' },
+    rowTitle: { fontSize: 15, fontWeight: '700', color: '#EAF3F6', fontFamily: 'Manrope-Bold' },
     rowText: { fontSize: 13, color: 'rgba(242,245,248,0.6)', marginTop: 2, lineHeight: 18, fontFamily: 'Manrope-Regular' },
     rowTime: { fontSize: 11, color: 'rgba(242,245,248,0.4)', marginTop: 6, fontWeight: '600' },
     unreadDot: {
@@ -284,7 +284,7 @@ const s = StyleSheet.create({
         marginBottom: 16,
         ...ghostBorder(0.08),
     },
-    emptyTitle: { fontSize: 18, fontWeight: '800', color: '#F2F5F8', textAlign: 'center', fontFamily: 'SpaceGrotesk-Bold' },
+    emptyTitle: { fontSize: 18, fontWeight: '800', color: '#EAF3F6', textAlign: 'center', fontFamily: 'SpaceGrotesk-Bold' },
     emptySub: { fontSize: 14, color: 'rgba(242,245,248,0.5)', textAlign: 'center', marginTop: 6, lineHeight: 20, fontFamily: 'Manrope-Regular' },
 
     retryBtn: {

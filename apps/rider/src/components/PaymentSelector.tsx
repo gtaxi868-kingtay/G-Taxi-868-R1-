@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     soonText: {
         fontSize: 8,
         fontWeight: '900',
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         letterSpacing: 0.5,
     },
 });

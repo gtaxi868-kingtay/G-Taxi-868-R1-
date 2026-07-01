@@ -381,7 +381,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
             {/* FIX F6: Rejection Toast */}
             {showRejectionToast && (
                 <View style={s.rejectionToast}>
-                    <Ionicons name="people-outline" size={20} color="#0D0B1E" />
+                    <Ionicons name="people-outline" size={20} color="#07070F" />
                     <Text style={s.rejectionToastText}>
                         Drivers are busy. Expanding search{dots}
                     </Text>
@@ -398,7 +398,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                                     colors={[VOICES.rider.accent, CYAN]} 
                                     style={StyleSheet.absoluteFillObject} 
                                 />
-                                <Ionicons name="star" size={24} color="#FFF" />
+                                <Ionicons name="star" size={24} color="#EAF3F6" />
                             </View>
                             
                             <Text style={s.negotiationTitle}>CONCIERGE UPDATE</Text>
@@ -566,7 +566,7 @@ const s = StyleSheet.create({
     statusTitle: {
         fontSize: 26,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         textAlign: 'center',
         letterSpacing: -0.5,
     },
@@ -632,7 +632,7 @@ const s = StyleSheet.create({
     negotiationTitle: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         marginTop: 20,
         textAlign: 'center',
         letterSpacing: 1,
@@ -676,7 +676,7 @@ const s = StyleSheet.create({
     skipBtnText: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: '#EAF3F6',
     },
 
     rejectionToast: {

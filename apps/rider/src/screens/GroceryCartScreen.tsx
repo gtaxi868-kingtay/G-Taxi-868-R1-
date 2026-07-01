@@ -170,7 +170,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>Your Cart</Text>
                 <View style={{ width: 38 }} />
@@ -256,7 +256,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                             style={s.ctaGradient}
                         >
-                                <Ionicons name={paymentMethod === 'card' ? "card-outline" : "cash-outline"} size={22} color="#FFF" style={{ marginRight: 8 }} />
+                                <Ionicons name={paymentMethod === 'card' ? "card-outline" : "cash-outline"} size={22} color="#EAF3F6" style={{ marginRight: 8 }} />
                             <Text style={s.ctaText}>{loading ? 'Placing Order...' : paymentMethod === 'card' ? `Pay with Card · $${(total / 100).toFixed(2)} TTD` : `Cash on Delivery · $${(total / 100).toFixed(2)} TTD`}</Text>
                         </LinearGradient>
                     </TouchableOpacity>
@@ -277,7 +277,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center', justifyContent: 'center',
     },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
     listContent: { padding: 20, gap: 12, paddingBottom: 120 },
     itemRow: {
         flexDirection: 'row', alignItems: 'center',
@@ -287,7 +287,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.05)',
     },
     itemLeft: { flex: 1 },
-    itemName: { fontSize: 14, fontWeight: '600', color: '#FFF' },
+    itemName: { fontSize: 14, fontWeight: '600', color: '#EAF3F6' },
     itemPrice: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
     itemQty: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     qtyBtn: {
@@ -296,8 +296,8 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     qtyBtnAdd: { backgroundColor: VOICES.rider.accent },
-    qtyBtnText: { fontSize: 18, color: '#FFF', fontWeight: '700', lineHeight: 22 },
-    qtyVal: { fontSize: 16, fontWeight: '700', color: '#FFF', minWidth: 20, textAlign: 'center' },
+    qtyBtnText: { fontSize: 18, color: '#EAF3F6', fontWeight: '700', lineHeight: 22 },
+    qtyVal: { fontSize: 16, fontWeight: '700', color: '#EAF3F6', minWidth: 20, textAlign: 'center' },
     lineTotal: { fontSize: 14, fontWeight: '700', color: CYAN, minWidth: 60, textAlign: 'right' },
     footer: { gap: 12, marginTop: 8 },
     deliveryCard: {
@@ -307,7 +307,7 @@ const s = StyleSheet.create({
     },
     deliveryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     deliveryInfo: {},
-    deliveryTitle: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+    deliveryTitle: { fontSize: 15, fontWeight: '700', color: '#EAF3F6' },
     deliverySub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
     deliveryNote: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 8 },
     paymentCard: {
@@ -324,7 +324,7 @@ const s = StyleSheet.create({
     },
     paymentOptionActive: { borderColor: CYAN, backgroundColor: `${CYAN}15` },
     paymentOptionText: { fontSize: 15, fontWeight: '700', color: '#AAA' },
-    paymentOptionTextActive: { color: '#FFF' },
+    paymentOptionTextActive: { color: '#EAF3F6' },
     priceCard: {
         borderRadius: 20, overflow: 'hidden', padding: 18,
         ...ghostBorder(0.1),
@@ -332,12 +332,12 @@ const s = StyleSheet.create({
     },
     priceRow: { flexDirection: 'row', justifyContent: 'space-between' },
     priceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.5)' },
-    priceVal: { fontSize: 14, color: '#FFF', fontWeight: '600' },
+    priceVal: { fontSize: 14, color: '#EAF3F6', fontWeight: '600' },
     totalRow: {
         paddingTop: 12, borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.1)', marginTop: 4,
     },
-    totalLabel: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    totalLabel: { fontSize: 16, fontWeight: '700', color: '#EAF3F6' },
     totalVal: { fontSize: 20, fontWeight: '900', color: CYAN },
     emptyBox: { alignItems: 'center', paddingTop: 80 },
     emptyEmoji: { fontSize: 56, marginBottom: 16 },
@@ -348,5 +348,5 @@ const s = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         paddingVertical: 18, paddingHorizontal: 24,
     },
-    ctaText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
+    ctaText: { fontSize: 16, fontWeight: '800', color: '#EAF3F6' },
 });

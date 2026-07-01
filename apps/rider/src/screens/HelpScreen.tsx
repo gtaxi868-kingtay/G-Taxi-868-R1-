@@ -21,7 +21,7 @@ const R = {
     purple: VOICES.rider.accent,
     purpleLight: CYAN,
     gold: '#F59E0B',
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: 'rgba(255,255,255,0.7)',
 };
 
@@ -67,14 +67,14 @@ export function HelpScreen({ navigation }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Help Center</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16 }}>Help Center</Txt>
             </View>
 
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
 
-                <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 20 }}>Common Questions</Txt>
+                <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 20 }}>Common Questions</Txt>
 
                 {FAQ_ITEMS.map((item, idx) => (
                     <TouchableOpacity
@@ -87,7 +87,7 @@ export function HelpScreen({ navigation }: any) {
                             <View style={s.faqIconWrap}>
                                 <Ionicons name={item.icon as any} size={20} color={R.purpleLight} />
                             </View>
-                            <Txt variant="bodyBold" color="#FFF" style={{ flex: 1, marginLeft: 16 }}>{item.question}</Txt>
+                            <Txt variant="bodyBold" color="#EAF3F6" style={{ flex: 1, marginLeft: 16 }}>{item.question}</Txt>
                             <Ionicons
                                 name={expandedIndex === idx ? "chevron-up" : "chevron-down"}
                                 size={18}
@@ -103,11 +103,11 @@ export function HelpScreen({ navigation }: any) {
                 ))}
 
                 <View style={s.contactSection}>
-                    <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 16 }}>Need more help?</Txt>
+                    <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 16 }}>Need more help?</Txt>
 
                     <TouchableOpacity style={s.callBtn} onPress={() => navigation.navigate('ReportProblem')}>
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Ionicons name="flag-outline" size={18} color="#FFF" style={{ marginRight: 10 }} />
+                            <Ionicons name="flag-outline" size={18} color="#EAF3F6" style={{ marginRight: 10 }} />
                             <Txt variant="bodyBold" color={R.white}>Report a Problem / Request Refund</Txt>
                         </View>
                     </TouchableOpacity>
@@ -120,8 +120,8 @@ export function HelpScreen({ navigation }: any) {
                             end={{x: 1, y: 0}}
                             style={s.btnGradient}
                         >
-                            <Ionicons name="mail" size={20} color="#FFF" style={{ marginRight: 12 }} />
-                            <Txt variant="bodyBold" color="#FFF">EMAIL SUPPORT</Txt>
+                            <Ionicons name="mail" size={20} color="#EAF3F6" style={{ marginRight: 12 }} />
+                            <Txt variant="bodyBold" color="#EAF3F6">EMAIL SUPPORT</Txt>
                         </LinearGradient>
                     </TouchableOpacity>
 

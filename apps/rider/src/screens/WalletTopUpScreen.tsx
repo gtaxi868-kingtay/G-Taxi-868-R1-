@@ -27,7 +27,7 @@ const R = {
     purple: VOICES.rider.accent,
     purpleLight: CYAN,
     gold: '#F59E0B',
-    white: '#FFF',
+    white: '#EAF3F6',
     muted: '#AEA9B5',
 };
 
@@ -106,11 +106,11 @@ export function WalletTopUpScreen({ navigation }: any) {
                         primary: R.purple,
                         background: R.bg,
                         componentBackground: R.surface,
-                        componentText: '#FFF',
-                        primaryText: '#FFF',
+                        componentText: '#EAF3F6',
+                        primaryText: '#EAF3F6',
                         secondaryText: R.muted,
                         placeholderText: 'rgba(255,255,255,0.2)',
-                        icon: '#FFF',
+                        icon: '#EAF3F6',
                         error: '#EF4444',
                     },
                 },
@@ -140,9 +140,9 @@ export function WalletTopUpScreen({ navigation }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Financial Support</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16 }}>Financial Support</Txt>
             </View>
 
             <KeyboardAvoidingView
@@ -156,12 +156,12 @@ export function WalletTopUpScreen({ navigation }: any) {
                         style={StyleSheet.absoluteFillObject} 
                     />
                     <Txt variant="caption" weight="heavy" color={CYAN} style={{ letterSpacing: 2 }}>ESTABLISHED BALANCE</Txt>
-                    <Txt variant="displayXL" weight="heavy" color="#FFF">
+                    <Txt variant="displayXL" weight="heavy" color="#EAF3F6">
                         ${balance !== null ? balance.toFixed(2) : '0.00'}
                     </Txt>
                 </View>
 
-                <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 20 }}>Select Amount</Txt>
+                <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 20 }}>Select Amount</Txt>
                 <View style={s.grid}>
                     {amounts.map(amt => {
                         const isActive = selectedAmount === amt && !customAmount;
@@ -171,7 +171,7 @@ export function WalletTopUpScreen({ navigation }: any) {
                                 style={[s.amountCard, { width: (width - 40 - 12) / 2 }, isActive && s.amountCardActive]}
                                 onPress={() => handleAmountSelect(amt)}
                             >
-                                <Txt variant="headingM" weight="heavy" color={isActive ? "#FFF" : R.muted}>${amt}</Txt>
+                                <Txt variant="headingM" weight="heavy" color={isActive ? "#EAF3F6" : R.muted}>${amt}</Txt>
                                 <Txt variant="caption" weight="heavy" color={isActive ? CYAN : R.muted}>TTD</Txt>
                                 {isActive && (
                                     <LinearGradient 
@@ -208,8 +208,8 @@ export function WalletTopUpScreen({ navigation }: any) {
                         end={{x: 1, y: 0}}
                         style={s.btnGradient}
                     >
-                        {loading ? <ActivityIndicator color="#FFF" /> : (
-                            <Txt variant="bodyBold" color="#FFF">INJECT ${displayAmount} TTD</Txt>
+                        {loading ? <ActivityIndicator color="#EAF3F6" /> : (
+                            <Txt variant="bodyBold" color="#EAF3F6">INJECT ${displayAmount} TTD</Txt>
                         )}
                     </LinearGradient>
                 </TouchableOpacity>
@@ -234,7 +234,7 @@ const s = StyleSheet.create({
 
     customWrap: { gap: 12, marginTop: 12 },
     label: { marginLeft: 16, letterSpacing: 1 },
-    input: { height: 64, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, paddingHorizontal: 24, color: '#FFF', fontSize: 18, ...ghostBorder(0.05) },
+    input: { height: 64, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, paddingHorizontal: 24, color: '#EAF3F6', fontSize: 18, ...ghostBorder(0.05) },
 
     securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 32 },
     payBtn: { height: 64, borderRadius: 24, overflow: 'hidden' },

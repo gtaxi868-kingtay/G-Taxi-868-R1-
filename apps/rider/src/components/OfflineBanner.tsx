@@ -70,18 +70,18 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#EAF3F6',
   },
   dotReconnected: {
-    backgroundColor: '#0D0B1E',
+    backgroundColor: '#07070F',
   },
   text: {
-    color: '#FFFFFF',
+    color: '#EAF3F6',
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   textReconnected: {
-    color: '#0D0B1E',
+    color: '#07070F',
   }
 });

@@ -77,7 +77,7 @@ export function ProductDetailScreen({ navigation, route }: any) {
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
                     style={s.backBtn}
                 >
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>Product Details</Text>
                 <View style={{ width: 38 }} />
@@ -136,7 +136,7 @@ export function ProductDetailScreen({ navigation, route }: any) {
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                         style={s.ctaGradient}
                     >
-                        <Ionicons name="cart-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
+                        <Ionicons name="cart-outline" size={22} color="#EAF3F6" style={{ marginRight: 8 }} />
                         <Text style={s.ctaText}>Add to Cart  ·  ${(totalCents / 100).toFixed(2)} TTD</Text>
                     </LinearGradient>
                 </TouchableOpacity>
@@ -156,7 +156,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center', justifyContent: 'center',
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: '#EAF3F6' },
     scrollContent: { paddingBottom: 120 },
     heroBox: {
         height: 260, alignItems: 'center', justifyContent: 'center', marginBottom: 8,
@@ -182,13 +182,13 @@ const s = StyleSheet.create({
         ...ghostBorder(0.12),
         padding: 22, backgroundColor: 'rgba(255,255,255,0.05)',
     },
-    productName: { fontSize: 22, fontWeight: '800', color: '#FFF', marginBottom: 8 },
+    productName: { fontSize: 22, fontWeight: '800', color: '#EAF3F6', marginBottom: 8 },
     productDesc: { fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 20, marginBottom: 16 },
     priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 24 },
     price: { fontSize: 30, fontWeight: '900', color: VOICES.rider.accent },
     perUnit: { fontSize: 13, color: 'rgba(255,255,255,0.4)' },
     qtyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-    qtyLabel: { fontSize: 16, fontWeight: '600', color: '#FFF' },
+    qtyLabel: { fontSize: 16, fontWeight: '600', color: '#EAF3F6' },
     qtyControl: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     qtyBtn: {
         width: 36, height: 36, borderRadius: 18,
@@ -196,8 +196,8 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     qtyBtnActive: { backgroundColor: VOICES.rider.accent },
-    qtyBtnText: { fontSize: 22, color: '#FFF', fontWeight: '700', lineHeight: 26 },
-    qtyValue: { fontSize: 22, fontWeight: '800', color: '#FFF', minWidth: 30, textAlign: 'center' },
+    qtyBtnText: { fontSize: 22, color: '#EAF3F6', fontWeight: '700', lineHeight: 26 },
+    qtyValue: { fontSize: 22, fontWeight: '800', color: '#EAF3F6', minWidth: 30, textAlign: 'center' },
     totalRow: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)',
@@ -210,5 +210,5 @@ const s = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         paddingVertical: 18, paddingHorizontal: 24,
     },
-    ctaText: { fontSize: 17, fontWeight: '800', color: '#FFF' },
+    ctaText: { fontSize: 17, fontWeight: '800', color: '#EAF3F6' },
 });

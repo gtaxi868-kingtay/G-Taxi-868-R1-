@@ -108,7 +108,7 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>Order Status</Text>
                 <View style={{ width: 38 }} />
@@ -198,7 +198,7 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                         <View style={s.approvalCard}>
                             <LinearGradient colors={[`${VOICES.rider.accent}33`, `${CYAN}1A`]} style={StyleSheet.absoluteFillObject} />
                             <Ionicons name="shield-checkmark" size={44} color={CYAN} style={{ alignSelf: 'center', marginBottom: 16 }} />
-                            <Txt variant="headingM" color="#FFF" style={{ textAlign: 'center' }}>Verify Your Items</Txt>
+                            <Txt variant="headingM" color="#EAF3F6" style={{ textAlign: 'center' }}>Verify Your Items</Txt>
                             <Txt variant="bodyReg" color="rgba(255,255,255,0.6)" style={{ textAlign: 'center', marginBottom: 24 }}>
                                 The merchant has received your order. Please confirm the inventory count to begin cleaning.
                             </Txt>
@@ -206,7 +206,7 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                             <View style={s.itemList}>
                                 {Object.entries(intakeLog.items).map(([key, val]: [string, any]) => (
                                     <View key={key} style={s.itemRow}>
-                                        <Txt variant="bodyBold" color="#FFF">{key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}</Txt>
+                                        <Txt variant="bodyBold" color="#EAF3F6">{key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}</Txt>
                                         <Txt variant="bodyBold" color={CYAN}>{val} units</Txt>
                                     </View>
                                 ))}
@@ -261,7 +261,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center', justifyContent: 'center',
     },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
     summaryCard: {
         marginHorizontal: 20, borderRadius: 20, overflow: 'hidden',
         padding: 18, ...ghostBorder(0.1),
@@ -289,11 +289,11 @@ const s = StyleSheet.create({
     stepLabel: { flex: 1 },
     stepText: { fontSize: 15, color: 'rgba(255,255,255,0.35)', fontWeight: '300' },
     stepTextDone: { color: '#10B981' },
-    stepTextActive: { color: '#FFF', fontWeight: '700' },
+    stepTextActive: { color: '#EAF3F6', fontWeight: '700' },
     ctaContainer: { padding: 20, marginTop: 'auto' },
     ctaButton: { borderRadius: 20, overflow: 'hidden', ...ghostBorder(0.3) },
     ctaGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
-    ctaText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    ctaText: { fontSize: 16, fontWeight: '700', color: '#EAF3F6' },
 
     pinSection: { paddingHorizontal: 40, marginTop: 40 },
     pinCard: { padding: 24, borderRadius: 24, alignItems: 'center', ...ghostBorder(0.2), overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.04)' },

@@ -180,7 +180,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
                             accessibilityLabel="Go back"
                             accessibilityRole="button"
                         >
-                            <Ionicons name="chevron-back" size={24} color="#FFF" />
+                            <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                         </TouchableOpacity>
 
                         <View style={s.inputContainer}>
@@ -314,7 +314,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
                                         accessibilityRole="button"
                                     >
                                         <View style={s.rowIconBrand}>
-                                            <Ionicons name="business" size={18} color="#FFF" />
+                                            <Ionicons name="business" size={18} color="#EAF3F6" />
                                         </View>
                                         <View style={s.rowInfo}>
                                             <Text style={s.rowName}>{pin.name}</Text>
@@ -352,7 +352,7 @@ const s = StyleSheet.create({
         marginLeft: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14,
         ...ghostBorder(0.1),
     },
-    input: { flex: 1, height: '100%', color: '#F2F5F8', fontSize: 16 },
+    input: { flex: 1, height: '100%', color: '#EAF3F6', fontSize: 16 },
     editHint: { fontSize: 12, color: 'rgba(242,245,248,0.5)', marginTop: 10, marginLeft: 4 },
 
     offlineBanner: {
@@ -374,7 +374,7 @@ const s = StyleSheet.create({
     rowIconBrand: { width: 44, height: 44, borderRadius: 14, backgroundColor: `${VOICES.rider.accent}22`, alignItems: 'center', justifyContent: 'center' },
     rowIconNeutral: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     rowInfo: { marginLeft: 14, flex: 1 },
-    rowName: { fontSize: 15, fontWeight: '700', color: '#F2F5F8', marginBottom: 2 },
+    rowName: { fontSize: 15, fontWeight: '700', color: '#EAF3F6', marginBottom: 2 },
     rowAddress: { fontSize: 13, fontWeight: '500', color: 'rgba(242,245,248,0.5)' },
 
     empty: { marginTop: 48, alignItems: 'center', gap: 8 },

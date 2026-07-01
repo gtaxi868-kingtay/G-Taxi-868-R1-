@@ -50,6 +50,32 @@ export const ANIMATION = {
   spring: { damping: 18, stiffness: 150, mass: 1 },
 };
 
+// RIDER "LUXE COOL" language (approved 2026-06-30) — sleek, cool, alluring, glass-tech,
+// logo-aligned (violet↔cyan glass over circuitry). See [[project_brand_palette]] memory.
+// Rule: the `signature` gradient is a LIT EDGE used ONCE per screen (hairline / route /
+// selection), never a fill. Money/values render in `platinum`. Display type is the serif.
+export const LUXE = {
+  base: '#07070F',            // violet-black canvas
+  ink: '#05060B',             // deeper well (behind glass)
+  ice: '#EAF3F6',             // cool white (replaces pure #FFF)
+  iceMuted: 'rgba(234,243,246,0.55)',
+  iceFaint: 'rgba(234,243,246,0.40)',
+  iceGhost: 'rgba(234,243,246,0.72)',
+  platinum: '#CBD6DE',        // cool metallic — prices, fares, balances
+  violet: '#6D28D9',
+  cyan: '#34E6EC',
+  cyanBright: '#5BF0F5',
+  signature: ['#6D28D9', '#34E6EC'] as [string, string], // lit edge, once per screen
+  ctaWash: ['rgba(109,40,217,0.26)', 'rgba(52,230,236,0.13)'] as [string, string],
+  glassFill: 'rgba(255,255,255,0.045)',
+  glassBorder: 'rgba(255,255,255,0.10)',
+  hairline: 'rgba(255,255,255,0.06)',
+  serif: 'CormorantGaramond_500Medium',
+  serifSemi: 'CormorantGaramond_600SemiBold',
+  tracking: { micro: 2, wide: 2.5 },
+  glow: { shadowColor: '#34E6EC', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 18 },
+} as const;
+
 // Semantic z-index scale — use these across all apps instead of arbitrary magic numbers.
 // Layers are: map content → overlays → panels → modals → banners/toasts
 export const Z = {

@@ -140,7 +140,7 @@ const s = StyleSheet.create({
   input: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#FFF',
+    color: '#EAF3F6',
     padding: 0,
     margin: 0,
   },

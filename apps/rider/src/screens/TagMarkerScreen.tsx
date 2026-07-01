@@ -99,7 +99,7 @@ export function TagMarkerScreen({ navigation, route }: AppScreenProps<'TagMarker
             <LinearGradient colors={['#1A0533', '#0D1B4B']} style={StyleSheet.absoluteFillObject} />
 
             <TouchableOpacity style={[s.backBtn, { top: insets.top + 8 }]} onPress={() => navigation.goBack()}>
-                <Ionicons name="close" size={28} color="#FFF" />
+                <Ionicons name="close" size={28} color="#EAF3F6" />
             </TouchableOpacity>
 
             <ScrollView contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled">
@@ -172,7 +172,7 @@ export function TagMarkerScreen({ navigation, route }: AppScreenProps<'TagMarker
                     ) : (
                         <TouchableOpacity style={s.submitBtn} onPress={handleProvision}>
                             <LinearGradient colors={[VOICES.rider.accent, '#06B6D4']} style={s.submitGradient}>
-                                <Ionicons name="checkmark-circle" size={22} color="#FFF" />
+                                <Ionicons name="checkmark-circle" size={22} color="#EAF3F6" />
                                 <Text style={s.submitText}>Register Tag</Text>
                             </LinearGradient>
                         </TouchableOpacity>
@@ -189,7 +189,7 @@ const s = StyleSheet.create({
     scrollContent: { padding: 24, paddingTop: 80, paddingBottom: 48 },
     header: { alignItems: 'center', marginBottom: 24 },
     badgeIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.03)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-    headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFF', marginBottom: 8 },
+    headerTitle: { fontSize: 22, fontWeight: '800', color: '#EAF3F6', marginBottom: 8 },
     tagCode: { fontSize: 14, color: '#06B6D4', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8, marginBottom: 12, letterSpacing: 2 },
     headerSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 20 },
     card: { width: '100%', borderRadius: 32, padding: 24, ...ghostBorder() },
@@ -199,8 +199,8 @@ const s = StyleSheet.create({
     typeOptionActive: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(123,92,240,0.15)' },
     typeLabel: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
     typeLabelActive: { color: VOICES.rider.accent },
-    input: { width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, fontSize: 16, color: '#FFF', marginBottom: 16, ...ghostBorder() },
+    input: { width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, fontSize: 16, color: '#EAF3F6', marginBottom: 16, ...ghostBorder() },
     submitBtn: { width: '100%', height: 56, borderRadius: 28, marginTop: 16, overflow: 'hidden' },
     submitGradient: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-    submitText: { color: '#FFF', fontSize: 17, fontWeight: '800' },
+    submitText: { color: '#EAF3F6', fontSize: 17, fontWeight: '800' },
 });

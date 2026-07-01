@@ -121,7 +121,7 @@ export function ProductListingScreen({ navigation, route }: any) {
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
                     style={s.backBtn}
                 >
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <View style={s.headerCenter}>
                     <Text style={s.headerTitle}>{merchant.name}</Text>
@@ -197,7 +197,7 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     headerCenter: { flex: 1 },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: '#EAF3F6' },
     headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
     cartBtn: {
         width: 38, height: 38, borderRadius: 19,
@@ -209,7 +209,7 @@ const s = StyleSheet.create({
         width: 16, height: 16, borderRadius: 8,
         backgroundColor: VOICES.rider.accent, alignItems: 'center', justifyContent: 'center',
     },
-    cartBadgeText: { fontSize: 10, color: '#FFF', fontWeight: '800' },
+    cartBadgeText: { fontSize: 10, color: '#EAF3F6', fontWeight: '800' },
     grid: { padding: 20, gap: 12, paddingBottom: 100 },
     productCard: {
         borderRadius: 20, overflow: 'hidden',
@@ -224,7 +224,7 @@ const s = StyleSheet.create({
     },
     productEmoji: { fontSize: 40 },
     productMeta: { gap: 4, marginBottom: 10 },
-    productName: { fontSize: 14, fontWeight: '600', color: '#FFF', lineHeight: 19 },
+    productName: { fontSize: 14, fontWeight: '600', color: '#EAF3F6', lineHeight: 19 },
     productPrice: { fontSize: 15, fontWeight: '800', color: VOICES.rider.accent },
     addBtn: {
         alignSelf: 'flex-end', width: 32, height: 32, borderRadius: 16,
@@ -232,11 +232,11 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     addBtnActive: { backgroundColor: VOICES.rider.accent },
-    addBtnText: { fontSize: 18, color: '#FFF', fontWeight: '700', lineHeight: 22 },
+    addBtnText: { fontSize: 18, color: '#EAF3F6', fontWeight: '700', lineHeight: 22 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
     loadingText: { color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 14 },
     emptyEmoji: { fontSize: 48, marginBottom: 16 },
-    emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+    emptyText: { color: '#EAF3F6', fontSize: 18, fontWeight: '700' },
     cartBar: {
         position: 'absolute', bottom: 24, left: 20, right: 20,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

@@ -128,7 +128,7 @@ export function VisionScannerScreen({ navigation }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="close" size={22} color="#FFF" />
+                    <Ionicons name="close" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>AI Vision Scanner</Text>
                 <View style={{ width: 38 }} />
@@ -147,7 +147,7 @@ export function VisionScannerScreen({ navigation }: any) {
                         colors={scanning ? [CYAN, '#0099CC'] : [VOICES.rider.accent, VOICES.rider.accentDark]}
                         style={s.scanBtnGrad}
                     >
-                        <Ionicons name={scanning ? 'scan-outline' : 'camera-outline'} size={28} color="#FFF" />
+                        <Ionicons name={scanning ? 'scan-outline' : 'camera-outline'} size={28} color="#EAF3F6" />
                         <Text style={s.scanBtnText}>{scanning ? 'Scanning...' : 'Scan Item'}</Text>
                     </LinearGradient>
                 </TouchableOpacity>
@@ -202,7 +202,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.5)',
         alignItems: 'center', justifyContent: 'center',
     },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 18, fontWeight: '700', color: '#EAF3F6' },
     hint: {
         position: 'absolute',
         top: '50%', left: 0, right: 0,
@@ -217,7 +217,7 @@ const s = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 10,
         paddingHorizontal: 40, paddingVertical: 18,
     },
-    scanBtnText: { fontSize: 18, fontWeight: '800', color: '#FFF' },
+    scanBtnText: { fontSize: 18, fontWeight: '800', color: '#EAF3F6' },
     resultCard: {
         position: 'absolute', left: 20, right: 20,
         borderRadius: 24, padding: 20, overflow: 'hidden',
@@ -225,20 +225,20 @@ const s = StyleSheet.create({
         alignItems: 'center', gap: 6,
     },
     resultBg: { backgroundColor: 'rgba(0,0,0,0.85)' },
-    resultName: { fontSize: 18, fontWeight: '700', color: '#FFF', textAlign: 'center' },
+    resultName: { fontSize: 18, fontWeight: '700', color: '#EAF3F6', textAlign: 'center' },
     resultPrice: { fontSize: 24, fontWeight: '900', color: VOICES.rider.accent },
     resultBtn: {
         marginTop: 10, paddingVertical: 10, paddingHorizontal: 28,
         borderRadius: 50, backgroundColor: VOICES.rider.accent,
     },
-    resultBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+    resultBtnText: { fontSize: 14, fontWeight: '700', color: '#EAF3F6' },
     permCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
     permEmoji: { fontSize: 56, marginBottom: 20 },
-    permTitle: { fontSize: 20, fontWeight: '700', color: '#FFF', marginBottom: 10 },
+    permTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6', marginBottom: 10 },
     permSub: { fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 21, marginBottom: 30 },
     permBtn: {
         backgroundColor: VOICES.rider.accent, borderRadius: 20,
         paddingVertical: 14, paddingHorizontal: 32,
     },
-    permBtnText: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    permBtnText: { fontSize: 16, fontWeight: '700', color: '#EAF3F6' },
 });

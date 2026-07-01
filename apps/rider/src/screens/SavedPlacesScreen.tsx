@@ -23,7 +23,7 @@ const R = {
     purple: VOICES.rider.accent,
     purpleLight: CYAN,
     gold: '#F59E0B',
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: 'rgba(255,255,255,0.7)',
 };
 
@@ -93,7 +93,7 @@ export function SavedPlacesScreen({ navigation }: any) {
                 <Txt style={{ fontSize: 20 }}>{item.icon || '📍'}</Txt>
             </View>
             <View style={s.info}>
-                <Txt variant="bodyBold" color="#FFF">{item.label}</Txt>
+                <Txt variant="bodyBold" color="#EAF3F6">{item.label}</Txt>
                 <Txt variant="small" color={R.muted} numberOfLines={1}>{item.address}</Txt>
             </View>
             <TouchableOpacity onPress={() => handleDelete(item.id, item.label)} style={s.deleteBtn}>
@@ -108,9 +108,9 @@ export function SavedPlacesScreen({ navigation }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Saved Places</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16 }}>Saved Places</Txt>
             </View>
 
             {loading ? (
@@ -141,8 +141,8 @@ export function SavedPlacesScreen({ navigation }: any) {
                         end={{x: 1, y: 0}}
                         style={s.btnGradient}
                     >
-                        <Ionicons name="add" size={24} color="#FFF" />
-                        <Txt variant="bodyBold" color="#FFF" style={{ marginLeft: 8 }}>ADD NEW PLACE</Txt>
+                        <Ionicons name="add" size={24} color="#EAF3F6" />
+                        <Txt variant="bodyBold" color="#EAF3F6" style={{ marginLeft: 8 }}>ADD NEW PLACE</Txt>
                     </LinearGradient>
                 </TouchableOpacity>
             </View>

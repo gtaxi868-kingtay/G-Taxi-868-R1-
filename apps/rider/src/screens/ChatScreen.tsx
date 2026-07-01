@@ -25,7 +25,7 @@ const R = {
     purple: VOICES.rider.accent,
     purpleLight: CYAN,
     gold: '#F59E0B',
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: 'rgba(255,255,255,0.7)',
 };
 
@@ -104,7 +104,7 @@ export function ChatScreen({ route, navigation }: any) {
         const isSelf = item.sender_id === user?.id;
         return (
             <View style={[s.msgRow, isSelf ? s.msgSelf : s.msgOther]}>
-                {!isSelf && <View style={s.msgAvatar}><Txt style={{ fontSize: 10, color: '#FFF' }}>DR</Txt></View>}
+                {!isSelf && <View style={s.msgAvatar}><Txt style={{ fontSize: 10, color: '#EAF3F6' }}>DR</Txt></View>}
                 <View style={[s.bubble, isSelf ? s.bubbleSelf : s.bubbleOther]}>
                     {isSelf && (
                         <LinearGradient
@@ -114,7 +114,7 @@ export function ChatScreen({ route, navigation }: any) {
                             style={StyleSheet.absoluteFillObject}
                         />
                     )}
-                    <Txt variant="bodyReg" color="#FFF">{item.content}</Txt>
+                    <Txt variant="bodyReg" color="#EAF3F6">{item.content}</Txt>
                 </View>
             </View>
         );
@@ -126,17 +126,17 @@ export function ChatScreen({ route, navigation }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
                 <View style={s.headerTitle}>
-                    <Txt variant="bodyBold" color="#FFF">{driver?.name || 'Driver'}</Txt>
+                    <Txt variant="bodyBold" color="#EAF3F6">{driver?.name || 'Driver'}</Txt>
                     <View style={s.statusRow}>
                         <View style={[s.statusDot, { backgroundColor: CYAN }]} />
                         <Txt variant="caption" color={R.muted}>Active Engagement</Txt>
                     </View>
                 </View>
                 <TouchableOpacity style={s.headerBtn}>
-                    <Ionicons name="call" size={20} color="#FFF" />
+                    <Ionicons name="call" size={20} color="#EAF3F6" />
                 </TouchableOpacity>
             </View>
 
@@ -162,7 +162,7 @@ export function ChatScreen({ route, navigation }: any) {
                         keyExtractor={item => item}
                         renderItem={({ item }) => (
                             <TouchableOpacity style={s.chip} onPress={() => handleSend(item)}>
-                                <Txt variant="small" color="#FFF">{item}</Txt>
+                                <Txt variant="small" color="#EAF3F6">{item}</Txt>
                             </TouchableOpacity>
                         )}
                         contentContainerStyle={{ paddingHorizontal: 16 }}
@@ -184,7 +184,7 @@ export function ChatScreen({ route, navigation }: any) {
                                 colors={[VOICES.rider.accent, CYAN]}
                                 style={s.sendGrad}
                             >
-                                <Ionicons name="send" size={18} color="#FFF" />
+                                <Ionicons name="send" size={18} color="#EAF3F6" />
                             </LinearGradient>
                         </TouchableOpacity>
                     </View>
@@ -216,7 +216,7 @@ const s = StyleSheet.create({
 
     inputArea: { paddingHorizontal: 20, paddingTop: 12 },
     inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, paddingLeft: 24, paddingRight: 8, paddingVertical: 8, ...ghostBorder(0.05) },
-    input: { flex: 1, color: '#FFF', fontSize: 16, maxHeight: 120, paddingVertical: 10 },
+    input: { flex: 1, color: '#EAF3F6', fontSize: 16, maxHeight: 120, paddingVertical: 10 },
     sendBtn: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden' },
     sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

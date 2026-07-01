@@ -11,7 +11,7 @@ import { supabase } from '@gtaxi/core';
 import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip } from '../context/EscapeContext';
 
-const BRAND = '#1DE0E6';
+const BRAND = '#34E6EC';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'EscapeStorefront'>;
 
@@ -311,7 +311,7 @@ export default function EscapeStorefrontScreen() {
               activeOpacity={0.85}
             >
               {isJoining ? (
-                <ActivityIndicator size="small" color="#0B0E12" />
+                <ActivityIndicator size="small" color="#07070F" />
               ) : (
                 <Text style={styles.joinBtnText}>
                   {seatsAvailForGuest <= 0 ? 'Full' : alreadyJoined ? 'Joined ✓' : 'Join Pool'}
@@ -419,25 +419,25 @@ export default function EscapeStorefrontScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:             { flex: 1, backgroundColor: '#0B0E12' },
+  safe:             { flex: 1, backgroundColor: '#07070F' },
   header:           { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
-  headerTitle:      { fontSize: 28, fontWeight: '800', color: '#F2F5F8', letterSpacing: -0.5 },
+  headerTitle:      { fontSize: 28, fontWeight: '800', color: '#EAF3F6', letterSpacing: -0.5 },
   headerSub:        { fontSize: 13, color: 'rgba(242,245,248,0.42)', marginTop: 2 },
-  activeTripBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(29,224,230,0.08)',
+  activeTripBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(52,230,236,0.08)',
                       marginHorizontal: 16, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14,
-                      marginBottom: 10, borderWidth: 1, borderColor: 'rgba(29,224,230,0.2)', gap: 8 },
+                      marginBottom: 10, borderWidth: 1, borderColor: 'rgba(52,230,236,0.2)', gap: 8 },
   activeDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
   activeTripText:   { flex: 1, color: BRAND, fontSize: 13, fontWeight: '500' },
   centered:         { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-  emptyTitle:       { color: '#F2F5F8', fontSize: 18, fontWeight: '700', textAlign: 'center', marginTop: 12 },
+  emptyTitle:       { color: '#EAF3F6', fontSize: 18, fontWeight: '700', textAlign: 'center', marginTop: 12 },
   emptySub:         { color: 'rgba(242,245,248,0.42)', fontSize: 14, textAlign: 'center', marginTop: 8, lineHeight: 20 },
   retryBtn:         { marginTop: 16, backgroundColor: BRAND, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 },
-  retryBtnText:     { color: '#0B0E12', fontWeight: '700', fontSize: 14 },
+  retryBtnText:     { color: '#07070F', fontWeight: '700', fontSize: 14 },
   list:             { paddingHorizontal: 16, paddingBottom: 40 },
   joinedBadge:      { position: 'absolute', top: 44, right: 12, flexDirection: 'row', alignItems: 'center',
-                      backgroundColor: 'rgba(29,224,230,0.12)', borderRadius: 8,
+                      backgroundColor: 'rgba(52,230,236,0.12)', borderRadius: 8,
                       paddingHorizontal: 8, paddingVertical: 3, gap: 4,
-                      borderWidth: 1, borderColor: 'rgba(29,224,230,0.25)' },
+                      borderWidth: 1, borderColor: 'rgba(52,230,236,0.25)' },
   joinedText:       { color: BRAND, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
 
   card:             { backgroundColor: '#13171D', borderRadius: 20, marginBottom: 16, overflow: 'hidden',
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
   statusConfirmed:  { backgroundColor: '#22C55E22', borderWidth: 1, borderColor: '#22C55E44' },
   statusText:       { color: BRAND, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   cardBody:         { padding: 16 },
-  destination:      { fontSize: 22, fontWeight: '800', color: '#F2F5F8', letterSpacing: -0.3 },
+  destination:      { fontSize: 22, fontWeight: '800', color: '#EAF3F6', letterSpacing: -0.3 },
   pkgName:          { fontSize: 13, color: BRAND, fontWeight: '600', marginTop: 2 },
   tagline:          { fontSize: 12, color: 'rgba(242,245,248,0.42)', marginTop: 3 },
   metaRow:          { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6, flexWrap: 'wrap' },
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
   poolSection:      { marginTop: 14 },
   poolHeader:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   poolLabel:        { color: 'rgba(242,245,248,0.42)', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  poolCount:        { color: '#F2F5F8', fontSize: 11, fontWeight: '600' },
+  poolCount:        { color: '#EAF3F6', fontSize: 11, fontWeight: '600' },
   progressTrack:    { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' },
   progressFill:     { height: 4, backgroundColor: BRAND, borderRadius: 2 },
   poolSub:          { color: 'rgba(242,245,248,0.35)', fontSize: 10, marginTop: 6 },
@@ -469,12 +469,12 @@ const styles = StyleSheet.create({
   confirmedText:    { color: '#22C55E', fontSize: 12, fontWeight: '600' },
   cardFooter:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
   priceLabel:       { color: 'rgba(242,245,248,0.35)', fontSize: 10, fontWeight: '700', letterSpacing: 1 },
-  price:            { color: '#F2F5F8', fontSize: 18, fontWeight: '800' },
+  price:            { color: '#EAF3F6', fontSize: 18, fontWeight: '800' },
   pricePer:         { color: 'rgba(242,245,248,0.42)', fontSize: 12, fontWeight: '400' },
   joinBtn:          { backgroundColor: BRAND, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 12, minWidth: 110, alignItems: 'center' },
   joinBtnDisabled:  { backgroundColor: 'rgba(255,255,255,0.06)', opacity: 0.6 },
   joinBtnJoining:   { opacity: 0.7 },
-  joinBtnText:      { color: '#0B0E12', fontWeight: '700', fontSize: 14 },
+  joinBtnText:      { color: '#07070F', fontWeight: '700', fontSize: 14 },
 
   experienceCard:     { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 12, marginTop: 10,
                         marginBottom: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
@@ -487,14 +487,14 @@ const styles = StyleSheet.create({
                       justifyContent: 'flex-end' },
   sheet:            { backgroundColor: '#13171D', borderTopLeftRadius: 28, borderTopRightRadius: 28,
                       padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderBottomWidth: 0 },
-  sheetTitle:       { color: '#F2F5F8', fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  sheetTitle:       { color: '#EAF3F6', fontSize: 18, fontWeight: '700', marginBottom: 8 },
   sheetSub:         { color: 'rgba(242,245,248,0.5)', fontSize: 13, lineHeight: 18, marginBottom: 20 },
   guestRow:         { flexDirection: 'row', gap: 12, marginBottom: 20 },
   guestOption:      { flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.04)',
                       alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   guestOptionSelected: { backgroundColor: `${BRAND}1F`, borderColor: BRAND },
   guestOptionDisabled: { opacity: 0.3 },
-  guestOptionText:  { color: '#F2F5F8', fontSize: 20, fontWeight: '700' },
+  guestOptionText:  { color: '#EAF3F6', fontSize: 20, fontWeight: '700' },
   guestOptionTextSelected: { color: BRAND },
   guestOptionLabel:  { color: 'rgba(242,245,248,0.35)', fontSize: 9, marginTop: 2 },
   guestOptionLabelSelected: { color: BRAND },
@@ -502,5 +502,5 @@ const styles = StyleSheet.create({
   sheetPriceLabel:  { color: 'rgba(242,245,248,0.5)', fontSize: 14 },
   sheetPrice:       { color: '#10B981', fontSize: 22, fontWeight: '800' },
   sheetCta:         { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  sheetCtaText:     { color: '#0B0E12', fontWeight: '800', fontSize: 16 },
+  sheetCtaText:     { color: '#07070F', fontWeight: '800', fontSize: 16 },
 });

@@ -28,9 +28,9 @@ export function LegalScreen({ navigation }: any) {
                     style={s.backBtn} 
                     onPress={() => navigation.goBack()}
                 >
-                    <Ionicons name="chevron-back" size={22} color="#FFF" />
+                    <Ionicons name="chevron-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={s.headerTitle}>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.headerTitle}>
                     LEGAL PROTOCOL
                 </Txt>
             </View>
@@ -40,7 +40,7 @@ export function LegalScreen({ navigation }: any) {
                 showsVerticalScrollIndicator={false}
             >
                 <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
                         Terms of Service
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
@@ -54,7 +54,7 @@ export function LegalScreen({ navigation }: any) {
                 </TouchableOpacity>
 
                 <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
                         Privacy Policy
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
@@ -67,7 +67,7 @@ export function LegalScreen({ navigation }: any) {
                 </TouchableOpacity>
 
                 <GlassCard style={s.card}>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
                         DATA SECURITY & PRIVACY
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
@@ -79,7 +79,7 @@ export function LegalScreen({ navigation }: any) {
                 </GlassCard>
 
                 <GlassCard style={s.card}>
-                    <Txt variant="headingM" weight="heavy" color="#FFF" style={s.sectionTitle}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
                         NETWORK CONDUCT
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
@@ -151,8 +151,8 @@ const s = StyleSheet.create({
         padding: 24,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: 'rgba(6,182,212,0.2)',
-        backgroundColor: 'rgba(6,182,212,0.05)',
+        borderColor: 'rgba(52,230,236,0.2)',
+        backgroundColor: 'rgba(52,230,236,0.05)',
     },
     docLinkRow: {
         flexDirection: 'row',

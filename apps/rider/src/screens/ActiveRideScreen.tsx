@@ -75,7 +75,7 @@ const DriverMarker = ({ coordinate, rotation }: DriverMarkerProps) => {
                     borderRadius: 8,
                     backgroundColor: CYAN,
                     borderWidth: 2,
-                    borderColor: '#FFFFFF',
+                    borderColor: '#EAF3F6',
                 }} />
             </View>
         </Marker>
@@ -518,7 +518,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         width: 14,
                         height: 14,
                         borderRadius: 7,
-                        backgroundColor: '#FFFFFF',
+                        backgroundColor: '#EAF3F6',
                         borderWidth: 3,
                         borderColor: VOICES.rider.accent,
                     }} />
@@ -528,7 +528,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         width: 14,
                         height: 14,
                         borderRadius: 7,
-                        backgroundColor: '#FFFFFF',
+                        backgroundColor: '#EAF3F6',
                         borderWidth: 3,
                         borderColor: CYAN,
                     }} />
@@ -537,7 +537,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
             {signalStatus === 'stale' && (
                 <View style={[s.signalBanner, { top: insets.top + 60 }]}>
-                    <Ionicons name="cellular-outline" size={16} color="#0D0B1E" />
+                    <Ionicons name="cellular-outline" size={16} color="#07070F" />
                     <Text style={s.signalBannerText}>
                         Driver signal temporarily lost. Last position shown.
                     </Text>
@@ -546,7 +546,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
             {signalStatus === 'lost' && (
                 <View style={[s.signalBannerLost, { top: insets.top + 60 }]}>
-                    <Ionicons name="warning" size={20} color="#FFFFFF" />
+                    <Ionicons name="warning" size={20} color="#EAF3F6" />
                     <Text style={s.signalBannerLostText}>
                         We've lost contact with your driver.{'\n'}
                         Your trip is still active.
@@ -585,7 +585,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         >
                             <View style={{ flex: 1 }}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                    <Ionicons name="star" size={14} color="#FFFFFF" />
+                                    <Ionicons name="star" size={14} color="#EAF3F6" />
                                     <Text style={s.aiTitle}>G-Taxi</Text>
                                 </View>
                                 <Text style={s.aiMessage}>{aiInsight}</Text>
@@ -661,11 +661,11 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                     {/* Progress Track */}
                     <View style={s.track}>
                         <View style={[s.trackNode, step >= 1 && s.trackNodeActive]}>
-                            <Ionicons name="location" size={12} color={step >= 1 ? '#FFFFFF' : VOICES.rider.textMuted} />
+                            <Ionicons name="location" size={12} color={step >= 1 ? '#EAF3F6' : VOICES.rider.textMuted} />
                         </View>
                         <View style={[s.trackLine, step >= 2 && s.trackLineActive]} />
                         <View style={[s.trackNode, step >= 2 && s.trackNodeActive]}>
-                            <Ionicons name="car" size={12} color={step >= 2 ? '#FFFFFF' : VOICES.rider.textMuted} />
+                            <Ionicons name="car" size={12} color={step >= 2 ? '#EAF3F6' : VOICES.rider.textMuted} />
                         </View>
                         <View style={s.trackLine} />
                         <View style={s.trackNode}>
@@ -731,7 +731,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             <Modal visible={musicModalVisible} transparent animationType="slide">
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
                     <BlurView tint="dark" intensity={60} style={[s.modalContent, glassSurface(60, 0.2)]}>
-                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginBottom: 12 }}>Music Suggestion</Text>
+                        <Text style={{ fontSize: 20, fontWeight: '800', color: '#EAF3F6', marginBottom: 12 }}>Music Suggestion</Text>
                         <Text style={{ fontSize: 14, color: VOICES.rider.textMuted, textAlign: 'center', marginBottom: 24 }}>
                             Suggest a Spotify or YouTube link for the driver to play.
                         </Text>
@@ -749,7 +749,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                                 <Text style={{ fontSize: 16, fontWeight: '800', color: VOICES.rider.textMuted }}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={s.modalConfirm} onPress={handleMusicSuggestion} disabled={isMusicLoading}>
-                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>{isMusicLoading ? 'Sending...' : 'Send'}</Text>
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#EAF3F6' }}>{isMusicLoading ? 'Sending...' : 'Send'}</Text>
                             </TouchableOpacity>
                         </View>
                     </BlurView>
@@ -818,7 +818,7 @@ const s = StyleSheet.create({
     statusText: {
         fontSize: 12,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         letterSpacing: 1,
         fontFamily: 'SpaceGrotesk-Bold',
     },
@@ -843,14 +843,14 @@ const s = StyleSheet.create({
         marginLeft: 6, 
         fontSize: 10, 
         fontWeight: '800', 
-        color: '#FFFFFF', 
+        color: '#EAF3F6', 
         letterSpacing: 1,
         fontFamily: 'SpaceGrotesk-Bold',
     },
     aiMessage: { 
         fontSize: 13, 
         fontWeight: '500', 
-        color: '#FFFFFF', 
+        color: '#EAF3F6', 
         lineHeight: 18,
         marginTop: 2,
         fontFamily: 'Manrope-Medium',
@@ -914,7 +914,7 @@ const s = StyleSheet.create({
     driverName: { 
         fontSize: 20, 
         fontWeight: '800', 
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         letterSpacing: -0.5,
         fontFamily: 'SpaceGrotesk-Bold',
     },
@@ -963,7 +963,7 @@ const s = StyleSheet.create({
     sosLabel: { 
         fontSize: 12, 
         fontWeight: '800', 
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         letterSpacing: 0.5,
         fontFamily: 'SpaceGrotesk-Bold',
     },
@@ -1082,7 +1082,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.05)', 
         borderRadius: 14, 
         paddingHorizontal: 16, 
-        color: '#FFFFFF', 
+        color: '#EAF3F6', 
         marginBottom: 20, 
         ...ghostBorder(0.1),
         fontSize: 16,
@@ -1123,7 +1123,7 @@ const s = StyleSheet.create({
         zIndex: 100,
     },
     signalBannerText: {
-        color: '#0D0B1E',
+        color: '#07070F',
         fontSize: 13,
         fontWeight: '700',
         flex: 1,
@@ -1139,7 +1139,7 @@ const s = StyleSheet.create({
         zIndex: 100,
     },
     signalBannerLostText: {
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 14,
         fontWeight: '700',
         textAlign: 'center',
@@ -1151,7 +1151,7 @@ const s = StyleSheet.create({
         gap: 12,
     },
     signalBtnPrimary: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#EAF3F6',
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 12,
@@ -1168,7 +1168,7 @@ const s = StyleSheet.create({
         borderRadius: 12,
     },
     signalBtnSecondaryText: {
-        color: '#FFFFFF',
+        color: '#EAF3F6',
         fontSize: 14,
         fontWeight: '700',
     },

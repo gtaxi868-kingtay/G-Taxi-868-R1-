@@ -15,7 +15,7 @@ import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rul
 const R = {
     bg: SURFACE.base,
     purple: VOICES.rider.accent,
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: '#AEA9B5',
 };
 
@@ -79,9 +79,9 @@ export function ReportProblemScreen({ navigation, route }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Report a Problem</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16 }}>Report a Problem</Txt>
             </View>
 
             <KeyboardAvoidingView
@@ -96,7 +96,7 @@ export function ReportProblemScreen({ navigation, route }: any) {
                                 <Txt variant="small" color={R.muted} numberOfLines={1}>
                                     {ride.pickup_address} → {ride.dropoff_address}
                                 </Txt>
-                                <Txt variant="bodyBold" color="#FFF">
+                                <Txt variant="bodyBold" color="#EAF3F6">
                                     ${((ride.total_fare_cents || 0) / 100).toFixed(2)} TTD
                                 </Txt>
                             </View>
@@ -112,7 +112,7 @@ export function ReportProblemScreen({ navigation, route }: any) {
                             activeOpacity={0.8}
                         >
                             <Ionicons name={cat.icon} size={20} color={category === cat.id ? R.purple : R.muted} />
-                            <Txt variant="bodyBold" color={category === cat.id ? '#FFF' : R.muted} style={{ marginLeft: 14 }}>
+                            <Txt variant="bodyBold" color={category === cat.id ? '#EAF3F6' : R.muted} style={{ marginLeft: 14 }}>
                                 {cat.label}
                             </Txt>
                             {category === cat.id && (
@@ -140,9 +140,9 @@ export function ReportProblemScreen({ navigation, route }: any) {
                         activeOpacity={0.85}
                     >
                         {submitting ? (
-                            <ActivityIndicator size="small" color="#FFF" />
+                            <ActivityIndicator size="small" color="#EAF3F6" />
                         ) : (
-                            <Txt variant="bodyBold" color="#FFF">Submit Report</Txt>
+                            <Txt variant="bodyBold" color="#EAF3F6">Submit Report</Txt>
                         )}
                     </TouchableOpacity>
                 </ScrollView>
@@ -176,7 +176,7 @@ const s = StyleSheet.create({
     },
     descInput: {
         backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 20,
-        padding: 18, minHeight: 130, fontSize: 15, color: '#FFF',
+        padding: 18, minHeight: 130, fontSize: 15, color: '#EAF3F6',
         ...ghostBorder(0.12),
     },
     submitBtn: {

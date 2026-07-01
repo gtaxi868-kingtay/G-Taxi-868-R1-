@@ -88,12 +88,12 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                 {user?.photo_url ? (
                                     <Image source={{ uri: user.photo_url }} style={s.image} />
                                 ) : (
-                                    <Txt variant="headingM" weight="heavy" color="#FFF">{user?.name?.charAt(0) || 'R'}</Txt>
+                                    <Txt variant="headingM" weight="heavy" color="#EAF3F6">{user?.name?.charAt(0) || 'R'}</Txt>
                                 )}
                             </View>
                         </LinearGradient>
                         <View style={s.userInfo}>
-                            <Txt variant="headingM" weight="heavy" color="#FFF">{user?.name || 'Rider'}</Txt>
+                            <Txt variant="headingM" weight="heavy" color="#EAF3F6">{user?.name || 'Rider'}</Txt>
                             <View style={s.rating}>
                                 <Ionicons name="star" size={12} color="#FFD700" />
                                 <Txt variant="caption" weight="heavy" color="#FFD700" style={{ marginLeft: 4 }}>
@@ -137,7 +137,7 @@ const MenuItem = ({ icon, label, onPress }: any) => (
         <View style={s.menuIcon}>
             <Ionicons name={icon as any} size={22} color={VOICES.rider.accent} />
         </View>
-        <Txt variant="bodyBold" color="#FFF" style={{ fontSize: 16 }}>{label}</Txt>
+        <Txt variant="bodyBold" color="#EAF3F6" style={{ fontSize: 16 }}>{label}</Txt>
     </TouchableOpacity>
 );
 

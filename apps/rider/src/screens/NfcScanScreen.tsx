@@ -133,7 +133,7 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
             <LinearGradient colors={['#1A0533', '#0D1B4B']} style={StyleSheet.absoluteFillObject} />
 
             <TouchableOpacity style={[s.backBtn, { top: insets.top + 8 }]} onPress={() => navigation.goBack()}>
-                <Ionicons name="close" size={28} color="#FFF" />
+                <Ionicons name="close" size={28} color="#EAF3F6" />
             </TouchableOpacity>
 
             <View style={s.content}>
@@ -154,7 +154,7 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
                             </Text>
 
                             <TouchableOpacity style={s.scanBtn} onPress={scanNfc}>
-                                <Ionicons name="scan" size={22} color="#FFF" />
+                                <Ionicons name="scan" size={22} color="#EAF3F6" />
                                 <Text style={s.scanBtnText}>Scan NFC Tag</Text>
                             </TouchableOpacity>
 
@@ -184,7 +184,7 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
                             {error && <Text style={s.errorText}>{error}</Text>}
 
                             <TouchableOpacity style={s.scanBtn} onPress={submitManual}>
-                                <Ionicons name="arrow-forward" size={22} color="#FFF" />
+                                <Ionicons name="arrow-forward" size={22} color="#EAF3F6" />
                                 <Text style={s.scanBtnText}>Look Up</Text>
                             </TouchableOpacity>
 
@@ -208,12 +208,12 @@ const s = StyleSheet.create({
     loadingText: { color: 'rgba(255,255,255,0.6)', marginTop: 16, fontSize: 16 },
     scanCard: { width: '100%', borderRadius: 32, padding: 32, alignItems: 'center', ...ghostBorder() },
     scanIconContainer: { width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.03)', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
-    scanTitle: { fontSize: 24, fontWeight: '800', color: '#FFF', marginBottom: 8 },
+    scanTitle: { fontSize: 24, fontWeight: '800', color: '#EAF3F6', marginBottom: 8 },
     scanSubtitle: { fontSize: 15, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
     scanBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: VOICES.rider.accent, paddingHorizontal: 28, paddingVertical: 16, borderRadius: 16, gap: 8, marginBottom: 16 },
-    scanBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+    scanBtnText: { color: '#EAF3F6', fontSize: 16, fontWeight: '700' },
     manualBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 12 },
     manualBtnText: { color: VOICES.rider.accent, fontSize: 14, fontWeight: '600' },
-    input: { width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, fontSize: 20, color: '#FFF', textAlign: 'center', fontWeight: '700', letterSpacing: 4, marginBottom: 24, ...ghostBorder() },
+    input: { width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, fontSize: 20, color: '#EAF3F6', textAlign: 'center', fontWeight: '700', letterSpacing: 4, marginBottom: 24, ...ghostBorder() },
     errorText: { color: '#FF4D4D', fontSize: 14, marginBottom: 16 },
 });

@@ -17,7 +17,7 @@ import type { AppStackParamList } from '../navigation/types';
 type Nav = NativeStackNavigationProp<AppStackParamList, 'PassportSubmission'>;
 type RouteT = RouteProp<AppStackParamList, 'PassportSubmission'>;
 
-const CYAN = '#1DE0E6';
+const CYAN = '#34E6EC';
 
 const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const;
 
@@ -109,11 +109,11 @@ export default function PassportSubmissionScreen() {
   return (
     <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
-      <LinearGradient colors={['#0B0E12', '#050508']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#07070F', '#050508']} style={StyleSheet.absoluteFill} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#FFF" />
+          <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Travel Documents</Text>
         <View style={{ width: 40 }} />
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#FFF' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#EAF3F6' },
   scroll: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
   card: {
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
     padding: 24, alignItems: 'center', marginBottom: 28,
   },
-  cardTitle: { fontSize: 18, fontWeight: '800', color: '#FFF', marginBottom: 8 },
+  cardTitle: { fontSize: 18, fontWeight: '800', color: '#EAF3F6', marginBottom: 8 },
   cardSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 20 },
   label: {
     fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)',
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    padding: 16, fontSize: 15, color: '#FFF',
+    padding: 16, fontSize: 15, color: '#EAF3F6',
   },
   pickerScroll: { marginTop: 4 },
   pickerRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     borderColor: CYAN, backgroundColor: `${CYAN}1A`,
   },
   pickerText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
-  pickerTextActive: { color: '#FFF', fontWeight: '700' },
+  pickerTextActive: { color: '#EAF3F6', fontWeight: '700' },
   phoneRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   countryCodePicker: {
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -363,9 +363,9 @@ const styles = StyleSheet.create({
   },
   ccOptionActive: { backgroundColor: `${CYAN}26` },
   ccText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
-  ccTextActive: { color: '#FFF' },
+  ccTextActive: { color: '#EAF3F6' },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 24 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#FFF', marginBottom: 4 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#EAF3F6', marginBottom: 4 },
   submitBtn: { marginTop: 32, borderRadius: 16, overflow: 'hidden' },
   submitGradient: { paddingVertical: 18, alignItems: 'center' },
   submitText: { fontSize: 15, fontWeight: '800', color: '#050508' },

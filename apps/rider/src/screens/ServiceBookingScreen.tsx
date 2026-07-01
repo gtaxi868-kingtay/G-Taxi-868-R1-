@@ -105,10 +105,10 @@ export function ServiceBookingScreen({ navigation, route }: any) {
             
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="close" size={24} color="#FFF" />
+                    <Ionicons name="close" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
                 <View>
-                    <Txt variant="bodyBold" weight="heavy" color="#FFF">{merchantName}</Txt>
+                    <Txt variant="bodyBold" weight="heavy" color="#EAF3F6">{merchantName}</Txt>
                     <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Select Service & Time</Txt>
                 </View>
                 <View style={{ width: 44 }} />
@@ -126,7 +126,7 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                             onPress={() => setSelectedService(svc)}
                         >
                             <View style={{ flex: 1 }}>
-                                <Txt variant="bodyBold" weight="heavy" color="#FFF">{svc.name}</Txt>
+                                <Txt variant="bodyBold" weight="heavy" color="#EAF3F6">{svc.name}</Txt>
                                 <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">{svc.duration_minutes} mins</Txt>
                             </View>
                             <Txt variant="bodyReg" weight="heavy" color={CYAN}>{formatTTDDollars(svc.price_cents / 100)}</Txt>
@@ -144,7 +144,7 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                                 style={[s.timeSlot, { width: (width - 60) / 3 }, isSelected && s.activeTime]}
                                 onPress={() => setSelectedTime(time)}
                             >
-                                <Txt variant="bodyReg" weight="heavy" color={isSelected ? "#FFF" : "rgba(255,255,255,0.6)"}>
+                                <Txt variant="bodyReg" weight="heavy" color={isSelected ? "#EAF3F6" : "rgba(255,255,255,0.6)"}>
                                     {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </Txt>
                             </TouchableOpacity>
@@ -155,7 +155,7 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                 <GlassCard variant="rider" style={s.logisticsCard}>
                     <Ionicons name="car" size={24} color={VOICES.rider.accent} />
                     <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Txt variant="bodyBold" weight="heavy" color="#FFF">Include G-Taxi Ride</Txt>
+                        <Txt variant="bodyBold" weight="heavy" color="#EAF3F6">Include G-Taxi Ride</Txt>
                         <Txt variant="caption" weight="regular" color="rgba(255,255,255,0.5)">Coordinated pickup 15m before</Txt>
                     </View>
                     <Ionicons name="checkbox" size={24} color={CYAN} />
@@ -174,8 +174,8 @@ export function ServiceBookingScreen({ navigation, route }: any) {
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                     >
-                        {submitting ? <ActivityIndicator color="#FFF" /> : (
-                            <Txt variant="bodyReg" weight="heavy" color="#FFF">REQUEST APPOINTMENT</Txt>
+                        {submitting ? <ActivityIndicator color="#EAF3F6" /> : (
+                            <Txt variant="bodyReg" weight="heavy" color="#EAF3F6">REQUEST APPOINTMENT</Txt>
                         )}
                     </LinearGradient>
                 </TouchableOpacity>

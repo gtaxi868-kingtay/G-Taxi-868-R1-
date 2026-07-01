@@ -10,7 +10,7 @@ import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip, ItineraryLeg } from '../context/EscapeContext';
 import { Ionicons } from '@expo/vector-icons';
 
-const BRAND = '#1DE0E6';
+const BRAND = '#34E6EC';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'ActivePass'>;
 
@@ -33,7 +33,7 @@ const LEG_ICON_NAMES: Record<string, 'car-outline' | 'airplane-outline' | 'home-
 const LEG_STATUS_COLOR: Record<string, string> = {
   scheduled:        'rgba(255,255,255,0.2)',
   driver_en_route:  BRAND,
-  in_transit:       '#38BDF8',
+  in_transit:       '#34E6EC',
   completed:        '#22C55E',
   delayed:          '#F59E0B',
   cancelled:        '#EF4444',
@@ -375,18 +375,18 @@ const LegRow: React.FC<{ leg: ItineraryLeg; isLast: boolean }> = ({ leg, isLast 
 };
 
 const styles = StyleSheet.create({
-  safe:            { flex: 1, backgroundColor: '#0B0E12' },
+  safe:            { flex: 1, backgroundColor: '#07070F' },
   scroll:          { flex: 1, paddingHorizontal: 20 },
-  centered:        { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0E12', padding: 30 },
-  emptyTitle:      { color: '#F2F5F8', fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  centered:        { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#07070F', padding: 30 },
+  emptyTitle:      { color: '#EAF3F6', fontSize: 20, fontWeight: '700', marginBottom: 8 },
   emptySub:        { color: 'rgba(242,245,248,0.42)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
   backBtn:         { marginTop: 24, backgroundColor: BRAND, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
-  backBtnText:     { color: '#0B0E12', fontWeight: '700' },
+  backBtnText:     { color: '#07070F', fontWeight: '700' },
 
   phaseBadge:      { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 8, gap: 8 },
   phaseDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND },
   phaseText:       { color: BRAND, fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  destination:     { fontSize: 30, fontWeight: '800', color: '#F2F5F8', letterSpacing: -0.5 },
+  destination:     { fontSize: 30, fontWeight: '800', color: '#EAF3F6', letterSpacing: -0.5 },
   pkgName:         { fontSize: 15, color: 'rgba(242,245,248,0.6)', marginTop: 2 },
   departure:       { fontSize: 13, color: 'rgba(242,245,248,0.42)', marginTop: 2, marginBottom: 20 },
 
@@ -397,10 +397,10 @@ const styles = StyleSheet.create({
   cardSub:         { color: 'rgba(242,245,248,0.5)', fontSize: 13, marginTop: 8 },
   cardSub2:        { color: 'rgba(242,245,248,0.6)', fontSize: 13, marginTop: 4, fontWeight: '600' },
 
-  holdCountdown:   { color: '#F2F5F8', fontSize: 48, fontWeight: '200', letterSpacing: -2, marginVertical: 8 },
+  holdCountdown:   { color: '#EAF3F6', fontSize: 48, fontWeight: '200', letterSpacing: -2, marginVertical: 8 },
 
   poolRow:         { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 12 },
-  poolFraction:    { color: '#F2F5F8', fontSize: 28, fontWeight: '700' },
+  poolFraction:    { color: '#EAF3F6', fontSize: 28, fontWeight: '700' },
   poolSub:         { color: 'rgba(242,245,248,0.42)', fontSize: 14 },
   progressTrack:   { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden', marginBottom: 10 },
   progressFill:    { height: 4, backgroundColor: BRAND, borderRadius: 2 },
@@ -414,22 +414,22 @@ const styles = StyleSheet.create({
   waBtnText:       { color: '#25D366', fontWeight: '600', fontSize: 13 },
   deadlineNote:    { color: 'rgba(242,245,248,0.25)', fontSize: 11, marginTop: 10, textAlign: 'center' },
 
-  passportCta:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(29,224,230,0.06)',
+  passportCta:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(52,230,236,0.06)',
                      borderRadius: 14, padding: 16, marginBottom: 16, gap: 12,
-                     borderWidth: 1, borderColor: 'rgba(29,224,230,0.15)' },
+                     borderWidth: 1, borderColor: 'rgba(52,230,236,0.15)' },
   passportCtaTextWrap: { flex: 1 },
-  passportCtaTitle: { color: '#F2F5F8', fontSize: 14, fontWeight: '700' },
+  passportCtaTitle: { color: '#EAF3F6', fontSize: 14, fontWeight: '700' },
   passportCtaSub:  { color: 'rgba(242,245,248,0.42)', fontSize: 11, marginTop: 2 },
 
   boardingPass:    { backgroundColor: '#0F1115', borderRadius: 16, marginBottom: 16, overflow: 'hidden',
                      borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   bpHeader:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
                      paddingHorizontal: 20, paddingVertical: 20 },
-  bpAirport:       { color: '#F2F5F8', fontSize: 26, fontWeight: '200', letterSpacing: 2 },
+  bpAirport:       { color: '#EAF3F6', fontSize: 26, fontWeight: '200', letterSpacing: 2 },
   bpCity:          { color: 'rgba(242,245,248,0.35)', fontSize: 11 },
   bpDivider:       { height: 1, marginHorizontal: 0, position: 'relative' },
   bpNotch:         { position: 'absolute', left: -8, top: -8, width: 16, height: 16,
-                     borderRadius: 8, backgroundColor: '#0B0E12' },
+                     borderRadius: 8, backgroundColor: '#07070F' },
   bpLine:          { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', borderStyle: 'dashed', flex: 1 },
   bpBody:          { padding: 20, flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   bpField:         { minWidth: 90 },

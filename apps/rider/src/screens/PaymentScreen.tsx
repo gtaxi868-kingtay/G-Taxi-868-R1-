@@ -24,7 +24,7 @@ const R = {
     purple: VOICES.rider.accent,
     purpleLight: VOICES.rider.accent,
     gold: '#F59E0B',
-    white: '#FFFFFF',
+    white: '#EAF3F6',
     muted: '#AEA9B5',
 };
 
@@ -93,11 +93,11 @@ export function PaymentScreen({ navigation, route }: any) {
                         primary: R.purple,
                         background: R.bg,
                         componentBackground: R.surface,
-                        componentText: '#FFF',
-                        primaryText: '#FFF',
+                        componentText: '#EAF3F6',
+                        primaryText: '#EAF3F6',
                         secondaryText: R.muted,
                         placeholderText: 'rgba(255,255,255,0.2)',
-                        icon: '#FFF',
+                        icon: '#EAF3F6',
                         error: '#EF4444',
                     },
                 },
@@ -211,9 +211,9 @@ export function PaymentScreen({ navigation, route }: any) {
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={{ marginLeft: 16 }}>Payment</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16 }}>Payment</Txt>
             </View>
 
             <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
@@ -221,11 +221,11 @@ export function PaymentScreen({ navigation, route }: any) {
                 {fareCents && (
                     <View style={s.fareDisplay}>
                         <Txt variant="caption" weight="heavy" color={CYAN} style={{ letterSpacing: 2 }}>AMOUNT DUE</Txt>
-                        <Txt variant="displayXL" weight="heavy" color="#FFF">${(fareCents / 100).toFixed(2)}</Txt>
+                        <Txt variant="displayXL" weight="heavy" color="#EAF3F6">${(fareCents / 100).toFixed(2)}</Txt>
                     </View>
                 )}
 
-                <Txt variant="bodyBold" color="#FFF" style={{ marginBottom: 20 }}>Select Method</Txt>
+                <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 20 }}>Select Method</Txt>
 
                 {OPTIONS.map(opt => {
                     const isActive = selected === opt.id;
@@ -236,10 +236,10 @@ export function PaymentScreen({ navigation, route }: any) {
                             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelected(opt.id as any); }}
                         >
                             <View style={[s.iconWrap, isActive && { backgroundColor: VOICES.rider.accent }]}>
-                                <Ionicons name={opt.icon as any} size={24} color={isActive ? "#FFF" : R.muted} />
+                                <Ionicons name={opt.icon as any} size={24} color={isActive ? "#EAF3F6" : R.muted} />
                             </View>
                             <View style={{ flex: 1, marginLeft: 16 }}>
-                                <Txt variant="bodyBold" color={isActive ? "#FFF" : R.muted}>{opt.label}</Txt>
+                                <Txt variant="bodyBold" color={isActive ? "#EAF3F6" : R.muted}>{opt.label}</Txt>
                                 <Txt variant="small" color={isActive ? CYAN : R.muted}>{opt.subtitle}</Txt>
                             </View>
                             <View style={[s.radio, isActive && s.radioActive]}>
@@ -262,8 +262,8 @@ export function PaymentScreen({ navigation, route }: any) {
                             end={{x: 1, y: 0}}
                             style={s.btnGradient}
                         >
-                            {loading ? <ActivityIndicator color="#FFF" /> : (
-                                <Txt variant="bodyBold" color="#FFF">
+                            {loading ? <ActivityIndicator color="#EAF3F6" /> : (
+                                <Txt variant="bodyBold" color="#EAF3F6">
                                     {selected === 'card' ? 'PROCESS ENGAGEMENT' : selected === 'wipay' ? 'PAY WITH WIPAY' : 'CONFIRM ENGAGEMENT'}
                                 </Txt>
                             )}
@@ -275,8 +275,8 @@ export function PaymentScreen({ navigation, route }: any) {
 
             {showPaymentRetry && (
                 <View style={s.retryToast}>
-                    <ActivityIndicator size="small" color="#0D0B1E" style={{ marginRight: 12 }} />
-                    <Txt variant="bodyBold" color="#0D0B1E">
+                    <ActivityIndicator size="small" color="#07070F" style={{ marginRight: 12 }} />
+                    <Txt variant="bodyBold" color="#07070F">
                         Retrying payment... (Attempt {paymentAttempts + 1}/{MAX_PAYMENT_ATTEMPTS})
                     </Txt>
                 </View>

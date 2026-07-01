@@ -154,7 +154,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
                     style={s.backBtn}
                 >
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>Stores Near You</Text>
                 <View style={{ width: 38 }} />
@@ -262,7 +262,7 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     headerTitle: {
-        fontSize: 20, fontWeight: '700', color: '#FFF', letterSpacing: 0.2,
+        fontSize: 20, fontWeight: '700', color: '#EAF3F6', letterSpacing: 0.2,
     },
     catScroll: { maxHeight: 52 },
     catContent: { paddingHorizontal: 20, paddingBottom: 8, gap: 10, alignItems: 'center' },
@@ -276,7 +276,7 @@ const s = StyleSheet.create({
         borderColor: VOICES.rider.accent,
     },
     catChipText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '300' },
-    catChipTextActive: { color: '#FFF', fontWeight: '700' },
+    catChipTextActive: { color: '#EAF3F6', fontWeight: '700' },
     listContent: { padding: 20, gap: 14 },
     merchantCard: {
         flexDirection: 'row', alignItems: 'center',
@@ -292,12 +292,12 @@ const s = StyleSheet.create({
     },
     iconEmoji: { fontSize: 26 },
     merchantInfo: { flex: 1 },
-    merchantName: { fontSize: 16, fontWeight: '700', color: '#FFF' },
+    merchantName: { fontSize: 16, fontWeight: '700', color: '#EAF3F6' },
     merchantMeta: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 3 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
     loadingText: { color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 14 },
     emptyEmoji: { fontSize: 48, marginBottom: 16 },
-    emptyText: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+    emptyText: { color: '#EAF3F6', fontSize: 18, fontWeight: '700' },
     emptySubtext: { color: 'rgba(255,255,255,0.4)', fontSize: 14, marginTop: 6 },
 
     regularsContainer: { marginTop: 12, marginBottom: 24 },
@@ -306,6 +306,6 @@ const s = StyleSheet.create({
     regularsScroll: { paddingHorizontal: 20, gap: 12 },
     regularCard: { width: 140, padding: 16, borderRadius: 20, overflow: 'hidden', ...ghostBorder(0.2), backgroundColor: 'rgba(255,255,255,0.03)' },
     itemIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(0,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-    itemName: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+    itemName: { fontSize: 14, fontWeight: '700', color: '#EAF3F6' },
     itemMerchant: { fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2, fontWeight: '300' },
 });

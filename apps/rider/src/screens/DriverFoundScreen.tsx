@@ -117,7 +117,7 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
                 <View style={s.avatarContainer}>
                     <View style={s.avatarGlow} />
                     <View style={s.avatar}>
-                        <Ionicons name="car-sport-outline" size={36} color="#FFFFFF" />
+                        <Ionicons name="car-sport-outline" size={36} color="#EAF3F6" />
                     </View>
                     <View style={s.ratingBadge}>
                         <Ionicons name="star" size={12} color="#F59E0B" />
@@ -156,7 +156,7 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                         style={s.ctaGradient}
                     >
-                        <Ionicons name="navigate-outline" size={22} color="#FFF" style={{ marginRight: 10 }} />
+                        <Ionicons name="navigate-outline" size={22} color="#EAF3F6" style={{ marginRight: 10 }} />
                         <Text style={s.ctaText}>Track My Ride →</Text>
                     </LinearGradient>
                 </TouchableOpacity>
@@ -204,7 +204,7 @@ const s = StyleSheet.create({
         fontSize: 14, fontWeight: '800', color: '#00E5FF',
         letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8,
     },
-    driverName: { fontSize: 34, fontWeight: '900', color: '#FFF', marginBottom: 28, letterSpacing: -0.5 },
+    driverName: { fontSize: 34, fontWeight: '900', color: '#EAF3F6', marginBottom: 28, letterSpacing: -0.5 },
     infoCard: {
         width: '100%', borderRadius: 24, overflow: 'hidden',
         ...ghostBorder(),
@@ -215,7 +215,7 @@ const s = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 12,
         paddingHorizontal: 18, paddingVertical: 14,
     },
-    infoText: { fontSize: 16, color: '#FFF', fontWeight: '600' },
+    infoText: { fontSize: 16, color: '#EAF3F6', fontWeight: '600' },
     divider: { height: 1, backgroundColor: 'rgba(123,92,240,0.3)', marginHorizontal: 18 },
     rideId: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 },
     ctaContainer: { paddingHorizontal: 24, gap: 12 },
@@ -227,7 +227,7 @@ const s = StyleSheet.create({
     ctaGradient: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18,
     },
-    ctaText: { fontSize: 18, fontWeight: '900', color: '#FFF', letterSpacing: 0.5 },
+    ctaText: { fontSize: 18, fontWeight: '900', color: '#EAF3F6', letterSpacing: 0.5 },
     cancelBtn: { alignItems: 'center', paddingVertical: 12 },
     cancelText: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
 });

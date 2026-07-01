@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: '#EAF3F6',
     marginBottom: 8,
   },
   subtitle: {
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#EAF3F6',
     fontSize: 16,
     fontWeight: '600',
   },

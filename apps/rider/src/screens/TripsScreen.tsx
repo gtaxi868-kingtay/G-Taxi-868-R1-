@@ -80,7 +80,7 @@ export function TripsScreen({ navigation }: any) {
                             <View style={[s.marker, { backgroundColor: '#F59E0B' }]} />
                         </View>
                         <View style={s.addressWrap}>
-                            <Txt variant="small" color="#FFF" numberOfLines={1}>{item.pickup_address}</Txt>
+                            <Txt variant="small" color="#EAF3F6" numberOfLines={1}>{item.pickup_address}</Txt>
                             <View style={{ height: 12 }} />
                             <Txt variant="small" color="#AEA9B5" numberOfLines={1}>{item.dropoff_address}</Txt>
                         </View>
@@ -111,9 +111,9 @@ export function TripsScreen({ navigation }: any) {
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
                     <View style={[StyleSheet.absoluteFillObject, glassSurface(20, 0.2)]} />
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#FFF" style={s.title}>ENGAGEMENT LOG</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.title}>ENGAGEMENT LOG</Txt>
             </View>
 
             {loading ? (

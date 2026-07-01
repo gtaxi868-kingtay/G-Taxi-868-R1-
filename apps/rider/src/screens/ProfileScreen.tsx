@@ -159,7 +159,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
 
                 <View style={[s.header, { paddingTop: insets.top + 10 }]}>
                     <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-                        <Ionicons name="chevron-back" size={24} color="#FFF" />
+                        <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                     </TouchableOpacity>
                     <Text style={[s.headerTitle, { marginLeft: 16 }]}>Profile</Text>
                 </View>
@@ -174,7 +174,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
 
                 <View style={s.subscriptionCard}>
                     <LinearGradient 
-                        colors={progression.tier === 'g_member' ? ['#D4AF37', '#8A6E2A'] : 
+                        colors={progression.tier === 'g_member' ? ['#CBD6DE', '#8A6E2A'] : 
                                 progression.level >= 3 ? [VOICES.rider.accent, VOICES.rider.accentDark] :
                                 [VOICES.rider.accentDark, '#1A1F27']}
                         style={s.subscriptionGradient}
@@ -186,7 +186,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                                           progression.level >= 5 ? 'diamond-outline' :
                                           progression.level >= 3 ? 'shield-checkmark' : 'arrow-up-circle'} 
                                     size={20} 
-                                    color="#FFF" 
+                                    color="#EAF3F6" 
                                 />
                                 <Text style={[s.tierText, { marginLeft: 8 }]}>
                                     {progression.tier === 'g_member' ? 'G-Member' : `Level ${progression.level} — ${progression.label}`}
@@ -259,25 +259,25 @@ const s = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 32 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.15) },
-    headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: '#EAF3F6', fontFamily: 'SpaceGrotesk-Bold' },
 
     hero: { alignItems: 'center', marginBottom: 40 },
     avatarWrap: { width: 100, height: 100, borderRadius: 32, alignItems: 'center', justifyContent: 'center', ...elevationGlow(0.12) },
-    avatarLetter: { fontSize: 36, fontWeight: '900', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
-    displayName: { fontSize: 22, fontWeight: '700', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
+    avatarLetter: { fontSize: 36, fontWeight: '900', color: '#EAF3F6', fontFamily: 'SpaceGrotesk-Bold' },
+    displayName: { fontSize: 22, fontWeight: '700', color: '#EAF3F6', fontFamily: 'SpaceGrotesk-Bold' },
     emailText: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.6)', fontFamily: 'Manrope-Medium' },
 
     grid: { flexDirection: 'row', backgroundColor: SURFACE.containerLow, marginHorizontal: 20, borderRadius: 32, paddingVertical: 24, ...elevationGlow(0.12), marginBottom: 32 },
     gridItem: { flex: 1, alignItems: 'center' },
     gridDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
-    gridValue: { fontSize: 18, fontWeight: '800', color: '#FFF', marginBottom: 4, fontFamily: 'SpaceGrotesk-Bold' },
+    gridValue: { fontSize: 18, fontWeight: '800', color: '#EAF3F6', marginBottom: 4, fontFamily: 'SpaceGrotesk-Bold' },
     gridLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, fontFamily: 'SpaceGrotesk-Bold' },
 
     menu: { marginHorizontal: 20, backgroundColor: SURFACE.containerLow, borderRadius: 32, padding: 12, ...elevationGlow(0.12) },
     menuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18 },
     menuItemLeft: { flexDirection: 'row', alignItems: 'center' },
     iconWrapper: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-    menuLabel: { fontSize: 17, fontWeight: '700', color: '#FFF', fontFamily: 'Manrope-Bold' },
+    menuLabel: { fontSize: 17, fontWeight: '700', color: '#EAF3F6', fontFamily: 'Manrope-Bold' },
 
     logoutBtn: { marginHorizontal: 20, marginTop: 40, height: 64, borderRadius: 24, ...ghostBorder(0.15), backgroundColor: 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center' },
     logoutText: { fontSize: 16, fontWeight: '800', color: '#FF4D4D', fontFamily: 'SpaceGrotesk-Bold' },
@@ -289,7 +289,7 @@ const s = StyleSheet.create({
     subscriptionGradient: { borderRadius: 24 },
     subscriptionContent: { padding: 20 },
     subscriptionBadge: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-    tierText: { fontSize: 16, fontWeight: '800', color: '#FFF', fontFamily: 'SpaceGrotesk-Bold' },
+    tierText: { fontSize: 16, fontWeight: '800', color: '#EAF3F6', fontFamily: 'SpaceGrotesk-Bold' },
     subscriptionPerks: { marginTop: 4 },
     perksText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.9)', fontFamily: 'Manrope-Medium' },
 });

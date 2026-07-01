@@ -16,9 +16,9 @@ import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/u
 import { supabase } from '@gtaxi/core';
 
 const THEME = {
-  accent: '#00FFFF',
+  accent: '#34E6EC',
   bg: '#050505',
-  textPrimary: '#FFFFFF',
+  textPrimary: '#EAF3F6',
   textSecondary: 'rgba(255,255,255,0.6)',
   textMuted: 'rgba(255,255,255,0.35)',
   glassBg: 'rgba(5,5,5,0.85)',
@@ -30,11 +30,11 @@ const THEME = {
 
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#050505' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#00FFFF' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#34E6EC' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#050505' }] },
   { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#0A0A0A' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#00FFFF', weight: 0.5 }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00FFFF', lightness: -80 }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#34E6EC', weight: 0.5 }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#34E6EC', lightness: -80 }] },
 ];
 
 interface Stop {
@@ -470,7 +470,7 @@ const s = StyleSheet.create({
     paddingVertical: 18,
     borderRadius: 16,
     backgroundColor: THEME.accent,
-    shadowColor: '#00FFFF',
+    shadowColor: '#34E6EC',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 24,

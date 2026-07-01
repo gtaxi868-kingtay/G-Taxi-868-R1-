@@ -162,7 +162,7 @@ export function TravelMyBookingsScreen({ navigation }: AppScreenProps<'TravelMyB
         return (
             <View style={styles.transferBanner}>
                 <View style={styles.transferRow}>
-                    <Ionicons name="car-outline" size={14} color="#1DE0E6" />
+                    <Ionicons name="car-outline" size={14} color="#34E6EC" />
                     <Text style={styles.transferTitle}>Airport Transfer</Text>
                     {!isDeparted && !isCancelled && (
                         <TouchableOpacity
@@ -172,7 +172,7 @@ export function TravelMyBookingsScreen({ navigation }: AppScreenProps<'TravelMyB
                             }}
                             style={styles.editPickupBtn}
                         >
-                            <Ionicons name="pencil-outline" size={12} color="#1DE0E6" />
+                            <Ionicons name="pencil-outline" size={12} color="#34E6EC" />
                             <Text style={styles.editPickupText}>Edit</Text>
                         </TouchableOpacity>
                     )}
@@ -243,13 +243,13 @@ export function TravelMyBookingsScreen({ navigation }: AppScreenProps<'TravelMyB
             <StatusBar style="light" />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>My Bookings</Text>
             </View>
 
             {loading ? (
-                <View style={styles.center}><ActivityIndicator size="large" color="#1DE0E6" /></View>
+                <View style={styles.center}><ActivityIndicator size="large" color="#34E6EC" /></View>
             ) : bookings.length === 0 ? (
                 <View style={styles.center}>
                     <Ionicons name="airplane-outline" size={48} color="rgba(255,255,255,0.2)" />
@@ -267,7 +267,7 @@ export function TravelMyBookingsScreen({ navigation }: AppScreenProps<'TravelMyB
                     keyExtractor={i => i.id}
                     renderItem={renderItem}
                     contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 32 }]}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor="#1DE0E6" />}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor="#34E6EC" />}
                 />
             )}
 
@@ -311,7 +311,7 @@ export function TravelMyBookingsScreen({ navigation }: AppScreenProps<'TravelMyB
                                 disabled={savingAddress || !editAddress.trim()}
                             >
                                 {savingAddress
-                                    ? <ActivityIndicator size="small" color="#FFF" />
+                                    ? <ActivityIndicator size="small" color="#EAF3F6" />
                                     : <Text style={styles.modalSaveText}>Save Address</Text>
                                 }
                             </TouchableOpacity>
@@ -333,22 +333,22 @@ function DetailRow({ icon, value }: { icon: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0A0F' },
+    root: { flex: 1, backgroundColor: '#07070F' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, gap: 12 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20 },
+    headerTitle: { color: '#EAF3F6', fontWeight: '800', fontSize: 20 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     emptyTitle: { color: 'rgba(255,255,255,0.4)', fontSize: 16 },
-    browseBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 99, backgroundColor: 'rgba(29,224,230,0.15)', borderWidth: 1, borderColor: '#1DE0E6' },
-    browseBtnText: { color: '#1DE0E6', fontWeight: '700' },
+    browseBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 99, backgroundColor: 'rgba(52,230,236,0.15)', borderWidth: 1, borderColor: '#34E6EC' },
+    browseBtnText: { color: '#34E6EC', fontWeight: '700' },
     list: { padding: 20, gap: 14 },
     card: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', overflow: 'hidden' },
     cardHeader: { flexDirection: 'row', alignItems: 'flex-start', padding: 18, paddingBottom: 12 },
-    cardTitle: { color: '#FFF', fontWeight: '700', fontSize: 15 },
+    cardTitle: { color: '#EAF3F6', fontWeight: '700', fontSize: 15 },
     cardDest: { color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 2 },
     statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99, borderWidth: 1 },
     statusText: { fontWeight: '700', fontSize: 11, textTransform: 'capitalize' },
-    countdown: { color: '#1DE0E6', fontWeight: '700', fontSize: 12 },
+    countdown: { color: '#34E6EC', fontWeight: '700', fontSize: 12 },
     cardDetails: { paddingHorizontal: 18, paddingBottom: 14 },
     cancelBtn: { borderTopWidth: 1, borderTopColor: 'rgba(239,68,68,0.15)', paddingVertical: 14, alignItems: 'center' },
     cancelBtnText: { color: '#EF4444', fontWeight: '600', fontSize: 14 },
@@ -357,17 +357,17 @@ const styles = StyleSheet.create({
     transferBanner: {
         marginHorizontal: 14,
         marginBottom: 14,
-        backgroundColor: 'rgba(29,224,230,0.08)',
+        backgroundColor: 'rgba(52,230,236,0.08)',
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(29,224,230,0.2)',
+        borderColor: 'rgba(52,230,236,0.2)',
         padding: 12,
         gap: 4,
     },
     transferRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-    transferTitle: { color: '#1DE0E6', fontWeight: '700', fontSize: 13, flex: 1 },
-    editPickupBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, backgroundColor: 'rgba(29,224,230,0.15)' },
-    editPickupText: { color: '#1DE0E6', fontSize: 11, fontWeight: '600' },
+    transferTitle: { color: '#34E6EC', fontWeight: '700', fontSize: 13, flex: 1 },
+    editPickupBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, backgroundColor: 'rgba(52,230,236,0.15)' },
+    editPickupText: { color: '#34E6EC', fontSize: 11, fontWeight: '600' },
     transferDetail: { color: 'rgba(255,255,255,0.55)', fontSize: 12, lineHeight: 18 },
     transferLabel: { color: 'rgba(255,255,255,0.3)', fontSize: 12 },
 
@@ -382,14 +382,14 @@ const styles = StyleSheet.create({
         borderTopColor: 'rgba(255,255,255,0.08)',
     },
     modalHandle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-    modalTitle: { color: '#FFF', fontSize: 18, fontWeight: '800', marginBottom: 6 },
+    modalTitle: { color: '#EAF3F6', fontSize: 18, fontWeight: '800', marginBottom: 6 },
     modalSub: { color: 'rgba(255,255,255,0.45)', fontSize: 13, lineHeight: 19, marginBottom: 20 },
     modalInput: {
         backgroundColor: 'rgba(255,255,255,0.06)',
         borderRadius: 16,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.1)',
-        color: '#FFF',
+        color: '#EAF3F6',
         fontSize: 15,
         paddingHorizontal: 16,
         paddingVertical: 14,
@@ -408,8 +408,8 @@ const styles = StyleSheet.create({
         flex: 2,
         paddingVertical: 14,
         borderRadius: 14,
-        backgroundColor: '#8B5CF6',
+        backgroundColor: '#6D28D9',
         alignItems: 'center',
     },
-    modalSaveText: { color: '#FFF', fontWeight: '700' },
+    modalSaveText: { color: '#EAF3F6', fontWeight: '700' },
 });

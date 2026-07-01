@@ -168,7 +168,7 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
     if (loading) {
         return (
             <View style={[styles.root, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center' }]}>
-                <ActivityIndicator size="large" color="#1DE0E6" />
+                <ActivityIndicator size="large" color="#34E6EC" />
             </View>
         );
     }
@@ -177,14 +177,14 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
         return (
             <View style={[styles.root, { paddingTop: insets.top, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }]}>
                 <Ionicons name="cloud-offline-outline" size={48} color="rgba(255,255,255,0.3)" />
-                <Text style={{ color: '#FFF', fontSize: 17, fontWeight: '700', marginTop: 16, textAlign: 'center' }}>
+                <Text style={{ color: '#EAF3F6', fontSize: 17, fontWeight: '700', marginTop: 16, textAlign: 'center' }}>
                     {error || 'Package not found'}
                 </Text>
                 <TouchableOpacity
                     onPress={fetchPkg}
-                    style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#8B5CF6', borderRadius: 12 }}
+                    style={{ marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#6D28D9', borderRadius: 12 }}
                 >
-                    <Text style={{ color: '#FFF', fontWeight: '700' }}>Try Again</Text>
+                    <Text style={{ color: '#EAF3F6', fontWeight: '700' }}>Try Again</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 12 }}>
                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Go Back</Text>
@@ -204,7 +204,7 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
 
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#FFF" />
+                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>{pkg.origin_code} → {pkg.destination_code}</Text>
             </View>
@@ -212,13 +212,13 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
             <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 120 }]}>
                 {/* Title card */}
                 <LinearGradient
-                    colors={['rgba(29,224,230,0.2)', 'rgba(29,224,230,0.05)']}
+                    colors={['rgba(52,230,236,0.2)', 'rgba(52,230,236,0.05)']}
                     style={styles.titleCard}
                 >
                     <Text style={styles.title}>{pkg.title}</Text>
                     <Text style={styles.destination}>{pkg.destination_name}</Text>
                     <View style={styles.departurePill}>
-                        <Ionicons name="calendar-outline" size={14} color="#1DE0E6" />
+                        <Ionicons name="calendar-outline" size={14} color="#34E6EC" />
                         <Text style={styles.departureText}>Departs {fmtDate(pkg.departure_at)}</Text>
                     </View>
                     <Text style={styles.seatsLeft}>{pkg.seats_remaining} seats remaining</Text>
@@ -301,20 +301,20 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>TRAVELERS</Text>
                     <View style={[styles.infoCard, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 }]}>
-                        <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 15 }}>Number of travelers</Text>
+                        <Text style={{ color: '#EAF3F6', fontWeight: '600', fontSize: 15 }}>Number of travelers</Text>
                         <View style={styles.counter}>
                             <TouchableOpacity
                                 onPress={() => { if (travelerCount > 1) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTravelerCount(t => t - 1); } }}
                                 style={styles.counterBtn}
                             >
-                                <Ionicons name="remove" size={18} color="#FFF" />
+                                <Ionicons name="remove" size={18} color="#EAF3F6" />
                             </TouchableOpacity>
                             <Text style={styles.counterVal}>{travelerCount}</Text>
                             <TouchableOpacity
                                 onPress={() => { if (travelerCount < Math.min(pkg.seats_remaining, 10)) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTravelerCount(t => t + 1); } }}
                                 style={styles.counterBtn}
                             >
-                                <Ionicons name="add" size={18} color="#FFF" />
+                                <Ionicons name="add" size={18} color="#EAF3F6" />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -343,7 +343,7 @@ export function TravelPackageDetailScreen({ route, navigation }: AppScreenProps<
                     disabled={!canAfford || booking}
                 >
                     {booking ? (
-                        <ActivityIndicator size="small" color="#FFF" />
+                        <ActivityIndicator size="small" color="#EAF3F6" />
                     ) : (
                         <Text style={styles.ctaBtnText}>Book Now</Text>
                     )}
@@ -358,7 +358,7 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 }}>
             <Ionicons name={icon as any} size={18} color="rgba(255,255,255,0.4)" />
             <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, flex: 1 }}>{label}</Text>
-            <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 13 }}>{value}</Text>
+            <Text style={{ color: '#EAF3F6', fontWeight: '600', fontSize: 13 }}>{value}</Text>
         </View>
     );
 }
@@ -373,28 +373,28 @@ function IncludeRow({ icon, label }: { icon: string; label: string }) {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0A0F' },
+    root: { flex: 1, backgroundColor: '#07070F' },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12, gap: 12 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { color: 'rgba(255,255,255,0.6)', fontWeight: '700', fontSize: 16 },
     scroll: { paddingTop: 8 },
-    titleCard: { marginHorizontal: 20, borderRadius: 24, padding: 24, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(29,224,230,0.2)' },
-    title: { color: '#FFF', fontWeight: '800', fontSize: 22 },
+    titleCard: { marginHorizontal: 20, borderRadius: 24, padding: 24, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(52,230,236,0.2)' },
+    title: { color: '#EAF3F6', fontWeight: '800', fontSize: 22 },
     destination: { color: 'rgba(255,255,255,0.5)', fontSize: 14, marginTop: 4 },
-    departurePill: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, backgroundColor: 'rgba(29,224,230,0.12)', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
-    departureText: { color: '#1DE0E6', fontSize: 13, fontWeight: '600' },
+    departurePill: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, backgroundColor: 'rgba(52,230,236,0.12)', borderRadius: 99, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start' },
+    departureText: { color: '#34E6EC', fontSize: 13, fontWeight: '600' },
     seatsLeft: { color: 'rgba(255,255,255,0.35)', fontSize: 13, marginTop: 8 },
     section: { marginBottom: 20, paddingHorizontal: 20 },
     sectionTitle: { color: 'rgba(255,255,255,0.3)', fontWeight: '700', fontSize: 11, letterSpacing: 2, marginBottom: 8 },
     infoCard: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', overflow: 'hidden' },
     counter: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     counterBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
-    counterVal: { color: '#FFF', fontWeight: '700', fontSize: 18, minWidth: 28, textAlign: 'center' },
+    counterVal: { color: '#EAF3F6', fontWeight: '700', fontSize: 18, minWidth: 28, textAlign: 'center' },
     ctaBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 20, backgroundColor: 'rgba(10,10,15,0.95)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
     ctaLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
-    ctaPrice: { color: '#FFF', fontWeight: '800', fontSize: 22 },
-    ctaBtn: { backgroundColor: '#8B5CF6', borderRadius: 20, paddingHorizontal: 32, paddingVertical: 16 },
-    ctaBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16 },
+    ctaPrice: { color: '#EAF3F6', fontWeight: '800', fontSize: 22 },
+    ctaBtn: { backgroundColor: '#6D28D9', borderRadius: 20, paddingHorizontal: 32, paddingVertical: 16 },
+    ctaBtnText: { color: '#EAF3F6', fontWeight: '800', fontSize: 16 },
     experienceCard: { borderRadius: 20, padding: 20, borderWidth: 1, borderColor: 'rgba(200,169,110,0.2)' },
     experienceTagline: { color: '#C8A96E', fontWeight: '700', fontSize: 17, fontStyle: 'italic', marginBottom: 16, lineHeight: 24 },
     highlightList: { gap: 12 },
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     highlightText: { color: 'rgba(255,255,255,0.75)', fontSize: 14, lineHeight: 20, flex: 1 },
     priceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
     priceLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 2 },
-    priceValue: { color: '#FFF', fontWeight: '800', fontSize: 24 },
+    priceValue: { color: '#EAF3F6', fontWeight: '800', fontSize: 24 },
     includesFlag: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     includesFlagText: { color: '#22C55E', fontSize: 12, fontWeight: '600' },
 });

@@ -10,7 +10,7 @@ import { supabase } from '@gtaxi/core';
 import { useStripe } from '@stripe/stripe-react-native';
 import type { AppStackParamList } from '../navigation/types';
 
-const BRAND = '#1DE0E6';
+const BRAND = '#34E6EC';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'EscapeCheckout'>;
 type RouteT = RouteProp<AppStackParamList, 'EscapeCheckout'>;
@@ -149,7 +149,7 @@ export default function EscapeCheckoutScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color="#F2F5F8" />
+          <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Checkout</Text>
         <View style={{ width: 40 }} />
@@ -217,7 +217,7 @@ export default function EscapeCheckoutScreen() {
           activeOpacity={0.85}
         >
           {submitting
-            ? <ActivityIndicator color="#0B0E12" />
+            ? <ActivityIndicator color="#07070F" />
             : <Text style={styles.ctaText}>Lock My Escape · {fmt(breakdown.total_price_cents)}</Text>}
         </TouchableOpacity>
 
@@ -238,15 +238,15 @@ const Row: React.FC<{ icon: string; label: string; value: string }> = ({ icon, l
 );
 
 const styles = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: '#0B0E12' },
+  safe:          { flex: 1, backgroundColor: '#07070F' },
   container:     { flex: 1, paddingHorizontal: 20 },
-  centered:      { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0E12' },
+  centered:      { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#07070F' },
   header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                    paddingHorizontal: 16, paddingVertical: 12 },
   backBtn:       { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)',
                    alignItems: 'center', justifyContent: 'center' },
-  headerTitle:   { fontSize: 17, fontWeight: '700', color: '#F2F5F8' },
-  destination:   { fontSize: 28, fontWeight: '800', color: '#F2F5F8', marginTop: 8, letterSpacing: -0.5 },
+  headerTitle:   { fontSize: 17, fontWeight: '700', color: '#EAF3F6' },
+  destination:   { fontSize: 28, fontWeight: '800', color: '#EAF3F6', marginTop: 8, letterSpacing: -0.5 },
   packageName:   { fontSize: 15, color: BRAND, fontWeight: '600', marginTop: 4 },
   dateLabel:     { fontSize: 13, color: 'rgba(242,245,248,0.5)', marginTop: 4, marginBottom: 20 },
 
@@ -256,27 +256,27 @@ const styles = StyleSheet.create({
   row:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 7 },
   rowLeft:       { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   rowLabel:      { color: 'rgba(242,245,248,0.6)', fontSize: 14, flex: 1 },
-  rowValue:      { color: '#F2F5F8', fontSize: 14, fontWeight: '500' },
+  rowValue:      { color: '#EAF3F6', fontSize: 14, fontWeight: '500' },
   divider:       { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 10 },
   perPersonLabel:{ color: 'rgba(242,245,248,0.42)', fontSize: 13 },
   perPersonValue:{ color: 'rgba(242,245,248,0.7)', fontSize: 13, fontWeight: '600' },
   guestMult:     { color: 'rgba(242,245,248,0.35)', fontSize: 12, flex: 1, textAlign: 'right' },
   totalRow:      { marginTop: 4 },
-  totalLabel:    { color: '#F2F5F8', fontSize: 18, fontWeight: '800' },
+  totalLabel:    { color: '#EAF3F6', fontSize: 18, fontWeight: '800' },
   totalValue:    { color: '#10B981', fontSize: 20, fontWeight: '800' },
 
   poolHeader:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   poolLabel:     { color: 'rgba(242,245,248,0.42)', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  poolCount:     { color: '#F2F5F8', fontSize: 12, fontWeight: '600' },
+  poolCount:     { color: '#EAF3F6', fontSize: 12, fontWeight: '600' },
   progressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' },
   progressFill:  { height: 4, backgroundColor: BRAND, borderRadius: 2 },
   poolSub:       { color: 'rgba(242,245,248,0.35)', fontSize: 11, marginTop: 8 },
 
-  noticeCard:    { flexDirection: 'row', backgroundColor: 'rgba(29,224,230,0.05)', borderRadius: 14, padding: 14,
-                   marginBottom: 24, borderWidth: 1, borderColor: 'rgba(29,224,230,0.12)', gap: 10 },
+  noticeCard:    { flexDirection: 'row', backgroundColor: 'rgba(52,230,236,0.05)', borderRadius: 14, padding: 14,
+                   marginBottom: 24, borderWidth: 1, borderColor: 'rgba(52,230,236,0.12)', gap: 10 },
   noticeText:    { color: 'rgba(242,245,248,0.55)', fontSize: 12, lineHeight: 18, flex: 1 },
 
   cta:           { backgroundColor: BRAND, borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   ctaDisabled:   { opacity: 0.5 },
-  ctaText:       { color: '#0B0E12', fontWeight: '800', fontSize: 16 },
+  ctaText:       { color: '#07070F', fontWeight: '800', fontSize: 16 },
 });

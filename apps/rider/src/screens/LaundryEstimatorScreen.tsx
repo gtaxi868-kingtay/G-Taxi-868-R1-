@@ -114,7 +114,7 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
             <View style={[s.header, { paddingTop: insets.top + 8 }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="arrow-back" size={22} color="#FFF" />
+                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Text style={s.headerTitle}>{service.label}</Text>
                 <View style={{ width: 38 }} />
@@ -194,7 +194,7 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                         style={s.ctaGradient}
                     >
-                        <Ionicons name="calendar-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
+                        <Ionicons name="calendar-outline" size={22} color="#EAF3F6" style={{ marginRight: 8 }} />
                         <Text style={s.ctaText}>{loading ? 'Scheduling...' : `Schedule Pickup  ·  $${(priceCents / 100).toFixed(2)} TTD`}</Text>
                     </LinearGradient>
                 </TouchableOpacity>
@@ -214,7 +214,7 @@ const s = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.1)',
         alignItems: 'center', justifyContent: 'center',
     },
-    headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFF' },
+    headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
     content: { flex: 1, padding: 20, gap: 16 },
     scaleBox: {
         borderRadius: 28, overflow: 'hidden', padding: 28, alignItems: 'center',
@@ -249,7 +249,7 @@ const s = StyleSheet.create({
         ...ghostBorder(0.1),
     },
     payOptionActive: {
-        backgroundColor: 'rgba(6,182,212,0.12)',
+        backgroundColor: 'rgba(52,230,236,0.12)',
         borderColor: CYAN,
     },
     payOptionText: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
@@ -259,5 +259,5 @@ const s = StyleSheet.create({
     ctaGradient: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18,
     },
-    ctaText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
+    ctaText: { fontSize: 16, fontWeight: '800', color: '#EAF3F6' },
 });

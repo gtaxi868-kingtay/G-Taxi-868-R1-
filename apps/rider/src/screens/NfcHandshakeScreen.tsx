@@ -128,7 +128,7 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
         <Ionicons name="warning" size={64} color="#FF6E84" />
         <Text style={s.errorText}>Invalid G-Taxi Node</Text>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Text style={{ color: '#FFFFFF' }}>Back</Text>
+          <Text style={{ color: '#EAF3F6' }}>Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -192,7 +192,7 @@ const s = StyleSheet.create({
   serviceCategory: { fontSize: 10, color: 'rgba(174, 169, 181, 0.45)', marginTop: 4 },
   confirmBtn: { width: '100%', height: 64, borderRadius: 32, marginTop: 24, overflow: 'hidden' },
   btnGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  confirmText: { color: '#FFFFFF', fontSize: 18, fontWeight: '800' },
+  confirmText: { color: '#EAF3F6', fontSize: 18, fontWeight: '800' },
   errorText: { marginTop: 20, fontSize: 20, color: '#FF6E84' },
   backBtn: { marginTop: 24, padding: 16 },
 });
