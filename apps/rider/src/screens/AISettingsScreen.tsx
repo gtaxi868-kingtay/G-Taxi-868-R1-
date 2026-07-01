@@ -116,7 +116,7 @@ export function AISettingsScreen({ navigation }: any) {
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
                     <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16 }}>AI & Safety</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>AI & Safety</Txt>
             </View>
 
             <ScrollView contentContainerStyle={s.scroll}>

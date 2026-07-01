@@ -153,7 +153,7 @@ export function WalletScreen({ navigation }: any) {
                 <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
                     <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16 }}>Wallet</Txt>
+                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: VOICES.rider.serifSemi }}>Wallet</Txt>
             </View>
 
             <FlatList<any>
@@ -175,7 +175,7 @@ export function WalletScreen({ navigation }: any) {
                                 </TouchableOpacity>
                             ) : (
                                 <View style={s.balanceRow}>
-                                    <Txt variant="headingL" weight="heavy" color="#EAF3F6" style={{ fontSize: 48 }}>${balance.toFixed(2)}</Txt>
+                                    <Txt variant="headingL" weight="heavy" color="#EAF3F6" style={{ fontSize: 48, fontFamily: VOICES.rider.serifSemi, fontVariant: ['tabular-nums'] }}>${balance.toFixed(2)}</Txt>
                                     <Txt variant="bodyBold" color="rgba(255,255,255,0.7)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
                                 </View>
                             )}
