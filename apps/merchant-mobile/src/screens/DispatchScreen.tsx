@@ -135,7 +135,7 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
 
         <View style={s.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
-            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
           </TouchableOpacity>
           <Text style={s.title}>Send a Car</Text>
           <View style={{ width: 44 }} />
@@ -239,13 +239,13 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: SURFACE.base },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  title: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   scrollContent: { padding: 20, paddingBottom: 60 },
   card: { borderRadius: 20, padding: 20, marginBottom: 20 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 16, fontFamily: 'SpaceGrotesk' },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: '#E9F5F3', marginBottom: 16, fontFamily: 'SpaceGrotesk' },
   label: { fontSize: 12, color: VOICES.merchant.textMuted, marginBottom: 6, fontFamily: 'Manrope', letterSpacing: 0.5, textTransform: 'uppercase' },
   inputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.05)', marginBottom: 16 },
-  input: { flex: 1, fontSize: 15, color: '#FFFFFF', fontFamily: 'Manrope' },
+  input: { flex: 1, fontSize: 15, color: '#E9F5F3', fontFamily: 'Manrope' },
   dispatchBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4 },
   dispatchBtnDisabled: { opacity: 0.5 },
   dispatchBtnText: { fontSize: 16, fontWeight: '700', color: '#000', fontFamily: 'SpaceGrotesk' },
@@ -253,15 +253,15 @@ const s = StyleSheet.create({
   resultHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   resultTitle: { fontSize: 18, fontWeight: '700', color: '#4ADE80', fontFamily: 'SpaceGrotesk' },
   resultLine: { fontSize: 14, color: VOICES.merchant.textMuted, marginBottom: 4, fontFamily: 'Manrope' },
-  resultValue: { color: '#FFFFFF', fontWeight: '600' },
+  resultValue: { color: '#E9F5F3', fontWeight: '600' },
   pinRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   pinBadge: { backgroundColor: VOICES.merchant.accent + '26', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   pinText: { fontSize: 18, fontWeight: '800', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk', letterSpacing: 2 },
   resultNote: { fontSize: 13, color: VOICES.merchant.textMuted, marginTop: 8, fontFamily: 'Manrope', fontStyle: 'italic' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', marginBottom: 12, fontFamily: 'SpaceGrotesk' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#E9F5F3', marginBottom: 12, fontFamily: 'SpaceGrotesk' },
   emptyText: { fontSize: 14, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', textAlign: 'center', marginTop: 16 },
   recentRow: { flexDirection: 'row', borderRadius: 14, padding: 14, marginBottom: 8 },
-  recentName: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  recentName: { fontSize: 14, fontWeight: '600', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   recentTime: { fontSize: 12, color: VOICES.merchant.textMuted, marginTop: 2, fontFamily: 'Manrope' },
   statusBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { fontSize: 11, fontWeight: '700', fontFamily: 'Manrope', textTransform: 'capitalize' },

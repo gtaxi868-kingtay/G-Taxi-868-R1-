@@ -72,7 +72,7 @@ export function EquityProgressScreen({ navigation, route }: any) {
             <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={22} color="#FFF" />
+                    <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Equity Progress</Text>
             </View>
@@ -197,15 +197,15 @@ const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 14, gap: 10 },
     backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 20, fontFamily: 'SpaceGrotesk' },
+    headerTitle: { color: '#E9F5F3', fontWeight: '800', fontSize: 20, fontFamily: 'SpaceGrotesk' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
-    emptyTitle: { color: '#FFF', fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
+    emptyTitle: { color: '#E9F5F3', fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
     emptySub: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center', fontFamily: 'Manrope' },
     scroll: { padding: 20, gap: 20 },
     contractCard: { borderRadius: 24, overflow: 'hidden', borderColor: 'rgba(245,158,11,0.15)' },
     contractGrad: { padding: 22, gap: 16 },
     contractHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-    propName: { color: '#FFF', fontWeight: '800', fontSize: 18, fontFamily: 'SpaceGrotesk' },
+    propName: { color: '#E9F5F3', fontWeight: '800', fontSize: 18, fontFamily: 'SpaceGrotesk' },
     propDest: { color: VOICES.merchant.textMuted, fontSize: 13, marginTop: 2, fontFamily: 'Manrope' },
     statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
     statusText: { fontWeight: '700', fontSize: 11, textTransform: 'capitalize', fontFamily: 'SpaceGrotesk' },
@@ -222,9 +222,9 @@ const styles = StyleSheet.create({
     capitalRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 12, padding: 12 },
     capitalText: { color: GOLD, fontSize: 13, fontWeight: '600', fontFamily: 'Manrope' },
     signedDate: { color: 'rgba(255,255,255,0.25)', fontSize: 12, fontFamily: 'Manrope' },
-    legalBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,112,112,0.08)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(0,112,112,0.15)' },
+    legalBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(45,212,191,0.08)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(45,212,191,0.15)' },
     legalBtnText: { color: VOICES.merchant.accent, fontWeight: '600', fontSize: 13, fontFamily: 'Manrope' },
     explainer: { borderRadius: 20, padding: 20 },
-    explainerTitle: { color: '#FFF', fontWeight: '700', fontSize: 15, marginBottom: 10, fontFamily: 'SpaceGrotesk' },
+    explainerTitle: { color: '#E9F5F3', fontWeight: '700', fontSize: 15, marginBottom: 10, fontFamily: 'SpaceGrotesk' },
     explainerBody: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 20, fontFamily: 'Manrope' },
 });

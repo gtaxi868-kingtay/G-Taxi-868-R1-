@@ -80,11 +80,11 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
 const s = StyleSheet.create({
   container: { flex: 1 },
   content: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 4, fontFamily: 'SpaceGrotesk' },
+  title: { fontSize: 28, fontWeight: '800', color: '#E9F5F3', textAlign: 'center', marginBottom: 4, fontFamily: 'SpaceGrotesk' },
   subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 32, fontFamily: 'Manrope' },
   cardBlur: { borderRadius: 24, overflow: 'hidden', ...ghostBorder(0.15) },
   card: { padding: 24 },
-  input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, fontSize: 16, color: '#FFF', marginBottom: 12, ...ghostBorder(0.15), fontFamily: 'Manrope' },
+  input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, fontSize: 16, color: '#E9F5F3', marginBottom: 12, ...ghostBorder(0.15), fontFamily: 'Manrope' },
   registerBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 8 },
   registerGradient: { padding: 16, alignItems: 'center' },
   registerBtnText: { color: SURFACE.base, fontSize: 16, fontWeight: '700', fontFamily: 'SpaceGrotesk' },

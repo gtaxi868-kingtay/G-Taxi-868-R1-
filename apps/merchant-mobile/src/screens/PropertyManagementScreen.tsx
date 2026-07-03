@@ -163,7 +163,7 @@ export function PropertyManagementScreen({ navigation }: any) {
                 <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={22} color="#FFF" />
+                        <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Property Management</Text>
                 </View>
@@ -194,7 +194,7 @@ export function PropertyManagementScreen({ navigation }: any) {
             <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={22} color="#FFF" />
+                    <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
                 </TouchableOpacity>
                 <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={styles.headerTitle}>{property.name}</Text>
@@ -227,8 +227,8 @@ export function PropertyManagementScreen({ navigation }: any) {
                                 style={[styles.syncBtn, syncing && { opacity: 0.5 }]}
                             >
                                 {syncing
-                                    ? <ActivityIndicator size="small" color="#FFF" />
-                                    : <><Ionicons name="refresh" size={14} color="#FFF" /><Text style={styles.syncBtnText}>Sync Now</Text></>
+                                    ? <ActivityIndicator size="small" color="#E9F5F3" />
+                                    : <><Ionicons name="refresh" size={14} color="#E9F5F3" /><Text style={styles.syncBtnText}>Sync Now</Text></>
                                 }
                             </TouchableOpacity>
                         </View>
@@ -341,14 +341,14 @@ const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 14, gap: 8 },
     backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#FFF', fontWeight: '800', fontSize: 17, fontFamily: 'SpaceGrotesk' },
+    headerTitle: { color: '#E9F5F3', fontWeight: '800', fontSize: 17, fontFamily: 'SpaceGrotesk' },
     headerSub: { color: VOICES.merchant.textMuted, fontSize: 12, fontFamily: 'Manrope' },
     syncBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
-    emptyTitle: { color: '#FFF', fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
+    emptyTitle: { color: '#E9F5F3', fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
     emptySub: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center', fontFamily: 'Manrope' },
     registerBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 18, paddingHorizontal: 24, paddingVertical: 13 },
-    registerBtnText: { color: '#FFF', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
+    registerBtnText: { color: '#E9F5F3', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
     scroll: { paddingTop: 8, paddingHorizontal: 20, gap: 28 },
     section: { gap: 8 },
     sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -356,15 +356,15 @@ const styles = StyleSheet.create({
     syncTime: { color: 'rgba(255,255,255,0.3)', fontSize: 12, fontFamily: 'Manrope' },
     iconBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: VOICES.merchant.accent, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
-    syncBtnText: { color: '#FFF', fontWeight: '700', fontSize: 12, fontFamily: 'SpaceGrotesk' },
+    syncBtnText: { color: '#E9F5F3', fontWeight: '700', fontSize: 12, fontFamily: 'SpaceGrotesk' },
     icalCard: { borderRadius: 18, padding: 16, gap: 4 },
     icalHint: { color: VOICES.merchant.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 10, fontFamily: 'Manrope' },
-    icalInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, color: '#FFF', fontSize: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', fontFamily: 'Manrope' },
+    icalInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, color: '#E9F5F3', fontSize: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', fontFamily: 'Manrope' },
     roomLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', textTransform: 'capitalize', marginBottom: 4, fontFamily: 'Manrope' },
     saveBtn: { borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
     saveBtnText: { color: '#000', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
     dayCell: { width: 40, height: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 2 },
-    dayNum: { color: '#FFF', fontWeight: '700', fontSize: 13, fontFamily: 'SpaceGrotesk' },
+    dayNum: { color: '#E9F5F3', fontWeight: '700', fontSize: 13, fontFamily: 'SpaceGrotesk' },
     dayMon: { color: 'rgba(255,255,255,0.35)', fontSize: 9, fontFamily: 'Manrope' },
     dotGreen: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' },
     dotRed: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#EF4444' },
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     legendDot: { width: 8, height: 8, borderRadius: 4 },
     legendText: { color: 'rgba(255,255,255,0.35)', fontSize: 11, fontFamily: 'Manrope' },
     bookingRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14 },
-    bookingTitle: { color: '#FFF', fontWeight: '600', fontSize: 14, fontFamily: 'SpaceGrotesk' },
+    bookingTitle: { color: '#E9F5F3', fontWeight: '600', fontSize: 14, fontFamily: 'SpaceGrotesk' },
     bookingMeta: { color: VOICES.merchant.textMuted, fontSize: 12, marginTop: 2, fontFamily: 'Manrope' },
     bookingAmt: { fontWeight: '700', fontSize: 15, fontFamily: 'SpaceGrotesk' },
 });
