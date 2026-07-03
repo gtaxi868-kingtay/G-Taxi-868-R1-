@@ -353,11 +353,29 @@ function App() {
                              <p className="text-[9px] font-bold text-[#5A5F66] uppercase tracking-widest italic">All prices in TTD · Includes VAT</p>
                           </div>
 
-                          <button onClick={async () => {
-                              await supabase.from('orders').update({ status: 'ready' }).eq('id', selectedOrder.id);
+                          {selectedOrder.status === 'pending' && (
+                            <div className="flex gap-4">
+                              <button onClick={async () => {
+                                const { error } = await supabase.functions.invoke('merchant', {
+                                  body: { action: 'update_order_status', order_id: selectedOrder.id, new_status: 'confirmed' },
+                                });
+                                if (!error) { setSelectedOrder(null); fetchData(merchant.id); }
+                              }} className="flex-1 h-16 sm:h-20 bg-[#007070] text-white rounded-[1.5rem] font-black text-base sm:text-lg shadow-2xl shadow-[#007070]/20 hover:scale-[1.02] active:scale-95 transition-all">ACCEPT ORDER</button>
+                              <button onClick={async () => {
+                                const { error } = await supabase.functions.invoke('merchant', {
+                                  body: { action: 'update_order_status', order_id: selectedOrder.id, new_status: 'cancelled' },
+                                });
+                                if (!error) { setSelectedOrder(null); fetchData(merchant.id); }
+                              }} className="flex-1 h-16 sm:h-20 bg-red-600 text-white rounded-[1.5rem] font-black text-base sm:text-lg shadow-2xl hover:scale-[1.02] active:scale-95 transition-all">REJECT</button>
+                            </div>
+                          )}
+                          {selectedOrder.status !== 'pending' && (
+                            <button onClick={async () => {
+                              await supabase.from('orders').update({ status: 'ready_for_pickup' }).eq('id', selectedOrder.id);
                               setSelectedOrder(null);
                               fetchData(merchant.id);
-                          }} className="w-full h-16 sm:h-20 bg-[#007070] text-white rounded-[1.5rem] font-black text-base sm:text-lg shadow-2xl shadow-[#007070]/20 hover:scale-[1.02] active:scale-95 transition-all">MARK AS READY FOR PICKUP</button>
+                            }} className="w-full h-16 sm:h-20 bg-[#007070] text-white rounded-[1.5rem] font-black text-base sm:text-lg shadow-2xl shadow-[#007070]/20 hover:scale-[1.02] active:scale-95 transition-all">MARK AS READY FOR PICKUP</button>
+                          )}
                       </div>
                   </div>
               </div>

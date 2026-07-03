@@ -6,6 +6,7 @@ jest.mock('@gtaxi/core', () => ({ supabase: { channel: () => ({ on: () => ({ sub
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'test' }, profile: { full_name: 'Test', phone_number: '', avatar_url: '' }, refreshProfile: jest.fn() }) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), notificationAsync: jest.fn(), ImpactFeedbackStyle: { Light: 'Light', Medium: 'Medium', Heavy: 'Heavy' }, NotificationFeedbackType: { Success: 'Success', Warning: 'Warning' }, selectionAsync: jest.fn() }));
+jest.mock('@gtaxi/design-system/native', () => { const R = require('react'); const { View } = require('react-native'); return { LiquidGlass: ({ children }: any) => R.createElement(View, null, children) }; });
 
 describe('EditProfileScreen', () => {
   it('renders without crashing', () => {

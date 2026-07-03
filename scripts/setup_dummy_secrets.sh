@@ -11,10 +11,10 @@ echo "Setting up dummy secrets for Supabase Edge Functions..."
 supabase secrets set STRIPE_SECRET_KEY="sk_test_placeholder"
 supabase secrets set STRIPE_WEBHOOK_SECRET="whsec_placeholder"
 
-# Twilio (SMS fallback)
-supabase secrets set TWILIO_ACCOUNT_SID="AC_placeholder"
-supabase secrets set TWILIO_AUTH_TOKEN="token_placeholder"
-supabase secrets set TWILIO_PROXY_SERVICE_SID="KS_placeholder"
+# WhatsApp Cloud API (replaced Twilio — free tier, 1K conversations/mo)
+supabase secrets set WHATSAPP_PHONE_NUMBER_ID="placeholder"
+supabase secrets set WHATSAPP_ACCESS_TOKEN="placeholder"
+# When absent, system gracefully falls back to wa.me deep links (zero config)
 
 # Firebase (FCM Push Notifications)
 # Note: In production, this should be the base64 encoded JSON or raw JSON

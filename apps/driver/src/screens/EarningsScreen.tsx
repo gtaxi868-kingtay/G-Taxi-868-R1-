@@ -16,8 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 
-const DRIVER_SHARE = 0.82;
-
 interface TripData {
     id: string;
     created_at: string;
@@ -52,6 +50,7 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
     const [refreshing, setRefreshing] = useState(false);
     const [stats, setStats] = useState({ today: 0, week: 0, month: 0, trips: 0 });
     const [recentTrips, setRecentTrips] = useState<TripData[]>([]);
+    const [driverShare, setDriverShare] = useState(0.82);
 
     const earningsAnim = useSharedValue(0);
     const earningsDisplay = useDerivedValue(() =>
@@ -60,6 +59,15 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
 
     const fetchEarnings = useCallback(async () => {
         if (!driver?.id) return;
+
+        const { data: cfg } = await supabase
+            .from('pricing_config')
+            .select('value_numeric')
+            .eq('name', 'driver_share')
+            .single();
+        const share = cfg?.value_numeric ?? 0.82;
+        setDriverShare(share);
+
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
         const weekStart = new Date(now);
@@ -80,7 +88,7 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
         } else if (data) {
             let todayCents = 0, weekCents = 0, monthCents = 0, tripsToday = 0;
             data.forEach(trip => {
-                const payout = trip.driver_payout_cents || Math.round((trip.total_fare_cents || 0) * DRIVER_SHARE);
+                const payout = trip.driver_payout_cents || Math.round((trip.total_fare_cents || 0) * share);
                 if (trip.created_at >= startOfDay) { todayCents += payout; tripsToday += 1; }
                 if (trip.created_at >= startOfWeek) weekCents += payout;
                 if (trip.created_at >= monthStart) monthCents += payout;
@@ -217,7 +225,7 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
                             const date = new Date(trip.created_at);
                             const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                            const payoutCents = trip.driver_payout_cents || Math.round((trip.total_fare_cents || 0) * DRIVER_SHARE);
+                            const payoutCents = trip.driver_payout_cents || Math.round((trip.total_fare_cents || 0) * driverShare);
                             const earnings = (payoutCents / 100).toFixed(2);
                             const isLast = idx === recentTrips.length - 1;
 

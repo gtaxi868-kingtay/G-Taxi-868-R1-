@@ -77,16 +77,19 @@ confirmed resolved by reading the actual source code on 2026-05-30.
 
 ## GENUINE REMAINING GAPS (verified against source code)
 
-1. SUPABASE EDGE FUNCTION SECRETS NOT CONFIGURED
-   These must be set in the Supabase project dashboard. Without them:
-   - FIREBASE_SERVICE_ACCOUNT_JSON  → push silently fails (push.ts:134)
-   - STRIPE_SECRET_KEY              → webhook signing fails
-   - STRIPE_WEBHOOK_SECRET          → webhook signature verify fails (stripe_webhook:61)
-   - TWILIO_ACCOUNT_SID / TOKEN     → SMS fails
-   - UPSTASH_REDIS_REST_URL / TOKEN → driver Redis cache fails (non-fatal)
-   - SENTRY_DSN                     → error reporting fails
-   - AMADEUS_API_KEY / AMADEUS_API_SECRET → sync_flight_availability returns 503
-   - BOOKING_API_KEY                → sync_lodging_availability returns 503
+1. SUPABASE EDGE FUNCTION SECRETS — MOST SET, 9 REMAIN
+   Set (23/32): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY,
+   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, FIREBASE_SERVICE_ACCOUNT_JSON,
+   GEMINI_API_KEY, GROQ_API_KEY, MAPBOX_ACCESS_TOKEN, SENTRY_DSN,
+   UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, REDIS_URL,
+   PLATFORM_CRON_SECRET, CRON_SECRET, WIPAY_ACCOUNT_NUMBER, WIPAY_API_URL,
+   WIPAY_ENVIRONMENT, SERVICE_ROLE_KEY, SUPABASE_DB_URL, SUPABASE_JWKS,
+   SUPABASE_PUBLISHABLE_KEYS, SUPABASE_SECRET_KEYS
+   Still need real values (placeholders set):
+   - WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_ACCESS_TOKEN → (replaced Twilio, free tier 1K msgs/mo)
+   - WIPAY_API_KEY / WIPAY_WEBHOOK_SECRET → WiPay payments
+   - AMADEUS_API_KEY / AMADEUS_API_SECRET → flight sync (G-Escape, returns 503 without)
+   - BOOKING_API_KEY → lodging sync
 
 2. NFC DISPATCH LAYER NOT YET DEPLOYED
    - supabase/migrations/20260530000005_nfc_dispatch_layer.sql — unapplied
@@ -203,17 +206,34 @@ payment_ledger table — read only for users:
   VITE_SUPABASE_ANON_KEY=<same>
   # Service role key NOT present — confirmed clean
 
-### Supabase Edge Function Secrets (must be set in dashboard)
-  SUPABASE_SERVICE_ROLE_KEY       ← SET THIS FIRST
-  STRIPE_SECRET_KEY
-  STRIPE_WEBHOOK_SECRET
-  FIREBASE_SERVICE_ACCOUNT_JSON   ← base64 encoded JSON
-  TWILIO_ACCOUNT_SID
-  TWILIO_AUTH_TOKEN
-  TWILIO_PROXY_SERVICE_SID
-  SENTRY_DSN
-  UPSTASH_REDIS_REST_URL
-  UPSTASH_REDIS_REST_TOKEN
+### Supabase Edge Function Secrets — verified set (23 of 32)
+  SUPABASE_SERVICE_ROLE_KEY       ✅
+  STRIPE_SECRET_KEY               ✅
+  STRIPE_WEBHOOK_SECRET           ✅
+  FIREBASE_SERVICE_ACCOUNT_JSON   ✅ base64 encoded JSON
+  GEMINI_API_KEY                  ✅
+  GROQ_API_KEY                    ✅
+  MAPBOX_ACCESS_TOKEN             ✅
+  SENTRY_DSN                      ✅
+  UPSTASH_REDIS_REST_URL          ✅
+  UPSTASH_REDIS_REST_TOKEN        ✅
+  REDIS_URL                       ✅
+  PLATFORM_CRON_SECRET            ✅
+  CRON_SECRET                     ✅ (generated 2026-06-25)
+  WIPAY_ACCOUNT_NUMBER            ✅
+  WIPAY_API_URL                   ✅
+  WIPAY_ENVIRONMENT               ✅
+  WHATSAPP_PHONE_NUMBER_ID        ⚠️ placeholder
+  WHATSAPP_ACCESS_TOKEN           ⚠️ placeholder
+  WIPAY_API_KEY                   ❌
+  WIPAY_WEBHOOK_SECRET            ❌
+  AMADEUS_API_KEY                 ❌
+  AMADEUS_API_SECRET              ❌
+  BOOKING_API_KEY                 ❌
+
+  # Twilio removed 2026-06-25 — replaced with WhatsApp Cloud API (free tier, 1K conversations/mo)
+  # When WHATSAPP keys are absent, system gracefully falls back to wa.me deep links
+  # (user taps → WhatsApp opens with pre-filled message — zero config, always works)
 
 ---
 

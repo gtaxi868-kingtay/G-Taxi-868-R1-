@@ -8,7 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
-import { sendSMS } from "../_shared/sms.ts";
+import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
 import { captureException } from "../_shared/sentry.ts";
 import { redisCommand } from "../_shared/redis.ts";
 
@@ -266,13 +266,15 @@ serve(async (req: Request) => {
             console.log(`Driver ${selectedDriver.id} has no push_token — skipping push, relying on Realtime.`);
         }
 
-        // --- Fix 9: SMS Fallback for Edge Regions ---
         if (selectedDriver.phone_number) {
-            const smsMsg = `G-TAXI: New Ride Request at ${ride.pickup_address || 'nearby location'}. Tap to view.`;
-            sendSMS(selectedDriver.phone_number, smsMsg)
-                .catch(err => console.error("SMS Fallback failed (non-fatal):", err));
+            const waMsg = `G-TAXI: New Ride Request at ${ride.pickup_address || 'nearby location'}. Tap to view.`;
+            sendWhatsApp(selectedDriver.phone_number, waMsg)
+                .then(r => {
+                    if (!r.success) console.log(`[MatchDriver] WhatsApp unavailable — ${r.error || r.channel}`);
+                })
+                .catch(err => console.error("[MatchDriver] WhatsApp fallback failed (non-fatal):", err));
         } else {
-            console.log(`Driver ${selectedDriver.id} has no phone_number — skipping SMS fallback.`);
+            console.log(`Driver ${selectedDriver.id} has no phone_number — skipping WhatsApp fallback.`);
         }
 
         return new Response(

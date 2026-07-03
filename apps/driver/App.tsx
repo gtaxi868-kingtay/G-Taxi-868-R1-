@@ -37,6 +37,7 @@ import LeaseScreen from './src/screens/LeaseScreen';
 import LeaseConsentScreen from './src/screens/LeaseConsentScreen';
 import { CommanderDashboardScreen } from './src/screens/CommanderDashboardScreen';
 import { CommanderConsoleScreen } from './src/screens/CommanderConsoleScreen';
+import { BecomeCommanderScreen } from './src/screens/BecomeCommanderScreen';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { DriverActiveRideRestorationHandler } from './src/components/DriverActiveRideRestorationHandler';
@@ -188,6 +189,7 @@ function AppNavigator() {
             <AppStack.Screen name="LeaseConsent" component={LeaseConsentScreen} />
             <AppStack.Screen name="CommanderDashboard" component={CommanderDashboardScreen} />
             <AppStack.Screen name="CommanderConsole" component={CommanderConsoleScreen} />
+            <AppStack.Screen name="BecomeCommander" component={BecomeCommanderScreen} />
         </AppStack.Navigator>
         </>);
 }

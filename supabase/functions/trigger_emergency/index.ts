@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
-import { sendSMS } from "../_shared/sms.ts";
+import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
 import { sendPushNotification } from "../_shared/push.ts";
 
 const corsHeaders = {
@@ -95,16 +95,15 @@ serve(async (req) => {
         // ── Send SMS to emergency contact if one is saved ──
         if (emergencyPhone) {
             const smsMessage = `🚨 EMERGENCY — ${riderName} triggered an alert during their ride with ${driverName} (${driverPhone}). Location: ${fullRide?.driver?.lat},${fullRide?.driver?.lng}`;
-            const smsResult = await sendSMS(emergencyPhone, smsMessage);
-            console.log(`SMS to emergency contact (${emergencyName}):`, smsResult.success ? "sent" : "failed");
+            const waResult = await sendWhatsApp(emergencyPhone, smsMessage);
+            console.log(`Emergency alert to ${emergencyName}:`, waResult.success ? "sent via " + waResult.channel : "failed — " + (waResult.error || ""));
         } else {
             console.warn("No emergency contact phone on file for rider");
         }
 
-        // ── Fallback: send SMS to rider's own phone if no emergency contact ──
         if (!emergencyPhone && riderPhone) {
-            const smsMessage = `🚨 G-Taxi Emergency Confirmation — Your alert for ride ${ride_id.slice(0, 8)} has been logged. A safety specialist will review it shortly. Reply HELP or call 911 if immediate danger.`;
-            await sendSMS(riderPhone, smsMessage);
+            const msg = `🚨 G-Taxi Emergency Confirmation — Your alert for ride ${ride_id.slice(0, 8)} has been logged. A safety specialist will review it shortly.`;
+            await sendWhatsApp(riderPhone, msg);
         }
 
         return new Response(JSON.stringify({

@@ -260,7 +260,7 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     </View>
                 )}
 
-                {role === 'pod_commander' && (
+                {role === 'pod_commander' ? (
                     <TouchableOpacity
                         style={s.menuRow}
                         onPress={() => {
@@ -272,6 +272,20 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                             <Ionicons name="shield-checkmark" size={20} color="#34E6EC" />
                         </View>
                         <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>G-LEAD CENTER</Text>
+                        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity
+                        style={s.menuRow}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            navigation.navigate('BecomeCommander');
+                        }}
+                    >
+                        <View style={[s.rowIcon, { backgroundColor: 'rgba(139,92,246,0.10)' }]}>
+                            <Ionicons name="shield-checkmark-outline" size={20} color={VOICES.driver.gold} />
+                        </View>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#FFF', flex: 1, marginLeft: 16}}>BECOME A G-LEAD</Text>
                         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                     </TouchableOpacity>
                 )}

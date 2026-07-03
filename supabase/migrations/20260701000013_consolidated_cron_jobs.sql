@@ -37,17 +37,17 @@ BEGIN
   -- escape / travel
   PERFORM cron.schedule('check-escape-tipping-points',  '0 6 * * *', $job$SELECT public.check_flight_tipping_points()$job$);
   PERFORM cron.schedule('release-expired-escape-holds', '* * * * *', $job$SELECT public.release_expired_holds()$job$);
-  PERFORM cron.schedule('auto-charge-escape-group-5min','*/5 * * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/auto_charge_escape_group', headers := jsonb_build_object('Content-Type','application/json'), body := '{}'::jsonb)$job$);
-  PERFORM cron.schedule('sync-flight-availability-6h',  '0 */6 * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/sync_flight_availability', headers := jsonb_build_object('Content-Type','application/json'), body := '{}'::jsonb)$job$);
-  PERFORM cron.schedule('sync-lodging-availability-6h', '0 */6 * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/sync_lodging_availability', headers := jsonb_build_object('Content-Type','application/json'), body := '{}'::jsonb)$job$);
+  PERFORM cron.schedule('auto-charge-escape-group-5min','*/5 * * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/auto_charge_escape_group', headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<<X_CRON_SECRET>>'), body := '{}'::jsonb)$job$);
+  PERFORM cron.schedule('sync-flight-availability-6h',  '0 */6 * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/sync_flight_availability', headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<<X_CRON_SECRET>>'), body := '{}'::jsonb)$job$);
+  PERFORM cron.schedule('sync-lodging-availability-6h', '0 */6 * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/sync_lodging_availability', headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<<X_CRON_SECRET>>'), body := '{}'::jsonb)$job$);
 
   -- dispatch / queues
-  PERFORM cron.schedule('process-dispatch-queue-1min', '* * * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/process_dispatch_queue', headers := jsonb_build_object('Content-Type','application/json'), body := '{}'::jsonb)$job$);
-  PERFORM cron.schedule('process-event-queue',         '* * * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/process_event_queue', headers := jsonb_build_object('Content-Type','application/json'), body := '{}'::jsonb)$job$);
-  PERFORM cron.schedule('process-settlement-grace',    '*/5 * * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/process_settlement_grace', headers := jsonb_build_object('Content-Type','application/json'), body := '{}'::jsonb)$job$);
+  PERFORM cron.schedule('process-dispatch-queue-1min', '* * * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/process_dispatch_queue', headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<<X_CRON_SECRET>>'), body := '{}'::jsonb)$job$);
+  PERFORM cron.schedule('process-event-queue',         '* * * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/process_event_queue', headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<<X_CRON_SECRET>>'), body := '{}'::jsonb)$job$);
+  PERFORM cron.schedule('process-settlement-grace',    '*/5 * * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/process_settlement_grace', headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<<X_CRON_SECRET>>'), body := '{}'::jsonb)$job$);
 
   -- AI / notifications
-  PERFORM cron.schedule('daily-ai-push', '0 6 * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/daily_push_notifications', headers := '{"Content-Type":"application/json"}'::jsonb, body := '{}'::jsonb)$job$);
+  PERFORM cron.schedule('daily-ai-push', '0 6 * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/daily_push_notifications', headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<<X_CRON_SECRET>>'), body := '{}'::jsonb)$job$);
   -- NOTE: replace <<X_CRON_SECRET>> with the live secret (or vault ref) for real rebuilds.
   PERFORM cron.schedule('platform_intelligence', '*/2 * * * *', $job$SELECT net.http_post(url := 'https://ffbbuafgeypvkpcuvdnv.supabase.co/functions/v1/platform_intelligence', headers := jsonb_build_object('Content-Type','application/json','x-cron-secret','<<X_CRON_SECRET>>'), body := '{}'::jsonb)$job$);
 END

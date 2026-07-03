@@ -67,7 +67,7 @@ export function useRideOfferSubscription(driverId: string | undefined) {
     useEffect(() => {
         if (!driverId) return;
 
-        console.log('Subscribing to direct ride offers for driver:', driverId);
+        __DEV__ && console.log('Subscribing to direct ride offers for driver:', driverId);
 
         const channel = supabase
             .channel(`driver-offers:${driverId}`)
@@ -80,7 +80,7 @@ export function useRideOfferSubscription(driverId: string | undefined) {
                     filter: `driver_id=eq.${driverId}`,
                 },
                 (payload) => {
-                    console.log('Ride offer update received:', payload);
+                    __DEV__ && console.log('Ride offer update received:', payload);
                     const updatedOffer = payload.new as RideOffer;
 
                     if (updatedOffer.status === 'pending') {

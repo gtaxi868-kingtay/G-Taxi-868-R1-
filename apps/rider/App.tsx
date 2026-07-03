@@ -68,7 +68,7 @@ import ActivePassScreen from './src/screens/ActivePassScreen';
 import PassportSubmissionScreen from './src/screens/PassportSubmissionScreen';
 import CarnivalScreen from './src/screens/CarnivalScreen';
 import EventsScreen from './src/screens/EventsScreen';
-import { BecomeCommanderScreen } from './src/screens/BecomeCommander';
+
 import { EscapeTripProvider } from './src/context/EscapeContext';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
@@ -182,7 +182,6 @@ function AppNavigator() {
                 <AppStack.Screen name="PassportSubmission" component={PassportSubmissionScreen} />
                 <AppStack.Screen name="Carnival" component={CarnivalScreen} />
                 <AppStack.Screen name="Events" component={EventsScreen} />
-                <AppStack.Screen name="BecomeCommander" component={BecomeCommanderScreen} />
             </AppStack.Navigator>
         </>
     );
@@ -208,7 +207,6 @@ const linking = {
             },
             EscapeStorefront: 'escape/:packageId?',
             TravelPackageDetail: 'travel/:packageId',
-            BecomeCommander: 'become-commander',
         }
     }
 };

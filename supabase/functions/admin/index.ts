@@ -157,6 +157,51 @@ Deno.serve(async (req) => {
         return json({ success: true, user_id: authUser.user.id, merchant_id: merchant.id, email })
       }
 
+      case 'get_pending_merchants': {
+        const { data: pending, error } = await supabaseAdmin
+          .from('merchants')
+          .select('id, name, category, address, lat, lng, activation_status, activated_at, activation_note, created_at, is_active, created_by, profiles!inner(full_name, email)')
+          .eq('activation_status', 'pending')
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        return json({ success: true, pending: pending ?? [] })
+      }
+
+      case 'activate_merchant': {
+        const { merchant_id } = body
+        if (!merchant_id) return json({ success: false, error: 'merchant_id required' }, 400)
+        const { data: merchant, error: fetchErr } = await supabaseAdmin
+          .from('merchants').select('id, activation_status').eq('id', merchant_id).single()
+        if (fetchErr || !merchant) return json({ success: false, error: 'Merchant not found' }, 404)
+        if (merchant.activation_status !== 'pending') {
+          return json({ success: false, error: `Merchant is already ${merchant.activation_status}` }, 400)
+        }
+        const { error } = await supabaseAdmin
+          .from('merchants')
+          .update({ activation_status: 'active', is_active: true, activated_at: new Date().toISOString(), activated_by: user.id })
+          .eq('id', merchant_id)
+        if (error) throw error
+        return json({ success: true, merchant_id, activation_status: 'active' })
+      }
+
+      case 'reject_merchant': {
+        const { merchant_id, reason } = body
+        if (!merchant_id) return json({ success: false, error: 'merchant_id required' }, 400)
+        if (!reason) return json({ success: false, error: 'reason required' }, 400)
+        const { data: merchant, error: fetchErr } = await supabaseAdmin
+          .from('merchants').select('id, activation_status').eq('id', merchant_id).single()
+        if (fetchErr || !merchant) return json({ success: false, error: 'Merchant not found' }, 404)
+        if (merchant.activation_status !== 'pending') {
+          return json({ success: false, error: `Merchant is already ${merchant.activation_status}` }, 400)
+        }
+        const { error } = await supabaseAdmin
+          .from('merchants')
+          .update({ activation_status: 'deactivated', activation_note: reason, is_active: false })
+          .eq('id', merchant_id)
+        if (error) throw error
+        return json({ success: true, merchant_id, activation_status: 'deactivated' })
+      }
+
       // ─── RIDE MANAGEMENT ────────────────────────────────────────────────────
 
       case 'get_rides': {

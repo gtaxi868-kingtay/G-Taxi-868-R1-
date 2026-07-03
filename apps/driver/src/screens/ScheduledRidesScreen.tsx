@@ -42,6 +42,7 @@ export function ScheduledRidesScreen({ navigation }: { navigation: NavigationPro
             const { data } = await supabase
                 .from('rides')
                 .select('id, pickup_address, dropoff_address, total_fare_cents, scheduled_for, vehicle_type')
+                .eq('driver_id', driver.id)
                 .eq('status', 'scheduled')
                 .eq('driver_id', driver.id)
                 .order('scheduled_for', { ascending: true })

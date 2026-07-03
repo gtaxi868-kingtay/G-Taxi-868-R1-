@@ -89,7 +89,7 @@ confirmed resolved by reading the actual source code on 2026-05-30.
   NOT YET SET — will crash on first invocation:
   - STRIPE_SECRET_KEY              ❌ CRITICAL — all card payments fail
   - STRIPE_WEBHOOK_SECRET          ❌ CRITICAL — webhook signature verify fails (stripe_webhook:61)
-  - TWILIO_ACCOUNT_SID / TOKEN     ❌ SMS fails silently
+  - WHATSAPP_PHONE_NUMBER_ID / TOKEN ⚠️ WhatsApp falls back to wa.me deep links
   - WIPAY_ACCOUNT_NUMBER / API_KEY ❌ Card payments via WiPay return coming_soon
   - UPSTASH_REDIS_REST_URL / TOKEN ❌ Redis cache fails (non-fatal)
   - SENTRY_DSN                     ❌ Error reporting silent (non-fatal)

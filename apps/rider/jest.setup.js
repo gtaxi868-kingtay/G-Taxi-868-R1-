@@ -247,6 +247,21 @@ jest.mock('react-native-maps', () => {
   };
 });
 
+jest.mock('@stripe/stripe-react-native', () => ({
+  useStripe: () => ({
+    initPaymentSheet: jest.fn(() => Promise.resolve({ error: null })),
+    presentPaymentSheet: jest.fn(() => Promise.resolve({ error: null })),
+    confirmPayment: jest.fn(() => Promise.resolve({ error: null })),
+    confirmPaymentMethod: jest.fn(() => Promise.resolve({ error: null })),
+    createPaymentMethod: jest.fn(() => Promise.resolve({ error: null })),
+    handleNextAction: jest.fn(() => Promise.resolve({ error: null })),
+    retrievePaymentIntent: jest.fn(() => Promise.resolve({ error: null })),
+  }),
+  StripeProvider: ({ children }: any) => { const R = require('react'); return R.createElement(R.Fragment, null, children); },
+  initPaymentSheet: jest.fn(),
+  presentPaymentSheet: jest.fn(),
+}));
+
 jest.mock('@react-native-async-storage/async-storage', () => ({
   setItem: jest.fn(() => Promise.resolve()),
   getItem: jest.fn(() => Promise.resolve(null)),
@@ -273,13 +288,27 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
+jest.mock('@gtaxi/design-system/native', () => {
+  const R = require('react');
+  const { View, Text } = require('react-native');
+  return { LiquidGlass: ({ children }: any) => R.createElement(View, null, children), Skeleton: () => R.createElement(View, null), Logo: () => R.createElement(Text, null, 'Logo'), LoadingOverlay: 'LoadingOverlay' };
+});
+
+jest.mock('./src/context/RideContext', () => ({
+  useRide: () => ({ activeRide: null, loading: false, checkActiveRide: jest.fn(), clearActiveRide: jest.fn() }),
+  RideProvider: ({ children }: any) => { const R = require('react'); return R.createElement(R.Fragment, null, children); },
+}));
+
 jest.mock('@gtaxi/core', () => {
   const supabaseMock = {
-    channel: () => ({ on: () => ({ subscribe: jest.fn() }) }),
+    channel: () => {
+      const ch = { on: () => ch, subscribe: jest.fn() };
+      return ch;
+    },
     from: () => ({
       select: () => ({
-        eq: () => ({ single: jest.fn(), maybeSingle: jest.fn(), order: () => ({ limit: () => ({ data: null }) }) }),
-        in: () => ({ single: jest.fn(), maybeSingle: jest.fn(), order: () => ({ limit: () => ({ data: null }) }) }),
+        eq: () => ({ single: jest.fn(() => Promise.resolve({ data: null })), maybeSingle: jest.fn(() => Promise.resolve({ data: null })), not: () => ({ eq: () => ({ single: jest.fn(() => Promise.resolve({ data: null })) }) }), order: () => ({ limit: () => ({ data: null }) }) }),
+        in: () => ({ single: jest.fn(() => Promise.resolve({ data: null })), maybeSingle: jest.fn(() => Promise.resolve({ data: null })), order: () => ({ limit: () => ({ data: null }) }) }),
         order: () => ({ limit: () => ({ data: null }) }),
       }),
       insert: () => ({ select: () => ({ single: jest.fn() }) }),
@@ -288,12 +317,23 @@ jest.mock('@gtaxi/core', () => {
     }),
     auth: {
       getSession: () => Promise.resolve({ data: { session: { user: { id: 'test-user' }, access_token: 'test-token' } }, error: null }),
+      getUser: jest.fn(() => Promise.resolve({ data: { user: { id: 'test-user' } }, error: null })),
       signOut: jest.fn(),
       onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
     },
+    functions: { invoke: jest.fn(() => Promise.resolve({ data: null, error: null })) },
+    rpc: jest.fn(() => ({ maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })), single: jest.fn(() => Promise.resolve({ data: null, error: null })) })),
   };
   return {
     supabase: supabaseMock,
+    SavedPlace: {},
+    Location: {},
+    DEFAULT_LOCATION: { latitude: 10.6918, longitude: -61.2225 },
+    ENV: { SUPABASE_URL: 'https://test.supabase.co', MAPBOX_PUBLIC_TOKEN: '' },
+    initializeSupabaseClient: () => ({ supabase: supabaseMock }),
+    haversineMeters: jest.fn(() => 0),
+    isWithinRadius: jest.fn(() => true),
+    checkGeofenceZone: jest.fn(() => null),
     OutboxService: {
       getInstance: () => ({
         enqueue: jest.fn(),
