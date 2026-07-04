@@ -16,7 +16,7 @@ function isRedisConfigured(): boolean {
     return _restUrl !== "" && _restToken !== "";
 }
 
-async function redisCommand(command: string[]) {
+export async function redisCommand(command: string[]) {
     if (!isRedisConfigured()) {
         console.warn("[Redis] Upstash env vars not configured — command skipped.");
         return null;
