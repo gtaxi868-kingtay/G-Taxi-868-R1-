@@ -199,6 +199,22 @@
         let qrType = 'ride';
         let qrData = null;
         let userLocation = null;
+        // Business WhatsApp number — admin-editable in system_config. Falls back
+        // to this default if the lookup fails so the page never breaks.
+        let supportNumber = '18687031000';
+
+        async function loadContactNumber() {
+            try {
+                const res = await fetch(
+                    `${SUPABASE_URL}/rest/v1/system_config?key=eq.support_whatsapp_number&select=value`,
+                    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+                );
+                if (!res.ok) return;
+                const rows = await res.json();
+                const digits = (rows && rows[0] && rows[0].value || '').replace(/[^\d]/g, '');
+                if (digits.length >= 7) supportNumber = digits;
+            } catch (_) { /* keep fallback */ }
+        }
 
         function detectQrType() {
             const params = new URLSearchParams(window.location.search);
@@ -312,15 +328,15 @@
         function handleFallback() {
             if (qrType === 'merchant') {
                 const msg = encodeURIComponent("Hi! I scanned a QR at your store and would like to learn more about G-Taxi services.");
-                window.location.href = `https://wa.me/18687031000?text=${msg}`;
+                window.location.href = `https://wa.me/${supportNumber}?text=${msg}`;
             } else if (qrType === 'driver') {
                 const msg = encodeURIComponent("Hi! I'm interested in becoming a G-Taxi driver partner. Can you share more details?");
-                window.location.href = `https://wa.me/18687031000?text=${msg}`;
+                window.location.href = `https://wa.me/${supportNumber}?text=${msg}`;
             } else {
                 const lat = userLocation?.lat || 10.65;
                 const lng = userLocation?.lng || -61.4;
                 const msg = encodeURIComponent(`Hi! I'd like to request a G-Taxi ride. My location: https://maps.google.com/?q=${lat},${lng}`);
-                window.location.href = `https://wa.me/18687031000?text=${msg}`;
+                window.location.href = `https://wa.me/${supportNumber}?text=${msg}`;
             }
         }
 
@@ -336,6 +352,7 @@
 
         detectQrType();
         applyQrTheme();
+        loadContactNumber();
     </script>
 </body>
 </html>

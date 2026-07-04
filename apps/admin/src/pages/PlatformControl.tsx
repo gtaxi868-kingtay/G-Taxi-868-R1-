@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { ToggleLeft, ToggleRight, RefreshCw, ShieldAlert, Sliders, Car, ShoppingCart, Wind, Package, Truck, type LucideProps } from 'lucide-react';
+import { ToggleLeft, ToggleRight, RefreshCw, ShieldAlert, Sliders, Car, ShoppingCart, Wind, Package, Truck, MessageCircle, type LucideProps } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,6 +22,12 @@ interface FeatureFlag {
     applies_to: string;
     toggled_at: string | null;
 }
+
+// Contact / front-door config keys surfaced for editing here.
+const CONTACT_KEYS: { key: string; label: string; hint: string }[] = [
+    { key: 'support_whatsapp_number', label: 'Support WhatsApp', hint: 'Rider/driver support + QR/NFC front-door fallback' },
+    { key: 'escape_whatsapp_number', label: 'G-Escape WhatsApp', hint: 'Travel concierge line' },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -78,14 +84,24 @@ export function PlatformControl() {
     const [togglingFlag, setTogglingFlag] = useState<string | null>(null);
     const [rolloutEditing, setRolloutEditing] = useState<Record<string, string>>({});
     const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+    const [contact, setContact] = useState<Record<string, string>>({});
+    const [contactEditing, setContactEditing] = useState<Record<string, string>>({});
+    const [savingContact, setSavingContact] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
-        const [vRes, fRes] = await Promise.all([
+        const [vRes, fRes, cRes] = await Promise.all([
             supabase.from('vertical_settings').select('*').order('sort_order'),
             supabase.from('system_feature_flags').select('*').order('id'),
+            supabase.from('system_config').select('key, value').in('key', CONTACT_KEYS.map(c => c.key)),
         ]);
         setVerticals((vRes.data as Vertical[]) || []);
+
+        const contactMap: Record<string, string> = {};
+        for (const row of (cRes.data as { key: string; value: string }[] | null) || []) {
+            contactMap[row.key] = row.value;
+        }
+        setContact(contactMap);
         
         let loadedFlags = (fRes.data as FeatureFlag[]) || [];
         const requiredFlags = [
@@ -164,6 +180,25 @@ export function PlatformControl() {
             setFlags(prev => prev.map(x => x.id === f.id ? { ...x, is_active: newActive } : x));
         }
         setTogglingFlag(null);
+    };
+
+    const saveContact = async (key: string) => {
+        const raw = contactEditing[key] ?? contact[key] ?? '';
+        const digits = raw.replace(/[^\d]/g, '');
+        if (digits.length < 7) {
+            flash('Enter a valid number (digits only, incl. country code, e.g. 18687031000)', false);
+            return;
+        }
+        setSavingContact(key);
+        const { error } = await supabase.rpc('admin_set_system_config', { p_key: key, p_value: digits });
+        if (error) {
+            flash(`Failed to save: ${error.message}`, false);
+        } else {
+            setContact(prev => ({ ...prev, [key]: digits }));
+            setContactEditing(prev => { const n = { ...prev }; delete n[key]; return n; });
+            flash('Saved — apps and the QR landing page will use the new number immediately', true);
+        }
+        setSavingContact(null);
     };
 
     if (loading) {
@@ -303,6 +338,61 @@ export function PlatformControl() {
                                         Tile hidden from all riders — toggle Live to activate
                                     </div>
                                 )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </section>
+
+            {/* ── Contact & Front Door ──────────────────────────────────────── */}
+            <section>
+                <div className="flex items-center gap-3 mb-4">
+                    <MessageCircle size={18} className="text-green-400" />
+                    <div>
+                        <h3 className="font-black text-white uppercase tracking-wider text-sm">Contact &amp; Front Door</h3>
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest">
+                            Business WhatsApp numbers used by the apps and the QR/NFC landing page — no code change needed
+                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    {CONTACT_KEYS.map(({ key, label, hint }) => {
+                        const current = contact[key] ?? '';
+                        const val = contactEditing[key] ?? current;
+                        const isDirty = contactEditing[key] !== undefined && contactEditing[key] !== current;
+                        const busy = savingContact === key;
+                        return (
+                            <div key={key} className="bg-white/5 rounded-2xl p-5 border border-white/5">
+                                <div className="flex items-center justify-between gap-4 flex-wrap">
+                                    <div>
+                                        <p className="font-black text-white text-sm">{label}</p>
+                                        <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">{hint}</p>
+                                        <p className="text-[10px] text-white/20 font-mono mt-0.5">{key}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-white/20 text-sm font-mono">+</span>
+                                        <input
+                                            type="tel"
+                                            inputMode="numeric"
+                                            value={val}
+                                            placeholder="18687031000"
+                                            onChange={e => setContactEditing(prev => ({ ...prev, [key]: e.target.value }))}
+                                            className="w-44 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-green-400/50"
+                                        />
+                                        <button
+                                            onClick={() => saveContact(key)}
+                                            disabled={busy || !isDirty}
+                                            className="px-4 py-2 bg-green-500/20 border border-green-400/30 text-green-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-green-500/30 disabled:opacity-30"
+                                        >
+                                            {busy ? 'Saving…' : 'Save'}
+                                        </button>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-white/30 mt-3">
+                                    Digits only, including country code (Trinidad &amp; Tobago = 1868…). Used to build{' '}
+                                    <span className="font-mono text-white/40">wa.me/{current || '…'}</span> links.
+                                </p>
                             </div>
                         );
                     })}

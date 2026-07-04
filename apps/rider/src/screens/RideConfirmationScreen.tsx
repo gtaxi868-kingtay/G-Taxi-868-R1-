@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { initializeSupabaseClient, ENV } from '@gtaxi/core';
+import { initializeSupabaseClient, ENV, supportWhatsAppLink } from '@gtaxi/core';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
 import { PaymentSelector, PaymentMethod } from '../components/PaymentSelector';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
@@ -326,9 +326,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
         handleConfirm();
     };
 
-    const openWhatsAppFallback = () => {
-        const message = encodeURIComponent(`I need a ride from ${pickupLoc.address} to ${destination.address}`);
-        Linking.openURL(`https://wa.me/18687031000?text=${message}`);
+    const openWhatsAppFallback = async () => {
+        const link = await supportWhatsAppLink(`I need a ride from ${pickupLoc.address} to ${destination.address}`);
+        Linking.openURL(link);
     };
 
     useEffect(() => {

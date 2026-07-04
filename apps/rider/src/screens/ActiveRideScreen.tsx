@@ -20,7 +20,7 @@ import * as Location from 'expo-location';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { ENV } from '@gtaxi/shared/env';
-import { supabase } from '@gtaxi/core';
+import { supabase, supportWhatsAppLink } from '@gtaxi/core';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
 import { useRideSession } from '../hooks/useRideSession';
@@ -309,8 +309,8 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
         supabase.functions.invoke('ai_suggest_stops', { body: { ride_id: rideId } }).catch(() => {});
     }, [ride?.status, rideId]);
 
-    const openWhatsAppSupport = () => {
-        Linking.openURL('https://wa.me/18687031000?text=I+need+help+with+my+ride');
+    const openWhatsAppSupport = async () => {
+        Linking.openURL(await supportWhatsAppLink('I need help with my ride'));
     };
 
     const handleCancelRide = () => {
