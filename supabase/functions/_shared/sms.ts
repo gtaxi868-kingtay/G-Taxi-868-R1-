@@ -45,6 +45,12 @@ async function callWhatsAppAPI(payload: WhatsAppMessage & { to: string }): Promi
 
   const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
+  // Separate the recipient from the message body: the raw `to` must be
+  // normalized to E.164 digits, and must NOT be re-spread from `...message`
+  // (which would overwrite the normalized value).
+  const { to: rawTo, ...message } = payload;
+  const normalizedTo = rawTo.startsWith('+') ? rawTo.slice(1) : rawTo.replace(/\D/g, '');
+
   try {
     const response = await secureFetch(url, {
       method: 'POST',
@@ -55,8 +61,8 @@ async function callWhatsAppAPI(payload: WhatsAppMessage & { to: string }): Promi
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
-        to: phone.startsWith('+') ? phone.slice(1) : phone.replace(/\D/g, ''),
-        ...payload,
+        to: normalizedTo,
+        ...message,
       }),
       timeoutMs: 10000,
     });
@@ -71,7 +77,7 @@ async function callWhatsAppAPI(payload: WhatsAppMessage & { to: string }): Promi
     return { success: false, channel: 'whatsapp_api', error: errorMsg };
   } catch (err) {
     console.error(`[WhatsApp API] Network error:`, err);
-    return { success: false, channel: 'whatsapp_api', error: err.message };
+    return { success: false, channel: 'whatsapp_api', error: err instanceof Error ? err.message : String(err) };
   }
 }
 
