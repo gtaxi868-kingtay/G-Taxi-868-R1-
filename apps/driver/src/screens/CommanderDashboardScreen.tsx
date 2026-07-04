@@ -218,6 +218,18 @@ export function CommanderDashboardScreen() {
                     </View>
                 </View>
 
+                {/* ─── Register a new spot ─── */}
+                <TouchableOpacity style={[styles.consoleButton, styles.registerButton]} onPress={() => (navigation as any).navigate('CommanderRegisterNode')}>
+                    <View style={[styles.consoleIcon, { backgroundColor: '#E6B45015' }]}>
+                        <Ionicons name="add-circle" size={22} color="#E6B450" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.consoleTitle}>Register New Spot</Text>
+                        <Text style={styles.consoleSub}>Tap a tag on-site, capture GPS, send the merchant invite</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.textTertiary} />
+                </TouchableOpacity>
+
                 {/* ─── Full console ─── */}
                 <TouchableOpacity style={styles.consoleButton} onPress={() => (navigation as any).navigate('CommanderConsole')}>
                     <View style={styles.consoleIcon}>
@@ -410,6 +422,10 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.primary + '15',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    registerButton: {
+        borderColor: '#E6B45030',
+        marginBottom: 16,
     },
     consoleTitle: {
         ...TYPOGRAPHY.h3,

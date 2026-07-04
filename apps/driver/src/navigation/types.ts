@@ -39,6 +39,7 @@ export type AppStackParamList = {
   LeaseConsent: undefined;
   CommanderDashboard: undefined;
   CommanderConsole: undefined;
+  CommanderRegisterNode: undefined;
   BecomeCommander: undefined;
 };
 
