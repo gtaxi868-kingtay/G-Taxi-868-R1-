@@ -9,6 +9,7 @@ interface KioskNode {
     location_name: string;
     lat: number | null;
     lng: number | null;
+    geofence_radius_m: number | null;
     default_services: string[];
     is_active: boolean;
     created_at: string;
@@ -81,6 +82,7 @@ export function NodeRegistry() {
                         location_name: editNode.location_name,
                         lat: editNode.lat || null,
                         lng: editNode.lng || null,
+                        geofence_radius_m: editNode.geofence_radius_m ?? 150,
                         default_services: editNode.default_services || ['ride'],
                         is_active: editNode.is_active ?? true,
                     },
@@ -320,6 +322,24 @@ export function NodeRegistry() {
                                         className="w-full h-14 px-5 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm focus:border-cyan-500/30 focus:outline-none placeholder-white/20"
                                     />
                                 </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">
+                                    Geofence Radius (metres) — anti-spoof tap distance
+                                </label>
+                                <input
+                                    type="number"
+                                    min={50}
+                                    max={2000}
+                                    step={10}
+                                    value={editNode?.geofence_radius_m ?? 150}
+                                    onChange={e => setEditNode(p => ({ ...p, geofence_radius_m: parseInt(e.target.value) || 150 }))}
+                                    placeholder="150"
+                                    className="w-full h-14 px-5 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm focus:border-cyan-500/30 focus:outline-none placeholder-white/20"
+                                />
+                                <p className="text-[10px] text-white/30 mt-1">
+                                    A tap further than this (+75m GPS slack) from the node's coordinates is challenged with a "are you really here?" prompt. Tight corner ≈ 50m, large stand/warehouse ≈ 300–500m.
+                                </p>
                             </div>
                             <div>
                                 <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">Link Merchant</label>
