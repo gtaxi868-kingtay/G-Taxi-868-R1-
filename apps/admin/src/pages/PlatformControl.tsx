@@ -93,7 +93,7 @@ export function PlatformControl() {
         const [vRes, fRes, cRes] = await Promise.all([
             supabase.from('vertical_settings').select('*').order('sort_order'),
             supabase.from('system_feature_flags').select('*').order('id'),
-            supabase.from('system_config').select('key, value').in('key', CONTACT_KEYS.map(c => c.key)),
+            supabase.from('system_config').select('key, value').in('key', [...CONTACT_KEYS.map(c => c.key), 'maintenance_mode']),
         ]);
         setVerticals((vRes.data as Vertical[]) || []);
 
@@ -197,6 +197,21 @@ export function PlatformControl() {
             setContact(prev => ({ ...prev, [key]: digits }));
             setContactEditing(prev => { const n = { ...prev }; delete n[key]; return n; });
             flash('Saved — apps and the QR landing page will use the new number immediately', true);
+        }
+        setSavingContact(null);
+    };
+
+    const toggleMaintenance = async () => {
+        const next = contact['maintenance_mode'] === 'true' ? 'false' : 'true';
+        setSavingContact('maintenance_mode');
+        const { error } = await supabase.rpc('admin_set_system_config', { p_key: 'maintenance_mode', p_value: next });
+        if (error) {
+            flash(`Failed to set maintenance mode: ${error.message}`, false);
+        } else {
+            setContact(prev => ({ ...prev, maintenance_mode: next }));
+            flash(next === 'true'
+                ? 'MAINTENANCE MODE ON — riders/drivers see the "be right back" screen'
+                : 'Maintenance mode OFF — apps are live again', true);
         }
         setSavingContact(null);
     };
@@ -341,6 +356,46 @@ export function PlatformControl() {
                             </div>
                         );
                     })}
+                </div>
+            </section>
+
+            {/* ── Maintenance kill-switch ───────────────────────────────────── */}
+            <section>
+                <div className={`rounded-2xl p-6 border transition-all ${
+                    contact['maintenance_mode'] === 'true'
+                        ? 'bg-red-500/10 border-red-500/40'
+                        : 'bg-white/5 border-white/10'
+                }`}>
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-3">
+                            <ShieldAlert size={20} className={contact['maintenance_mode'] === 'true' ? 'text-red-400' : 'text-white/40'} />
+                            <div>
+                                <h3 className="font-black text-white uppercase tracking-wider text-sm">Maintenance Mode</h3>
+                                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">
+                                    {contact['maintenance_mode'] === 'true'
+                                        ? 'LIVE — all riders & drivers see the "be right back" screen'
+                                        : 'Off — apps operate normally'}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={toggleMaintenance}
+                            disabled={savingContact === 'maintenance_mode'}
+                            className="flex items-center gap-2 disabled:opacity-40"
+                            title="Toggle platform maintenance mode"
+                        >
+                            {savingContact === 'maintenance_mode' ? (
+                                <div className="w-5 h-5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                            ) : contact['maintenance_mode'] === 'true' ? (
+                                <ToggleRight size={32} className="text-red-400" />
+                            ) : (
+                                <ToggleLeft size={32} className="text-white/20" />
+                            )}
+                            <span className={`text-xs font-black uppercase tracking-widest ${contact['maintenance_mode'] === 'true' ? 'text-red-400' : 'text-white/20'}`}>
+                                {contact['maintenance_mode'] === 'true' ? 'ON' : 'Off'}
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </section>
 
