@@ -19,6 +19,7 @@ import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
 import { Ride } from '@gtaxi/core';
 
+const CYAN = '#00E5FF';
 const WARNING = '#E6B450';
 const ERROR = '#EF4444';
 const SUCCESS = '#00FF94';
@@ -60,6 +61,8 @@ export function TripRequestScreen({ navigation, route }: any) {
     const [stops, setStops] = useState<any[]>([]);
     const [hasNode, setHasNode] = useState(false);
     const [identityVerified, setIdentityVerified] = useState(false);
+    const [trustScore, setTrustScore] = useState<number>(0);
+    const [trustBadge, setTrustBadge] = useState<string>('STANDARD');
 
     const totalSeconds = offer?.timeout_seconds ?? 15;
 
@@ -118,6 +121,15 @@ export function TripRequestScreen({ navigation, route }: any) {
                     const { data: pref } = await supabase.from('rider_preferences').select('id')
                         .eq('rider_id', data.rider_id).eq('favored_driver_id', driver.id).single();
                     if (pref) setIsPreferred(true);
+                }
+                if (offer?.ride_id) {
+                    const { data: ts } = await supabase.functions.invoke('calculate_ride_trust_score', {
+                        body: { ride_id: offer.ride_id }
+                    }).catch(() => ({ data: null }));
+                    if (ts?.success && ts?.data) {
+                        setTrustScore(ts.data.final_score || ts.data.score || 0);
+                        setTrustBadge(ts.data.badge || 'STANDARD');
+                    }
                 }
             }
             setDetailLoading(false);
@@ -202,6 +214,18 @@ export function TripRequestScreen({ navigation, route }: any) {
                                     <View style={s.verifiedBadge}>
                                         <Ionicons name="shield-checkmark" size={12} color={SUCCESS} />
                                         <Text style={s.verifiedBadgeText}>VERIFIED</Text>
+                                    </View>
+                                )}
+                                {trustBadge === 'VERIFIED_SAFE' && (
+                                    <View style={[s.verifiedBadge, { borderColor: SUCCESS, backgroundColor: 'rgba(0,255,148,0.15)' }]}>
+                                        <Ionicons name="shield" size={12} color={SUCCESS} />
+                                        <Text style={[s.verifiedBadgeText, { color: SUCCESS }]}>TRUSTED {trustScore}</Text>
+                                    </View>
+                                )}
+                                {trustBadge === 'SAFE_ROUTE' && (
+                                    <View style={[s.prefBadge, { borderColor: CYAN, backgroundColor: 'rgba(0,229,255,0.1)' }]}>
+                                        <Ionicons name="shield-outline" size={12} color={CYAN} />
+                                        <Text style={[s.prefBadgeText, { color: CYAN }]}>SAFE {trustScore}</Text>
                                     </View>
                                 )}
                             </View>

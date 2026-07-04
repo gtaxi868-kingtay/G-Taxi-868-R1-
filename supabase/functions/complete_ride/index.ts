@@ -180,6 +180,51 @@ serve(async (req: Request) => {
       );
     }
 
+    // ── STOP COMPLETION CHECK ───────────────────────────────────────────────
+    // If rider-initiated with pending stops: block
+    // If driver-initiated with pending stops: auto-skip, log event
+    // (Runs only after authorization + status checks above — no side effects
+    // for an unauthorized or out-of-state caller.)
+    const { data: pendingStops } = await supabaseAdmin
+      .from("ride_stops")
+      .select("id, place_name, stop_order")
+      .eq("ride_id", ride_id)
+      .in("status", ["pending", "arrived"])
+      .order("stop_order", { ascending: true });
+
+    if (pendingStops && pendingStops.length > 0) {
+      if (isRider) {
+        const stopNames = pendingStops.map((s: any) => s.place_name).join(", ");
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Unfinished stops: ${stopNames}. Please skip them first.`,
+            data: { pending_stops: pendingStops },
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Driver completing — auto-skip pending stops
+      const { error: skipErr } = await supabaseAdmin
+        .from("ride_stops")
+        .update({ status: "skipped" })
+        .eq("ride_id", ride_id)
+        .in("status", ["pending", "arrived"]);
+      if (skipErr) console.error("Failed to auto-skip stops:", skipErr);
+
+      const { error: stopLogErr } = await supabaseAdmin
+        .from("ride_events")
+        .insert({
+          event_type: "stop_skipped",
+          ride_id,
+          metadata: {
+            reason: "ride_completed",
+            skipped_stops: pendingStops.map((s: any) => ({ name: s.place_name, id: s.id })),
+          },
+        });
+      if (stopLogErr) console.error("Failed to log stop_skipped event:", stopLogErr);
+    }
+
     if (isDriver) {
       if (!driver_lat || !driver_lng) {
         return new Response(
