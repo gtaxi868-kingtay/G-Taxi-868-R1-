@@ -369,7 +369,10 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         if (!featureFlags.grocery) return;
         supabase
             .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
-            .then(({ data }) => setNearbyVendors(data || []));
+            .then(
+                ({ data }) => setNearbyVendors(data || []),
+                (err: unknown) => console.warn('[HomeScreen] get_nearby_merchants failed:', err),
+            );
     }, [location, featureFlags.grocery]);
 
     useEffect(() => {

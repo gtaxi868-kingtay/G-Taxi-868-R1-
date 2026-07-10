@@ -46,10 +46,13 @@ export function WalletTopUpScreen({ navigation }: any) {
     useEffect(() => {
         if (user?.id) {
             supabase.rpc('get_wallet_balance', { p_user_id: user.id })
-                .then(({ data, error }) => {
-                    if (!error && data !== null) setBalance(data / 100);
-                    else setBalance(0);
-                });
+                .then(
+                    ({ data, error }) => {
+                        if (!error && data !== null) setBalance(data / 100);
+                        else setBalance(0);
+                    },
+                    (err: unknown) => { console.warn('[WalletTopUp] balance fetch failed:', err); setBalance(0); },
+                );
         }
     }, [user?.id]);
 

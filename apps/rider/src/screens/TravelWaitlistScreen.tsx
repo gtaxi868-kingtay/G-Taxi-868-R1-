@@ -35,13 +35,16 @@ export function TravelWaitlistScreen({ navigation }: AppScreenProps<'TravelWaitl
             .from('travel_waitlist')
             .select('destination_code')
             .eq('user_id', user.id)
-            .then(({ data }) => {
-                if (data) {
-                    const codes = new Set(data.map((r: any) => r.destination_code));
-                    setExisting(codes);
-                    setSelected(codes);
-                }
-            });
+            .then(
+                ({ data }) => {
+                    if (data) {
+                        const codes = new Set(data.map((r: any) => r.destination_code));
+                        setExisting(codes);
+                        setSelected(codes);
+                    }
+                },
+                (err: unknown) => console.warn('[TravelWaitlist] load failed:', err),
+            );
     }, [user]);
 
     const toggle = (code: string) => {

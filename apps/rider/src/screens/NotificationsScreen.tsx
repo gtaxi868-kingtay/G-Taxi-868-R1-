@@ -95,9 +95,12 @@ export function NotificationsScreen({ navigation }: AppScreenProps<'Notification
                     .from('notifications')
                     .update({ is_read: true })
                     .in('id', unreadIds)
-                    .then(({ error: uErr }) => {
-                        if (uErr) console.warn('[Notifications] mark-read failed:', uErr.message);
-                    });
+                    .then(
+                        ({ error: uErr }) => {
+                            if (uErr) console.warn('[Notifications] mark-read failed:', uErr.message);
+                        },
+                        (err: unknown) => console.warn('[Notifications] mark-read network error:', err),
+                    );
             }
         } catch (err: any) {
             console.warn('[Notifications] unexpected error:', err?.message);
