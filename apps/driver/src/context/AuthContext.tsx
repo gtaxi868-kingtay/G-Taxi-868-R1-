@@ -38,7 +38,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 async function registerPushToken(userId: string): Promise<void> {
     if (!Device.isDevice) {
         // Push notifications do not work on simulators/emulators.
-        console.log('registerPushToken: skipped (not a physical device).');
+        __DEV__ && console.log('registerPushToken: skipped (not a physical device).');
         return;
     }
 
@@ -78,7 +78,7 @@ async function registerPushToken(userId: string): Promise<void> {
         if (error) {
             console.error('registerPushToken: failed to save token to drivers table:', error);
         } else {
-            console.log('registerPushToken: token saved for driver', userId);
+            __DEV__ && console.log('registerPushToken: token saved for driver', userId);
         }
     } catch (err) {
         console.error('registerPushToken: error obtaining push token:', err);
@@ -110,10 +110,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // FIX 4: JWT session expiry handling
             if (event === 'TOKEN_REFRESHED') {
-                console.log('AUTH: Token refreshed successfully');
+                __DEV__ && console.log('AUTH: Token refreshed successfully');
             }
             if (event === 'SIGNED_OUT') {
-                console.log('AUTH: Session ended, redirecting to login');
+                __DEV__ && console.log('AUTH: Session ended, redirecting to login');
                 setUser(null);
                 setSession(null);
                 setDriver(null);
@@ -137,12 +137,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         const notificationReceivedListener = Notifications.addNotificationReceivedListener(notification => {
-            console.log('[Notification] Received:', notification.request.content.title);
+            __DEV__ && console.log('[Notification] Received:', notification.request.content.title);
         });
 
         const notificationResponseListener = Notifications.addNotificationResponseReceivedListener(response => {
             const data = response.notification.request.content.data;
-            console.log('[Notification] Tapped:', data);
+            __DEV__ && console.log('[Notification] Tapped:', data);
         });
 
         return () => {

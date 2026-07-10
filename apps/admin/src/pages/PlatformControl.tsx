@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { ToggleLeft, ToggleRight, RefreshCw, ShieldAlert, Sliders, Car, ShoppingCart, Wind, Package, Truck, type LucideProps } from 'lucide-react';
+import { ToggleLeft, ToggleRight, RefreshCw, ShieldAlert, Sliders, Car, ShoppingCart, Wind, Package, Truck, MessageCircle, type LucideProps } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,6 +22,12 @@ interface FeatureFlag {
     applies_to: string;
     toggled_at: string | null;
 }
+
+// Contact / front-door config keys surfaced for editing here.
+const CONTACT_KEYS: { key: string; label: string; hint: string }[] = [
+    { key: 'support_whatsapp_number', label: 'Support WhatsApp', hint: 'Rider/driver support + QR/NFC front-door fallback' },
+    { key: 'escape_whatsapp_number', label: 'G-Escape WhatsApp', hint: 'Travel concierge line' },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -78,14 +84,24 @@ export function PlatformControl() {
     const [togglingFlag, setTogglingFlag] = useState<string | null>(null);
     const [rolloutEditing, setRolloutEditing] = useState<Record<string, string>>({});
     const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+    const [contact, setContact] = useState<Record<string, string>>({});
+    const [contactEditing, setContactEditing] = useState<Record<string, string>>({});
+    const [savingContact, setSavingContact] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
-        const [vRes, fRes] = await Promise.all([
+        const [vRes, fRes, cRes] = await Promise.all([
             supabase.from('vertical_settings').select('*').order('sort_order'),
             supabase.from('system_feature_flags').select('*').order('id'),
+            supabase.from('system_config').select('key, value').in('key', [...CONTACT_KEYS.map(c => c.key), 'maintenance_mode']),
         ]);
         setVerticals((vRes.data as Vertical[]) || []);
+
+        const contactMap: Record<string, string> = {};
+        for (const row of (cRes.data as { key: string; value: string }[] | null) || []) {
+            contactMap[row.key] = row.value;
+        }
+        setContact(contactMap);
         
         let loadedFlags = (fRes.data as FeatureFlag[]) || [];
         const requiredFlags = [
@@ -164,6 +180,40 @@ export function PlatformControl() {
             setFlags(prev => prev.map(x => x.id === f.id ? { ...x, is_active: newActive } : x));
         }
         setTogglingFlag(null);
+    };
+
+    const saveContact = async (key: string) => {
+        const raw = contactEditing[key] ?? contact[key] ?? '';
+        const digits = raw.replace(/[^\d]/g, '');
+        if (digits.length < 7) {
+            flash('Enter a valid number (digits only, incl. country code, e.g. 18687031000)', false);
+            return;
+        }
+        setSavingContact(key);
+        const { error } = await supabase.rpc('admin_set_system_config', { p_key: key, p_value: digits });
+        if (error) {
+            flash(`Failed to save: ${error.message}`, false);
+        } else {
+            setContact(prev => ({ ...prev, [key]: digits }));
+            setContactEditing(prev => { const n = { ...prev }; delete n[key]; return n; });
+            flash('Saved — apps and the QR landing page will use the new number immediately', true);
+        }
+        setSavingContact(null);
+    };
+
+    const toggleMaintenance = async () => {
+        const next = contact['maintenance_mode'] === 'true' ? 'false' : 'true';
+        setSavingContact('maintenance_mode');
+        const { error } = await supabase.rpc('admin_set_system_config', { p_key: 'maintenance_mode', p_value: next });
+        if (error) {
+            flash(`Failed to set maintenance mode: ${error.message}`, false);
+        } else {
+            setContact(prev => ({ ...prev, maintenance_mode: next }));
+            flash(next === 'true'
+                ? 'MAINTENANCE MODE ON — riders/drivers see the "be right back" screen'
+                : 'Maintenance mode OFF — apps are live again', true);
+        }
+        setSavingContact(null);
     };
 
     if (loading) {
@@ -303,6 +353,101 @@ export function PlatformControl() {
                                         Tile hidden from all riders — toggle Live to activate
                                     </div>
                                 )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </section>
+
+            {/* ── Maintenance kill-switch ───────────────────────────────────── */}
+            <section>
+                <div className={`rounded-2xl p-6 border transition-all ${
+                    contact['maintenance_mode'] === 'true'
+                        ? 'bg-red-500/10 border-red-500/40'
+                        : 'bg-white/5 border-white/10'
+                }`}>
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-3">
+                            <ShieldAlert size={20} className={contact['maintenance_mode'] === 'true' ? 'text-red-400' : 'text-white/40'} />
+                            <div>
+                                <h3 className="font-black text-white uppercase tracking-wider text-sm">Maintenance Mode</h3>
+                                <p className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">
+                                    {contact['maintenance_mode'] === 'true'
+                                        ? 'LIVE — all riders & drivers see the "be right back" screen'
+                                        : 'Off — apps operate normally'}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={toggleMaintenance}
+                            disabled={savingContact === 'maintenance_mode'}
+                            className="flex items-center gap-2 disabled:opacity-40"
+                            title="Toggle platform maintenance mode"
+                        >
+                            {savingContact === 'maintenance_mode' ? (
+                                <div className="w-5 h-5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                            ) : contact['maintenance_mode'] === 'true' ? (
+                                <ToggleRight size={32} className="text-red-400" />
+                            ) : (
+                                <ToggleLeft size={32} className="text-white/20" />
+                            )}
+                            <span className={`text-xs font-black uppercase tracking-widest ${contact['maintenance_mode'] === 'true' ? 'text-red-400' : 'text-white/20'}`}>
+                                {contact['maintenance_mode'] === 'true' ? 'ON' : 'Off'}
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {/* ── Contact & Front Door ──────────────────────────────────────── */}
+            <section>
+                <div className="flex items-center gap-3 mb-4">
+                    <MessageCircle size={18} className="text-green-400" />
+                    <div>
+                        <h3 className="font-black text-white uppercase tracking-wider text-sm">Contact &amp; Front Door</h3>
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest">
+                            Business WhatsApp numbers used by the apps and the QR/NFC landing page — no code change needed
+                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    {CONTACT_KEYS.map(({ key, label, hint }) => {
+                        const current = contact[key] ?? '';
+                        const val = contactEditing[key] ?? current;
+                        const isDirty = contactEditing[key] !== undefined && contactEditing[key] !== current;
+                        const busy = savingContact === key;
+                        return (
+                            <div key={key} className="bg-white/5 rounded-2xl p-5 border border-white/5">
+                                <div className="flex items-center justify-between gap-4 flex-wrap">
+                                    <div>
+                                        <p className="font-black text-white text-sm">{label}</p>
+                                        <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">{hint}</p>
+                                        <p className="text-[10px] text-white/20 font-mono mt-0.5">{key}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-white/20 text-sm font-mono">+</span>
+                                        <input
+                                            type="tel"
+                                            inputMode="numeric"
+                                            value={val}
+                                            placeholder="18687031000"
+                                            onChange={e => setContactEditing(prev => ({ ...prev, [key]: e.target.value }))}
+                                            className="w-44 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-green-400/50"
+                                        />
+                                        <button
+                                            onClick={() => saveContact(key)}
+                                            disabled={busy || !isDirty}
+                                            className="px-4 py-2 bg-green-500/20 border border-green-400/30 text-green-400 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-green-500/30 disabled:opacity-30"
+                                        >
+                                            {busy ? 'Saving…' : 'Save'}
+                                        </button>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-white/30 mt-3">
+                                    Digits only, including country code (Trinidad &amp; Tobago = 1868…). Used to build{' '}
+                                    <span className="font-mono text-white/40">wa.me/{current || '…'}</span> links.
+                                </p>
                             </div>
                         );
                     })}

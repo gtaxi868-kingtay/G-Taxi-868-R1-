@@ -1,16 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendPushNotification } from "../_shared/push.ts";
-import { captureException } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
-serve(async () => {
+serve(async (req: Request) => {
+  if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { "Content-Type": "application/json" },
+    })
+  }
   try {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Fetch pending tasks sorted by priority DESC, oldest first
     const { data: queueItems, error: queueErr } = await supabaseAdmin
       .from("dispatch_queue")
       .select("id, task_type, order_id, ride_id, priority, pickup_lat, pickup_lng, attempts, expires_at, created_at, orders(merchant_id, total_cents, delivery_fee_cents, merchants(business_name))")
@@ -25,7 +28,6 @@ serve(async () => {
       return new Response(JSON.stringify({ message: "No pending dispatch items." }), { status: 200, headers: { "Content-Type": "application/json" } });
     }
 
-    // Expire tasks past their deadline
     const now = new Date();
     for (const item of queueItems) {
       if (item.expires_at && new Date(item.expires_at) <= now) {
@@ -52,7 +54,6 @@ serve(async () => {
           continue;
         }
 
-        // Expanding search radius based on attempts
         let searchRadiusMeters = 3000;
         if (item.attempts >= 2) searchRadiusMeters = 6000;
         if (item.attempts >= 3) searchRadiusMeters = 10000;
@@ -81,7 +82,6 @@ serve(async () => {
         const driver = drivers[0];
 
         if (item.task_type === "DELIVERY" || item.task_type === "GROCERY" || item.task_type === "LAUNDRY") {
-          // Create delivery offer for order-based tasks
           const OFFER_TIMEOUT_SECONDS = 30;
           const expiresAt = new Date(Date.now() + OFFER_TIMEOUT_SECONDS * 1000).toISOString();
 
@@ -98,25 +98,6 @@ serve(async () => {
 
           if (offerErr) throw offerErr;
 
-          const feeCents = order?.delivery_fee_cents ?? 0;
-          const feeTTD = (feeCents / 100).toFixed(2);
-
-          if (driver.push_token) {
-            await sendPushNotification(
-              driver.push_token,
-              `New ${item.task_type} Request`,
-              `${merchantName} — TTD $${feeTTD} fee`,
-              {
-                type: "delivery_offer",
-                offer_id: offer.id,
-                order_id: item.order_id,
-                task_id: item.id,
-                merchant_name: merchantName,
-                delivery_fee_cents: feeCents,
-              }
-            );
-          }
-
           await supabaseAdmin
             .from("dispatch_queue")
             .update({ status: "dispatched", driver_id: driver.driver_id, last_attempted: now.toISOString() })
@@ -125,21 +106,6 @@ serve(async () => {
           results.push({ task_id: item.id, task_type: item.task_type, status: "dispatched", driver_id: driver.driver_id, offer_id: offer.id });
 
         } else if (item.task_type === "RIDE") {
-          // RIDE tasks: soft-ping the driver, Realtime handles the offer
-          if (driver.push_token) {
-            await sendPushNotification(
-              driver.push_token,
-              "New Ride Available",
-              `Priority ${item.priority} ride nearby. Tap to view.`,
-              {
-                type: "ride_dispatch",
-                ride_id: item.ride_id,
-                task_id: item.id,
-                priority: item.priority,
-              }
-            );
-          }
-
           await supabaseAdmin
             .from("dispatch_queue")
             .update({ status: "assigned", driver_id: driver.driver_id, last_attempted: now.toISOString() })
@@ -148,7 +114,6 @@ serve(async () => {
           results.push({ task_id: item.id, task_type: "RIDE", status: "assigned", driver_id: driver.driver_id });
 
         } else {
-          // Unknown task type — skip
           results.push({ task_id: item.id, task_type: item.task_type, status: "unknown_type" });
         }
 
@@ -162,7 +127,6 @@ serve(async () => {
 
   } catch (error: any) {
     console.error("process_dispatch_queue error:", error);
-    await captureException(error, { function: "process_dispatch_queue" });
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 });

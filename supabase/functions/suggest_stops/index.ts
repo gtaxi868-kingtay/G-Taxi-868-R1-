@@ -1,14 +1,9 @@
-// Supabase Edge Function: suggest_stops
-// FIX 2: Replaced hardcoded mock offsets with real Mapbox Places API calls.
-// Returns genuine POIs (Pharmacies, Grocery Stores, Banks) along the route corridor.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { captureException } from "../_shared/sentry.ts";
-import { secureFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_PUBLIC_TOKEN") ?? "";
 
 const corsHeaders = {
@@ -16,18 +11,20 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// POI categories to search, ordered by usefulness in T&T context
 const STOP_CATEGORIES = [
-    { category: "pharmacy",   emoji: "💊", stop_type: "pharmacy",  wait_minutes: 10 },
-    { category: "grocery",    emoji: "🛒", stop_type: "grocery",   wait_minutes: 15 },
-    { category: "bank",       emoji: "🏦", stop_type: "errand",    wait_minutes: 10 },
-    { category: "atm",        emoji: "💵", stop_type: "errand",    wait_minutes: 5  },
-    { category: "bakery",     emoji: "🥐", stop_type: "food",      wait_minutes: 8  },
+    { category: "pharmacy",   emoji: "\u{1F48A}", stop_type: "pharmacy",  wait_minutes: 10 },
+    { category: "grocery",    emoji: "\u{1F6D2}", stop_type: "grocery",   wait_minutes: 15 },
+    { category: "bank",       emoji: "\u{1F3E6}", stop_type: "errand",    wait_minutes: 10 },
+    { category: "atm",        emoji: "\u{1F4B5}", stop_type: "errand",    wait_minutes: 5  },
+    { category: "bakery",     emoji: "\u{1F950}", stop_type: "food",      wait_minutes: 8  },
 ];
 
-// Midpoint between pickup and dropoff — best area to surface stops
 function midpoint(lat1: number, lng1: number, lat2: number, lng2: number) {
     return { lat: (lat1 + lat2) / 2, lng: (lng1 + lng2) / 2 };
+}
+
+function coordsToZone(lat: number, lng: number): string {
+    return `${Math.round(lat * 1000) / 1000},${Math.round(lng * 1000) / 1000}`;
 }
 
 serve(async (req: Request) => {
@@ -50,7 +47,7 @@ serve(async (req: Request) => {
         }
 
         const body = await req.json().catch(() => ({}));
-        const { pickup_lat, pickup_lng, dropoff_lat, dropoff_lng } = body;
+        const { pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, ride_id } = body;
 
         if (!pickup_lat || !pickup_lng) {
             return new Response(
@@ -59,39 +56,110 @@ serve(async (req: Request) => {
             );
         }
 
-        // Use route midpoint for search
         const { lat: searchLat, lng: searchLng } = dropoff_lat
             ? midpoint(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng)
             : { lat: pickup_lat, lng: pickup_lng };
 
-        // 1. FETCH G-TAXI NETWORK PARTNERS (Service Verticals)
-        const { data: networkMerchants } = await supabaseClient
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        const currentHour = new Date().getHours();
+        const currentDay = new Date().getDay();
+        const isWeekend = currentDay === 0 || currentDay === 6;
+
+        const { data: patternMerchants } = await supabaseAdmin
+            .from("rider_route_patterns")
+            .select(`
+                typical_merchant_id,
+                probability,
+                sample_size,
+                time_window,
+                last_observed_at
+            `)
+            .eq("rider_id", user.id)
+            .eq("origin_zone", coordsToZone(pickup_lat, pickup_lng))
+            .eq("destination_zone", dropoff_lat && dropoff_lng ? coordsToZone(dropoff_lat, dropoff_lng) : coordsToZone(pickup_lat, pickup_lng))
+            .gte("probability", 0.3)
+            .order("probability", { ascending: false });
+
+        let predictions: any[] = [];
+        if (patternMerchants && patternMerchants.length > 0) {
+            const merchantIds = patternMerchants
+                .filter((p: any) => p.typical_merchant_id)
+                .map((p: any) => p.typical_merchant_id);
+
+            if (merchantIds.length > 0) {
+                const { data: merchants } = await supabaseAdmin
+                    .from("merchants")
+                    .select("id, name, address, lat, lng, category, is_open")
+                    .in("id", merchantIds)
+                    .eq("is_active", true);
+
+                predictions = (merchants || []).map((m: any) => {
+                    const pattern = patternMerchants.find((p: any) => p.typical_merchant_id === m.id);
+                    return {
+                        place_name: m.name,
+                        place_address: m.address || m.category,
+                        lat: m.lat,
+                        lng: m.lng,
+                        stop_type: m.category,
+                        emoji: m.category === 'restaurant' ? '\u{1F37D}' : m.category === 'pharmacy' ? '\u{1F48A}' : '\u{1F3EA}',
+                        estimated_wait_minutes: 10,
+                        is_preferred: true,
+                        is_network_partner: true,
+                        merchant_id: m.id,
+                        is_prediction: true,
+                        prediction_probability: pattern?.probability || 0,
+                    };
+                });
+            }
+        }
+
+        const { data: networkMerchants } = await supabaseAdmin
             .from("merchants")
-            .select("*, user_service_history(visit_count)")
+            .select("id, name, address, lat, lng, category, is_open")
             .neq("category", "grocery")
             .neq("category", "laundry")
             .eq("is_active", true)
-            .limit(10); // In prod, use PostGIS ST_DWithin(geom, ...)
+            .eq("is_open", true);
 
-        const networkSuggestions = (networkMerchants || []).map(m => ({
-            place_name: m.name,
-            place_address: m.address || m.category,
-            lat: m.lat,
-            lng: m.lng,
-            stop_type: m.category,
-            emoji: m.category === 'barber' ? '💈' : (m.category === 'salon' ? '💇' : '🏪'),
-            estimated_wait_minutes: 15,
-            is_preferred: m.user_service_history && m.user_service_history.length > 0,
-            is_network_partner: true,
-            merchant_id: m.id
-        }));
+        const networkSuggestions = (networkMerchants || [])
+            .filter((m: any) => {
+                if (!m.lat || !m.lng) return false;
+                const dist = Math.sqrt(
+                    Math.pow(m.lat - searchLat, 2) +
+                    Math.pow(m.lng - searchLng, 2)
+                );
+                return dist < 0.045;
+            })
+            .map((m: any) => {
+                let timeBoost = 1;
+                if (currentHour >= 11 && currentHour <= 14 && ['restaurant', 'local', 'indian', 'chinese', 'pizza', 'seafood', 'bakery', 'creole'].includes(m.category)) {
+                    timeBoost = 2;
+                } else if (currentHour >= 17 && currentHour <= 21 && ['restaurant', 'pizza', 'seafood', 'creole'].includes(m.category)) {
+                    timeBoost = 2;
+                }
+                if (isWeekend) timeBoost = Math.max(timeBoost, 1.5);
 
-        // 2. FETCH MAPBOX POIs (Corridor Filling)
+                return {
+                    place_name: m.name,
+                    place_address: m.address || m.category,
+                    lat: m.lat,
+                    lng: m.lng,
+                    stop_type: m.category,
+                    emoji: m.category === 'restaurant' ? '\u{1F37D}' : m.category === 'pharmacy' ? '\u{1F48A}' : m.category === 'barber' ? '\u{1F488}' : m.category === 'salon' ? '\u{1F487}' : '\u{1F3EA}',
+                    estimated_wait_minutes: 10,
+                    is_preferred: false,
+                    is_network_partner: true,
+                    merchant_id: m.id,
+                    _time_boost: timeBoost,
+                };
+            });
+
         const fetchCategory = async (cat: typeof STOP_CATEGORIES[0]) => {
             if (!MAPBOX_TOKEN) return [];
             const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(cat.category)}.json?proximity=${searchLng},${searchLat}&types=poi&limit=2&country=TT&access_token=${MAPBOX_TOKEN}`;
             try {
-                const res = await secureFetch(url);
+                const res = await fetch(url);
                 if (!res.ok) return [];
                 const json = await res.json();
                 return (json.features || []).map((f: any) => ({
@@ -103,7 +171,7 @@ serve(async (req: Request) => {
                     emoji: cat.emoji,
                     estimated_wait_minutes: cat.wait_minutes,
                     is_preferred: false,
-                    is_network_partner: false
+                    is_network_partner: false,
                 }));
             } catch {
                 return [];
@@ -114,30 +182,41 @@ serve(async (req: Request) => {
         const mapboxSuggestions = mapboxResults
             .flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 
-        // 3. MERGE & PRIORITIZE (Network First, then History, then Mapbox)
         const allSuggestions = [
-            ...networkSuggestions.filter(s => s.is_preferred),
-            ...networkSuggestions.filter(s => !s.is_preferred),
-            ...mapboxSuggestions
+            ...predictions,
+            ...networkSuggestions,
+            ...mapboxSuggestions,
         ];
 
-        // Filter duplicates and limit
         const seen = new Set();
-        const suggestions = allSuggestions.filter(s => {
-            const key = `${s.lat.toFixed(4)},${s.lng.toFixed(4)}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        }).slice(0, 6);
+        const suggestions = allSuggestions
+            .filter(s => {
+                const key = `${s.lat?.toFixed(4)},${s.lng?.toFixed(4)}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            })
+            .sort((a: any, b: any) => {
+                if (a.is_prediction && !b.is_prediction) return -1;
+                if (!a.is_prediction && b.is_prediction) return 1;
+                return (b._time_boost || 1) - (a._time_boost || 1);
+            })
+            .slice(0, 6);
+
+        const grouped: any = {};
+        if (predictions.length > 0) {
+            grouped.predictions = suggestions.filter((s: any) => s.is_prediction);
+        }
+        grouped.favorites = suggestions.filter((s: any) => s.is_preferred && !s.is_prediction);
+        grouped.nearby = suggestions.filter((s: any) => !s.is_preferred && !s.is_prediction);
 
         return new Response(
-            JSON.stringify({ success: true, data: { suggestions } }),
+            JSON.stringify({ success: true, data: { suggestions, grouped } }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
 
     } catch (error: any) {
         console.error("suggest_stops error:", error);
-        await captureException(error, { function: "suggest_stops" });
         return new Response(
             JSON.stringify({ success: false, error: "Internal server error: " + error.message }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

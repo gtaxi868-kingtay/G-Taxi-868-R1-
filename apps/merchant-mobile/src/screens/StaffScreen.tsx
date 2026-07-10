@@ -146,7 +146,7 @@ export function StaffScreen({ navigation }: { navigation: NativeStackNavigationP
 
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
         </TouchableOpacity>
         <Text style={s.title}>Staff</Text>
         <TouchableOpacity onPress={() => setModalVisible(true)} style={s.addBtn}>
@@ -214,30 +214,30 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: SURFACE.base },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  title: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   addBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center' },
   list: { padding: 20, paddingBottom: 48 },
   staffRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 16, marginBottom: 10, gap: 12 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: VOICES.merchant.accent + '26', justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontSize: 18, fontWeight: '700', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
   staffInfo: { flex: 1, minWidth: 0 },
-  staffName: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  staffName: { fontSize: 15, fontWeight: '600', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   staffRole: { fontSize: 12, color: VOICES.merchant.textMuted, marginTop: 2, fontFamily: 'Manrope' },
   staffActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   toggleText: { fontSize: 11, fontWeight: '700', fontFamily: 'Manrope' },
   iconBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginTop: 16, fontFamily: 'SpaceGrotesk' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', marginTop: 16, fontFamily: 'SpaceGrotesk' },
   emptyDesc: { fontSize: 14, color: VOICES.merchant.textMuted, textAlign: 'center', marginTop: 8, lineHeight: 20, fontFamily: 'Manrope' },
   emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 24, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, backgroundColor: VOICES.merchant.accent + '22' },
   emptyBtnText: { fontSize: 14, fontWeight: '700', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   modalClose: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
   modalScroll: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
   fieldLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 20, fontFamily: 'Manrope' },
-  input: { backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, color: '#FFFFFF', fontSize: 15, fontFamily: 'Manrope' },
+  input: { backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, color: '#E9F5F3', fontSize: 15, fontFamily: 'Manrope' },
   saveBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 16, height: 52, justifyContent: 'center', alignItems: 'center', marginTop: 32 },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { fontSize: 15, fontWeight: '800', color: '#000', fontFamily: 'SpaceGrotesk' },

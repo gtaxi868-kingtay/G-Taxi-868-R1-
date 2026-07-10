@@ -4,6 +4,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
+import { sendWhatsApp } from "../_shared/sms.ts";
 import { captureException } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -92,12 +93,22 @@ serve(async (req: Request) => {
       );
     }
 
-    // Only the assigned driver can update the ride
+    // Only the assigned driver can update the ride.
+    // rides.driver_id holds drivers.id (set by accept_ride/match_driver), which
+    // is not the auth uid for most drivers — resolve via drivers.user_id.
     if (ride.driver_id !== userId) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Not authorized. Only the assigned driver can update this ride.", data: null }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const { data: driverRecord } = await supabaseAdmin
+        .from("drivers")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!driverRecord || ride.driver_id !== driverRecord.id) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Not authorized. Only the assigned driver can update this ride.", data: null }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     if (!isMetadataOnly) {
@@ -137,6 +148,31 @@ serve(async (req: Request) => {
           );
         }
 
+        // --- GPS TRUTH ON PIN LOCK ---
+        // The PIN must be entered at the pickup point, not relayed remotely.
+        if (!driver_lat || !driver_lng) {
+          return new Response(
+            JSON.stringify({ success: false, error: "GPS coordinates required to start trip", data: null }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const pinDistMeters = getDistanceMeters(
+          driver_lat, driver_lng,
+          ride.pickup_lat, ride.pickup_lng
+        );
+
+        if (pinDistMeters > 120) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Too far from pickup to start trip. You are ${Math.round(pinDistMeters)}m away (max 120m).`,
+              data: { distance: pinDistMeters }
+            }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
         if (ride.ride_pin !== pin) {
           return new Response(
             JSON.stringify({ success: false, error: "Invalid PIN. Please ask the rider for their 4-digit code.", data: null }),
@@ -151,7 +187,7 @@ serve(async (req: Request) => {
                 .select('photo_urls')
                 .eq('order_id', ride.order_id)
                 .maybeSingle();
-            
+
             if (!log || !log.photo_urls || log.photo_urls.length === 0) {
                 return new Response(
                     JSON.stringify({ success: false, error: "PHOTO_REQUIRED: Merchant photo proof required before pickup.", data: null }),
@@ -190,7 +226,7 @@ serve(async (req: Request) => {
         const arrivalTime = new Date(ride.arrived_at).getTime();
         const now = new Date().getTime();
         const waitMinutes = (now - arrivalTime) / (1000 * 60);
-        
+
         if (waitMinutes > 0) {
             updatePayload.wait_fee_cents = Math.floor(waitMinutes * 100);
             updatePayload.is_stationary = true;
@@ -211,11 +247,14 @@ serve(async (req: Request) => {
 
     const { error: updateError, count } = await query;
 
-    // ── Push Notification to Rider on Arrival ────────────────────────────
+    // ── Out-of-app notification to Rider on Arrival ──────────────────────
+    // Push AND WhatsApp/SMS so the rider gets "driver arrived" even if their
+    // app is closed or their data connection dropped during the wait. The
+    // WhatsApp send noops gracefully until the Cloud API creds are set.
     if (status === 'arrived' && ride.rider_id) {
         const { data: riderProfile } = await supabaseAdmin
             .from('profiles')
-            .select('push_token')
+            .select('push_token, phone_number')
             .eq('id', ride.rider_id)
             .single();
 
@@ -226,6 +265,13 @@ serve(async (req: Request) => {
                 'Your driver has arrived at the pickup location. Please meet them there.',
                 { type: 'DRIVER_ARRIVED', ride_id: ride.id }
             ).catch(err => console.error("Arrival push failed:", err));
+        }
+
+        if (riderProfile?.phone_number) {
+            sendWhatsApp(
+                riderProfile.phone_number,
+                `G-Taxi: your driver has ARRIVED at the pickup location. Please head out to meet them. (Ride ${String(ride.id).slice(0, 8)})`
+            ).catch(err => console.error("Arrival WhatsApp/SMS failed (non-fatal):", err));
         }
     }
 

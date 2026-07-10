@@ -525,7 +525,7 @@ const s = StyleSheet.create({
     screenTitle: {
         fontSize: 22,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: '#E9F5F3',
         fontFamily: 'SpaceGrotesk',
     },
     productCount: {
@@ -558,7 +558,7 @@ const s = StyleSheet.create({
     },
     productInfo: { flex: 1, minWidth: 0 },
     productHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' },
-    productName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk', flex: 1 },
+    productName: { fontSize: 15, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', flex: 1 },
     categoryBadge: {
         paddingHorizontal: 8,
         paddingVertical: 2,
@@ -592,7 +592,7 @@ const s = StyleSheet.create({
 
     // Empty
     emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingTop: 80 },
-    emptyTitle: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', marginTop: 16, fontFamily: 'SpaceGrotesk' },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', marginTop: 16, fontFamily: 'SpaceGrotesk' },
     emptyDesc: {
         fontSize: 14,
         color: VOICES.merchant.textMuted,
@@ -637,7 +637,7 @@ const s = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: '#E9F5F3',
         fontFamily: 'SpaceGrotesk',
     },
     modalClose: {
@@ -668,7 +668,7 @@ const s = StyleSheet.create({
         borderRadius: 14,
         paddingHorizontal: 16,
         paddingVertical: 14,
-        color: '#FFFFFF',
+        color: '#E9F5F3',
         fontSize: 15,
         fontFamily: 'Manrope',
     },

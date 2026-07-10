@@ -2,7 +2,6 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { EarningsScreen } from '../EarningsScreen';
 
-jest.mock('@gtaxi/core', () => ({ supabase: { channel: () => ({ on: () => ({ subscribe: jest.fn() }) }), from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ order: () => ({ limit: () => ({ data: null }) }) }) }) }) }), removeChannel: jest.fn() } }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ driver: { id: 'test' } }) }));
 
 describe('EarningsScreen', () => {

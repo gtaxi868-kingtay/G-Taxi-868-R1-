@@ -161,7 +161,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
 
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
-          <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
         </TouchableOpacity>
         <Text style={s.title}>Earnings</Text>
         <TouchableOpacity onPress={loadEarnings} style={s.backBtn} accessibilityLabel="Refresh earnings" accessibilityRole="button">
@@ -296,17 +296,17 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: SURFACE.base },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  title: { fontSize: 23, color: '#E9F5F3', fontFamily: VOICES.merchant.serifSemi },
   walletHero: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, marginBottom: 12, borderRadius: 24, padding: 24 },
   walletHeroLeft: { flex: 1 },
   walletHeroLabel: { fontSize: 12, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', textTransform: 'uppercase', letterSpacing: 1 },
-  walletHeroValue: { fontSize: 38, fontWeight: '800', color: '#FFFFFF', fontFamily: 'SpaceGrotesk', marginTop: 4 },
+  walletHeroValue: { fontSize: 44, color: VOICES.merchant.copper, fontFamily: VOICES.merchant.serifSemi, fontVariant: ['tabular-nums'], marginTop: 4 },
   walletHeroCurrency: { fontSize: 12, color: VOICES.merchant.accent, fontFamily: 'Manrope', marginTop: 2 },
   walletHeroIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: VOICES.merchant.accent + '18', justifyContent: 'center', alignItems: 'center' },
   summaryRow: { flexDirection: 'row', gap: 12, marginHorizontal: 20, marginBottom: 16 },
   summaryCard: { flex: 1, borderRadius: 20, padding: 20 },
   summaryLabel: { fontSize: 12, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', textTransform: 'uppercase', letterSpacing: 0.5 },
-  summaryValue: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', fontFamily: 'SpaceGrotesk', marginTop: 4 },
+  summaryValue: { fontSize: 28, fontWeight: '800', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', marginTop: 4 },
   summaryCurrency: { fontSize: 11, color: VOICES.merchant.textMuted, fontFamily: 'Manrope' },
   tabs: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 4 },
   tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
@@ -317,23 +317,23 @@ const s = StyleSheet.create({
   infoCard: { flexDirection: 'row', borderRadius: 14, padding: 14, marginBottom: 10, alignItems: 'center' },
   infoText: { flex: 1, fontSize: 13, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', lineHeight: 18 },
   summaryBreakdown: { borderRadius: 20, padding: 20, marginTop: 8 },
-  breakdownTitle: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk', marginBottom: 14 },
+  breakdownTitle: { fontSize: 15, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', marginBottom: 14 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   breakdownRowLast: { borderBottomWidth: 0 },
   breakdownLabel: { fontSize: 14, color: VOICES.merchant.textMuted, fontFamily: 'Manrope' },
-  breakdownValue: { fontSize: 14, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  breakdownValue: { fontSize: 14, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   emptyText: { textAlign: 'center', color: VOICES.merchant.textMuted, fontFamily: 'Manrope', marginTop: 40 },
   staffCard: { flexDirection: 'row', borderRadius: 16, padding: 16, marginBottom: 10, alignItems: 'center', gap: 12 },
   staffAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: VOICES.merchant.accent + '26', justifyContent: 'center', alignItems: 'center' },
   staffAvatarText: { fontSize: 18, fontWeight: '700', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
-  staffName: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  staffName: { fontSize: 15, fontWeight: '600', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   staffRides: { fontSize: 12, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', marginTop: 2 },
-  staffTotal: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  staffTotal: { fontSize: 16, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   staffPending: { fontSize: 11, color: VOICES.merchant.accent, fontFamily: 'Manrope', marginTop: 2 },
   historyRow: { flexDirection: 'row', borderRadius: 14, padding: 14, marginBottom: 8 },
-  historyRideId: { fontSize: 13, color: '#FFFFFF', fontFamily: 'SpaceGrotesk', fontWeight: '600' },
+  historyRideId: { fontSize: 13, color: '#E9F5F3', fontFamily: 'SpaceGrotesk', fontWeight: '600' },
   historyDate: { fontSize: 11, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', marginTop: 2 },
-  historyAmount: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+  historyAmount: { fontSize: 15, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   statusBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { fontSize: 11, fontWeight: '700', fontFamily: 'Manrope', textTransform: 'capitalize' },
 });

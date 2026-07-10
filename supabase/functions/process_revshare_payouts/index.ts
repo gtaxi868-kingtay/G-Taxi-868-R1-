@@ -10,6 +10,7 @@ import { requireAdmin } from '../_shared/auth.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const CRON_SECRET = Deno.env.get('PLATFORM_CRON_SECRET') ?? ''
 const WIPAY_ACCOUNT_NUMBER = Deno.env.get('WIPAY_ACCOUNT_NUMBER')
 const WIPAY_API_KEY = Deno.env.get('WIPAY_API_KEY')
 const WIPAY_ENV = Deno.env.get('WIPAY_ENV') || 'sandbox'
@@ -150,8 +151,8 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
-  const url = new URL(req.url)
-  const isCron = url.searchParams.has('cron')
+  const cronHeader = req.headers.get('x-cron-secret')
+  const isCron = cronHeader === CRON_SECRET
 
   // ── GET: return pending revshare summaries + payout history ──
   if (req.method === 'GET') {
@@ -193,7 +194,7 @@ Deno.serve(async (req) => {
     let adminUser: { id: string } | null = null
     let supabaseAdmin: any
 
-    if (isCron) {
+    if (cronHeader === CRON_SECRET) {
       supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     } else {
       const ctx = await requireAdmin(req)

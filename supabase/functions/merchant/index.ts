@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { sendPushNotification } from "../_shared/push.ts";
-import { sendSMS } from "../_shared/sms.ts";
+import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -19,7 +19,7 @@ const json = (body: unknown, status = 200) =>
   });
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  pending: ["confirmed"],
+  pending: ["confirmed", "cancelled"],
   confirmed: ["preparing"],
   preparing: ["ready_for_pickup"],
   ready_for_pickup: ["handed_off", "delivered"],
@@ -463,7 +463,11 @@ serve(async (req) => {
         if (insertError) throw insertError;
 
         const smsMessage = `G-TAXI: ${merchant.name} has summoned a ride for you to ${destination_address}. Your driver will arrive soon. Your ride PIN is ${ridePin}. Track your ride: https://gtaxi.app/track/${newRide.id}`;
-        await sendSMS(guest_phone, smsMessage).catch(() => {});
+        const waResult = await sendWhatsApp(guest_phone, smsMessage, { previewUrl: true }).catch(() => ({ success: false }));
+        if (!waResult.success) {
+          const deepLink = getDeepLink(guest_phone, smsMessage);
+          console.log(`[Merchant] WhatsApp API unavailable — deep link: ${deepLink}`);
+        }
 
         await supabase.from("user_events").insert({
           user_id: user.id,

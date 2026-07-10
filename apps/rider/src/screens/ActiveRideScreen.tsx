@@ -20,7 +20,7 @@ import * as Location from 'expo-location';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { ENV } from '@gtaxi/shared/env';
-import { supabase } from '@gtaxi/core';
+import { supabase, supportWhatsAppLink } from '@gtaxi/core';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
 import { useRideSession } from '../hooks/useRideSession';
@@ -29,6 +29,29 @@ const CYAN = '#00E5FF';
 const SUCCESS = '#00FF94';
 const ERROR = '#FF4D6D';
 const WARNING = '#F59E0B';
+
+const getCategoryEmoji = (cat: string) => {
+    const map: Record<string, string> = {
+        restaurant: '\uD83C\uDF7D',
+        grocery: '\uD83D\uDED2',
+        pharmacy: '\uD83D\uDC8A',
+        laundry: '\uD83E\uDDF4',
+        barber: '\uD83D\uDC88',
+        salon: '\uD83D\uDC87',
+        bakery: '\uD83E\uDD50',
+        pizza: '\uD83C\uDF55',
+        seafood: '\uD83E\uDD90',
+        creole: '\uD83C\uDF7D',
+        bank: '\uD83C\uDFE6',
+        local: '\uD83C\uDF7D',
+        indian: '\uD83C\uDF7D',
+        chinese: '\uD83C\uDF7D',
+        american: '\uD83C\uDF7D',
+        hotel: '\uD83C\uDFE8',
+        carwash: '\uD83D\uDEF9',
+    };
+    return map[cat] || '\uD83C\uDFEA';
+};
 
 const DARK_MAP_STYLE = [
     { elementType: 'geometry', stylers: [{ color: SURFACE.base }] },
@@ -106,6 +129,11 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     const [signalStatus, setSignalStatus] = useState<'ok' | 'stale' | 'lost'>('ok');
     // Fix 4: Ref to hold the location watcher so it can be cleaned up on unmount
     const locationWatcherRef = useRef<{ remove: () => void } | null>(null);
+
+    const [merchants, setMerchants] = useState<any[]>([]);
+    const [merchantsLoading, setMerchantsLoading] = useState(false);
+    const [selectedMerchant, setSelectedMerchant] = useState<any>(null);
+    const [addingStop, setAddingStop] = useState(false);
 
     const { reattachDriverChannel } = useRideSession({
         rideId,
@@ -281,8 +309,8 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
         supabase.functions.invoke('ai_suggest_stops', { body: { ride_id: rideId } }).catch(() => {});
     }, [ride?.status, rideId]);
 
-    const openWhatsAppSupport = () => {
-        Linking.openURL('https://wa.me/18687031000?text=I+need+help+with+my+ride');
+    const openWhatsAppSupport = async () => {
+        Linking.openURL(await supportWhatsAppLink('I need help with my ride'));
     };
 
     const handleCancelRide = () => {
@@ -348,6 +376,70 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             setDriver(data.driver);
             setDriverLocation({ latitude: data.driver?.lat, longitude: data.driver?.lng });
         }
+    };
+
+    const fetchNearbyMerchants = useCallback(async () => {
+        if (!ride?.pickup_lat || !ride?.pickup_lng) return;
+        setMerchantsLoading(true);
+        try {
+            const { data, error } = await supabase.functions.invoke('get_nearby_merchants', {
+                body: { ride_id: rideId }
+            });
+            if (!error && data?.success && data?.data?.merchants) {
+                setMerchants(data.data.merchants);
+            }
+        } catch (err) {
+            console.error('Failed to fetch merchants:', err);
+        } finally {
+            setMerchantsLoading(false);
+        }
+    }, [ride?.pickup_lat, ride?.pickup_lng, rideId]);
+
+    useEffect(() => {
+        if (ride && ['assigned', 'arrived', 'in_progress'].includes(ride.status)) {
+            fetchNearbyMerchants();
+        }
+    }, [ride?.status, fetchNearbyMerchants]);
+
+    const handleAddMerchantStop = async (merchant: any) => {
+        if (addingStop) return;
+        setAddingStop(true);
+        try {
+            const { data, error } = await supabase.functions.invoke('add_merchant_stop', {
+                body: { ride_id: rideId, merchant_id: merchant.id }
+            });
+            if (error || !data?.success) {
+                Alert.alert('Error', data?.error || 'Failed to add stop');
+                return;
+            }
+            setSelectedMerchant(null);
+            setAiInsight(`Stop added at ${merchant.name}! Route updated.`);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (err) {
+            console.error('Add stop failed:', err);
+            Alert.alert('Error', 'Could not add stop');
+        } finally {
+            setAddingStop(false);
+        }
+    };
+
+    const handleSkipUnfinishedStops = async () => {
+        Alert.alert(
+            'Unfinished Stops',
+            'You have merchant stops not yet visited. Skip them and complete the ride?',
+            [
+                { text: 'Keep Stops', style: 'cancel' },
+                {
+                    text: 'Skip All', style: 'destructive',
+                    onPress: async () => {
+                        await supabase.functions.invoke('skip_ride_stop', {
+                            body: { ride_id: rideId, skip_all: true }
+                        }).catch(() => {});
+                        Alert.alert('Stops Skipped', 'You can complete the ride now.');
+                    }
+                }
+            ]
+        );
     };
 
     const handleMusicSuggestion = async () => {
@@ -533,6 +625,28 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                         borderColor: CYAN,
                     }} />
                 </Marker>
+
+                {/* Network Merchant Pins — shown when ride is active */}
+                {['assigned', 'arrived', 'in_progress'].includes(ride?.status) && merchants.map((m: any) => (
+                    <Marker
+                        key={m.id}
+                        coordinate={{ latitude: m.lat, longitude: m.lng }}
+                        onPress={() => setSelectedMerchant(m)}
+                    >
+                        <View style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            backgroundColor: SURFACE.containerLow,
+                            borderWidth: 2,
+                            borderColor: VOICES.rider.accent,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}>
+                            <Text style={{ fontSize: 16 }}>{getCategoryEmoji(m.category)}</Text>
+                        </View>
+                    </Marker>
+                ))}
             </MapView>
 
             {signalStatus === 'stale' && (
@@ -726,6 +840,53 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                     </View>
                 </BlurView>
             </View>
+
+            {/* Merchant Stop Callout */}
+            <Modal visible={!!selectedMerchant} transparent animationType="fade">
+                <View style={s.modalOverlay}>
+                    <BlurView tint="dark" intensity={60} style={[s.merchantCallout, glassSurface(60, 0.2)]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                            <View style={{
+                                width: 48, height: 48, borderRadius: 12,
+                                backgroundColor: VOICES.rider.accent + '20',
+                                alignItems: 'center', justifyContent: 'center',
+                                marginRight: 14,
+                            }}>
+                                <Text style={{ fontSize: 24 }}>{getCategoryEmoji(selectedMerchant?.category)}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 18, fontWeight: '800', color: '#EAF3F6' }}>
+                                    {selectedMerchant?.name}
+                                </Text>
+                                <Text style={{ fontSize: 13, color: VOICES.rider.textMuted, marginTop: 2 }}>
+                                    {selectedMerchant?.category} · {selectedMerchant?.distance_km}km
+                                </Text>
+                            </View>
+                        </View>
+                        <Text style={{ fontSize: 14, color: VOICES.rider.textMuted, marginBottom: 20, lineHeight: 20 }}>
+                            Add {selectedMerchant?.name} as a stop on your route?{'\n'}
+                            A small convenience fee applies.
+                        </Text>
+                        <View style={s.modalActions}>
+                            <TouchableOpacity
+                                style={s.modalCancel}
+                                onPress={() => setSelectedMerchant(null)}
+                            >
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: VOICES.rider.textMuted }}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={s.modalConfirm}
+                                onPress={() => handleAddMerchantStop(selectedMerchant)}
+                                disabled={addingStop}
+                            >
+                                <Text style={{ fontSize: 16, fontWeight: '800', color: '#EAF3F6' }}>
+                                    {addingStop ? 'Adding...' : 'Add Stop'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </BlurView>
+                </View>
+            </Modal>
 
             {/* Music Modal */}
             <Modal visible={musicModalVisible} transparent animationType="slide">
@@ -1169,5 +1330,13 @@ const s = StyleSheet.create({
         color: '#EAF3F6',
         fontSize: 14,
         fontWeight: '700',
+    },
+    merchantCallout: {
+        marginHorizontal: 20,
+        padding: 24,
+        borderRadius: 24,
+        backgroundColor: SURFACE.containerLow,
+        ...ghostBorder(0.2),
+        overflow: 'hidden',
     },
 });

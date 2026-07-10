@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#07070F">
+    <title>Register Your Store — G-Taxi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --base: #07070F;
+            --ice: #EAF3F6;
+            --cyan: #34E6EC;
+            --violet: #6D28D9;
+            --platinum: #CBD6DE;
+            --ink-on-cyan: #06131A;
+            --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--base);
+            min-height: 100vh;
+            color: var(--ice);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* ── Ambient field — same signature as the tap landing page ────────── */
+        .field { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+        .field::before {
+            content: '';
+            position: absolute; inset: 0;
+            background:
+                radial-gradient(520px 400px at 20% 6%, rgba(109,40,217,0.17), transparent 64%),
+                radial-gradient(640px 480px at 82% 96%, rgba(52,230,236,0.07), transparent 64%);
+        }
+        .field::after {
+            content: '';
+            position: absolute; inset: 0;
+            opacity: 0.045;
+            background-image:
+                linear-gradient(rgba(52,230,236,0.5) 0.5px, transparent 0.5px),
+                linear-gradient(90deg, rgba(52,230,236,0.5) 0.5px, transparent 0.5px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(70% 60% at 50% 0%, black, transparent);
+            -webkit-mask-image: radial-gradient(70% 60% at 50% 0%, black, transparent);
+        }
+
+        .wrap {
+            position: relative;
+            z-index: 1;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 32px 22px 60px;
+        }
+
+        .rise {
+            opacity: 1; transform: translateY(0);
+            transition: opacity 420ms var(--ease-out), transform 420ms var(--ease-out);
+        }
+        @starting-style { .rise { opacity: 0; transform: translateY(8px); } }
+
+        .logo-mark { width: 44px; height: 44px; margin: 0 auto 22px; display: block; filter: drop-shadow(0 6px 18px rgba(52,230,236,0.25)); }
+
+        /* ── Invite context banner ─────────────────────────────────────── */
+        .invite-banner {
+            background: rgba(255,255,255,0.03);
+            border: 0.5px solid rgba(52,230,236,0.22);
+            border-radius: 16px;
+            padding: 16px 18px;
+            margin-bottom: 26px;
+            text-align: center;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+        .invite-banner .label { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan); }
+        .invite-banner .name { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; font-weight: 600; margin-top: 6px; }
+        .invite-banner .addr { font-size: 12px; color: rgba(234,243,246,0.45); margin-top: 3px; }
+        .invite-error {
+            background: rgba(239,68,68,0.06); border: 0.5px solid rgba(239,68,68,0.28);
+            border-radius: 16px; padding: 18px; text-align: center; font-size: 14px; color: #FCA5A5;
+        }
+
+        /* ── Progress ──────────────────────────────────────────────────── */
+        .progress { display: flex; gap: 6px; margin-bottom: 26px; }
+        .progress .seg { flex: 1; height: 2px; border-radius: 2px; background: rgba(255,255,255,0.08); transition: background 300ms var(--ease-out); }
+        .progress .seg.done { background: linear-gradient(90deg, var(--violet), var(--cyan)); }
+        .step-label { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(234,243,246,0.35); margin-bottom: 8px; }
+
+        h1 {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-weight: 600; font-size: 28px; line-height: 1.1;
+            margin-bottom: 8px; text-wrap: balance;
+        }
+        .sub { font-size: 13px; color: rgba(234,243,246,0.5); margin-bottom: 26px; line-height: 1.55; }
+
+        .field-group { margin-bottom: 16px; }
+        .field-group label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(234,243,246,0.4); margin-bottom: 7px; }
+        .field-group input, .field-group select {
+            width: 100%; padding: 14px 15px; border-radius: 12px;
+            background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.12);
+            color: var(--ice); font-size: 15px; font-family: inherit;
+            transition: border-color 140ms var(--ease-out);
+        }
+        .field-group input::placeholder { color: rgba(234,243,246,0.22); }
+        .field-group input:focus, .field-group select:focus { outline: none; border-color: var(--cyan); }
+
+        .btn {
+            width: 100%; padding: 16px 22px; border-radius: 14px; border: none;
+            font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 600;
+            letter-spacing: 0.01em; cursor: pointer; margin-top: 6px;
+            transition: transform 140ms var(--ease-out), border-color 140ms var(--ease-out);
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-primary { background: var(--cyan); color: var(--ink-on-cyan); box-shadow: 0 12px 32px rgba(52,230,236,0.24), inset 0 1px 0 rgba(255,255,255,0.5); }
+        .btn-secondary { background: rgba(255,255,255,0.04); color: rgba(234,243,246,0.75); border: 0.5px solid rgba(255,255,255,0.11); }
+        .btn-skip { background: none; border: none; color: rgba(234,243,246,0.38); font-weight: 600; font-size: 12.5px; text-decoration: underline; margin-top: 14px; cursor: pointer; }
+        .btn-row { display: flex; gap: 10px; margin-top: 6px; }
+        .btn-row .btn { margin-top: 0; }
+
+        .summary-block {
+            background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.1);
+            border-radius: 16px; padding: 6px 18px; margin-bottom: 20px;
+        }
+        .summary-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 0.5px solid rgba(255,255,255,0.07); font-size: 13px; }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-row .k { color: rgba(234,243,246,0.4); }
+        .summary-row .v { font-weight: 600; color: var(--platinum); font-variant-numeric: tabular-nums; }
+
+        .error-text { color: #FCA5A5; font-size: 13px; margin-top: 12px; text-align: center; }
+        .hidden { display: none !important; }
+
+        /* ── Success ───────────────────────────────────────────────────── */
+        .success-wrap { text-align: center; padding-top: 20px; }
+        .success-icon {
+            width: 68px; height: 68px; border-radius: 34px; margin: 0 auto 22px;
+            background: radial-gradient(120% 120% at 30% 20%, rgba(52,230,236,0.14), rgba(255,255,255,0.02) 60%);
+            border: 0.5px solid rgba(52,230,236,0.3);
+            display: flex; align-items: center; justify-content: center; font-size: 30px; color: var(--cyan);
+        }
+        .lit-edge {
+            width: 110px; height: 1px; margin: 22px auto 0;
+            background: linear-gradient(90deg, transparent, var(--violet) 24%, var(--cyan) 76%, transparent);
+        }
+        .success-note {
+            background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.09);
+            border-radius: 14px; padding: 18px; font-size: 13px; color: rgba(234,243,246,0.55);
+            line-height: 1.6; margin-top: 20px; text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="field"></div>
+    <div class="wrap">
+        <img class="logo-mark" src="logo.png" alt="G-Taxi">
+
+        <div id="loadingState">
+            <p style="text-align:center; color:rgba(234,243,246,0.35); font-size:13px; letter-spacing:0.05em;">Loading your invite…</p>
+        </div>
+
+        <div id="inviteErrorState" class="hidden rise">
+            <div class="invite-error" id="inviteErrorText">This invite link is invalid.</div>
+        </div>
+
+        <div id="formState" class="hidden">
+            <div class="invite-banner rise">
+                <div class="label">Registering</div>
+                <div class="name" id="inviteLocationName">—</div>
+                <div class="addr" id="inviteAddress">—</div>
+            </div>
+
+            <div class="progress rise">
+                <div class="seg" id="seg1"></div>
+                <div class="seg" id="seg2"></div>
+                <div class="seg" id="seg3"></div>
+            </div>
+
+            <!-- Step 1: account + business -->
+            <div id="step1" class="rise">
+                <div class="step-label">Step 1 of 3</div>
+                <h1>Create Your Account</h1>
+                <p class="sub">This becomes your G-Taxi merchant login.</p>
+
+                <div class="field-group">
+                    <label>Business Name</label>
+                    <input id="fBusinessName" type="text" placeholder="e.g. Ma Mook's Corner Shop">
+                </div>
+                <div class="field-group">
+                    <label>Email</label>
+                    <input id="fEmail" type="email" placeholder="you@business.com">
+                </div>
+                <div class="field-group">
+                    <label>Password</label>
+                    <input id="fPassword" type="password" placeholder="At least 8 characters">
+                </div>
+
+                <button class="btn btn-primary" onclick="goToStep(2)">Continue</button>
+                <p class="error-text hidden" id="step1Error"></p>
+            </div>
+
+            <!-- Step 2: payout (optional) -->
+            <div id="step2" class="hidden">
+                <div class="step-label">Step 2 of 3</div>
+                <h1>Payout Details</h1>
+                <p class="sub">So G-Taxi can pay you out. You can add this later if you'd rather skip it now.</p>
+
+                <div class="field-group">
+                    <label>Bank Name</label>
+                    <input id="fBankName" type="text" placeholder="e.g. Republic Bank">
+                </div>
+                <div class="field-group">
+                    <label>Account Holder</label>
+                    <input id="fAccountHolder" type="text" placeholder="Name on the account">
+                </div>
+                <div class="field-group">
+                    <label>Account Number</label>
+                    <input id="fAccountNumber" type="text" inputmode="numeric" placeholder="Account number">
+                </div>
+                <div class="field-group">
+                    <label>Account Type</label>
+                    <select id="fAccountType">
+                        <option value="">Select type</option>
+                        <option value="checking">Checking</option>
+                        <option value="savings">Savings</option>
+                    </select>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="goToStep(1)">Back</button>
+                    <button class="btn btn-primary" onclick="goToStep(3)">Continue</button>
+                </div>
+                <button class="btn-skip" onclick="skipPayout()">Skip for now</button>
+            </div>
+
+            <!-- Step 3: confirm -->
+            <div id="step3" class="hidden">
+                <div class="step-label">Step 3 of 3</div>
+                <h1>Confirm &amp; Submit</h1>
+                <p class="sub">Double-check, then send this to G-Taxi HQ for review.</p>
+
+                <div class="summary-block" id="summaryBlock"></div>
+
+                <button class="btn btn-primary" id="submitBtn" onclick="submitClaim()">Submit for Review</button>
+                <button class="btn btn-secondary" style="margin-top:10px;" onclick="goToStep(1)">Edit details</button>
+                <p class="error-text hidden" id="step3Error"></p>
+            </div>
+        </div>
+
+        <div id="successState" class="hidden success-wrap rise">
+            <div class="success-icon">✓</div>
+            <h1>Submitted for Review</h1>
+            <p class="sub">Your business and spot have been sent to G-Taxi HQ.</p>
+            <div class="lit-edge" aria-hidden="true"></div>
+            <div class="success-note" id="successNote">
+                HQ reviews new spots before they go live. You'll be notified once your store is active on the grid.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://ffbbuafgeypvkpcuvdnv.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmYmJ1YWZnZXlwdmtwY3V2ZG52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mzc5ODAsImV4cCI6MjA4NjUxMzk4MH0.0bvE6YskOdVROtbto3RrJA9Vj--9M2hKg76oZkOxia8";
+
+        const params = new URLSearchParams(window.location.search);
+        const inviteToken = params.get('invite');
+        let inviteValid = false;
+
+        function setStepUI(step) {
+            document.getElementById('step1').classList.toggle('hidden', step !== 1);
+            document.getElementById('step2').classList.toggle('hidden', step !== 2);
+            document.getElementById('step3').classList.toggle('hidden', step !== 3);
+            document.getElementById('seg1').classList.toggle('done', step >= 1);
+            document.getElementById('seg2').classList.toggle('done', step >= 2);
+            document.getElementById('seg3').classList.toggle('done', step >= 3);
+        }
+
+        function goToStep(step) {
+            if (step === 2) {
+                const name = document.getElementById('fBusinessName').value.trim();
+                const email = document.getElementById('fEmail').value.trim();
+                const password = document.getElementById('fPassword').value;
+                const err = document.getElementById('step1Error');
+                if (!name || !email || !password || password.length < 8) {
+                    err.textContent = 'Fill in your business name, email, and an 8+ character password.';
+                    err.classList.remove('hidden');
+                    return;
+                }
+                err.classList.add('hidden');
+            }
+            if (step === 3) buildSummary();
+            setStepUI(step);
+        }
+
+        function skipPayout() {
+            document.getElementById('fBankName').value = '';
+            document.getElementById('fAccountHolder').value = '';
+            document.getElementById('fAccountNumber').value = '';
+            document.getElementById('fAccountType').value = '';
+            goToStep(3);
+        }
+
+        function buildSummary() {
+            const rows = [
+                ['Business', document.getElementById('fBusinessName').value.trim()],
+                ['Email', document.getElementById('fEmail').value.trim()],
+                ['Bank', document.getElementById('fBankName').value.trim() || 'Not provided'],
+            ];
+            document.getElementById('summaryBlock').innerHTML = rows.map(([k, v]) =>
+                `<div class="summary-row"><span class="k">${k}</span><span class="v">${v}</span></div>`
+            ).join('');
+        }
+
+        async function submitClaim() {
+            const btn = document.getElementById('submitBtn');
+            const err = document.getElementById('step3Error');
+            err.classList.add('hidden');
+            btn.disabled = true;
+            btn.textContent = 'Submitting…';
+
+            try {
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/merchant_signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+                    body: JSON.stringify({
+                        email: document.getElementById('fEmail').value.trim(),
+                        password: document.getElementById('fPassword').value,
+                        full_name: document.getElementById('fBusinessName').value.trim(),
+                        invite_token: inviteToken,
+                        bank_name: document.getElementById('fBankName').value.trim() || undefined,
+                        account_holder: document.getElementById('fAccountHolder').value.trim() || undefined,
+                        account_number: document.getElementById('fAccountNumber').value.trim() || undefined,
+                        account_type: document.getElementById('fAccountType').value || undefined,
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || 'Could not submit. Please try again.');
+                }
+
+                if (data.node_link_warning) {
+                    document.getElementById('successNote').textContent = data.node_link_warning + ' HQ has been notified.';
+                }
+                document.getElementById('formState').classList.add('hidden');
+                document.getElementById('successState').classList.remove('hidden');
+            } catch (e) {
+                err.textContent = e.message;
+                err.classList.remove('hidden');
+                btn.disabled = false;
+                btn.textContent = 'Submit for Review';
+            }
+        }
+
+        async function loadInvite() {
+            if (!inviteToken) {
+                showInviteError('This link is missing an invite code.');
+                return;
+            }
+            try {
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/merchant_invite_preview`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+                    body: JSON.stringify({ token: inviteToken }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    showInviteError(data.error || 'This invite link is invalid.');
+                    return;
+                }
+                inviteValid = true;
+                document.getElementById('inviteLocationName').textContent = data.location_name || 'Your Spot';
+                document.getElementById('inviteAddress').textContent = data.address || '';
+                if (data.merchant_name_hint) {
+                    document.getElementById('fBusinessName').value = data.merchant_name_hint;
+                }
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('formState').classList.remove('hidden');
+                setStepUI(1);
+            } catch (e) {
+                showInviteError('Could not reach G-Taxi. Check your connection and reload.');
+            }
+        }
+
+        function showInviteError(msg) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('inviteErrorText').textContent = msg;
+            document.getElementById('inviteErrorState').classList.remove('hidden');
+        }
+
+        loadInvite();
+    </script>
+</body>
+</html>

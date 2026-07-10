@@ -26,6 +26,13 @@ jest.mock('expo-modules-core', () => {
   }
   return {
     EventEmitter,
+    LegacyEventEmitter: class {
+      constructor() {}
+      addListener() { return { remove: jest.fn() }; }
+      removeAllListeners() {}
+      emit() {}
+      listenerCount() { return 0; }
+    },
     NativeModulesProxy: new Proxy({}, { get: () => ({}) }),
     requireNativeModule: () => ({}),
     requireOptionalNativeModule: () => ({}),
@@ -169,6 +176,7 @@ jest.mock('@gtaxi/design-system', () => {
     Z: { mapContent: 1, mapOverlay: 10, panel: 20, lockOverlay: 30, locationConfirm: 40, sidebar: 50, modal: 60, toast: 70, offlineBanner: 80 },
     SHADOW_PROFILE: { shadowColor: '#00FFFF', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 24 },
     ANIMATION: { easing: [0.16, 1, 0.3, 1], spring: { damping: 18, stiffness: 150, mass: 1 } },
+    Z: { mapContent: 1, mapOverlay: 10, panel: 20, lockOverlay: 30, locationConfirm: 40, sidebar: 50, modal: 60, toast: 70, offlineBanner: 80 },
     VOICES: {
       rider: {
         bg: '#050505', surface: 'rgba(255,255,255,0.04)', text: '#FFFFFF',
@@ -204,6 +212,19 @@ jest.mock('@gtaxi/design-system/utils/style-rules', () => ({
   elevationGlow: () => ({ shadowColor: '#00FFFF', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 24 }),
   ghostBorder: () => ({ borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }),
   glassSurface: () => ({ backgroundColor: 'rgba(5,5,5,0.2)', overflow: 'hidden' }),
+}));
+
+jest.mock('expo-device', () => ({ isDevice: false, deviceName: 'Test', osVersion: '14.0', deviceYearClass: 2020, brand: 'Apple' }));
+
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: jest.fn(),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+  getExpoPushTokenAsync: jest.fn(() => Promise.resolve({ data: 'test-token' })),
+  setNotificationChannelAsync: jest.fn(),
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  AndroidImportance: { MAX: 'max' },
 }));
 
 jest.mock('@react-native-community/netinfo', () => ({
@@ -281,6 +302,27 @@ jest.mock('react-native-safe-area-context', () => {
     initialWindowMetrics: { insets, frame: { x: 0, y: 0, width: 390, height: 844 } },
   };
 });
+
+jest.mock('@gtaxi/design-system/native', () => {
+  const R = require('react');
+  const { View, Text } = require('react-native');
+  return { LiquidGlass: ({ children }) => R.createElement(View, null, children), Skeleton: () => R.createElement(View, null), Logo: () => R.createElement(Text, null, 'Logo'), LoadingOverlay: 'LoadingOverlay' };
+});
+
+jest.mock('@stripe/stripe-react-native', () => ({
+  useStripe: () => ({
+    initPaymentSheet: jest.fn(() => Promise.resolve({ error: null })),
+    presentPaymentSheet: jest.fn(() => Promise.resolve({ error: null })),
+    confirmPayment: jest.fn(() => Promise.resolve({ error: null })),
+    confirmPaymentMethod: jest.fn(() => Promise.resolve({ error: null })),
+    createPaymentMethod: jest.fn(() => Promise.resolve({ error: null })),
+    handleNextAction: jest.fn(() => Promise.resolve({ error: null })),
+    retrievePaymentIntent: jest.fn(() => Promise.resolve({ error: null })),
+  }),
+  StripeProvider: ({ children }) => { const R = require('react'); return R.createElement(R.Fragment, null, children); },
+  initPaymentSheet: jest.fn(),
+  presentPaymentSheet: jest.fn(),
+}));
 
 jest.mock('@gtaxi/core', () => {
   const ok = (data = null) => Promise.resolve({ data, error: null });

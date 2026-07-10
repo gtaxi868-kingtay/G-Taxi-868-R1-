@@ -128,7 +128,7 @@ export function AppointmentsScreen({ navigation }: { navigation: NativeStackNavi
 
             <View style={s.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+                    <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
                 </TouchableOpacity>
                 <Text style={s.title}>Appointments</Text>
                 <View style={{ width: 44 }} />
@@ -247,7 +247,7 @@ const s = StyleSheet.create({
     container: { flex: 1, backgroundColor: SURFACE.base },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
     backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
-    title: { fontSize: 18, fontWeight: '700', color: '#FFFFFF', fontFamily: 'SpaceGrotesk' },
+    title: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
     filterRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 12 },
     filterChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     filterChipActive: { backgroundColor: VOICES.merchant.accent + '26', borderColor: VOICES.merchant.accent },
@@ -262,7 +262,7 @@ const s = StyleSheet.create({
     statusText: { fontSize: 12, fontWeight: '700', fontFamily: 'SpaceGrotesk', textTransform: 'uppercase', letterSpacing: 0.5 },
     cardBody: { gap: 10 },
     infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    infoText: { fontSize: 15, color: '#FFFFFF', fontFamily: 'Manrope', flex: 1 },
+    infoText: { fontSize: 15, color: '#E9F5F3', fontFamily: 'Manrope', flex: 1 },
     actionRow: { flexDirection: 'row', gap: 12, marginTop: 20 },
     actionBtn: { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
     approveBtn: { backgroundColor: VOICES.merchant.accent },

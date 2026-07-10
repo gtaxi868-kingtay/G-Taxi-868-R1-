@@ -39,6 +39,8 @@ export type AppStackParamList = {
   LeaseConsent: undefined;
   CommanderDashboard: undefined;
   CommanderConsole: undefined;
+  CommanderRegisterNode: undefined;
+  BecomeCommander: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;

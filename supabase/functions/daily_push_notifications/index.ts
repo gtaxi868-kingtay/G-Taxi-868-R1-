@@ -9,6 +9,7 @@ import { aiFetch, internalFetch } from "../_shared/networkUtility.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
+const CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +21,13 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Internal cron call — authenticate by service role env variable
+  if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   if (!SUPABASE_SERVICE_ROLE_KEY) {
     return new Response(
       JSON.stringify({ error: "SUPABASE_SERVICE_ROLE_KEY not configured" }),
@@ -30,14 +37,6 @@ serve(async (req: Request) => {
 
   if (!GROQ_API_KEY) {
     console.warn("[Daily Push] GROQ_API_KEY not configured — using fallback messages");
-  }
-
-  const authHeader = req.headers.get("Authorization");
-  if (authHeader !== `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`) {
-    return new Response(
-      JSON.stringify({ error: "Unauthorized — service role required" }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
   }
 
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

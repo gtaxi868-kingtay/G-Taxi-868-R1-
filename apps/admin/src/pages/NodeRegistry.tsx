@@ -9,8 +9,11 @@ interface KioskNode {
     location_name: string;
     lat: number | null;
     lng: number | null;
+    geofence_radius_m: number | null;
     default_services: string[];
     is_active: boolean;
+    provision_status?: string;
+    pickup_address?: string | null;
     created_at: string;
     merchant_name?: string;
 }
@@ -81,6 +84,7 @@ export function NodeRegistry() {
                         location_name: editNode.location_name,
                         lat: editNode.lat || null,
                         lng: editNode.lng || null,
+                        geofence_radius_m: editNode.geofence_radius_m ?? 150,
                         default_services: editNode.default_services || ['ride'],
                         is_active: editNode.is_active ?? true,
                     },
@@ -108,6 +112,28 @@ export function NodeRegistry() {
             loadData();
         } catch (err: any) {
             console.error('Toggle failed:', err);
+        }
+    };
+
+    const [reviewing, setReviewing] = useState<string | null>(null);
+
+    // Approve/reject a commander-submitted node (provision_status='pending_review').
+    const reviewNode = async (node: KioskNode, approve: boolean) => {
+        if (!approve && !confirm(`Reject "${node.location_name}"? The commander will need to re-register.`)) return;
+        setReviewing(node.id);
+        try {
+            const { error } = await supabase.rpc('admin_review_node', {
+                p_node_id: node.id,
+                p_approve: approve,
+                p_reason: approve ? 'approved via admin console' : 'rejected via admin console',
+            });
+            if (error) throw error;
+            await loadData();
+        } catch (err: any) {
+            console.error('Review failed:', err);
+            alert('Failed to review node: ' + (err.message || err));
+        } finally {
+            setReviewing(null);
         }
     };
 
@@ -169,6 +195,50 @@ export function NodeRegistry() {
                     className="w-full h-14 pl-12 pr-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder-white/20 font-bold text-sm focus:border-cyan-500/30 focus:outline-none transition-all"
                 />
             </div>
+
+            {/* Pending Approval — commander-submitted nodes awaiting review */}
+            {!loading && nodes.some(n => n.provision_status === 'pending_review') && (
+                <div className="rounded-[1.5rem] border border-amber-500/30 bg-amber-500/[0.06] p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <AlertTriangle size={18} className="text-amber-400" />
+                        <div>
+                            <h3 className="font-black text-white uppercase tracking-wider text-sm">Pending Approval</h3>
+                            <p className="text-[10px] text-white/40 uppercase tracking-widest">
+                                Nodes your commanders registered from the field — approve to go live
+                            </p>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        {nodes.filter(n => n.provision_status === 'pending_review').map(node => (
+                            <div key={node.id} className="flex items-center justify-between gap-4 flex-wrap rounded-2xl bg-black/20 border border-white/5 p-4">
+                                <div className="min-w-0">
+                                    <p className="text-white font-black text-sm">{node.location_name}</p>
+                                    <p className="text-[11px] text-white/40 mt-0.5">
+                                        {node.pickup_address || '—'} · {node.lat?.toFixed(5)}, {node.lng?.toFixed(5)} · {node.geofence_radius_m ?? 150}m
+                                    </p>
+                                    <p className="text-[10px] font-mono text-white/25 mt-0.5">{node.tag_uid?.slice(0, 20)}…</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => reviewNode(node, false)}
+                                        disabled={reviewing === node.id}
+                                        className="px-4 py-2 rounded-lg border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 disabled:opacity-40"
+                                    >
+                                        Reject
+                                    </button>
+                                    <button
+                                        onClick={() => reviewNode(node, true)}
+                                        disabled={reviewing === node.id}
+                                        className="px-5 py-2 rounded-lg bg-green-500/20 border border-green-400/30 text-green-400 text-[10px] font-black uppercase tracking-widest hover:bg-green-500/30 disabled:opacity-40 flex items-center gap-2"
+                                    >
+                                        {reviewing === node.id ? 'Saving…' : (<><CheckCircle size={13} /> Approve &amp; Go Live</>)}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Node Grid */}
             {loading ? (
@@ -320,6 +390,24 @@ export function NodeRegistry() {
                                         className="w-full h-14 px-5 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm focus:border-cyan-500/30 focus:outline-none placeholder-white/20"
                                     />
                                 </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">
+                                    Geofence Radius (metres) — anti-spoof tap distance
+                                </label>
+                                <input
+                                    type="number"
+                                    min={50}
+                                    max={2000}
+                                    step={10}
+                                    value={editNode?.geofence_radius_m ?? 150}
+                                    onChange={e => setEditNode(p => ({ ...p, geofence_radius_m: parseInt(e.target.value) || 150 }))}
+                                    placeholder="150"
+                                    className="w-full h-14 px-5 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm focus:border-cyan-500/30 focus:outline-none placeholder-white/20"
+                                />
+                                <p className="text-[10px] text-white/30 mt-1">
+                                    A tap further than this (+75m GPS slack) from the node's coordinates is challenged with a "are you really here?" prompt. Tight corner ≈ 50m, large stand/warehouse ≈ 300–500m.
+                                </p>
                             </div>
                             <div>
                                 <label className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-2 block">Link Merchant</label>

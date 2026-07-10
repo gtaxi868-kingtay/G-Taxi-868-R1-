@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
@@ -62,6 +63,13 @@ function RootNavigator() {
 }
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({
+    CormorantGaramond_500Medium,
+    CormorantGaramond_600SemiBold,
+  });
+  if (!fontsLoaded && !fontError) {
+    return <View style={{ flex: 1, backgroundColor: '#070C0B' }} />;
+  }
   return (
     <ErrorBoundary moduleName="MerchantMobile">
       <SafeAreaProvider>

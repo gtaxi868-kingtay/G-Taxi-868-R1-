@@ -181,7 +181,7 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
                   disabled={isActing}
                 >
                   {isActing ? (
-                    <ActivityIndicator size="small" color={action.nextStatus === 'cancelled' ? ERROR : '#0A0A0F'} />
+                    <ActivityIndicator size="small" color={action.nextStatus === 'cancelled' ? ERROR : '#070C0B'} />
                   ) : (
                     <Text style={[s.actionBtnText, action.nextStatus === 'cancelled' && s.actionBtnTextOutline]}>
                       {action.label}
@@ -198,10 +198,10 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
-      <LinearGradient colors={['#0A0A0F', '#1C1510']} style={StyleSheet.absoluteFillObject} />
+      <LinearGradient colors={['#070C0B', '#1C1510']} style={StyleSheet.absoluteFillObject} />
       <View style={s.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Go back" accessibilityRole="button">
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
+          <Ionicons name="arrow-back" size={24} color="#E9F5F3" />
         </TouchableOpacity>
         <Text style={s.title}>Orders</Text>
         <TouchableOpacity onPress={loadOrders} accessibilityLabel="Refresh orders" accessibilityRole="button">
@@ -233,13 +233,13 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: SURFACE.base },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  title: { fontSize: 18, fontWeight: '700', color: '#FFF', fontFamily: 'SpaceGrotesk' },
+  title: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   list: { padding: 16 },
   cardBlur: { borderRadius: 16, marginBottom: 12, overflow: 'hidden', ...ghostBorder(0.15) },
   orderCard: { padding: 16 },
   orderHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-  orderId: { fontSize: 14, fontWeight: '600', color: '#FFF', flex: 1, fontFamily: 'Manrope' },
+  orderId: { fontSize: 14, fontWeight: '600', color: '#E9F5F3', flex: 1, fontFamily: 'Manrope' },
   orderStatus: { fontSize: 12, fontWeight: '600', textTransform: 'capitalize', fontFamily: 'Manrope' },
   orderTotal: { fontSize: 20, fontWeight: '800', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
   orderDate: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 4, fontFamily: 'Manrope' },
@@ -248,6 +248,6 @@ const s = StyleSheet.create({
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
   actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center', minHeight: 40 },
   actionBtnOutline: { backgroundColor: 'transparent', ...ghostBorder(), borderColor: ERROR },
-  actionBtnText: { fontSize: 13, fontWeight: '700', color: '#0A0A0F', fontFamily: 'SpaceGrotesk' },
+  actionBtnText: { fontSize: 13, fontWeight: '700', color: '#070C0B', fontFamily: 'SpaceGrotesk' },
   actionBtnTextOutline: { color: ERROR },
 });

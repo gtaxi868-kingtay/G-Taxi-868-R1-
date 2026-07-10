@@ -6,6 +6,7 @@ jest.mock('@gtaxi/core', () => ({ supabase: { channel: () => ({ on: () => ({ sub
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'test' } }) }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), notificationAsync: jest.fn(), ImpactFeedbackStyle: { Light: 'Light' }, NotificationFeedbackType: { Success: 'Success' }, selectionAsync: jest.fn() }));
+jest.mock('@gtaxi/design-system/native', () => { const R = require('react'); const { View } = require('react-native'); return { LiquidGlass: ({ children }: any) => R.createElement(View, null, children) }; });
 
 describe('ChatScreen', () => {
   it('renders without crashing', () => {

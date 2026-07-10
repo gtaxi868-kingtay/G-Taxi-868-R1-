@@ -369,7 +369,10 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         if (!featureFlags.grocery) return;
         supabase
             .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
-            .then(({ data }) => setNearbyVendors(data || []));
+            .then(
+                ({ data }) => setNearbyVendors(data || []),
+                (err: unknown) => console.warn('[HomeScreen] get_nearby_merchants failed:', err),
+            );
     }, [location, featureFlags.grocery]);
 
     useEffect(() => {
@@ -389,11 +392,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         cache.set(nfcTagId, now);
 
         if (netInfo.isConnected === false) {
+            const waMsg = `GTAX_${nfcTagId}_OFFLINE_REQUEST`;
+            Linking.openURL(`https://wa.me/18687031000?text=${encodeURIComponent(waMsg)}`);
             Alert.alert(
                 'Network Disconnected',
-                "G-Taxi is still ready to route you.\n\nTo request your ride right now without internet data, please SMS 'GTAX " + nfcTagId + "' to 1-868-703-1000 or open WhatsApp to chat with our concierge."
+                "G-Taxi is still ready to route you.\n\nOpen WhatsApp to request your ride now — your pickup location is linked to this NFC kiosk. Our concierge will confirm within 2 minutes."
             );
-            Linking.openURL('https://wa.me/18687031000?text=GTAX_' + nfcTagId + '_OFFLINE_REQUEST');
             return;
         }
 

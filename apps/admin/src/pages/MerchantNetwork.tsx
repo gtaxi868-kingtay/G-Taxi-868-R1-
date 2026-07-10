@@ -13,6 +13,9 @@ interface MerchantRow {
     is_pinned: boolean;
     commission_rate: number;
     created_at: string;
+    activation_status: string | null;
+    activation_note: string | null;
+    activated_at: string | null;
     subscription: {
         id: string;
         status: 'trial' | 'active' | 'overdue' | 'suspended' | 'cancelled';
@@ -40,6 +43,14 @@ const STATUS_META: Record<string, { label: string; color: string; icon: any }> =
     cancelled: { label: 'Cancelled', color: 'text-white/30 bg-white/5 border-white/10',             icon: XCircle },
 };
 
+const ACT_STATUS_META: Record<string, { label: string; color: string }> = {
+    pending:    { label: 'Pending',     color: 'text-amber-400 bg-amber-400/10 border-amber-400/30' },
+    active:     { label: 'Active',      color: 'text-green-400 bg-green-400/10 border-green-400/30' },
+    suspended:  { label: 'Suspended',   color: 'text-red-400 bg-red-400/10 border-red-400/30' },
+    deactivated:{ label: 'Deactivated', color: 'text-white/30 bg-white/5 border-white/10' },
+    banned:     { label: 'Banned',      color: 'text-red-600 bg-red-600/10 border-red-600/30' },
+};
+
 function fmt(iso: string | null) {
     if (!iso) return '—';
     return new Date(iso).toLocaleDateString('en-TT', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -60,7 +71,7 @@ export function MerchantNetwork() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-    const [filter, setFilter] = useState<'all' | 'pinned' | 'trial' | 'active' | 'overdue' | 'suspended'>('all');
+    const [filter, setFilter] = useState<'all' | 'pinned' | 'pending_activation' | 'trial' | 'active' | 'overdue' | 'suspended'>('all');
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [details, setDetails] = useState<Record<string, MerchantDetail>>({});
     const [detailLoading, setDetailLoading] = useState<string | null>(null);
@@ -118,6 +129,7 @@ export function MerchantNetwork() {
                 .from('merchants')
                 .select(`
                     id, name, category, address, lat, lng, is_active, is_pinned, commission_rate, created_at,
+                    activation_status, activation_note, activated_at,
                     merchant_subscriptions (
                         id, status, trial_start_at, trial_end_at,
                         monthly_fee_cents, pin_fee_cents, billing_enabled, next_billing_at, last_billed_at, overdue_since
@@ -222,6 +234,28 @@ export function MerchantNetwork() {
         setActionLoading(null);
     };
 
+    const activateMerchant = async (merchantId: string) => {
+        setActionLoading(merchantId + 'activate');
+        const { error: err } = await supabase.functions.invoke('admin', {
+            body: { action: 'activate_merchant', merchant_id: merchantId },
+        });
+        if (err) alert(err.message);
+        else await load();
+        setActionLoading(null);
+    };
+
+    const rejectMerchant = async (merchantId: string) => {
+        const reason = prompt('Reason for rejection:');
+        if (!reason) return;
+        setActionLoading(merchantId + 'reject');
+        const { error: err } = await supabase.functions.invoke('admin', {
+            body: { action: 'reject_merchant', merchant_id: merchantId, reason },
+        });
+        if (err) alert(err.message);
+        else await load();
+        setActionLoading(null);
+    };
+
     const setPinFee = async (subId: string) => {
         const input = prompt('Additional monthly pin fee in TTD (e.g. 50):');
         if (!input || isNaN(Number(input))) return;
@@ -249,15 +283,18 @@ export function MerchantNetwork() {
         ? merchants
         : filter === 'pinned'
             ? merchants.filter(m => m.is_pinned)
-            : merchants.filter(m => m.subscription?.status === filter);
+            : filter === 'pending_activation'
+                ? merchants.filter(m => m.activation_status === 'pending')
+                : merchants.filter(m => m.subscription?.status === filter);
 
     const counts = {
-        all:       merchants.length,
-        pinned:    merchants.filter(m => m.is_pinned).length,
-        trial:     merchants.filter(m => m.subscription?.status === 'trial').length,
-        active:    merchants.filter(m => m.subscription?.status === 'active').length,
-        overdue:   merchants.filter(m => m.subscription?.status === 'overdue').length,
-        suspended: merchants.filter(m => m.subscription?.status === 'suspended').length,
+        all:                merchants.length,
+        pinned:             merchants.filter(m => m.is_pinned).length,
+        pending_activation: merchants.filter(m => m.activation_status === 'pending').length,
+        trial:              merchants.filter(m => m.subscription?.status === 'trial').length,
+        active:             merchants.filter(m => m.subscription?.status === 'active').length,
+        overdue:            merchants.filter(m => m.subscription?.status === 'overdue').length,
+        suspended:          merchants.filter(m => m.subscription?.status === 'suspended').length,
     };
 
     return (
@@ -351,7 +388,7 @@ export function MerchantNetwork() {
 
             {/* Summary chips */}
             <div className="flex flex-wrap gap-3">
-                {(['all', 'pinned', 'trial', 'active', 'overdue', 'suspended'] as const).map(f => (
+                {(['all', 'pinned', 'pending_activation', 'trial', 'active', 'overdue', 'suspended'] as const).map(f => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
@@ -361,7 +398,7 @@ export function MerchantNetwork() {
                                 : 'bg-white/0 border-white/10 text-white/40 hover:bg-white/5'
                         }`}
                     >
-                        {f === 'all' ? 'All' : STATUS_META[f].label} ({counts[f]})
+                        {f === 'all' ? 'All' : f === 'pending_activation' ? 'Pending' : STATUS_META[f].label} ({counts[f]})
                     </button>
                 ))}
             </div>
@@ -422,6 +459,11 @@ export function MerchantNetwork() {
                                                     {meta.label}
                                                 </span>
                                             )}
+                                            {m.activation_status && m.activation_status !== 'active' && (
+                                                <span className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${ACT_STATUS_META[m.activation_status]?.color || 'text-white/30 bg-white/5 border-white/10'}`}>
+                                                    {ACT_STATUS_META[m.activation_status]?.label || m.activation_status}
+                                                </span>
+                                            )}
                                             <button
                                                 onClick={() => toggleActive(m.id, m.is_active)}
                                                 disabled={actionLoading === m.id + 'toggle'}
@@ -478,6 +520,27 @@ export function MerchantNetwork() {
                                     )}
 
                                     {/* Admin action buttons */}
+                                    {/* Activation action for pending merchants */}
+                                    {m.activation_status === 'pending' && (
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            <button
+                                                onClick={() => activateMerchant(m.id)}
+                                                disabled={!!actionLoading}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/15 border border-green-500/30 rounded-lg text-green-400 text-[10px] font-black uppercase tracking-widest hover:bg-green-500/25 transition-all disabled:opacity-40"
+                                            >
+                                                <CheckCircle size={11} />
+                                                Approve
+                                            </button>
+                                            <button
+                                                onClick={() => rejectMerchant(m.id)}
+                                                disabled={!!actionLoading}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all disabled:opacity-40"
+                                            >
+                                                <XCircle size={11} />
+                                                Reject
+                                            </button>
+                                        </div>
+                                    )}
                                     {/* Network listing (billing + map pin) toggle */}
                                     <div className="flex flex-wrap gap-2 pt-1">
                                         <button

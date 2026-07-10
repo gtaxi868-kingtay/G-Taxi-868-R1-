@@ -199,7 +199,6 @@ export type AppStackParamList = {
   PassportSubmission: { participantId: string };
   Carnival: undefined;
   Events: undefined;
-  BecomeCommander: undefined;
 };
 
 export type RootStackParamList = AppStackParamList;

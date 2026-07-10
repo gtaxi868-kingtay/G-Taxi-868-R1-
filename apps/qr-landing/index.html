@@ -3,195 +3,304 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="theme-color" content="#07070F">
     <title>G-Taxi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --base: #07070F;
+            --ice: #EAF3F6;
+            --cyan: #34E6EC;
+            --violet: #6D28D9;
+            --platinum: #CBD6DE;
+            --ink-on-cyan: #06131A;
+            --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0B0E12;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--base);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            color: #F2F5F8;
-            padding: 20px;
+            color: var(--ice);
+            padding: 28px 22px;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
-        .logo {
-            width: 64px;
-            height: 64px;
-            border-radius: 16px;
+
+        /* ── Ambient field: violet above, cyan below, faint circuit etch ───── */
+        .field { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+        .field::before {
+            content: '';
+            position: absolute; inset: 0;
+            background:
+                radial-gradient(520px 400px at 20% 6%, rgba(109,40,217,0.17), transparent 64%),
+                radial-gradient(640px 480px at 82% 96%, rgba(52,230,236,0.07), transparent 64%);
+        }
+        .field::after {
+            content: '';
+            position: absolute; inset: 0;
+            opacity: 0.045;
+            background-image:
+                linear-gradient(rgba(52,230,236,0.5) 0.5px, transparent 0.5px),
+                linear-gradient(90deg, rgba(52,230,236,0.5) 0.5px, transparent 0.5px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(68% 52% at 50% 38%, black, transparent);
+            -webkit-mask-image: radial-gradient(68% 52% at 50% 38%, black, transparent);
+        }
+
+        .stage {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 340px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ── Staggered entrance (@starting-style, interruptible) ──────────── */
+        .rise {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            transition:
+                opacity 480ms var(--ease-out),
+                transform 480ms var(--ease-out);
+        }
+        @starting-style {
+            .rise { opacity: 0; transform: translateY(10px) scale(0.985); }
+        }
+        .rise-2 { transition-delay: 60ms; }
+        .rise-3 { transition-delay: 120ms; }
+        .rise-4 { transition-delay: 180ms; }
+        .rise-5 { transition-delay: 240ms; }
+
+        /* ── The puck: glass disc answering the physical tap ──────────────── */
+        .puck-wrap { position: relative; width: 136px; height: 136px; margin-bottom: 22px; }
+        .puck {
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            background:
+                radial-gradient(120% 120% at 30% 20%, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 58%),
+                radial-gradient(100% 100% at 70% 85%, rgba(52,230,236,0.06), transparent 60%),
+                rgba(255,255,255,0.025);
+            border: 0.5px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(18px) saturate(1.25);
+            -webkit-backdrop-filter: blur(18px) saturate(1.25);
+            box-shadow:
+                0 28px 64px rgba(0,0,0,0.55),
+                inset 0 1px 0 rgba(255,255,255,0.18),
+                inset 0 -14px 30px rgba(109,40,217,0.12);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
-            font-weight: 800;
-            margin-bottom: 20px;
         }
-        .logo-ride { background: linear-gradient(135deg, #8B5CF6, #1DE0E6); }
-        .logo-merchant { background: linear-gradient(135deg, #14B8A6, #0D9488); }
-        .logo-driver { background: linear-gradient(135deg, #F59E0B, #D97706); }
-        .logo-default { background: linear-gradient(135deg, #8B5CF6, #1DE0E6); }
+        .puck img {
+            width: 150px; height: 150px; object-fit: contain; display: block;
+            filter:
+                drop-shadow(0 8px 26px rgba(52,230,236,0.26))
+                drop-shadow(0 3px 14px rgba(109,40,217,0.30));
+        }
+        /* one tap-echo ring — the page answering your tap */
+        .puck-wrap::after {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            border: 1px solid rgba(52,230,236,0.55);
+            opacity: 0;
+            animation: tap-echo 1300ms var(--ease-out) 500ms 1;
+            pointer-events: none;
+        }
+        @keyframes tap-echo {
+            0%   { opacity: 0.7; transform: scale(0.94); }
+            100% { opacity: 0;   transform: scale(1.42); }
+        }
+
+        /* ── Eyebrow: what you tapped, in tracked micro-caps ──────────────── */
+        .eyebrow {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+        }
+        .eyebrow .kind { color: var(--cyan); }
+        .eyebrow .kind.kind-merchant { color: #2DD4BF; }
+        .eyebrow .kind.kind-driver { color: #E6B450; }
+        .eyebrow .code {
+            color: var(--platinum);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.18em;
+        }
+        .eyebrow .sep { color: rgba(234,243,246,0.22); }
+
         h1 {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 6px;
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-weight: 600;
+            font-size: 40px;
+            line-height: 1.06;
+            letter-spacing: 0.005em;
             text-align: center;
-            letter-spacing: -0.3px;
+            margin-top: 12px;
+            text-wrap: balance;
         }
         .subtitle {
-            color: rgba(242,245,248,0.55);
+            color: rgba(234,243,246,0.5);
             font-size: 14px;
-            margin-bottom: 28px;
+            font-weight: 400;
+            margin-top: 10px;
+            margin-bottom: 30px;
             text-align: center;
-            line-height: 1.4;
+            line-height: 1.55;
+            letter-spacing: 0.005em;
+            max-width: 30ch;
         }
-        .card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 16px;
-            padding: 20px;
-            max-width: 340px;
-            width: 100%;
-            margin-bottom: 20px;
-        }
-        .card-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
-        .card-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            font-size: 18px;
-        }
-        .card-icon-ride { background: rgba(139,92,246,0.15); }
-        .card-icon-merchant { background: rgba(20,184,166,0.15); }
-        .card-icon-driver { background: rgba(245,158,11,0.15); }
-        .card-icon-default { background: rgba(139,92,246,0.15); }
-        .card-label { font-size: 11px; font-weight: 600; color: rgba(242,245,248,0.35); letter-spacing: 0.5px; text-transform: uppercase; }
-        .card-value { font-size: 15px; font-weight: 600; color: #F2F5F8; margin-top: 2px; }
-        .card-desc { font-size: 12px; color: rgba(242,245,248,0.45); margin-top: 2px; line-height: 1.3; }
+
+        /* ── Actions ───────────────────────────────────────────────────────── */
+        .actions { width: 100%; display: flex; flex-direction: column; gap: 10px; }
         .btn {
             width: 100%;
-            max-width: 340px;
-            padding: 16px 24px;
-            border-radius: 12px;
+            padding: 17px 24px;
+            border-radius: 16px;
             border: none;
-            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14.5px;
             font-weight: 600;
+            letter-spacing: 0.015em;
             cursor: pointer;
-            transition: all 0.15s;
             text-decoration: none;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            transition: transform 140ms var(--ease-out), border-color 140ms var(--ease-out);
         }
+        .btn:active { transform: scale(0.97); }
         .btn-primary {
-            background: #8B5CF6;
-            color: white;
-            margin-bottom: 10px;
+            background: var(--cyan);
+            color: var(--ink-on-cyan);
+            box-shadow: 0 12px 36px rgba(52,230,236,0.26), inset 0 1px 0 rgba(255,255,255,0.5);
         }
-        .btn-primary:active { background: #7C3AED; }
-        .btn-teal {
-            background: #14B8A6;
-            color: white;
-            margin-bottom: 10px;
-        }
-        .btn-teal:active { background: #0D9488; }
-        .btn-amber {
-            background: #F59E0B;
-            color: white;
-            margin-bottom: 10px;
-        }
-        .btn-amber:active { background: #D97706; }
         .btn-secondary {
-            background: rgba(255,255,255,0.06);
-            color: rgba(242,245,248,0.7);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            color: rgba(234,243,246,0.78);
+            border: 0.5px solid rgba(255,255,255,0.11);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
         }
-        .btn-secondary:active { background: rgba(255,255,255,0.1); }
+        .btn-secondary:active { border-color: rgba(52,230,236,0.45); }
+        @media (hover: hover) and (pointer: fine) {
+            .btn-secondary:hover { border-color: rgba(52,230,236,0.35); }
+        }
+
+        /* ── Signature lit edge: the one violet→cyan use ──────────────────── */
+        .lit-edge {
+            width: 132px;
+            height: 1px;
+            margin: 28px 0 0;
+            background: linear-gradient(90deg, transparent, var(--violet) 24%, var(--cyan) 76%, transparent);
+            position: relative;
+            overflow: hidden;
+        }
+        .lit-edge::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(234,243,246,0.9), transparent);
+            transform: translateX(-110%);
+            animation: sweep 850ms var(--ease-out) 420ms forwards;
+        }
+        @keyframes sweep { to { transform: translateX(110%); } }
+
         .footer {
-            margin-top: 32px;
+            margin-top: 24px;
             text-align: center;
-            font-size: 11px;
-            color: rgba(242,245,248,0.25);
-            line-height: 1.5;
+            font-size: 10px;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: rgba(234,243,246,0.26);
+            line-height: 2.3;
         }
-        .footer a { color: #1DE0E6; text-decoration: none; }
-        .loading {
-            display: none;
-            margin-top: 20px;
-            text-align: center;
+        .footer a {
+            color: rgba(52,230,236,0.72);
+            text-decoration: none;
+            border-bottom: 0.5px solid rgba(52,230,236,0.22);
+            padding-bottom: 1px;
         }
+
+        .loading { display: none; margin-top: 22px; text-align: center; }
         .loading.show { display: block; }
+        .loading p {
+            font-size: 10.5px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: rgba(234,243,246,0.5);
+        }
         .spinner {
-            width: 36px;
-            height: 36px;
-            border: 3px solid rgba(139,92,246,0.2);
-            border-top-color: #8B5CF6;
+            width: 28px; height: 28px;
+            border: 1.5px solid rgba(52,230,236,0.15);
+            border-top-color: var(--cyan);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
+            animation: spin 700ms linear infinite;
+            margin: 0 auto 12px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         .hidden { display: none !important; }
-        .badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+
+        /* ── Reduced motion: keep fades, remove movement ──────────────────── */
+        @media (prefers-reduced-motion: reduce) {
+            .rise { transition: opacity 300ms ease; }
+            @starting-style { .rise { transform: none; } }
+            .puck-wrap::after, .lit-edge::after { animation: none; }
+            .btn, .btn:active { transition: none; transform: none; }
         }
-        .badge-ride { background: rgba(139,92,246,0.15); color: #8B5CF6; }
-        .badge-merchant { background: rgba(20,184,166,0.15); color: #14B8A6; }
-        .badge-driver { background: rgba(245,158,11,0.15); color: #F59E0B; }
-        .badge-default { background: rgba(139,92,246,0.15); color: #8B5CF6; }
     </style>
 </head>
 <body>
-    <div class="logo logo-default" id="logo">G</div>
-    <h1 id="mainTitle">Welcome to G-Taxi</h1>
-    <p class="subtitle" id="mainSubtitle">Trinidad & Tobago's ride ecosystem</p>
+    <div class="field"></div>
 
-    <div class="card" id="infoCard">
-        <div class="card-row">
-            <div class="card-icon card-icon-default" id="cardIcon">🚗</div>
-            <div>
-                <div class="card-label" id="cardBadge">RIDE</div>
-                <div class="card-value" id="cardValue">Quick ride request</div>
-                <div class="card-desc" id="cardDesc">Open G-Taxi to get picked up</div>
-            </div>
+    <div class="stage">
+        <div class="puck-wrap rise">
+            <div class="puck"><img src="logo.png" alt="G-Taxi"></div>
         </div>
+
+        <div class="eyebrow rise rise-2">
+            <span class="kind" id="cardBadge">Ride</span>
+            <span class="sep" id="codeSep" hidden>·</span>
+            <span class="code" id="cardCode" hidden></span>
+        </div>
+
+        <h1 class="rise rise-2" id="mainTitle">Request your ride</h1>
+        <p class="subtitle rise rise-3" id="mainSubtitle">Fast, safe rides across Trinidad &amp; Tobago.</p>
+
+        <div class="actions rise rise-4">
+            <button class="btn btn-primary" id="ctaBtn" onclick="handlePrimaryCta()">
+                Open G-Taxi
+            </button>
+            <a class="btn btn-secondary" id="fallbackBtn" href="#" onclick="handleFallback()">
+                Request via WhatsApp
+            </a>
+        </div>
+
+        <div class="loading" id="loadingState">
+            <div class="spinner"></div>
+            <p id="loadingMsg">Opening G-Taxi</p>
+        </div>
+
+        <div class="lit-edge rise rise-5" aria-hidden="true"></div>
+
+        <p class="footer rise rise-5" id="footer">
+            Don't have the app?<br>
+            <a href="#" onclick="openAppStore()">App Store</a> &nbsp;·&nbsp;
+            <a href="#" onclick="openPlayStore()">Google Play</a>
+        </p>
     </div>
-
-    <button class="btn btn-primary" id="ctaBtn" onclick="handlePrimaryCta()">
-        Open G-Taxi App
-    </button>
-
-    <a class="btn btn-secondary" id="fallbackBtn" href="#" onclick="handleFallback()">
-        Request via WhatsApp
-    </a>
-
-    <div class="loading" id="loadingState">
-        <div class="spinner"></div>
-        <p id="loadingMsg">Opening G-Taxi...</p>
-    </div>
-
-    <p class="footer" id="footer">
-        Don't have the app?<br>
-        <a href="#" onclick="openAppStore()">Download on App Store</a> or
-        <a href="#" onclick="openPlayStore()">Google Play</a>
-    </p>
 
     <script>
         const SUPABASE_URL = "https://ffbbuafgeypvkpcuvdnv.supabase.co";
@@ -199,11 +308,30 @@
         let qrType = 'ride';
         let qrData = null;
         let userLocation = null;
+        // Business WhatsApp number — admin-editable in system_config. Falls back
+        // to this default if the lookup fails so the page never breaks.
+        let supportNumber = '18687031000';
+
+        async function loadContactNumber() {
+            try {
+                const res = await fetch(
+                    `${SUPABASE_URL}/rest/v1/system_config?key=eq.support_whatsapp_number&select=value`,
+                    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+                );
+                if (!res.ok) return;
+                const rows = await res.json();
+                const digits = (rows && rows[0] && rows[0].value || '').replace(/[^\d]/g, '');
+                if (digits.length >= 7) supportNumber = digits;
+            } catch (_) { /* keep fallback */ }
+        }
 
         function detectQrType() {
             const params = new URLSearchParams(window.location.search);
 
-            if (params.has('merchant') || params.has('store')) {
+            if (params.has('tag') || params.has('node')) {
+                qrType = 'nfc';
+                qrData = params.get('tag') || params.get('node');
+            } else if (params.has('merchant') || params.has('store')) {
                 qrType = 'merchant';
                 qrData = params.get('merchant') || params.get('store');
             } else if (params.has('driver') || params.has('ref')) {
@@ -219,53 +347,43 @@
         }
 
         function applyQrTheme() {
-            const logo = document.getElementById('logo');
-            const ctaBtn = document.getElementById('ctaBtn');
-            const cardIcon = document.getElementById('cardIcon');
             const cardBadge = document.getElementById('cardBadge');
-            const cardValue = document.getElementById('cardValue');
-            const cardDesc = document.getElementById('cardDesc');
+            const cardCode = document.getElementById('cardCode');
+            const codeSep = document.getElementById('codeSep');
             const mainTitle = document.getElementById('mainTitle');
             const mainSubtitle = document.getElementById('mainSubtitle');
             const fallbackBtn = document.getElementById('fallbackBtn');
             const loadingMsg = document.getElementById('loadingMsg');
 
-            if (qrType === 'merchant') {
-                logo.className = 'logo logo-merchant';
-                ctaBtn.className = 'btn btn-teal';
-                cardIcon.className = 'card-icon card-icon-merchant';
-                cardBadge.className = 'badge badge-merchant';
-                mainTitle.textContent = 'Welcome to G-Taxi';
-                mainSubtitle.textContent = 'Visit this store via G-Taxi';
-                cardValue.textContent = 'Store QR';
-                cardDesc.textContent = 'Open G-Taxi to browse or order from this merchant.';
-                cardBadge.textContent = 'MERCHANT';
-                fallbackBtn.textContent = 'Contact store via WhatsApp';
-                loadingMsg.textContent = 'Opening G-Taxi...';
-            } else if (qrType === 'driver') {
-                logo.className = 'logo logo-driver';
-                ctaBtn.className = 'btn btn-amber';
-                cardIcon.className = 'card-icon card-icon-driver';
-                cardBadge.className = 'badge badge-driver';
-                mainTitle.textContent = 'Driver Referral';
-                mainSubtitle.textContent = 'Join the G-Taxi driver network';
-                cardValue.textContent = 'Driver signup';
-                cardDesc.textContent = 'Become a G-Taxi driver partner. Earn on every ride.';
-                cardBadge.textContent = 'DRIVER';
-                fallbackBtn.textContent = 'Learn more via WhatsApp';
-                loadingMsg.textContent = 'Opening driver portal...';
-            } else {
-                logo.className = 'logo logo-ride';
-                ctaBtn.className = 'btn btn-primary';
-                cardIcon.className = 'card-icon card-icon-ride';
-                cardBadge.className = 'badge badge-ride';
-                mainTitle.textContent = 'Request Your Ride';
-                mainSubtitle.textContent = 'Fast, safe rides in Trinidad & Tobago';
-                cardValue.textContent = 'Quick ride request';
-                cardDesc.textContent = 'Open G-Taxi to get picked up at your location.';
-                cardBadge.textContent = 'RIDE';
+            if (qrType === 'nfc') {
+                cardBadge.textContent = 'Touchpoint';
+                cardBadge.className = 'kind';
+                if (qrData) { cardCode.textContent = qrData; cardCode.hidden = false; codeSep.hidden = false; }
+                mainTitle.textContent = 'You tapped in';
+                mainSubtitle.textContent = 'This touchpoint becomes your pickup. Open G-Taxi to choose where you’re going.';
                 fallbackBtn.textContent = 'Request via WhatsApp';
-                loadingMsg.textContent = 'Opening G-Taxi...';
+                loadingMsg.textContent = 'Opening G-Taxi';
+            } else if (qrType === 'merchant') {
+                cardBadge.textContent = 'Merchant';
+                cardBadge.className = 'kind kind-merchant';
+                mainTitle.textContent = 'Shop with G-Taxi';
+                mainSubtitle.textContent = 'Open G-Taxi to browse or order from this store.';
+                fallbackBtn.textContent = 'Contact store via WhatsApp';
+                loadingMsg.textContent = 'Opening G-Taxi';
+            } else if (qrType === 'driver') {
+                cardBadge.textContent = 'Driver';
+                cardBadge.className = 'kind kind-driver';
+                mainTitle.textContent = 'Drive with G-Taxi';
+                mainSubtitle.textContent = 'Join the driver network and earn on every ride.';
+                fallbackBtn.textContent = 'Learn more via WhatsApp';
+                loadingMsg.textContent = 'Opening driver portal';
+            } else {
+                cardBadge.textContent = 'Ride';
+                cardBadge.className = 'kind';
+                mainTitle.textContent = 'Request your ride';
+                mainSubtitle.textContent = 'Fast, safe rides across Trinidad & Tobago.';
+                fallbackBtn.textContent = 'Request via WhatsApp';
+                loadingMsg.textContent = 'Opening G-Taxi';
             }
         }
 
@@ -277,7 +395,9 @@
 
             let deepLink = 'gtaxi://';
 
-            if (qrType === 'merchant') {
+            if (qrType === 'nfc') {
+                deepLink += `nfc/${encodeURIComponent(qrData || '')}`;
+            } else if (qrType === 'merchant') {
                 deepLink += `merchant/${qrData || ''}?source=qr`;
             } else if (qrType === 'driver') {
                 deepLink += `driver/signup?ref=${qrData || ''}&source=qr`;
@@ -293,34 +413,27 @@
             window.location.href = deepLink;
 
             setTimeout(() => {
-                const fallback = document.getElementById('fallbackBtn');
-                if (qrType === 'merchant') {
-                    fallback.style.background = '#134E4A';
-                    fallback.style.border = 'none';
-                } else if (qrType === 'driver') {
-                    fallback.style.background = '#78350F';
-                    fallback.style.border = 'none';
-                } else {
-                    fallback.style.background = '#4C1D95';
-                    fallback.style.border = 'none';
-                }
                 loading.classList.remove('show');
-                mainSubtitle.textContent = 'App not found? Use WhatsApp instead:';
+                btn.classList.remove('hidden');
+                document.getElementById('mainSubtitle').textContent = 'App not found? Use WhatsApp instead:';
             }, 2500);
         }
 
         function handleFallback() {
-            if (qrType === 'merchant') {
+            if (qrType === 'nfc') {
+                const msg = encodeURIComponent(`Hi! I tapped a G-Taxi touchpoint (${qrData || 'unknown'}) and would like to request a ride from this location.`);
+                window.location.href = `https://wa.me/${supportNumber}?text=${msg}`;
+            } else if (qrType === 'merchant') {
                 const msg = encodeURIComponent("Hi! I scanned a QR at your store and would like to learn more about G-Taxi services.");
-                window.location.href = `https://wa.me/18687031000?text=${msg}`;
+                window.location.href = `https://wa.me/${supportNumber}?text=${msg}`;
             } else if (qrType === 'driver') {
                 const msg = encodeURIComponent("Hi! I'm interested in becoming a G-Taxi driver partner. Can you share more details?");
-                window.location.href = `https://wa.me/18687031000?text=${msg}`;
+                window.location.href = `https://wa.me/${supportNumber}?text=${msg}`;
             } else {
                 const lat = userLocation?.lat || 10.65;
                 const lng = userLocation?.lng || -61.4;
                 const msg = encodeURIComponent(`Hi! I'd like to request a G-Taxi ride. My location: https://maps.google.com/?q=${lat},${lng}`);
-                window.location.href = `https://wa.me/18687031000?text=${msg}`;
+                window.location.href = `https://wa.me/${supportNumber}?text=${msg}`;
             }
         }
 
@@ -336,6 +449,7 @@
 
         detectQrType();
         applyQrTheme();
+        loadContactNumber();
     </script>
 </body>
 </html>

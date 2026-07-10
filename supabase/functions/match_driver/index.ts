@@ -8,7 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
-import { sendSMS } from "../_shared/sms.ts";
+import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
 import { captureException } from "../_shared/sentry.ts";
 import { redisCommand } from "../_shared/redis.ts";
 
@@ -247,32 +247,82 @@ serve(async (req: Request) => {
         // Ensure ride is strictly "searching", pulling it out of the queue if it was stuck
         await supabaseAdmin.from("rides").update({ status: "searching" }).eq("id", ride_id).in("status", ["requested", "searching", "waiting_queue", "expired"]);
 
+        // ── TRUST SCORE: Calculate for this ride ───────────────────────────
+        let trustBadge = 'STANDARD';
+        let trustScore = 0;
+        try {
+            const { data: trustResult } = await supabaseAdmin
+                .rpc("calculate_ride_trust_score", {
+                    p_rider_id: ride.rider_id,
+                    p_pickup_lat: ride.pickup_lat,
+                    p_pickup_lng: ride.pickup_lng,
+                    p_dropoff_lat: ride.dropoff_lat || ride.pickup_lat,
+                    p_dropoff_lng: ride.dropoff_lng || ride.pickup_lng,
+                });
+
+            if (trustResult) {
+                const result = Array.isArray(trustResult) ? trustResult[0] : trustResult;
+                trustBadge = result.badge || 'STANDARD';
+                trustScore = result.final_score || result.score || 0;
+
+                // Add trust network bonus
+                const { data: networkMemberships } = await supabaseAdmin
+                    .from("trust_network_members")
+                    .select("network_id")
+                    .eq("user_id", ride.rider_id);
+
+                if (networkMemberships && networkMemberships.length > 0) {
+                    const netIds = networkMemberships.map((n: any) => n.network_id);
+                    const { data: networks } = await supabaseAdmin
+                        .from("trust_networks")
+                        .select("trust_bonus")
+                        .in("id", netIds);
+
+                    if (networks) {
+                        const bonus = networks.reduce((s: number, n: any) => s + (n.trust_bonus || 0), 0);
+                        trustScore = Math.min(100, trustScore + bonus);
+                        if (trustScore >= 50) trustBadge = 'VERIFIED_SAFE';
+                        else if (trustScore >= 30) trustBadge = 'SAFE_ROUTE';
+                    }
+                }
+            }
+        } catch {
+            console.log("Trust score calculation failed (non-fatal)");
+        }
+
         // ── Phase 5 Fix 5.6: Push notification to the matched driver ─────────
         // Fire-and-forget — push failure must never block the offer creation.
         // The driver's app also listens via Realtime subscription as a fallback.
         if (selectedDriver.push_token) {
             sendPushNotification(
                 selectedDriver.push_token,
-                '🚖 New Ride Request',
-                'A rider is waiting nearby. Tap to view the offer.',
+                trustBadge === 'VERIFIED_SAFE' ? '✅ Verified Safe Ride' :
+                trustBadge === 'SAFE_ROUTE' ? '🛡️ Safe Route' : '🚖 New Ride Request',
+                trustBadge !== 'STANDARD'
+                    ? `Trust Score ${trustScore}/100 · Rider is in your safety network.`
+                    : 'A rider is waiting nearby. Tap to view the offer.',
                 {
                     type: 'NEW_RIDE_OFFER',
                     ride_id: ride.id,
                     pickup: ride.pickup_address || '',
-                    driver_payout_cents: driverPayout.toString(), // Phase 11.5
+                    driver_payout_cents: driverPayout.toString(),
+                    trust_score: trustScore.toString(),
+                    trust_badge: trustBadge,
                 }
             ).catch(err => console.error("Push notification failed (non-fatal):", err));
         } else {
             console.log(`Driver ${selectedDriver.id} has no push_token — skipping push, relying on Realtime.`);
         }
 
-        // --- Fix 9: SMS Fallback for Edge Regions ---
         if (selectedDriver.phone_number) {
-            const smsMsg = `G-TAXI: New Ride Request at ${ride.pickup_address || 'nearby location'}. Tap to view.`;
-            sendSMS(selectedDriver.phone_number, smsMsg)
-                .catch(err => console.error("SMS Fallback failed (non-fatal):", err));
+            const waMsg = `G-TAXI: New Ride Request at ${ride.pickup_address || 'nearby location'}. Tap to view.`;
+            sendWhatsApp(selectedDriver.phone_number, waMsg)
+                .then(r => {
+                    if (!r.success) console.log(`[MatchDriver] WhatsApp unavailable — ${r.error || r.channel}`);
+                })
+                .catch(err => console.error("[MatchDriver] WhatsApp fallback failed (non-fatal):", err));
         } else {
-            console.log(`Driver ${selectedDriver.id} has no phone_number — skipping SMS fallback.`);
+            console.log(`Driver ${selectedDriver.id} has no phone_number — skipping WhatsApp fallback.`);
         }
 
         return new Response(
@@ -281,7 +331,9 @@ serve(async (req: Request) => {
                 data: {
                     ride_id,
                     status: "searching",
-                    message: "Offer sent to driver"
+                    message: "Offer sent to driver",
+                    trust_score: trustScore,
+                    trust_badge: trustBadge,
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

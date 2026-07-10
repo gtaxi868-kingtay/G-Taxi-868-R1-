@@ -128,12 +128,20 @@ export const VOICES = {
     accentDark: '#7C3AED',
     text: '#F1F5F9',
   },
+  // MERCHANT "Luxe" voice — commerce identity: teal-black base, ice text, bright teal
+  // accent, and COPPER as the metal (money/totals). Signature teal→copper. Distinct from
+  // rider (platinum) and driver (gold); shares the serif + glass system.
   merchant: {
-    bg: '#09090B',
-    surface: 'rgba(255,255,255,0.06)',
-    accent: '#007070',
-    accentDark: '#004f4f',
-    text: '#FFFFFF',
-    textMuted: 'rgba(255,255,255,0.7)',
+    bg: '#070C0B',
+    surface: 'rgba(255,255,255,0.045)',
+    accent: '#2DD4BF',
+    accentDark: '#0F766E',
+    copper: '#C08552',
+    copperBright: '#D9A06B',
+    text: '#E9F5F3',
+    textMuted: 'rgba(233,245,243,0.55)',
+    signature: ['#2DD4BF', '#C08552'] as [string, string],
+    serif: 'CormorantGaramond_500Medium',
+    serifSemi: 'CormorantGaramond_600SemiBold',
   },
 };
