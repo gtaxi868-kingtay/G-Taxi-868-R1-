@@ -19,12 +19,43 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
   const [merchantName, setMerchantName] = useState('');
   const [orderCount, setOrderCount] = useState(0);
   const [pendingEarningsCents, setPendingEarningsCents] = useState(0);
+  const [insight, setInsight] = useState<{ orders7d: number; busiestHour: number | null } | null>(null);
 
   useEffect(() => {
     loadMerchantProfile();
     loadOrderCount();
     loadPendingEarnings();
+    loadInsights();
   }, []);
+
+  // Additive: G's SQL-computed weekly insight card (no LLM, hides on error).
+  const loadInsights = async () => {
+    if (!user) return;
+    try {
+      const weekIso = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('merchant_orders')
+        .select('created_at')
+        .eq('merchant_user_id', user.id)
+        .gte('created_at', weekIso);
+      if (error || !data) return;
+      const hours: Record<number, number> = {};
+      data.forEach((o: any) => {
+        const h = new Date(o.created_at).getHours();
+        hours[h] = (hours[h] || 0) + 1;
+      });
+      const busiest = Object.entries(hours).sort((a, b) => b[1] - a[1])[0];
+      setInsight({ orders7d: data.length, busiestHour: busiest ? Number(busiest[0]) : null });
+    } catch {
+      /* card just won't render */
+    }
+  };
+
+  const fmtHour = (h: number) => {
+    const am = h < 12;
+    const hr = h % 12 === 0 ? 12 : h % 12;
+    return `${hr}${am ? 'am' : 'pm'}`;
+  };
 
   const loadMerchantProfile = async () => {
     if (!user) return;
@@ -33,7 +64,7 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
       .select('name')
       .eq('created_by', user.id)
       .maybeSingle();
-    if (error) { console.warn('Failed to load merchant profile:', error.message); return; }
+    if (error) { console.warn('Failed to load merchant profile:', error.message); Alert.alert('Connection Issue', 'Could not load your merchant profile.'); return; }
     if (data) setMerchantName(data.name);
   };
 
@@ -44,7 +75,7 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
       .select('id', { count: 'exact', head: true })
       .eq('merchant_user_id', user.id)
       .in('status', ['pending', 'confirmed']);
-    if (error) { console.warn('Failed to load order count:', error.message); return; }
+    if (error) { console.warn('Failed to load order count:', error.message); Alert.alert('Connection Issue', 'Could not load your order statistics.'); return; }
     setOrderCount(count ?? 0);
   };
 
@@ -93,8 +124,31 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
           </View>
         </View>
 
+        {insight && insight.orders7d > 0 && (
+          <View style={[s.insightCard, glassSurface(0.15)]}>
+            <View style={s.insightHeader}>
+              <Ionicons name="sparkles" size={16} color={VOICES.merchant.accent} />
+              <Text style={s.insightTitle}>G INSIGHTS · THIS WEEK</Text>
+            </View>
+            <Text style={s.insightBody}>
+              {insight.orders7d} order{insight.orders7d === 1 ? '' : 's'} in the last 7 days
+              {insight.busiestHour !== null
+                ? `. Busiest around ${fmtHour(insight.busiestHour)} — staff up then.`
+                : '.'}
+            </Text>
+          </View>
+        )}
+
         <Text style={s.sectionTitle}>Quick Actions</Text>
         <View style={s.tileGrid}>
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('NfcAcceptPayment')} accessibilityLabel="Accept tap-to-pay from rider keychains" accessibilityRole="button">
+            <View style={[s.tileIcon, { backgroundColor: '#10B98126' }]}>
+              <Ionicons name="phone-portrait-outline" size={28} color="#10B981" />
+            </View>
+            <Text style={s.tileLabel}>Tap to Pay</Text>
+            <Text style={s.tileDesc}>Charge rider keychain via NFC</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Orders')} accessibilityLabel="Manage incoming orders" accessibilityRole="button">
             <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
               <Ionicons name="receipt" size={28} color={VOICES.merchant.accent} />
@@ -228,6 +282,10 @@ const s = StyleSheet.create({
   statNumber: { fontSize: 32, fontWeight: '800', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
   statLabel: { fontSize: 13, color: VOICES.merchant.textMuted, marginTop: 4, fontFamily: 'Manrope' },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', marginBottom: 16, fontFamily: 'SpaceGrotesk' },
+  insightCard: { borderRadius: 20, padding: 20, marginBottom: 32 },
+  insightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  insightTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
+  insightBody: { fontSize: 15, color: '#E9F5F3', lineHeight: 22, fontFamily: 'Manrope' },
   tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: { borderRadius: 20, padding: 20 },
   tileIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },

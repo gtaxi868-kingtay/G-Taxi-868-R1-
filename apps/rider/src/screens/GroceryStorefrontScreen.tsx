@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { useLocationTracking } from '../hooks/useLocationTracking';
 import { LoadingOverlay } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
@@ -45,8 +46,10 @@ export function GroceryStorefrontScreen({ navigation }: any) {
     const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
+    const { location } = useLocationTracking(true);
 
     const [merchants, setMerchants] = useState<Merchant[]>([]);
+    const [usualStores, setUsualStores] = useState<any[]>([]);
     const [regularItems, setRegularItems] = useState<RegularItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -110,6 +113,28 @@ export function GroceryStorefrontScreen({ navigation }: any) {
     }, []);
 
     useEffect(() => { fetchMerchants(); }, [fetchMerchants]);
+
+    // Additive: personalized "YOUR USUALS" store row via g_rank_merchants.
+    // Consent-gated server-side; if off or no history, is_usual comes back false
+    // and the row simply doesn't render. Never blocks the existing store list.
+    useEffect(() => {
+        if (!location || !user?.id) return;
+        supabase
+            .rpc('g_rank_merchants', {
+                p_rider_id: user.id,
+                p_lat: location.latitude,
+                p_lng: location.longitude,
+                p_store_type: 'grocery',
+                p_limit: 12,
+            })
+            .then(
+                ({ data }) => {
+                    const usuals = (data || []).filter((m: any) => m.is_usual || m.is_featured);
+                    setUsualStores(usuals);
+                },
+                (err: unknown) => console.warn('[GroceryStorefront] g_rank_merchants failed:', err),
+            );
+    }, [location?.latitude, location?.longitude, user?.id]);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -178,6 +203,50 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     </TouchableOpacity>
                 ))}
             </ScrollView>
+
+            {usualStores.length > 0 && (
+                <View style={s.regularsContainer}>
+                    <View style={s.sectionHeader}>
+                        <Ionicons name="sparkles" size={14} color={VOICES.rider.accent} />
+                        <Text style={s.sectionTitle}>YOUR USUALS</Text>
+                    </View>
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={s.regularsScroll}
+                    >
+                        {usualStores.map((store: any) => (
+                            <TouchableOpacity
+                                key={store.merchant_id}
+                                style={s.regularCard}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    navigation.navigate('ProductListing', {
+                                        merchant: {
+                                            id: store.merchant_id,
+                                            name: store.name,
+                                            category: store.category,
+                                            address: store.address,
+                                            is_active: true,
+                                            delivery_fee_cents: store.delivery_fee_cents,
+                                        },
+                                    });
+                                }}
+                            >
+                                <View style={s.itemIcon}>
+                                    <Text style={{ fontSize: 20 }}>
+                                        {CATEGORY_ICONS[store.category] || CATEGORY_ICONS.default}
+                                    </Text>
+                                </View>
+                                <Text style={s.itemName} numberOfLines={1}>{store.name}</Text>
+                                <Text style={s.itemMerchant} numberOfLines={1}>
+                                    {store.is_featured ? '★ Featured' : `Ordered ${store.visit_count}×`}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
 
             {regularItems.length > 0 && (
                 <View style={s.regularsContainer}>
