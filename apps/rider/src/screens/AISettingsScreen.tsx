@@ -39,6 +39,7 @@ export function AISettingsScreen({ navigation }: any) {
     const [prefs, setPrefs] = useState({
         quiet_ride: false,
         ai_suggestions_enabled: true,
+        memory_enabled: false,
         pace_priority: 'balanced'
     });
 
@@ -58,6 +59,7 @@ export function AISettingsScreen({ navigation }: any) {
                 setPrefs({
                     quiet_ride: data.quiet_ride,
                     ai_suggestions_enabled: data.ai_suggestions_enabled,
+                    memory_enabled: data.memory_enabled ?? false,
                     pace_priority: data.pace_priority
                 });
             }
@@ -151,6 +153,55 @@ export function AISettingsScreen({ navigation }: any) {
 
                     <View style={s.divider} />
 
+                    <View style={[s.row, { opacity: prefs.ai_suggestions_enabled ? 1 : 0.45 }]}>
+                        <View style={{ flex: 1 }}>
+                            <Txt variant="bodyBold" color="#EAF3F6">G Remembers You</Txt>
+                            <Txt variant="small" color={R.muted}>Let G keep notes (your usuals, preferences) to help faster. Only your own data — erase it anytime below.</Txt>
+                        </View>
+                        <Switch
+                            value={prefs.memory_enabled}
+                            disabled={!prefs.ai_suggestions_enabled}
+                            onValueChange={(val: boolean) => updatePref('memory_enabled', val)}
+                            trackColor={{ false: R.surfaceHigh, true: R.purple }}
+                        />
+                    </View>
+
+                    <View style={s.divider} />
+
+                    <TouchableOpacity
+                        style={s.forgetBtn}
+                        onPress={() => {
+                            Alert.alert(
+                                'Forget everything?',
+                                'G will erase all its notes about you and cancel pending reminders. This cannot be undone.',
+                                [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    {
+                                        text: 'Forget me',
+                                        style: 'destructive',
+                                        onPress: async () => {
+                                            try {
+                                                const { error } = await supabase.functions.invoke('g_rider_concierge', {
+                                                    body: { action: 'forget' },
+                                                });
+                                                if (error) throw error;
+                                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                                Alert.alert('Done', 'G has forgotten everything it knew about you.');
+                                            } catch (err: any) {
+                                                Alert.alert('Failed', err?.message || 'Could not erase right now.');
+                                            }
+                                        },
+                                    },
+                                ],
+                            );
+                        }}
+                    >
+                        <Ionicons name="trash-outline" size={16} color="#F87171" />
+                        <Txt variant="bodyBold" color="#F87171" style={{ marginLeft: 8 }}>Forget me — erase G's memory</Txt>
+                    </TouchableOpacity>
+
+                    <View style={s.divider} />
+
                     <View style={[s.row, { opacity: 0.45 }]}>
                         <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -223,5 +274,6 @@ const s = StyleSheet.create({
     paceItem: { flex: 1, height: 80, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0) },
     paceItemActive: { backgroundColor: R.purple, borderColor: R.purpleLight },
 
-    savingIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 }
+    savingIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+    forgetBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 16, backgroundColor: 'rgba(248,113,113,0.08)', ...ghostBorder(0.1) }
 });

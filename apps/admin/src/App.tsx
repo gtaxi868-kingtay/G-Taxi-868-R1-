@@ -14,6 +14,7 @@ import { PlatformControl } from './pages/PlatformControl';
 import { TravelPackages } from './pages/TravelPackages';
 import { DealerBrokerage } from './pages/DealerBrokerage';
 import { Intelligence } from './pages/Intelligence';
+import { Approvals } from './pages/Approvals';
 import { Pricing } from './pages/Pricing';
 import { MerchantNetwork } from './pages/MerchantNetwork';
 import { Support } from './pages/Support';
@@ -21,8 +22,9 @@ import { Progression } from './pages/Progression';
 import { EscapeManagement } from './pages/EscapeManagement';
 import { RevshareSettlement } from './pages/RevshareSettlement';
 import { CommanderManagement } from './pages/CommanderManagement';
+import { ComplianceReview } from './pages/ComplianceReview';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign, FileCheck, Inbox } from 'lucide-react';
 
 function AdminSecurityGate({ children }: { children: React.ReactNode }) {
     const [gateState, setGateState] = useState<'loading' | 'unauthorized' | 'authorized'>('loading');
@@ -79,7 +81,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
@@ -95,11 +97,13 @@ const TAB_LABELS: Record<AdminView, string> = {
     escape: 'Escape Management',
     dealer: 'Dealer Brokerage',
     intelligence: 'AI Intelligence',
+    approvals: 'G Approvals',
     pricing: 'Pricing Config',
     merchants: 'Merchant Network',
     support: 'Support Tickets',
     progression: 'Rider Progression',
     revshare: 'Revshare Settlement',
+    compliance: 'Compliance Review',
 };
 
 function App() {
@@ -190,6 +194,7 @@ function App() {
                         <NavItem active={activeTab === 'fleet'} onClick={() => handleNav('fleet')} icon={<Users size={20}/>} label="Fleet & Personnel" />
                         <NavItem active={activeTab === 'commander'} onClick={() => handleNav('commander')} icon={<ShieldCheck size={20}/>} label="Commanders" />
                         <NavItem active={activeTab === 'approval'} onClick={() => handleNav('approval')} icon={<UserCheck size={20}/>} label="Driver Approval" />
+                        <NavItem active={activeTab === 'compliance'} onClick={() => handleNav('compliance')} icon={<FileCheck size={20}/>} label="Compliance Review" />
                         <NavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Index" />
                         <NavItem active={activeTab === 'nodes'} onClick={() => handleNav('nodes')} icon={<Radio size={20}/>} label="Node Registry" />
                         <NavItem active={activeTab === 'rescue'} onClick={() => handleNav('rescue')} icon={<AlertTriangle size={20}/>} label="Rescue" />
@@ -199,6 +204,7 @@ function App() {
                         <NavItem active={activeTab === 'escape'} onClick={() => handleNav('escape')} icon={<Globe size={20}/>} label="Escape Mgmt" />
                         <NavItem active={activeTab === 'dealer'} onClick={() => handleNav('dealer')} icon={<Car size={20}/>} label="Dealer Brokerage" />
                         <NavItem active={activeTab === 'intelligence'} onClick={() => handleNav('intelligence')} icon={<Bot size={20}/>} label="AI Intelligence" />
+                        <NavItem active={activeTab === 'approvals'} onClick={() => handleNav('approvals')} icon={<Inbox size={20}/>} label="G Approvals" />
                         <NavItem active={activeTab === 'pricing'} onClick={() => handleNav('pricing')} icon={<Tag size={20}/>} label="Pricing Config" />
                         <NavItem active={activeTab === 'merchants'} onClick={() => handleNav('merchants')} icon={<Store size={20}/>} label="Merchant Network" />
                         <NavItem active={activeTab === 'support'} onClick={() => handleNav('support')} icon={<Flag size={20}/>} label="Support" />
@@ -263,6 +269,7 @@ function App() {
                         {activeTab === 'fleet' && <FleetManager rides={rides} allUsers={allUsers} orders={orders} onRefresh={fetchData} />}
                         {activeTab === 'commander' && <CommanderManagement />}
                         {activeTab === 'approval' && <DriverApproval onRefresh={fetchData} />}
+                        {activeTab === 'compliance' && <ComplianceReview />}
                         {activeTab === 'financials' && <Financials />}
                         {activeTab === 'nodes' && <NodeRegistry />}
                         {activeTab === 'rescue' && <RescueScreen />}
@@ -272,6 +279,7 @@ function App() {
                         {activeTab === 'escape' && <EscapeManagement />}
                         {activeTab === 'dealer' && <DealerBrokerage />}
                         {activeTab === 'intelligence' && <Intelligence />}
+                        {activeTab === 'approvals' && <Approvals />}
                         {activeTab === 'pricing' && <Pricing />}
                         {activeTab === 'merchants' && <MerchantNetwork />}
                         {activeTab === 'support' && <Support />}
