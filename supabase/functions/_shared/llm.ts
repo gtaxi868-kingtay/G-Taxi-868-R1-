@@ -135,7 +135,8 @@ export async function chat(supabase: any, opts: ChatOptions): Promise<any> {
     }
 
     let lastErr = "";
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const backoffs = [3000, 8000, 16000]; // Groq free tier TPM window needs ~15s
+    for (let attempt = 0; attempt < backoffs.length; attempt++) {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 30_000);
         try {
@@ -150,7 +151,7 @@ export async function chat(supabase: any, opts: ChatOptions): Promise<any> {
             });
             if (res.status === 429 || res.status >= 500) {
                 lastErr = `${res.status}: ${await res.text()}`;
-                await new Promise((r) => setTimeout(r, attempt === 0 ? 2000 : 5000));
+                await new Promise((r) => setTimeout(r, backoffs[attempt]));
                 continue;
             }
             if (!res.ok) throw new Error(`LLM API error ${res.status}: ${await res.text()}`);

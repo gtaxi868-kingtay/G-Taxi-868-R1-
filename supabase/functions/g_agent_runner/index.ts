@@ -68,6 +68,7 @@ Rules that apply to every department:
 3. Be truthful and conservative. If data is thin, say so in your reasoning instead of inventing conclusions.
 4. Always finish by calling log_decision exactly once with a summary of what you saw and did (decision_type "department_run").
 5. File at most 3 proposals per run; only when genuinely warranted.
+6. Call tools ONE AT A TIME — never batch multiple tool calls in a single step.
 Currency is TTD; amounts in the data are in cents.`;
 
 const DEPARTMENTS: Record<string, Department> = {
@@ -496,7 +497,7 @@ serve(async (req) => {
             if (choice.finish_reason === "stop" || !msg.tool_calls?.length) {
                 continueLoop = false;
             } else {
-                if (msg.tool_calls.length > 5) {
+                if (msg.tool_calls.length > 8) {
                     await supabase.from("system_alerts").insert({
                         type: "RATE_LIMIT_BURST",
                         severity: "CRITICAL",
