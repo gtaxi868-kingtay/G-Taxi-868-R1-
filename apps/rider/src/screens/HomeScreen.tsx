@@ -486,6 +486,23 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         }
     };
 
+    // Additive: forward a request to G's rider concierge and speak its reply.
+    // Consent-gated server-side; if AI is off, G replies without personalization.
+    const askConcierge = async (text: string) => {
+        try {
+            const { data, error } = await supabase.functions.invoke('g_rider_concierge', {
+                body: { message: text, lat: currentLat, lng: currentLng }
+            });
+            if (!error && data?.reply) {
+                setAiGreeting(data.reply);
+            } else {
+                setAiGreeting("Sorry, I couldn't process that just now.");
+            }
+        } catch {
+            setAiGreeting("Connection failed. Please try again.");
+        }
+    };
+
     const handleVoiceComplete = async (text: string) => {
         if (!profile?.id || !text) return;
         setIsAiThinking(true);
@@ -517,9 +534,15 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         });
                         clearFarePreview();
                     }, 2000);
+                } else {
+                    // Additive: non-ride requests (remember/order/reminder/chat) go to
+                    // G's concierge for a richer, memory-aware reply. Ride booking above
+                    // is untouched. Concierge is consent-gated + has no payment tools.
+                    await askConcierge(text);
                 }
             } else {
-                setAiGreeting("Sorry, I couldn't process that command.");
+                // handle_voice couldn't classify it — let G's concierge try.
+                await askConcierge(text);
             }
         } catch (err) {
             setAiGreeting("Connection failed. Please try again.");
