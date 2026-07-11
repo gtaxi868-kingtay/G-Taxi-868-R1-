@@ -367,13 +367,38 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         const lat = location?.coords?.latitude || DEFAULT_LOCATION.latitude;
         const lng = location?.coords?.longitude || DEFAULT_LOCATION.longitude;
         if (!featureFlags.grocery) return;
+        // Personalized ranking (visits, learned routes, featured promos) with
+        // consent; plain distance ranking when suggestions are off. Falls back
+        // to the old RPC if g_rank_merchants isn't deployed yet.
         supabase
-            .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
+            .rpc('g_rank_merchants', { p_rider_id: profile?.id ?? null, p_lat: lat, p_lng: lng, p_store_type: 'grocery', p_limit: 10 })
             .then(
-                ({ data }) => setNearbyVendors(data || []),
-                (err: unknown) => console.warn('[HomeScreen] get_nearby_merchants failed:', err),
+                ({ data, error }) => {
+                    if (error || !data) {
+                        supabase
+                            .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
+                            .then(
+                                ({ data: fallback }) => setNearbyVendors(fallback || []),
+                                (err: unknown) => console.warn('[HomeScreen] merchant rail failed:', err),
+                            );
+                        return;
+                    }
+                    setNearbyVendors(data.map((m: any) => ({
+                        id: m.merchant_id,
+                        name: m.name,
+                        store_type: m.store_type,
+                        address: m.address ?? '',
+                        delivery_fee_cents: m.delivery_fee_cents ?? 0,
+                        avg_delivery_minutes: m.avg_delivery_minutes ?? 30,
+                        is_open: m.is_open,
+                        distance_meters: m.distance_m,
+                        is_usual: m.is_usual,
+                        is_featured: m.is_featured,
+                    })));
+                },
+                (err: unknown) => console.warn('[HomeScreen] g_rank_merchants failed:', err),
             );
-    }, [location, featureFlags.grocery]);
+    }, [location, featureFlags.grocery, profile?.id]);
 
     useEffect(() => {
         const { nfcTagId, nfcLat, nfcLng, nfcLocation } = route?.params || {};
@@ -1043,7 +1068,9 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                                 </View>
                                                 <View style={{ flex: 1 }}>
                                                     <Text style={{ color: '#EAF3F6', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{v.name}</Text>
-                                                    <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>{v.is_open ? 'Open' : 'Closed'}</Text>
+                                                    <Text style={{ color: (v as any).is_usual ? VOICES.rider.accent : 'rgba(255,255,255,0.45)', fontSize: 11 }}>
+                                                        {(v as any).is_featured ? 'Featured' : (v as any).is_usual ? 'Your usual' : v.is_open ? 'Open' : 'Closed'}
+                                                    </Text>
                                                 </View>
                                             </View>
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>

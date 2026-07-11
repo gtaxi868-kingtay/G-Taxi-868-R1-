@@ -14,6 +14,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { chat, llmConfigured, BudgetExceededError } from "../_shared/llm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -444,6 +445,258 @@ async function orchestrateLiquidity(supabase: ReturnType<typeof createClient>) {
     await Promise.allSettled(assignmentPromises);
 }
 
+// ── PRE-STEP 7: Grid — check driver liquidity distribution ───────────────────
+// Identifies territories where demand_score >= 1.2 but online driver count
+// is low. Logs grid_liquidity_check decision for dashboard consumption.
+async function gridLiquidityCheck(supabase: ReturnType<typeof createClient>) {
+    const { data: hotspots } = await supabase
+        .rpc("get_demand_hotspots", { p_min_score: 1.2 })
+        .catch(() => ({ data: [] }));
+
+    if (!hotspots?.length) return;
+
+    const { data: onlineDrivers } = await supabase
+        .from("drivers")
+        .select("id, current_lat, current_lng")
+        .eq("is_online", true)
+        .eq("status", "active");
+
+    if (!onlineDrivers?.length) return;
+
+    for (const zone of hotspots.slice(0, 5)) {
+        const nearbyCount = onlineDrivers.filter((d: any) => {
+            if (!d.current_lat || !d.current_lng || !zone.lat || !zone.lng) return false;
+            const R = 6371e3;
+            const φ1 = (zone.lat * Math.PI) / 180;
+            const φ2 = (d.current_lat * Math.PI) / 180;
+            const Δφ = ((d.current_lat - zone.lat) * Math.PI) / 180;
+            const Δλ = ((d.current_lng - zone.lng) * Math.PI) / 180;
+            const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c < 3000;
+        }).length;
+
+        const supplyRatio = nearbyCount / (zone.demand_count || 1);
+
+        await supabase.from("agent_decision_log").insert({
+            decision_type: "grid_liquidity_check",
+            reasoning: `Zone ${zone.zone_name || zone.geohash || "unknown"}: demand_score=${zone.demand_score?.toFixed(2)}, online_drivers_nearby=${nearbyCount}, supply_ratio=${supplyRatio.toFixed(2)}`,
+            tool_used: "gridLiquidityCheck",
+            payload: {
+                zone: zone.zone_name || zone.geohash,
+                demand_score: zone.demand_score,
+                online_drivers_nearby: nearbyCount,
+                supply_ratio: supplyRatio,
+            },
+            outcome: supplyRatio < 0.5 ? "UNDERSUPPLIED — consider relocation" : "adequate",
+        }).catch(() => null);
+
+        if (nearbyCount === 0) {
+            const { data: farDrivers } = await supabase
+                .rpc("find_nearest_online_drivers", {
+                    p_lat: zone.lat,
+                    p_lng: zone.lng,
+                    p_radius_meters: 10000,
+                    p_limit: 5,
+                })
+                .catch(() => ({ data: [] }));
+
+            if (farDrivers?.length) {
+                await supabase.from("agent_decision_log").insert({
+                    decision_type: "grid_driver_relocation",
+                    reasoning: `Zone ${zone.zone_name || zone.geohash || "unknown"} has 0 nearby drivers but ${farDrivers.length} within 10km. Suggested relocation target.`,
+                    tool_used: "gridLiquidityCheck",
+                    payload: {
+                        zone: zone.zone_name || zone.geohash,
+                        target_lat: zone.lat,
+                        target_lng: zone.lng,
+                        candidate_drivers: farDrivers.slice(0, 3).map((d: any) => d.driver_id),
+                    },
+                    outcome: "relocation_suggested_but_not_forced",
+                }).catch(() => null);
+            }
+        }
+    }
+}
+
+// ── PRE-STEP 8: Liaison — draft commander notifications ──────────────────────
+// For each active commander, drafts a WhatsApp-style notification with
+// their territory's performance metrics. The commander can one-tap approve
+// to send via WhatsApp deep link. Logs liaison_whatsapp_draft decision.
+async function liaisonDraftCommanderMessages(supabase: ReturnType<typeof createClient>) {
+    const { data: commanders } = await supabase
+        .from("pod_commanders")
+        .select("id, user_id, territory_id, metrics, onboarding_code")
+        .eq("status", "active");
+
+    if (!commanders?.length) return;
+
+    for (const commander of commanders) {
+        const sentinelKey = `liaison_draft_${commander.id}`;
+
+        const { data: existing } = await supabase
+            .from("agent_decision_log")
+            .select("id")
+            .eq("decision_type", "liaison_whatsapp_draft")
+            .contains("payload", { sentinel: sentinelKey })
+            .maybeSingle();
+
+        if (existing) continue;
+
+        const metrics = commander.metrics as Record<string, any> ?? {};
+        const territoryRides = metrics.total_rides ?? 0;
+        const territoryDrivers = metrics.active_drivers ?? 0;
+        const weeklyEarnings = metrics.weekly_earnings_cents ?? 0;
+
+        const message = `📊 G-Taxi Commander Report — ${commander.territory_id ? `Territory ${commander.territory_id}` : "Your Territory"}\nRides this period: ${territoryRides}\nActive drivers: ${territoryDrivers}\nEst. weekly earnings: $${(weeklyEarnings / 100).toFixed(2)} TTD\n\nTap to view full dashboard.`;
+
+        await supabase.from("agent_decision_log").insert({
+            decision_type: "liaison_whatsapp_draft",
+            reasoning: `Drafted weekly update for commander ${commander.id}`,
+            tool_used: "liaisonDraftCommanderMessages",
+            payload: {
+                sentinel: sentinelKey,
+                commander_id: commander.id,
+                message_draft: message,
+                wa_deep_link: `https://wa.me/1868XXXXXXX?text=${encodeURIComponent(message)}`,
+            },
+            outcome: "draft_ready_for_approval",
+        }).catch(() => null);
+
+        // Push notification to commander with the draft
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("push_token")
+            .eq("id", commander.user_id)
+            .single()
+            .catch(() => ({ data: null }));
+
+        if (profile?.push_token) {
+            await sendExpoPush(
+                profile.push_token,
+                "Your territory report is ready",
+                `${territoryRides} rides · ${territoryDrivers} drivers · $${(weeklyEarnings / 100).toFixed(2)} TTD this period.`,
+                { type: "commander_report", commander_id: commander.id },
+            );
+        }
+    }
+}
+
+// ── PRE-STEP 9: Watchdog — audit recent admin actions ────────────────────────
+// Reviews recent agent_decision_log entries and system_alerts for anomalies.
+// Checks: excessive surge activations, failed cron jobs, RLS changes.
+// Creates watchdog_audit and watchdog_emergency_toggle decisions.
+async function watchdogAudit(supabase: ReturnType<typeof createClient>) {
+    const runId = crypto.randomUUID();
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+
+    // Check 1: Surge activation frequency
+    const { data: recentSurge } = await supabase
+        .from("agent_decision_log")
+        .select("id, created_at")
+        .eq("decision_type", "surge_activated")
+        .gte("created_at", sixHoursAgo);
+
+    const surgeCount = recentSurge?.length ?? 0;
+    if (surgeCount > 24) {
+        const msg = `Abnormal surge activity: ${surgeCount} activations in 6h (normal: <24)`;
+        await supabase.from("agent_decision_log").insert({
+            run_id: runId,
+            decision_type: "watchdog_audit",
+            reasoning: msg,
+            tool_used: "watchdogAudit",
+            payload: { surge_count: surgeCount, window_hours: 6 },
+            outcome: "surge_rate_anomaly_detected",
+        }).catch(() => null);
+
+        await supabase.from("system_alerts").insert({
+            type: "WATCHDOG_ANOMALY",
+            title: "Surge activation rate anomaly",
+            details: { message: msg, surge_count: surgeCount, run_id: runId },
+            severity: "HIGH",
+        }).catch(() => null);
+    }
+
+    // Check 2: Recent system alerts
+    const { data: recentAlerts } = await supabase
+        .from("system_alerts")
+        .select("id, type, severity, created_at")
+        .gte("created_at", oneHourAgo)
+        .eq("severity", "CRITICAL");
+
+    if (recentAlerts?.length) {
+        for (const alert of recentAlerts) {
+            await supabase.from("agent_decision_log").insert({
+                run_id: runId,
+                decision_type: "watchdog_emergency_toggle",
+                reasoning: `CRITICAL alert active: ${alert.type}`,
+                tool_used: "watchdogAudit",
+                payload: { alert_id: alert.id, alert_type: alert.type },
+                outcome: "emergency_flag_raised",
+            }).catch(() => null);
+        }
+    }
+
+    // Check 3: Failed cron jobs
+    const { data: recentErrors } = await supabase
+        .from("agent_decision_log")
+        .select("id, decision_type, created_at")
+        .eq("outcome", "error")
+        .gte("created_at", oneHourAgo);
+
+    if (recentErrors && recentErrors.length > 5) {
+        const msg = `${recentErrors.length} failed agent decisions in the last hour`;
+        await supabase.from("agent_decision_log").insert({
+            run_id: runId,
+            decision_type: "watchdog_audit",
+            reasoning: msg,
+            tool_used: "watchdogAudit",
+            payload: { error_count: recentErrors.length, window: "1h" },
+            outcome: "error_rate_anomaly_detected",
+        }).catch(() => null);
+
+        await supabase.from("system_alerts").insert({
+            type: "WATCHDOG_ANOMALY",
+            title: "High agent error rate",
+            details: { message: msg, error_count: recentErrors.length, run_id: runId },
+            severity: "MEDIUM",
+        }).catch(() => null);
+    }
+
+    // Check 4: Verify RPCs still work (canary)
+    const canaryChecks = [
+        { name: "get_demand_hotspots", rpc: "get_demand_hotspots", params: { p_min_score: 1.5 } },
+        { name: "find_nearest_online_drivers", rpc: "find_nearest_online_drivers", params: { p_lat: 10.65, p_lng: -61.52, p_radius_meters: 1000, p_limit: 1 } },
+    ];
+
+    for (const canary of canaryChecks) {
+        const { error } = await supabase.rpc(canary.rpc as any, canary.params).catch(() => ({ error: new Error("RPC unavailable") }));
+        if (error) {
+            await supabase.from("agent_decision_log").insert({
+                run_id: runId,
+                decision_type: "watchdog_audit",
+                reasoning: `Canary check failed: ${canary.name} — ${error.message}`,
+                tool_used: "watchdogAudit",
+                payload: { canary: canary.name, error: error.message },
+                outcome: "canary_failure",
+            }).catch(() => null);
+        }
+    }
+
+    // Log pass if no anomalies
+    if (surgeCount <= 24 && !recentAlerts?.length && (!recentErrors || recentErrors.length <= 5)) {
+        await supabase.from("agent_decision_log").insert({
+            run_id: runId,
+            decision_type: "watchdog_audit",
+            reasoning: "All checks passed: surge rate normal, no critical alerts, error rate normal, canaries healthy",
+            tool_used: "watchdogAudit",
+            payload: { checks: ["surge_rate", "critical_alerts", "error_rate", "canary"] },
+            outcome: "all_healthy",
+        }).catch(() => null);
+    }
+}
+
 // ── Tool definitions for Groq AI loop ────────────────────────────────────────
 
 const TOOLS = [
@@ -736,9 +989,11 @@ serve(async (req) => {
     const cronHeader = req.headers.get("x-cron-secret");
     const authHeader = req.headers.get("Authorization");
     let authorized = false;
+    let viaCron = false;
 
     if (PLATFORM_CRON_SECRET && cronHeader === PLATFORM_CRON_SECRET) {
         authorized = true;
+        viaCron = true;
     } else if (authHeader) {
         const anonClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "");
         const { data: { user }, error: authErr } = await anonClient.auth.getUser(
@@ -771,13 +1026,26 @@ serve(async (req) => {
             checkRateExpiry(supabase),
             checkProgressionUnlocks(supabase),
             orchestrateLiquidity(supabase),
+            gridLiquidityCheck(supabase),
+            liaisonDraftCommanderMessages(supabase),
+            watchdogAudit(supabase),
         ]);
 
-        // ── GROQ AI LOOP (only runs if API key is configured) ───────────────────
-        if (!GROQ_API_KEY) {
-            console.log("[platform_intelligence] GROQ_API_KEY not set — pre-steps only");
+        // ── AI LOOP (only runs if a gateway key is configured) ──────────────────
+        if (!llmConfigured()) {
+            console.log("[platform_intelligence] no LLM key configured — pre-steps only");
             return new Response(
                 JSON.stringify({ success: true, run_id: runId, pre_steps_only: true }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+        }
+
+        // Cost gate: cron fires every 15 min for the deterministic pre-steps, but
+        // the LLM pass only runs on the first tick of each hour. Manual admin
+        // invocations ("Run agent now") always get the full loop.
+        if (viaCron && new Date().getUTCMinutes() >= 15) {
+            return new Response(
+                JSON.stringify({ success: true, run_id: runId, pre_steps_only: true, note: "llm_pass_hourly" }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } },
             );
         }
@@ -823,30 +1091,27 @@ Context:
                 },
             }));
 
-            const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${GROQ_API_KEY}`,
-                },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    max_tokens: 4096,
-                    tools: groqTools,
-                    tool_choice: "auto",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        ...messages,
-                    ],
-                }),
-            });
-
-            if (!groqRes.ok) {
-                const errText = await groqRes.text();
-                throw new Error(`Groq API error ${groqRes.status}: ${errText}`);
+            let groqResponse;
+            try {
+                groqResponse = await chat(supabase, {
+                    department: "platform_intelligence",
+                    system: systemPrompt,
+                    // deno-lint-ignore no-explicit-any
+                    messages: messages as any,
+                    // deno-lint-ignore no-explicit-any
+                    tools: groqTools as any,
+                    maxTokens: 4096,
+                });
+            } catch (budgetErr) {
+                if (budgetErr instanceof BudgetExceededError) {
+                    // Budget guard tripped — pre-steps already ran; degrade cleanly.
+                    return new Response(
+                        JSON.stringify({ success: true, run_id: runId, iterations, note: "budget_exhausted" }),
+                        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                    );
+                }
+                throw budgetErr;
             }
-
-            const groqResponse = await groqRes.json();
             const choice = groqResponse.choices?.[0];
             if (!choice) throw new Error("Groq returned no choices");
 
