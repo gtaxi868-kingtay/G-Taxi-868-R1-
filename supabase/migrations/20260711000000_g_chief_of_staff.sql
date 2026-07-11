@@ -130,32 +130,11 @@ CREATE POLICY g_social_metrics_admin ON public.g_social_metrics
     (SELECT role::text FROM public.profiles WHERE id = auth.uid()) = 'admin'
   );
 
--- 8. Merchant promotions (featured placements; admin approves) ------------------
-CREATE TABLE IF NOT EXISTS public.merchant_promotions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  merchant_id uuid NOT NULL REFERENCES public.merchants(id) ON DELETE CASCADE,
-  headline text NOT NULL,
-  offer text,
-  budget_type text NOT NULL DEFAULT 'featured_slot' CHECK (budget_type IN ('featured_slot')),
-  starts_at timestamptz NOT NULL DEFAULT now(),
-  ends_at timestamptz NOT NULL,
-  status text NOT NULL DEFAULT 'pending_review'
-    CHECK (status IN ('pending_review','active','rejected','ended')),
-  created_by uuid REFERENCES public.profiles(id),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+-- 8. Merchant promotions — REUSE the existing table (impression/tap ad model:
+--    is_active boolean + start_date/end_date). "Featured" in g_rank_merchants =
+--    an active promo within its date window. Just add the lookup index.
 CREATE INDEX IF NOT EXISTS idx_merchant_promotions_active
-  ON public.merchant_promotions (merchant_id) WHERE status = 'active';
-ALTER TABLE public.merchant_promotions ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS merchant_promotions_admin ON public.merchant_promotions;
-CREATE POLICY merchant_promotions_admin ON public.merchant_promotions
-  FOR ALL USING (
-    (SELECT role::text FROM public.profiles WHERE id = auth.uid()) = 'admin'
-  );
--- Riders may read active promos (they surface as "Featured")
-DROP POLICY IF EXISTS merchant_promotions_public_read ON public.merchant_promotions;
-CREATE POLICY merchant_promotions_public_read ON public.merchant_promotions
-  FOR SELECT USING (status = 'active' AND now() BETWEEN starts_at AND ends_at);
+  ON public.merchant_promotions (merchant_id) WHERE is_active = true;
 
 -- 9. rider_ai_preferences: memory consent + metadata (greeting cache fix) -------
 ALTER TABLE public.rider_ai_preferences
@@ -281,8 +260,8 @@ BEGIN
   LEFT JOIN LATERAL (
     SELECT mp.merchant_id
       FROM public.merchant_promotions mp
-     WHERE mp.merchant_id = m.id AND mp.status = 'active'
-       AND now() BETWEEN mp.starts_at AND mp.ends_at
+     WHERE mp.merchant_id = m.id AND mp.is_active = true
+       AND current_date BETWEEN mp.start_date AND mp.end_date
      LIMIT 1
   ) promo ON true
   WHERE m.is_active = true

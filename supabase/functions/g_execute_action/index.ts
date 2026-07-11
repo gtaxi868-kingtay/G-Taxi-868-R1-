@@ -65,12 +65,14 @@ const MANUAL_ACK_TYPES = new Set([
 
 const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResult>> = {
     // Approving a merchant promo flips it live so g_rank_merchants starts
-    // boosting it ("Featured" placement).
+    // boosting it ("Featured" placement). merchant_promotions is the existing
+    // ads table: is_active boolean + start_date/end_date window.
     async activate_merchant_promo(supabase, p) {
         const promoId = p.payload?.promotion_id;
         if (!promoId) return { ok: false, result: { error: "payload.promotion_id missing" } };
         const { error } = await supabase.from("merchant_promotions")
-            .update({ status: "active" }).eq("id", promoId).eq("status", "pending_review");
+            .update({ is_active: true, updated_at: new Date().toISOString() })
+            .eq("id", promoId);
         return error
             ? { ok: false, result: { error: error.message } }
             : { ok: true, result: { activated: promoId } };
