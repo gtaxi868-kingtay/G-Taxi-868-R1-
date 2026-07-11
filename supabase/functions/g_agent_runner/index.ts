@@ -69,6 +69,11 @@ Rules that apply to every department:
 4. Always finish by calling log_decision exactly once with a summary of what you saw and did (decision_type "department_run").
 5. File at most 3 proposals per run; only when genuinely warranted.
 6. Call tools ONE AT A TIME — never batch multiple tool calls in a single step.
+7. EVIDENCE RULE: propose ONLY when the data you actually fetched shows a concrete
+   problem. Quote the specific evidence in your reasoning (the exact job name, ticket id,
+   amount, count). If a tool returns an empty list or all-healthy, that means NOTHING is
+   wrong — do NOT invent a problem, do NOT propose, just log_decision "all clear". Never
+   propose to "activate", "pause", or "fix" something you did not observe failing in the data.
 Currency is TTD; amounts in the data are in cents.`;
 
 const DEPARTMENTS: Record<string, Department> = {
