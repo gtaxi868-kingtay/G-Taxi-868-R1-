@@ -141,14 +141,6 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
 
         <Text style={s.sectionTitle}>Quick Actions</Text>
         <View style={s.tileGrid}>
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('NfcAcceptPayment')} accessibilityLabel="Accept tap-to-pay from rider keychains" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: '#10B98126' }]}>
-              <Ionicons name="phone-portrait-outline" size={28} color="#10B981" />
-            </View>
-            <Text style={s.tileLabel}>Tap to Pay</Text>
-            <Text style={s.tileDesc}>Charge rider keychain via NFC</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Orders')} accessibilityLabel="Manage incoming orders" accessibilityRole="button">
             <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
               <Ionicons name="receipt" size={28} color={VOICES.merchant.accent} />
