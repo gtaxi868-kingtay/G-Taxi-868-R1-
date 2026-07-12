@@ -44,6 +44,16 @@ export class BudgetExceededError extends Error {
     }
 }
 
+// Thrown when the provider's per-minute rate limit is still hitting after
+// retries (common on Groq's free tier: 12k tokens/min shared org-wide).
+// Callers should treat this as a soft "try again in a moment", not a crash.
+export class RateLimitedError extends Error {
+    constructor(detail: string) {
+        super(`Provider rate-limited: ${detail}`);
+        this.name = "RateLimitedError";
+    }
+}
+
 interface ProviderSpec {
     url: string;
     model: string;
@@ -173,5 +183,6 @@ export async function chat(supabase: any, opts: ChatOptions): Promise<any> {
             clearTimeout(timer);
         }
     }
+    if (/^429/.test(lastErr)) throw new RateLimitedError(lastErr);
     throw new Error(`LLM API unavailable after retry (${lastErr})`);
 }
