@@ -89,11 +89,11 @@ export default {
         },
       ],
     ],
-    owner: "gtaxi",
+    owner: "gtaxis-organization",
     extra: {
       EXPO_USE_METRO_WORKSPACE_ROOT: "1",
       eas: {
-        projectId: "33335543-47a2-4dc4-96ff-baffe6fc5132",
+        projectId: "a61a1574-ea8e-47b3-9abd-026dc5320fc2",
       },
     },
   },

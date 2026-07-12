@@ -102,11 +102,11 @@ export default {
       ["@stripe/stripe-react-native", {}],
       "expo-notifications",
     ],
-    owner: "gtaxi",
+    owner: "gtaxis-organization",
     extra: {
       EXPO_USE_METRO_WORKSPACE_ROOT: "1",
       eas: {
-        projectId: "f4f49272-bb2c-4a6d-8a35-caff959079dc",
+        projectId: "0ba46182-9e49-45e7-85e3-bffd3c036bbf",
       },
       legal_terms_url: "https://gtaxi.tt/legal/terms",
       legal_privacy_url: "https://gtaxi.tt/legal/privacy",
