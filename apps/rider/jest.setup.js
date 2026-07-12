@@ -257,7 +257,7 @@ jest.mock('@stripe/stripe-react-native', () => ({
     handleNextAction: jest.fn(() => Promise.resolve({ error: null })),
     retrievePaymentIntent: jest.fn(() => Promise.resolve({ error: null })),
   }),
-  StripeProvider: ({ children }: any) => { const R = require('react'); return R.createElement(R.Fragment, null, children); },
+  StripeProvider: ({ children }) => { const R = require('react'); return R.createElement(R.Fragment, null, children); },
   initPaymentSheet: jest.fn(),
   presentPaymentSheet: jest.fn(),
 }));
@@ -291,12 +291,12 @@ jest.mock('react-native-safe-area-context', () => {
 jest.mock('@gtaxi/design-system/native', () => {
   const R = require('react');
   const { View, Text } = require('react-native');
-  return { LiquidGlass: ({ children }: any) => R.createElement(View, null, children), Skeleton: () => R.createElement(View, null), Logo: () => R.createElement(Text, null, 'Logo'), LoadingOverlay: 'LoadingOverlay' };
+  return { LiquidGlass: ({ children }) => R.createElement(View, null, children), Skeleton: () => R.createElement(View, null), Logo: () => R.createElement(Text, null, 'Logo'), LoadingOverlay: 'LoadingOverlay' };
 });
 
 jest.mock('./src/context/RideContext', () => ({
   useRide: () => ({ activeRide: null, loading: false, checkActiveRide: jest.fn(), clearActiveRide: jest.fn() }),
-  RideProvider: ({ children }: any) => { const R = require('react'); return R.createElement(R.Fragment, null, children); },
+  RideProvider: ({ children }) => { const R = require('react'); return R.createElement(R.Fragment, null, children); },
 }));
 
 jest.mock('@gtaxi/core', () => {
