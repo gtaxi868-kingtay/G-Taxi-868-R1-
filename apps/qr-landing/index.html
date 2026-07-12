@@ -311,6 +311,26 @@
         // Business WhatsApp number — admin-editable in system_config. Falls back
         // to this default if the lookup fails so the page never breaks.
         let supportNumber = '18687031000';
+        let resolvedPickup = null; // {name, address, lat, lng} once the tapped touchpoint is resolved
+
+        // Turn the tapped tag/node into a real pickup ("Puck 2 — San Grande" + coords)
+        // so a rider with no app can request from exactly where they're standing.
+        async function resolveTouchpoint() {
+            if (!qrData) return;
+            const key = /^[0-9a-f]{8}-/i.test(qrData) ? 'node' : 'tag';
+            try {
+                const res = await fetch(`${SUPABASE_URL}/functions/v1/resolve_touchpoint?${key}=${encodeURIComponent(qrData)}`);
+                if (!res.ok) return;
+                const d = await res.json();
+                if (d.found && d.pickup) {
+                    resolvedPickup = d.pickup;
+                    const sub = document.getElementById('mainSubtitle');
+                    if (sub) sub.textContent = `Pickup: ${d.pickup.name}. Choose where you’re going.`;
+                    const code = document.getElementById('cardCode');
+                    if (code) { code.textContent = d.pickup.name; code.hidden = false; document.getElementById('codeSep').hidden = false; }
+                }
+            } catch (_) { /* keep default copy */ }
+        }
 
         async function loadContactNumber() {
             try {
@@ -421,7 +441,11 @@
 
         function handleFallback() {
             if (qrType === 'nfc') {
-                const msg = encodeURIComponent(`Hi! I tapped a G-Taxi touchpoint (${qrData || 'unknown'}) and would like to request a ride from this location.`);
+                const place = resolvedPickup?.name ? `“${resolvedPickup.name}”` : `touchpoint ${qrData || 'unknown'}`;
+                const coords = (resolvedPickup?.lat && resolvedPickup?.lng)
+                    ? `\nPickup pin: https://maps.google.com/?q=${resolvedPickup.lat},${resolvedPickup.lng}`
+                    : (userLocation ? `\nMy location: https://maps.google.com/?q=${userLocation.lat},${userLocation.lng}` : '');
+                const msg = encodeURIComponent(`Hi G-Taxi! I tapped in at ${place} and would like to request a ride.${coords}`);
                 window.location.href = `https://wa.me/${supportNumber}?text=${msg}`;
             } else if (qrType === 'merchant') {
                 const msg = encodeURIComponent("Hi! I scanned a QR at your store and would like to learn more about G-Taxi services.");
@@ -450,6 +474,7 @@
         detectQrType();
         applyQrTheme();
         loadContactNumber();
+        if (qrType === 'nfc' || qrType === 'ride') resolveTouchpoint();
     </script>
 </body>
 </html>
