@@ -18,7 +18,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { chat, llmConfigured, BudgetExceededError, LlmMessage, LlmTool } from "../_shared/llm.ts";
+import { chat, llmConfigured, BudgetExceededError, RateLimitedError, LlmMessage, LlmTool } from "../_shared/llm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -526,17 +526,26 @@ serve(async (req) => {
 
         return json({ success: true, run_id: ctx.runId, department: deptName, iterations, proposals_filed: ctx.proposalsFiled });
     } catch (err) {
-        const degraded = err instanceof BudgetExceededError;
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!degraded) console.error(`[g_agent_runner:${deptName}]`, msg);
+        // Budget exhaustion and per-minute rate limits are expected soft states
+        // (Groq free tier shares 12k tokens/min) — degrade gracefully, don't 500.
+        const budget = err instanceof BudgetExceededError;
+        const rateLimited = err instanceof RateLimitedError;
+        const soft = budget || rateLimited;
+        const rawMsg = err instanceof Error ? err.message : String(err);
+        const note = rateLimited
+            ? "G is busy — the free AI tier hit its per-minute limit. Give it about a minute and try again (or add the Grok key to remove the limit)."
+            : budget
+            ? "G has spent today's AI budget and is resting until tomorrow. Live numbers are still accurate."
+            : rawMsg;
+        if (!soft) console.error(`[g_agent_runner:${deptName}]`, rawMsg);
         await supabase.from("agent_decision_log").insert({
             run_id: ctx.runId,
             department: deptName,
-            decision_type: degraded ? "budget_skip" : "run_error",
-            reasoning: msg,
+            decision_type: budget ? "budget_skip" : rateLimited ? "rate_limited" : "run_error",
+            reasoning: rawMsg,
             payload: {},
-            outcome: degraded ? "skipped" : "error",
+            outcome: soft ? "skipped" : "error",
         }).then(null, () => null);
-        return json({ success: degraded, run_id: ctx.runId, department: deptName, note: msg }, degraded ? 200 : 500);
+        return json({ success: soft, run_id: ctx.runId, department: deptName, note }, soft ? 200 : 500);
     }
 });
