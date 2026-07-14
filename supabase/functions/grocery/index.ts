@@ -468,6 +468,34 @@ Deno.serve(async (req) => {
       })
     }
 
+    // ─── CONFIRM DELIVERY (driver hands off order, gets paid) ──
+    // Identity resolved from JWT, never trusted from body — the caller must
+    // BE the order's assigned delivery_driver_id, verified server-side.
+    if (action === 'confirm_delivery') {
+      const { order_id, photo_url } = body
+      if (!order_id) return json({ error: 'order_id is required' }, 400)
+
+      const { data: driverRow } = await supabase
+        .from('drivers').select('id').eq('user_id', user.id).single()
+      if (!driverRow) return json({ error: 'Not a driver' }, 403)
+
+      const { data: order } = await supabase
+        .from('orders').select('id, delivery_driver_id').eq('id', order_id).single()
+      if (!order) return json({ error: 'Order not found' }, 404)
+      if (order.delivery_driver_id !== driverRow.id) {
+        return json({ error: 'You are not the assigned driver for this order' }, 403)
+      }
+
+      const { data: result, error: rpcErr } = await supabase.rpc('process_order_delivery_payment', {
+        p_order_id: order_id,
+        p_photo_url: photo_url ?? null,
+      })
+      if (rpcErr) return json({ error: rpcErr.message }, 500)
+      if (result?.success === false) return json({ error: result.error }, 400)
+
+      return json(result)
+    }
+
     // ─── CREATE PAYMENT INTENT ─────────────────────────────────
     if (action === 'create_payment_intent') {
       const rateCheck = await checkRateLimit(supabase, user.id, 'grocery_create_payment_intent')
