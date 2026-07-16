@@ -12,10 +12,11 @@ import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
-// Flat delivery payout, anchored to T&T minimum wage — mirrors the
-// DELIVERY_DRIVER_PAYOUT_CENTS default in process_order_delivery_payment.
-// The authoritative figure comes back from the payout RPC on completion.
-const DELIVERY_PAYOUT_CENTS = 3200;
+// Delivery pay = base (shopping/handling labor, DELIVERY_DRIVER_PAYOUT_CENTS
+// = TT$20) + driving distance at PER_KM_CENTS (TT$1.75/km) — per the
+// 2026-07-14 distance-fee model. The badge shows the guaranteed base; the
+// authoritative total comes back from the payout RPC on completion.
+const DELIVERY_BASE_PAYOUT_CENTS = 2000;
 
 const FOOD_ORANGE = '#E6B450';
 const SUCCESS = '#10B981';
@@ -161,7 +162,7 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
                     [{ text: 'Done', onPress: () => navigation.replace('Dashboard') }]
                 );
             } else {
-                const paid = ((res.driver_payout_cents ?? DELIVERY_PAYOUT_CENTS) / 100).toFixed(2);
+                const paid = ((res.driver_payout_cents ?? DELIVERY_BASE_PAYOUT_CENTS) / 100).toFixed(2);
                 Alert.alert(
                     'Delivery Complete!',
                     `TTD $${paid} has been added to your wallet.`,
@@ -239,9 +240,9 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
     const currentStepData = STEPS.find(s => s.key === step) ?? STEPS[0];
     const currentIdx = STEPS.findIndex(s => s.key === step);
     const nextStepData = STEPS[currentIdx + 1];
-    // Flat min-wage-anchored payout — a delivery's effort doesn't scale with
-    // cart value, so this is NOT a percentage of the fee.
-    const earnings = (DELIVERY_PAYOUT_CENTS / 100).toFixed(2);
+    // Guaranteed base only — distance pay (TT$1.75/km) is added by the payout
+    // RPC on completion, so the completion alert shows the true total.
+    const earnings = `${(DELIVERY_BASE_PAYOUT_CENTS / 100).toFixed(2)}+`;
 
     return (
         <View style={[s.root, { paddingTop: insets.top }]}>
