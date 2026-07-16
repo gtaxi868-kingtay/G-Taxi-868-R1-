@@ -378,15 +378,36 @@ serve(async (req: Request) => {
 
         const newRideId = rpcResult.data.ride_id;
 
-        // Tag ride with vendor kiosk so complete_ride can record commission
+        // Tag ride with vendor kiosk so complete_ride can record commission —
+        // ONLY when the origin is actually verified (a real NFC tap in the
+        // last 30 min, or the rider's pickup falls inside the kiosk's
+        // geofence). kiosk_id is client-supplied; trusting it blindly would
+        // let any request fabricate a node id and redirect real "rent"
+        // commission to an arbitrary merchant. An unverified kiosk_id still
+        // lets the ride book normally — it just earns the merchant nothing.
         if (kiosk_id && newRideId) {
-            await adminClient
-                .from("rides")
-                .update({ vendor_node_id: kiosk_id })
-                .eq("id", newRideId)
-                .then((res) => res, (err: unknown) => console.error("vendor_node_id tag failed (non-fatal):", err));
+            const { data: attributionMethod } = await adminClient
+                .rpc("verify_kiosk_origin", {
+                    p_kiosk_id: kiosk_id,
+                    p_rider_id: rider_id,
+                    p_pickup_lat: pickup_lat,
+                    p_pickup_lng: pickup_lng,
+                })
+                .then((res) => res, () => ({ data: null }));
 
-            // Link the NFC order to this ride: find pending order for this rider at the kiosk's merchant
+            if (attributionMethod) {
+                await adminClient
+                    .from("rides")
+                    .update({ vendor_node_id: kiosk_id, node_attribution_method: attributionMethod })
+                    .eq("id", newRideId)
+                    .then((res) => res, (err: unknown) => console.error("vendor_node_id tag failed (non-fatal):", err));
+            } else {
+                log("INFO", "kiosk_id supplied but origin unverified — no node rent attributed", { requestId, rider_id, kiosk_id });
+            }
+
+            // Link the NFC order to this ride: find pending order for this rider at the kiosk's merchant.
+            // Scoped to rider_id = this rider, so this itself can't attach someone else's order —
+            // safe to resolve regardless of rent attribution.
             const { data: nfcKiosk } = await adminClient
                 .from("kiosk_nodes")
                 .select("merchant_id")
