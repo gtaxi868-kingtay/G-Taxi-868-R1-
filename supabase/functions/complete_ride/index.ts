@@ -180,51 +180,6 @@ serve(async (req: Request) => {
       );
     }
 
-    // ── STOP COMPLETION CHECK ───────────────────────────────────────────────
-    // If rider-initiated with pending stops: block
-    // If driver-initiated with pending stops: auto-skip, log event
-    // (Runs only after authorization + status checks above — no side effects
-    // for an unauthorized or out-of-state caller.)
-    const { data: pendingStops } = await supabaseAdmin
-      .from("ride_stops")
-      .select("id, place_name, stop_order")
-      .eq("ride_id", ride_id)
-      .in("status", ["pending", "arrived"])
-      .order("stop_order", { ascending: true });
-
-    if (pendingStops && pendingStops.length > 0) {
-      if (isRider) {
-        const stopNames = pendingStops.map((s: any) => s.place_name).join(", ");
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: `Unfinished stops: ${stopNames}. Please skip them first.`,
-            data: { pending_stops: pendingStops },
-          }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      // Driver completing — auto-skip pending stops
-      const { error: skipErr } = await supabaseAdmin
-        .from("ride_stops")
-        .update({ status: "skipped" })
-        .eq("ride_id", ride_id)
-        .in("status", ["pending", "arrived"]);
-      if (skipErr) console.error("Failed to auto-skip stops:", skipErr);
-
-      const { error: stopLogErr } = await supabaseAdmin
-        .from("ride_events")
-        .insert({
-          event_type: "stop_skipped",
-          ride_id,
-          metadata: {
-            reason: "ride_completed",
-            skipped_stops: pendingStops.map((s: any) => ({ name: s.place_name, id: s.id })),
-          },
-        });
-      if (stopLogErr) console.error("Failed to log stop_skipped event:", stopLogErr);
-    }
-
     if (isDriver) {
       if (!driver_lat || !driver_lng) {
         return new Response(
@@ -283,14 +238,16 @@ serve(async (req: Request) => {
       .from("pricing_config")
       .select("value_cents")
       .eq("key", "PLATFORM_RATE_CENTS")
-      .maybeSingle();
+      .maybeSingle()
+      .catch(() => ({ data: null }));
     const defaultPlatformRate = platRateRow ? (platRateRow.value_cents ?? 1500) / 10000 : 0.15;
 
     const { data: reserveRateRow } = await supabaseAdmin
       .from("pricing_config")
       .select("value_cents")
       .eq("key", "RESERVE_RATE_CENTS")
-      .maybeSingle();
+      .maybeSingle()
+      .catch(() => ({ data: null }));
     const reserveRate = reserveRateRow ? (reserveRateRow.value_cents ?? 300) / 10000 : 0.03;
 
     // ── LOYALTY RATE TIER ───────────────────────────────────────────────────
@@ -301,7 +258,8 @@ serve(async (req: Request) => {
 
     if (driverUserIdForLoyalty) {
       const { data: qualifies } = await supabaseAdmin
-        .rpc("driver_qualifies_loyalty_rate", { p_driver_user_id: driverUserIdForLoyalty });
+        .rpc("driver_qualifies_loyalty_rate", { p_driver_user_id: driverUserIdForLoyalty })
+        .catch(() => ({ data: false }));
 
       if (qualifies === true) {
         // Read loyalty rate from pricing_config (value_cents = percentage, e.g. 16 = 16%)
@@ -309,7 +267,8 @@ serve(async (req: Request) => {
             .from("pricing_config")
             .select("value_cents")
             .eq("key", "LOYALTY_FEE_PCT")
-            .maybeSingle();
+            .maybeSingle()
+            .catch(() => ({ data: null }));
         const loyaltyRate = loyaltyRow ? (loyaltyRow.value_cents ?? 12) / 100 : Math.max(0.01, defaultPlatformRate - 0.03);
         platformRate = Math.max(0.01, Math.min(defaultPlatformRate, loyaltyRate));
         loyaltyApplied = true;
@@ -327,7 +286,7 @@ serve(async (req: Request) => {
             .from('drivers')
             .update({ loyalty_tier_notified: true })
             .eq('id', driverRecord.id)
-            .then(undefined, (err: unknown) => console.error('Failed to set loyalty_tier_notified:', err));
+            .catch((err: unknown) => console.error('Failed to set loyalty_tier_notified:', err));
         }
       }
     }
@@ -350,15 +309,16 @@ serve(async (req: Request) => {
         );
       }
     } else if (ride.payment_method === "cash") {
-      // ── CASH PATH: Shadow ledger with settlement math ──────────────────────
-      const { error: cashError } = await supabaseAdmin
-        .from("rides")
-        .update({ cash_confirmed: true })
-        .eq("id", ride_id)
-        .eq("status", "in_progress");
+      // ── CASH PATH: driver-debt settlement via the single settlement source ──
+      // settle_cash_ride runs compute_ride_split, records the driver's
+      // commission_debt + commander/merchant kickbacks, and marks the ride
+      // confirmed. (Was just setting cash_confirmed=true, which collected
+      // nothing and no-op'd the driver's later confirm_cash_payment.)
+      const { data: cashSettled, error: cashError } = await supabaseAdmin
+        .rpc("settle_cash_ride", { p_ride_id: ride_id });
 
-      if (cashError) {
-        console.error("Failed to confirm cash payment:", cashError);
+      if (cashError || !cashSettled) {
+        console.error("Failed to settle cash payment:", cashError);
         return new Response(
           JSON.stringify({ success: false, error: "Failed to confirm cash payment", data: null }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -389,18 +349,12 @@ serve(async (req: Request) => {
         driver_user_id: driverUserId,
       });
 
-      await supabaseAdmin.rpc("deduct_driver_commission_hardened", {
-        p_driver_user_id: driverUserId,
-        p_ride_id: ride_id,
-        p_amount_cents: totalPlatformCents,
-        p_description: `Platform (${(platformRate * 100).toFixed(1)}%${loyaltyApplied ? " loyalty" : ""}) on cash ride — growth reserve (3%) settled separately`
-      }).then(undefined, (err) => console.error("deduct_driver_commission_hardened failed:", err));
-
-      await supabaseAdmin.rpc("post_reserve_contribution", {
-        p_source_id: ride_id,
-        p_amount_cents: reserveCents,
-        p_source_type: "ride",
-      }).then(undefined, (err) => console.error("post_reserve_contribution (cash) failed:", err));
+      // NOTE: settle_cash_ride above already booked the driver's FULL
+      // obligation (platform fee + reserve + commander/vendor kickbacks) as a
+      // single commission_debt wallet transaction via compute_ride_split.
+      // The deduct_driver_commission_hardened + post_reserve_contribution
+      // calls that used to run here charged the driver a SECOND time
+      // (~38% total instead of ~20%) — removed 2026-07-16.
 
       await supabaseAdmin.from("payment_ledger").insert({
         ride_id: ride_id,
@@ -409,7 +363,7 @@ serve(async (req: Request) => {
         currency: "TTD",
         status: "captured",
         provider: "cash",
-      }).then(undefined, (err) => console.error("Cash payment_ledger insert failed:", err));
+      }).catch((err) => console.error("Cash payment_ledger insert failed:", err));
 
     } else if (ride.payment_method === "card" || ride.payment_method === "wipay") {
       if (ride.payment_status !== "captured") {
@@ -451,26 +405,33 @@ serve(async (req: Request) => {
             description: `COMPENSATING REVERSAL: ride ${ride_id} status update failed after wallet debit`,
             status: "completed",
           })
-          .then(undefined, (err) => console.error("Compensating reversal also failed:", err));
+          .catch((err) => console.error("Compensating reversal also failed:", err));
       } else if (ride.payment_method === "cash") {
+        // settle_cash_ride booked the obligation as commission_debt and set
+        // cash_confirmed — undo both so a retried completion re-settles.
         await supabaseAdmin
           .from("wallet_transactions")
           .delete()
           .eq("ride_id", ride_id)
-          .eq("transaction_type", "commission_fee")
-          .then(undefined, (err) => console.error("Cash reversal: wallet_txn delete failed:", err));
+          .in("transaction_type", ["commission_fee", "commission_debt"])
+          .catch((err) => console.error("Cash reversal: wallet_txn delete failed:", err));
+        await supabaseAdmin
+          .from("rides")
+          .update({ cash_confirmed: false, payment_status: "pending" })
+          .eq("id", ride_id)
+          .catch((err) => console.error("Cash reversal: cash_confirmed reset failed:", err));
         await supabaseAdmin
           .from("capital_reserve_ledger")
           .delete()
           .eq("ride_id", ride_id)
           .eq("status", "locked")
-          .then(undefined, (err) => console.error("Cash reversal: reserve delete failed:", err));
+          .catch((err) => console.error("Cash reversal: reserve delete failed:", err));
         await supabaseAdmin
           .from("payment_ledger")
           .delete()
           .eq("ride_id", ride_id)
           .eq("provider", "cash")
-          .then(undefined, (err) => console.error("Cash reversal: payment_ledger delete failed:", err));
+          .catch((err) => console.error("Cash reversal: payment_ledger delete failed:", err));
       }
 
       return new Response(
@@ -492,7 +453,7 @@ serve(async (req: Request) => {
         p_merchant_earnings_cents: 0,
         p_reserve_cents: reserveCents,
       })
-      .then(undefined, (err) => console.error("Ledger logging failed:", err));
+      .catch((err) => console.error("Ledger logging failed:", err));
 
     // ── ASYNC ECOSYSTEM COG ───────────────────────────────────────────────────
     // Enqueue ride.completed off the hot path. The cron'd process_event_queue
@@ -513,7 +474,7 @@ serve(async (req: Request) => {
           reserve_cents: reserveCents,
         },
       })
-      .then(undefined, (err) => console.error("event_queue enqueue (ride.completed) failed:", err));
+      .catch((err) => console.error("event_queue enqueue (ride.completed) failed:", err));
 
     // ── VENDOR COMMISSION (5% to kiosk merchant when ride from a node) ─────────
     // Vendor 5% comes FROM the platform's 15% cut — not added on top.
@@ -560,7 +521,7 @@ serve(async (req: Request) => {
               p_staff_member_id: kiosk.staff_member_id || null,
               p_staff_amount_cents: staffAmountCents,
             })
-            .then(undefined, (err) => console.error("Merchant/staff wallet credit failed (non-fatal):", err));
+            .catch((err) => console.error("Merchant/staff wallet credit failed (non-fatal):", err));
         }
       } catch (err) {
         console.error("Vendor commission recording failed (non-fatal):", err);
@@ -578,14 +539,16 @@ serve(async (req: Request) => {
         .from("merchants")
         .select("is_pinned")
         .eq("id", merchantId)
-        .maybeSingle();
+        .maybeSingle()
+        .catch(() => ({ data: null }));
 
       if (merchant?.is_pinned) {
         const { data: subscription } = await supabaseAdmin
           .from("merchant_subscriptions")
           .select("pin_fee_cents")
           .eq("merchant_id", merchantId)
-          .maybeSingle();
+          .maybeSingle()
+          .catch(() => ({ data: null }));
 
         if (subscription && (subscription.pin_fee_cents || 0) > 0) {
           await supabaseAdmin
@@ -596,7 +559,7 @@ serve(async (req: Request) => {
               arrival_type: "dropoff",
               pin_fee_cents: subscription.pin_fee_cents,
             })
-            .then(undefined, (err) => console.error("arrival_events insert failed (non-fatal):", err));
+            .catch((err) => console.error("arrival_events insert failed (non-fatal):", err));
         }
       }
     }
@@ -609,14 +572,14 @@ serve(async (req: Request) => {
           p_ride_id: ride_id,
           p_platform_fee_cents: platformFee,
         })
-        .then(undefined, (err) => console.error("Driver referral commission failed (non-fatal):", err));
+        .catch((err) => console.error("Driver referral commission failed (non-fatal):", err));
     }
 
     // ── DRIVER LOAN REPAYMENT ─────────────────────────────────────────────
     if (ride.driver_id) {
       await supabaseAdmin
         .rpc("deduct_loan_installment", { p_driver_id: ride.driver_id, p_ride_id: ride_id })
-        .then(undefined, (err) => console.error("Loan deduction failed (non-fatal):", err));
+        .catch((err) => console.error("Loan deduction failed (non-fatal):", err));
     }
 
     // ── FLEET LEASE DEDUCTION ─────────────────────────────────────────────
@@ -626,7 +589,7 @@ serve(async (req: Request) => {
     if (ride.driver_id) {
       const { data: leaseResult } = await supabaseAdmin
         .rpc("deduct_lease_installment_for_ride", { p_ride_id: ride_id })
-        .then(undefined, (err) => {
+        .catch((err) => {
           console.error("Lease deduction failed (non-blocking):", err);
           return { data: null };
         });
@@ -642,7 +605,7 @@ serve(async (req: Request) => {
             .from("platform_revenue_logs")
             .update({ lease_deduction_cents: lr.deduction_cents })
             .eq("ride_id", ride_id)
-            .then(undefined, (err) => console.error("Failed to update revenue log lease deduction:", err));
+            .catch((err) => console.error("Failed to update revenue log lease deduction:", err));
         } else if (lr.deduction_cents > 0 && !lr.success) {
           leaseDeductionStatus = "insufficient_balance";
           console.warn(`[LEASE_DEDUCTION] Failed for ride ${ride_id}: ${lr.error_message}`);
@@ -685,12 +648,14 @@ serve(async (req: Request) => {
               .from("profiles")
               .select("push_token")
               .eq("id", ride.rider_id)
-              .single();
+              .single()
+              .catch(() => ({ data: null }));
             const { data: levelCfg } = await supabaseAdmin
               .from("progression_config")
               .select("push_title, push_body")
               .eq("level", result.level_after)
-              .single();
+              .single()
+              .catch(() => ({ data: null }));
             if (profile?.push_token && levelCfg) {
               sendPushNotification(
                 profile.push_token,
@@ -713,7 +678,8 @@ serve(async (req: Request) => {
         .from('carnival_bands')
         .select('revshare_percent')
         .eq('id', bandId)
-        .maybeSingle();
+        .maybeSingle()
+        .catch(() => ({ data: null }));
 
       const effectivePct = bandInfo?.revshare_percent ?? 5;
       const revshareCents = Math.floor(effectiveFare * (effectivePct / 100));
@@ -730,7 +696,7 @@ serve(async (req: Request) => {
             revshare_cents: revshareCents,
             status: 'pending',
           })
-          .then(undefined, (err) => console.error('Band revshare insert failed (non-fatal):', err));
+          .catch((err) => console.error('Band revshare insert failed (non-fatal):', err));
       }
     }
 
@@ -743,7 +709,8 @@ serve(async (req: Request) => {
         .from('event_organizers')
         .select('revshare_percent')
         .eq('id', organizerId)
-        .maybeSingle();
+        .maybeSingle()
+        .catch(() => ({ data: null }));
 
       const effectivePct = orgInfo?.revshare_percent ?? 5;
       const revshareCents = Math.floor(effectiveFare * (effectivePct / 100));
@@ -760,43 +727,34 @@ serve(async (req: Request) => {
             revshare_cents: revshareCents,
             status: 'pending',
           })
-          .then(undefined, (err) => console.error('Event revshare insert failed (non-fatal):', err));
+          .catch((err) => console.error('Event revshare insert failed (non-fatal):', err));
       }
     }
 
-    // ── COMMANDER REVSHARE: rider recruited by a commander (non-blocking) ─────
-    // Carved FROM the platform's 15% — the 82/15/3 split above is untouched.
-    // Net platform on commander-attributed rides = 15% − 3% = 12%.
-    {
+    // ── COMMANDER REVSHARE: owned by the settlement layer, NOT here ──────────
+    // compute_ride_split + record_ride_kickbacks key the 2% off the DRIVER's
+    // profile and carve it from the driver pool (settlement model v2). The
+    // rider-keyed block that used to live here paid commanders a SECOND time
+    // from the platform's share — removed 2026-07-16.
+
+    // ── RIDER REFERRAL REWARD: rider recruited by a driver (non-blocking) ────
+    // After the target ride count, the referring driver earns a temporary
+    // commission boost (REFERRAL_REWARD_* keys in pricing_config).
+    if (ride.rider_id) {
       const { data: riderRef } = await supabaseAdmin
         .from("profiles")
-        .select("referred_by_commander_id")
+        .select("referral_source_driver_id")
         .eq("id", ride.rider_id)
-        .maybeSingle();
+        .maybeSingle()
+        .catch(() => ({ data: null }));
 
-      const commanderId = riderRef?.referred_by_commander_id;
-      if (commanderId) {
-        const { data: cmdRateRow } = await supabaseAdmin
-          .from("pricing_config")
-          .select("value_cents")
-          .eq("key", "COMMANDER_REVSHARE_RATE_CENTS")
-          .maybeSingle();
-        const commanderRate = cmdRateRow?.value_cents ? cmdRateRow.value_cents / 10000 : 0.03;
-        const commanderCents = Math.floor(effectiveFare * commanderRate);
-
-        if (commanderCents > 0) {
-          await supabaseAdmin
-            .from("commander_revshare_ledger")
-            .insert({
-              ride_id: ride_id,
-              commander_id: commanderId,
-              rider_id: ride.rider_id,
-              fare_cents: effectiveFare,
-              revshare_cents: commanderCents,
-              status: "pending",
-            })
-            .then(undefined, (err) => console.error("Commander revshare insert failed (non-fatal):", err));
-        }
+      if (riderRef?.referral_source_driver_id) {
+        await supabaseAdmin
+          .rpc("increment_referral_reward_rides", {
+            p_rider_id: ride.rider_id,
+            p_driver_id: riderRef.referral_source_driver_id,
+          })
+          .catch((err) => console.error("increment_referral_reward_rides failed (non-fatal):", err));
       }
     }
 
@@ -811,13 +769,15 @@ serve(async (req: Request) => {
               .from("drivers")
               .select("user_id")
               .eq("id", ride.driver_id)
-              .single();
+              .single()
+              .catch(() => ({ data: null }));
             if (driverUser?.user_id) {
               const { data: driverProfile } = await supabaseAdmin
                 .from("profiles")
                 .select("push_token")
                 .eq("id", driverUser.user_id)
-                .single();
+                .single()
+                .catch(() => ({ data: null }));
               if (driverProfile?.push_token) {
                 sendPushNotification(
                   driverProfile.push_token,

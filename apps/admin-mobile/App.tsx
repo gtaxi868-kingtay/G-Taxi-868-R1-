@@ -12,6 +12,9 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { TagMarkerScreen } from './src/screens/TagMarkerScreen';
 import { RegisterPuckScreen } from './src/screens/RegisterPuckScreen';
+import { RevshareSettlementScreen } from './src/screens/RevshareSettlementScreen';
+import { CommanderManagementScreen } from './src/screens/CommanderManagementScreen';
+import { IntelligenceScreen } from './src/screens/IntelligenceScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -33,6 +36,9 @@ function AppNavigator() {
       <AppStack.Screen name="Dashboard" component={DashboardScreen} />
       <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
       <AppStack.Screen name="RegisterPuck" component={RegisterPuckScreen} />
+      <AppStack.Screen name="RevshareSettlement" component={RevshareSettlementScreen} />
+      <AppStack.Screen name="CommanderManagement" component={CommanderManagementScreen} />
+      <AppStack.Screen name="Intelligence" component={IntelligenceScreen} />
     </AppStack.Navigator>
   );
 }

@@ -8,6 +8,9 @@ export type AppStackParamList = {
   Dashboard: undefined;
   TagMarker: undefined;
   RegisterPuck: undefined;
+  RevshareSettlement: undefined;
+  CommanderManagement: undefined;
+  Intelligence: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;

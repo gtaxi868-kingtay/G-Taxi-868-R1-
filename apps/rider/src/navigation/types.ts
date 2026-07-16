@@ -80,6 +80,7 @@ export type DriverFoundParams = {
 export type NfcScanParams = {
   nodeId?: string;
   token?: string;
+  mode?: 'scan' | 'pay';
 };
 
 export type TagMarkerParams = {
@@ -175,6 +176,7 @@ export type AppStackParamList = {
     tagUid?: string;
   };
   NfcScan: NfcScanParams;
+  NfcPay: { merchantTagUid: string; merchantName?: string; merchantId?: string };
   TagMarker: TagMarkerParams;
   ServiceBooking: {
     merchantId?: string;

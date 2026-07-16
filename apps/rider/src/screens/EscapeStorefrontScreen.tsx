@@ -77,7 +77,7 @@ export default function EscapeStorefrontScreen() {
           setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
         }).catch(() => {});
       }
-    });
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {

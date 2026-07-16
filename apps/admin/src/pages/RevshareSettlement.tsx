@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { DollarSign, Music, Calendar, CheckCircle, XCircle, Clock, History, TrendingUp, Users, RefreshCw, Banknote, RotateCcw, Plus, Edit2 } from 'lucide-react';
+import { DollarSign, Music, Calendar, CheckCircle, XCircle, Clock, History, TrendingUp, Users, RefreshCw, Banknote, RotateCcw, Plus, Edit2, Scale, Landmark } from 'lucide-react';
 
 interface PendingOrganizer {
   ledger_type: 'band' | 'event';
@@ -211,6 +211,9 @@ export const RevshareSettlement = () => {
   const pendingItems = activeTab === 'bands' ? pendingBands : pendingEvents;
   const totalPendingCents = pendingItems.reduce((sum, p) => sum + p.pending_cents, 0);
   const totalPendingRides = pendingItems.reduce((sum, p) => sum + Number(p.pending_rides), 0);
+  const totalHistoricalCents = payoutHistory.reduce((sum, p) => sum + p.total_cents, 0);
+  const totalRevshareGross = totalPendingCents + totalHistoricalCents;
+  const birReserveCents = Math.round(totalRevshareGross * 0.125);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -230,6 +233,53 @@ export const RevshareSettlement = () => {
         <StatCard title="Total Pending" value={`$${(totalPendingCents / 100).toFixed(2)}`} icon={<DollarSign className="text-cyan-400" />} isHighlight />
         <StatCard title="Pending Rides" value={totalPendingRides.toString()} icon={<TrendingUp className="text-yellow-400" />} />
       </div>
+
+      {/* BIR 12.5% VAT ESCROW LEDGER ROW */}
+      {totalRevshareGross > 0 && (
+        <div className="bg-gradient-to-r from-emerald-500/5 via-emerald-500/3 to-transparent border border-emerald-500/15 rounded-[2rem] p-5">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                <Landmark size={18} className="text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-emerald-400/80 uppercase tracking-widest">Tax Reserve</p>
+                <p className="text-sm font-black text-white">BIR 12.5% VAT Escrow</p>
+              </div>
+            </div>
+            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div>
+                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-0.5">Gross Revshare</p>
+                <p className="text-sm font-black text-white">${(totalRevshareGross / 100).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-0.5">12.5% VAT Owed</p>
+                <p className="text-sm font-black text-emerald-400">${(birReserveCents / 100).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-0.5">Pending Payouts</p>
+                <p className="text-sm font-black text-amber-400">${(totalPendingCents / 100).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-0.5">Historical Paid</p>
+                <p className="text-sm font-black text-cyan-400">${(totalHistoricalCents / 100).toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">VAT Obligation</span>
+              <span className="text-[9px] font-bold text-white/40">${(birReserveCents / 100).toFixed(2)} at 12.5%</span>
+            </div>
+            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-700"
+                style={{ width: `${totalRevshareGross > 0 ? Math.min(100, (totalHistoricalCents / totalRevshareGross) * 100) : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB TOGGLE + PAY ALL */}
       <div className="flex items-center justify-between">

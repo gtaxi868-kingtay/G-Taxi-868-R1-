@@ -51,6 +51,7 @@ import { LaundryOrderStatusScreen } from './src/screens/LaundryOrderStatusScreen
 import { DriverFoundScreen } from './src/screens/DriverFoundScreen';
 import { NfcHandshakeScreen } from './src/screens/NfcHandshakeScreen';
 import { NfcScanScreen } from './src/screens/NfcScanScreen';
+import { NfcPayScreen } from './src/screens/NfcPayScreen';
 import { TagMarkerScreen } from './src/screens/TagMarkerScreen';
 import RideReviewScreen from './src/screens/RideReviewScreen';
 import { ServiceBookingScreen } from './src/screens/ServiceBookingScreen';
@@ -68,6 +69,7 @@ import ActivePassScreen from './src/screens/ActivePassScreen';
 import PassportSubmissionScreen from './src/screens/PassportSubmissionScreen';
 import CarnivalScreen from './src/screens/CarnivalScreen';
 import EventsScreen from './src/screens/EventsScreen';
+
 
 import { EscapeTripProvider } from './src/context/EscapeContext';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
@@ -166,6 +168,7 @@ function AppNavigator() {
                 <AppStack.Screen name="DriverFound" component={DriverFoundScreen} />
                 <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} />
                 <AppStack.Screen name="NfcScan" component={NfcScanScreen} />
+                <AppStack.Screen name="NfcPay" component={NfcPayScreen} />
                 <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
                 <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
                 <AppStack.Screen name="Legal" component={LegalScreen} />

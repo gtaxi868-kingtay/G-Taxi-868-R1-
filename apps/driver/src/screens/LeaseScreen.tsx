@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    ActivityIndicator, RefreshControl,
+    ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { AppScreenProps } from '../navigation/types';
+import { LiquidGlassCard } from '../components/LiquidGlassCard';
 
 const { supabase } = initializeSupabaseClient('native');
 
@@ -47,17 +48,57 @@ interface LeaseData {
     } | null;
 }
 
+interface EarningsSummary {
+  total_rides: number;
+  total_earned_cents: number;
+  avg_per_ride_cents: number;
+  monthly_avg_cents: number;
+  months_active: number;
+}
+
 export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
     const insets = useSafeAreaInsets();
     const [data, setData] = useState<LeaseData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [earnings, setEarnings] = useState<EarningsSummary | null>(null);
+    const [submitting, setSubmitting] = useState(false);
 
     const fetchLeaseStatus = useCallback(async () => {
         try {
             const { data: result, error } = await supabase.functions.invoke('driver_lease_status');
             if (!error && result?.success) {
                 setData(result.data);
+            }
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const { data: driverRow } = await supabase
+                .from('drivers')
+                .select('id')
+                .eq('user_id', user.id)
+                .maybeSingle();
+              if (driverRow) {
+                const { data: rides } = await supabase
+                  .from('rides')
+                  .select('driver_payout_cents, completed_at')
+                  .eq('driver_id', driverRow.id)
+                  .eq('status', 'completed')
+                  .order('completed_at', { ascending: false });
+                if (rides && rides.length > 0) {
+                  const totalRides = rides.length;
+                  const totalEarned = rides.reduce((s, r) => s + (r.driver_payout_cents || 0), 0);
+                  const dates = rides.map((r) => r.completed_at ? new Date(r.completed_at) : new Date()).filter(Boolean);
+                  const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+                  const monthsActive = Math.max(1, Math.ceil((Date.now() - minDate.getTime()) / (30 * 24 * 60 * 60 * 1000)));
+                  setEarnings({
+                    total_rides: totalRides,
+                    total_earned_cents: totalEarned,
+                    avg_per_ride_cents: Math.round(totalEarned / totalRides),
+                    monthly_avg_cents: Math.round(totalEarned / monthsActive),
+                    months_active: monthsActive,
+                  });
+                }
+              }
             }
         } catch (err) {
             console.warn('[LeaseScreen] fetch failed:', err);
@@ -75,6 +116,35 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
     }, [fetchLeaseStatus]);
 
     const formatTTD = (cents: number) => `$${(cents / 100).toFixed(2)} TTD`;
+
+    const handleApplyNow = async () => {
+      setSubmitting(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { Alert.alert('Error', 'Not authenticated'); return; }
+        const { data: driverRow } = await supabase
+          .from('drivers')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+        const { data: result, error } = await supabase.functions.invoke('apply_for_lease', {
+          body: {
+            fleet_vehicle_id: null,
+            daily_deduction_cents: 15000,
+            total_lease_cents: null,
+          },
+        });
+        if (error || !result?.success) {
+          throw new Error(result?.error || error?.message || 'Application failed');
+        }
+        Alert.alert('Application Submitted', 'Your BYD lease application has been submitted. Term Finance will review your earnings data. You will receive a notification when approved.');
+        fetchLeaseStatus();
+      } catch (err: any) {
+        Alert.alert('Error', err.message);
+      } finally {
+        setSubmitting(false);
+      }
+    };
 
     const renderContent = () => {
         if (!data) return null;
@@ -133,46 +203,90 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
 
             case 'NO_ACTIVE_LEASE':
                 return (
-                    <View style={s.card}>
-                        <LinearGradient
-                            colors={['rgba(230,180,80,0.15)', 'rgba(230,180,80,0.03)']}
-                            style={s.cardGradient}
-                        >
-                            <View style={[s.cardIcon, { backgroundColor: 'rgba(230,180,80,0.2)' }]}>
-                                <Ionicons name="checkmark-circle-sharp" size={40} color="#E6B450" />
+                    <View>
+                      <LiquidGlassCard accentColor="#E6B450" style={{ marginBottom: 16 }}>
+                        <View style={[s.cardIcon, { backgroundColor: 'rgba(230,180,80,0.2)', alignSelf: 'center' }]}>
+                          <Ionicons name="checkmark-circle-sharp" size={40} color="#E6B450" />
+                        </View>
+                        <Text style={[s.cardTitle, { color: '#E6B450', textAlign: 'center' }]}>You Qualify for BYD Lease</Text>
+                        <Text style={[s.cardSubtitle, { textAlign: 'center' }]}>
+                          {data.active_days_count} active driving days — meets the minimum threshold. Term Finance reviews your earnings history for underwriting.
+                        </Text>
+                      </LiquidGlassCard>
+
+                      {earnings && (
+                        <LiquidGlassCard accentColor="#60A5FA" style={{ marginBottom: 16 }}>
+                          <Text style={[s.sectionLabel, { color: '#60A5FA', marginBottom: 16 }]}>
+                            <Ionicons name="trending-up" size={16} color="#60A5FA" /> EARNINGS HISTORY
+                          </Text>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16 }}>
+                            <View style={{ alignItems: 'center' }}>
+                              <Text style={{ color: '#fff', fontSize: 22, fontFamily: 'Inter_700Bold' }}>{formatTTD(earnings.total_earned_cents)}</Text>
+                              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>LIFETIME GROSS</Text>
                             </View>
-                            <Text style={[s.cardTitle, { color: '#E6B450' }]}>You Qualify</Text>
-                            <Text style={s.cardSubtitle}>
-                                You have {data.active_days_count} active driving days. You are now eligible for a BYD lease. Contact G-Taxi admin to activate.
+                            <View style={{ alignItems: 'center' }}>
+                              <Text style={{ color: '#fff', fontSize: 22, fontFamily: 'Inter_700Bold' }}>{formatTTD(earnings.monthly_avg_cents)}</Text>
+                              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>MO. AVG</Text>
+                            </View>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                            <View style={{ alignItems: 'center' }}>
+                              <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Inter_700Bold' }}>{earnings.total_rides}</Text>
+                              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>TOTAL RIDES</Text>
+                            </View>
+                            <View style={{ alignItems: 'center' }}>
+                              <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Inter_700Bold' }}>{formatTTD(earnings.avg_per_ride_cents)}</Text>
+                              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>PER RIDE</Text>
+                            </View>
+                            <View style={{ alignItems: 'center' }}>
+                              <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Inter_700Bold' }}>{earnings.months_active}</Text>
+                              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>MO. ACTIVE</Text>
+                            </View>
+                          </View>
+
+                          <View style={{ marginTop: 16, padding: 12, backgroundColor: 'rgba(96,165,250,0.1)', borderRadius: 12, borderWidth: 0.5, borderColor: 'rgba(96,165,250,0.3)' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, lineHeight: 16 }}>
+                              Term Finance uses your historical earnings to calculate affordable daily deductions. At {formatTTD(earnings.avg_per_ride_cents)} avg per ride with 15% cap, daily auto-deduction is estimated at ~{formatTTD(Math.round(earnings.avg_per_ride_cents * 10 * 0.15))} (first 10 rides).
                             </Text>
+                          </View>
+                        </LiquidGlassCard>
+                      )}
 
-                            <TouchableOpacity
-                                style={s.signAddendumCta}
-                                onPress={() => navigation.navigate('LeaseConsent')}
-                            >
-                                <Ionicons name="document-text-sharp" size={16} color="#000" style={{ marginRight: 8 }} />
-                                <Text style={s.signAddendumCtaText}>Review &amp; Sign Earnings Addendum</Text>
-                            </TouchableOpacity>
-                            <View style={s.ctaRow}>
-                                <Ionicons name="information-circle-sharp" size={16} color="rgba(230,180,80,0.5)" />
-                                <Text style={[s.ctaText, { color: 'rgba(230,180,80,0.5)' }]}>Admin activates your lease after you sign</Text>
-                            </View>
+                      <LiquidGlassCard accentColor="#E6B450" style={{ marginBottom: 16 }}>
+                        <TouchableOpacity
+                          onPress={handleApplyNow}
+                          disabled={submitting}
+                          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14 }}
+                        >
+                          {submitting ? (
+                            <ActivityIndicator color="#000" size="small" />
+                          ) : (
+                            <>
+                              <Ionicons name="car-sport-sharp" size={18} color="#000" style={{ marginRight: 8 }} />
+                              <Text style={{ color: '#000', fontFamily: 'Inter_700Bold', fontSize: 15 }}>APPLY FOR LEASE</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <View style={s.ctaRow}>
+                          <Ionicons name="information-circle-sharp" size={14} color="rgba(230,180,80,0.5)" />
+                          <Text style={[s.ctaText, { color: 'rgba(230,180,80,0.5)' }]}>You will also need to sign the Earnings Addendum</Text>
+                        </View>
+                      </LiquidGlassCard>
 
-                            <View style={s.infoBlock}>
-                                <Text style={s.infoTitle}>BYD Benefits</Text>
-                                {[
-                                    'Electric — pay electricity, not petrol',
-                                    'Branded G-Taxi wrap included',
-                                    'Lease paid through ride earnings — no monthly bank payment',
-                                    'Deductions capped at 15% per ride',
-                                ].map((line, i) => (
-                                    <View key={i} style={s.infoRow}>
-                                        <View style={[s.infoDot, { backgroundColor: '#E6B450' }]} />
-                                        <Text style={s.infoText}>{line}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        </LinearGradient>
+                      <LiquidGlassCard accentColor="#E6B450">
+                        <Text style={[s.sectionLabel, { color: '#E6B450', marginBottom: 12 }]}>BYD BENEFITS</Text>
+                        {[
+                          'Electric — pay electricity, not petrol',
+                          'Branded G-Taxi wrap included',
+                          'Lease paid through ride earnings — no monthly bank payment',
+                          'Deductions capped at 15% per ride',
+                        ].map((line, i) => (
+                          <View key={i} style={[s.infoRow, { marginBottom: 8 }]}>
+                            <View style={[s.infoDot, { backgroundColor: '#E6B450' }]} />
+                            <Text style={[s.infoText, { color: 'rgba(255,255,255,0.8)' }]}>{line}</Text>
+                          </View>
+                        ))}
+                      </LiquidGlassCard>
                     </View>
                 );
 
@@ -491,4 +605,5 @@ const s = StyleSheet.create({
         marginBottom: 12,
     },
     signAddendumCtaText: { fontSize: 15, fontWeight: '800', color: '#000' },
+    sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
 });

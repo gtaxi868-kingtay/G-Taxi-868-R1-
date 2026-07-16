@@ -66,25 +66,27 @@ serve(async (req: Request) => {
             );
         }
 
-        // 1. Look up the keychain identity
-        const { data: identityTag, error: tagErr } = await supabaseAdmin
-            .from("identity_tags")
-            .select("profile_id, tag_uid, is_active")
-            .eq("tag_uid", tag_uid)
-            .single();
+        // 1. Look up the tag through unified_identities (resolves band
+        //    keychains, personal identity tags, and NFC tags to a single
+        //    profile_id — bridges keychain and payment domains).
+        const { data: tagProfile, error: tagErr } = await supabaseAdmin
+            .rpc("resolve_tag_to_profile", { p_tag_uid: tag_uid });
 
-        if (tagErr || !identityTag || !identityTag.is_active) {
+        if (tagErr || !tagProfile?.found) {
             return new Response(
-                JSON.stringify({ success: false, error: "Keychain not found or inactive" }),
+                JSON.stringify({ success: false, error: tagProfile?.error || "Keychain not found or inactive" }),
                 { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
+
+        const riderProfileId: string = tagProfile.profile_id;
+        const riderName: string = tagProfile.full_name || "Rider";
 
         // 2. Find active ride between the keychain owner and the driver
         const { data: activeRide, error: rideErr } = await supabaseAdmin
             .from("rides")
             .select("id, status, total_fare_cents, payment_method, pickup_address, dropoff_address, driver_id, rider_id")
-            .eq("rider_id", identityTag.profile_id)
+            .eq("rider_id", riderProfileId)
             .eq("driver_id", driver_id)
             .in("status", ["assigned", "arrived", "in_progress"])
             .order("created_at", { ascending: false })
@@ -106,7 +108,7 @@ serve(async (req: Request) => {
         const { data: wallet } = await supabaseAdmin
             .from("wallets")
             .select("balance_cents")
-            .eq("user_id", identityTag.profile_id)
+            .eq("user_id", riderProfileId)
             .maybeSingle();
 
         const walletBalance = wallet?.balance_cents || 0;
@@ -125,7 +127,7 @@ serve(async (req: Request) => {
             .from("nfc_event_logs")
             .insert({
                 tag_uid,
-                profile_id: identityTag.profile_id,
+                profile_id: riderProfileId,
                 event_type: "settlement_tap",
                 location_context: {
                     driver_id,
@@ -155,7 +157,7 @@ serve(async (req: Request) => {
                     pickup_address: activeRide.pickup_address,
                     dropoff_address: activeRide.dropoff_address,
                     ride_status: activeRide.status,
-                    rider_id: identityTag.profile_id,
+                    rider_id: riderProfileId,
                     wallet_balance_cents: walletBalance,
                 },
             }),

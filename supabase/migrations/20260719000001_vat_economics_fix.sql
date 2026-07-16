@@ -1,0 +1,11 @@
+-- NEUTRALIZED 2026-07-16 — DO NOT RESTORE THE ORIGINAL BODY.
+--
+-- The original migration rewrote record_pool_entry (retired as a no-op on
+-- 2026-07-06 by unify_settlement_single_source) with a DIVERGENT split:
+-- 12.5% VAT carved off gross + 15% platform of net + 13.3% merchant/referral
+-- carves. Applying it would have resurrected the dead ecosystem_pool_ledger
+-- with math that contradicts compute_ride_split, the single settlement
+-- source. VAT treatment note: T&T passenger taxi fares are VAT-exempt
+-- (Sch. 2); the platform's commission is the taxable supply — VAT does not
+-- belong inside the per-ride split at all.
+SELECT 1;

@@ -25,15 +25,20 @@ export function ScoutReferralScreen({ navigation }: any) {
 
     useEffect(() => {
         if (!driver) return;
-        supabase
-            .from('driver_scout_referrals')
-            .select('*')
-            .eq('driver_id', driver.id)
-            .order('created_at', { ascending: false })
-            .then(({ data }) => {
+        (async () => {
+            try {
+                const { data } = await supabase
+                    .from('driver_scout_referrals')
+                    .select('*')
+                    .eq('driver_id', driver.id)
+                    .order('created_at', { ascending: false });
                 setMyReferrals(data || []);
+            } catch {
+                // silently fail — user sees empty state
+            } finally {
                 setLoadingReferrals(false);
-            });
+            }
+        })();
     }, [driver]);
 
     const handleSubmit = async () => {

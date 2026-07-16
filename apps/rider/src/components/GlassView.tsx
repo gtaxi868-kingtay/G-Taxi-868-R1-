@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, Platform, StyleProp } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { theme } from '../theme';
-import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { liquidGlass } from '@gtaxi/design-system/utils/style-rules';
 
 interface GlassViewProps {
     children: React.ReactNode;
@@ -10,8 +11,24 @@ interface GlassViewProps {
 }
 
 export const GlassView = ({ children, style, intensity = 'medium' }: GlassViewProps) => {
+    const isWeb = Platform.OS === 'web';
+    
+    // For Native we use BlurView, for web we use the liquidGlass CSS rules
+    if (!isWeb) {
+        return (
+            <BlurView 
+                intensity={intensity === 'heavy' ? 80 : intensity === 'medium' ? 50 : 20} 
+                tint="dark"
+                style={[styles.glassNative, style]}
+            >
+                <View style={styles.highlight} />
+                {children}
+            </BlurView>
+        );
+    }
+
     return (
-        <View style={[styles.glass, styles[intensity], style]}>
+        <View style={[styles.glassWeb, style]}>
             <View style={styles.highlight} />
             {children}
         </View>
@@ -19,23 +36,13 @@ export const GlassView = ({ children, style, intensity = 'medium' }: GlassViewPr
 };
 
 const styles = StyleSheet.create({
-    glass: {
-        backgroundColor: theme.colors.glass.background,
-        ...ghostBorder(0.15),
+    glassNative: {
         overflow: 'hidden',
-        ...(Platform.OS === 'web' ? {
-            backdropFilter: 'blur(30px)',
-            WebkitBackdropFilter: 'blur(30px)',
-        } : {}),
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
     },
-    light: {
-        backgroundColor: theme.colors.glass.background,
-    },
-    medium: {
-        backgroundColor: theme.colors.glass.background,
-    },
-    heavy: {
-        backgroundColor: theme.colors.glass.backgroundDark,
+    glassWeb: {
+        ...liquidGlass(0.05, 20),
     },
     highlight: {
         position: 'absolute',

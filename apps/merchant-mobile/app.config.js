@@ -53,6 +53,7 @@ export default {
         },
       ],
       "expo-notifications",
+      "react-native-nfc-manager",
     ],
     owner: "gtaxi",
     extra: {

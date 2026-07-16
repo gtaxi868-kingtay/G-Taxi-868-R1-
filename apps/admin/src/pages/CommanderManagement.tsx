@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Shield, ShieldAlert, CheckCircle, XCircle, Map, RefreshCw, Inbox, DollarSign, TrendingUp, Clock } from 'lucide-react';
+import {
+  Shield, ShieldAlert, CheckCircle, XCircle, Map, RefreshCw,
+  Inbox, DollarSign, TrendingUp, Clock, Ban, Banknote, ExternalLink,
+  ChevronDown, ChevronUp, CheckCircle2, Search,
+} from 'lucide-react';
 
 interface Application {
     id: string;
@@ -54,6 +58,25 @@ interface RevshareSummary {
     total_entries: number;
 }
 
+interface PayoutRequest {
+    id: string;
+    commander_id: string;
+    amount_cents: number;
+    status: 'pending' | 'approved' | 'rejected' | 'completed';
+    bank_details: any;
+    payment_method: string | null;
+    rejection_reason: string | null;
+    created_at: string;
+    processed_at: string | null;
+    commanders: {
+        id: string;
+        user_id: string;
+        status: string;
+        user: { id: string; email: string; full_name: string } | null;
+        territory: { name: string; code: string } | null;
+    } | null;
+}
+
 function fmtTTD(cents: number) {
     return `TTD $${(cents / 100).toLocaleString('en-TT', { minimumFractionDigits: 2 })}`;
 }
@@ -68,6 +91,11 @@ export function CommanderManagement() {
     const [revshareEntries, setRevshareEntries] = useState<RevshareEntry[]>([]);
     const [revshareSummary, setRevshareSummary] = useState<RevshareSummary | null>(null);
     const [revshareLoading, setRevshareLoading] = useState(true);
+
+    const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
+    const [payoutLoading, setPayoutLoading] = useState(true);
+    const [payoutSearch, setPayoutSearch] = useState('');
+    const [payoutExpanded, setPayoutExpanded] = useState<string | null>(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -86,6 +114,22 @@ export function CommanderManagement() {
                 setRevshareEntries(revRes.data.revshare_entries || []);
                 setRevshareSummary(revRes.data.summary || null);
             }
+
+            const { data: payoutRes } = await supabase
+                .from('payout_requests')
+                .select(`
+                    *,
+                    commanders!commander_id(
+                        id, user_id, status,
+                        user:user_id(id, email, full_name),
+                        territory:territory_id(name, code)
+                    )
+                `)
+                .not('commander_id', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(100);
+            setPayoutRequests((payoutRes as unknown as PayoutRequest[]) || []);
+            setPayoutLoading(false);
         } catch (err) {
             console.error('Failed to load commander data:', err);
         } finally {
@@ -126,6 +170,30 @@ export function CommanderManagement() {
                 await loadData();
             } else {
                 alert('Failed to update status: ' + (res.data?.error || 'Unknown error'));
+            }
+        } catch (err: any) {
+            alert('Error: ' + err.message);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handlePayoutAction = async (payoutId: string, action: 'approved' | 'rejected') => {
+        if (action === 'rejected' && !window.confirm('Reject this payout request? The commander will be notified.')) return;
+        setActionLoading(`payout-${payoutId}`);
+        try {
+            const res = await supabase.functions.invoke('admin', {
+                body: {
+                    action: 'manage_commanders',
+                    action_type: 'process_payout',
+                    payout_request_id: payoutId,
+                    status: action,
+                },
+            });
+            if (res.data?.success) {
+                await loadData();
+            } else {
+                alert('Failed: ' + (res.data?.error || 'Unknown error'));
             }
         } catch (err: any) {
             alert('Error: ' + err.message);
@@ -267,6 +335,186 @@ export function CommanderManagement() {
                                             </td>
                                         </tr>
                                     ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </section>
+
+            {/* ─── PAYOUT APPROVAL PANEL ─── */}
+            <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Banknote size={16} className="text-emerald-400" />
+                        <h3 className="text-sm font-black text-white uppercase tracking-widest">Payout Approval Panel</h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Search size={12} className="text-white/20" />
+                        <input
+                            type="text"
+                            placeholder="Search commander..."
+                            value={payoutSearch}
+                            onChange={(e) => setPayoutSearch(e.target.value)}
+                            className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder:text-white/20 focus:border-emerald-400/50 outline-none w-44"
+                        />
+                    </div>
+                </div>
+
+                {payoutLoading ? (
+                    <div className="bg-white/5 border border-white/10 rounded-[2.5rem] p-8 animate-pulse">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="h-4 bg-white/10 rounded w-32" />
+                            <div className="h-4 bg-white/10 rounded w-20" />
+                        </div>
+                        {[1, 2].map((i) => (
+                            <div key={i} className="flex items-center gap-4 py-4 border-b border-white/5">
+                                <div className="h-3 bg-white/10 rounded w-40" />
+                                <div className="h-3 bg-white/10 rounded w-24" />
+                                <div className="h-8 bg-white/10 rounded w-32 ml-auto" />
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-white/[0.01] border-b border-white/5">
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Commander</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Amount</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Method</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Date</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-white/20 uppercase tracking-widest text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {(() => {
+                                        const filtered = payoutRequests.filter((pr) => {
+                                            const name = pr.commanders?.user?.full_name?.toLowerCase() || '';
+                                            return name.includes(payoutSearch.toLowerCase());
+                                        });
+                                        if (filtered.length === 0) {
+                                            return (
+                                                <tr>
+                                                    <td colSpan={6} className="px-6 py-16 text-center">
+                                                        <Banknote className="mx-auto text-white/20 mb-3" size={32} />
+                                                        <p className="text-white/40 text-sm font-black uppercase tracking-widest">
+                                                            {payoutSearch ? 'No matching payouts' : 'No payout requests'}
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }
+                                        return filtered.map((pr) => {
+                                            const isPending = pr.status === 'pending';
+                                            const isBusy = actionLoading === `payout-${pr.id}`;
+                                            const isExpanded = payoutExpanded === pr.id;
+                                            const commander = pr.commanders;
+                                            return (
+                                                <React.Fragment key={pr.id}>
+                                                    <tr className={`hover:bg-white/[0.02] transition-colors ${isPending ? 'bg-emerald-500/[0.02]' : ''}`}>
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+                                                                    isPending
+                                                                        ? 'bg-emerald-500/10 border-emerald-500/20'
+                                                                        : 'bg-white/5 border-white/10'
+                                                                }`}>
+                                                                    <Banknote size={16} className={isPending ? 'text-emerald-400' : 'text-white/20'} />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-black text-white">
+                                                                        {commander?.user?.full_name || 'Unknown Commander'}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-white/30 uppercase tracking-widest">
+                                                                        {commander?.territory ? `${commander.territory.name} (${commander.territory.code})` : 'No territory'}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <p className="text-sm font-black text-white">{fmtTTD(pr.amount_cents)}</p>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className="text-[9px] font-black px-2.5 py-1 rounded-md border uppercase tracking-widest ${
+                                                                pr.payment_method === 'bank_transfer'
+                                                                    ? 'text-cyan-400 bg-cyan-400/10 border-cyan-500/20'
+                                                                    : pr.payment_method === 'wipay_cash_code'
+                                                                    ? 'text-purple-400 bg-purple-400/10 border-purple-500/20'
+                                                                    : 'text-white/30 bg-white/5 border-white/10'
+                                                            }">
+                                                                {pr.payment_method?.replace('_', ' ') || 'unspecified'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className="text-xs text-white/60 font-mono">
+                                                                {new Date(pr.created_at).toLocaleDateString('en-TT', { day: 'numeric', month: 'short' })}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`text-[9px] font-black px-2.5 py-1 rounded-md border uppercase tracking-widest ${
+                                                                pr.status === 'pending' ? 'text-amber-400 bg-amber-400/10 border-amber-500/20 animate-pulse-slow' :
+                                                                pr.status === 'approved' || pr.status === 'completed' ? 'text-green-400 bg-green-400/10 border-green-500/20' :
+                                                                'text-red-400 bg-red-400/10 border-red-500/20'
+                                                            }`}>
+                                                                {pr.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                {isPending && (
+                                                                    <>
+                                                                        <button
+                                                                            onClick={() => handlePayoutAction(pr.id, 'approved')}
+                                                                            disabled={isBusy}
+                                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-green-500/20 transition-all disabled:opacity-50"
+                                                                        >
+                                                                            <CheckCircle size={14} /> Pay
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handlePayoutAction(pr.id, 'rejected')}
+                                                                            disabled={isBusy}
+                                                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all disabled:opacity-50"
+                                                                        >
+                                                                            <Ban size={14} /> Deny
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                                {pr.bank_details && (
+                                                                    <button
+                                                                        onClick={() => setPayoutExpanded(isExpanded ? null : pr.id)}
+                                                                        className="p-1.5 text-white/20 hover:text-white/60 transition-colors"
+                                                                    >
+                                                                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                                    </button>
+                                                                )}
+                                                                {isBusy && <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    {isExpanded && pr.bank_details && (
+                                                        <tr className="bg-white/[0.01]">
+                                                            <td colSpan={6} className="px-6 py-4">
+                                                                <div className="flex items-start gap-4 p-4 bg-black/30 rounded-2xl border border-white/5">
+                                                                    <ExternalLink size={14} className="text-white/30 mt-0.5 shrink-0" />
+                                                                    <div className="grid grid-cols-2 gap-4 text-xs">
+                                                                        {Object.entries(pr.bank_details).map(([key, val]) => (
+                                                                            <div key={key}>
+                                                                                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-1">{key.replace(/_/g, ' ')}</p>
+                                                                                <p className="text-white font-mono font-bold">{String(val)}</p>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        });
+                                    })()}
                                 </tbody>
                             </table>
                         </div>

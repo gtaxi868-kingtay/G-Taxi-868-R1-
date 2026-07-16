@@ -24,3 +24,14 @@ export function glassSurface(_blurIntensity = 20, opacity = 0.2) {
     overflow: 'hidden' as const,
   };
 }
+
+export function liquidGlass(opacity = 0.05, blur = 20) {
+  return {
+    backgroundColor: `rgba(255, 255, 255, ${opacity})`,
+    backdropFilter: `blur(${blur}px)`,
+    WebkitBackdropFilter: `blur(${blur}px)`,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    overflow: 'hidden' as const,
+  };
+}

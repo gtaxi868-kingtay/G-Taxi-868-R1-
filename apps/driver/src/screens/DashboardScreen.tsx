@@ -74,6 +74,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
     const [refreshing, setRefreshing] = useState(false);
     const [systemStatus, setSystemStatus] = useState<Record<string, unknown>>({ stripe_ready: true, fcm_ready: true, config: {} });
     const [demandHint, setDemandHint] = useState<string | null>(null);
+    const [demandHotspots, setDemandHotspots] = useState<any[]>([]);
     const [nfcVisible, setNfcVisible] = useState(false);
 
     const panelY = useSharedValue(panelHeightLocal);
@@ -176,6 +177,18 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         };
         fetchBalance();
         fetchStats();
+        const fetchDemand = async () => {
+            if (!driver?.id) return;
+            try {
+                const { data, error } = await supabase.rpc('get_demand_hotspots', { p_min_score: 1.2 });
+                if (!error && Array.isArray(data) && data.length > 0) {
+                    setDemandHotspots(data.slice(0, 3));
+                } else {
+                    setDemandHotspots([]);
+                }
+            } catch { setDemandHotspots([]); }
+        };
+        fetchDemand();
     }, [driver?.id]);
 
     useEffect(() => {
@@ -397,6 +410,32 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                                 )}
                             </Reanimated.View>
 
+                            {/* Demand hotspot card */}
+                            {isOnline && demandHotspots.length > 0 && (
+                                <TouchableOpacity
+                                    style={s.demandCard}
+                                    onPress={() => navigation.navigate('Earnings')}
+                                    activeOpacity={0.8}
+                                    accessibilityLabel="Demand hotspots nearby"
+                                    accessibilityRole="button"
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                        <View style={s.demandIcon}>
+                                            <Ionicons name="flame-outline" size={18} color="#FF6B35" />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={s.demandTitle}>Demand hotspots nearby</Text>
+                                            <Text style={s.demandSub}>
+                                                {demandHotspots.map((h: any) =>
+                                                    `${h.zone_name || h.geohash || 'Area'} (${h.multiplier ? `×${h.multiplier}` : h.demand_score ? `${Math.round(h.demand_score * 100)}%` : 'high'})`
+                                                ).join('  ·  ')}
+                                            </Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.25)" />
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+
                             {/* Push notification banner */}
                             {pushMissing && (
                                 <TouchableOpacity style={s.pushBanner} onPress={handleFixPush} disabled={isFixingPush} activeOpacity={0.8} accessibilityLabel="Fix push notifications" accessibilityRole="button">
@@ -510,6 +549,24 @@ const s = StyleSheet.create({
     },
     walletLabel: { fontSize: 12, color: 'rgba(255,255,255,0.4)', flex: 1 },
     walletAmount: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
+
+    // Demand hotspot card
+    demandCard: {
+        backgroundColor: 'rgba(255,107,53,0.06)',
+        borderRadius: 14,
+        borderWidth: 0.5,
+        borderColor: 'rgba(255,107,53,0.2)',
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        marginBottom: 16,
+    },
+    demandIcon: {
+        width: 32, height: 32, borderRadius: 10,
+        backgroundColor: 'rgba(255,107,53,0.15)',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    demandTitle: { fontSize: 13, fontWeight: '600', color: '#FF8A50', marginBottom: 2 },
+    demandSub: { fontSize: 11, color: 'rgba(255,138,80,0.6)', lineHeight: 16 },
 
     // Push banner
     pushBanner: {

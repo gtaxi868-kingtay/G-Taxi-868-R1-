@@ -66,6 +66,8 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const [hasMerchantPhoto, setHasMerchantPhoto] = useState(false);
     const [cashConfirmed, setCashConfirmed] = useState(false);
     const [cashConfirming, setCashConfirming] = useState(false);
+    const [safeMarked, setSafeMarked] = useState(false);
+    const [safeMarking, setSafeMarking] = useState(false);
 
     let intakeCh: any = null;
 
@@ -153,11 +155,13 @@ export function ActiveTripScreen({ route, navigation }: any) {
                     const stopName = payload.new.metadata?.place_name || 'New Stop';
                     Alert.alert('NEW STOP ADDED', `Rider added ${stopName} to the route. Rerouting...`);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                    supabase.from('ride_stops')
-                        .select('*')
-                        .eq('ride_id', rideId)
-                        .order('stop_order', { ascending: true })
-                        .then(({ data }) => { if (data) { setStops(data); fetchNewRoute(data); } });
+                    (async () => {
+                            const { data } = await supabase.from('ride_stops')
+                                .select('*')
+                                .eq('ride_id', rideId)
+                                .order('stop_order', { ascending: true });
+                            if (data) { setStops(data); fetchNewRoute(data); }
+                        })().catch((err) => console.error('ride_stops fetch failed:', err));
                 }
             })
             .subscribe();
@@ -181,11 +185,12 @@ export function ActiveTripScreen({ route, navigation }: any) {
         const orderId = ride?.order_id;
         if (!orderId) return;
 
-        supabase.from('orders').select('status').eq('id', orderId).single().then(({ data }) => {
+        (async () => {
+            const { data } = await supabase.from('orders').select('status').eq('id', orderId).single();
             if (data?.status === 'ready_for_pickup') {
                 Alert.alert('PACKAGE READY', 'Merchant confirmed the order is ready for pickup.');
             }
-        });
+        })().catch((err) => console.error('order status check failed:', err));
 
         const orderCh = supabase
             .channel(`order_sync_${orderId}`)
@@ -217,6 +222,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
             }
         } catch (err) {
             console.error("Reroute fetch failed:", err);
+            Alert.alert('Map Error', 'Could not reroute. Check your connection.');
         }
     };
 
@@ -391,8 +397,8 @@ export function ActiveTripScreen({ route, navigation }: any) {
                                                 const { error } = await supabase.functions.invoke('update_ride_status', { body: { ride_id: rideId, cash_confirmed: true } });
                                                 if (error) console.error('cash confirm fallback failed:', error);
                                             }
-                                        } catch (err) { console.error('cash confirmation error:', err); }
-                                        finally { setCashConfirming(false); setCashConfirmed(true); }
+} catch (err) { console.error('cash confirmation error:', err); Alert.alert('Cash Error', 'Cash receipt recorded but confirmation may not have synced.'); }
+        finally { setCashConfirming(false); setCashConfirmed(true); }
                                     }}
                                     accessibilityLabel="Confirm cash collected"
                                     accessibilityRole="button"
@@ -433,6 +439,39 @@ export function ActiveTripScreen({ route, navigation }: any) {
                             <Text style={s.earningsLabelSmall}>Your earnings</Text>
                             <Text style={s.earningsValueLarge}>TTD ${earnings}</Text>
                         </View>
+                        {safeMarked ? (
+                            <View style={s.safeConfirmedRow}>
+                                <Ionicons name="shield-checkmark" size={18} color={VOICES.driver.gold} style={{ marginRight: 6 }} />
+                                <Text style={s.safeConfirmedText}>Marked safe — thank you</Text>
+                            </View>
+                        ) : (
+                            <TouchableOpacity
+                                style={[s.dashBtn, { marginBottom: 12 }]}
+                                disabled={safeMarking}
+                                onPress={async () => {
+                                    setSafeMarking(true);
+                                    try {
+                                        const { error } = await supabase.rpc('mark_ride_safe', { p_ride_id: rideId });
+                                        if (error) { console.error('mark_ride_safe failed:', error); Alert.alert('Could not mark safe', 'Please try again.'); }
+                                        else { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setSafeMarked(true); }
+                                    } catch (err) { console.error('mark_ride_safe error:', err); Alert.alert('Could not mark safe', 'Please try again.'); }
+                                    finally { setSafeMarking(false); }
+                                }}
+                                accessibilityLabel="Mark yourself safe"
+                                accessibilityRole="button"
+                            >
+                                <LinearGradient colors={[VOICES.driver.gold, '#B8860B']} style={s.dashBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                                    {safeMarking ? (
+                                        <ActivityIndicator color={SURFACE.base} />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="shield-checkmark-outline" size={18} color={SURFACE.base} style={{ marginRight: 6 }} />
+                                            <Text style={s.dashBtnText}>I'M SAFE / LEFT THE AREA</Text>
+                                        </>
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity style={s.dashBtn} onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] })} accessibilityLabel="Back to dashboard" accessibilityRole="button">
                             <LinearGradient colors={[VOICES.driver.accent, VOICES.driver.accentDark]} style={s.dashBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                                 <Text style={s.dashBtnText}>Back to Dashboard</Text>
@@ -564,6 +603,18 @@ const s = StyleSheet.create({
         color: SURFACE.base,
         letterSpacing: 0.5,
         fontFamily: 'SpaceGrotesk-Bold',
+    },
+    safeConfirmedRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    safeConfirmedText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: VOICES.driver.gold,
+        letterSpacing: 0.3,
     },
     driverMarker: {
         width: 40,

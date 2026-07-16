@@ -140,7 +140,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                     }
                 ]
             );
-        });
+        }).catch(() => {});
     };
 
     if (loading) {
