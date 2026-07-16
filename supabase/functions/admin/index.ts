@@ -544,10 +544,14 @@ Deno.serve(async (req) => {
           const balance = typeof balanceResult === 'number' ? balanceResult : (balanceResult[0]?.balance ?? balanceResult.balance ?? 0)
           if (balance < amount_cents) throw new Error(`Insufficient balance`)
         }
+        // NOTE: wallet_transactions has no `metadata` column — this insert
+        // would crash on the very first real admin debt settlement.
+        // The admin id is already embedded in the description text below,
+        // which is the only free-text slot this table actually has.
         const { error } = await supabaseAdmin.from('wallet_transactions').insert({
           user_id, amount: -amount_cents, transaction_type: 'debt_settlement',
           description: `Admin Manual Debt Settlement — authorized by admin ${user.id}`,
-          status: 'completed', metadata: { admin_id: user.id },
+          status: 'completed',
         })
         if (error) throw error
         return json({ success: true, user_id, amount_cents })
