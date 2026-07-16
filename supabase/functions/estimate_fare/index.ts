@@ -7,17 +7,21 @@
 //   Per minute:     0.95
 //   Minimum fare:  22.00
 //
-// Auth: Not required — read-only fare estimate, no personal data written.
+// Vehicle class multipliers + per-class minimum fares come from the
+// admin-controlled vehicle_classes table (heavy classes truck/hiab/wrecker
+// stay unbookable until admin sets is_active). Falls back to the static
+// VEHICLE_MULTIPLIERS map if the table is unavailable.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
-import { PRICING, VEHICLE_MULTIPLIERS, calculateFare, calculateStopsFee } from "../_shared/pricing.ts";
+import { PRICING, calculateStopsFee, fetchVehicleClass, staticMultiplier } from "../_shared/pricing.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -58,6 +62,16 @@ serve(async (req: Request) => {
         if (!pickup_lat || !pickup_lng || !dropoff_lat || !dropoff_lng) {
             return new Response(
                 JSON.stringify({ success: false, error: "Missing coordinates", data: null }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        // Admin-controlled vehicle class: multiplier + per-class minimum fare.
+        // An inactive class (e.g. heavy vehicles pre-launch) is not bookable.
+        const vehicleClass = await fetchVehicleClass(adminClient, vehicle_type);
+        if (vehicleClass && !vehicleClass.is_active) {
+            return new Response(
+                JSON.stringify({ success: false, error: `${vehicleClass.label} is not available in your area yet.`, data: null }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
@@ -105,12 +119,14 @@ serve(async (req: Request) => {
         let surgeMultiplier = 1.0;
         // Use PostGIS ST_DWithin to find zones where pickup point is within zone radius.
         // pricing_zones.center_lat/center_lng + radius_meters stored alongside boundary_geojson.
+        // NOTE: query builders are thenables without .catch() — use the
+        // two-argument .then(ok, err) form or the call throws at runtime.
         const { data: matchedZones } = await adminClient
             .rpc("get_surge_multiplier_for_point", {
                 p_lat: pickup_lat,
                 p_lng: pickup_lng,
             })
-            .catch(() => ({ data: null }));
+            .then((res) => res, () => ({ data: null }));
 
         if (matchedZones && typeof matchedZones === "number" && matchedZones > 1.0) {
             surgeMultiplier = matchedZones;
@@ -150,7 +166,7 @@ serve(async (req: Request) => {
         const { data: configRows } = await adminClient
             .from("pricing_config")
             .select("key, value_cents")
-            .catch(() => ({ data: null }));
+            .then((res) => res, () => ({ data: null }));
 
         const cfg: Record<string, number> = {};
         if (configRows) {
@@ -165,14 +181,15 @@ serve(async (req: Request) => {
 
         const totalStopsFeeCents = calculateStopsFee(Array.isArray(stops) ? stops : []);
 
-        const multiplier = VEHICLE_MULTIPLIERS[vehicle_type] || 1.0;
+        const multiplier = vehicleClass ? vehicleClass.multiplier_x100 / 100 : staticMultiplier(vehicle_type);
+        const classMinFare = vehicleClass?.min_fare_cents ?? 0;
         const distanceKm = distanceMeters / 1000;
         const durationMin = durationSeconds / 60;
         let rawFare = liveBaseFare +
             Math.round(distanceKm * livePerKm) +
             Math.round(durationMin * livePerMin);
         rawFare = Math.round((rawFare + totalStopsFeeCents) * multiplier * surgeMultiplier);
-        const fareCents = Math.max(rawFare, liveMinFare);
+        const fareCents = Math.max(rawFare, liveMinFare, classMinFare);
 
         return new Response(
             JSON.stringify({
@@ -182,14 +199,15 @@ serve(async (req: Request) => {
                     estimated_fare_cents: fareCents,
                     distance_meters: distanceMeters,
                     duration_seconds: durationSeconds,
-                    vehicle_type,
+                    vehicle_type: vehicleClass?.key ?? vehicle_type,
+                    vehicle_label: vehicleClass?.label ?? vehicle_type,
                     multiplier,
                     surge_multiplier: surgeMultiplier,
                     pricing_constants: {
                         base_fare_cents: liveBaseFare,
                         per_km_cents: livePerKm,
                         per_min_cents: livePerMin,
-                        min_fare_cents: liveMinFare,
+                        min_fare_cents: Math.max(liveMinFare, classMinFare),
                         stop_base_grocery_cents: PRICING.STOP_BASE_GROCERY_CENTS,
                         stop_base_pharmacy_cents: PRICING.STOP_BASE_PHARMACY_CENTS,
                         stop_base_other_cents: PRICING.STOP_BASE_OTHER_CENTS,

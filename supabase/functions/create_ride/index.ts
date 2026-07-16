@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
-import { calculateFare, calculateStopsFee } from "../_shared/pricing.ts";
+import { calculateFare, calculateStopsFee, fetchVehicleClass } from "../_shared/pricing.ts";
 import { captureException } from "../_shared/sentry.ts";
 import { sendPushNotification } from "../_shared/push.ts";
 import { secureFetch } from "../_shared/networkUtility.ts";
@@ -10,12 +10,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
-
-const VEHICLE_MULTIPLIERS: Record<string, number> = {
-    "Standard": 1.0,
-    "XL": 1.5,
-    "Premium": 2.0,
-};
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -168,9 +162,11 @@ serve(async (req: Request) => {
         //   The coordinate is tagged as a Demand Signal (seeded_zone).
         //   This does NOT block the ride — it prioritises Expansion over Exclusion.
         // FAIL CLOSED: If the DB errors, ride proceeds (no stranding).
+        // NOTE: query builders are thenables without .catch() — use the
+        // two-argument .then(ok, err) form or the call throws at runtime.
         const { data: pickupVerified } = await adminClient
             .rpc('is_verified_location', { p_lat: pickup_lat, p_lng: pickup_lng })
-            .catch(() => ({ data: null }));
+            .then((res) => res, () => ({ data: null }));
 
         const insideActiveZone = pickupVerified === true;
 
@@ -178,7 +174,7 @@ serve(async (req: Request) => {
             log("INFO", "Pickup outside active zone — tagging demand signal", { requestId, rider_id, pickup_lat, pickup_lng });
             await adminClient
                 .rpc('seed_zone', { p_lat: pickup_lat, p_lng: pickup_lng, p_territory_name: 'Demand Signal' })
-                .catch((e: unknown) => console.error("seed_zone (demand signal) failed:", e));
+                .then((res) => res, (e: unknown) => console.error("seed_zone (demand signal) failed:", e));
         }
         // Dropoff + stops: no verification. Destination utility is open island-wide.
 
@@ -188,7 +184,7 @@ serve(async (req: Request) => {
             .select("level")
             .eq("rider_id", rider_id)
             .maybeSingle()
-            .catch(() => ({ data: null }));
+            .then((res) => res, () => ({ data: null }));
         const riderLevel = progression?.level ?? 0;
 
         const activeStatuses = ["requested", "searching", "assigned", "arrived", "in_progress"];
@@ -243,7 +239,25 @@ serve(async (req: Request) => {
         const distanceKm = distanceMeters / 1000;
         const durationMin = durationSeconds / 60;
         const stopsFeeCents = calculateStopsFee(Array.isArray(stops) ? stops : []);
-        const fareCents = calculateFare(distanceMeters, durationSeconds, vehicle_type, 1.0, stopsFeeCents);
+
+        // Admin-controlled vehicle class: canonical key, multiplier, per-class
+        // minimum fare. Inactive classes (heavy vehicles pre-launch) are not
+        // bookable; unknown keys fall back to the static multiplier table.
+        const vehicleClass = await fetchVehicleClass(adminClient, vehicle_type);
+        if (vehicleClass && !vehicleClass.is_active) {
+            return new Response(
+                JSON.stringify({ success: false, error: `${vehicleClass.label} is not available in your area yet.`, data: null }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+        const vehicleKey = vehicleClass?.key ?? String(vehicle_type).trim().toLowerCase();
+        const vehicleLabel = vehicleClass?.label ?? vehicle_type;
+        const vehicleMultiplier = vehicleClass ? vehicleClass.multiplier_x100 / 100 : undefined;
+
+        let fareCents = calculateFare(distanceMeters, durationSeconds, vehicle_type, 1.0, stopsFeeCents, vehicleMultiplier);
+        if (vehicleClass?.min_fare_cents) {
+            fareCents = Math.max(fareCents, vehicleClass.min_fare_cents);
+        }
 
         const { data: balance, error: balanceError } = await supabaseClient
             .rpc("get_wallet_balance", { p_user_id: rider_id });
@@ -333,7 +347,7 @@ serve(async (req: Request) => {
             p_distance_meters: distanceMeters,
             p_duration_seconds: durationSeconds,
             p_route_polyline: routePolyline,
-            p_vehicle_type: vehicle_type,
+            p_vehicle_type: vehicleKey,
             p_payment_method: payment_method || "cash",
             p_ride_pin: ridePin,
             p_idempotency_key: idempotency_key || null,
@@ -370,7 +384,7 @@ serve(async (req: Request) => {
                 .from("rides")
                 .update({ vendor_node_id: kiosk_id })
                 .eq("id", newRideId)
-                .catch((err) => console.error("vendor_node_id tag failed (non-fatal):", err));
+                .then((res) => res, (err: unknown) => console.error("vendor_node_id tag failed (non-fatal):", err));
 
             // Link the NFC order to this ride: find pending order for this rider at the kiosk's merchant
             const { data: nfcKiosk } = await adminClient
@@ -378,7 +392,7 @@ serve(async (req: Request) => {
                 .select("merchant_id")
                 .eq("id", kiosk_id)
                 .single()
-                .catch(() => ({ data: null }));
+                .then((res) => res, () => ({ data: null }));
 
             if (nfcKiosk?.merchant_id) {
                 const { data: nfcOrder } = await adminClient
@@ -388,14 +402,14 @@ serve(async (req: Request) => {
                     .eq("merchant_id", nfcKiosk.merchant_id)
                     .eq("status", "pending")
                     .maybeSingle()
-                    .catch(() => ({ data: null }));
+                    .then((res) => res, () => ({ data: null }));
 
                 if (nfcOrder?.id) {
                     await adminClient
                         .from("orders")
                         .update({ ride_id: newRideId, total_cents: fareCents })
                         .eq("id", nfcOrder.id)
-                        .catch((err) => console.error("NFC order link failed (non-fatal):", err));
+                        .then((res) => res, (err: unknown) => console.error("NFC order link failed (non-fatal):", err));
                 }
             }
         }
@@ -433,7 +447,7 @@ serve(async (req: Request) => {
             event_type: "ride_request",
             payload: {
                 ride_id: newRideId,
-                vehicle_type,
+                vehicle_type: vehicleKey,
                 fare_cents: fareCents,
                 has_stops: stops.length > 0
             }
@@ -469,7 +483,7 @@ serve(async (req: Request) => {
                 sendPushNotification(
                     riderProfile.push_token,
                     '🚖 Ride Requested',
-                    `Your ${vehicle_type} ride to ${dropoff_address} is being searched.`,
+                    `Your ${vehicleLabel} ride to ${dropoff_address} is being searched.`,
                     { type: 'RIDE_CREATED', ride_id: newRideId, status: rideStatus }
                 ).catch(err => console.error("Rider push failed:", err));
             }
@@ -489,7 +503,8 @@ serve(async (req: Request) => {
                     distance_km: parseFloat(distanceKm.toFixed(2)),
                     duration_min: parseFloat(durationMin.toFixed(0)),
                     total_fare_cents: fareCents,
-                    vehicle_type,
+                    vehicle_type: vehicleKey,
+                    vehicle_label: vehicleLabel,
                     payment_method,
                     route_polyline: routePolyline,
                     driver: null,

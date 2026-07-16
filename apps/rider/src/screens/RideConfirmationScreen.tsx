@@ -41,13 +41,23 @@ interface StopSuggestion {
     merchant_id?: string;
 }
 
-const VEHICLES = [
-    { type: 'Standard', multiplier: 1.0, icon: 'car-outline', desc: 'Daily logistics' },
-    { type: 'XL', multiplier: 1.5, icon: 'bus-outline', desc: 'Group & Bulk' },
-    { type: 'Premium', multiplier: 2.2, icon: 'star-outline', desc: 'Executive Pro' },
-] as const;
+interface VehicleOption {
+    key: string;
+    label: string;
+    multiplier: number;
+    icon: string;
+    desc: string;
+    minFareCents: number | null;
+}
 
-type VehicleType = (typeof VEHICLES)[number]['type'];
+// Fallback only — the live list (including admin-unlocked heavy classes like
+// truck/hiab/wrecker) comes from the vehicle_classes table, which RLS limits
+// to active classes. Multipliers here must match _shared/pricing.ts.
+const FALLBACK_VEHICLES: VehicleOption[] = [
+    { key: 'standard', label: 'Standard', multiplier: 1.0, icon: 'car-outline', desc: 'Daily logistics', minFareCents: null },
+    { key: 'xl', label: 'XL', multiplier: 1.5, icon: 'bus-outline', desc: 'Group & Bulk', minFareCents: null },
+    { key: 'premium', label: 'Premium', multiplier: 2.0, icon: 'star-outline', desc: 'Executive Pro', minFareCents: null },
+];
 
 export function RideConfirmationScreen({ navigation, route }: any) {
     const { height } = useWindowDimensions();
@@ -58,7 +68,8 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
     const [loading, setLoading] = useState(true);
     const [fare, setFare] = useState<any>(null);
-    const [selectedType, setSelectedType] = useState<VehicleType>('Standard');
+    const [vehicles, setVehicles] = useState<VehicleOption[]>(FALLBACK_VEHICLES);
+    const [selectedType, setSelectedType] = useState<string>('standard');
     const [confirming, setConfirming] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -86,6 +97,28 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
     useEffect(() => {
         fetchData();
+        // Live vehicle classes — RLS returns active rows only, so heavy
+        // classes appear here the moment admin flips them on. Query builders
+        // are thenables without .catch(); on failure the fallback list stays.
+        supabase
+            .from('vehicle_classes')
+            .select('key, label, description, icon, multiplier_x100, min_fare_cents, sort_order')
+            .order('sort_order')
+            .then(
+                ({ data }: { data: any[] | null }) => {
+                    if (data && data.length > 0) {
+                        setVehicles(data.map(d => ({
+                            key: d.key,
+                            label: d.label,
+                            multiplier: d.multiplier_x100 / 100,
+                            icon: d.icon || 'car-outline',
+                            desc: d.description || '',
+                            minFareCents: d.min_fare_cents ?? null,
+                        })));
+                    }
+                },
+                () => {}
+            );
         // A device that has verified once is trusted for low-risk rides thereafter.
         AsyncStorage.getItem('gtaxi_device_verified')
             .then(v => { if (v === 'true') setDeviceVerified(true); })
@@ -350,12 +383,16 @@ export function RideConfirmationScreen({ navigation, route }: any) {
         };
     }, [selectedStops]);
 
-    const multiplier = useMemo(
-        () => VEHICLES.find(v => v.type === selectedType)?.multiplier ?? 1.0,
-        [selectedType]
+    const selectedVehicle = useMemo(
+        () => vehicles.find(v => v.key === selectedType),
+        [selectedType, vehicles]
     );
+    const multiplier = selectedVehicle?.multiplier ?? 1.0;
     const baseFareCents = fare ? fare.total_fare_cents : 0;
-    const displayFareCents = Math.round(baseFareCents * multiplier);
+    const displayFareCents = Math.max(
+        Math.round(baseFareCents * multiplier),
+        selectedVehicle?.minFareCents ?? 0
+    );
     const finalFare = fare ? (displayFareCents / 100).toFixed(2) : '--';
 
     // Risk-triggered identity verification — frictionless for normal rides,
@@ -461,15 +498,15 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                         )}
 
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.vehicleScroll} contentContainerStyle={{ paddingRight: 20 }}>
-                            {VEHICLES.map(v => (
+                            {vehicles.map(v => (
                                 <TouchableOpacity
-                                    key={v.type}
-                                    style={[s.vehicleCard, selectedType === v.type && s.vehicleCardActive]}
-                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.type); }}
+                                    key={v.key}
+                                    style={[s.vehicleCard, selectedType === v.key && s.vehicleCardActive]}
+                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.key); }}
                                 >
-                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.type ? SURFACE.base : VOICES.rider.accent} />
-                                    <Text style={[s.vehicleType, { color: selectedType === v.type ? SURFACE.base : '#EAF3F6' }]}>{v.type}</Text>
-                                    <Text style={[s.vehicleMultiplier, { color: selectedType === v.type ? 'rgba(6,8,10,0.6)' : VOICES.rider.textMuted }]}>{v.multiplier}x</Text>
+                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.key ? SURFACE.base : VOICES.rider.accent} />
+                                    <Text style={[s.vehicleType, { color: selectedType === v.key ? SURFACE.base : '#EAF3F6' }]}>{v.label}</Text>
+                                    <Text style={[s.vehicleMultiplier, { color: selectedType === v.key ? 'rgba(6,8,10,0.6)' : VOICES.rider.textMuted }]}>{v.multiplier}x</Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
@@ -651,7 +688,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                 end={{ x: 1, y: 1 }}
                             >
                                 {confirming ? <ActivityIndicator color={SURFACE.base} /> : (
-                                    <Text style={s.confirmBtnText}>Confirm {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)}</Text>
+                                    <Text style={s.confirmBtnText}>Confirm {selectedVehicle?.label ?? (selectedType.charAt(0).toUpperCase() + selectedType.slice(1))}</Text>
                                 )}
                             </LinearGradient>
                         </TouchableOpacity>
