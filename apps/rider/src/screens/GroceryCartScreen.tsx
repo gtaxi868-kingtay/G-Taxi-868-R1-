@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { useStripe } from '@stripe/stripe-react-native';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
@@ -47,6 +48,33 @@ export function GroceryCartScreen({ navigation, route }: any) {
         );
     };
 
+    const resolveDeliveryLocation = async (): Promise<{ address: string; lat: number; lng: number } | null> => {
+        if (deliverToRide && activeRide?.dropoff_lat != null && activeRide?.dropoff_lng != null) {
+            return {
+                address: activeRide.dropoff_address || 'Active ride dropoff',
+                lat: activeRide.dropoff_lat,
+                lng: activeRide.dropoff_lng,
+            };
+        }
+
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Location needed', 'Enable location access so the driver knows where to deliver.');
+            return null;
+        }
+
+        const pos = await Location.getCurrentPositionAsync({});
+        const [place] = await Location.reverseGeocodeAsync({
+            latitude: pos.coords.latitude, longitude: pos.coords.longitude,
+        }).catch(() => [null]);
+
+        const address = place
+            ? [place.name, place.street, place.city].filter(Boolean).join(', ')
+            : `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+
+        return { address, lat: pos.coords.latitude, lng: pos.coords.longitude };
+    };
+
     const handleCheckout = async () => {
         if (cart.length === 0) return;
         if (!user?.id) { Alert.alert('Error', 'Please log in.'); return; }
@@ -55,44 +83,31 @@ export function GroceryCartScreen({ navigation, route }: any) {
         setLoading(true);
 
         try {
-            const { data: order, error: orderErr } = await supabase
-                .from('orders')
-                .insert({
-                    rider_id: user.id,
+            const location = await resolveDeliveryLocation();
+            if (!location) { setLoading(false); return; }
+
+            const { data: placeResult, error: placeErr } = await supabase.functions.invoke('grocery', {
+                body: {
+                    action: 'place_order',
                     merchant_id: merchant.id,
-                    total_cents: total,
-                    delivery_fee_cents: deliveryFee,
-                    status: 'pending',
-                    payment_method: paymentMethod === 'cash' ? 'cash' : 'card',
-                    payment_status: paymentMethod === 'cash' ? 'cash_on_delivery' : 'unpaid',
-                    delivery_method: deliverToRide && activeRide?.ride_id ? 'to_ride' : 'courier',
-                    ride_id: deliverToRide && activeRide?.ride_id ? activeRide.ride_id : null,
-                })
-                .select('id')
-                .single();
+                    delivery_address: location.address,
+                    delivery_lat: location.lat,
+                    delivery_lng: location.lng,
+                    payment_method: paymentMethod,
+                },
+            });
 
-            if (orderErr) throw orderErr;
+            if (placeErr) throw new Error(placeErr.message || 'Failed to place order');
+            if (placeResult?.success === false) throw new Error(placeResult.error || 'Failed to place order');
 
-            const items = cart.map(c => ({
-                order_id: order.id,
-                product_id: c.product.id,
-                quantity: c.quantity,
-                unit_price_cents: c.product.price_cents,
-            }));
-
-            const { error: itemsErr } = await supabase
-                .from('order_items')
-                .insert(items);
-
-            if (itemsErr) throw itemsErr;
+            const order = placeResult.order;
 
             if (paymentMethod === 'card') {
-                const { data: piData, error: piErr } = await supabase.functions.invoke(
-                    'create_order_payment_intent',
-                    { body: { order_id: order.id } }
-                );
+                const { data: piData, error: piErr } = await supabase.functions.invoke('grocery', {
+                    body: { action: 'create_payment_intent', order_id: order.order_id },
+                });
 
-                if (piErr) throw new Error(piErr.message || 'Failed to create payment');
+                if (piErr || piData?.error) throw new Error(piData?.error || piErr?.message || 'Failed to create payment');
 
                 const { error: initErr } = await initPaymentSheet({
                     merchantDisplayName: merchant.name || 'G-Taxi',
@@ -111,34 +126,47 @@ export function GroceryCartScreen({ navigation, route }: any) {
                     return;
                 }
 
+                await supabase.functions.invoke('grocery', {
+                    body: { action: 'confirm_authorization', order_id: order.order_id },
+                });
+
                 const { error: matchErr } = await supabase.functions.invoke('merchant', {
-                    body: { action: 'match_delivery', order_id: order.id },
+                    body: { action: 'match_delivery', order_id: order.order_id },
                 });
                 if (matchErr) {
                     Alert.alert(
                         'Order Created',
                         `Your order from ${merchant.name} has been paid but dispatch failed. Support will follow up.\nAmount: $${(total / 100).toFixed(2)} TTD`,
-                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.id }) }]
+                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
                 } else {
                     Alert.alert(
                         'Order Placed!',
                         `Your order from ${merchant.name} has been paid.\nAmount: $${(total / 100).toFixed(2)} TTD`,
-                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.id }) }]
+                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
                 }
             } else {
                 const { error: matchErr } = await supabase.functions.invoke('merchant', {
-                    body: { action: 'match_delivery', order_id: order.id },
+                    body: { action: 'match_delivery', order_id: order.order_id },
                 });
                 if (matchErr) {
                     console.warn('[Checkout] match_order_delivery:', matchErr.message);
                 }
-                Alert.alert(
-                    'Cash on Delivery',
-                    `Pay $${(total / 100).toFixed(2)} TTD to the driver upon delivery.\nOrder ID: ${order.id.slice(0, 8).toUpperCase()}`,
-                    [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.id }) }]
-                );
+
+                if (paymentMethod === 'cash') {
+                    Alert.alert(
+                        'Cash on Delivery',
+                        `Pay $${(total / 100).toFixed(2)} TTD to the driver upon delivery.\nOrder ID: ${order.order_id.slice(0, 8).toUpperCase()}`,
+                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
+                    );
+                } else {
+                    Alert.alert(
+                        'Order Placed!',
+                        `Your order from ${merchant.name} has been paid from your wallet.\nAmount: $${(total / 100).toFixed(2)} TTD`,
+                        [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
+                    );
+                }
             }
         } catch (err: any) {
             Alert.alert('Order Failed', err.message || 'Please try again.');

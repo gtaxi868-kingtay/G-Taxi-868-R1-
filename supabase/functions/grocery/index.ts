@@ -293,7 +293,7 @@ Deno.serve(async (req) => {
       if (!merchant_id || !delivery_address || delivery_lat == null || delivery_lng == null || !payment_method) {
         return json({ error: 'Missing required fields' }, 400)
       }
-      if (!['card', 'wallet'].includes(payment_method)) {
+      if (!['card', 'wallet', 'cash'].includes(payment_method)) {
         return json({ error: 'Invalid payment_method' }, 400)
       }
 
@@ -337,6 +337,7 @@ Deno.serve(async (req) => {
         .from('orders')
         .insert({
           rider_id: user.id, merchant_id, status: 'pending', total_cents: total,
+          delivery_fee_cents: deliveryFee, payment_method,
           delivery_method: 'courier', delivery_address, delivery_lat, delivery_lng,
           delivery_notes: delivery_notes || null, substitution_policy,
           created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -354,6 +355,18 @@ Deno.serve(async (req) => {
         })))
 
       if (itemsError) throw itemsError
+
+      if (payment_method === 'cash') {
+        await supabase.from('orders').update({
+          payment_status: 'cash_on_delivery', status: 'confirmed',
+        }).eq('id', order.id)
+        await supabase.from('cart_items').delete().eq('user_id', user.id).eq('merchant_id', merchant_id)
+
+        return json({
+          success: true,
+          order: { order_id: order.id, total_cents: total, payment_method: 'cash', status: 'confirmed' },
+        })
+      }
 
       if (payment_method === 'card') {
         const stripe = new Stripe(requireEnv('STRIPE_SECRET_KEY'))
@@ -476,14 +489,29 @@ Deno.serve(async (req) => {
       if (!order_id) return json({ error: 'order_id is required' }, 400)
 
       const { data: driverRow } = await supabase
-        .from('drivers').select('id').eq('user_id', user.id).single()
+        .from('drivers').select('id, user_id').eq('user_id', user.id).single()
       if (!driverRow) return json({ error: 'Not a driver' }, 403)
 
       const { data: order } = await supabase
-        .from('orders').select('id, delivery_driver_id').eq('id', order_id).single()
+        .from('orders').select('id, delivery_driver_id, merchant_id, payment_method').eq('id', order_id).single()
       if (!order) return json({ error: 'Order not found' }, 404)
       if (order.delivery_driver_id !== driverRow.id) {
         return json({ error: 'You are not the assigned driver for this order' }, 403)
+      }
+
+      // Cash orders settle through a different RPC (driver keeps the cash,
+      // owes the platform its + the merchant's share) — same driver-facing
+      // action, branch to the right settlement path server-side.
+      if (order.payment_method === 'cash') {
+        const { data: cashResult, error: cashErr } = await supabase.rpc('process_cash_delivery_settlement', {
+          p_order_id: order_id,
+          p_driver_user_id: driverRow.user_id,
+          p_merchant_id: order.merchant_id,
+          p_photo_url: photo_url ?? null,
+        })
+        if (cashErr) return json({ error: cashErr.message }, 500)
+        if (cashResult?.success === false) return json({ error: cashResult.error }, 400)
+        return json(cashResult)
       }
 
       const { data: result, error: rpcErr } = await supabase.rpc('process_order_delivery_payment', {

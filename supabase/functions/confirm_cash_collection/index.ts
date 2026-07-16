@@ -19,7 +19,7 @@ serve(async (req) => {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { driver } = await requireDriver(req, supabaseAdmin);
 
-    const { order_id } = await req.json();
+    const { order_id, photo_url } = await req.json();
     if (!order_id) {
       return new Response(JSON.stringify({ error: "order_id is required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -54,6 +54,7 @@ serve(async (req) => {
       p_order_id: order_id,
       p_driver_user_id: driver.user_id,
       p_merchant_id: order.merchant_id,
+      p_photo_url: photo_url ?? null,
     });
 
     if (result.error) {
