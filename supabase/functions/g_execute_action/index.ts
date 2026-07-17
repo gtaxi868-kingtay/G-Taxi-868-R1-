@@ -77,6 +77,22 @@ const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResul
             ? { ok: false, result: { error: error.message } }
             : { ok: true, result: { activated: promoId } };
     },
+
+    // Admin's "send" for a G-Escape group that hit its tipping point.
+    // Runs the exact same confirmation logic (itinerary legs, financial
+    // ledger, rider + hotel notifications) as the auto-release safety net
+    // in escape_sweep_tipping_points — one source of truth for what
+    // "confirmed" means, whether a human or the deadline triggered it.
+    async escape_confirm_group(supabase, p) {
+        const blockId = p.payload?.flight_block_id;
+        if (!blockId) return { ok: false, result: { error: "payload.flight_block_id missing" } };
+        const { data, error } = await supabase.rpc("execute_escape_group_confirmation", {
+            p_flight_block_id: blockId,
+        });
+        if (error) return { ok: false, result: { error: error.message } };
+        if (data?.success === false) return { ok: false, result: data };
+        return { ok: true, result: data };
+    },
 };
 
 async function executeProposal(supabase: Svc, p: Proposal): Promise<ExecResult> {
