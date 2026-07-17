@@ -236,8 +236,8 @@ BEGIN
             VALUES (
                 'ops', 'escape_confirm_group',
                 format('Release G-Escape group: %s (%s guests)', COALESCE(v_package_name, 'Package'), v_guest_total),
-                format('Flight block hit its tipping point (%s/%s seats) and its %s-day hold deadline has passed. Confirming releases the group to the airline, hotel, and transfer drivers, and captures the platform margin. Auto-releases on its own if seats fill completely or departure (%s) gets within 24 hours — this proposal is your window to review first.',
-                       v_block.allocated_seats, v_block.tipping_point_seats, 2, v_block.departure_time::text),
+                format('Flight block hit its tipping point (%s/%s seats) and its hold deadline has passed. Confirming releases the group to the airline, hotel, and transfer drivers, and captures the platform margin. Auto-releases on its own if seats fill completely or departure (%s) gets within 24 hours — this proposal is your window to review first.',
+                       v_block.allocated_seats, v_block.tipping_point_seats, v_block.departure_time::text),
                 'money', v_margin_cents,
                 jsonb_build_object('flight_block_id', v_block.id, 'destination', v_block.destination_name, 'departure_time', v_block.departure_time)
             );
