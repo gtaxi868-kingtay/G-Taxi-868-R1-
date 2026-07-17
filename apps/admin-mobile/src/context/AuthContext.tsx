@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { initializeSupabaseClient } from '@gtaxi/core';
-const { supabase } = initializeSupabaseClient('native');
+import { supabase } from '@gtaxi/core';
 import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -25,6 +24,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);

@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
@@ -207,13 +207,22 @@ function App() {
         CormorantGaramond_500Medium,
         CormorantGaramond_600SemiBold,
     });
+    const [fontTimedOut, setFontTimedOut] = useState(false);
 
     useEffect(() => {
         installCrashReporter();
         OutboxService.getInstance().processQueue();
     }, []);
 
-    if (!fontsLoaded && !fontError) {
+    useEffect(() => {
+        if (Platform.OS !== 'web' || fontsLoaded || fontError) return;
+        const timer = setTimeout(() => setFontTimedOut(true), 2500);
+        return () => clearTimeout(timer);
+    }, [fontsLoaded, fontError]);
+
+    // On web, useFonts can hang without ever resolving loaded or error — bail out after
+    // a short timeout so the app doesn't sit behind a blank screen forever.
+    if (!fontsLoaded && !fontError && !fontTimedOut) {
         return <View style={{ flex: 1, backgroundColor: '#08090D' }} />;
     }
 

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
 import { NavigationContainer } from '@react-navigation/native';
@@ -69,7 +69,17 @@ export default function App() {
     CormorantGaramond_500Medium,
     CormorantGaramond_600SemiBold,
   });
-  if (!fontsLoaded && !fontError) {
+  const [fontTimedOut, setFontTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || fontsLoaded || fontError) return;
+    const timer = setTimeout(() => setFontTimedOut(true), 2500);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, fontError]);
+
+  // On web, useFonts can hang without ever resolving loaded or error — bail out after
+  // a short timeout so the app doesn't sit behind a blank screen forever.
+  if (!fontsLoaded && !fontError && !fontTimedOut) {
     return <View style={{ flex: 1, backgroundColor: '#070C0B' }} />;
   }
   return (

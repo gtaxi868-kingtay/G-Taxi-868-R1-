@@ -3,8 +3,7 @@ import { View, Text, ActivityIndicator, StatusBar, StyleSheet } from 'react-nati
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { initializeSupabaseClient } from '@gtaxi/core';
-const { supabase } = initializeSupabaseClient('native');
+import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ErrorBoundary } from '@gtaxi/shared';
 import { AuthProvider, useAuth } from './src/context/AuthContext';

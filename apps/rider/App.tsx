@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -219,15 +219,23 @@ function App() {
         CormorantGaramond_500Medium,
         CormorantGaramond_600SemiBold,
     });
+    const [fontTimedOut, setFontTimedOut] = useState(false);
 
     useEffect(() => {
         installCrashReporter();
         OutboxService.getInstance().processQueue();
     }, []);
 
+    useEffect(() => {
+        if (Platform.OS !== 'web' || fontsLoaded || fontError) return;
+        const timer = setTimeout(() => setFontTimedOut(true), 2500);
+        return () => clearTimeout(timer);
+    }, [fontsLoaded, fontError]);
+
     // Hold on the brand canvas until the serif is ready; if it errors, render anyway
-    // (system-font fallback) so a font hiccup never blocks the app.
-    if (!fontsLoaded && !fontError) {
+    // (system-font fallback) so a font hiccup never blocks the app. On web, useFonts can
+    // hang without ever resolving loaded or error, so also bail out after a short timeout.
+    if (!fontsLoaded && !fontError && !fontTimedOut) {
         return <View style={{ flex: 1, backgroundColor: '#07070F' }} />;
     }
 

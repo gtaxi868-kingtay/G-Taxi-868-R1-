@@ -34,4 +34,25 @@ config.resolver.blockList = [
 if (!config.resolver.extraNodeModules) config.resolver.extraNodeModules = {};
 config.resolver.extraNodeModules.ws = path.resolve(projectRoot, 'ws-stub');
 
+// Web-only resolution fixes (native bundles take the plain path below, untouched).
+// These packages are native-only — they pull in react-native internals (codegen commands,
+// TextInputState → Utilities/Platform) that crash Metro's web bundler — so redirect them
+// to placeholder stubs when bundling for web.
+const WEB_STUBS = {
+  'react-native-maps': 'packages/shared/web-stubs/react-native-maps.js',
+  '@stripe/stripe-react-native': 'packages/shared/web-stubs/stripe-react-native.js',
+};
+const defaultResolveRequest = config.resolver.resolveRequest;
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web' && WEB_STUBS[moduleName]) {
+    return {
+      filePath: path.resolve(workspaceRoot, WEB_STUBS[moduleName]),
+      type: 'sourceFile',
+    };
+  }
+  return defaultResolveRequest
+    ? defaultResolveRequest(context, moduleName, platform)
+    : context.resolveRequest(context, moduleName, platform);
+};
+
 module.exports = config;
