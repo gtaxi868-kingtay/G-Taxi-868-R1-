@@ -72,23 +72,19 @@ const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 // movement animations switch off, entrances become fades, breathing stays.
 const IS_WEB = Platform.OS === 'web';
 const WEB_CSS = `
-@keyframes gt-fall{from{transform:translate3d(0,-60px,0) rotate(-10deg)}to{transform:translate3d(var(--drift,40px),110vh,0) rotate(-10deg)}}
-@keyframes gt-streak{0%{opacity:0;transform:translate3d(0,-90px,0)}6%{opacity:1}90%{opacity:1}100%{opacity:0;transform:translate3d(0,108vh,0)}}
-@keyframes gt-breathe{from{opacity:.45}to{opacity:1}}
+@keyframes gt-breathe{from{opacity:.5}to{opacity:1}}
 @keyframes gt-sweep{0%{transform:translateX(calc(var(--seg,64px) * -1));opacity:0}6%{opacity:1}80%{opacity:1}88%{transform:translateX(var(--len,200px));opacity:0}100%{transform:translateX(var(--len,200px));opacity:0}}
 @keyframes gt-enter{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
 @keyframes gt-logo-in{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
 @keyframes gt-fade{from{opacity:0}to{opacity:1}}
 @keyframes gt-breath{from{transform:scale(1)}to{transform:scale(1.03)}}
-.gt-drop{animation:gt-fall var(--dur,3000ms) linear var(--delay,0ms) infinite}
-.gt-streak{animation:gt-streak var(--dur,12000ms) ease-in-out var(--delay,0ms) infinite}
 .gt-seam{animation:gt-breathe var(--dur,4200ms) ease-in-out var(--delay,0ms) infinite alternate}
 .gt-sweep{animation:gt-sweep var(--dur,3000ms) ease-in-out var(--delay,0ms) infinite}
 .gt-enter{animation:gt-enter 450ms cubic-bezier(0.23,1,0.32,1) var(--delay,0ms) both}
 .gt-logo-in{animation:gt-logo-in 650ms cubic-bezier(0.34,1.56,0.64,1) both}
 .gt-breath{animation:gt-breath 3200ms ease-in-out infinite alternate}
 @media (prefers-reduced-motion: reduce){
-  .gt-drop,.gt-streak,.gt-sweep,.gt-breath{animation:none}
+  .gt-sweep,.gt-breath{animation:none}
   .gt-enter,.gt-logo-in{animation-name:gt-fade}
 }
 `;
@@ -102,114 +98,6 @@ function useReducedMotion() {
         return () => { mounted = false; sub?.remove?.(); };
     }, []);
     return reduced;
-}
-
-// ── Rain layers ──────────────────────────────────────────────────────────────
-
-// Fast rain falling across the WHOLE background — thin bright threads on a shared
-// diagonal (real rain has wind), constant linear motion (it's weather, not UI).
-// Everything lives behind the content column and is capped at low opacity so it
-// never blocks readability.
-const RAIN_ANGLE_DEG = 10;
-const RAIN_DRIFT = Math.tan((RAIN_ANGLE_DEG * Math.PI) / 180);
-
-function FallingRain({ accent, reduced }) {
-    const { width, height } = useWindowDimensions();
-    // One random "closeness" factor per drop drives everything together, the way
-    // perspective does in real rain: nearer drops fall faster, streak longer
-    // (motion blur), and read brighter than the distant ones.
-    // Sparse and faint — this is weather in the far distance; the star of the
-    // show is the water ON the glass (GlassStreaks), not the storm behind it.
-    const drops = useMemo(() =>
-        Array.from({ length: 12 }, () => {
-            const s = Math.random();
-            return {
-                x: -height * RAIN_DRIFT + Math.random() * (width + height * RAIN_DRIFT),
-                len: 26 + s * 50,
-                duration: 1250 - s * 600,
-                delay: Math.random() * 1500,
-                opacity: 0.05 + s * 0.10,
-                thickness: 1 + s * 0.4,
-            };
-        }), [width, height]);
-
-    return (
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-            {drops.map((d, i) => (
-                <RainDrop key={i} {...d} screenH={height} accent={accent} reduced={reduced} />
-            ))}
-        </View>
-    );
-}
-
-function RainDrop({ x, len, duration, delay, opacity, thickness, screenH, accent, reduced }) {
-    const fall = useRef(new Animated.Value(0)).current;
-    useEffect(() => {
-        if (reduced || IS_WEB) return;
-        const anim = Animated.loop(
-            Animated.timing(fall, {
-                toValue: 1, duration, delay,
-                easing: Easing.linear, useNativeDriver: true,
-            })
-        );
-        anim.start();
-        return () => anim.stop();
-    }, [reduced]);
-
-    const travel = screenH + len + 40;
-
-    // A drop is a motion-blur streak, not a line: transparent tail fading into a
-    // brighter head at the bottom (the direction it's falling).
-    const streakBody = (
-        <LinearGradient
-            colors={[accent + '00', accent + '73', accent]}
-            start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }}
-            style={{ width: thickness, height: len, borderRadius: thickness / 2 }}
-        />
-    );
-
-    if (IS_WEB) {
-        // Raw div + injected @keyframes: inline styles can't hold keyframes, and
-        // this must keep playing even when rAF is throttled. Negative delay
-        // starts each drop mid-fall so the sky is never empty at load.
-        return (
-            <div
-                className="gt-drop"
-                style={{
-                    position: 'absolute', left: x, top: 0, opacity,
-                    transform: `translateY(32vh) rotate(${-RAIN_ANGLE_DEG}deg)`,
-                    '--dur': `${duration}ms`,
-                    '--delay': `${-delay}ms`,
-                    '--drift': `${travel * RAIN_DRIFT}px`,
-                }}
-            >
-                {streakBody}
-            </div>
-        );
-    }
-
-    if (reduced) {
-        return (
-            <View style={{ position: 'absolute', left: x, top: 0, opacity: opacity * 0.5, transform: [{ translateY: screenH * 0.3 }, { rotate: `${-RAIN_ANGLE_DEG}deg` }] }}>
-                {streakBody}
-            </View>
-        );
-    }
-
-    const translateY = fall.interpolate({ inputRange: [0, 1], outputRange: [-len - 20, screenH + 20] });
-    // All drops share one wind direction — drift is proportional to fall distance.
-    const translateX = fall.interpolate({ inputRange: [0, 1], outputRange: [0, travel * RAIN_DRIFT] });
-
-    return (
-        <Animated.View
-            style={{
-                position: 'absolute', left: x, top: 0, opacity,
-                transform: [{ translateY }, { translateX }, { rotate: `${-RAIN_ANGLE_DEG}deg` }],
-            }}
-        >
-            {streakBody}
-        </Animated.View>
-    );
 }
 
 // Shattered-glass facet background (the "Live Wallpaper" reference): matte
@@ -231,9 +119,9 @@ function Shard({ x, y, w, h, angle, skew = 0, fill }) {
     );
 }
 
-// One glowing crack: a soft bloom layer under a bright core line, both fading at
-// the ends. Two motions layered — the whole seam breathes slowly, and a bright
-// pulse of light travels down the crack, sweeps, rests, sweeps again.
+// One glowing crack: a bright hairline exactly the crack's own thickness — no
+// bloom, no halo, the light stays inside the fracture. The seam breathes slowly,
+// and a bright glint travels down it, sweeps, rests, sweeps again.
 function Seam({ x, y, len, angle, color, thickness = 2, delay = 0, dur = 4200, reduced }) {
     const pulse = useRef(new Animated.Value(0)).current;
     const runner = useRef(new Animated.Value(0)).current;
@@ -259,70 +147,48 @@ function Seam({ x, y, len, angle, color, thickness = 2, delay = 0, dur = 4200, r
         return () => { breathe.stop(); sweep.stop(); };
     }, [reduced]);
 
-    const bloom = thickness * 4;
     // Tight glint, not a glowing bar
     const segW = Math.max(len * 0.13, 26);
-    // The crack strip is taller than the resting line so the pulse can visibly
-    // swell it as it passes.
-    const stripH = thickness * 3;
+    const cycle = 900 + len * 1.6 + 1400;
 
-    const sweepDur = 900 + len * 1.6;
-    const cycle = sweepDur + 1400;
-
-    const bloomGradient = (
-        <LinearGradient
-            colors={[color + '00', color + '59', color + '00']}
-            start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
-            style={{ width: len, height: bloom, borderRadius: bloom / 2, marginBottom: -(bloom + stripH) / 2 }}
-        />
-    );
+    // The whole crack is exactly `thickness` tall — the light never spills past it.
     const coreGradient = (
         <LinearGradient
             colors={[color + '00', color, color + '00']}
             start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
-            style={{ position: 'absolute', top: (stripH - thickness) / 2, left: 0, width: len, height: thickness, borderRadius: thickness / 2 }}
+            style={{ position: 'absolute', top: 0, left: 0, width: len, height: thickness, borderRadius: thickness / 2 }}
         />
     );
+    // Travelling glint: crack-colored edges with a white-hot centre, same height
+    // as the crack so it reads as light running through the fracture, not over it.
     const runnerGradient = (
         <LinearGradient
             colors={[color + '00', '#FFFFFF', color + '00']}
             start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
-            style={{ width: segW, height: stripH, borderRadius: stripH / 2 }}
-        />
-    );
-    const haloGradient = (
-        <LinearGradient
-            colors={[color + '00', color + '73', color + '00']}
-            start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
-            style={{ width: segW, height: bloom * 1.4, borderRadius: bloom }}
+            style={{ width: segW, height: thickness, borderRadius: thickness / 2 }}
         />
     );
 
     if (IS_WEB) {
         // Raw divs + injected @keyframes (see WEB_CSS): breathing on the seam,
         // the sweep's travel distance fed through CSS variables. Under
-        // prefers-reduced-motion the stylesheet stops the sweep and keeps the
-        // breathing — no JS involved.
+        // prefers-reduced-motion the stylesheet stops the sweep, keeps breathing.
         const sweepVars = { '--seg': `${segW}px`, '--len': `${len}px`, '--dur': `${cycle}ms`, '--delay': `${-delay}ms` };
         return (
             <div
                 className="gt-seam"
                 style={{
-                    position: 'absolute', left: x, top: y, opacity: 0.45,
+                    position: 'absolute', left: x, top: y, opacity: 0.55,
                     transform: `rotate(${angle}deg)`,
                     '--dur': `${dur}ms`, '--delay': `${-delay}ms`,
                 }}
             >
-                {bloomGradient}
-                <View style={{ width: len, height: stripH, overflow: 'hidden' }}>
+                <View style={{ width: len, height: thickness, borderRadius: thickness / 2, overflow: 'hidden' }}>
                     {coreGradient}
                     <div className="gt-sweep" style={{ position: 'absolute', top: 0, left: 0, opacity: 0, ...sweepVars }}>
                         {runnerGradient}
                     </div>
                 </View>
-                <div className="gt-sweep" style={{ position: 'absolute', top: -bloom, left: 0, opacity: 0, ...sweepVars }}>
-                    {haloGradient}
-                </div>
             </div>
         );
     }
@@ -331,10 +197,8 @@ function Seam({ x, y, len, angle, color, thickness = 2, delay = 0, dur = 4200, r
     const travel = runner.interpolate({ inputRange: [0, 1], outputRange: [-segW, len] });
 
     return (
-        <Animated.View style={{ position: 'absolute', left: x, top: y, transform: [{ rotate: `${angle}deg` }], opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }) }}>
-            {bloomGradient}
-            {/* crack strip: resting core line centered, traveling pulse swells it */}
-            <View style={{ width: len, height: stripH, overflow: 'hidden' }}>
+        <Animated.View style={{ position: 'absolute', left: x, top: y, transform: [{ rotate: `${angle}deg` }], opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }}>
+            <View style={{ width: len, height: thickness, borderRadius: thickness / 2, overflow: 'hidden' }}>
                 {coreGradient}
                 {!reduced && (
                     <Animated.View style={{ position: 'absolute', top: 0, left: 0, opacity: runnerOpacity, transform: [{ translateX: travel }] }}>
@@ -342,12 +206,6 @@ function Seam({ x, y, len, angle, color, thickness = 2, delay = 0, dur = 4200, r
                     </Animated.View>
                 )}
             </View>
-            {/* the pulse's halo, riding above the crack */}
-            {!reduced && (
-                <Animated.View style={{ position: 'absolute', top: -bloom, left: 0, opacity: runnerOpacity, transform: [{ translateX: travel }] }}>
-                    {haloGradient}
-                </Animated.View>
-            )}
         </Animated.View>
     );
 }
@@ -355,7 +213,9 @@ function Seam({ x, y, len, angle, color, thickness = 2, delay = 0, dur = 4200, r
 function FloatingShapes({ voice, reduced }) {
     const { width: w, height: h } = useWindowDimensions();
     const v = RAIN_VOICES[voice] || RAIN_VOICES.rider;
-    const [top, mid, low] = [v.signature[0], v.accent, v.signature[1]];
+    // Alternating crack colours — strictly the voice's two signature colours,
+    // A/B/A/B down the wall, so adjacent cracks are always different hues.
+    const [A, B] = [v.signature[0], v.signature[1]];
 
     return (
         <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
@@ -367,105 +227,16 @@ function FloatingShapes({ voice, reduced }) {
             <Shard x={-w * 0.15} y={h * 0.74} w={w * 0.90} h={h * 0.32} angle={7} skew={-8} fill="rgba(255,255,255,0.028)" />
             <Shard x={w * 0.40} y={h * 0.80} w={w * 0.80} h={h * 0.30} angle={-13} skew={4} fill="rgba(255,255,255,0.022)" />
 
-            {/* Light leaking through the cracks — hue shifts top → bottom */}
-            <Seam x={w * 0.02} y={h * 0.115} len={w * 0.52} angle={-16} color={top} delay={0} dur={4600} reduced={reduced} />
-            <Seam x={w * 0.55} y={h * 0.075} len={w * 0.48} angle={11} color={top} thickness={1.5} delay={1200} dur={5200} reduced={reduced} />
-            <Seam x={w * 0.68} y={h * 0.22} len={w * 0.30} angle={64} color={mid} thickness={1.5} delay={2600} dur={3800} reduced={reduced} />
-            <Seam x={-w * 0.04} y={h * 0.40} len={w * 0.44} angle={27} color={mid} delay={800} dur={4200} reduced={reduced} />
-            <Seam x={w * 0.62} y={h * 0.47} len={w * 0.42} angle={-24} color={mid} thickness={1.5} delay={2000} dur={5600} reduced={reduced} />
-            <Seam x={w * 0.06} y={h * 0.62} len={w * 0.26} angle={80} color={low} thickness={1.5} delay={3400} dur={4400} reduced={reduced} />
-            <Seam x={w * 0.10} y={h * 0.83} len={w * 0.58} angle={7} color={low} delay={400} dur={4800} reduced={reduced} />
-            <Seam x={w * 0.52} y={h * 0.90} len={w * 0.46} angle={-13} color={low} thickness={2.5} delay={1600} dur={4000} reduced={reduced} />
+            {/* Light leaking through the cracks — colours alternate crack to crack */}
+            <Seam x={w * 0.02} y={h * 0.115} len={w * 0.52} angle={-16} color={A} delay={0} dur={4600} reduced={reduced} />
+            <Seam x={w * 0.55} y={h * 0.075} len={w * 0.48} angle={11} color={B} thickness={1.5} delay={1200} dur={5200} reduced={reduced} />
+            <Seam x={w * 0.68} y={h * 0.22} len={w * 0.30} angle={64} color={A} thickness={1.5} delay={2600} dur={3800} reduced={reduced} />
+            <Seam x={-w * 0.04} y={h * 0.40} len={w * 0.44} angle={27} color={B} delay={800} dur={4200} reduced={reduced} />
+            <Seam x={w * 0.62} y={h * 0.47} len={w * 0.42} angle={-24} color={A} thickness={1.5} delay={2000} dur={5600} reduced={reduced} />
+            <Seam x={w * 0.06} y={h * 0.62} len={w * 0.26} angle={80} color={B} thickness={1.5} delay={3400} dur={4400} reduced={reduced} />
+            <Seam x={w * 0.10} y={h * 0.83} len={w * 0.58} angle={7} color={A} delay={400} dur={4800} reduced={reduced} />
+            <Seam x={w * 0.52} y={h * 0.90} len={w * 0.46} angle={-13} color={B} thickness={2.5} delay={1600} dur={4000} reduced={reduced} />
         </View>
-    );
-}
-
-// Slow condensation streaks sliding DOWN the glass itself — a bright head bead
-// with a fading tail, wobbling slightly as it finds its path.
-// The soaked window itself: droplets clinging to the glass and running DOWN
-// (straight — water on glass doesn't feel wind), each with its own weight.
-// Heavy drops slip fast, light ones crawl; the stick-then-slip easing (slow
-// start, accelerating as the drop gathers water) is what sells the physics.
-const STICK_SLIP = [0.65, 0.05, 0.85, 0.35];
-
-function GlassStreaks({ reduced }) {
-    const { width, height } = useWindowDimensions();
-    const streaks = useMemo(() =>
-        Array.from({ length: 10 }, () => {
-            const weight = Math.random(); // heavy = fast + big head + long tail
-            return {
-                x: 16 + Math.random() * (width - 32),
-                duration: 16000 - weight * 9500,   // 6.5s (heavy) … 16s (light)
-                delay: Math.random() * 12000,
-                tail: 26 + weight * 60,
-                headR: 2 + weight * 2.2,
-                shine: 0.22 + weight * 0.2,
-            };
-        }), [width]);
-
-    if (reduced) return null;
-    return (
-        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-            {streaks.map((st, i) => <Streak key={i} {...st} screenH={height} />)}
-        </View>
-    );
-}
-
-function Streak({ x, duration, delay, tail, headR, shine, screenH }) {
-    const slide = useRef(new Animated.Value(0)).current;
-    useEffect(() => {
-        if (IS_WEB) return; // web uses CSS keyframes below
-        const a = Animated.loop(
-            Animated.timing(slide, {
-                toValue: 1, duration, delay,
-                easing: Easing.bezier(...STICK_SLIP), useNativeDriver: true,
-            })
-        );
-        a.start();
-        return () => a.stop();
-    }, []);
-
-    const body = (
-        <>
-            <LinearGradient
-                colors={['rgba(234,243,246,0)', `rgba(234,243,246,${(shine * 0.55).toFixed(2)})`]}
-                style={{ width: 1.5, height: tail, borderRadius: 1, alignSelf: 'center' }}
-            />
-            {/* the droplet: glass bead with a light-catch on its upper-left rim */}
-            <View style={{
-                width: headR * 2, height: headR * 2.3, borderRadius: headR * 1.15,
-                backgroundColor: `rgba(234,243,246,${shine.toFixed(2)})`,
-                borderTopWidth: 1, borderLeftWidth: StyleSheet.hairlineWidth,
-                borderColor: 'rgba(255,255,255,0.55)',
-                alignSelf: 'center',
-            }} />
-        </>
-    );
-
-    if (IS_WEB) {
-        return (
-            <div
-                className="gt-streak"
-                style={{
-                    position: 'absolute', left: x, top: 0, opacity: 0,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    animationTimingFunction: `cubic-bezier(${STICK_SLIP.join(',')})`,
-                    '--dur': `${duration}ms`,
-                    '--delay': `${-delay}ms`,
-                }}
-            >
-                {body}
-            </div>
-        );
-    }
-
-    const translateY = slide.interpolate({ inputRange: [0, 1], outputRange: [-tail, screenH + tail] });
-    const opacity = slide.interpolate({ inputRange: [0, 0.06, 0.9, 1], outputRange: [0, 1, 1, 0] });
-
-    return (
-        <Animated.View style={{ position: 'absolute', left: x, top: 0, opacity, transform: [{ translateY }] }}>
-            {body}
-        </Animated.View>
     );
 }
 
@@ -662,12 +433,8 @@ export function RainLogin(props: any) {
             {IS_WEB && <style>{WEB_CSS}</style>}
             {/* Night canvas */}
             <LinearGradient colors={v.canvas} style={StyleSheet.absoluteFillObject} start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }} />
-            {/* Liquid-glass shapes drifting in the far background */}
+            {/* Shattered-glass wall with alternating-colour light in the cracks */}
             <FloatingShapes voice={voice} reduced={reduced} />
-            {/* Rain in the world outside — desaturated ice tint, not neon */}
-            <FallingRain accent={v.rainTint} reduced={reduced} />
-            {/* Streaks sliding down the window we're looking through */}
-            <GlassStreaks reduced={reduced} />
 
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={rl.kav}>
                 <ScrollView
