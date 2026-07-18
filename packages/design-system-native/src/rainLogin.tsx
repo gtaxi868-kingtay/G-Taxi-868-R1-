@@ -486,10 +486,12 @@ function Condensation({ seedWidth = 320, seedHeight = 380, count = 16 }) {
 
 // ── Crystal form primitives ──────────────────────────────────────────────────
 
-export function CrystalInput({
-    label, value, onChangeText, placeholder, voice = 'rider',
-    secureTextEntry, keyboardType, autoCapitalize = 'none', rightSlot, testID,
-}) {
+// deno-lint-ignore no-explicit-any
+export function CrystalInput(props: any) {
+    const {
+        label, value, onChangeText, placeholder, voice = 'rider',
+        secureTextEntry, keyboardType, autoCapitalize = 'none', rightSlot, testID,
+    } = props;
     const v = RAIN_VOICES[voice] || RAIN_VOICES.rider;
     const [focused, setFocused] = useState(false);
     const glow = useRef(new Animated.Value(0)).current;
@@ -549,7 +551,9 @@ const ci = StyleSheet.create({
     input: { flex: 1, color: ICE, fontSize: 16, fontWeight: '500', paddingVertical: 16 },
 });
 
-export function CrystalButton({ title, onPress, loading, disabled, voice = 'rider', testID }) {
+// deno-lint-ignore no-explicit-any
+export function CrystalButton(props: any) {
+    const { title, onPress, loading, disabled, voice = 'rider', testID } = props;
     const v = RAIN_VOICES[voice] || RAIN_VOICES.rider;
     const press = useRef(new Animated.Value(0)).current;
     const scale = press.interpolate({ inputRange: [0, 1], outputRange: [1, 0.97] });
@@ -593,7 +597,9 @@ const cb = StyleSheet.create({
 
 // ── The scaffold ─────────────────────────────────────────────────────────────
 
-export function RainLogin({ voice = 'rider', logoSource, title, subtitle, children, footer }) {
+// deno-lint-ignore no-explicit-any
+export function RainLogin(props: any) {
+    const { voice = 'rider', logoSource, title, subtitle, children, footer } = props;
     const v = RAIN_VOICES[voice] || RAIN_VOICES.rider;
     const reduced = useReducedMotion();
     const { width, height } = useWindowDimensions();

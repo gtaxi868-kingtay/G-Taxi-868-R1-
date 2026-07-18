@@ -26,6 +26,7 @@ export function Marker() { return null; }
 export function Polyline() { return null; }
 export function Callout() { return null; }
 export function UrlTile() { return null; }
+export function Circle() { return null; }
 export const PROVIDER_DEFAULT = 'default';
 export const PROVIDER_GOOGLE = 'google';
 

@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
+import MapView, { Marker, Circle, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -180,15 +180,25 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         const fetchDemand = async () => {
             if (!driver?.id) return;
             try {
-                const { data, error } = await supabase.rpc('get_demand_hotspots', { p_min_score: 1.2 });
-                if (!error && Array.isArray(data) && data.length > 0) {
-                    setDemandHotspots(data.slice(0, 3));
+                // Real demand heatmap: recency-decayed ride pickups in ~550m cells,
+                // hour-of-week-aware, computed server-side (10-min cached).
+                const { data, error } = await supabase.functions.invoke('driver_heatmap');
+                if (!error && Array.isArray(data?.cells) && data.cells.length > 0) {
+                    setDemandHotspots(data.cells.map((c: any) => ({
+                        zone_name: c.label,
+                        demand_score: c.score,
+                        lat: c.lat,
+                        lng: c.lng,
+                        rides: c.rides,
+                    })));
                 } else {
                     setDemandHotspots([]);
                 }
             } catch { setDemandHotspots([]); }
         };
         fetchDemand();
+        const demandTimer = setInterval(fetchDemand, 10 * 60 * 1000);
+        return () => clearInterval(demandTimer);
     }, [driver?.id]);
 
     useEffect(() => {
@@ -299,6 +309,19 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             <View style={[s.mapContainer, { height: mapHeightLocal }]} pointerEvents="box-none">
                 <MapView style={StyleSheet.absoluteFillObject} provider={PROVIDER_DEFAULT} initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}>
                     <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
+                    {/* Demand heat cells — gold intensity tracks relative demand */}
+                    {demandHotspots.map((h: any, i: number) => (
+                        h.lat != null && h.lng != null ? (
+                            <Circle
+                                key={`heat-${i}`}
+                                center={{ latitude: h.lat, longitude: h.lng }}
+                                radius={350}
+                                fillColor={`rgba(230,180,80,${0.08 + 0.22 * (h.demand_score || 0)})`}
+                                strokeColor={`rgba(230,180,80,${0.15 + 0.35 * (h.demand_score || 0)})`}
+                                strokeWidth={1}
+                            />
+                        ) : null
+                    ))}
                     {location && (
                         <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
                             <View style={s.markerWrap}>
@@ -424,9 +447,9 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                                             <Ionicons name="flame-outline" size={18} color="#FF6B35" />
                                         </View>
                                         <View style={{ flex: 1 }}>
-                                            <Text style={s.demandTitle}>Demand hotspots nearby</Text>
+                                            <Text style={s.demandTitle}>Hot zones now</Text>
                                             <Text style={s.demandSub}>
-                                                {demandHotspots.map((h: any) =>
+                                                {demandHotspots.slice(0, 3).map((h: any) =>
                                                     `${h.zone_name || h.geohash || 'Area'} (${h.multiplier ? `×${h.multiplier}` : h.demand_score ? `${Math.round(h.demand_score * 100)}%` : 'high'})`
                                                 ).join('  ·  ')}
                                             </Text>
