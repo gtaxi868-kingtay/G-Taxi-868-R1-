@@ -18,6 +18,7 @@ type RootStackParamList = {
   Dashboard: undefined;
   TagMarker: undefined;
   RegisterPuck: undefined;
+  Intelligence: undefined;
 };
 
 type DashboardNavProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
@@ -199,6 +200,13 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
             <Text style={styles.headerMeta}>{nodes.length} deployed · {nodes.filter(n => n.is_active).length} active</Text>
           </View>
           <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('Intelligence'); }}
+              style={styles.iconBtn}
+              accessibilityLabel="Talk to G"
+            >
+              <Ionicons name="chatbubbles-outline" size={18} color={ACCENT} />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('RegisterPuck'); }}
               style={styles.iconBtn}
