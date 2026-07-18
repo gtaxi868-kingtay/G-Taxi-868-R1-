@@ -93,6 +93,32 @@ const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResul
         if (data?.success === false) return { ok: false, result: data };
         return { ok: true, result: data };
     },
+
+    // Approving a lane-demand case drafts the flight block in DRAFT status —
+    // invisible to riders (storefront filters to POOLING/CONFIRMED) — so ops
+    // can attach the real airline cost and dates before flipping it live.
+    // Placeholder departure = 15th of the demanded month; cost 0 forces ops
+    // to price it before it can meaningfully go to POOLING. Opening a lane
+    // stays a human negotiation — this only stages the paperwork.
+    async escape_open_lane(supabase, p) {
+        const pl = p.payload ?? {};
+        if (!pl.destination_code || !pl.travel_month) {
+            return { ok: false, result: { error: "payload.destination_code / travel_month missing" } };
+        }
+        const month = new Date(pl.travel_month);
+        const departure = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 15, 14, 0, 0));
+        const { data, error } = await supabase.from("flight_blocks").insert({
+            origin_code: pl.origin_code ?? "POS",
+            destination_code: pl.destination_code,
+            destination_name: pl.destination_name ?? pl.destination_code,
+            departure_time: departure.toISOString(),
+            flight_cost_per_seat_cents: 0,
+            status: "DRAFT",
+            notes: `Drafted from lane demand (${pl.lane_key ?? "?"}): ${pl.riders ?? "?"} riders want ${pl.seats_wanted ?? "?"} seats. Set real flight cost, dates and capacity, then flip status to POOLING to open bookings.`,
+        }).select("id").single();
+        if (error) return { ok: false, result: { error: error.message } };
+        return { ok: true, result: { drafted_flight_block_id: data.id, status: "DRAFT" } };
+    },
 };
 
 async function executeProposal(supabase: Svc, p: Proposal): Promise<ExecResult> {
