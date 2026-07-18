@@ -15,6 +15,7 @@ import { TravelPackages } from './pages/TravelPackages';
 import { DealerBrokerage } from './pages/DealerBrokerage';
 import { Intelligence } from './pages/Intelligence';
 import { Approvals } from './pages/Approvals';
+import { GChat } from './pages/GChat';
 import { Pricing } from './pages/Pricing';
 import { MerchantNetwork } from './pages/MerchantNetwork';
 import { Support } from './pages/Support';
@@ -81,7 +82,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
@@ -98,6 +99,7 @@ const TAB_LABELS: Record<AdminView, string> = {
     dealer: 'Dealer Brokerage',
     intelligence: 'AI Intelligence',
     approvals: 'G Approvals',
+    gchat: 'Talk to G',
     pricing: 'Pricing Config',
     merchants: 'Merchant Network',
     support: 'Support Tickets',
@@ -205,6 +207,7 @@ function App() {
                         <NavItem active={activeTab === 'dealer'} onClick={() => handleNav('dealer')} icon={<Car size={20}/>} label="Dealer Brokerage" />
                         <NavItem active={activeTab === 'intelligence'} onClick={() => handleNav('intelligence')} icon={<Bot size={20}/>} label="AI Intelligence" />
                         <NavItem active={activeTab === 'approvals'} onClick={() => handleNav('approvals')} icon={<Inbox size={20}/>} label="G Approvals" />
+                        <NavItem active={activeTab === 'gchat'} onClick={() => handleNav('gchat')} icon={<Bot size={20}/>} label="Talk to G" />
                         <NavItem active={activeTab === 'pricing'} onClick={() => handleNav('pricing')} icon={<Tag size={20}/>} label="Pricing Config" />
                         <NavItem active={activeTab === 'merchants'} onClick={() => handleNav('merchants')} icon={<Store size={20}/>} label="Merchant Network" />
                         <NavItem active={activeTab === 'support'} onClick={() => handleNav('support')} icon={<Flag size={20}/>} label="Support" />
@@ -280,6 +283,7 @@ function App() {
                         {activeTab === 'dealer' && <DealerBrokerage />}
                         {activeTab === 'intelligence' && <Intelligence />}
                         {activeTab === 'approvals' && <Approvals />}
+                        {activeTab === 'gchat' && <GChat />}
                         {activeTab === 'pricing' && <Pricing />}
                         {activeTab === 'merchants' && <MerchantNetwork />}
                         {activeTab === 'support' && <Support />}
