@@ -73,7 +73,7 @@ const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 const IS_WEB = Platform.OS === 'web';
 const WEB_CSS = `
 @keyframes gt-fall{from{transform:translate3d(0,-60px,0) rotate(-10deg)}to{transform:translate3d(var(--drift,40px),110vh,0) rotate(-10deg)}}
-@keyframes gt-streak{0%{opacity:0;transform:translate3d(-4px,-90px,0)}6%{opacity:1}50%{transform:translate3d(4px,50vh,0)}90%{opacity:1}100%{opacity:0;transform:translate3d(-4px,108vh,0)}}
+@keyframes gt-streak{0%{opacity:0;transform:translate3d(0,-90px,0)}6%{opacity:1}90%{opacity:1}100%{opacity:0;transform:translate3d(0,108vh,0)}}
 @keyframes gt-breathe{from{opacity:.45}to{opacity:1}}
 @keyframes gt-sweep{0%{transform:translateX(calc(var(--seg,64px) * -1));opacity:0}6%{opacity:1}80%{opacity:1}88%{transform:translateX(var(--len,200px));opacity:0}100%{transform:translateX(var(--len,200px));opacity:0}}
 @keyframes gt-enter{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
@@ -118,16 +118,18 @@ function FallingRain({ accent, reduced }) {
     // One random "closeness" factor per drop drives everything together, the way
     // perspective does in real rain: nearer drops fall faster, streak longer
     // (motion blur), and read brighter than the distant ones.
+    // Sparse and faint — this is weather in the far distance; the star of the
+    // show is the water ON the glass (GlassStreaks), not the storm behind it.
     const drops = useMemo(() =>
-        Array.from({ length: 34 }, () => {
+        Array.from({ length: 12 }, () => {
             const s = Math.random();
             return {
                 x: -height * RAIN_DRIFT + Math.random() * (width + height * RAIN_DRIFT),
-                len: 30 + s * 65,
-                duration: 1150 - s * 620,
+                len: 26 + s * 50,
+                duration: 1250 - s * 600,
                 delay: Math.random() * 1500,
-                opacity: 0.10 + s * 0.24,
-                thickness: 1 + s * 0.6,
+                opacity: 0.05 + s * 0.10,
+                thickness: 1 + s * 0.4,
             };
         }), [width, height]);
 
@@ -258,7 +260,8 @@ function Seam({ x, y, len, angle, color, thickness = 2, delay = 0, dur = 4200, r
     }, [reduced]);
 
     const bloom = thickness * 4;
-    const segW = Math.max(len * 0.3, 64);
+    // Tight glint, not a glowing bar
+    const segW = Math.max(len * 0.13, 26);
     // The crack strip is taller than the resting line so the pulse can visibly
     // swell it as it passes.
     const stripH = thickness * 3;
@@ -289,9 +292,9 @@ function Seam({ x, y, len, angle, color, thickness = 2, delay = 0, dur = 4200, r
     );
     const haloGradient = (
         <LinearGradient
-            colors={[color + '00', color + 'B3', color + '00']}
+            colors={[color + '00', color + '73', color + '00']}
             start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
-            style={{ width: segW, height: bloom * 2.5, borderRadius: bloom }}
+            style={{ width: segW, height: bloom * 1.4, borderRadius: bloom }}
         />
     );
 
@@ -379,15 +382,26 @@ function FloatingShapes({ voice, reduced }) {
 
 // Slow condensation streaks sliding DOWN the glass itself — a bright head bead
 // with a fading tail, wobbling slightly as it finds its path.
+// The soaked window itself: droplets clinging to the glass and running DOWN
+// (straight — water on glass doesn't feel wind), each with its own weight.
+// Heavy drops slip fast, light ones crawl; the stick-then-slip easing (slow
+// start, accelerating as the drop gathers water) is what sells the physics.
+const STICK_SLIP = [0.65, 0.05, 0.85, 0.35];
+
 function GlassStreaks({ reduced }) {
     const { width, height } = useWindowDimensions();
     const streaks = useMemo(() =>
-        Array.from({ length: 4 }, () => ({
-            x: 24 + Math.random() * (width - 48),
-            duration: 9000 + Math.random() * 6000,
-            delay: Math.random() * 7000,
-            tail: 40 + Math.random() * 50,
-        })), [width]);
+        Array.from({ length: 10 }, () => {
+            const weight = Math.random(); // heavy = fast + big head + long tail
+            return {
+                x: 16 + Math.random() * (width - 32),
+                duration: 16000 - weight * 9500,   // 6.5s (heavy) … 16s (light)
+                delay: Math.random() * 12000,
+                tail: 26 + weight * 60,
+                headR: 2 + weight * 2.2,
+                shine: 0.22 + weight * 0.2,
+            };
+        }), [width]);
 
     if (reduced) return null;
     return (
@@ -397,38 +411,33 @@ function GlassStreaks({ reduced }) {
     );
 }
 
-function Streak({ x, duration, delay, tail, screenH }) {
+function Streak({ x, duration, delay, tail, headR, shine, screenH }) {
     const slide = useRef(new Animated.Value(0)).current;
-    const wobble = useRef(new Animated.Value(0)).current;
     useEffect(() => {
         if (IS_WEB) return; // web uses CSS keyframes below
         const a = Animated.loop(
             Animated.timing(slide, {
                 toValue: 1, duration, delay,
-                easing: Easing.bezier(0.4, 0, 0.6, 1), useNativeDriver: true,
+                easing: Easing.bezier(...STICK_SLIP), useNativeDriver: true,
             })
         );
-        const w = Animated.loop(
-            Animated.sequence([
-                Animated.timing(wobble, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-                Animated.timing(wobble, { toValue: 0, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-            ])
-        );
-        a.start(); w.start();
-        return () => { a.stop(); w.stop(); };
+        a.start();
+        return () => a.stop();
     }, []);
 
     const body = (
         <>
             <LinearGradient
-                colors={['rgba(234,243,246,0)', 'rgba(234,243,246,0.16)']}
-                style={{ width: 2, height: tail, borderRadius: 1 }}
+                colors={['rgba(234,243,246,0)', `rgba(234,243,246,${(shine * 0.55).toFixed(2)})`]}
+                style={{ width: 1.5, height: tail, borderRadius: 1, alignSelf: 'center' }}
             />
+            {/* the droplet: glass bead with a light-catch on its upper-left rim */}
             <View style={{
-                width: 5, height: 6, borderRadius: 3, marginLeft: -1.5,
-                backgroundColor: 'rgba(234,243,246,0.35)',
-                borderTopWidth: StyleSheet.hairlineWidth, borderLeftWidth: StyleSheet.hairlineWidth,
-                borderColor: 'rgba(255,255,255,0.5)',
+                width: headR * 2, height: headR * 2.3, borderRadius: headR * 1.15,
+                backgroundColor: `rgba(234,243,246,${shine.toFixed(2)})`,
+                borderTopWidth: 1, borderLeftWidth: StyleSheet.hairlineWidth,
+                borderColor: 'rgba(255,255,255,0.55)',
+                alignSelf: 'center',
             }} />
         </>
     );
@@ -439,6 +448,8 @@ function Streak({ x, duration, delay, tail, screenH }) {
                 className="gt-streak"
                 style={{
                     position: 'absolute', left: x, top: 0, opacity: 0,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    animationTimingFunction: `cubic-bezier(${STICK_SLIP.join(',')})`,
                     '--dur': `${duration}ms`,
                     '--delay': `${-delay}ms`,
                 }}
@@ -449,11 +460,10 @@ function Streak({ x, duration, delay, tail, screenH }) {
     }
 
     const translateY = slide.interpolate({ inputRange: [0, 1], outputRange: [-tail, screenH + tail] });
-    const translateX = wobble.interpolate({ inputRange: [0, 1], outputRange: [-4, 4] });
     const opacity = slide.interpolate({ inputRange: [0, 0.06, 0.9, 1], outputRange: [0, 1, 1, 0] });
 
     return (
-        <Animated.View style={{ position: 'absolute', left: x, top: 0, opacity, transform: [{ translateY }, { translateX }] }}>
+        <Animated.View style={{ position: 'absolute', left: x, top: 0, opacity, transform: [{ translateY }] }}>
             {body}
         </Animated.View>
     );
