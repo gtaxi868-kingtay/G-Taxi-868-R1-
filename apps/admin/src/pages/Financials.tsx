@@ -1,6 +1,27 @@
 import { useEffect, useState } from 'react';
-import { adminFetch } from '../lib/supabase';
-import { DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Activity, Check, X, Eye, Scale, Landmark } from 'lucide-react';
+import { adminFetch, supabase } from '../lib/supabase';
+import { DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Activity, Check, X, Eye, Scale, Landmark, GitCompare } from 'lucide-react';
+
+// pricing_config has "Admin full access" RLS — a direct client read here is
+// fine, matching the pattern already used for driver_zone_rates/escape_
+// packages/lodging_nodes elsewhere in this app.
+interface PricingConfigRow {
+    key: string;
+    value_cents: number;
+}
+
+// scale: value_cents / scale = the real percentage. Most rate keys store
+// basis-points-style values (8000 = 80%, /100 to get percent). LOYALTY_FEE_PCT
+// is the one exception — stored as a plain percentage already (12 = 12%),
+// confirmed against complete_ride's own reading of each key.
+const RATE_LABELS: Record<string, { label: string; scale: number; note?: string }> = {
+    DRIVER_SHARE_CENTS: { label: 'Driver Pool', scale: 100 },
+    RESERVE_RATE_CENTS: { label: 'Capital Reserve', scale: 100 },
+    COMMANDER_REVSHARE_RATE_CENTS: { label: 'Commander Revshare', scale: 100, note: 'Carved from the driver pool above, not added on top' },
+    PLATFORM_RATE_CENTS: { label: 'Platform Fee (ride)', scale: 100 },
+    NODE_COMMISSION_RATE_ON_PLATFORM_BPS: { label: 'Node Rent', scale: 100, note: 'Of the platform fee, not of gross fare' },
+    LOYALTY_FEE_PCT: { label: 'Loyalty Driver Rate', scale: 1 },
+};
 
 interface RevenueLog {
     id: string;
@@ -34,6 +55,7 @@ export const Financials = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [rates, setRates] = useState<PricingConfigRow[]>([]);
 
     const loadFinancials = async () => {
         setLoading(true);
@@ -41,9 +63,15 @@ export const Financials = () => {
         try {
             const { data: revData } = await adminFetch('admin', { action: 'get_revenue_logs' });
             setLogs(revData || []);
-            
+
             const { data: depData } = await adminFetch('admin', { action: 'get_pending_deposits' });
             setPendingDeposits(depData || []);
+
+            const { data: rateData } = await supabase
+                .from('pricing_config')
+                .select('key, value_cents')
+                .in('key', Object.keys(RATE_LABELS));
+            setRates((rateData as PricingConfigRow[]) || []);
 
             const totals = (revData || []).reduce((acc: any, curr: any) => ({
                 totalGross: acc.totalGross + curr.gross_amount_cents,
@@ -205,6 +233,37 @@ export const Financials = () => {
                     </div>
                 </div>
             )}
+
+            {/* LIVE SETTLEMENT RATES — reads pricing_config directly, no cache, no
+                memory. Exists so any pro-forma or board projection gets built
+                against the real live split, not an assumed or remembered one. */}
+            <div className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <GitCompare className="text-purple-400" size={18} />
+                        <div>
+                            <h2 className="text-xs font-bold text-purple-400 uppercase tracking-widest">Live Settlement Rates</h2>
+                            <p className="text-[10px] text-white/30 mt-0.5">Read directly from pricing_config — this is the real split, not an estimate</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="p-8 grid grid-cols-2 sm:grid-cols-3 gap-6">
+                    {Object.entries(RATE_LABELS).map(([key, meta]) => {
+                        const row = rates.find((r) => r.key === key);
+                        const pct = row ? row.value_cents / meta.scale : null;
+                        return (
+                            <div key={key}>
+                                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-1">{meta.label}</p>
+                                <p className="text-xl font-black text-white">
+                                    {pct !== null ? `${pct.toFixed(2)}%` : '— (default)'}
+                                </p>
+                                {meta.note && <p className="text-[9px] text-white/25 mt-1">{meta.note}</p>}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
             {/* PENDING MANUAL DEPOSITS */}
             {pendingDeposits.length > 0 && (
                 <div className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
