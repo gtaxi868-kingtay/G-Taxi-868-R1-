@@ -6,12 +6,15 @@ import {
   PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X
 } from 'lucide-react';
 import { MerchantFinancials } from './pages/MerchantFinancials';
+import { MerchantLogin } from './pages/MerchantLogin';
+import { MerchantRegister } from './pages/MerchantRegister';
+import { MerchantJoinWithCode } from './pages/MerchantJoinWithCode';
 
 type MerchantMode = 'HOTEL' | 'RETAIL' | 'SERVICE' | 'AIRPORT';
 type MerchantView = 'dashboard' | 'appointments' | 'financials';
 
 function App() {
-  const [view, setView] = useState<'login' | 'app'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'join' | 'app'>('login');
   const [activeTab, setActiveTab] = useState<MerchantView>('dashboard');
   const [merchant, setMerchant] = useState<any>(null);
   const [mode, setMode] = useState<MerchantMode>('SERVICE');
@@ -97,53 +100,30 @@ function App() {
   useEffect(() => { checkSession(); }, []);
 
   if (view === 'login') return (
-    <div className="min-h-screen bg-[#0B0E12] flex items-center justify-center p-6 overflow-y-auto">
-      <div className="w-full max-w-md bg-[#13171D] rounded-[3.5rem] p-8 sm:p-12 text-center shadow-2xl border border-[#007070]/20">
-        <div className="w-24 h-24 bg-[#007070] rounded-[2rem] mx-auto flex items-center justify-center shadow-xl mb-12 rotate-3 shadow-[#007070]/20">
-          <ShieldCheck size={48} color="white" />
-        </div>
-        <h1 className="text-4xl font-black text-white mb-2 italic">G-TAXI</h1>
-        <p className="text-[#0D9488] font-black text-[10px] uppercase tracking-[0.3em] mb-12">Universal Partner Terminal</p>
-        <form onSubmit={async (e) => {
-          e.preventDefault();
-          setLoginError('');
-          setLoginLoading(true);
-          const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
-          setLoginLoading(false);
-          if (error) setLoginError(error.message);
-          else checkSession();
-        }} className="space-y-4">
-          <input
-            type="email"
-            value={loginEmail}
-            onChange={e => setLoginEmail(e.target.value)}
-            placeholder="Partner Email"
-            required
-            autoFocus
-            className="w-full h-14 px-5 bg-[#0B0E12] text-white rounded-[1.5rem] text-base placeholder-[#5A5F66] border border-[#007070]/30 focus:border-[#0D9488] focus:outline-none transition-colors"
-          />
-          <input
-            type="password"
-            value={loginPassword}
-            onChange={e => setLoginPassword(e.target.value)}
-            placeholder="Security Key"
-            required
-            className="w-full h-14 px-5 bg-[#0B0E12] text-white rounded-[1.5rem] text-base placeholder-[#5A5F66] border border-[#007070]/30 focus:border-[#0D9488] focus:outline-none transition-colors"
-          />
-          {loginError && (
-            <p className="text-red-400 text-sm text-left px-1">{loginError}</p>
-          )}
-          <button
-            type="submit"
-            disabled={loginLoading}
-            className="w-full h-20 bg-[#007070] text-white rounded-[1.5rem] font-black text-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:hover:scale-100 shadow-lg shadow-[#007070]/20"
-          >
-            <Scan size={24} />
-            {loginLoading ? 'SIGNING IN...' : 'AUTHORIZE SESSION'}
-          </button>
-        </form>
-      </div>
-    </div>
+    <MerchantLogin
+      email={loginEmail} setEmail={setLoginEmail}
+      password={loginPassword} setPassword={setLoginPassword}
+      loading={loginLoading} error={loginError}
+      onSubmit={async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoginError('');
+        setLoginLoading(true);
+        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+        setLoginLoading(false);
+        if (error) setLoginError(error.message);
+        else checkSession();
+      }}
+      onGoRegister={() => setView('register')}
+      onGoJoin={() => setView('join')}
+    />
+  );
+
+  if (view === 'register') return (
+    <MerchantRegister onDone={() => setView('login')} onBack={() => setView('login')} />
+  );
+
+  if (view === 'join') return (
+    <MerchantJoinWithCode onDone={() => setView('login')} onBack={() => setView('login')} />
   );
 
   return (
