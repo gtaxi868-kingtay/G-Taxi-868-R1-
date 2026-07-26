@@ -50,6 +50,7 @@ const QUICK_NAV = [
     { icon: 'home-outline', label: 'Scout', screen: 'ScoutReferral' },
     { icon: 'people-outline', label: 'Refer', screen: 'DriverReferral' },
     { icon: 'car-sport-outline', label: 'Buy Car', screen: 'VehicleSales' },
+    { icon: 'construct-outline', label: 'G Garage', screen: 'GGarage' },
 ] as const;
 
 export function DashboardScreen({ navigation }: { navigation: { navigate: (screen: string, params?: object) => void; goBack: () => void; replace: (screen: string, params?: object) => void } }) {

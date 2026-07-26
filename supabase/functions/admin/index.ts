@@ -1,5 +1,6 @@
 import { requireAdmin } from '../_shared/auth.ts'
 import { captureException } from '../_shared/sentry.ts'
+import { chat, llmConfigured } from '../_shared/llm.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +23,7 @@ async function computeSettlement(grossCents: number, supabaseAdmin: any): Promis
     .select('value_cents')
     .eq('key', 'PLATFORM_RATE_CENTS')
     .maybeSingle()
-    .catch(() => ({ data: null }))
+    .then((v: any) => v, () => ({ data: null }))
   const platformRate = platRateRow ? (platRateRow.value_cents ?? 1500) / 10000 : 0.15
 
   const { data: reserveRateRow } = await supabaseAdmin
@@ -30,7 +31,7 @@ async function computeSettlement(grossCents: number, supabaseAdmin: any): Promis
     .select('value_cents')
     .eq('key', 'RESERVE_RATE_CENTS')
     .maybeSingle()
-    .catch(() => ({ data: null }))
+    .then((v: any) => v, () => ({ data: null }))
   const reserveRate = reserveRateRow ? (reserveRateRow.value_cents ?? 300) / 10000 : 0.03
 
   const platformFeeCents = Math.round(grossCents * platformRate)
@@ -238,14 +239,14 @@ Deno.serve(async (req) => {
         await supabaseAdmin.from('ride_events').insert({
           ride_id, event_type: 'cancelled', actor_type: 'admin', actor_id: user.id,
           metadata: { reason: reason || 'Cancelled by admin', previous_status: ride.status, admin_email: user.email },
-        }).catch(() => {})
+        }).then(null, () => {})
 
         await supabaseAdmin.rpc('log_admin_action', {
           p_admin_id: user.id, p_admin_email: user.email || null, p_action: 'admin_cancel_ride',
           p_ride_id: ride_id, p_previous_status: ride.status, p_new_status: 'cancelled',
           p_reason: reason || 'Cancelled by admin',
           p_metadata: { driver_id: ride.driver_id, rider_id: ride.rider_id },
-        }).catch(() => {})
+        }).then(null, () => {})
 
         return json({ success: true, ride_id, previous_status: ride.status, new_status: 'cancelled', reason: reason || null })
       }
@@ -322,7 +323,7 @@ Deno.serve(async (req) => {
           ip_address: req.headers.get('x-forwarded-for') || 'unknown',
           user_agent: req.headers.get('user-agent') || 'unknown',
         }
-        supabaseAdmin.from('admin_audit_log').insert(auditLog).catch(() => {})
+        supabaseAdmin.from('admin_audit_log').insert(auditLog).then(null, () => {})
 
         const { error: updateError } = await supabaseAdmin
           .from('rides')
@@ -357,7 +358,7 @@ Deno.serve(async (req) => {
           await supabaseAdmin.from('capital_reserve_ledger').insert({
             ride_id, amount_cents: settlement.reserveCents, status: 'locked',
             notes: `Admin force-complete (${paymentMethod}) — reserve locked`,
-          }).catch(() => {})
+          }).then(null, () => {})
         }
 
         await supabaseAdmin.from('ride_events').insert({
@@ -369,7 +370,7 @@ Deno.serve(async (req) => {
           p_merchant_id: ride.billed_to_merchant_id || ride.merchant_id || null,
           p_gross_cents: grossCents, p_payout_cents: settlement.driverPayoutCents,
           p_merchant_earnings_cents: 0, p_reserve_cents: settlement.reserveCents,
-        }).catch(() => {})
+        }).then(null, () => {})
 
         return json({
           success: true, ride_id, previous_status: ride.status, new_status: 'completed',
@@ -409,14 +410,14 @@ Deno.serve(async (req) => {
               await supabaseAdmin.rpc('admin_wallet_adjust', {
                 p_user_id: d.user_id, p_amount_cents: -payoutAmount,
                 p_reason: 'CLAWBACK: driver payout reversed for refund of ride ' + ride_id, p_admin_id: user.id,
-              }).catch(() => {})
+              }).then(null, () => {})
             }
           }
         }
 
         await supabaseAdmin.from('capital_reserve_ledger')
           .update({ status: 'released', notes: `Released on refund by admin ${user.id}` })
-          .eq('ride_id', ride_id).eq('status', 'locked').catch(() => {})
+          .eq('ride_id', ride_id).eq('status', 'locked').then(null, () => {})
 
         const { error: updateError } = await supabaseAdmin
           .from('rides')
@@ -485,11 +486,11 @@ Deno.serve(async (req) => {
 
           if (WIPAY_ACCOUNT_NUMBER && WIPAY_API_KEY) {
             const { data: payoutReq } = await supabaseAdmin
-              .from('payout_requests').select('id, driver_id, amount_cents').eq('id', request_id).single().catch(() => ({ data: null }))
+              .from('payout_requests').select('id, driver_id, amount_cents').eq('id', request_id).single().then((v: any) => v, () => ({ data: null }))
             if (payoutReq) {
               const { data: bankAccount } = await supabaseAdmin
                 .from('bank_accounts').select('bank_name, account_holder_name, account_number, account_type')
-                .eq('driver_id', payoutReq.driver_id).eq('is_default', true).maybeSingle().catch(() => ({ data: null }))
+                .eq('driver_id', payoutReq.driver_id).eq('is_default', true).maybeSingle().then((v: any) => v, () => ({ data: null }))
               if (bankAccount) {
                 const orderId = `payout_${request_id.slice(0, 8)}_${Date.now()}`
                 const { data: wpRecord } = await supabaseAdmin.from('wipay_payouts').insert({
@@ -499,7 +500,7 @@ Deno.serve(async (req) => {
                   account_type: bankAccount.account_type || 'savings',
                   idempotency_key: `wipay_disburse_${request_id}_${payoutReq.driver_id}`,
                   wipay_reference: orderId, status: 'pending',
-                }).select('id').single().catch(() => ({ data: null }))
+                }).select('id').single().then((v: any) => v, () => ({ data: null }))
                 if (wpRecord) {
                   try {
                     const wipayResp = await fetch(`${WIPAY_BASE_URL}/payout`, {
@@ -899,7 +900,7 @@ Deno.serve(async (req) => {
             await Promise.allSettled(waiters.map(async (w: any) => {
               await supabaseAdmin.functions.invoke('send_push_notification', {
                 body: { user_id: w.user_id, title: `New escape to ${b.destination_name || b.destination_code}!`, body: 'A Caribbean package just dropped. Seats are limited — grab yours now.', payload: { route: 'TravelStorefront', packageId: resultId } },
-              }).catch(() => {})
+              }).then(null, () => {})
             }))
             await supabaseAdmin.from('travel_waitlist').update({ notified_at: new Date().toISOString() }).eq('destination_code', b.destination_code).is('notified_at', null)
             waitlistNotified = waiters.length
@@ -940,7 +941,7 @@ Deno.serve(async (req) => {
             }
             await supabaseAdmin.from('passenger_details').upsert({ participant_id: p.id, rider_id: p.rider_id, full_name: '', date_of_birth: '2000-01-01', nationality: 'TT' }, { onConflict: 'participant_id', ignoreDuplicates: true })
             await supabaseAdmin.from('escape_group_participants').update({ status: 'passport_pending' }).eq('id', p.id)
-            await supabaseAdmin.rpc('notify_user', { p_user_id: p.rider_id, p_type: 'escape_confirmed', p_title: `Trip confirmed! ${pkg.package_name}`, p_body: 'Your trip is booked. Please submit your passport details.', p_data: { package_id, participant_id: p.id } }).catch(() => {})
+            await supabaseAdmin.rpc('notify_user', { p_user_id: p.rider_id, p_type: 'escape_confirmed', p_title: `Trip confirmed! ${pkg.package_name}`, p_body: 'Your trip is booked. Please submit your passport details.', p_data: { package_id, participant_id: p.id } }).then(null, () => {})
           }
 
           if (booking_reference) {
@@ -960,7 +961,7 @@ Deno.serve(async (req) => {
           const { data: participants } = await supabaseAdmin.from('escape_group_participants').select('rider_id').eq('package_id', package_id).in('status', ['confirmed', 'passport_pending', 'travel_ready'])
           if (participants) {
             for (const p of participants) {
-              await supabaseAdmin.rpc('notify_user', { p_user_id: p.rider_id, p_type: 'escape_delay', p_title: 'Trip update', p_body: message || 'Your trip has been delayed.', p_data: { package_id } }).catch(() => {})
+              await supabaseAdmin.rpc('notify_user', { p_user_id: p.rider_id, p_type: 'escape_delay', p_title: 'Trip update', p_body: message || 'Your trip has been delayed.', p_data: { package_id } }).then(null, () => {})
             }
           }
           return json({ success: true, notified: participants?.length || 0 })
@@ -1058,6 +1059,349 @@ Deno.serve(async (req) => {
           default:
             return json({ error: 'Unknown action_type' }, 400)
         }
+      }
+
+      // ─── FLEET LEASE INSURANCE BROKERAGE ────────────────────────────────────
+      // Platform brokers the policy for the operator leasing a fleet vehicle
+      // (Hiace/Maextro-class VIP tier) and earns a commission on the premium —
+      // separate from, and never touching, the per-ride lease deduction that
+      // already runs in complete_ride. Idempotent: re-binding the same policy
+      // number on an already-paid lease does not double-credit.
+      case 'bind_lease_insurance': {
+        const { lease_id, provider, policy_number, annual_premium_cents, commission_bps, expires_at, broker_license_ref, broker_of_record } = body
+        if (!lease_id || !provider || !policy_number || !annual_premium_cents || commission_bps === undefined || !expires_at || !broker_license_ref || !broker_of_record) {
+          throw new Error('lease_id, provider, policy_number, annual_premium_cents, commission_bps, expires_at, broker_license_ref, and broker_of_record are required')
+        }
+        const { data, error } = await supabaseAdmin.rpc('bind_fleet_lease_insurance', {
+          p_lease_id: lease_id,
+          p_provider: provider,
+          p_policy_number: policy_number,
+          p_annual_premium_cents: annual_premium_cents,
+          p_commission_bps: commission_bps,
+          p_expires_at: expires_at,
+          p_broker_license_ref: broker_license_ref,
+          p_broker_of_record: broker_of_record,
+        })
+        if (error) throw error
+        if (data?.success === false) throw new Error(data.error || 'Failed to bind insurance')
+        return json(data)
+      }
+
+      // ─── FLEET LEASES (list — service-role relay, no admin RLS on this table yet) ──
+      case 'list_fleet_leases': {
+        const { data, error } = await supabaseAdmin
+          .from('fleet_leases')
+          .select(`
+            id, status, start_date, end_date, lease_type,
+            daily_rate_cents, security_deposit_cents, deposit_paid, termination_reason,
+            insurance_provider, insurance_policy_number, insurance_annual_premium_cents,
+            insurance_commission_bps, insurance_expires_at, insurance_commission_paid,
+            broker_license_ref, broker_of_record,
+            drivers!inner(profiles(name)),
+            fleet_vehicles!inner(id, make, model, year, license_plate, ownership_type)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(200)
+        if (error) throw error
+        return json({ success: true, leases: data ?? [] })
+      }
+
+      // ─── FLEET VEHICLES CRUD (service-role relay — fleet_vehicles RLS only grants
+      // service_role write access, and read access is scoped to available/leased
+      // status only, not full admin visibility) ───
+      case 'manage_fleet_vehicles': {
+        switch (body.action_type || 'list') {
+          case 'list': {
+            const { data, error } = await supabaseAdmin
+              .from('fleet_vehicles').select('*').order('created_at', { ascending: false })
+            if (error) throw error
+            return json({ success: true, vehicles: data ?? [] })
+          }
+          case 'create': {
+            const { vehicle } = body
+            if (!vehicle?.make || !vehicle?.model || !vehicle?.year || !vehicle?.license_plate) {
+              return json({ success: false, error: 'make, model, year, license_plate required' }, 400)
+            }
+            const { data, error } = await supabaseAdmin.from('fleet_vehicles').insert({
+              make: vehicle.make, model: vehicle.model, year: vehicle.year,
+              license_plate: vehicle.license_plate, ownership_type: vehicle.ownership_type || 'g-taxi',
+              vehicle_class: vehicle.vehicle_class || null, status: vehicle.status || 'available',
+            }).select().single()
+            if (error) throw error
+            return json({ success: true, vehicle: data })
+          }
+          case 'update': {
+            const { vehicle } = body
+            if (!vehicle?.id) return json({ success: false, error: 'vehicle.id required' }, 400)
+            const updateData: Record<string, unknown> = {}
+            for (const k of ['make', 'model', 'year', 'license_plate', 'ownership_type', 'vehicle_class', 'status']) {
+              if (vehicle[k] !== undefined) updateData[k] = vehicle[k]
+            }
+            const { data, error } = await supabaseAdmin.from('fleet_vehicles').update(updateData).eq('id', vehicle.id).select().single()
+            if (error) throw error
+            return json({ success: true, vehicle: data })
+          }
+          default:
+            return json({ success: false, error: `Unknown manage_fleet_vehicles action_type: ${body.action_type}` }, 400)
+        }
+      }
+
+      // ─── G-ESCAPE GROUND-TRANSIT VISIBILITY (service-role relay — rides has no
+      // admin RLS; escrow_prepaid rides are created by
+      // execute_escape_group_confirmation and were previously invisible to ops) ──
+      case 'list_escape_transfer_rides': {
+        const { data: rides, error } = await supabaseAdmin
+          .from('rides')
+          .select('id, status, driver_id, pickup_address, dropoff_address, total_fare_cents, scheduled_for, notes, created_at')
+          .eq('payment_method', 'escrow_prepaid')
+          .order('scheduled_for', { ascending: true })
+          .limit(200)
+        if (error) throw error
+
+        const rideIds = (rides ?? []).map((r: any) => r.id)
+        let reservationsByRide: Record<string, any> = {}
+        if (rideIds.length > 0) {
+          const { data: reservations } = await supabaseAdmin
+            .from('package_reservations')
+            .select('id, booking_ref, rider_id, trinidad_transfer_ride_id, destination_transfer_ride_id, trinidad_return_ride_id, destination_return_ride_id')
+            .or(rideIds.map((id: string) => `trinidad_transfer_ride_id.eq.${id},destination_transfer_ride_id.eq.${id},trinidad_return_ride_id.eq.${id},destination_return_ride_id.eq.${id}`).join(','))
+          for (const res of (reservations ?? []) as any[]) {
+            for (const col of ['trinidad_transfer_ride_id', 'destination_transfer_ride_id', 'trinidad_return_ride_id', 'destination_return_ride_id']) {
+              if (res[col]) reservationsByRide[res[col]] = { reservation_id: res.id, booking_ref: res.booking_ref, leg: col }
+            }
+          }
+        }
+
+        const enriched = (rides ?? []).map((r: any) => ({ ...r, reservation: reservationsByRide[r.id] ?? null }))
+        return json({ success: true, rides: enriched })
+      }
+
+      // ─── G-MEMBER WAITLIST (service-role relay — user_events RLS is own-rows
+      // only; the waitlist join event has been written since the G-Member
+      // giveaway-hole fix but nothing ever read it back for ops) ───
+      case 'list_g_member_waitlist': {
+        const { data: events, error } = await supabaseAdmin
+          .from('user_events')
+          .select('id, user_id, created_at, payload')
+          .eq('event_type', 'g_member_waitlist')
+          .order('created_at', { ascending: false })
+          .limit(500)
+        if (error) throw error
+
+        const userIds = [...new Set((events ?? []).map((e: any) => e.user_id))]
+        let profileMap: Record<string, { name: string | null; email: string | null }> = {}
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabaseAdmin
+            .from('profiles').select('id, name, email').in('id', userIds)
+          for (const p of profiles ?? []) profileMap[p.id] = { name: p.name, email: p.email }
+        }
+
+        const enriched = (events ?? []).map((e: any) => ({ ...e, profile: profileMap[e.user_id] ?? null }))
+        return json({ success: true, waitlist: enriched, count: enriched.length })
+      }
+
+      // ─── G CO-HOST: LODGING CANDIDATE INTAKE ────────────────────────────────
+      // Commander/admin-sourced property submission — files into the existing
+      // G approvals inbox (action_type 'grid_candidate', which g_execute_action
+      // now has a real handler for) rather than inserting lodging_nodes
+      // directly, since these are less-vetted than an admin's own direct entry.
+      case 'submit_lodging_candidate': {
+        const c = body.candidate
+        if (!c?.name || !c?.destination_code || !c?.location_zone || !c?.base_price_per_night_cents) {
+          return json({ success: false, error: 'name, destination_code, location_zone, base_price_per_night_cents required' }, 400)
+        }
+        const payload = {
+          name: c.name, destination_code: c.destination_code, location_zone: c.location_zone,
+          nights: c.nights ?? 2, base_price_per_night_cents: c.base_price_per_night_cents,
+          max_guests: c.max_guests ?? 6, min_guests: c.min_guests ?? 1,
+          owner_name: c.owner_name ?? null, owner_phone: c.owner_phone ?? null,
+          owner_whatsapp: c.owner_whatsapp ?? null, owner_email: c.owner_email ?? null,
+          notes: c.notes ?? null,
+        }
+        const { data, error } = await supabaseAdmin.from('g_proposed_actions').insert({
+          department: 'ops',
+          action_type: 'grid_candidate',
+          category: 'other',
+          title: `New lodging candidate: ${c.name} (${c.destination_code})`,
+          reasoning: c.notes || `Submitted for review — ${c.name} in ${c.location_zone}, TTD $${(c.base_price_per_night_cents / 100).toFixed(2)}/night.`,
+          payload,
+        }).select('id').single()
+        if (error) throw error
+        return json({ success: true, proposal_id: data.id })
+      }
+
+      // ─── G CO-HOST: AI DESCRIPTION DRAFT ────────────────────────────────────
+      // On-demand copy draft for a lodging listing — admin reviews/edits before
+      // hitting Save on the existing form; nothing here writes to the DB itself.
+      case 'draft_lodging_copy': {
+        const { name, destination_code, location_zone, max_guests, nights, amenities } = body
+        if (!name || !destination_code) return json({ success: false, error: 'name and destination_code required' }, 400)
+        if (!llmConfigured()) return json({ success: false, error: 'AI not configured (GROQ_API_KEY missing)' }, 400)
+        try {
+          const res = await chat(supabaseAdmin, {
+            department: 'lodging_copy',
+            system: 'You write short, honest, appealing property descriptions for a Caribbean group-travel booking platform. 2-3 sentences. No invented amenities or claims not given. No emoji.',
+            messages: [{
+              role: 'user',
+              content: `Property: ${name}\nLocation: ${location_zone ?? 'n/a'}, ${destination_code}\nMax guests: ${max_guests ?? 'n/a'}\nNights: ${nights ?? 'n/a'}\nAmenities: ${(amenities || []).join(', ') || 'none listed'}\n\nWrite the description.`,
+            }],
+            maxTokens: 200,
+          })
+          const draft = res?.choices?.[0]?.message?.content?.trim() || ''
+          return json({ success: true, draft })
+        } catch (err: any) {
+          return json({ success: false, error: err.message || 'AI draft failed' }, 500)
+        }
+      }
+
+      // ─── LIVE DRIVER LOCATIONS (service-role relay — driver_locations RLS
+      // only lets a driver read their own row or a rider read their active
+      // driver's row; there is no admin policy at all, so the dashboard's
+      // fleet map was silently getting zero rows regardless of how many
+      // drivers were actually online) ───
+      case 'list_driver_locations': {
+        const { data, error } = await supabaseAdmin
+          .from('driver_locations')
+          .select('driver_id, lat, lng, heading, speed, created_at, ride_id')
+          .order('created_at', { ascending: false })
+        if (error) throw error
+
+        // One row per driver — most recent ping only.
+        const latest = new Map<string, any>()
+        for (const row of data ?? []) {
+          if (!latest.has(row.driver_id)) latest.set(row.driver_id, row)
+        }
+        return json({ success: true, locations: Array.from(latest.values()) })
+      }
+
+      // ─── DRIVER REGISTRATION CLASS ('H' PLATE COMPLIANCE) ──────────────────
+
+      case 'get_registration_audit': {
+        const { data: drivers, error } = await supabaseAdmin
+          .from('drivers')
+          .select('id, name, plate_number, vehicle_model, registration_class, registration_verified_at, registration_verified_by, status')
+          .order('registration_class', { ascending: true })
+        if (error) throw error
+
+        const driverIds = (drivers || []).map((d: any) => d.id)
+        const { data: docs } = await supabaseAdmin
+          .from('driver_documents')
+          .select('driver_id, storage_path, status, created_at')
+          .eq('document_type', 'registration_proof')
+          .in('driver_id', driverIds.length > 0 ? driverIds : ['00000000-0000-0000-0000-000000000000'])
+          .order('created_at', { ascending: false })
+
+        const proofByDriver: Record<string, any> = {}
+        docs?.forEach((d: any) => { if (!proofByDriver[d.driver_id]) proofByDriver[d.driver_id] = d })
+
+        const drivers_out = (drivers || []).map((d: any) => ({ ...d, registration_proof: proofByDriver[d.id] || null }))
+        const summary = {
+          total: drivers_out.length,
+          unverified: drivers_out.filter((d: any) => d.registration_class === 'unverified').length,
+          H: drivers_out.filter((d: any) => d.registration_class === 'H').length,
+          R: drivers_out.filter((d: any) => d.registration_class === 'R').length,
+          private: drivers_out.filter((d: any) => d.registration_class === 'private').length,
+        }
+        return json({ success: true, drivers: drivers_out, summary })
+      }
+
+      case 'set_driver_registration': {
+        const { driver_id, registration_class } = body
+        if (!driver_id || !['unverified', 'H', 'R', 'private'].includes(registration_class)) {
+          return json({ success: false, error: 'driver_id and a valid registration_class (unverified|H|R|private) required' }, 400)
+        }
+        const { data, error } = await supabaseAdmin
+          .from('drivers')
+          .update({
+            registration_class,
+            registration_verified_at: new Date().toISOString(),
+            registration_verified_by: user.id,
+          })
+          .eq('id', driver_id)
+          .select('id, name, registration_class, registration_verified_at')
+          .single()
+        if (error) throw error
+        return json({ success: true, driver: data })
+      }
+
+      // ─── G GARAGE (DRIVER VEHICLE-SOURCING REQUESTS) ───────────────────────
+
+      case 'get_garage_requests': {
+        const { data, error } = await supabaseAdmin
+          .from('g_garage_requests')
+          .select('*, driver:driver_id(id, name, plate_number, registration_class, rank), vehicle_class:vehicle_class_key(key, label, category)')
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        return json({ success: true, requests: data })
+      }
+
+      case 'decide_garage_request': {
+        const { request_id, decision, reason } = body
+        if (!request_id || !['approved', 'rejected'].includes(decision)) {
+          return json({ success: false, error: 'request_id and decision (approved|rejected) required' }, 400)
+        }
+        const { data, error } = await supabaseAdmin.rpc('admin_decide_garage_request', {
+          p_request_id: request_id,
+          p_decision: decision,
+          p_admin_id: user.id,
+          p_reason: reason || null,
+        })
+        if (error) return json({ success: false, error: error.message }, 400)
+        return json({ success: true, request: data })
+      }
+
+      // ─── G SPOT VENUES (BAR MEMBERSHIP) ────────────────────────────────────
+
+      case 'get_g_spot_venues': {
+        const { data, error } = await supabaseAdmin
+          .from('g_spot_venues')
+          .select('*')
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        return json({ success: true, venues: data })
+      }
+
+      case 'upsert_g_spot_venue': {
+        const { venue } = body
+        if (!venue?.name || !venue?.address || venue?.monthly_rent_cents == null) {
+          return json({ success: false, error: 'venue.name, venue.address, venue.monthly_rent_cents required' }, 400)
+        }
+        if (venue.id) {
+          const { data, error } = await supabaseAdmin
+            .from('g_spot_venues')
+            .update({
+              name: venue.name,
+              address: venue.address,
+              region_id: venue.region_id || null,
+              monthly_rent_cents: venue.monthly_rent_cents,
+              membership_price_cents: venue.membership_price_cents ?? null,
+              drink_subsidy_cap_cents: venue.drink_subsidy_cap_cents ?? 8400,
+              status: venue.status || 'candidate',
+              zone_analysis_notes: venue.zone_analysis_notes ?? null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', venue.id)
+            .select()
+            .single()
+          if (error) throw error
+          return json({ success: true, venue: data })
+        }
+        const { data, error } = await supabaseAdmin
+          .from('g_spot_venues')
+          .insert({
+            name: venue.name,
+            address: venue.address,
+            region_id: venue.region_id || null,
+            monthly_rent_cents: venue.monthly_rent_cents,
+            membership_price_cents: venue.membership_price_cents ?? null,
+            drink_subsidy_cap_cents: venue.drink_subsidy_cap_cents ?? 8400,
+            status: venue.status || 'candidate',
+            zone_analysis_notes: venue.zone_analysis_notes ?? null,
+          })
+          .select()
+          .single()
+        if (error) throw error
+        return json({ success: true, venue: data })
       }
 
       default:

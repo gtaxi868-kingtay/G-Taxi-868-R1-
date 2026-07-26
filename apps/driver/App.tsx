@@ -35,6 +35,7 @@ import { DriverReferralScreen } from './src/screens/DriverReferralScreen';
 import { VehicleSalesScreen } from './src/screens/VehicleSalesScreen';
 import LeaseScreen from './src/screens/LeaseScreen';
 import LeaseConsentScreen from './src/screens/LeaseConsentScreen';
+import GGarageScreen from './src/screens/GGarageScreen';
 import { CommanderDashboardScreen } from './src/screens/CommanderDashboardScreen';
 import { CommanderConsoleScreen } from './src/screens/CommanderConsoleScreen';
 import { CommanderRegisterNodeScreen } from './src/screens/CommanderRegisterNodeScreen';
@@ -188,6 +189,7 @@ function AppNavigator() {
             <AppStack.Screen name="VehicleSales" component={VehicleSalesScreen} />
             <AppStack.Screen name="Lease" component={LeaseScreen} />
             <AppStack.Screen name="LeaseConsent" component={LeaseConsentScreen} />
+            <AppStack.Screen name="GGarage" component={GGarageScreen} />
             <AppStack.Screen name="CommanderDashboard" component={CommanderDashboardScreen} />
             <AppStack.Screen name="CommanderConsole" component={CommanderConsoleScreen} />
             <AppStack.Screen name="CommanderRegisterNode" component={CommanderRegisterNodeScreen} />

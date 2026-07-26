@@ -62,7 +62,6 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [earnings, setEarnings] = useState<EarningsSummary | null>(null);
-    const [submitting, setSubmitting] = useState(false);
 
     const fetchLeaseStatus = useCallback(async () => {
         try {
@@ -117,33 +116,17 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
 
     const formatTTD = (cents: number) => `$${(cents / 100).toFixed(2)} TTD`;
 
-    const handleApplyNow = async () => {
-      setSubmitting(true);
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { Alert.alert('Error', 'Not authenticated'); return; }
-        const { data: driverRow } = await supabase
-          .from('drivers')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-        const { data: result, error } = await supabase.functions.invoke('apply_for_lease', {
-          body: {
-            fleet_vehicle_id: null,
-            daily_deduction_cents: 15000,
-            total_lease_cents: null,
-          },
-        });
-        if (error || !result?.success) {
-          throw new Error(result?.error || error?.message || 'Application failed');
-        }
-        Alert.alert('Application Submitted', 'Your BYD lease application has been submitted. Term Finance will review your earnings data. You will receive a notification when approved.');
-        fetchLeaseStatus();
-      } catch (err: any) {
-        Alert.alert('Error', err.message);
-      } finally {
-        setSubmitting(false);
-      }
+    // Requesting a specific vehicle now goes through G Garage: it computes
+    // a real min/max daily contribution from the driver's own last-30-day
+    // earnings and lets them choose a vehicle class + funding source,
+    // rather than this screen firing a flat, unverified daily rate at an
+    // application that always required a fleet_vehicle_id it never had
+    // (apply_for_lease rejects fleet_vehicle_id: null — this button never
+    // actually worked). Once G Garage's admin approval creates the real
+    // fleet_leases row, it shows up in the ACTIVE case below exactly like
+    // before — same lease table, same 15%-of-fare cap at settlement.
+    const handleApplyNow = () => {
+      navigation.navigate('GGarage');
     };
 
     const renderContent = () => {
@@ -255,21 +238,14 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
                       <LiquidGlassCard accentColor="#E6B450" style={{ marginBottom: 16 }}>
                         <TouchableOpacity
                           onPress={handleApplyNow}
-                          disabled={submitting}
                           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14 }}
                         >
-                          {submitting ? (
-                            <ActivityIndicator color="#000" size="small" />
-                          ) : (
-                            <>
-                              <Ionicons name="car-sport-sharp" size={18} color="#000" style={{ marginRight: 8 }} />
-                              <Text style={{ color: '#000', fontFamily: 'Inter_700Bold', fontSize: 15 }}>APPLY FOR LEASE</Text>
-                            </>
-                          )}
+                          <Ionicons name="construct-sharp" size={18} color="#000" style={{ marginRight: 8 }} />
+                          <Text style={{ color: '#000', fontFamily: 'Inter_700Bold', fontSize: 15 }}>GO TO G GARAGE</Text>
                         </TouchableOpacity>
                         <View style={s.ctaRow}>
                           <Ionicons name="information-circle-sharp" size={14} color="rgba(230,180,80,0.5)" />
-                          <Text style={[s.ctaText, { color: 'rgba(230,180,80,0.5)' }]}>You will also need to sign the Earnings Addendum</Text>
+                          <Text style={[s.ctaText, { color: 'rgba(230,180,80,0.5)' }]}>Choose your vehicle, source, and daily contribution — sized to your own real earnings</Text>
                         </View>
                       </LiquidGlassCard>
 

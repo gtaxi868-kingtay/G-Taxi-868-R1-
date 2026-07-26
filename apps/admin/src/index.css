@@ -241,6 +241,24 @@ body {
   to { opacity: 1; transform: translateX(0); }
 }
 
+/* Origin-aware popover pop: scale from 0.95 (never 0), short ease-out.
+   transform-origin is set per-usage to match the trigger's position. */
+.dropdown-pop {
+  animation: dropdownPop 160ms var(--ease-out-expo) both;
+}
+@keyframes dropdownPop {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Press feedback for any clickable control. */
+.btn-press {
+  transition: transform 140ms var(--ease-out-quart);
+}
+.btn-press:active {
+  transform: scale(0.97);
+}
+
 .glass-tab {
   display: flex;
   gap: 0.25rem;

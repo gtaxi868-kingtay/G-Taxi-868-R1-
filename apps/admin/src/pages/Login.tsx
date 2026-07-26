@@ -1,18 +1,66 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Activity, Database, Radio } from 'lucide-react';
 import { LOGO_B64 } from '../logoUrl';
-
 
 interface LoginProps {
     onLoginSuccess: () => void;
 }
 
+// Same "crystal liquid glass" scaffold as the admin-mobile RainLogin screen
+// (packages/design-system-native/src/rainLogin.tsx, voice="admin") — ported to
+// plain CSS since this is the web dashboard, not React Native. Canvas gradient,
+// shattered-glass facet wall with glowing purple/cyan seam cracks, breathing
+// logo, blurred crystal card with a lit signature edge. Kept as one file: the
+// mobile version keeps its own copy for RN's Animated/BlurView primitives.
+const ADMIN_VOICE = {
+    canvas: ['#0C0A1E', '#101430', '#0F172A'],
+    accent: '#8B5CF6',
+    metal: '#CBD6DE',
+    signature: ['#8B5CF6', '#34E6EC'],
+    ctaFrom: '#7C3AED',
+    ctaTo: '#8B5CF6',
+    ctaText: '#F1F5F9',
+};
+
+const SHARDS = [
+    { x: -25, y: -12, w: 85, h: 30, angle: -16, skew: -6, o: 0.030 },
+    { x: 45, y: -16, w: 85, h: 34, angle: 11, skew: 5, o: 0.020 },
+    { x: -30, y: 26, w: 75, h: 30, angle: 27, skew: -4, o: 0.025 },
+    { x: 60, y: 34, w: 70, h: 28, angle: -24, skew: 7, o: 0.018 },
+    { x: -15, y: 74, w: 90, h: 32, angle: 7, skew: -8, o: 0.028 },
+    { x: 40, y: 80, w: 80, h: 30, angle: -13, skew: 4, o: 0.022 },
+];
+
+const [A, B] = ADMIN_VOICE.signature;
+const SEAMS = [
+    { x: 2, y: 11.5, len: 52, angle: -16, color: A, thickness: 2, delay: 0, dur: 4600 },
+    { x: 55, y: 7.5, len: 48, angle: 11, color: B, thickness: 1.5, delay: 1200, dur: 5200 },
+    { x: 68, y: 22, len: 30, angle: 64, color: A, thickness: 1.5, delay: 2600, dur: 3800 },
+    { x: -4, y: 40, len: 44, angle: 27, color: B, thickness: 2, delay: 800, dur: 4200 },
+    { x: 62, y: 47, len: 42, angle: -24, color: A, thickness: 1.5, delay: 2000, dur: 5600 },
+    { x: 6, y: 62, len: 26, angle: 80, color: B, thickness: 1.5, delay: 3400, dur: 4400 },
+    { x: 10, y: 83, len: 58, angle: 7, color: A, thickness: 2, delay: 400, dur: 4800 },
+    { x: 52, y: 90, len: 46, angle: -13, color: B, thickness: 2.5, delay: 1600, dur: 4000 },
+];
+
 export default function Login({ onLoginSuccess }: LoginProps) {
+    const [mode, setMode] = useState<'login' | 'signup'>('login');
+    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    // signUp's SIGNED_IN event fires the moment supabase.auth.signUp()
+    // resolves, synchronously ahead of anything else in handleSignup below —
+    // AdminSecurityGate reacts to it and remounts this component before a
+    // local setNotice() call would ever be seen. sessionStorage survives
+    // that remount; plain useState does not.
+    const [notice, setNotice] = useState(() => {
+        const stored = sessionStorage.getItem('gtaxi_admin_signup_notice');
+        if (stored) sessionStorage.removeItem('gtaxi_admin_signup_notice');
+        return stored || '';
+    });
     const [loading, setLoading] = useState(false);
+    const [focused, setFocused] = useState<'name' | 'email' | 'password' | null>(null);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,96 +77,287 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         }
     };
 
-    return (
-        <div className="admin-login-page">
+    // Signup always lands as a plain rider — see apps/admin/src/pages/Users.tsx.
+    // The only path to admin is an existing admin granting it there by hand.
+    const handleSignup = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setNotice('');
 
-            <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                
-                {/* Branding Section */}
-                <div style={{ marginBottom: '3rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <img 
-                            src={LOGO_B64} 
-                            alt="G-Taxi Logo" 
-                            style={{ 
-                                height: '70px', 
-                                minWidth: '70px',
-                                width: 'auto', 
-                                display: 'block',
-                                objectFit: 'contain'
-                            }}
-                            className="animate-pulse-slow"
-                        />
+        const { error } = await supabase.auth.signUp({
+            email, password,
+            options: { data: { full_name: name, role: 'rider' } },
+        });
+
+        if (error) {
+            setError(error.message);
+            setLoading(false);
+            return;
+        }
+        // Write the notice to sessionStorage BEFORE signOut — the SIGNED_IN
+        // event from signUp() above already fired synchronously and may have
+        // remounted this component by the time we get here. The next Login
+        // instance's useState initializer picks this up. Also call setNotice
+        // directly in case this instance is still the one that's mounted.
+        const noticeText = "Account created. You'll see \"Access Denied\" until an existing admin grants you access — that's expected, not an error.";
+        sessionStorage.setItem('gtaxi_admin_signup_notice', noticeText);
+        await supabase.auth.signOut();
+        setLoading(false);
+        setNotice(noticeText);
+        setMode('login');
+    };
+
+    return (
+        <div className="rain-root">
+            <style>{`
+                .rain-root {
+                    min-height: 100vh;
+                    position: relative;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    overflow: hidden;
+                    background: linear-gradient(160deg, ${ADMIN_VOICE.canvas[0]}, ${ADMIN_VOICE.canvas[1]} 55%, ${ADMIN_VOICE.canvas[2]});
+                    padding: 24px;
+                }
+                .rain-shard {
+                    position: absolute;
+                    border-top: 1px solid rgba(255,255,255,0.07);
+                }
+                .rain-seam-wrap {
+                    position: absolute;
+                    animation: gt-breathe var(--dur) ease-in-out var(--delay) infinite alternate;
+                }
+                .rain-seam-track {
+                    position: relative;
+                    overflow: hidden;
+                    border-radius: 999px;
+                }
+                .rain-seam-sweep {
+                    position: absolute;
+                    top: 0; left: 0;
+                    opacity: 0;
+                    animation: gt-sweep var(--cycle) ease-in-out var(--sdelay) infinite;
+                }
+                @keyframes gt-breathe { from { opacity: .5 } to { opacity: 1 } }
+                @keyframes gt-sweep {
+                    0% { transform: translateX(calc(var(--seg) * -1)); opacity: 0; }
+                    6% { opacity: 1; }
+                    80% { opacity: 1; }
+                    88% { transform: translateX(var(--len)); opacity: 0; }
+                    100% { transform: translateX(var(--len)); opacity: 0; }
+                }
+                @keyframes gt-enter { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+                @keyframes gt-logo-in { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
+                @keyframes gt-breath { from { transform: scale(1); } to { transform: scale(1.03); } }
+                .rain-content { position: relative; z-index: 2; width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; }
+                .rain-logo-block { display: flex; flex-direction: column; align-items: center; margin-bottom: 4px; animation: gt-logo-in 650ms cubic-bezier(.34,1.56,.64,1) both; }
+                .rain-logo-breath { display: flex; flex-direction: column; align-items: center; animation: gt-breath 3200ms ease-in-out infinite alternate; }
+                .rain-logo-img { width: min(58vw, 190px); height: min(58vw, 190px); object-fit: contain; display: block; }
+                .rain-title { color: #EAF3F6; font-size: 24px; font-weight: 800; letter-spacing: 3px; margin: -30px 0 0; text-align: center; }
+                .rain-subtitle { color: ${ADMIN_VOICE.metal}; font-size: 11px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; margin: 4px 0 0; text-align: center; }
+                .rain-card-shell {
+                    width: 100%;
+                    border-radius: 24px;
+                    overflow: hidden;
+                    border: 1px solid rgba(255,255,255,0.14);
+                    position: relative;
+                    margin-top: 28px;
+                    animation: gt-enter 450ms cubic-bezier(.23,1,.32,1) 120ms both;
+                }
+                .rain-lit-edge {
+                    position: absolute; top: 0; left: 0; right: 0; height: 1.5px; z-index: 2;
+                    background: linear-gradient(90deg, ${ADMIN_VOICE.signature[0]}, ${ADMIN_VOICE.signature[1]});
+                }
+                .rain-card {
+                    background: rgba(13,17,26,0.55);
+                    backdrop-filter: blur(26px);
+                    -webkit-backdrop-filter: blur(26px);
+                    padding: 32px 28px;
+                    position: relative;
+                }
+                .rain-field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+                .rain-label { color: rgba(234,243,246,0.5); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-left: 2px; transition: color 160ms ease; }
+                .rain-label.focused { color: ${ADMIN_VOICE.accent}; }
+                .rain-input-shell { position: relative; border-radius: 16px; }
+                .rain-focus-ring {
+                    position: absolute; inset: 0; border-radius: 16px; border: 1.5px solid ${ADMIN_VOICE.accent};
+                    box-shadow: 0 0 10px rgba(139,92,246,0.35);
+                    opacity: 0; transition: opacity 180ms ease; pointer-events: none;
+                }
+                .rain-input-shell.focused .rain-focus-ring { opacity: 1; }
+                .rain-input {
+                    width: 100%; min-height: 56px; border-radius: 16px; padding: 0 18px;
+                    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.14);
+                    color: #EAF3F6; font-size: 16px; font-weight: 500; box-sizing: border-box;
+                }
+                .rain-input::placeholder { color: rgba(234,243,246,0.28); }
+                .rain-input:focus { outline: none; }
+                .rain-error {
+                    display: flex; align-items: center; gap: 8px;
+                    background: rgba(255,77,77,0.08); border: 1px solid rgba(255,77,77,0.15);
+                    border-radius: 10px; padding: 10px 14px; margin-bottom: 18px;
+                }
+                .rain-error span { color: #FF6B6B; font-size: 12px; font-weight: 600; }
+                .rain-btn {
+                    width: 100%; height: 56px; border-radius: 16px; border: none; cursor: pointer;
+                    position: relative; overflow: hidden;
+                    background: linear-gradient(135deg, ${ADMIN_VOICE.ctaFrom}, ${ADMIN_VOICE.ctaTo});
+                    color: ${ADMIN_VOICE.ctaText}; font-size: 16px; font-weight: 800;
+                    letter-spacing: 1.5px; text-transform: uppercase;
+                    transition: transform 140ms ease, opacity 140ms ease;
+                }
+                .rain-btn:active:not(:disabled) { transform: scale(0.97); }
+                .rain-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+                .rain-btn::after {
+                    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 10px;
+                    background: linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0));
+                    border-radius: 16px 16px 0 0; pointer-events: none;
+                }
+                .rain-footer { margin-top: 24px; text-align: center; animation: gt-enter 450ms cubic-bezier(.23,1,.32,1) 200ms both; }
+                .rain-footer-text { color: rgba(234,243,246,0.25); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; }
+                @media (prefers-reduced-motion: reduce) {
+                    .rain-logo-breath, .rain-seam-sweep { animation: none; }
+                    .rain-logo-block, .rain-card-shell, .rain-footer { animation: gt-fade 300ms ease both; }
+                }
+            `}</style>
+
+            {/* Shattered-glass facet wall */}
+            <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+                {SHARDS.map((s, i) => (
+                    <div key={i} className="rain-shard" style={{
+                        left: `${s.x}%`, top: `${s.y}%`, width: `${s.w}%`, height: `${s.h}%`,
+                        background: `rgba(255,255,255,${s.o})`,
+                        transform: `rotate(${s.angle}deg) skewX(${s.skew}deg)`,
+                    }} />
+                ))}
+                {SEAMS.map((s, i) => {
+                    const segW = Math.max(s.len * 0.13, 3.5);
+                    const cycle = 900 + s.len * 16 + 1400;
+                    return (
+                        <div key={i} className="rain-seam-wrap" style={{
+                            left: `${s.x}%`, top: `${s.y}%`, opacity: 0.55,
+                            transform: `rotate(${s.angle}deg)`,
+                            ['--dur' as any]: `${s.dur}ms`, ['--delay' as any]: `${-s.delay}ms`,
+                        }}>
+                            <div className="rain-seam-track" style={{ width: `${s.len}vw`, height: s.thickness }}>
+                                <div style={{
+                                    position: 'absolute', inset: 0,
+                                    background: `linear-gradient(90deg, ${s.color}00, ${s.color}, ${s.color}00)`,
+                                }} />
+                                <div className="rain-seam-sweep" style={{
+                                    ['--seg' as any]: `${segW}vw`, ['--len' as any]: `${s.len}vw`,
+                                    ['--cycle' as any]: `${cycle}ms`, ['--sdelay' as any]: `${-s.delay}ms`,
+                                    width: `${segW}vw`, height: s.thickness,
+                                    background: `linear-gradient(90deg, ${s.color}00, #FFFFFF, ${s.color}00)`,
+                                }} />
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            <div className="rain-content">
+                <div className="rain-logo-block">
+                    <div className="rain-logo-breath">
+                        <img src={LOGO_B64} alt="G-Taxi" className="rain-logo-img" />
                     </div>
-                    <div>
-                        <h1 className="neon-text-purple font-orbitron" style={{ fontSize: '2.25rem', fontWeight: 900, letterSpacing: '0.05em', margin: 0, opacity: 0.9 }}>
-                            G-TAXI<span style={{ color: 'white' }}> 868</span>
-                        </h1>
-                        <div className="hud-label-small" style={{ marginTop: '8px', opacity: 0.4 }}>Administrative Command & Control</div>
-                    </div>
+                    <h1 className="rain-title">G-TAXI 868</h1>
+                    <p className="rain-subtitle">Command Terminal</p>
                 </div>
 
-                {/* Main Login Card */}
-                <div className="admin-login-card">
-                    <div style={{ width: '100%', textAlign: 'center', marginBottom: '2.5rem' }}>
-                        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--accent)' }}>Verification Required</div>
-                        <div style={{ height: '1px', width: '3rem', background: 'linear-gradient(90deg, transparent, var(--accent), transparent)', margin: '8px auto' }} />
-                    </div>
-
-                    <form onSubmit={handleLogin} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <div className="admin-input-group">
-                            <label className="admin-input-label">Operator Identification</label>
-                            <input
-                                type="email"
-                                required
-                                placeholder="operator@gtaxi868.com"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                className="admin-input"
-                            />
-                        </div>
-
-                        <div className="admin-input-group">
-                            <label className="admin-input-label">Security Access Key</label>
-                            <input
-                                type="password"
-                                required
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                                className="admin-input"
-                            />
-                        </div>
-
-                        {error && (
-                            <div style={{ width: '100%', maxWidth: '320px', margin: '1rem 0', padding: '1rem', borderRadius: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', textAlign: 'center' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 800, color: '#f87171' }}>{error}</span>
+                <div className="rain-card-shell">
+                    <div className="rain-lit-edge" />
+                    <div className="rain-card">
+                        {notice && (
+                            <div className="rain-error" style={{ background: 'rgba(139,92,246,0.1)', borderColor: 'rgba(139,92,246,0.25)' }}>
+                                <span style={{ color: '#C4B5FD' }}>{notice}</span>
                             </div>
                         )}
+                        <form onSubmit={mode === 'login' ? handleLogin : handleSignup}>
+                            {mode === 'signup' && (
+                                <div className="rain-field">
+                                    <label className={`rain-label ${focused === 'name' ? 'focused' : ''}`}>Full Name</label>
+                                    <div className={`rain-input-shell ${focused === 'name' ? 'focused' : ''}`}>
+                                        <div className="rain-focus-ring" />
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="Jane Doe"
+                                            value={name}
+                                            onChange={e => setName(e.target.value)}
+                                            onFocus={() => setFocused('name')}
+                                            onBlur={() => setFocused(null)}
+                                            className="rain-input"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="rain-field">
+                                <label className={`rain-label ${focused === 'email' ? 'focused' : ''}`}>{mode === 'login' ? 'Admin Email' : 'Email'}</label>
+                                <div className={`rain-input-shell ${focused === 'email' ? 'focused' : ''}`}>
+                                    <div className="rain-focus-ring" />
+                                    <input
+                                        type="email"
+                                        required
+                                        placeholder="admin@gtaxi868.com"
+                                        value={email}
+                                        onChange={e => setEmail(e.target.value)}
+                                        onFocus={() => setFocused('email')}
+                                        onBlur={() => setFocused(null)}
+                                        className="rain-input"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="rain-field">
+                                <label className={`rain-label ${focused === 'password' ? 'focused' : ''}`}>Password</label>
+                                <div className={`rain-input-shell ${focused === 'password' ? 'focused' : ''}`}>
+                                    <div className="rain-focus-ring" />
+                                    <input
+                                        type="password"
+                                        required
+                                        minLength={mode === 'signup' ? 8 : undefined}
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        onFocus={() => setFocused('password')}
+                                        onBlur={() => setFocused(null)}
+                                        className="rain-input"
+                                    />
+                                </div>
+                            </div>
+
+                            {error && (
+                                <div className="rain-error">
+                                    <span>{error}</span>
+                                </div>
+                            )}
+
+                            <button type="submit" disabled={loading} className="rain-btn">
+                                {loading ? (mode === 'login' ? 'Authorizing…' : 'Creating…') : (mode === 'login' ? 'Authorize' : 'Create Account')}
+                            </button>
+                        </form>
 
                         <button
-                            type="submit"
-                            disabled={loading}
-                            className="admin-btn-tactical"
+                            type="button"
+                            onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); setNotice(''); }}
+                            style={{
+                                width: '100%', marginTop: 16, background: 'none', border: 'none', cursor: 'pointer',
+                                color: 'rgba(234,243,246,0.4)', fontSize: 12, fontWeight: 600, textAlign: 'center',
+                            }}
                         >
-                            {loading ? 'Authorizing...' : 'login'}
+                            {mode === 'login' ? "Don't have an account? Create one" : 'Already have access? Sign in'}
                         </button>
-                    </form>
-
-                    <div style={{ marginTop: '2.5rem', display: 'flex', gap: '2rem', opacity: 0.2 }}>
-                        <Database size={14} color="#7DD3FC" />
-                        <Radio size={14} color="#A78BFA" />
-                        <Activity size={14} color="#7DD3FC" />
                     </div>
                 </div>
 
-                {/* Subtle HUD Footer */}
-                <div style={{ marginTop: '3rem', opacity: 0.15 }}>
-                    <div className="hud-label-small" style={{ letterSpacing: '0.8em' }}>Terminal Secure // Relay 868</div>
+                <div className="rain-footer">
+                    <span className="rain-footer-text">Terminal Secure · Relay 868</span>
                 </div>
             </div>
         </div>
     );
-
-
 }

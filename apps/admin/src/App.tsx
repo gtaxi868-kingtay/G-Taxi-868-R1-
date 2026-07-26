@@ -24,8 +24,12 @@ import { EscapeManagement } from './pages/EscapeManagement';
 import { RevshareSettlement } from './pages/RevshareSettlement';
 import { CommanderManagement } from './pages/CommanderManagement';
 import { ComplianceReview } from './pages/ComplianceReview';
+import { Users as UsersPage } from './pages/Users';
+import { GGarage } from './pages/GGarage';
+import { GSpotVenues } from './pages/GSpotVenues';
+import { GMemory } from './pages/GMemory';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign, FileCheck, Inbox } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain } from 'lucide-react';
 
 function AdminSecurityGate({ children }: { children: React.ReactNode }) {
     const [gateState, setGateState] = useState<'loading' | 'unauthorized' | 'authorized'>('loading');
@@ -41,10 +45,15 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
         }
         setUser(session.user);
         try {
-            await supabase.functions.invoke('admin', {
+            // supabase.functions.invoke() resolves with { data, error } on a
+            // non-2xx response — it does not throw. Checking only for a thrown
+            // exception here let ANY signed-up account (any role) through,
+            // since the 403 from a non-admin never surfaced as a catch.
+            const { error } = await supabase.functions.invoke('admin', {
                 body: { action: 'get_flags' },
                 headers: { Authorization: `Bearer ${session.access_token}` }
             });
+            if (error) throw error;
             setGateState('authorized');
         } catch {
             setGateState('unauthorized');
@@ -82,10 +91,11 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
+    users: 'Users & Access',
     fleet: 'Fleet & Personnel',
     commander: 'Commanders',
     financials: 'Financials',
@@ -106,6 +116,9 @@ const TAB_LABELS: Record<AdminView, string> = {
     progression: 'Rider Progression',
     revshare: 'Revshare Settlement',
     compliance: 'Compliance Review',
+    ggarage: 'G Garage',
+    gspot: 'G Spot Venues',
+    gmemory: 'G Memory',
 };
 
 function App() {
@@ -193,6 +206,7 @@ function App() {
 
                     <nav className="flex-1 flex flex-col gap-1">
                         <NavItem active={activeTab === 'dashboard'} onClick={() => handleNav('dashboard')} icon={<LayoutDashboard size={20}/>} label="Operations" />
+                        <NavItem active={activeTab === 'users'} onClick={() => handleNav('users')} icon={<KeyRound size={20}/>} label="Users & Access" />
                         <NavItem active={activeTab === 'fleet'} onClick={() => handleNav('fleet')} icon={<Users size={20}/>} label="Fleet & Personnel" />
                         <NavItem active={activeTab === 'commander'} onClick={() => handleNav('commander')} icon={<ShieldCheck size={20}/>} label="Commanders" />
                         <NavItem active={activeTab === 'approval'} onClick={() => handleNav('approval')} icon={<UserCheck size={20}/>} label="Driver Approval" />
@@ -213,6 +227,9 @@ function App() {
                         <NavItem active={activeTab === 'support'} onClick={() => handleNav('support')} icon={<Flag size={20}/>} label="Support" />
                         <NavItem active={activeTab === 'progression'} onClick={() => handleNav('progression')} icon={<TrendingUp size={20}/>} label="Progression" />
                         <NavItem active={activeTab === 'revshare'} onClick={() => handleNav('revshare')} icon={<DollarSign size={20}/>} label="Revshare" />
+                        <NavItem active={activeTab === 'ggarage'} onClick={() => handleNav('ggarage')} icon={<Wrench size={20}/>} label="G Garage" />
+                        <NavItem active={activeTab === 'gspot'} onClick={() => handleNav('gspot')} icon={<Wine size={20}/>} label="G Spot Venues" />
+                        <NavItem active={activeTab === 'gmemory'} onClick={() => handleNav('gmemory')} icon={<Brain size={20}/>} label="G Memory" />
                     </nav>
 
                     <div className="pt-8 mt-8 border-t" style={{ borderColor: 'var(--glass-border)' }}>
@@ -269,6 +286,7 @@ function App() {
                     )}
                     <div className="max-w-7xl animate-in" style={{ animationDelay: '0.1s' }}>
                         {activeTab === 'dashboard' && <Dashboard rides={rides} />}
+                        {activeTab === 'users' && <UsersPage />}
                         {activeTab === 'fleet' && <FleetManager rides={rides} allUsers={allUsers} orders={orders} onRefresh={fetchData} />}
                         {activeTab === 'commander' && <CommanderManagement />}
                         {activeTab === 'approval' && <DriverApproval onRefresh={fetchData} />}
@@ -289,6 +307,9 @@ function App() {
                         {activeTab === 'support' && <Support />}
                         {activeTab === 'progression' && <Progression />}
                         {activeTab === 'revshare' && <RevshareSettlement />}
+                        {activeTab === 'ggarage' && <GGarage />}
+                        {activeTab === 'gspot' && <GSpotVenues />}
+                        {activeTab === 'gmemory' && <GMemory />}
                     </div>
                 </main>
 
