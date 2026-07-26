@@ -203,6 +203,82 @@ serve(async (req: Request) => {
       }
     }
 
+    // ── ESCROW-PREPAID G-ESCAPE GROUND TRANSFER ─────────────────────────────
+    // These rides are created by execute_escape_group_confirmation() for
+    // G-Escape airport/villa ground transfers (outbound and return) — the
+    // fare was already reserved from the rider's payment at booking
+    // confirmation (transit_financial_ledger). Completing one pays the
+    // driver the FULL fare from that reserve — there's no rider to debit
+    // here, and no separate platform/commander split (the platform already
+    // took its margin at confirmation). Short-circuits before any of the
+    // normal wallet/cash/card fare logic below, but after the same GPS
+    // proximity check every other ride completion requires.
+    if (ride.payment_method === "escrow_prepaid") {
+      const driverAuthUserId = await resolveDriverAuthUserId(supabaseAdmin, driverRecord, ride.driver_id);
+      if (!driverAuthUserId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "No driver assigned to this transfer ride", data: null }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { error: escrowUpdateError, count: escrowCount } = await supabaseAdmin
+        .from("rides")
+        .update({ status: "completed", completed_at: new Date().toISOString(), payment_status: "confirmed" }, { count: "exact" })
+        .eq("id", ride_id)
+        .in("status", ["in_progress"]);
+
+      if (escrowUpdateError || escrowCount === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Failed to complete transfer ride: status unexpectedly changed", data: null }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const fareCents = ride.total_fare_cents || 0;
+      if (fareCents > 0) {
+        await supabaseAdmin.from("wallet_transactions").insert({
+          user_id: driverAuthUserId,
+          ride_id: ride_id,
+          amount: fareCents,
+          transaction_type: "driver_payout",
+          description: "G-Escape ground transfer payout (from escrow)",
+          status: "completed",
+        }).then((res) => res, (err: unknown) => console.error("Escrow driver payout insert failed:", err));
+      }
+
+      // package_reservations links this ride via exactly one of its four
+      // transfer_ride_id columns — mark the matching escrow ledger leg
+      // executed. Note: each side (trinidad_driver / tobago_driver) is one
+      // ledger row covering BOTH legs on that side (outbound + return), so
+      // this marks it executed on the first of the two completions — the
+      // real wallet_transactions payout below is still exact per-leg; only
+      // the ledger's "fully settled" marker is granular to the pair, not
+      // the individual ride.
+      const { data: matchedReservation } = await supabaseAdmin
+        .from("package_reservations")
+        .select("id, trinidad_transfer_ride_id, destination_transfer_ride_id, trinidad_return_ride_id, destination_return_ride_id")
+        .or(`trinidad_transfer_ride_id.eq.${ride_id},destination_transfer_ride_id.eq.${ride_id},trinidad_return_ride_id.eq.${ride_id},destination_return_ride_id.eq.${ride_id}`)
+        .maybeSingle();
+
+      if (matchedReservation) {
+        const isTrinidadLeg = matchedReservation.trinidad_transfer_ride_id === ride_id || matchedReservation.trinidad_return_ride_id === ride_id;
+        const legParty = isTrinidadLeg ? "trinidad_driver" : "tobago_driver";
+        await supabaseAdmin
+          .from("transit_financial_ledger")
+          .update({ executed_at: new Date().toISOString() })
+          .eq("reservation_id", matchedReservation.id)
+          .eq("destination_party", legParty)
+          .is("executed_at", null)
+          .then((res) => res, (err: unknown) => console.error("Escrow ledger mark-executed failed:", err));
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, error: null, data: { escrow_payout_cents: fareCents, driver_paid: true } }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ── GROSS FARE CALCULATION (server-side, fully) ─────────────────────────
     const STOP_WAIT_FEE_PER_MIN = Deno.env.get("STOP_WAIT_FEE_PER_MIN_CENTS")
         ? parseInt(Deno.env.get("STOP_WAIT_FEE_PER_MIN_CENTS")!) : 150;
@@ -231,6 +307,76 @@ serve(async (req: Request) => {
     const totalWaitFareCents = billablePickupFareCents + billableStopFareCents;
     const effectiveFare =
       (ride.total_fare_cents || 0) + totalWaitFareCents + gridlockSurchargeCents;
+
+    // ── RIDER LOYALTY DISCOUNT (wallet only, for now) ───────────────────────
+    // progression_config.discount_percent has existed since the level ladder
+    // shipped but was never actually subtracted from any real fare — riders
+    // were shown "12% off" perks that were 100% decorative. Wired for real
+    // here, wallet-only: cash/card require a client-side fare-display change
+    // (the rider needs to see the discounted amount before paying) that's out
+    // of scope for this pass. compute_ride_split absorbs the discount ENTIRELY
+    // from the platform's own cut — driver_net, commander_cut, and reserve are
+    // never touched, verified in a rolled-back dry run before this shipped.
+    //
+    // G-Member is gated behind profiles.g_member_active, which is false
+    // everywhere today (join is still a waitlist per the 2026-07-16
+    // giveaway-hole fix — no billing exists to ever set it true). This is
+    // built now, ahead of billing, so the economics are already correct the
+    // moment a future billing webhook flips the flag: 15% off is capped at
+    // the rider's first 6 completed wallet rides each calendar month — past
+    // the cap, falls back to their earned Level discount. Without a cap, a
+    // moderately active rider (15-20 rides/month) costs the platform more in
+    // discount than the TT$60/mo subscription collects — the exact leak this
+    // cap exists to close. compute_ride_split still absorbs whatever discount
+    // applies entirely from the platform's own cut — driver_net, commander_
+    // cut, and reserve are never touched regardless of which rate is used.
+    let riderDiscountCents = 0;
+    if (ride.rider_id && ride.payment_method === "wallet") {
+      const { data: prog } = await supabaseAdmin
+        .from("rider_progression")
+        .select("level")
+        .eq("rider_id", ride.rider_id)
+        .maybeSingle()
+        .then((res) => res, () => ({ data: null }));
+      if (prog?.level && prog.level >= 2) {
+        const { data: levelCfg } = await supabaseAdmin
+          .from("progression_config")
+          .select("discount_percent")
+          .eq("level", prog.level)
+          .maybeSingle()
+          .then((res) => res, () => ({ data: null }));
+        let discountPct: number = levelCfg?.discount_percent || 0;
+
+        if (prog.level >= 5) {
+          const { data: profileRow } = await supabaseAdmin
+            .from("profiles")
+            .select("g_member_active")
+            .eq("id", ride.rider_id)
+            .maybeSingle()
+            .then((res) => res, () => ({ data: null }));
+          if (profileRow?.g_member_active) {
+            const monthStart = new Date();
+            monthStart.setUTCDate(1);
+            monthStart.setUTCHours(0, 0, 0, 0);
+            const { count } = await supabaseAdmin
+              .from("rides")
+              .select("id", { count: "exact", head: true })
+              .eq("rider_id", ride.rider_id)
+              .eq("payment_method", "wallet")
+              .eq("status", "completed")
+              .gte("completed_at", monthStart.toISOString())
+              .then((res) => res, () => ({ count: 0 }));
+            if ((count ?? 0) < 6) {
+              discountPct = 15;
+            }
+          }
+        }
+
+        if (discountPct) {
+          riderDiscountCents = Math.floor(effectiveFare * discountPct / 100);
+        }
+      }
+    }
 
     // ── PLATFORM + RESERVE RATES FROM CONFIG ──────────────────────────────────
     // Business-plan split 82/15/3. Admin can change without redeploy.
@@ -299,7 +445,12 @@ serve(async (req: Request) => {
     if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
       const { data: walletSuccess, error: payError } = await supabaseAdmin.rpc(
         "process_wallet_payment_hardened",
-        { p_ride_id: ride_id, p_amount: effectiveFare, p_idempotency_key: `complete_ride_${ride_id}` }
+        {
+          p_ride_id: ride_id,
+          p_amount: effectiveFare,
+          p_idempotency_key: `complete_ride_${ride_id}`,
+          p_discount_cents: riderDiscountCents,
+        }
       );
 
       if (payError || !walletSuccess) {
