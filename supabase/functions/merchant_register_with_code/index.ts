@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (merchantError) {
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id).maybeSingle()
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
       throw merchantError
     }
 
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
 
     if (profileError) {
       await supabaseAdmin.from('merchants').delete().eq('id', merchant.id).maybeSingle()
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id).maybeSingle()
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
       throw profileError
     }
 
