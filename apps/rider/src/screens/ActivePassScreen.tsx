@@ -344,6 +344,8 @@ const LegRow: React.FC<{ leg: ItineraryLeg; isLast: boolean }> = ({ leg, isLast 
     TT_AIRPORT_TRANSFER: 'Home → Piarco Airport',
     DEST_VILLA_TRANSFER: 'Airport → Villa',
     VILLA_STAY:          'Villa stay',
+    RETURN_AIRPORT_TRANSFER: 'Villa → Airport',
+    RETURN_HOME_TRANSFER:    'Airport → Home',
   };
 
   const label = leg.reference_code
