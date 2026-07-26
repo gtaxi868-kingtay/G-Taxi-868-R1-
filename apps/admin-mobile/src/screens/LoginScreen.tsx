@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { RainLogin, CrystalInput, CrystalButton } from '@gtaxi/design-system-native';
 
-export function LoginScreen() {
+type AuthStackParamList = { Login: undefined; Signup: undefined };
+type LoginNavProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
+
+export function LoginScreen({ navigation }: { navigation: LoginNavProp }) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,8 +38,16 @@ export function LoginScreen() {
       <RainLogin
         voice="admin"
         logoSource={require('../../assets/logo.png')}
+        title="G-TAXI 868"
         subtitle="Command Terminal"
-        footer={<Text style={s.version}>v1.0.0 · Private APK</Text>}
+        footer={
+          <>
+            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+              <Text style={s.link}>Don't have an account? Create one</Text>
+            </TouchableOpacity>
+            <Text style={s.version}>v1.0.0 · Private APK</Text>
+          </>
+        }
       >
         <CrystalInput
           label="Admin Email"
@@ -80,5 +92,6 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255,77,77,0.15)',
   },
   errorText: { color: '#FF6B6B', fontSize: 12, flex: 1 },
-  version: { fontSize: 10, color: 'rgba(234,243,246,0.25)', letterSpacing: 1 },
+  version: { fontSize: 10, color: 'rgba(234,243,246,0.25)', letterSpacing: 1, marginTop: 8 },
+  link: { color: 'rgba(234,243,246,0.4)', fontSize: 12, fontWeight: '600', textAlign: 'center' },
 });

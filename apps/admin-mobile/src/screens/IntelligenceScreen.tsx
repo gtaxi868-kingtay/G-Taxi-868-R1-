@@ -4,8 +4,12 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '@gtaxi/core';
 import { VOICES } from '@gtaxi/design-system';
+
+type RootStackParamList = { Approvals: undefined };
+type IntelligenceNavProp = NativeStackNavigationProp<RootStackParamList, 'Approvals'>;
 
 const BG = VOICES.admin.bg;
 const ACCENT = VOICES.admin.accent;
@@ -20,7 +24,7 @@ const GREETING =
   "I'm G. Ask me anything about the business — money, dispatch, the grid, G-Escape. " +
   "I read the same live numbers as your briefing. If something's worth doing, I'll file it to your approvals inbox for you to decide.";
 
-export function IntelligenceScreen() {
+export function IntelligenceScreen({ navigation }: { navigation: IntelligenceNavProp }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -109,7 +113,9 @@ export function IntelligenceScreen() {
             {filed.map((f) => (
               <Text key={f.id} style={styles.filedItem}>• {f.title}</Text>
             ))}
-            <Text style={styles.filedHint}>Open Approvals to accept or reject — nothing runs until you do.</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Approvals')}>
+              <Text style={[styles.filedHint, styles.filedLink]}>Open Approvals to accept or reject — nothing runs until you do.</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -174,6 +180,7 @@ const styles = StyleSheet.create({
   filedTitle: { color: ACCENT, fontSize: 13, fontWeight: '700', marginBottom: 6 },
   filedItem: { color: '#E7E1FB', fontSize: 13, lineHeight: 19 },
   filedHint: { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 6 },
+  filedLink: { textDecorationLine: 'underline' },
 
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,
