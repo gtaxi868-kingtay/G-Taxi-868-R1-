@@ -482,6 +482,97 @@ serve(async (req) => {
         });
       }
 
+      // ── merchant_promotions: the only creation path in this codebase ────
+      // (until now, only activate_merchant_promo existed, to flip an
+      // already-created row live). Created rows start is_active=false and
+      // file into the existing g_proposed_actions inbox — reusing the
+      // reviewed activate_merchant_promo handler in g_execute_action for
+      // approval, rather than building a second review mechanism.
+      case "create_promotion": {
+        const VALID_TYPES = ["map_pin", "suggested_stop", "search_boost", "home_featured"];
+        const {
+          promotion_type, budget_cents, cost_per_impression_cents, cost_per_tap_cents,
+          start_date, end_date, target_radius_km, target_user_segments,
+        } = body;
+
+        if (!VALID_TYPES.includes(promotion_type)) {
+          return json({ success: false, error: `promotion_type must be one of ${VALID_TYPES.join(", ")}` }, 400);
+        }
+        if (!budget_cents || budget_cents <= 0) return json({ success: false, error: "budget_cents must be > 0" }, 400);
+        if (!start_date || !end_date) return json({ success: false, error: "start_date and end_date required" }, 400);
+        if (new Date(end_date) <= new Date(start_date)) return json({ success: false, error: "end_date must be after start_date" }, 400);
+
+        const { data: merchant, error: merchantError } = await supabase
+          .from("merchants").select("id, name").eq("created_by", user.id).maybeSingle();
+        if (merchantError || !merchant) return json({ success: false, error: "Not a registered merchant" }, 403);
+
+        const { data: promo, error: promoError } = await supabase
+          .from("merchant_promotions")
+          .insert({
+            merchant_id: merchant.id,
+            promotion_type,
+            budget_cents,
+            cost_per_impression_cents: cost_per_impression_cents ?? 50,
+            cost_per_tap_cents: cost_per_tap_cents ?? 200,
+            start_date, end_date,
+            target_radius_km: target_radius_km ?? 3,
+            target_user_segments: target_user_segments ?? [],
+            is_active: false,
+          })
+          .select()
+          .single();
+        if (promoError) return json({ success: false, error: promoError.message }, 500);
+
+        await supabase.from("g_proposed_actions").insert({
+          department: "finance",
+          action_type: "activate_merchant_promo",
+          category: "money",
+          amount_cents: budget_cents,
+          title: `New promo: ${merchant.name} — ${promotion_type.replace("_", " ")}`,
+          reasoning: `Merchant-created promotion. Budget ${(budget_cents / 100).toFixed(2)} TTD, ${start_date} to ${end_date}, ${cost_per_impression_cents ?? 50}¢/impression.`,
+          payload: { promotion_id: promo.id },
+        });
+
+        return json({ success: true, promotion: promo, pending_approval: true });
+      }
+
+      case "list_promotions": {
+        const { data: merchant, error: merchantError } = await supabase
+          .from("merchants").select("id").eq("created_by", user.id).maybeSingle();
+        if (merchantError || !merchant) return json({ success: false, error: "Not a registered merchant" }, 403);
+
+        const { data: promotions, error } = await supabase
+          .from("merchant_promotions")
+          .select("*")
+          .eq("merchant_id", merchant.id)
+          .order("created_at", { ascending: false });
+        if (error) return json({ success: false, error: error.message }, 500);
+
+        return json({ success: true, promotions: promotions ?? [] });
+      }
+
+      case "pause_promotion": {
+        const { promotion_id } = body;
+        if (!promotion_id) return json({ success: false, error: "promotion_id required" }, 400);
+
+        const { data: merchant, error: merchantError } = await supabase
+          .from("merchants").select("id").eq("created_by", user.id).maybeSingle();
+        if (merchantError || !merchant) return json({ success: false, error: "Not a registered merchant" }, 403);
+
+        // A merchant can always stop their own spend without approval —
+        // only turning ON a promo needs review.
+        const { data: promo, error } = await supabase
+          .from("merchant_promotions")
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq("id", promotion_id)
+          .eq("merchant_id", merchant.id)
+          .select()
+          .single();
+        if (error) return json({ success: false, error: error.message }, 500);
+
+        return json({ success: true, promotion: promo });
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }

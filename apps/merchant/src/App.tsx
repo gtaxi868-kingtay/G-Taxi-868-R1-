@@ -3,15 +3,16 @@ import { supabase } from './lib/supabase';
 import { 
   Package, MapPin, CheckCircle, Clock, AlertTriangle, LogOut, 
   Sparkles, Bell, ShieldCheck, Users, DollarSign, Scan,
-  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X
+  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X, Megaphone
 } from 'lucide-react';
 import { MerchantFinancials } from './pages/MerchantFinancials';
+import { MerchantPromotions } from './pages/MerchantPromotions';
 import { MerchantLogin } from './pages/MerchantLogin';
 import { MerchantRegister } from './pages/MerchantRegister';
 import { MerchantJoinWithCode } from './pages/MerchantJoinWithCode';
 
 type MerchantMode = 'HOTEL' | 'RETAIL' | 'SERVICE' | 'AIRPORT';
-type MerchantView = 'dashboard' | 'appointments' | 'financials';
+type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions';
 
 function App() {
   const [view, setView] = useState<'login' | 'register' | 'join' | 'app'>('login');
@@ -168,6 +169,7 @@ function App() {
               <MerchantNavItem active={activeTab === 'dashboard'} onClick={() => handleNav('dashboard')} icon={<Package size={20}/>} label="Live Manifests" />
               <MerchantNavItem active={activeTab === 'appointments'} onClick={() => handleNav('appointments')} icon={<Clock size={20}/>} label="Guest Schedule" />
               <MerchantNavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Audit" />
+              <MerchantNavItem active={activeTab === 'promotions'} onClick={() => handleNav('promotions')} icon={<Megaphone size={20}/>} label="Promotions" />
           </nav>
 
           <div className="mt-auto space-y-4">
@@ -273,6 +275,7 @@ function App() {
               )}
 
               {activeTab === 'financials' && <MerchantFinancials merchantId={merchant?.id} />}
+              {activeTab === 'promotions' && <MerchantPromotions merchantId={merchant?.id} />}
           </div>
 
           {showDispatch && (
