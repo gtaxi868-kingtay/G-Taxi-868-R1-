@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS public.g_spot_redeem_codes (
 
 CREATE INDEX IF NOT EXISTS idx_g_spot_redeem_codes_membership ON public.g_spot_redeem_codes(membership_id);
 CREATE INDEX IF NOT EXISTS idx_g_spot_redeem_codes_code ON public.g_spot_redeem_codes(code);
+CREATE INDEX IF NOT EXISTS idx_g_spot_redeem_codes_redeemed_by ON public.g_spot_redeem_codes(redeemed_by);
 
 ALTER TABLE public.g_spot_redeem_codes ENABLE ROW LEVEL SECURITY;
 
