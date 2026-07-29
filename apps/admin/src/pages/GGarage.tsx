@@ -27,7 +27,7 @@ interface GarageRequestRow {
   status: string;
   created_at: string;
   driver: { id: string; name: string; plate_number: string; registration_class: string; rank: string } | null;
-  vehicle_class: { key: string; label: string; category: string } | null;
+  vehicle_class: { key: string; label: string; category: string; landed_cost_cents: number | null; cost_source: string | null } | null;
 }
 
 function fmtTTD(cents: number) {
@@ -280,6 +280,23 @@ export function GGarage() {
                     <p className="text-white/70 font-bold">{r.h_registration_opt_in ? 'Yes' : 'No'}</p>
                   </div>
                 </div>
+
+                {r.vehicle_class?.landed_cost_cents != null ? (
+                  <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3 mb-4 text-xs">
+                    <p className="text-[9px] text-cyan-400/60 uppercase font-black mb-1">Real payback estimate</p>
+                    <p className="text-white/70 font-bold">
+                      {fmtTTD(r.vehicle_class.landed_cost_cents)} landed cost ÷ {fmtTTD(r.requested_daily_contribution_cents)}/day ={' '}
+                      {Math.round(r.vehicle_class.landed_cost_cents / r.requested_daily_contribution_cents)} days from this driver's own contribution alone
+                      ({(r.vehicle_class.landed_cost_cents / r.requested_daily_contribution_cents / 30).toFixed(1)} months)
+                    </p>
+                    <p className="text-[9px] text-white/30 mt-1">Cost source: {r.vehicle_class.cost_source}</p>
+                  </div>
+                ) : (
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 mb-4 text-xs">
+                    <p className="text-amber-400 font-bold">No real landed cost on file for "{r.vehicle_class?.label}"</p>
+                    <p className="text-white/40 text-[10px] mt-1">Enter a real quote in Pricing → Vehicle Classes before approving — otherwise this is a blind approval.</p>
+                  </div>
+                )}
 
                 {r.status === 'pending' && (
                   <div className="flex gap-3">

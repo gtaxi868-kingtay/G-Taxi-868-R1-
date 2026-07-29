@@ -1329,7 +1329,7 @@ Deno.serve(async (req) => {
       case 'get_garage_requests': {
         const { data, error } = await supabaseAdmin
           .from('g_garage_requests')
-          .select('*, driver:driver_id(id, name, plate_number, registration_class, rank), vehicle_class:vehicle_class_key(key, label, category)')
+          .select('*, driver:driver_id(id, name, plate_number, registration_class, rank), vehicle_class:vehicle_class_key(key, label, category, landed_cost_cents, cost_source)')
           .order('created_at', { ascending: false })
         if (error) throw error
         return json({ success: true, requests: data })

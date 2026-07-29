@@ -20,6 +20,10 @@ interface VehicleClass {
     is_active: boolean;
     sort_order: number;
     min_fare_cents: number | null;
+    landed_cost_cents: number | null;
+    cost_source: string | null;
+    cost_updated_at: string | null;
+    cost_notes: string | null;
 }
 
 interface SurgeZone {
@@ -157,7 +161,7 @@ export function Pricing() {
 
     // ── Vehicle classes state ─────────────────────────────────────────────────
     const [vehicleClasses, setVehicleClasses] = useState<VehicleClass[]>([]);
-    const [vcEditing, setVcEditing] = useState<Record<string, { multiplier?: string; minFare?: string }>>({});
+    const [vcEditing, setVcEditing] = useState<Record<string, { multiplier?: string; minFare?: string; landedCost?: string; costSource?: string }>>({});
     const [vcBusy, setVcBusy] = useState<string | null>(null);
 
     // ── Shared toast ──────────────────────────────────────────────────────────
@@ -423,6 +427,20 @@ export function Pricing() {
             }
             if (f !== null) params.p_min_fare_cents = f;
         }
+        if (edit.landedCost !== undefined && edit.landedCost !== '') {
+            const c = ttdToCents(edit.landedCost);
+            if (isNaN(c) || c < 0) {
+                flash(`Invalid landed cost for ${vc.label}`, false);
+                return;
+            }
+            const source = (edit.costSource ?? vc.cost_source ?? '').trim();
+            if (!source) {
+                flash(`A source is required for ${vc.label}'s landed cost — where did this number come from?`, false);
+                return;
+            }
+            params.p_landed_cost_cents = c;
+            params.p_cost_source = source;
+        }
 
         setVcBusy(vc.key);
         const { error } = await supabase.rpc('admin_set_vehicle_class', params);
@@ -614,7 +632,9 @@ export function Pricing() {
                         const edit = vcEditing[vc.key] ?? {};
                         const multVal = edit.multiplier ?? (vc.multiplier_x100 / 100).toFixed(2);
                         const minFareVal = edit.minFare ?? (vc.min_fare_cents != null ? centsToTTD(vc.min_fare_cents) : '');
-                        const isDirtyVc = edit.multiplier !== undefined || edit.minFare !== undefined;
+                        const landedCostVal = edit.landedCost ?? (vc.landed_cost_cents != null ? centsToTTD(vc.landed_cost_cents) : '');
+                        const costSourceVal = edit.costSource ?? vc.cost_source ?? '';
+                        const isDirtyVc = edit.multiplier !== undefined || edit.minFare !== undefined || edit.landedCost !== undefined || edit.costSource !== undefined;
                         const busy = vcBusy === vc.key;
 
                         return (
@@ -683,6 +703,41 @@ export function Pricing() {
                                             className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white font-mono text-sm font-bold placeholder:text-white/20 focus:outline-none focus:border-green-400/50"
                                         />
                                     </div>
+                                </div>
+
+                                <div className="mt-3 pt-3 border-t border-white/5">
+                                    <label className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">
+                                        Real Landed Cost (TTD) — this is what G Garage payback math is missing without it
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number" min="0" step="1" placeholder="No real quote entered yet"
+                                            value={landedCostVal}
+                                            onChange={e =>
+                                                setVcEditing(prev => ({
+                                                    ...prev,
+                                                    [vc.key]: { ...prev[vc.key], landedCost: e.target.value },
+                                                }))
+                                            }
+                                            className="w-1/2 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white font-mono text-sm font-bold placeholder:text-white/20 focus:outline-none focus:border-cyan-400/50"
+                                        />
+                                        <input
+                                            type="text" placeholder="Source (required), e.g. ATL Automotive quote 2026-08-01"
+                                            value={costSourceVal}
+                                            onChange={e =>
+                                                setVcEditing(prev => ({
+                                                    ...prev,
+                                                    [vc.key]: { ...prev[vc.key], costSource: e.target.value },
+                                                }))
+                                            }
+                                            className="w-1/2 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-xs placeholder:text-white/20 focus:outline-none focus:border-cyan-400/50"
+                                        />
+                                    </div>
+                                    {vc.landed_cost_cents != null && (
+                                        <p className="text-[9px] text-white/20 mt-1">
+                                            {vc.cost_source} — entered {vc.cost_updated_at ? new Date(vc.cost_updated_at).toLocaleDateString() : ''}
+                                        </p>
+                                    )}
                                 </div>
 
                                 {isDirtyVc && (
