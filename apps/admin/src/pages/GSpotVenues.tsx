@@ -12,6 +12,13 @@ interface Venue {
   status: 'candidate' | 'active' | 'closed';
   zone_analysis_notes: string | null;
   created_at: string;
+  merchant_id: string | null;
+  merchant: { id: string; name: string } | null;
+}
+
+interface UnassignedMerchant {
+  id: string;
+  name: string;
 }
 
 function fmtTTD(cents: number | null) {
@@ -34,6 +41,7 @@ const emptyForm = {
   drink_subsidy_cap_cents: 8400, // $84/mo cap — the plan's computed drink-subsidy ceiling; editable
   status: 'candidate' as Venue['status'],
   zone_analysis_notes: '',
+  merchant_id: '' as string,
 };
 
 export function GSpotVenues() {
@@ -42,12 +50,17 @@ export function GSpotVenues() {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [unassignedMerchants, setUnassignedMerchants] = useState<UnassignedMerchant[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await adminFetch('admin', { action: 'get_g_spot_venues' });
-      if (res?.success) setVenues(res.venues || []);
+      const [venuesRes, merchantsRes] = await Promise.all([
+        adminFetch('admin', { action: 'get_g_spot_venues' }),
+        adminFetch('admin', { action: 'get_unassigned_merchants' }),
+      ]);
+      if (venuesRes?.success) setVenues(venuesRes.venues || []);
+      if (merchantsRes?.success) setUnassignedMerchants(merchantsRes.merchants || []);
     } finally {
       setLoading(false);
     }
@@ -93,6 +106,7 @@ export function GSpotVenues() {
       membership_price_cents: v.membership_price_cents ?? 0,
       drink_subsidy_cap_cents: v.drink_subsidy_cap_cents,
       status: v.status, zone_analysis_notes: v.zone_analysis_notes ?? '',
+      merchant_id: v.merchant_id ?? '',
     } : emptyForm);
     setShowForm(true);
   };
@@ -115,6 +129,7 @@ export function GSpotVenues() {
           drink_subsidy_cap_cents: form.drink_subsidy_cap_cents,
           status: form.status,
           zone_analysis_notes: form.zone_analysis_notes.trim() || null,
+          merchant_id: form.merchant_id || null,
         },
       });
       if (!res?.success) throw new Error(res?.error || 'Save failed');
@@ -183,6 +198,13 @@ export function GSpotVenues() {
                 </div>
                 <span className={`px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${STATUS_BADGE[v.status]}`}>{v.status}</span>
               </div>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-3">
+                {v.merchant ? (
+                  <span className="text-cyan-400">Owner: {v.merchant.name}</span>
+                ) : (
+                  <span className="text-amber-400">No merchant owner — redeem only via admin</span>
+                )}
+              </p>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div className="bg-white/5 rounded-lg p-2.5">
                   <p className="text-[9px] text-white/20 uppercase font-black mb-1">Rent/mo</p>
@@ -248,6 +270,15 @@ export function GSpotVenues() {
                   <option value="active">Active</option>
                   <option value="closed">Closed</option>
                 </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Owning merchant (redeems codes from their own app)</label>
+                <select value={form.merchant_id} onChange={(e) => setForm({ ...form, merchant_id: e.target.value })}
+                  className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm">
+                  <option value="">— None (admin redeems only) —</option>
+                  {unassignedMerchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+                <p className="text-[10px] text-white/30 mt-1">Only merchants without another venue already assigned appear here.</p>
               </div>
               <div>
                 <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">Zone analysis notes (from G, or your own research)</label>

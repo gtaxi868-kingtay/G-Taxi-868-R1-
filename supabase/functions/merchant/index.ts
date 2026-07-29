@@ -573,6 +573,48 @@ serve(async (req) => {
         return json({ success: true, promotion: promo });
       }
 
+      // ── G Spot venue ownership: the venue owner's own app, not admin ────
+      // Redemption used to be admin-only because g_spot_venues had no
+      // real merchant link at all. Now that it does, the venue's actual
+      // owner redeems from the same merchant app they already use for
+      // everything else — admin keeps the same capability as a fallback,
+      // not the only door.
+      case "get_my_g_spot_venue": {
+        const { data: merchant, error: merchantError } = await supabase
+          .from("merchants").select("id").eq("created_by", user.id).maybeSingle();
+        if (merchantError || !merchant) return json({ success: false, error: "Not a registered merchant" }, 403);
+
+        const { data: venue, error } = await supabase
+          .from("g_spot_venues")
+          .select("id, name, address, membership_price_cents, drink_subsidy_cap_cents, status")
+          .eq("merchant_id", merchant.id)
+          .maybeSingle();
+        if (error) return json({ success: false, error: error.message }, 500);
+        if (!venue) return json({ success: true, venue: null });
+
+        const { count: activeMembers } = await supabase
+          .from("g_spot_memberships")
+          .select("id", { count: "exact", head: true })
+          .eq("venue_id", venue.id)
+          .eq("status", "active");
+
+        return json({ success: true, venue: { ...venue, active_members: activeMembers ?? 0 } });
+      }
+
+      case "redeem_g_spot_code": {
+        const { code, discount_cents } = body;
+        if (!code || discount_cents === undefined) {
+          return json({ success: false, error: "code and discount_cents required" }, 400);
+        }
+        const { data, error } = await supabase.rpc("merchant_redeem_g_spot_code", {
+          p_code: code,
+          p_discount_cents: discount_cents,
+          p_merchant_user_id: user.id,
+        });
+        if (error) return json({ success: false, error: error.message }, 400);
+        return json({ success: true, result: data });
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }

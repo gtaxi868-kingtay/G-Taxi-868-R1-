@@ -1355,7 +1355,7 @@ Deno.serve(async (req) => {
       case 'get_g_spot_venues': {
         const { data, error } = await supabaseAdmin
           .from('g_spot_venues')
-          .select('*')
+          .select('*, merchant:merchant_id(id, name)')
           .order('created_at', { ascending: false })
         if (error) throw error
         return json({ success: true, venues: data })
@@ -1378,6 +1378,7 @@ Deno.serve(async (req) => {
               drink_subsidy_cap_cents: venue.drink_subsidy_cap_cents ?? 8400,
               status: venue.status || 'candidate',
               zone_analysis_notes: venue.zone_analysis_notes ?? null,
+              merchant_id: venue.merchant_id ?? null,
               updated_at: new Date().toISOString(),
             })
             .eq('id', venue.id)
@@ -1397,11 +1398,26 @@ Deno.serve(async (req) => {
             drink_subsidy_cap_cents: venue.drink_subsidy_cap_cents ?? 8400,
             status: venue.status || 'candidate',
             zone_analysis_notes: venue.zone_analysis_notes ?? null,
+            merchant_id: venue.merchant_id ?? null,
           })
           .select()
           .single()
         if (error) throw error
         return json({ success: true, venue: data })
+      }
+
+      // Admin picks a real registered merchant to own a venue — the
+      // venue owner then redeems codes from their own merchant app,
+      // not admin. Only lists merchants NOT already owning a venue,
+      // so the picker can't accidentally double-assign one.
+      case 'get_unassigned_merchants': {
+        const { data: assigned } = await supabaseAdmin.from('g_spot_venues').select('merchant_id').not('merchant_id', 'is', null)
+        const assignedIds = (assigned || []).map((v: any) => v.merchant_id)
+        let query = supabaseAdmin.from('merchants').select('id, name').eq('is_active', true)
+        if (assignedIds.length > 0) query = query.not('id', 'in', `(${assignedIds.join(',')})`)
+        const { data, error } = await query.order('name')
+        if (error) throw error
+        return json({ success: true, merchants: data ?? [] })
       }
 
       case 'redeem_g_spot_code': {
