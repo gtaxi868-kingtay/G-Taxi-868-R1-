@@ -193,6 +193,7 @@ export type AppStackParamList = {
   TravelMyBookings: undefined;
   TravelWaitlist: undefined;
   Subscription: undefined;
+  GSpot: undefined;
   Referral: undefined;
   FoodDelivery: undefined;
   EscapeStorefront: { packageId?: string } | undefined;

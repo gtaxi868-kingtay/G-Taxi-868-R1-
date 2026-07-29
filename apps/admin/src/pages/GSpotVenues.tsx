@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminFetch } from '../lib/supabase';
-import { MapPin, Loader2, Plus, X, RefreshCw, Wine } from 'lucide-react';
+import { MapPin, Loader2, Plus, X, RefreshCw, Wine, QrCode } from 'lucide-react';
 
 interface Venue {
   id: string;
@@ -54,6 +54,37 @@ export function GSpotVenues() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeemAmount, setRedeemAmount] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [redeemResult, setRedeemResult] = useState<string | null>(null);
+
+  // No venue-staff app exists yet — until one does, this admin panel is
+  // the only real "front desk" this system has. Whoever's at the door
+  // enters the rider's code + the drink discount amount here; the real
+  // hard-cap logic (g_spot_redeem_drink_subsidy) runs underneath either way.
+  const redeemAtDoor = async () => {
+    const cents = Math.round(parseFloat(redeemAmount) * 100);
+    if (!redeemCode.trim() || !cents || cents < 0) {
+      alert('Enter the rider\'s code and a discount amount in TTD');
+      return;
+    }
+    setRedeeming(true);
+    setRedeemResult(null);
+    try {
+      const res = await adminFetch('admin', { action: 'redeem_g_spot_code', code: redeemCode.trim(), discount_cents: cents });
+      if (!res?.success) throw new Error(res?.error || 'Redemption failed');
+      const { drink_subsidy_used_cents, drink_subsidy_cap_cents } = res.result;
+      setRedeemResult(`Applied. Used ${fmtTTD(drink_subsidy_used_cents)} of ${fmtTTD(drink_subsidy_cap_cents)} this cycle.`);
+      setRedeemCode('');
+      setRedeemAmount('');
+    } catch (err: any) {
+      setRedeemResult(err.message || 'Redemption failed');
+    } finally {
+      setRedeeming(false);
+    }
+  };
 
   const openEdit = (v?: Venue) => {
     setForm(v ? {
@@ -111,6 +142,26 @@ export function GSpotVenues() {
             <Plus size={16} /> New Venue
           </button>
         </div>
+      </div>
+
+      <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.02] p-6">
+        <div className="flex items-center gap-2 text-white/50 text-xs font-black uppercase tracking-widest mb-4">
+          <QrCode size={14} /> Redeem at the door
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <input value={redeemCode} onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-mono uppercase"
+            placeholder="RIDER CODE" maxLength={6} />
+          <input value={redeemAmount} onChange={(e) => setRedeemAmount(e.target.value)}
+            type="number" step="0.01"
+            className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm"
+            placeholder="Discount amount (TTD)" />
+          <button onClick={redeemAtDoor} disabled={redeeming}
+            className="btn-press h-12 rounded-xl bg-cyan-500 text-black font-black text-xs uppercase tracking-widest hover:bg-cyan-400 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+            {redeeming ? <Loader2 size={16} className="animate-spin" /> : null} Redeem
+          </button>
+        </div>
+        {redeemResult && <p className="text-xs text-white/50 mt-3">{redeemResult}</p>}
       </div>
 
       {loading ? (

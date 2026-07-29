@@ -1404,6 +1404,20 @@ Deno.serve(async (req) => {
         return json({ success: true, venue: data })
       }
 
+      case 'redeem_g_spot_code': {
+        const { code, discount_cents } = body
+        if (!code || discount_cents === undefined) {
+          return json({ success: false, error: 'code and discount_cents required' }, 400)
+        }
+        const { data, error } = await supabaseAdmin.rpc('admin_redeem_g_spot_code', {
+          p_code: code,
+          p_discount_cents: discount_cents,
+          p_redeemer_id: user.id,
+        })
+        if (error) return json({ success: false, error: error.message }, 400)
+        return json({ success: true, result: data })
+      }
+
       default:
         return json({ success: false, error: `Unknown action: ${action}` }, 400)
     }
