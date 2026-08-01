@@ -453,11 +453,34 @@ serve(async (req: Request) => {
         }
       );
 
-      if (payError || !walletSuccess) {
-        console.error("Wallet payment failed:", payError);
+      // process_wallet_payment_hardened RETURNS TABLE(...), so PostgREST
+      // hands back an ARRAY of rows. `!walletSuccess` was therefore false
+      // even for a declined payment — a non-empty array is truthy — which
+      // would have marked the ride paid while no money moved. The verdict
+      // lives in the row's `success` field and nowhere else.
+      const walletRow = Array.isArray(walletSuccess) ? walletSuccess[0] : walletSuccess;
+
+      if (payError || walletRow?.success !== true) {
+        // Report the REAL reason. Previously this always claimed
+        // "Insufficient wallet funds", which sent people debugging
+        // balances when the actual cause was a bad function signature.
+        const reason =
+          payError?.message ??
+          walletRow?.error_message ??
+          "Wallet payment could not be completed";
+
+        console.error("Wallet payment failed:", { ride_id, reason, payError, walletRow });
+
+        // 409 for "retry won't help / state conflict", 402 only when the
+        // rider genuinely has to top up.
+        const isFunds = typeof reason === "string" && reason.toLowerCase().includes("insufficient");
         return new Response(
-          JSON.stringify({ success: false, error: "Payment failed: Insufficient wallet funds", data: { required: effectiveFare } }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            success: false,
+            error: isFunds ? `Payment failed: ${reason}` : `Payment failed: ${reason}`,
+            data: { required: effectiveFare, retryable: !isFunds },
+          }),
+          { status: isFunds ? 402 : 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     } else if (ride.payment_method === "cash") {
