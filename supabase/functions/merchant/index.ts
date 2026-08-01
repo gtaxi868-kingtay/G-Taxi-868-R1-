@@ -394,7 +394,7 @@ serve(async (req) => {
         const { data: pricingRows } = await supabase
           .from("pricing_config")
           .select("key, value_cents")
-          .catch(() => ({ data: null }));
+          .then((__r) => __r, () => ({ data: null }));
         const pcfg: Record<string, number> = {};
         if (pricingRows) for (const r of pricingRows) pcfg[r.key] = r.value_cents;
         const pricing = {
@@ -473,7 +473,7 @@ serve(async (req) => {
           user_id: user.id,
           event_type: "concierge_dispatch",
           payload: { ride_id: newRide.id, guest_name },
-        }).catch(() => {});
+        }).then((__r) => __r, () => {});
 
         return json({
           success: true, ride_id: newRide.id,

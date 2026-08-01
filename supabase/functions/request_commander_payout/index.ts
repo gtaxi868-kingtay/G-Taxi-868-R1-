@@ -78,7 +78,7 @@ Deno.serve(async (req: Request) => {
     // Calculate accrued balance from commander_revshare_ledger
     const { data: balanceResult } = await supabase
       .rpc("get_commander_revshare_balance", { p_commander_id: commander.id })
-      .catch(() => ({ data: 0 }));
+      .then((__r) => __r, () => ({ data: 0 }));
 
     const accruedCents = (balanceResult as number) ?? 0;
 

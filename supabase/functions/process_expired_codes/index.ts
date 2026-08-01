@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
         .select("push_token")
         .eq("id", code.user_id)
         .single()
-        .catch(() => ({ data: null }));
+        .then((__r) => __r, () => ({ data: null }));
 
       if (profile?.push_token) {
         try {

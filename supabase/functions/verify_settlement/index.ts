@@ -100,7 +100,7 @@ serve(async (req: Request) => {
         p_amount_cents: settlement.amount_cents,
         p_type: "cash_settlement",
         p_description: `Conditional credit (30min grace) — ${settlement.method} (${settlement.reference_token || "no ref"})`,
-      }).catch(() => {});
+      }).then((__r) => __r, () => {});
 
       return new Response(
         JSON.stringify({

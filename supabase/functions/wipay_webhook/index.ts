@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
         .from("payout_requests")
         .update({ status: "completed", processed_at: new Date().toISOString() })
         .eq("id", payout.payout_request_id)
-        .catch(() => {});
+        .then((__r) => __r, () => {});
 
       console.log("[WiPay Webhook] Payout completed:", { payout_id: payout.id, transaction_id: txnId });
       return serveHtml("Payout Successful", "Driver payout has been sent to their bank account.", "success");
@@ -123,7 +123,7 @@ Deno.serve(async (req: Request) => {
 
     if (status === "cancelled" || status === "failed" || errorMsg) {
       await supabaseAdmin.rpc("release_single_reservation", { p_reservation_id: reservationId })
-        .catch(() => {});
+        .then((__r) => __r, () => {});
 
       if (session) {
         await supabaseAdmin
@@ -188,7 +188,7 @@ Deno.serve(async (req: Request) => {
         .update({ status: "completed", resolved_at: new Date().toISOString() })
         .eq("order_id", orderId)
         .eq("status", "pending_resolution")
-        .catch(() => {});
+        .then((__r) => __r, () => {});
     }
 
     console.log("[WiPay Webhook] Payment captured:", { ride_id: rideId, transaction_id: txnId });
@@ -220,7 +220,7 @@ Deno.serve(async (req: Request) => {
         pending_since: new Date().toISOString(),
       })
       .eq("id", session.id)
-      .catch((err) => console.error("[WiPay Webhook] Failed to mark pending resolution:", err));
+      .then((__r) => __r, (err) => console.error("[WiPay Webhook] Failed to mark pending resolution:", err));
   }
 
   console.log("[WiPay Webhook] Payment pending — queued for resolution sweep:", { order_id: orderId, status });

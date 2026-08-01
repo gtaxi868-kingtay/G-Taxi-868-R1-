@@ -76,14 +76,14 @@ Deno.serve(async (req: Request) => {
           remaining_cents: lease.total_lease_cents - lease.paid_to_date_cents,
         },
         severity: "HIGH",
-      }).catch(() => null);
+      }).then((__r) => __r, () => null);
 
       // Block driver from going online
       await supabase
         .from("drivers")
         .update({ is_online: false, status: "suspended" })
         .eq("id", lease.driver_id)
-        .catch(() => null);
+        .then((__r) => __r, () => null);
 
       defaulted++;
     }
@@ -108,9 +108,9 @@ Deno.serve(async (req: Request) => {
       const { data: profile } = await supabase
         .from("profiles")
         .select("push_token")
-        .eq("id", (await supabase.from("drivers").select("user_id").eq("id", driver.id).single().catch(() => ({ data: null })))?.data?.user_id)
+        .eq("id", (await supabase.from("drivers").select("user_id").eq("id", driver.id).single().then((__r) => __r, () => ({ data: null })))?.data?.user_id)
         .single()
-        .catch(() => ({ data: null }));
+        .then((__r) => __r, () => ({ data: null }));
 
       if (profile?.push_token) {
         try {
@@ -151,7 +151,7 @@ Deno.serve(async (req: Request) => {
             ignition_cutoff_enabled: true,
           })
           .eq("id", dl.fleet_vehicle_id)
-          .catch(() => null);
+          .then((__r) => __r, () => null);
 
         await supabase
           .from("driver_leases")

@@ -63,7 +63,7 @@ serve(async (req: Request) => {
           p_lng: lng,
           p_radius_meters: searchRadiusMeters,
           p_limit: 1
-        }).catch(() => ({ data: [] }));
+        }).then((__r) => __r, () => ({ data: [] }));
 
         if (!drivers || drivers.length === 0) {
           await supabaseAdmin

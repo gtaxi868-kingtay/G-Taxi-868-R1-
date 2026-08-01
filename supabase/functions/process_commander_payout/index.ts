@@ -78,7 +78,7 @@ Deno.serve(async (req: Request) => {
       .select("user_id")
       .eq("id", payout.commander_id)
       .single()
-      .catch(() => ({ data: null }));
+      .then((__r) => __r, () => ({ data: null }));
 
     if (commander?.user_id) {
       const { error: walletError } = await supabase
@@ -89,7 +89,7 @@ Deno.serve(async (req: Request) => {
           p_description: `Commander revshare payout #${payout.id}`,
           p_reference_id: payout.id,
         })
-        .catch(() => ({ error: new Error("credit_wallet RPC not available") }));
+        .then((__r) => __r, () => ({ error: new Error("credit_wallet RPC not available") }));
 
       if (walletError) {
         console.error(`[process_commander_payout] Wallet credit failed for ${payout.id}:`, walletError);
@@ -105,7 +105,7 @@ Deno.serve(async (req: Request) => {
         processed_at: new Date().toISOString(),
       })
       .eq("id", payout.id)
-      .catch((err) => console.error(`[process_commander_payout] Final status update failed for ${payout.id}:`, err));
+      .then((__r) => __r, (err) => console.error(`[process_commander_payout] Final status update failed for ${payout.id}:`, err));
 
     processed++;
   }
