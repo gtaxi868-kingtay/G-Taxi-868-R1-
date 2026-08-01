@@ -1324,6 +1324,67 @@ Deno.serve(async (req) => {
         return json({ success: true, driver: data })
       }
 
+      // ─── DRIVER COMPLIANCE (INSURANCE / DOCUMENT VERIFICATION) ────────────
+      //
+      // These two actions exist because the admin web app previously called
+      // `approve_compliance_document` DIRECTLY from the browser with the
+      // authenticated (anon-role) client. That could never have worked:
+      //   1. the live function signature is
+      //      approve_compliance_document(p_queue_id uuid, p_reviewer_id uuid,
+      //      p_new_expiry timestamptz) — the UI sent p_driver_id /
+      //      p_insurance_expires_at / p_notes, none of which exist, and
+      //   2. 20260708000003_comprehensive_security_hardening.sql REVOKEs
+      //      EXECUTE from anon+authenticated and GRANTs it to service_role
+      //      only (verified against live grants: postgres, service_role).
+      // So driver insurance verification was 100% non-functional. Routing it
+      // through here fixes both halves at once — service_role executes the
+      // RPC, and the reviewer id is the real authenticated admin resolved by
+      // requireAdmin, so `compliance_queue.reviewed_by` finally records who
+      // actually approved a document instead of being left null.
+
+      case 'verify_compliance_document': {
+        const { queue_id, expires_at } = body
+        if (!queue_id) {
+          return json({ success: false, error: 'queue_id required' }, 400)
+        }
+        const { data, error } = await supabaseAdmin.rpc('approve_compliance_document', {
+          p_queue_id: queue_id,
+          p_reviewer_id: user.id,
+          p_new_expiry: expires_at || null,
+        })
+        if (error) throw error
+        // The RPC returns { success, error? } / { success, data } itself —
+        // surface its own verdict rather than claiming success blindly.
+        if (data && data.success === false) {
+          return json({ success: false, error: data.error || 'Verification rejected by database' }, 400)
+        }
+        return json({ success: true, result: data })
+      }
+
+      case 'reject_compliance_document': {
+        const { queue_id, reason } = body
+        if (!queue_id) {
+          return json({ success: false, error: 'queue_id required' }, 400)
+        }
+        const { data, error } = await supabaseAdmin
+          .from('compliance_queue')
+          .update({
+            status: 'rejected',
+            reviewed_by: user.id,
+            reviewed_at: new Date().toISOString(),
+            rejection_reason: reason || null,
+          })
+          .eq('id', queue_id)
+          .eq('status', 'pending')
+          .select('id, driver_id, document_type, status')
+          .maybeSingle()
+        if (error) throw error
+        if (!data) {
+          return json({ success: false, error: 'Document not found or already processed' }, 400)
+        }
+        return json({ success: true, document: data })
+      }
+
       // ─── G GARAGE (DRIVER VEHICLE-SOURCING REQUESTS) ───────────────────────
 
       case 'get_garage_requests': {
