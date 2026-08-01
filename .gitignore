@@ -58,3 +58,6 @@ apps/merchant-mobile/node_modules/
 packages/*/node_modules/
 graphify-out/
 .claude/
+
+# TypeScript incremental build artifacts
+*.tsbuildinfo
