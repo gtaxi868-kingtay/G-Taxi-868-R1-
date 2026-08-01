@@ -1,0 +1,50 @@
+-- ═══════════════════════════════════════════════════════════════════
+-- G-ESCAPE LANE INTEREST: THE MISSING TABLE GRANTS (2026-07-31)
+--
+-- 20260721000000_escape_lane_demand.sql created escape_lane_interest,
+-- enabled RLS, and wrote three correct policies TO authenticated
+-- (eli_insert_own / eli_select_own / eli_delete_own, each scoped to
+-- rider_id = auth.uid()). It then granted SELECT on the *view*
+-- escape_lane_demand — but never granted anything on the base table.
+--
+-- RLS policies only filter among rows the role already holds table
+-- privileges on. With no GRANT, PostgreSQL refuses before RLS is ever
+-- consulted. Live grants confirmed the gap:
+--     authenticated : SELECT
+--     service_role  : ALL
+-- No INSERT. No DELETE.
+--
+-- Real consequence, rider-facing:
+--   * EscapeStorefrontScreen.joinLane()  -> "permission denied for
+--     table escape_lane_interest", surfaced to the rider as a failed
+--     alert. Nobody has ever been able to join the interest list.
+--   * EscapeStorefrontScreen.leaveLane() -> same denial, but that call
+--     site never checks the returned error, so it failed silently and
+--     the row simply stayed.
+--
+-- Knock-on: escape_lane_demand aggregates this table, and the
+-- escape_open_lane proposal in escape_sweep_tipping_points() reads that
+-- view. With zero rows able to exist, the entire airline-lane demand
+-- mechanic could never fire — not because the sweep was wrong, but
+-- because its only input was unreachable.
+--
+-- This grants exactly the three verbs the existing policies already
+-- anticipate, and nothing more. No UPDATE: the original design is
+-- "change of plans = delete + re-add", and there is deliberately no
+-- UPDATE policy.
+--
+-- anon keeps its existing SELECT and is unaffected: there is no anon
+-- policy, so anon still matches zero rows.
+--
+-- Dry-run before applying (rolled back), simulating two real users via
+-- request.jwt.claims + SET LOCAL ROLE authenticated:
+--   user1 joinLane()             -> INSERT SUCCEEDED   (was denied)
+--   user1 sees own row           -> 1
+--   attacker can SEE user1 row   -> 0
+--   attacker can DELETE user1 row-> 0
+--   row survived attack          -> 1
+--   user1 leaveLane()            -> 1                  (was denied)
+-- i.e. the feature starts working and per-rider isolation still holds.
+-- ═══════════════════════════════════════════════════════════════════
+
+GRANT SELECT, INSERT, DELETE ON public.escape_lane_interest TO authenticated;
