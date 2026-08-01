@@ -157,6 +157,35 @@ BEGIN
     SELECT * INTO r FROM public.process_wallet_payment_hardened(rid, 4000, 'x', -999);
     PERFORM pg_temp.assert('negative discount does not crash', r.success IS NOT NULL);
 
+    -- ═══ 5b. THE DOUBLE-CHARGE GUARANTEE IS STRUCTURAL ══════════════
+    -- Two concurrent requests can both clear every status check above.
+    -- What stops the second debit is not the advisory lock — it is this
+    -- UNIQUE constraint. If it is ever dropped, the function's
+    -- unique_violation handler becomes dead code and the race reopens
+    -- with nothing else failing. This assertion is the tripwire.
+    PERFORM pg_temp.assert('unique_wallet_transaction_per_ride still exists',
+        EXISTS (SELECT 1 FROM pg_constraint
+                 WHERE conrelid='public.wallet_transactions'::regclass
+                   AND conname='unique_wallet_transaction_per_ride'),
+        'dropping this silently reopens the double-charge race');
+
+    -- Deterministic proof of the race outcome, no second connection
+    -- needed: plant the winner's debit row WITHOUT updating
+    -- rides.payment_status — the exact interleaving where both callers
+    -- get past the guards — then run the loser.
+    UPDATE public.rides SET payment_status='pending' WHERE id=rid;
+    DELETE FROM public.wallet_transactions WHERE ride_id=rid;
+    INSERT INTO public.wallet_transactions (id,user_id,ride_id,amount,transaction_type,description,status)
+    VALUES (gen_random_uuid(), rider, rid, -4000, 'ride_payment', 'race winner', 'completed');
+
+    SELECT * INTO r FROM public.process_wallet_payment_hardened(rid, 4000, 'loser', 0);
+    SELECT count(*) INTO n FROM public.wallet_transactions
+     WHERE ride_id=rid AND transaction_type='ride_payment';
+    PERFORM pg_temp.assert('race loser gets a converging success (not an error)', r.success,
+        COALESCE(r.error_message,''));
+    PERFORM pg_temp.assert('race leaves exactly one debit row', n = 1,
+        format('%s ride_payment rows', n));
+
     -- ═══ 6. SIGNATURE / OVERLOAD REGRESSION ══════════════════════════
     -- Exactly one overload. Three of them made every wallet ride fail.
     SELECT count(*) INTO n FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace

@@ -53,7 +53,19 @@
 -- these is exercised by the harness in supabase/tests/:
 --   * impatient double-tap, same instant  -> pg_try_advisory_xact_lock
 --     on the ride returns "being processed by another request" rather
---     than attempting a second debit
+--     than attempting a second debit.
+--     IMPORTANT: that lock is an OPTIMISATION, not the guarantee. The
+--     guarantee is the UNIQUE constraint
+--     unique_wallet_transaction_per_ride (user_id, ride_id,
+--     transaction_type) on wallet_transactions. Even if two requests
+--     both clear every status check, the second INSERT is rejected by
+--     the database itself and the unique_violation handler below turns
+--     that into a converging success. Proven 2026-08-01, deterministically
+--     and without needing two connections: inserting a second
+--     ride_payment row for one ride is refused, and a caller arriving
+--     after the winner receives success=true / "Payment already
+--     processed (state repaired)" with the debit-row count still 1.
+--     Do not drop that constraint — see its COMMENT.
 --   * client retried after a dropped response -> payment_status already
 --     'captured' returns success TRUE (not an error) so the caller
 --     converges instead of showing a false failure
