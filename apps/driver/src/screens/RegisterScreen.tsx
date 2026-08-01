@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
     KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -32,7 +32,30 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
     // Vehicle Info
     const [vehicleModel, setVehicleModel] = useState('');
     const [licensePlate, setLicensePlate] = useState('');
-    const [vehicleType, setVehicleType] = useState('Standard'); // Standard, XL, Premium
+    // Canonical lowercase keys — must match vehicle_classes.key (matching is
+    // done on this value; a case mismatch here once broke dispatch entirely).
+    const [vehicleType, setVehicleType] = useState('standard');
+    const [vehicleClasses, setVehicleClasses] = useState<Array<{ key: string; label: string }>>([
+        { key: 'standard', label: 'Standard' },
+        { key: 'xl', label: 'XL' },
+        { key: 'premium', label: 'Premium' },
+    ]);
+
+    useEffect(() => {
+        // Live class list (admin-controlled; RLS returns active rows only, so
+        // heavy classes like truck/hiab/wrecker appear once admin enables them).
+        // Query builders are thenables without .catch(); keep fallback on error.
+        supabase
+            .from('vehicle_classes')
+            .select('key, label, sort_order')
+            .order('sort_order')
+            .then(
+                ({ data }: { data: Array<{ key: string; label: string }> | null }) => {
+                    if (data && data.length > 0) setVehicleClasses(data.map(d => ({ key: d.key, label: d.label })));
+                },
+                () => {}
+            );
+    }, []);
 
     // KYC Documents
     const [licenseFront, setLicenseFront] = useState<string | null>(null);
@@ -276,19 +299,19 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                             {renderInput('Vehicle Model (e.g. 2022 Toyota Aqua)', vehicleModel, setVehicleModel)}
                             {renderInput('Plate Number', licensePlate, setLicensePlate, { autoCapitalize: 'characters' })}
 
-                            {/* Vehicle type selector: 3 pill options [Standard] [XL] [Premium] */}
+                            {/* Vehicle class pills — live from vehicle_classes (admin-controlled) */}
                             <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}]}>VEHICLE CLASS</Text>
                             <View style={s.typeSelector}>
-                                {['Standard', 'XL', 'Premium'].map(type => (
+                                {vehicleClasses.map(vc => (
                                     <TouchableOpacity
-                                        key={type}
-                                        style={[s.typePill, vehicleType === type && s.typePillActive]}
+                                        key={vc.key}
+                                        style={[s.typePill, vehicleType === vc.key && s.typePillActive]}
                                         onPress={() => {
                                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                            setVehicleType(type);
+                                            setVehicleType(vc.key);
                                         }}
                                     >
-                                        <Text style={{fontSize: 14, fontWeight: '600', color: vehicleType === type ? "#EAF3F6" : 'rgba(255,255,255,0.6)'}}>{type}</Text>
+                                        <Text style={{fontSize: 14, fontWeight: '600', color: vehicleType === vc.key ? "#EAF3F6" : 'rgba(255,255,255,0.6)'}}>{vc.label}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>

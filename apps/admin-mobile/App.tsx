@@ -3,15 +3,21 @@ import { View, Text, ActivityIndicator, StatusBar, StyleSheet } from 'react-nati
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { initializeSupabaseClient } from '@gtaxi/core';
-const { supabase } = initializeSupabaseClient('native');
+import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ErrorBoundary } from '@gtaxi/shared';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { SignupScreen } from './src/screens/SignupScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { TagMarkerScreen } from './src/screens/TagMarkerScreen';
 import { RegisterPuckScreen } from './src/screens/RegisterPuckScreen';
+import { RevshareSettlementScreen } from './src/screens/RevshareSettlementScreen';
+import { CommanderManagementScreen } from './src/screens/CommanderManagementScreen';
+import { IntelligenceScreen } from './src/screens/IntelligenceScreen';
+import { ApprovalsScreen } from './src/screens/ApprovalsScreen';
+import { GroundTransitScreen } from './src/screens/GroundTransitScreen';
+import { ZoneRatesScreen } from './src/screens/ZoneRatesScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -23,6 +29,7 @@ function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false }}>
       <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Signup" component={SignupScreen} />
     </AuthStack.Navigator>
   );
 }
@@ -33,6 +40,12 @@ function AppNavigator() {
       <AppStack.Screen name="Dashboard" component={DashboardScreen} />
       <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
       <AppStack.Screen name="RegisterPuck" component={RegisterPuckScreen} />
+      <AppStack.Screen name="RevshareSettlement" component={RevshareSettlementScreen} />
+      <AppStack.Screen name="CommanderManagement" component={CommanderManagementScreen} />
+      <AppStack.Screen name="Intelligence" component={IntelligenceScreen} />
+      <AppStack.Screen name="Approvals" component={ApprovalsScreen} />
+      <AppStack.Screen name="GroundTransit" component={GroundTransitScreen} />
+      <AppStack.Screen name="ZoneRates" component={ZoneRatesScreen} />
     </AppStack.Navigator>
   );
 }
@@ -60,8 +73,15 @@ function RootNavigator() {
       setAdminState('unauthorized');
       return;
     }
+    // functions.invoke() resolves with { data, error } on a non-2xx response —
+    // it does not reject. Checking only .then()/.catch() let any signed-up
+    // account (any role) through, since the 403 from a non-admin never
+    // surfaced as a rejection.
     supabase.functions.invoke('admin', { body: { action: 'get_flags' } })
-      .then(() => setAdminState('authorized'))
+      .then(({ error }: { error: unknown }) => {
+        if (error) throw error;
+        setAdminState('authorized');
+      })
       .catch(() => setAdminState('unauthorized'));
   }, [user]);
 

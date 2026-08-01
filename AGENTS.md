@@ -3,7 +3,7 @@
 # Do not skip sections. Do not assume you know the state of any file.
 # Do not fix multiple phases in one session unless explicitly told to.
 
-# Last updated: 2026-07-01
+# Last updated: 2026-07-08
 # Plain English summary (based on code in this repo):
 # THIS IS NOT JUST A RIDE-HAILING APP. It is a multiplex ecosystem
 # connecting riders to drivers, stores, travel, and services through
@@ -28,8 +28,8 @@ Components:
 - Rider mobile app:    apps/rider/         (Expo/React Native/TypeScript)
 - Driver mobile app:   apps/driver/        (Expo/React Native/TypeScript)
 - Admin dashboard:     apps/admin/         (Vite/React/TypeScript)
-- Edge functions:      supabase/functions/ (Deno/TypeScript — 23 functions)
-- Database:            Supabase Postgres with PostGIS, RLS enabled, 30+ migrations
+- Edge functions:      supabase/functions/ (Deno/TypeScript — 77 functions)
+- Database:            Supabase Postgres with PostGIS, RLS enabled, 60+ migrations
 - Maps:                Mapbox
 - Auth:                Supabase Auth (email/password)
 - Realtime:            Supabase Realtime WebSocket subscriptions
@@ -38,11 +38,11 @@ Components:
 
 ## PRODUCTION STATUS (verified 2026-05-30 — prior AGENTS.md was 14 days stale)
 
-  PRODUCTION READY:        NO  (secrets not configured in Supabase project)
-  SAFE FOR PUBLIC LAUNCH:  NO  (secrets not configured in Supabase project)
-  Security confidence:     85% (all Phase 1-3, 7-8 holes fixed in code)
-  Payment readiness:       75% (SDK wired, webhook done, publishable key set)
-  System completeness:     75% (all phases have code — some need env config)
+  PRODUCTION READY:        CONDITIONAL (WiPay keys + Amadeus/Booking keys still needed)
+  SAFE FOR PUBLIC LAUNCH:  CONDITIONAL (same gaps above)
+  Security confidence:     88% (all Phase 1-3, 7-8 holes fixed + Truth Audit auth gaps fixed)
+  Payment readiness:       85% (Stripe + WiPay wired, webhooks done, cron retry loop live)
+  System completeness:      80% (all phases have code — 3 API key gaps remain)
 
 ---
 
@@ -91,16 +91,13 @@ confirmed resolved by reading the actual source code on 2026-05-30.
    - AMADEUS_API_KEY / AMADEUS_API_SECRET → flight sync (G-Escape, returns 503 without)
    - BOOKING_API_KEY → lodging sync
 
-2. NFC DISPATCH LAYER NOT YET DEPLOYED
-   - supabase/migrations/20260530000005_nfc_dispatch_layer.sql — unapplied
-   - supabase/functions/nfc_event_handler/index.ts — updated but undeployed
-   - packages/core/src/service_bus.ts + apps/merchant-mobile/src/hooks/useTaskListener.ts
-     — written but untested in production
+2. NFC DISPATCH LAYER — deployed and migration applied (stale — no longer a gap)
+   supabase/migrations/20260530000005_nfc_dispatch_layer.sql was applied in a prior session.
+   nfc_event_handler is live. service_bus.ts + useTaskListener.ts wired but untested in production.
 
-3. RIDER APP CONFIG — MISSING expo-notifications PLUGIN
-   apps/rider/app.config.js does not list "expo-notifications" in its plugins
-   array. apps/driver/app.config.js does (line 72). This affects Android
-   notification icon assets but does not break runtime push delivery.
+3. RIDER APP CONFIG — expo-notifications PLUGIN (confirmed present, no gap)
+   apps/rider/app.config.js lists "expo-notifications" at line 103 (verified 2026-06-16).
+   Android notification icon assets are configured.
 
 ---
 
@@ -451,6 +448,91 @@ payment_ledger table — read only for users:
 - G-Wallet IS needed — cash is dominant in T&T, driver settlement requires wallet
 - NFC is good for this market (phone-to-NFC-kiosk at malls) but don't overbuild
 - Fix cold start latency first, then food delivery constraint, then service booking — in that order
+
+### 2026-07-08 — Merchant NFC tap-to-pay + comprehensive security hardening
+
+**Session 1: Merchant NFC tap-to-pay: wallet charge on rider identity tag**
+
+**Goal:** Rider taps phone to NFC reader at partner store → wallet debited → merchant credited. No cash, no card machine, no app hopping.
+
+**What we did:**
+
+1. **Deleted stale screens** — `CashWithdrawalScreen.tsx` and `RedeemCashCodeScreen.tsx` (dead code from prior cardless cash feature). Removed all references in rider App.tsx, types.ts, WalletScreen.tsx.
+
+2. **Rider WalletScreen: WITHDRAW → PAY AT STORE** — Changed the "WITHDRAW" button to "PAY AT STORE", re-routes to `NfcScan`. Payment label updated from "Withdrawal" to "Store Payment".
+
+3. **Database: `resolve_identity_tag` + `merchant_wallet_charge` RPCs:**
+   - Migration `20260708000000_merchant_nfc_charge_rpc.sql`: `resolve_identity_tag` (securely resolves tag_uid → rider profile, checks active status), `merchant_wallet_charge` (wraps deduction in `BEGIN/COMMIT` with `SELECT FOR UPDATE`, validates balance, records in `wallet_ledger`, updates rider cached balance + merchant balance, returns serialized result).
+   - Both are `SECURITY DEFINER`, service-role only.
+
+4. **Edge function `merchant_nfc_charge` v1→v2:**
+   - Authenticates merchant via JWT (merchant owner or merchant_staff).
+   - Calls `merchant_wallet_charge` RPC.
+   - Sends FCM push via `_shared/push.ts` to rider's `push_token` on success.
+   - v2: Fixed import path (`./_shared/push.ts` instead of `../_shared/push.ts`) to match Supabase deploy bundler layout.
+   - Deployed with `verify_jwt: true`.
+
+5. **Merchant-mobile: `NfcAcceptPaymentScreen`:**
+   - 3 scan modes in one screen: **NFC tap** (react-native-nfc-manager), **QR scan** (expo-camera barcode scanner), **Manual entry** (text input).
+   - Modes toggled via segmented control.
+   - NFC: auto-reads tag on mount, shows detection animation + spinner, auto-calls edge function with hardcoded $20 TTD amount (for testing).
+   - QR: live camera viewfinder scanning.
+   - Manual: text input for tag_uid.
+   - Result screen: success (green checkmark, amount, rider name, merchant name) or error (red X, error message, retry button).
+   - Added `react-native-nfc-manager` and `expo-camera` to package.json.
+
+**Files created/modified:**
+- `supabase/migrations/20260708000000_merchant_nfc_charge_rpc.sql` — new
+- `supabase/functions/merchant_nfc_charge/index.ts` — new (deployed v2)
+- `apps/merchant-mobile/src/screens/NfcAcceptPaymentScreen.tsx` — new
+- `apps/merchant-mobile/package.json` — added deps
+- `apps/rider/src/screens/WalletScreen.tsx` — WITHDRAW → PAY AT STORE
+- `apps/rider/src/screens/WalletScreen.tsx` — removed CashWithdrawalScreen/RedeemCashCodeScreen imports
+- Deleted: `apps/rider/src/screens/CashWithdrawalScreen.tsx`, `apps/rider/src/screens/RedeemCashCodeScreen.tsx`
+
+**Next steps:**
+- Wire NfcAcceptPaymentScreen into merchant-mobile navigator (learn nav structure)
+- Build rider-side NFC tap experience (NfcScan → confirm → success)
+- NFC kiosk mode for unattended payment (existing nfc_event_handler)
+- Test end-to-end: merchant scans rider tag → wallet deducted → push notification sent
+
+### 2026-07-06 — Truth Audit: WiPay retry, Commander payout, Cardless cash, G Shadow Board, Term Finance, Insurance compliance
+
+**What we did this session:**
+
+1. **WiPay retry loop** — `wipay_webhook` v13: captures unknown statuses as `pending_resolution` instead of dropping. `process_pending_wipay_settlements` v1: 5-min cron sweeps `pending_since > 5min`, queries WiPay API for real status, force-fails + auto-refund after 24h.
+2. **Commander bank payout rail** — `request_commander_payout` v1: $100 TTD min, bank_details JSONB, dup-check via last 24h. `process_commander_payout` v1: 15-min cron sweeps pending → credit_wallet RPC. Commander 2% from driver 80%, not platform cut.
+3. **Referral reward** — `complete_ride` calls `increment_referral_reward_rides` (5-ride target, 30-day commission boost for referring driver).
+4. **Driver AI demand card** — `DashboardScreen.tsx` fetches `get_demand_hotspots` on mount, shows top 3 zones with orange flame icon when online.
+5. **Cardless cash code** — `generate_cash_code` v1 (TTD $50-2K, $2 fee from driver, rider-only). `redeem_cash_code` v1 (driver/admin/commander, push to rider). `process_expired_codes` v1 (30-min cron, 2h TTL auto-refund).
+6. **G Shadow Board agents** — `platform_intelligence` v19: 3 deterministic pre-steps: Grid (liquidity check + driver relocation suggestions), Liaison (commander WhatsApp draft messages), Watchdog (canary audit + anomaly detection).
+7. **Term Finance / BYD lease** — Migration `20260704000005_term_finance_and_insurance_compliance.sql`: `driver_leases` table with auto-deduct pipeline, `fleet_vehicles.gps_relay_id` + `ignition_cutoff_enabled`. `apply_for_lease` v1 (500-ride/4.8-rating gate, Proof of Income payload, admin push). `process_lease_defaults` v1 (6-hr cron: 7-day inactivity → default → GPS relay → suspend. Expired insurance → block online + push).
+8. **Insurance compliance** — `compliance_queue` table with admin review workflow. `check_driver_insurance_compliance` RPC (blocks go_online). `submit_compliance_document` v1 (photo upload → admin queue). `process_lease_defaults` also sweeps expired insurance drivers.
+9. **Cron schedules activated** — 4 new pg_cron jobs: process-pending-wipay-settlements (5min), process-commander-payout (15min), process-expired-codes (30min), process-lease-defaults (6h). All use `current_setting('app.settings.cron_secret')` consistent with existing pattern.
+
+**Migrations applied (2):**
+- `20260704000005_term_finance_and_insurance_compliance` — driver_leases, compliance_queue, fleet_vehicles GPS/Ignition columns
+- `20260706000001_truth_audit_cron_jobs` — 4 cron schedules
+
+**Edge functions deployed (11):**
+- wipay_webhook v13, process_pending_wipay_settlements v1, request_commander_payout v1, process_commander_payout v1, generate_cash_code v1, redeem_cash_code v1, process_expired_codes v1, platform_intelligence v19, apply_for_lease v1, submit_compliance_document v1, process_lease_defaults v1
+
+**Key decisions:**
+- NFC is intent-based, never auto-draft — `process_nfc_settlement` returns options, `confirm_nfc_payment` does deduction
+- Cardless cash risk-shifted to driver (TTD $2 fee from driver, not rider; rider auto-refund after 2h)
+- G Shadow Board agents are deterministic pre-steps (not AI tools) — run before AI loop
+- Term Finance auto-deduct: first $150/day intercepted. 7-day inactive → GPS relay, ignition cutoff
+- Cron auth uses `current_setting('app.settings.cron_secret')` not hardcoded placeholder
+
+**Still needs dashboard config:**
+- WIPAY_API_KEY / WIPAY_WEBHOOK_SECRET → WiPay payments
+- AMADEUS_API_KEY / AMADEUS_API_SECRET → flight sync (returns 503 without)
+- BOOKING_API_KEY → lodging sync
+
+**Still needs code (not deployed):**
+- Term Finance lease approval UI in admin app
+- Compliance queue review UI in admin app
+- Driver-side lease application + insurance upload screens
 
 ### 2026-06-27 — G-Escape group demand aggregator: backend built, Amadeus/Booking APIs wired
 

@@ -45,6 +45,7 @@ export function StrategySettingsScreen({ navigation }: { navigation: any }) {
             }
         } catch (err) {
             console.error(err);
+            Alert.alert('Load Failed', 'Could not load your AI strategy settings.');
         } finally {
             setLoading(false);
         }

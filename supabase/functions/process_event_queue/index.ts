@@ -117,7 +117,7 @@ async function handleRideCompleted(payload: any, supabaseAdmin: ReturnType<typeo
       p_gross_cents: gross_cents,
       p_platform_cents: platform_cents || 0,
       p_reserve_cents: reserve_cents || 0,
-    }).catch((e: any) => console.error("pool_entry failed:", e));
+    }).then((__r) => __r, (e: any) => console.error("pool_entry failed:", e));
 
     console.log(`[Cog] ride.completed: ${ride_id} — pool entry recorded`);
   }

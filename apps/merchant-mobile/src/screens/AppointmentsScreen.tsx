@@ -73,6 +73,8 @@ export function AppointmentsScreen({ navigation }: { navigation: NativeStackNavi
 
         if (error) {
             console.warn('[Appointments] Failed to load:', error.message);
+            setLoading(false);
+            Alert.alert('Connection Issue', 'Could not load your appointments.');
             return;
         }
 

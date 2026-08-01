@@ -109,6 +109,30 @@ export function WalletScreen({ navigation }: any) {
         }
     };
 
+    const fetchAllTransactions = async () => {
+        setLoading(true);
+        try {
+            const { data: txData, error: txError } = await supabase
+                .from('wallet_transactions')
+                .select('*')
+                .eq('user_id', user?.id)
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            if (txError) {
+                console.error('[WalletScreen] fetchAllTransactions failed:', txError.message);
+                Alert.alert('Error', 'Could not load full history.');
+            } else if (txData) {
+                setTransactions(txData);
+            }
+        } catch (err) {
+            console.error(err);
+            Alert.alert('Error', 'Could not load transaction history.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const onRefresh = () => {
         setRefreshing(true);
         fetchWalletData();
@@ -196,15 +220,14 @@ export function WalletScreen({ navigation }: any) {
                                 </View>
                                 <Txt variant="caption" weight="heavy" color="#EAF3F6" style={{ marginTop: 12 }}>ADD FUNDS</Txt>
                             </TouchableOpacity>
-                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="Withdraw funds" accessibilityRole="button" onPress={() => Alert.alert(
-                                'Withdraw Funds',
-                                'Withdrawals are processed within 2 business days. Contact support to request a withdrawal.',
-                                [{ text: 'OK' }]
-                            )}>
-                                <View style={s.actionIcon}><Ionicons name="swap-horizontal" size={22} color="rgba(255,255,255,0.6)" /></View>
-                                <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>WITHDRAW</Txt>
+                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="Pay at store using NFC" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('NfcScan', { mode: 'pay' }); }}>
+                                <View style={s.actionIcon}>
+                                    <LinearGradient colors={[VOICES.rider.accent, CYAN]} style={StyleSheet.absoluteFillObject} />
+                                    <Ionicons name="swap-horizontal" size={22} color="#EAF3F6" />
+                                </View>
+                                <Txt variant="caption" weight="heavy" color="#EAF3F6" style={{ marginTop: 12 }}>PAY AT STORE</Txt>
                             </TouchableOpacity>
-                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="View transaction history" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}>
+                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="View transaction history" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setLoading(true); fetchAllTransactions(); }}>
                                 <View style={s.actionIcon}><Ionicons name="list" size={22} color="rgba(255,255,255,0.6)" /></View>
                                 <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>HISTORY</Txt>
                             </TouchableOpacity>

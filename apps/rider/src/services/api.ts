@@ -16,7 +16,7 @@ interface EstimateFareParams {
     pickup_lng: number;
     dropoff_lat: number;
     dropoff_lng: number;
-    vehicle_type?: 'Standard' | 'XL' | 'Premium';
+    vehicle_type?: string; // canonical vehicle_classes.key (e.g. 'standard', 'truck') — admin-controlled list
     stops?: Array<{
         stop_type?: string;
         estimated_wait_minutes?: number;
@@ -43,7 +43,7 @@ interface CreateRideParams {
     dropoff_lat: number;
     dropoff_lng: number;
     dropoff_address: string;
-    vehicle_type?: 'Standard' | 'XL' | 'Premium';
+    vehicle_type?: string; // canonical vehicle_classes.key (e.g. 'standard', 'truck') — admin-controlled list
     payment_method?: 'cash' | 'card' | 'wallet' | 'corporate_billing';
     source?: 'app' | 'qr_stand' | 'nfc_kiosk' | 'merchant_concierge' | 'api_partner';
     source_metadata?: Record<string, unknown>;

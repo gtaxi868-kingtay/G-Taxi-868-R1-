@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Switch,
-    ScrollView, Alert, useWindowDimensions, TextInput, ActivityIndicator
+    ScrollView, Alert, useWindowDimensions, TextInput, ActivityIndicator, Linking
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -46,39 +46,45 @@ export function SettingsScreen({ navigation }: any) {
 
     useEffect(() => {
         if (!user) return;
-        supabase.from('notification_settings').select('*').eq('user_id', user.id).single()
-            .then(({ data }) => {
-                if (data) {
-                    setNotifyRides(data.ride_updates);
-                    setNotifyPromos(data.promotions);
+
+        (async () => {
+            try {
+                const { data: notifData } = await supabase.from('notification_settings').select('*').eq('user_id', user.id).single();
+                if (notifData) {
+                    setNotifyRides(notifData.ride_updates);
+                    setNotifyPromos(notifData.promotions);
                 }
-            });
-        supabase.from('profiles').select('subscription_tier').eq('id', user.id).single()
-            .then(({ data }) => {
-                if (data) {
-                    setProgTier(data.subscription_tier || 'free');
+            } catch (err) { console.error('[Settings] notification_settings:', err); }
+
+            try {
+                const { data: subData } = await supabase.from('profiles').select('subscription_tier').eq('id', user.id).single();
+                if (subData) {
+                    setProgTier(subData.subscription_tier || 'free');
                 }
-            });
-        supabase.from('rider_progression').select('level').eq('rider_id', user.id).maybeSingle()
-            .then(async ({ data }) => {
-                if (data?.level) {
-                    setProgLevel(data.level);
-                    const { data: cfg } = await supabase
-                        .from('progression_config')
-                        .select('discount_percent')
-                        .eq('level', data.level)
-                        .maybeSingle();
+            } catch (err) { console.error('[Settings] subscription_tier:', err); }
+
+            try {
+                const { data: progData } = await supabase.from('rider_progression').select('level').eq('rider_id', user.id).maybeSingle();
+                if (progData?.level) {
+                    setProgLevel(progData.level);
+                    const { data: cfg } = await supabase.from('progression_config').select('discount_percent').eq('level', progData.level).maybeSingle();
                     if (cfg?.discount_percent) setProgDiscount(cfg.discount_percent);
                 }
-            });
-        supabase.from('profiles').select('emergency_contact_name, emergency_contact_phone').eq('id', user.id).single()
-            .then(({ data }) => {
-                if (data) {
-                    setContactName(data.emergency_contact_name || '');
-                    setContactPhone(data.emergency_contact_phone || '');
+            } catch (err) { console.error('[Settings] progression:', err); }
+
+            try {
+                const { data: contactData } = await supabase.from('profiles').select('emergency_contact_name, emergency_contact_phone').eq('id', user.id).single();
+                if (contactData) {
+                    setContactName(contactData.emergency_contact_name || '');
+                    setContactPhone(contactData.emergency_contact_phone || '');
                 }
-            });
-        AsyncStorage.getItem('@ai_routing_opt_in').then(val => setAiRouting(val === 'true'));
+            } catch (err) { console.error('[SettingsScreen] emergency_contact:', err); }
+
+            try {
+                const val = await AsyncStorage.getItem('@ai_routing_opt_in');
+                setAiRouting(val === 'true');
+            } catch {}
+        })();
     }, [user]);
 
     const saveEmergencyContact = async () => {
@@ -193,7 +199,7 @@ export function SettingsScreen({ navigation }: any) {
                         onToggle={(v: boolean) => toggleSetting('ai_routing', v)}
                     />
                     <View style={s.divider} />
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Alert.alert('Cache Cleared'); }}>
+                    <TouchableOpacity style={s.row} onPress={async () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); try { const keys = await AsyncStorage.getAllKeys(); await AsyncStorage.multiRemove(keys); Alert.alert('Cache Cleared', 'Local storage has been refreshed.'); } catch { Alert.alert('Error', 'Could not clear cache.'); } }}>
                         <View style={{ flex: 1 }}>
                             <Txt variant="bodyBold" color="#EAF3F6">Clear App Cache</Txt>
                             <Txt variant="small" color={R.muted}>Refresh local storage</Txt>
@@ -246,12 +252,12 @@ export function SettingsScreen({ navigation }: any) {
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>ABOUT</Txt>
                 <View style={s.card}>
-                    <TouchableOpacity style={s.row}>
+                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL('https://gtaxi.tt/terms'); }}>
                         <Txt variant="bodyBold" color="#EAF3F6">Terms of Service</Txt>
                         <Ionicons name="chevron-forward" size={18} color={R.muted} />
                     </TouchableOpacity>
                     <View style={s.divider} />
-                    <TouchableOpacity style={s.row}>
+                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL('https://gtaxi.tt/privacy'); }}>
                         <Txt variant="bodyBold" color="#EAF3F6">Privacy Policy</Txt>
                         <Ionicons name="chevron-forward" size={18} color={R.muted} />
                     </TouchableOpacity>

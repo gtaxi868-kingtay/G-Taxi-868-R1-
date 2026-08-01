@@ -102,24 +102,30 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setActivating(true);
         try {
+            // Billing is not live yet — activating the paid tier here would
+            // hand out 15%-off perks with no payment collected (a real
+            // revenue leak, not a demo nicety). Join requests go on a
+            // waitlist; the tier flips on server-side once billing charges.
             Alert.alert(
                 'Join G-Member',
-                `TTD $35.00/mo — unlimited priority, 15% off all rides, 20-minute wait grace, no booking fees.\n\nPayment processing will be available once Stripe billing is configured. For now, your perks are active.`,
+                `TTD $60.00/mo — unlimited priority, 15% off your first 6 rides each month (then your Level 5 rate), 20-minute wait grace, no booking fees.\n\nBilling is launching soon. Reserve your spot and you'll be activated the moment payments go live.`,
                 [
                     { text: 'Cancel', style: 'cancel' },
                     {
-                        text: 'Join G-Member',
+                        text: 'Reserve My Spot',
                         onPress: async () => {
                             const { error } = await supabase
-                                .from('profiles')
-                                .update({ subscription_tier: 'g_member' })
-                                .eq('id', user?.id);
+                                .from('user_events')
+                                .insert({
+                                    user_id: user?.id,
+                                    event_type: 'g_member_waitlist',
+                                    payload: { level: currentLevel, requested_at: new Date().toISOString() },
+                                });
                             if (error) {
                                 Alert.alert('Error', error.message);
                             } else {
                                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                setCurrentTier('g_member');
-                                Alert.alert('Welcome to G-Member!', 'You now have 15% off all rides, unlimited priority matching, and 20-minute wait grace.');
+                                Alert.alert('Spot Reserved', "You're on the G-Member list. We'll activate your perks the moment billing goes live — no action needed.");
                             }
                         }
                     },
@@ -287,19 +293,19 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                                     <Ionicons name="diamond" size={28} color={isGMember ? '#EAF3F6' : '#CBD6DE'} />
                                     <View style={{ flex: 1, marginLeft: 14 }}>
                                         <Text style={s.gMemberTitle}>G-Member</Text>
-                                        <Text style={s.gMemberPrice}>{fmtPrice(3500)}/mo</Text>
+                                        <Text style={s.gMemberPrice}>{fmtPrice(6000)}/mo</Text>
                                     </View>
                                 </View>
 
                                 <Text style={s.gMemberDesc}>
                                     {isGMember
-                                        ? 'You are a G-Member. Enjoy unlimited priority, 15% off, and no booking fees.'
-                                        : 'You\'ve earned Level 5 — now go further with unlimited priority matching, 15% off all rides, and 20-minute wait grace.'}
+                                        ? 'You are a G-Member. Enjoy unlimited priority, 15% off your first 6 rides each month, and no booking fees.'
+                                        : 'You\'ve earned Level 5 — now go further with unlimited priority matching, 15% off your first 6 rides each month, and 20-minute wait grace.'}
                                 </Text>
 
                                 <View style={s.featureList}>
                                     {[
-                                        '15% off all rides',
+                                        '15% off your first 6 rides/mo',
                                         'Unlimited priority matching',
                                         '20-minute wait grace',
                                         'No G-Escape booking fees',
@@ -354,7 +360,7 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                                     </View>
                                 </View>
                                 <Text style={[s.gMemberDesc, { color: 'rgba(255,255,255,0.35)' }]}>
-                                    Unlimited priority matching, 15% off all rides, 20-minute wait grace — all for TTD $35/mo.
+                                    Unlimited priority matching, 15% off your first 6 rides each month, 20-minute wait grace — all for TTD $60/mo.
                                     Keep riding to unlock.
                                 </Text>
                             </View>

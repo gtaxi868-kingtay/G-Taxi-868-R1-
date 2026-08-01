@@ -1,6 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase, adminFetch } from '../lib/supabase';
-import { TrendingUp, Lock, Unlock, RefreshCw, Settings, ChevronRight, Bot } from 'lucide-react';
+import { TrendingUp, Lock, Unlock, RefreshCw, Settings, ChevronRight, Bot, Diamond } from 'lucide-react';
+
+interface WaitlistEntry {
+    id: string;
+    user_id: string;
+    created_at: string;
+    payload: { level?: number; requested_at?: string };
+    profile: { name: string | null; email: string | null } | null;
+}
 
 interface RiderRow {
     rider_id: string;
@@ -64,12 +72,13 @@ export function Progression() {
     const [overrideLoading, setOverrideLoading] = useState(false);
     const [ruleLoading, setRuleLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
 
     const fetchAll = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const [ridersRes, rulesRes, aiRes] = await Promise.all([
+            const [ridersRes, rulesRes, aiRes, waitlistRes] = await Promise.all([
                 adminFetch('admin', { action: 'get_rider_progression' }),
                 supabase.from('progression_config').select('*').order('level', { ascending: true }),
                 supabase
@@ -78,11 +87,16 @@ export function Progression() {
                     .eq('decision_type', 'progression_unlock')
                     .order('created_at', { ascending: false })
                     .limit(20),
+                // user_events RLS is own-rows only — this event has been written
+                // since the G-Member giveaway-hole fix but nothing ever read it
+                // back for ops until now.
+                adminFetch('admin', { action: 'list_g_member_waitlist' }),
             ]);
 
             setRiders(ridersRes?.data || []);
             setRules(rulesRes.data || []);
             setAiSuggestions(aiRes.data || []);
+            setWaitlist(waitlistRes?.waitlist || []);
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             setError(msg);
@@ -406,6 +420,34 @@ export function Progression() {
                                 {searchQuery ? 'No riders match that search.' : 'No rider progression data yet.'}
                             </div>
                         )}
+                    </div>
+                )}
+            </div>
+
+            {/* G-Member waitlist — real signal, no billing turned on by viewing this */}
+            <div className="bg-white/3 border border-white/8 rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/8 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Diamond size={16} className="text-amber-400" />
+                        <h3 className="text-sm font-black text-white uppercase tracking-widest">G-Member Waitlist</h3>
+                    </div>
+                    <span className="text-xs text-white/30">{waitlist.length} reserved · TT$60/mo when billing goes live</span>
+                </div>
+                {waitlist.length === 0 ? (
+                    <div className="px-6 py-12 text-center text-white/30 text-sm">No one on the waitlist yet.</div>
+                ) : (
+                    <div className="divide-y divide-white/5">
+                        {waitlist.map((w) => (
+                            <div key={w.id} className="px-6 py-3 flex items-center justify-between gap-4">
+                                <div>
+                                    <p className="text-sm font-bold text-white">{w.profile?.name || '—'}</p>
+                                    <p className="text-xs text-white/40">{w.profile?.email || w.user_id}</p>
+                                </div>
+                                <span className="text-[10px] text-white/30 font-mono">
+                                    {new Date(w.created_at).toLocaleDateString('en-TT', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>

@@ -17,7 +17,8 @@ import { AppScreenProps } from '../navigation/types';
 export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) {
     const { width } = useWindowDimensions();
     const insets = useSafeAreaInsets();
-    const [mode, setMode] = useState<'scan' | 'manual'>('scan');
+    const payMode = route?.params?.mode === 'pay';
+    const [inputMode, setInputMode] = useState<'scan' | 'manual'>('scan');
     const [manualToken, setManualToken] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,13 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
                     nonce: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
                     timestamp: new Date().toISOString(),
                 });
+            }
+
+            if (payMode) {
+                navigation.replace('NfcPay', {
+                    merchantTagUid: token,
+                });
+                return;
             }
 
             const node: RoutedNode = await routeNfcTag(supabase, token);
@@ -83,7 +91,7 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
         } finally {
             setLoading(false);
         }
-    }, [navigation]);
+    }, [navigation, payMode]);
 
     const scanNfc = async () => {
         try {
@@ -102,7 +110,7 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
                 'NFC hardware is not available on this device. You can enter a tag code manually instead.',
                 [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Enter Code', onPress: () => setMode('manual') },
+                    { text: 'Enter Code', onPress: () => setInputMode('manual') },
                 ]
             );
         }
@@ -142,15 +150,20 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
                         <ActivityIndicator size="large" color={VOICES.rider.accent} />
                         <Text style={s.loadingText}>Reading tag...</Text>
                     </View>
-                ) : mode === 'scan' ? (
+                ) : inputMode === 'scan' ? (
                     <View style={s.centerContent}>
                         <View style={[glassSurface(40), s.scanCard]}>
                             <View style={s.scanIconContainer}>
                                 <Ionicons name="radio-outline" size={64} color={VOICES.rider.accent} />
                             </View>
-                            <Text style={s.scanTitle}>Tap or Scan</Text>
+                            <Text style={s.scanTitle}>
+                                {payMode ? 'Pay at Store' : 'Tap or Scan'}
+                            </Text>
                             <Text style={s.scanSubtitle}>
-                                Hold your phone near a G-Taxi NFC tag{'\n'}or scan a QR code
+                                {payMode
+                                    ? "Tap your phone to the merchant's NFC tag\nto pay with your G-Wallet"
+                                    : 'Hold your phone near a G-Taxi NFC tag\nor scan a QR code'
+                                }
                             </Text>
 
                             <TouchableOpacity style={s.scanBtn} onPress={scanNfc}>
@@ -158,7 +171,7 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
                                 <Text style={s.scanBtnText}>Scan NFC Tag</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={s.manualBtn} onPress={() => setMode('manual')}>
+                            <TouchableOpacity style={s.manualBtn} onPress={() => setInputMode('manual')}>
                                 <Text style={s.manualBtnText}>Enter code manually</Text>
                             </TouchableOpacity>
                         </View>
@@ -168,7 +181,10 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
                         <View style={[glassSurface(40), s.scanCard]}>
                             <Text style={s.scanTitle}>Enter Tag Code</Text>
                             <Text style={s.scanSubtitle}>
-                                Type the code printed on the NFC tag
+                                {payMode
+                                    ? "Enter the merchant's tag code"
+                                    : 'Type the code printed on the NFC tag'
+                                }
                             </Text>
 
                             <TextInput
@@ -188,7 +204,7 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
                                 <Text style={s.scanBtnText}>Look Up</Text>
                             </TouchableOpacity>
 
-                            <TouchableOpacity style={s.manualBtn} onPress={() => setMode('scan')}>
+                            <TouchableOpacity style={s.manualBtn} onPress={() => setInputMode('scan')}>
                                 <Ionicons name="radio-outline" size={18} color={VOICES.rider.accent} />
                                 <Text style={s.manualBtnText}>Scan instead</Text>
                             </TouchableOpacity>

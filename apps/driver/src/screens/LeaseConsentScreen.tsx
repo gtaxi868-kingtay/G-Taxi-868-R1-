@@ -60,24 +60,76 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
         })();
     }, []);
 
+    const [applyResult, setApplyResult] = useState<{
+        success: boolean;
+        leaseId?: string;
+        message?: string;
+        earnings_payload?: { total_rides: number; total_earned_cents: number; avg_per_ride_cents: number };
+    } | null>(null);
+
     const handleSign = async () => {
         if (!agreed || !driverId) return;
         setSubmitting(true);
         try {
-            const { data, error } = await supabase.rpc('record_driver_lease_consent', {
+            const { data: consentData, error: consentError } = await supabase.rpc('record_driver_lease_consent', {
                 p_driver_id: driverId,
                 p_version: ADDENDUM_VERSION,
                 p_device_info: {},
             });
 
-            if (error || !data?.success) {
+            if (consentError || !consentData?.success) {
                 Alert.alert(
                     'Could not record consent',
-                    data?.error ?? error?.message ?? 'Unknown error. Please try again.',
+                    consentData?.error ?? consentError?.message ?? 'Unknown error. Please try again.',
                 );
                 return;
             }
 
+            const { data: { user } } = await supabase.auth.getUser();
+            const { data: earningsPayload } = user ? await supabase
+                .from('drivers')
+                .select(`
+                    id,
+                    rides!inner(driver_payout_cents, completed_at)
+                `)
+                .eq('user_id', user.id)
+                .single() : { data: null };
+
+            const payload: any = {
+                fleet_vehicle_id: null,
+                daily_deduction_cents: 15000,
+                total_lease_cents: null,
+            };
+
+            if (earningsPayload?.rides) {
+                const rides = Array.isArray(earningsPayload.rides) ? earningsPayload.rides : [earningsPayload.rides];
+                const totalRides = rides.length;
+                const totalEarned = rides.reduce((s: number, r: any) => s + (r.driver_payout_cents || 0), 0);
+                payload.proof_of_income = {
+                    total_rides: totalRides,
+                    total_earned_cents: totalEarned,
+                    avg_per_ride_cents: totalRides > 0 ? Math.round(totalEarned / totalRides) : 0,
+                };
+            }
+
+            const { data: leaseResult, error: leaseError } = await supabase.functions.invoke('apply_for_lease', {
+                body: payload,
+            });
+
+            if (leaseError || !leaseResult?.success) {
+                setApplyResult({
+                    success: false,
+                    message: leaseResult?.error || leaseError?.message || 'Lease application submission failed. Admin has been notified.',
+                });
+                setSubmitted(true);
+                return;
+            }
+
+            setApplyResult({
+                success: true,
+                leaseId: leaseResult.data?.lease_id,
+                earnings_payload: payload.proof_of_income,
+            });
             setSubmitted(true);
         } catch (err: any) {
             Alert.alert('Error', err?.message ?? 'Something went wrong.');
@@ -87,6 +139,7 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
     };
 
     if (submitted) {
+        const formatTTD = (cents: number) => `$${(cents / 100).toFixed(2)} TTD`;
         return (
             <View style={[s.container, { paddingTop: insets.top }]}>
                 <View style={s.header}>
@@ -95,18 +148,60 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
                     </TouchableOpacity>
                     <Text style={s.headerTitle}>Earnings Addendum</Text>
                 </View>
-                <View style={s.successWrap}>
-                    <View style={s.successIcon}>
-                        <Ionicons name="checkmark-circle-sharp" size={64} color="#4ADE80" />
-                    </View>
-                    <Text style={s.successTitle}>Addendum Signed</Text>
-                    <Text style={s.successBody}>
-                        Your authorisation has been recorded. G-Taxi admin will review and activate your BYD lease. You will receive a push notification when your lease is live.
-                    </Text>
-                    <TouchableOpacity style={s.doneCta} onPress={() => navigation.goBack()}>
-                        <Text style={s.doneCtaText}>Back to Lease Status</Text>
-                    </TouchableOpacity>
-                </View>
+                <ScrollView contentContainerStyle={s.scroll}>
+                    {applyResult?.success ? (
+                        <>
+                            <View style={s.successIcon}>
+                                <Ionicons name="checkmark-circle-sharp" size={64} color="#4ADE80" />
+                            </View>
+                            <Text style={s.successTitle}>Lease Application Submitted</Text>
+                            <Text style={s.successBody}>
+                                Your earnings addendum has been signed and your BYD lease application is now under review by Term Finance. You will receive a push notification when approved.
+                            </Text>
+
+                            {applyResult.earnings_payload && (
+                                <View style={s.earningsCard}>
+                                    <Text style={s.earningsCardTitle}>PROOF OF INCOME SUBMITTED</Text>
+                                    <View style={s.earningsRow}>
+                                        <Text style={s.earningsLabel}>Total Rides</Text>
+                                        <Text style={s.earningsValue}>{applyResult.earnings_payload.total_rides}</Text>
+                                    </View>
+                                    <View style={s.earningsRow}>
+                                        <Text style={s.earningsLabel}>Lifetime Gross</Text>
+                                        <Text style={s.earningsValue}>{formatTTD(applyResult.earnings_payload.total_earned_cents)}</Text>
+                                    </View>
+                                    <View style={s.earningsRow}>
+                                        <Text style={s.earningsLabel}>Avg Per Ride</Text>
+                                        <Text style={s.earningsValue}>{formatTTD(applyResult.earnings_payload.avg_per_ride_cents)}</Text>
+                                    </View>
+                                    {applyResult.leaseId && (
+                                        <Text style={s.refText}>Ref: {applyResult.leaseId}</Text>
+                                    )}
+                                </View>
+                            )}
+
+                            <TouchableOpacity style={s.doneCta} onPress={() => navigation.navigate('Lease')}>
+                                <Text style={s.doneCtaText}>Back to Lease Status</Text>
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <>
+                            <View style={s.successIcon}>
+                                <Ionicons name="alert-circle-sharp" size={64} color="#F59E0B" />
+                            </View>
+                            <Text style={[s.successTitle, { color: '#F59E0B' }]}>Consent Recorded</Text>
+                            <Text style={s.successBody}>
+                                Your addendum has been signed but the lease application encountered an issue. G-Taxi admin has been notified and will follow up.
+                            </Text>
+                            <Text style={s.successBody}>
+                                {applyResult?.message || 'No additional details available.'}
+                            </Text>
+                            <TouchableOpacity style={s.doneCta} onPress={() => navigation.navigate('Lease')}>
+                                <Text style={s.doneCtaText}>Back to Lease Status</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </ScrollView>
             </View>
         );
     }
@@ -283,4 +378,18 @@ const s = StyleSheet.create({
         paddingHorizontal: 32,
     },
     doneCtaText: { fontSize: 15, fontWeight: '700', color: '#4ADE80' },
+    earningsCard: {
+        backgroundColor: 'rgba(74,222,128,0.06)',
+        borderWidth: 1,
+        borderColor: 'rgba(74,222,128,0.2)',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 24,
+        alignSelf: 'stretch',
+    },
+    earningsCardTitle: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1, marginBottom: 12 },
+    earningsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+    earningsLabel: { fontSize: 13, color: 'rgba(255,255,255,0.6)' },
+    earningsValue: { fontSize: 14, fontWeight: '800', color: '#4ADE80' },
+    refText: { fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 12, fontFamily: 'monospace' },
 });

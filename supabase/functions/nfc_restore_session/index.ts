@@ -23,23 +23,23 @@ serve(async (req) => {
 
     await checkRateLimit(supabaseAdmin, user.id, 'nfc_restore_session');
 
-    const { data: tag, error: tagError } = await supabaseAdmin
-      .from('identity_tags')
-      .select('profile_id, tag_type, is_active')
-      .eq('tag_uid', tag_uid)
-      .single();
+    // Resolve through unified_identities (covers band keychains, personal
+    // identity tags, and any other registered tag type).
+    const { data: tagProfile, error: tagErr } = await supabaseAdmin
+      .rpc('resolve_tag_to_profile', { p_tag_uid: tag_uid });
 
-    if (tagError || !tag) throw new Error("Security Violation: Invalid or unrecognized Physical Tag.");
-    if (!tag.is_active) throw new Error("Security Violation: This Tag has been remotely deactivated.");
+    if (tagErr || !tagProfile?.found) {
+      throw new Error("Security Violation: Invalid or unrecognized Physical Tag.");
+    }
 
-    if (tag.profile_id !== user.id) {
+    if (tagProfile.profile_id !== user.id) {
       throw new Error("This tag is not linked to your account.");
     }
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('balance_cents, is_suspended, email')
-      .eq('id', tag.profile_id)
+      .eq('id', tagProfile.profile_id)
       .single();
 
     if (profileError || !profile) throw new Error("Profile resolution failed.");
@@ -54,15 +54,16 @@ serve(async (req) => {
 
     if (authError) throw authError;
 
-    await supabaseAdmin.from('identity_tags').update({
-      last_tapped_at: new Date().toISOString(),
-      metadata: { ...tag.metadata, last_device: device_info }
-    }).eq('tag_uid', tag_uid);
+    // Stamp last_tapped_at on the unified_identities entry
+    await supabaseAdmin
+      .from('unified_identities')
+      .update({ last_tapped_at: new Date().toISOString() })
+      .eq('tag_uid', tag_uid);
 
     return new Response(
       JSON.stringify({
         success: true,
-        user_type: tag.tag_type,
+        user_type: tagProfile.tag_type,
         msg: "Identity Verified. Restoring Session..."
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

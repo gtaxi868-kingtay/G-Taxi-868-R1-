@@ -50,6 +50,32 @@ const DEST_EXPERIENCES: Record<string, { tagline: string; highlights: [string, s
   SLU: { tagline: 'The Pitons are on every Caribbean bucket list for a reason', highlights: ['Sulfur springs — drive-in volcano', 'Marigot Bay — the most beautiful bay in the Caribbean', 'Rainforest aerial tram over the canopy'] },
 };
 
+// Lanes riders can raise their hand for. Enough hands (60% of a typical block)
+// files a demand case in the admin approvals inbox — the mechanic that turns
+// "no flights to X" into a negotiable airline block.
+const LANE_DESTINATIONS: Array<{ code: string; name: string }> = [
+  { code: 'BGI', name: 'Barbados' },
+  { code: 'SLU', name: 'St. Lucia' },
+  { code: 'GND', name: 'Grenada' },
+  { code: 'ANU', name: 'Antigua' },
+  { code: 'SKB', name: 'St. Kitts' },
+  { code: 'SVD', name: 'St. Vincent' },
+  { code: 'DOM', name: 'Dominica' },
+];
+
+function nextMonths(count: number): Array<{ value: string; label: string }> {
+  const out: Array<{ value: string; label: string }> = [];
+  const d = new Date();
+  for (let i = 1; i <= count; i++) {
+    const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + i, 1));
+    out.push({
+      value: m.toISOString().slice(0, 10),
+      label: m.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+    });
+  }
+  return out;
+}
+
 type RouteT = RouteProp<AppStackParamList, 'EscapeStorefront'>;
 
 export default function EscapeStorefrontScreen() {
@@ -69,6 +95,98 @@ export default function EscapeStorefrontScreen() {
   const [joinedPkgIds, setJoinedPkgIds] = useState<Set<string>>(new Set());
   const [joiningPkgId, setJoiningPkgId] = useState<string | null>(null);
 
+  // Lane interest ("open a route we don't fly yet")
+  const [myLanes, setMyLanes] = useState<any[]>([]);
+  const [laneDest, setLaneDest] = useState<string | null>(null);
+  const [laneMonth, setLaneMonth] = useState<string | null>(null);
+  const [laneParty, setLaneParty] = useState(2);
+  const [laneSubmitting, setLaneSubmitting] = useState(false);
+  const laneMonths = React.useMemo(() => nextMonths(6), []);
+
+  const loadMyLanes = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data } = await supabase
+        .from('escape_lane_interest')
+        .select('id, destination_code, destination_name, travel_month, party_size')
+        // RLS already scopes this to the signed-in rider (verified: policy
+        // eli_select_own USING rider_id = auth.uid()). Filtering explicitly
+        // too so the query states its own intent and does not depend solely
+        // on a policy living in another system.
+        .eq('rider_id', session.user.id)
+        .gte('travel_month', new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10))
+        .order('travel_month', { ascending: true });
+      setMyLanes(data ?? []);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  useEffect(() => { loadMyLanes(); }, [loadMyLanes]);
+
+  const joinLane = async () => {
+    if (!laneDest || !laneMonth) {
+      Alert.alert('Pick a route', 'Choose an island and a month first.');
+      return;
+    }
+    setLaneSubmitting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        Alert.alert('Sign in required', 'Log in to join the interest list.');
+        return;
+      }
+      const dest = LANE_DESTINATIONS.find(d => d.code === laneDest)!;
+      const { error } = await supabase.from('escape_lane_interest').insert({
+        rider_id: session.user.id,
+        destination_code: dest.code,
+        destination_name: dest.name,
+        travel_month: laneMonth,
+        party_size: laneParty,
+      });
+      if (error) {
+        if ((error as any).code === '23505') {
+          Alert.alert('Already on the list', `You're already holding seats for ${dest.name} that month.`);
+        } else {
+          Alert.alert('Could not join', error.message);
+        }
+        return;
+      }
+      // In-app receipt in the notification centre (type must be 'escape')
+      const monthLabel = laneMonths.find(m => m.value === laneMonth)?.label ?? laneMonth;
+      supabase.rpc('notify_user', {
+        p_user_id: session.user.id,
+        p_type: 'escape',
+        p_title: `You're on the list: ${dest.name}`,
+        p_body: `Holding ${laneParty} seat${laneParty !== 1 ? 's' : ''} for ${monthLabel}. We'll alert you the moment this route opens.`,
+      }).then(null, () => null);
+      setLaneDest(null);
+      setLaneMonth(null);
+      setLaneParty(2);
+      loadMyLanes();
+    } finally {
+      setLaneSubmitting(false);
+    }
+  };
+
+  const leaveLane = async (id: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    // The error was previously discarded entirely — when this delete was
+    // being refused (missing table GRANT), the row silently stayed and the
+    // rider was told nothing. Ownership is enforced by RLS; the explicit
+    // rider_id filter states the same intent locally.
+    const { error } = await supabase
+      .from('escape_lane_interest')
+      .delete()
+      .eq('id', id)
+      .eq('rider_id', session.user.id);
+    if (error) {
+      Alert.alert('Could not leave the list', error.message);
+      return;
+    }
+    loadMyLanes();
+  };
+
   useEffect(() => {
     loadPackages();
     Location.getForegroundPermissionsAsync().then(({ status }) => {
@@ -77,7 +195,7 @@ export default function EscapeStorefrontScreen() {
           setUserLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
         }).catch(() => {});
       }
-    });
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -324,6 +442,80 @@ export default function EscapeStorefrontScreen() {
     );
   };
 
+  const laneSection = (
+    <View style={styles.laneCard}>
+      <Text style={styles.laneTitle}>Don't see your island?</Text>
+      <Text style={styles.laneSub}>
+        Raise your hand. When enough riders want the same route, we take the numbers to the airline and open it.
+      </Text>
+
+      <Text style={styles.laneRowLabel}>ISLAND</Text>
+      <View style={styles.chipRow}>
+        {LANE_DESTINATIONS.map(d => (
+          <TouchableOpacity
+            key={d.code}
+            style={[styles.chip, laneDest === d.code && styles.chipActive]}
+            onPress={() => setLaneDest(laneDest === d.code ? null : d.code)}
+          >
+            <Text style={[styles.chipText, laneDest === d.code && styles.chipTextActive]}>{d.name}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.laneRowLabel}>MONTH</Text>
+      <View style={styles.chipRow}>
+        {laneMonths.map(m => (
+          <TouchableOpacity
+            key={m.value}
+            style={[styles.chip, laneMonth === m.value && styles.chipActive]}
+            onPress={() => setLaneMonth(laneMonth === m.value ? null : m.value)}
+          >
+            <Text style={[styles.chipText, laneMonth === m.value && styles.chipTextActive]}>{m.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.laneFooterRow}>
+        <View style={styles.stepper}>
+          <TouchableOpacity style={styles.stepBtn} onPress={() => setLaneParty(Math.max(1, laneParty - 1))}>
+            <Ionicons name="remove" size={16} color={BRAND} />
+          </TouchableOpacity>
+          <Text style={styles.stepVal}>{laneParty} seat{laneParty !== 1 ? 's' : ''}</Text>
+          <TouchableOpacity style={styles.stepBtn} onPress={() => setLaneParty(Math.min(10, laneParty + 1))}>
+            <Ionicons name="add" size={16} color={BRAND} />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          style={[styles.laneJoinBtn, (!laneDest || !laneMonth || laneSubmitting) && styles.joinBtnDisabled]}
+          onPress={joinLane}
+          disabled={!laneDest || !laneMonth || laneSubmitting}
+          activeOpacity={0.85}
+        >
+          {laneSubmitting
+            ? <ActivityIndicator size="small" color="#07070F" />
+            : <Text style={styles.laneJoinText}>Join the list</Text>}
+        </TouchableOpacity>
+      </View>
+
+      {myLanes.length > 0 && (
+        <View style={styles.myLanesWrap}>
+          <Text style={styles.laneRowLabel}>YOU'RE HOLDING SEATS FOR</Text>
+          {myLanes.map(l => (
+            <View key={l.id} style={styles.myLaneRow}>
+              <Ionicons name="airplane-outline" size={13} color={BRAND} />
+              <Text style={styles.myLaneText}>
+                {l.destination_name ?? l.destination_code} · {new Date(l.travel_month + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })} · {l.party_size} seat{l.party_size !== 1 ? 's' : ''}
+              </Text>
+              <TouchableOpacity onPress={() => leaveLane(l.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.35)" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
@@ -355,12 +547,6 @@ export default function EscapeStorefrontScreen() {
             <Text style={styles.retryBtnText}>Try Again</Text>
           </TouchableOpacity>
         </View>
-      ) : packages.length === 0 ? (
-        <View style={styles.centered}>
-          <Ionicons name="airplane-outline" size={48} color="rgba(255,255,255,0.15)" />
-          <Text style={styles.emptyTitle}>No escapes available yet</Text>
-          <Text style={styles.emptySub}>Check back soon — new packages drop weekly.</Text>
-        </View>
       ) : (
         <FlatList
           data={packages}
@@ -369,6 +555,14 @@ export default function EscapeStorefrontScreen() {
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} />}
           showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyInline}>
+              <Ionicons name="airplane-outline" size={48} color="rgba(255,255,255,0.15)" />
+              <Text style={styles.emptyTitle}>No escapes available yet</Text>
+              <Text style={styles.emptySub}>Check back soon — or open a new route below.</Text>
+            </View>
+          }
+          ListFooterComponent={laneSection}
         />
       )}
 
@@ -503,4 +697,25 @@ const styles = StyleSheet.create({
   sheetPrice:       { color: '#10B981', fontSize: 22, fontWeight: '800' },
   sheetCta:         { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   sheetCtaText:     { color: '#07070F', fontWeight: '800', fontSize: 16 },
+
+  // Lane interest ("open a route we don't fly yet")
+  emptyInline:      { alignItems: 'center', paddingVertical: 48 },
+  laneCard:         { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 20, marginTop: 8, marginBottom: 24, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.12)' },
+  laneTitle:        { color: '#F2F5F8', fontSize: 18, fontWeight: '800' },
+  laneSub:          { color: 'rgba(242,245,248,0.55)', fontSize: 13, lineHeight: 19, marginTop: 4, marginBottom: 14 },
+  laneRowLabel:     { color: 'rgba(242,245,248,0.4)', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginBottom: 8 },
+  chipRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+  chip:             { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)' },
+  chipActive:       { backgroundColor: 'rgba(52,230,236,0.16)', borderColor: BRAND },
+  chipText:         { color: 'rgba(242,245,248,0.65)', fontSize: 12, fontWeight: '600' },
+  chipTextActive:   { color: BRAND },
+  laneFooterRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
+  stepper:          { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepBtn:          { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(52,230,236,0.12)', alignItems: 'center', justifyContent: 'center' },
+  stepVal:          { color: '#F2F5F8', fontSize: 13, fontWeight: '700', minWidth: 56, textAlign: 'center' },
+  laneJoinBtn:      { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 22 },
+  laneJoinText:     { color: '#07070F', fontWeight: '800', fontSize: 14 },
+  myLanesWrap:      { marginTop: 18 },
+  myLaneRow:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
+  myLaneText:       { color: 'rgba(242,245,248,0.8)', fontSize: 13, flex: 1 },
 });

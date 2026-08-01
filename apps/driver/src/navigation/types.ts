@@ -37,6 +37,7 @@ export type AppStackParamList = {
   VehicleSales: undefined;
   Lease: undefined;
   LeaseConsent: undefined;
+  GGarage: undefined;
   CommanderDashboard: undefined;
   CommanderConsole: undefined;
   CommanderRegisterNode: undefined;

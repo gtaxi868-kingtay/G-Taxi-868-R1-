@@ -80,6 +80,7 @@ export type DriverFoundParams = {
 export type NfcScanParams = {
   nodeId?: string;
   token?: string;
+  mode?: 'scan' | 'pay';
 };
 
 export type TagMarkerParams = {
@@ -147,7 +148,11 @@ export type AppStackParamList = {
       dropoff_address: string;
       wallet_deduction_cents?: number;
       cash_payment_cents?: number;
+      payment_status?: string | null;
+      payment_method?: string | null;
     };
+    // Preferred. ReceiptScreen always refetches the authoritative row; any
+    // `ride` passed above is treated only as a placeholder while that loads.
     rideId?: string;
   };
   ReportProblem: {
@@ -175,6 +180,7 @@ export type AppStackParamList = {
     tagUid?: string;
   };
   NfcScan: NfcScanParams;
+  NfcPay: { merchantTagUid: string; merchantName?: string; merchantId?: string };
   TagMarker: TagMarkerParams;
   ServiceBooking: {
     merchantId?: string;
@@ -191,6 +197,7 @@ export type AppStackParamList = {
   TravelMyBookings: undefined;
   TravelWaitlist: undefined;
   Subscription: undefined;
+  GSpot: undefined;
   Referral: undefined;
   FoodDelivery: undefined;
   EscapeStorefront: { packageId?: string } | undefined;

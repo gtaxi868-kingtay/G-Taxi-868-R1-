@@ -7,7 +7,6 @@ const WIPAY_WEBHOOK_SECRET = Deno.env.get("WIPAY_WEBHOOK_SECRET");
 Deno.serve(async (req: Request) => {
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // Require webhook secret or admin JWT
   const authHeader = req.headers.get("Authorization") || "";
   const webhookKey = req.headers.get("x-webhook-key") || "";
   const isValidWebhook = WIPAY_WEBHOOK_SECRET && webhookKey === WIPAY_WEBHOOK_SECRET;
@@ -63,7 +62,7 @@ Deno.serve(async (req: Request) => {
         .from("payout_requests")
         .update({ status: "completed", processed_at: new Date().toISOString() })
         .eq("id", payout.payout_request_id)
-        .catch(() => {});
+        .then((__r) => __r, () => {});
 
       console.log("[WiPay Webhook] Payout completed:", { payout_id: payout.id, transaction_id: txnId });
       return serveHtml("Payout Successful", "Driver payout has been sent to their bank account.", "success");
@@ -124,7 +123,7 @@ Deno.serve(async (req: Request) => {
 
     if (status === "cancelled" || status === "failed" || errorMsg) {
       await supabaseAdmin.rpc("release_single_reservation", { p_reservation_id: reservationId })
-        .catch(() => {});
+        .then((__r) => __r, () => {});
 
       if (session) {
         await supabaseAdmin
@@ -182,6 +181,16 @@ Deno.serve(async (req: Request) => {
         .eq("id", session.id);
     }
 
+    // Clear any pending resolution
+    if (session && rideId) {
+      await supabaseAdmin
+        .from("wipay_sessions")
+        .update({ status: "completed", resolved_at: new Date().toISOString() })
+        .eq("order_id", orderId)
+        .eq("status", "pending_resolution")
+        .then((__r) => __r, () => {});
+    }
+
     console.log("[WiPay Webhook] Payment captured:", { ride_id: rideId, transaction_id: txnId });
     return serveHtml("Payment Successful", "Your payment has been processed. You can close this window.", "success");
   }
@@ -198,7 +207,24 @@ Deno.serve(async (req: Request) => {
     return serveHtml("Payment Failed", errorMsg || `Payment status: ${status || "unknown"}. Please try again.`, "error");
   }
 
-  return serveHtml("Processing", "Payment is being processed...", "info");
+  // ── PENDING / UNKNOWN STATUS — requeue for resolution ─────
+  // WiPay may return 'pending', 'processing', or unrecognized statuses instead of
+  // calling back again. We record the session and let the cron sweep resolve it.
+  if (session) {
+    await supabaseAdmin
+      .from("wipay_sessions")
+      .update({
+        status: "pending_resolution",
+        transaction_id: txnId || session.transaction_id,
+        raw_callback: JSON.stringify({ status, error: errorMsg }),
+        pending_since: new Date().toISOString(),
+      })
+      .eq("id", session.id)
+      .then((__r) => __r, (err) => console.error("[WiPay Webhook] Failed to mark pending resolution:", err));
+  }
+
+  console.log("[WiPay Webhook] Payment pending — queued for resolution sweep:", { order_id: orderId, status });
+  return serveHtml("Processing", "Payment is being processed. We'll retry automatically.", "info");
 });
 
 function serveHtml(title: string, message: string, type: "success" | "error" | "info"): Response {

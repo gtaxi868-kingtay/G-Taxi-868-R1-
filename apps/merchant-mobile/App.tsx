@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
 import { NavigationContainer } from '@react-navigation/native';
@@ -19,6 +19,7 @@ import { EquityProgressScreen } from './src/screens/EquityProgressScreen';
 import { ProductCatalogScreen } from './src/screens/ProductCatalogScreen';
 import { AppointmentsScreen } from './src/screens/AppointmentsScreen';
 import { StaffScreen } from './src/screens/StaffScreen';
+import { NfcAcceptPaymentScreen } from './src/screens/NfcAcceptPaymentScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -46,6 +47,7 @@ function AppNavigator() {
       <AppStack.Screen name="PropertyManagement" component={PropertyManagementScreen} />
       <AppStack.Screen name="EquityProgress" component={EquityProgressScreen} />
       <AppStack.Screen name="Staff" component={StaffScreen} />
+      <AppStack.Screen name="NfcAcceptPayment" component={NfcAcceptPaymentScreen} />
     </AppStack.Navigator>
   );
 }
@@ -67,7 +69,17 @@ export default function App() {
     CormorantGaramond_500Medium,
     CormorantGaramond_600SemiBold,
   });
-  if (!fontsLoaded && !fontError) {
+  const [fontTimedOut, setFontTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || fontsLoaded || fontError) return;
+    const timer = setTimeout(() => setFontTimedOut(true), 2500);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded, fontError]);
+
+  // On web, useFonts can hang without ever resolving loaded or error — bail out after
+  // a short timeout so the app doesn't sit behind a blank screen forever.
+  if (!fontsLoaded && !fontError && !fontTimedOut) {
     return <View style={{ flex: 1, backgroundColor: '#070C0B' }} />;
   }
   return (

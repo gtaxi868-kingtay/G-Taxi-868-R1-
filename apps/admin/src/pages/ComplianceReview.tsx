@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, adminFetch } from '../lib/supabase';
 import {
   Shield, ShieldCheck, ShieldX, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, ExternalLink, CalendarDays,
@@ -113,7 +113,9 @@ export function ComplianceReview() {
 
   useEffect(() => { loadData(); }, []);
 
-  const handleVerify = async (itemId: string, driverId: string) => {
+  // driver id is no longer passed: the RPC resolves it from the queue row
+  // itself, which is the authoritative link.
+  const handleVerify = async (itemId: string) => {
     const expiresAt = dateInputs[itemId];
     if (!expiresAt) {
       alert('Enter an insurance expiry date before verifying.');
@@ -121,16 +123,15 @@ export function ComplianceReview() {
     }
     setActionLoading(itemId);
     try {
-      const { data, error } = await supabase.rpc('approve_compliance_document', {
-        p_queue_id: itemId,
-        p_driver_id: driverId,
-        p_insurance_expires_at: expiresAt,
-        p_notes: null,
+      // Goes through the admin edge function: approve_compliance_document is
+      // service_role-only and takes (p_queue_id, p_reviewer_id, p_new_expiry).
+      // Calling it directly from the browser could never work.
+      const res = await adminFetch('admin', {
+        action: 'verify_compliance_document',
+        queue_id: itemId,
+        expires_at: expiresAt,
       });
-      if (error) throw error;
-      if (data === false) {
-        alert('RPC returned false — check permissions or document status.');
-      }
+      if (!res?.success) throw new Error(res?.error || 'Verification rejected');
       await loadData();
       setDateInputs((prev) => { const next = { ...prev }; delete next[itemId]; return next; });
     } catch (err: any) {
@@ -142,12 +143,18 @@ export function ComplianceReview() {
 
   const handleReject = async (itemId: string) => {
     if (!window.confirm('Reject this compliance document? The driver will be notified.')) return;
+    const reason = window.prompt('Reason for rejection (shown to the driver):') || undefined;
     setActionLoading(itemId);
     try {
-      await supabase
-        .from('compliance_queue')
-        .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
-        .eq('id', itemId);
+      // Also routed through the admin function so reviewed_by records WHO
+      // rejected it — the previous direct table update left reviewed_by null,
+      // so the review log could not say who made the decision.
+      const res = await adminFetch('admin', {
+        action: 'reject_compliance_document',
+        queue_id: itemId,
+        reason,
+      });
+      if (!res?.success) throw new Error(res?.error || 'Rejection failed');
       await loadData();
     } catch (err: any) {
       alert('Rejection failed: ' + (err.message || 'Unknown error'));
@@ -409,7 +416,7 @@ export function ComplianceReview() {
                       {isPending && (
                         <div className="flex items-center gap-3">
                           <button
-                            onClick={() => handleVerify(item.id, driver?.id || '')}
+                            onClick={() => handleVerify(item.id)}
                             disabled={isBusy}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500/15 text-green-400 border border-green-500/25 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-500/25 transition-all disabled:opacity-40"
                           >

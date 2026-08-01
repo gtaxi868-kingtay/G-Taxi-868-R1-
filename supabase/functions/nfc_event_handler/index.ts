@@ -180,27 +180,40 @@ serve(async (req) => {
         });
       }
 
-      // Driver tapped a personal tag: mid-ride rider identity verification.
-      // (identity_tags RLS blocks cross-user reads client-side by design —
-      // this server path is the only sanctioned verifier.)
-      const { data: identityTag } = await supabase
-        .from('identity_tags')
-        .select('tag_uid, profile_id, tag_type, is_active')
-        .eq('tag_uid', tagUid)
-        .maybeSingle();
+      // Driver tapped a tag: resolve the rider ANY tag type (keychain,
+      // identity_tag, nfc_tag) through unified_identities so a Carnival
+      // band keychain works for settlement verification.
+      const { data: tagProfile } = await supabase.rpc('resolve_tag_to_profile', {
+        p_tag_uid: tagUid,
+      });
 
-      if (identityTag) {
-        if (!identityTag.is_active) {
-          // 200 on purpose: domain outcome, not transport failure — the client
-          // needs the body (functions.invoke drops it on non-2xx).
+      const resolvedProfileId: string | null = tagProfile?.found
+        ? tagProfile.profile_id
+        : null;
+
+      // Fallback: direct identity_tags lookup for backward compatibility
+      // with tags registered before unified_identities existed.
+      const { data: legacyTag } = !resolvedProfileId
+        ? await supabase
+            .from('identity_tags')
+            .select('tag_uid, profile_id, is_active')
+            .eq('tag_uid', tagUid)
+            .maybeSingle()
+        : { data: null };
+
+      const profileId = resolvedProfileId || legacyTag?.profile_id || null;
+      const isActive = tagProfile?.found ? true : (legacyTag?.is_active ?? true);
+
+      if (profileId) {
+        if (!isActive) {
           return json({ type: 'IDENTITY_MISMATCH', error: 'This tag has been deactivated.' });
         }
 
         const rideForCheck = ride_id && activeRide?.id === ride_id ? activeRide : activeRide;
-        const matches = !!rideForCheck && identityTag.profile_id === rideForCheck.rider_id;
+        const matches = !!rideForCheck && profileId === rideForCheck.rider_id;
 
         const { data: tagOwner } = matches
-          ? await supabase.from('profiles').select('full_name').eq('id', identityTag.profile_id).single()
+          ? await supabase.from('profiles').select('full_name').eq('id', profileId).single()
           : { data: null };
 
         await supabase.from('nfc_event_logs').insert({
@@ -323,6 +336,16 @@ serve(async (req) => {
             { onConflict: 'rider_id, band_id' }
           );
 
+        // Link this band keychain to the rider's unified identity so drivers
+        // can verify them via resolve_tag_to_profile at settlement time.
+        await supabase.rpc('register_unified_identity_admin', {
+          p_profile_id: user.id,
+          p_tag_uid: tagUid,
+          p_tag_type: 'keychain',
+          p_label: keychain.label || `Band keychain — ${keychain.band_id}`,
+          p_metadata: { band_id: keychain.band_id, keychain_id: keychain.id },
+        }).then(undefined, () => {}); // non-fatal
+
         // Log event
         await supabase
           .from('nfc_event_logs')
@@ -351,20 +374,23 @@ serve(async (req) => {
         });
       }
 
-      // Distinguish a registered personal identity tag from a truly blank one.
-      const { data: identityTag } = await supabase
-        .from('identity_tags')
-        .select('tag_uid, profile_id')
-        .eq('tag_uid', tagUid)
-        .maybeSingle();
+      // Check unified_identities for any registered tag (identity_tag,
+      // nfc_tag, or keychain that wasn't caught by FETESUMMON above,
+      // e.g. a personal NFC tag vs. a band keychain).
+      const { data: knownTag } = await supabase.rpc('resolve_tag_to_profile', {
+        p_tag_uid: tagUid,
+      });
 
-      if (identityTag) {
+      if (knownTag?.found) {
+        // Falling through to here means the tag is unified but not a
+        // band keychain (already handled by FETESUMMON above).
         return json({
           type: 'PERSONAL_TAG',
-          is_own: identityTag.profile_id === user.id,
-          message: identityTag.profile_id === user.id
+          is_own: knownTag.profile_id === user.id,
+          tag_type: knownTag.tag_type,
+          message: knownTag.profile_id === user.id
             ? 'This is your Universal Key.'
-            : 'Personal Identity Tag detected. No Kiosk context found.',
+            : 'Registered tag detected. No Kiosk context found.',
           route: null,
         });
       }

@@ -55,7 +55,7 @@ export function PaymentScreen({ navigation, route }: any) {
     const MAX_PAYMENT_ATTEMPTS = 3;
 
     useEffect(() => {
-        supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? ""));
+        supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? "")).catch(() => {});
     }, []);
 
     const handleCardPayment = useCallback(async () => {

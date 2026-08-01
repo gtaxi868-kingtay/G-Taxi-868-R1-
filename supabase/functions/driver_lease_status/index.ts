@@ -52,7 +52,7 @@ serve(async (req) => {
   if (!eligibility) {
     await supabaseAdmin
       .rpc('refresh_driver_lease_eligibility', { p_driver_id: driver.id })
-      .catch(() => {});
+      .then((__r) => __r, () => {});
   }
 
   const activeDays = eligibility?.active_days_count ?? 0;

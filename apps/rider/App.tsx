@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -17,6 +17,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { SignupScreen } from './src/screens/SignupScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
+import { GSpotScreen } from './src/screens/GSpotScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AnimatedSplash } from './src/components/AnimatedSplash';
 import { ProfileScreen } from './src/screens/ProfileScreen';
@@ -51,6 +52,7 @@ import { LaundryOrderStatusScreen } from './src/screens/LaundryOrderStatusScreen
 import { DriverFoundScreen } from './src/screens/DriverFoundScreen';
 import { NfcHandshakeScreen } from './src/screens/NfcHandshakeScreen';
 import { NfcScanScreen } from './src/screens/NfcScanScreen';
+import { NfcPayScreen } from './src/screens/NfcPayScreen';
 import { TagMarkerScreen } from './src/screens/TagMarkerScreen';
 import RideReviewScreen from './src/screens/RideReviewScreen';
 import { ServiceBookingScreen } from './src/screens/ServiceBookingScreen';
@@ -68,6 +70,7 @@ import ActivePassScreen from './src/screens/ActivePassScreen';
 import PassportSubmissionScreen from './src/screens/PassportSubmissionScreen';
 import CarnivalScreen from './src/screens/CarnivalScreen';
 import EventsScreen from './src/screens/EventsScreen';
+
 
 import { EscapeTripProvider } from './src/context/EscapeContext';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
@@ -134,6 +137,7 @@ function AppNavigator() {
                 <AppStack.Screen name="Home" component={HomeScreen} />
                 <AppStack.Screen name="Profile" component={ProfileScreen} />
                 <AppStack.Screen name="Subscription" component={SubscriptionScreen} />
+                <AppStack.Screen name="GSpot" component={GSpotScreen} />
                 <AppStack.Screen name="Notifications" component={NotificationsScreen} />
                 <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} />
                 <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} />
@@ -166,6 +170,7 @@ function AppNavigator() {
                 <AppStack.Screen name="DriverFound" component={DriverFoundScreen} />
                 <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} />
                 <AppStack.Screen name="NfcScan" component={NfcScanScreen} />
+                <AppStack.Screen name="NfcPay" component={NfcPayScreen} />
                 <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
                 <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
                 <AppStack.Screen name="Legal" component={LegalScreen} />
@@ -216,15 +221,23 @@ function App() {
         CormorantGaramond_500Medium,
         CormorantGaramond_600SemiBold,
     });
+    const [fontTimedOut, setFontTimedOut] = useState(false);
 
     useEffect(() => {
         installCrashReporter();
         OutboxService.getInstance().processQueue();
     }, []);
 
+    useEffect(() => {
+        if (Platform.OS !== 'web' || fontsLoaded || fontError) return;
+        const timer = setTimeout(() => setFontTimedOut(true), 2500);
+        return () => clearTimeout(timer);
+    }, [fontsLoaded, fontError]);
+
     // Hold on the brand canvas until the serif is ready; if it errors, render anyway
-    // (system-font fallback) so a font hiccup never blocks the app.
-    if (!fontsLoaded && !fontError) {
+    // (system-font fallback) so a font hiccup never blocks the app. On web, useFonts can
+    // hang without ever resolving loaded or error, so also bail out after a short timeout.
+    if (!fontsLoaded && !fontError && !fontTimedOut) {
         return <View style={{ flex: 1, backgroundColor: '#07070F' }} />;
     }
 

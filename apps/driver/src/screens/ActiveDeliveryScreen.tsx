@@ -10,6 +10,13 @@ import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { supabase } from '@gtaxi/core';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+
+// Delivery pay = base (shopping/handling labor, DELIVERY_DRIVER_PAYOUT_CENTS
+// = TT$20) + driving distance at PER_KM_CENTS (TT$1.75/km) — per the
+// 2026-07-14 distance-fee model. The badge shows the guaranteed base; the
+// authoritative total comes back from the payout RPC on completion.
+const DELIVERY_BASE_PAYOUT_CENTS = 2000;
 
 const FOOD_ORANGE = '#E6B450';
 const SUCCESS = '#10B981';
@@ -95,31 +102,134 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
         fetchOrder();
     }, [orderId]);
 
+    const uploadProofPhoto = async (uri: string): Promise<string | null> => {
+        try {
+            const { data: userData } = await supabase.auth.getUser();
+            const userId = userData.user?.id;
+            if (!userId) return null;
+
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            const arrayBuffer = await new Promise<ArrayBuffer>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as ArrayBuffer);
+                reader.readAsArrayBuffer(blob);
+            });
+
+            // storage_insert_owner_only requires the first folder segment to
+            // be the uploader's auth uid.
+            const path = `${userId}/delivery_proof_${orderId}_${Date.now()}.jpg`;
+            const { error } = await supabase.storage
+                .from('driver-documents')
+                .upload(path, arrayBuffer, { contentType: 'image/jpeg' });
+            if (error) return null;
+            return path;
+        } catch {
+            return null;
+        }
+    };
+
+    // The final transition MUST go through the grocery edge function —
+    // process_order_delivery_payment gates on the order still being in
+    // 'confirmed'/'out_for_delivery', pays the flat delivery payout, and
+    // holds pay if there is no proof photo. Setting status='delivered'
+    // directly from the client would both skip the driver's pay and break
+    // the RPC's state gate.
+    const confirmDelivery = async (photoPath: string | null) => {
+        setIsUpdating(true);
+        try {
+            const { data: res, error } = await supabase.functions.invoke('grocery', {
+                body: { action: 'confirm_delivery', order_id: orderId, photo_url: photoPath },
+            });
+            if (error || !res || res.error) {
+                throw new Error(res?.error || error?.message || 'Delivery confirmation failed');
+            }
+
+            // RPC owns orders.status; mirror the driver-facing delivery_status only.
+            await supabase
+                .from('orders')
+                .update({ delivery_status: STATUS_MAP.delivered })
+                .eq('id', orderId)
+                .then((r) => r, () => null);
+
+            setStep('delivered');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            if (res.held) {
+                Alert.alert(
+                    'Delivered — Payout On Hold',
+                    'The delivery is confirmed, but your payout is held because no proof photo was submitted. Contact support to release it.',
+                    [{ text: 'Done', onPress: () => navigation.replace('Dashboard') }]
+                );
+            } else {
+                const paid = ((res.driver_payout_cents ?? DELIVERY_BASE_PAYOUT_CENTS) / 100).toFixed(2);
+                Alert.alert(
+                    'Delivery Complete!',
+                    `TTD $${paid} has been added to your wallet.`,
+                    [{ text: 'Done', onPress: () => navigation.replace('Dashboard') }]
+                );
+            }
+        } catch (err: any) {
+            Alert.alert('Could Not Confirm Delivery', err?.message ?? 'Please try again.');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const captureProofAndConfirm = async () => {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (perm.granted) {
+            const result = await ImagePicker.launchCameraAsync({ quality: 0.6, allowsEditing: false });
+            if (!result.canceled && result.assets?.[0]?.uri) {
+                const path = await uploadProofPhoto(result.assets[0].uri);
+                if (path) {
+                    await confirmDelivery(path);
+                    return;
+                }
+                Alert.alert(
+                    'Photo Upload Failed',
+                    'The proof photo could not be uploaded. Deliver without it? Your payout will be held until proof is provided.',
+                    [
+                        { text: 'Retry Photo', onPress: captureProofAndConfirm },
+                        { text: 'Deliver Without Photo', style: 'destructive', onPress: () => confirmDelivery(null) },
+                    ]
+                );
+                return;
+            }
+        }
+        Alert.alert(
+            'Proof Photo Required',
+            'Snap a photo of the handed-off order to release your payout. Delivering without one holds your pay.',
+            [
+                { text: 'Take Photo', onPress: captureProofAndConfirm },
+                { text: 'Deliver Without Photo', style: 'destructive', onPress: () => confirmDelivery(null) },
+            ]
+        );
+    };
+
     const advanceStep = async () => {
         if (isUpdating) return;
         const currentIdx = STEPS.findIndex(s => s.key === step);
         if (currentIdx >= STEPS.length - 1) return;
 
         const nextStep = STEPS[currentIdx + 1].key;
-        setIsUpdating(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+        if (nextStep === 'delivered') {
+            await captureProofAndConfirm();
+            return;
+        }
+
+        setIsUpdating(true);
+        // 'out_for_delivery' (not 'in_delivery') — it is the status the payout
+        // RPC accepts as a valid pre-delivery state.
         await supabase
             .from('orders')
-            .update({ delivery_status: STATUS_MAP[nextStep], status: nextStep === 'delivered' ? 'delivered' : 'in_delivery' })
+            .update({ delivery_status: STATUS_MAP[nextStep], status: 'out_for_delivery' })
             .eq('id', orderId);
 
         setStep(nextStep);
         setIsUpdating(false);
-
-        if (nextStep === 'delivered') {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert(
-                'Delivery Complete!',
-                'Great work. Your earnings have been added to your wallet.',
-                [{ text: 'Done', onPress: () => navigation.replace('Dashboard') }]
-            );
-        }
     };
 
     const callPhone = (phone: string | null | undefined) => {
@@ -130,7 +240,9 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
     const currentStepData = STEPS.find(s => s.key === step) ?? STEPS[0];
     const currentIdx = STEPS.findIndex(s => s.key === step);
     const nextStepData = STEPS[currentIdx + 1];
-    const earnings = order?.delivery_fee_cents ? (order.delivery_fee_cents * 0.82 / 100).toFixed(2) : '?';
+    // Guaranteed base only — distance pay (TT$1.75/km) is added by the payout
+    // RPC on completion, so the completion alert shows the true total.
+    const earnings = `${(DELIVERY_BASE_PAYOUT_CENTS / 100).toFixed(2)}+`;
 
     return (
         <View style={[s.root, { paddingTop: insets.top }]}>

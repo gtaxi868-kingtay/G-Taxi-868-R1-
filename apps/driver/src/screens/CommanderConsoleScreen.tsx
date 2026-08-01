@@ -61,13 +61,13 @@ export function CommanderConsoleScreen() {
                 const { data } = await supabase.functions.invoke('get_territory_health');
                 if (data?.success) setHealth(data.health);
             } else if (which === 'drivers') {
-                const { data } = await supabase.functions.invoke('commander_get_territory');
+                const { data } = await supabase.functions.invoke('commander_gateway', { body: { action: 'get_territory' } });
                 if (data?.success) {
                     setDrivers(data.drivers || []);
                     setTerritoryId(data.commander?.territory_id || null);
                 }
             } else if (which === 'pucks') {
-                const { data } = await supabase.functions.invoke('commander_get_pucks');
+                const { data } = await supabase.functions.invoke('commander_gateway', { body: { action: 'get_pucks' } });
                 if (data?.success) setPucks(data.nodes || []);
             } else if (which === 'merchants') {
                 // No dedicated list endpoint; read pending merchants for the territory.
@@ -79,7 +79,7 @@ export function CommanderConsoleScreen() {
                         .eq('activation_status', 'pending');
                     setMerchants(data || []);
                 } else {
-                    const { data: terr } = await supabase.functions.invoke('commander_get_territory');
+                    const { data: terr } = await supabase.functions.invoke('commander_gateway', { body: { action: 'get_territory' } });
                     const tid = terr?.commander?.territory_id || null;
                     setTerritoryId(tid);
                     if (tid) {
@@ -92,7 +92,7 @@ export function CommanderConsoleScreen() {
                     }
                 }
             } else if (which === 'succession') {
-                const { data } = await supabase.functions.invoke('commander_set_successor', { body: { action: 'list' } });
+                const { data } = await supabase.functions.invoke('commander_gateway', { body: { action: 'successor_list' } });
                 if (data?.success) setSuccessors(data.successors || []);
             }
         } catch (err: any) {
@@ -109,8 +109,8 @@ export function CommanderConsoleScreen() {
         if (!next) return;
         setBusyId(driver.id);
         try {
-            const { data, error } = await supabase.functions.invoke('commander_promote_driver', {
-                body: { driver_id: driver.id, target_rank: next.rank, reason: 'Promoted from console' },
+            const { data, error } = await supabase.functions.invoke('commander_gateway', {
+                body: { action: 'promote_driver', driver_id: driver.id, target_rank: next.rank, reason: 'Promoted from console' },
             });
             if (error || !data?.success) throw new Error(data?.error || error?.message || 'Promotion failed');
             await loadTab('drivers');
@@ -124,8 +124,8 @@ export function CommanderConsoleScreen() {
     const changePuck = async (node: any, status: string) => {
         setBusyId(node.id);
         try {
-            const { data, error } = await supabase.functions.invoke('commander_update_puck_status', {
-                body: { node_id: node.id, lifecycle_status: status },
+            const { data, error } = await supabase.functions.invoke('commander_gateway', {
+                body: { action: 'update_puck_status', node_id: node.id, lifecycle_status: status },
             });
             if (error || !data?.success) throw new Error(data?.error || error?.message || 'Update failed');
             await loadTab('pucks');
@@ -139,8 +139,8 @@ export function CommanderConsoleScreen() {
     const activateMerchant = async (merchant: any) => {
         setBusyId(merchant.id);
         try {
-            const { data, error } = await supabase.functions.invoke('commander_onboard_merchant', {
-                body: { merchant_id: merchant.id, action: 'activate' },
+            const { data, error } = await supabase.functions.invoke('commander_gateway', {
+                body: { action: 'onboard_merchant', merchant_id: merchant.id, sub_action: 'activate' },
             });
             if (error || !data?.success) throw new Error(data?.error || error?.message || 'Activation failed');
             setMerchants((prev) => prev.filter((m) => m.id !== merchant.id));
@@ -154,8 +154,8 @@ export function CommanderConsoleScreen() {
     const confirmSuccessor = async (s: any) => {
         setBusyId(s.id);
         try {
-            const { data, error } = await supabase.functions.invoke('commander_set_successor', {
-                body: { action: 'confirm', successor_id: s.successor_id },
+            const { data, error } = await supabase.functions.invoke('commander_gateway', {
+                body: { action: 'successor_confirm', successor_id: s.successor_id },
             });
             if (error || !data?.success) throw new Error(data?.error || error?.message || 'Failed');
             await loadTab('succession');
@@ -169,8 +169,8 @@ export function CommanderConsoleScreen() {
     const removeSuccessor = async (s: any) => {
         setBusyId(s.id);
         try {
-            const { data, error } = await supabase.functions.invoke('commander_set_successor', {
-                body: { action: 'remove', successor_id: s.successor_id },
+            const { data, error } = await supabase.functions.invoke('commander_gateway', {
+                body: { action: 'successor_remove', successor_id: s.successor_id },
             });
             if (error || !data?.success) throw new Error(data?.error || error?.message || 'Failed');
             await loadTab('succession');
@@ -193,8 +193,8 @@ export function CommanderConsoleScreen() {
                     onPress: async () => {
                         setBusyId(s.id);
                         try {
-                            const { data, error } = await supabase.functions.invoke('commander_handoff', {
-                                body: { to_user_id: s.successor_id, reason: 'Voluntary handoff from console' },
+                            const { data, error } = await supabase.functions.invoke('commander_gateway', {
+                                body: { action: 'handoff', to_user_id: s.successor_id, reason: 'Voluntary handoff from console' },
                             });
                             if (error || !data?.success) throw new Error(data?.error || error?.message || 'Handoff failed');
                             Alert.alert('Done', 'Territory handed off.', [{ text: 'OK', onPress: () => navigation.goBack() }]);

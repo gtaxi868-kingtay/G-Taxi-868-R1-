@@ -65,7 +65,7 @@ export function CommanderDashboardScreen() {
     });
 
     const loadQueue = useCallback(async () => {
-        const { data, error } = await supabase.functions.invoke('commander_get_driver_queue');
+        const { data, error } = await supabase.functions.invoke('commander_gateway', { body: { action: 'get_driver_queue' } });
         if (!error && data?.success) {
             setPendingDrivers(data.pending_drivers || []);
         }
@@ -88,7 +88,7 @@ export function CommanderDashboardScreen() {
 
             setIsCommander(true);
 
-            const { data, error } = await supabase.functions.invoke('commander_get_territory');
+            const { data, error } = await supabase.functions.invoke('commander_gateway', { body: { action: 'get_territory' } });
             if (error || !data?.success) {
                 throw new Error(data?.error || error?.message || 'Failed to fetch territory data');
             }
@@ -131,8 +131,8 @@ export function CommanderDashboardScreen() {
     const handleDriverAction = async (driverId: string, action: 'approve' | 'reject') => {
         setActioningId(driverId);
         try {
-            const { data, error } = await supabase.functions.invoke('commander_onboard_driver', {
-                body: { driver_id: driverId, action },
+            const { data, error } = await supabase.functions.invoke('commander_gateway', {
+                body: { action: 'onboard_driver', driver_id: driverId, sub_action: action },
             });
             if (error || !data?.success) {
                 throw new Error(data?.error || error?.message || 'Action failed');

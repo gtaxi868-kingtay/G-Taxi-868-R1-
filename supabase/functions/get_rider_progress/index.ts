@@ -81,14 +81,14 @@ serve(async (req) => {
   const { data: suggestion } = await supabaseAdmin
     .rpc('get_home_suggestion', { p_rider_id: user.id, p_hour_of_day: hour })
     .maybeSingle()
-    .catch(() => ({ data: null }));
+    .then((__r) => __r, () => ({ data: null }));
 
   // Ensure row exists for future calls
   if (!prog) {
     await supabaseAdmin
       .from('rider_progression')
       .insert({ rider_id: user.id })
-      .catch(() => {});
+      .then((__r) => __r, () => {});
   }
 
   return json({

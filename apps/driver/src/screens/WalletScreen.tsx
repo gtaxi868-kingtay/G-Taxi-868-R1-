@@ -26,7 +26,7 @@ interface Transaction {
     created_at: string;
     amount: number;
     status: string;
-    provider: string;
+    transaction_type: string;
     description: string | null;
     ride_id: string | null;
 }
@@ -77,7 +77,11 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
     const [hasBankDetails, setHasBankDetails] = useState(false);
 
     const fetchData = useCallback(async () => {
-        if (!driver?.id) return;
+        if (!driver?.id || !user?.id) {
+            setLoading(false);
+            setRefreshing(false);
+            return;
+        }
 
         const { data: driverRow } = await supabase
             .from('drivers')
@@ -92,26 +96,32 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
             setAccountNumber(bank.account_number);
         }
 
-        const { data: balanceCents, error: balanceError } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
+        // get_wallet_balance enforces p_user_id === auth.uid() — the driver's
+        // AUTH id, not drivers.id (the row's own primary key). Money is
+        // credited to the driver's auth id (drivers.user_id) throughout the
+        // settlement engine, so reads must use the same key.
+        const { data: balanceCents, error: balanceError } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
         const dollars = (balanceCents || 0) / 100;
         setBalance(dollars);
         balanceAnim.value = withTiming(dollars, { duration: 900 });
 
+        // Driver earnings live in wallet_transactions (Sum(amount) = truth),
+        // not payment_ledger — that table only records what RIDERS paid in.
         const { data: txs } = await supabase
-            .from('payment_ledger')
-            .select('id, created_at, amount, status, provider, description, ride_id')
-            .eq('user_id', driver.id)
+            .from('wallet_transactions')
+            .select('id, created_at, amount, status, transaction_type, description, ride_id')
+            .eq('user_id', user.id)
             .order('created_at', { ascending: false })
             .limit(30);
-        
+
         if (balanceError) {
              Alert.alert("Sync Issue", "Failed to retrieve the latest wallet balance. Please pull down to refresh.");
         }
-        
+
         if (txs) setTransactions(txs);
         setLoading(false);
         setRefreshing(false);
-    }, [driver?.id, balanceAnim]);
+    }, [driver?.id, user?.id, balanceAnim]);
 
     const onRefresh = () => {
         setRefreshing(true);

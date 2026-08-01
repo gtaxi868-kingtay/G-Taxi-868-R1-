@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, Zap, X, DollarSign, MapPin, Clock, Percent } from 'lucide-react';
+import { RefreshCw, Zap, X, DollarSign, MapPin, Clock, Percent, Truck } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -8,6 +8,22 @@ interface PricingConfig {
     key: string;
     value_cents: number;
     description: string;
+}
+
+interface VehicleClass {
+    key: string;
+    label: string;
+    description: string | null;
+    icon: string;
+    multiplier_x100: number;
+    category: 'passenger' | 'heavy';
+    is_active: boolean;
+    sort_order: number;
+    min_fare_cents: number | null;
+    landed_cost_cents: number | null;
+    cost_source: string | null;
+    cost_updated_at: string | null;
+    cost_notes: string | null;
 }
 
 interface SurgeZone {
@@ -143,6 +159,11 @@ export function Pricing() {
     const [platEditing, setPlatEditing] = useState<Record<string, string>>({});
     const [savingPlat, setSavingPlat] = useState(false);
 
+    // ── Vehicle classes state ─────────────────────────────────────────────────
+    const [vehicleClasses, setVehicleClasses] = useState<VehicleClass[]>([]);
+    const [vcEditing, setVcEditing] = useState<Record<string, { multiplier?: string; minFare?: string; landedCost?: string; costSource?: string }>>({});
+    const [vcBusy, setVcBusy] = useState<string | null>(null);
+
     // ── Shared toast ──────────────────────────────────────────────────────────
     const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -181,11 +202,21 @@ export function Pricing() {
         }
     }, []);
 
+    const loadVehicleClasses = useCallback(async () => {
+        const { data, error } = await supabase.rpc('admin_get_vehicle_classes');
+        if (error) {
+            flash(`Failed to load vehicle classes: ${error.message}`, false);
+        } else {
+            setVehicleClasses((data as VehicleClass[]) || []);
+        }
+    }, []);
+
     useEffect(() => {
         loadRates();
         loadZones();
         loadPlatRates();
-    }, [loadRates, loadZones, loadPlatRates]);
+        loadVehicleClasses();
+    }, [loadRates, loadZones, loadPlatRates, loadVehicleClasses]);
 
     // ── Fare rate save ────────────────────────────────────────────────────────
     const saveRates = async () => {
@@ -354,6 +385,79 @@ export function Pricing() {
         setSavingPlat(false);
     };
 
+    // ── Vehicle class actions ─────────────────────────────────────────────────
+    const toggleVehicleClass = async (vc: VehicleClass) => {
+        setVcBusy(vc.key);
+        const { error } = await supabase.rpc('admin_set_vehicle_class', {
+            p_key: vc.key,
+            p_is_active: !vc.is_active,
+        });
+        if (error) {
+            flash(`Toggle failed for ${vc.label}: ${error.message}`, false);
+        } else {
+            flash(
+                !vc.is_active
+                    ? `${vc.label} is now LIVE — riders can book it immediately`
+                    : `${vc.label} switched off — hidden from riders`,
+                true,
+            );
+            await loadVehicleClasses();
+        }
+        setVcBusy(null);
+    };
+
+    const saveVehicleClass = async (vc: VehicleClass) => {
+        const edit = vcEditing[vc.key];
+        if (!edit) return;
+
+        const params: Record<string, unknown> = { p_key: vc.key };
+        if (edit.multiplier !== undefined) {
+            const m = Math.round(parseFloat(edit.multiplier) * 100);
+            if (isNaN(m) || m < 100 || m > 1000) {
+                flash(`Multiplier for ${vc.label} must be 1.0–10.0`, false);
+                return;
+            }
+            params.p_multiplier_x100 = m;
+        }
+        if (edit.minFare !== undefined) {
+            const f = edit.minFare === '' ? null : ttdToCents(edit.minFare);
+            if (f !== null && (isNaN(f) || f < 0)) {
+                flash(`Invalid minimum fare for ${vc.label}`, false);
+                return;
+            }
+            if (f !== null) params.p_min_fare_cents = f;
+        }
+        if (edit.landedCost !== undefined && edit.landedCost !== '') {
+            const c = ttdToCents(edit.landedCost);
+            if (isNaN(c) || c < 0) {
+                flash(`Invalid landed cost for ${vc.label}`, false);
+                return;
+            }
+            const source = (edit.costSource ?? vc.cost_source ?? '').trim();
+            if (!source) {
+                flash(`A source is required for ${vc.label}'s landed cost — where did this number come from?`, false);
+                return;
+            }
+            params.p_landed_cost_cents = c;
+            params.p_cost_source = source;
+        }
+
+        setVcBusy(vc.key);
+        const { error } = await supabase.rpc('admin_set_vehicle_class', params);
+        if (error) {
+            flash(`Save failed for ${vc.label}: ${error.message}`, false);
+        } else {
+            flash(`${vc.label} updated — fares use the new rate on next estimate`, true);
+            setVcEditing(prev => {
+                const next = { ...prev };
+                delete next[vc.key];
+                return next;
+            });
+            await loadVehicleClasses();
+        }
+        setVcBusy(null);
+    };
+
     const isDirty = Object.keys(editing).some(k => rates.some(r => r.key === k));
 
     return (
@@ -509,6 +613,146 @@ export function Pricing() {
                     ) : null}
                     {saving ? 'Saving...' : isDirty ? 'Save Rates' : 'No Changes'}
                 </button>
+            </section>
+
+            {/* ── Vehicle Classes ─────────────────────────────────────────────── */}
+            <section>
+                <div className="flex items-center gap-3 mb-6">
+                    <Truck size={18} className="text-green-400" />
+                    <div>
+                        <h3 className="font-black text-white uppercase tracking-wider text-sm">Vehicle Classes</h3>
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest">
+                            Toggle a class live and riders can book it instantly — heavy classes (truck / hiab / wrecker) ship OFF
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {vehicleClasses.map(vc => {
+                        const edit = vcEditing[vc.key] ?? {};
+                        const multVal = edit.multiplier ?? (vc.multiplier_x100 / 100).toFixed(2);
+                        const minFareVal = edit.minFare ?? (vc.min_fare_cents != null ? centsToTTD(vc.min_fare_cents) : '');
+                        const landedCostVal = edit.landedCost ?? (vc.landed_cost_cents != null ? centsToTTD(vc.landed_cost_cents) : '');
+                        const costSourceVal = edit.costSource ?? vc.cost_source ?? '';
+                        const isDirtyVc = edit.multiplier !== undefined || edit.minFare !== undefined || edit.landedCost !== undefined || edit.costSource !== undefined;
+                        const busy = vcBusy === vc.key;
+
+                        return (
+                            <div key={vc.key} className={`bg-white/5 rounded-2xl p-5 border transition-all ${
+                                vc.is_active ? 'border-green-400/20' : 'border-white/5 opacity-80'
+                            }`}>
+                                <div className="flex items-center justify-between mb-1">
+                                    <p className="font-black text-white text-sm">{vc.label}</p>
+                                    <div className="flex items-center gap-2">
+                                        {vc.category === 'heavy' && (
+                                            <span className="px-2 py-0.5 rounded-lg bg-amber-400/10 border border-amber-400/20 text-amber-400 text-[9px] font-black uppercase tracking-widest">
+                                                Heavy
+                                            </span>
+                                        )}
+                                        <button
+                                            onClick={() => toggleVehicleClass(vc)}
+                                            disabled={busy}
+                                            className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-40 ${
+                                                vc.is_active
+                                                    ? 'bg-green-400 text-black hover:bg-green-300'
+                                                    : 'bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10'
+                                            }`}
+                                        >
+                                            {busy ? '···' : vc.is_active ? 'Live' : 'Off'}
+                                        </button>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-white/20 mb-4">{vc.description}</p>
+
+                                <div className="flex gap-3">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">
+                                            Multiplier
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1.0"
+                                            max="10.0"
+                                            step="0.05"
+                                            value={multVal}
+                                            onChange={e =>
+                                                setVcEditing(prev => ({
+                                                    ...prev,
+                                                    [vc.key]: { ...prev[vc.key], multiplier: e.target.value },
+                                                }))
+                                            }
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white font-mono text-sm font-bold focus:outline-none focus:border-green-400/50"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">
+                                            Min Fare TTD
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            placeholder="—"
+                                            value={minFareVal}
+                                            onChange={e =>
+                                                setVcEditing(prev => ({
+                                                    ...prev,
+                                                    [vc.key]: { ...prev[vc.key], minFare: e.target.value },
+                                                }))
+                                            }
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white font-mono text-sm font-bold placeholder:text-white/20 focus:outline-none focus:border-green-400/50"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="mt-3 pt-3 border-t border-white/5">
+                                    <label className="text-[10px] text-white/30 uppercase tracking-widest block mb-1">
+                                        Real Landed Cost (TTD) — this is what G Garage payback math is missing without it
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="number" min="0" step="1" placeholder="No real quote entered yet"
+                                            value={landedCostVal}
+                                            onChange={e =>
+                                                setVcEditing(prev => ({
+                                                    ...prev,
+                                                    [vc.key]: { ...prev[vc.key], landedCost: e.target.value },
+                                                }))
+                                            }
+                                            className="w-1/2 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white font-mono text-sm font-bold placeholder:text-white/20 focus:outline-none focus:border-cyan-400/50"
+                                        />
+                                        <input
+                                            type="text" placeholder="Source (required), e.g. ATL Automotive quote 2026-08-01"
+                                            value={costSourceVal}
+                                            onChange={e =>
+                                                setVcEditing(prev => ({
+                                                    ...prev,
+                                                    [vc.key]: { ...prev[vc.key], costSource: e.target.value },
+                                                }))
+                                            }
+                                            className="w-1/2 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-xs placeholder:text-white/20 focus:outline-none focus:border-cyan-400/50"
+                                        />
+                                    </div>
+                                    {vc.landed_cost_cents != null && (
+                                        <p className="text-[9px] text-white/20 mt-1">
+                                            {vc.cost_source} — entered {vc.cost_updated_at ? new Date(vc.cost_updated_at).toLocaleDateString() : ''}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {isDirtyVc && (
+                                    <button
+                                        onClick={() => saveVehicleClass(vc)}
+                                        disabled={busy}
+                                        className="mt-3 w-full h-9 rounded-xl bg-green-400 text-black font-black text-[10px] uppercase tracking-widest hover:bg-green-300 disabled:opacity-40 transition-all"
+                                    >
+                                        {busy ? 'Saving…' : 'Save'}
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
             </section>
 
             {/* ── Surge Zones ─────────────────────────────────────────────────── */}

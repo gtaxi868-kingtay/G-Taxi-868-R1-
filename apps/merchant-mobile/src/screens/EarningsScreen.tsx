@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity,
+  View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -144,9 +144,10 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
       if (shopEntry.ride_count > 0) staffList.push(shopEntry);
       staffList.sort((a, b) => b.total_cents - a.total_cents);
       setStaffEarnings(staffList);
-    } catch (err) {
-      console.warn('Failed to load earnings:', err);
-    } finally {
+  } catch (err) {
+    console.warn('Failed to load earnings:', err);
+    Alert.alert('Connection Issue', 'Could not load your earnings data.');
+  } finally {
       setLoading(false);
     }
   };

@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
@@ -35,6 +35,7 @@ import { DriverReferralScreen } from './src/screens/DriverReferralScreen';
 import { VehicleSalesScreen } from './src/screens/VehicleSalesScreen';
 import LeaseScreen from './src/screens/LeaseScreen';
 import LeaseConsentScreen from './src/screens/LeaseConsentScreen';
+import GGarageScreen from './src/screens/GGarageScreen';
 import { CommanderDashboardScreen } from './src/screens/CommanderDashboardScreen';
 import { CommanderConsoleScreen } from './src/screens/CommanderConsoleScreen';
 import { CommanderRegisterNodeScreen } from './src/screens/CommanderRegisterNodeScreen';
@@ -188,6 +189,7 @@ function AppNavigator() {
             <AppStack.Screen name="VehicleSales" component={VehicleSalesScreen} />
             <AppStack.Screen name="Lease" component={LeaseScreen} />
             <AppStack.Screen name="LeaseConsent" component={LeaseConsentScreen} />
+            <AppStack.Screen name="GGarage" component={GGarageScreen} />
             <AppStack.Screen name="CommanderDashboard" component={CommanderDashboardScreen} />
             <AppStack.Screen name="CommanderConsole" component={CommanderConsoleScreen} />
             <AppStack.Screen name="CommanderRegisterNode" component={CommanderRegisterNodeScreen} />
@@ -207,13 +209,22 @@ function App() {
         CormorantGaramond_500Medium,
         CormorantGaramond_600SemiBold,
     });
+    const [fontTimedOut, setFontTimedOut] = useState(false);
 
     useEffect(() => {
         installCrashReporter();
         OutboxService.getInstance().processQueue();
     }, []);
 
-    if (!fontsLoaded && !fontError) {
+    useEffect(() => {
+        if (Platform.OS !== 'web' || fontsLoaded || fontError) return;
+        const timer = setTimeout(() => setFontTimedOut(true), 2500);
+        return () => clearTimeout(timer);
+    }, [fontsLoaded, fontError]);
+
+    // On web, useFonts can hang without ever resolving loaded or error — bail out after
+    // a short timeout so the app doesn't sit behind a blank screen forever.
+    if (!fontsLoaded && !fontError && !fontTimedOut) {
         return <View style={{ flex: 1, backgroundColor: '#08090D' }} />;
     }
 

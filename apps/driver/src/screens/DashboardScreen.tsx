@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
+import MapView, { Marker, Circle, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -50,6 +50,7 @@ const QUICK_NAV = [
     { icon: 'home-outline', label: 'Scout', screen: 'ScoutReferral' },
     { icon: 'people-outline', label: 'Refer', screen: 'DriverReferral' },
     { icon: 'car-sport-outline', label: 'Buy Car', screen: 'VehicleSales' },
+    { icon: 'construct-outline', label: 'G Garage', screen: 'GGarage' },
 ] as const;
 
 export function DashboardScreen({ navigation }: { navigation: { navigate: (screen: string, params?: object) => void; goBack: () => void; replace: (screen: string, params?: object) => void } }) {
@@ -74,6 +75,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
     const [refreshing, setRefreshing] = useState(false);
     const [systemStatus, setSystemStatus] = useState<Record<string, unknown>>({ stripe_ready: true, fcm_ready: true, config: {} });
     const [demandHint, setDemandHint] = useState<string | null>(null);
+    const [demandHotspots, setDemandHotspots] = useState<any[]>([]);
     const [nfcVisible, setNfcVisible] = useState(false);
 
     const panelY = useSharedValue(panelHeightLocal);
@@ -176,6 +178,28 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         };
         fetchBalance();
         fetchStats();
+        const fetchDemand = async () => {
+            if (!driver?.id) return;
+            try {
+                // Real demand heatmap: recency-decayed ride pickups in ~550m cells,
+                // hour-of-week-aware, computed server-side (10-min cached).
+                const { data, error } = await supabase.functions.invoke('driver_heatmap');
+                if (!error && Array.isArray(data?.cells) && data.cells.length > 0) {
+                    setDemandHotspots(data.cells.map((c: any) => ({
+                        zone_name: c.label,
+                        demand_score: c.score,
+                        lat: c.lat,
+                        lng: c.lng,
+                        rides: c.rides,
+                    })));
+                } else {
+                    setDemandHotspots([]);
+                }
+            } catch { setDemandHotspots([]); }
+        };
+        fetchDemand();
+        const demandTimer = setInterval(fetchDemand, 10 * 60 * 1000);
+        return () => clearInterval(demandTimer);
     }, [driver?.id]);
 
     useEffect(() => {
@@ -286,6 +310,19 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             <View style={[s.mapContainer, { height: mapHeightLocal }]} pointerEvents="box-none">
                 <MapView style={StyleSheet.absoluteFillObject} provider={PROVIDER_DEFAULT} initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}>
                     <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
+                    {/* Demand heat cells — gold intensity tracks relative demand */}
+                    {demandHotspots.map((h: any, i: number) => (
+                        h.lat != null && h.lng != null ? (
+                            <Circle
+                                key={`heat-${i}`}
+                                center={{ latitude: h.lat, longitude: h.lng }}
+                                radius={350}
+                                fillColor={`rgba(230,180,80,${0.08 + 0.22 * (h.demand_score || 0)})`}
+                                strokeColor={`rgba(230,180,80,${0.15 + 0.35 * (h.demand_score || 0)})`}
+                                strokeWidth={1}
+                            />
+                        ) : null
+                    ))}
                     {location && (
                         <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
                             <View style={s.markerWrap}>
@@ -396,6 +433,32 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                                     </TouchableOpacity>
                                 )}
                             </Reanimated.View>
+
+                            {/* Demand hotspot card */}
+                            {isOnline && demandHotspots.length > 0 && (
+                                <TouchableOpacity
+                                    style={s.demandCard}
+                                    onPress={() => navigation.navigate('Earnings')}
+                                    activeOpacity={0.8}
+                                    accessibilityLabel="Demand hotspots nearby"
+                                    accessibilityRole="button"
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                        <View style={s.demandIcon}>
+                                            <Ionicons name="flame-outline" size={18} color="#FF6B35" />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={s.demandTitle}>Hot zones now</Text>
+                                            <Text style={s.demandSub}>
+                                                {demandHotspots.slice(0, 3).map((h: any) =>
+                                                    `${h.zone_name || h.geohash || 'Area'} (${h.multiplier ? `×${h.multiplier}` : h.demand_score ? `${Math.round(h.demand_score * 100)}%` : 'high'})`
+                                                ).join('  ·  ')}
+                                            </Text>
+                                        </View>
+                                        <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.25)" />
+                                    </View>
+                                </TouchableOpacity>
+                            )}
 
                             {/* Push notification banner */}
                             {pushMissing && (
@@ -510,6 +573,24 @@ const s = StyleSheet.create({
     },
     walletLabel: { fontSize: 12, color: 'rgba(255,255,255,0.4)', flex: 1 },
     walletAmount: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
+
+    // Demand hotspot card
+    demandCard: {
+        backgroundColor: 'rgba(255,107,53,0.06)',
+        borderRadius: 14,
+        borderWidth: 0.5,
+        borderColor: 'rgba(255,107,53,0.2)',
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        marginBottom: 16,
+    },
+    demandIcon: {
+        width: 32, height: 32, borderRadius: 10,
+        backgroundColor: 'rgba(255,107,53,0.15)',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    demandTitle: { fontSize: 13, fontWeight: '600', color: '#FF8A50', marginBottom: 2 },
+    demandSub: { fontSize: 11, color: 'rgba(255,138,80,0.6)', lineHeight: 16 },
 
     // Push banner
     pushBanner: {

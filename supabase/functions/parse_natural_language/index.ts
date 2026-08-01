@@ -182,7 +182,7 @@ Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned loc
     const { data: pricingRows } = await supabaseAdmin
       .from("pricing_config")
       .select("key, value_cents")
-      .catch(() => ({ data: null }));
+      .then((__r) => __r, () => ({ data: null }));
     const pcfg: Record<string, number> = {};
     if (pricingRows) for (const r of pricingRows) pcfg[r.key] = r.value_cents;
     const BASE = pcfg["BASE_FARE_CENTS"] ?? 1600;
