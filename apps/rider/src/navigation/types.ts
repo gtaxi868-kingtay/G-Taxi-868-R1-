@@ -148,7 +148,11 @@ export type AppStackParamList = {
       dropoff_address: string;
       wallet_deduction_cents?: number;
       cash_payment_cents?: number;
+      payment_status?: string | null;
+      payment_method?: string | null;
     };
+    // Preferred. ReceiptScreen always refetches the authoritative row; any
+    // `ride` passed above is treated only as a placeholder while that loads.
     rideId?: string;
   };
   ReportProblem: {

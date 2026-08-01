@@ -170,11 +170,18 @@ Deno.serve(async (req: Request) => {
                 return new Response("Order not found", { status: 404 });
             }
 
-            // Mark order as paid
+            // Mark order as paid. NOTE: the value MUST be "captured" — the
+            // live orders_payment_status_check constraint allows only
+            // pending|authorized|captured|failed|refunded|cash_on_delivery.
+            // This previously wrote "paid", which is not in that list, so the
+            // UPDATE raised a check violation, this handler returned 500, and
+            // the customer was charged at Stripe while the order stayed
+            // "pending" and the merchant/driver split below never ran.
+            // grocery/index.ts already uses "captured" for this same path.
             const { error: updateErr } = await supabaseAdmin
                 .from("orders")
                 .update({
-                    payment_status: "paid",
+                    payment_status: "captured",
                     paid_at: new Date().toISOString(),
                     payment_method: "card",
                 })
