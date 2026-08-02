@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { captureException } from "../_shared/sentry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -39,7 +40,11 @@ Deno.serve(async (req: Request) => {
   if (orderId.startsWith("payout_")) {
     const { data: payout } = await supabaseAdmin
       .from("wipay_payouts")
-      .select("id, status")
+      // payout_request_id was missing from this select but IS used below to
+      // mark the originating payout_requests row completed. It was therefore
+      // always undefined at runtime, so a driver's payout request was never
+      // closed out even after WiPay confirmed the transfer.
+      .select("id, status, payout_request_id")
       .eq("wipay_reference", orderId)
       .maybeSingle();
 
@@ -172,6 +177,81 @@ Deno.serve(async (req: Request) => {
         .update(updates)
         .eq("id", rideId);
       if (updateError) console.error("WiPay webhook: failed to update ride:", updateError);
+
+      // ── SETTLE THE DRIVER ────────────────────────────────────────────
+      // This block did not exist. A WiPay card payment marked the ride
+      // "captured" and stopped there — the passenger was charged and the
+      // driver was NEVER credited. process_driver_settlement_atomic was
+      // called by stripe_webhook and nothing else, and the
+      // tr_ensure_fare_waterfall trigger only writes split NUMBERS onto
+      // the rides row; it creates no wallet_transactions.
+      //
+      // Same atomic RPC Stripe uses: one Postgres transaction, advisory
+      // locked, compute_ride_split as the single source of truth, and
+      // idempotent on p_event_id — which matters here because WiPay can
+      // re-deliver a callback and a rider can refresh the return page.
+      const { data: ride, error: rideErr } = await supabaseAdmin
+        .from("rides")
+        .select("id, driver_id, rider_id, total_fare_cents")
+        .eq("id", rideId)
+        .maybeSingle();
+
+      if (rideErr || !ride) {
+        console.error("[WiPay Webhook] Ride not found for settlement:", rideId, rideErr);
+      } else if (!ride.driver_id) {
+        // Grocery/other WiPay flows have no driver — nothing to settle.
+        console.log("[WiPay Webhook] No driver on ride; skipping driver settlement:", rideId);
+      } else {
+        const grossCents = ride.total_fare_cents ?? 0;
+        if (grossCents <= 0) {
+          console.error("[WiPay Webhook] Refusing to settle a non-positive fare:", { rideId, grossCents });
+        } else {
+          // Idempotency anchor. Prefer the WiPay transaction id; fall back
+          // to the order id, which is unique per session.
+          const eventId = `wipay_${txnId || orderId}`;
+
+          const { data: settlement, error: settlementError } = await supabaseAdmin.rpc(
+            "process_driver_settlement_atomic",
+            {
+              p_event_id: eventId,
+              p_ride_id: ride.id,
+              p_driver_id: ride.driver_id,
+              p_rider_id: ride.rider_id,
+              p_gross_cents: grossCents,
+              p_currency: "TTD",
+              p_provider_ref: txnId || orderId,
+            },
+          );
+
+          if (settlementError) {
+            // Money HAS been taken at this point. Do not tell the rider
+            // everything is fine and move on — record loudly so it can be
+            // reconciled, and surface it to Sentry.
+            console.error("[WiPay Webhook] SETTLEMENT FAILED — rider charged, driver unpaid:", {
+              ride_id: ride.id, event_id: eventId, error: settlementError.message,
+            });
+            await captureException(
+              new Error(`WiPay settlement failed: ${settlementError.message}`),
+              { function: "wipay_webhook", ride_id: ride.id, event_id: eventId },
+            );
+            await supabaseAdmin
+              .from("system_alerts")
+              .insert({
+                type: "PAYMENT_ANOMALY",
+                title: "WiPay payment captured but driver settlement failed",
+                severity: "CRITICAL",
+                details: {
+                  ride_id: ride.id, order_id: orderId, transaction_id: txnId,
+                  gross_cents: grossCents, error: settlementError.message,
+                  body: "Rider was charged. Driver was NOT credited. Reconcile manually.",
+                },
+              })
+              .then((__r) => __r, () => {});
+          } else {
+            console.log("[WiPay Webhook] Driver settlement result:", { ride_id: ride.id, settlement });
+          }
+        }
+      }
     }
 
     if (session) {
