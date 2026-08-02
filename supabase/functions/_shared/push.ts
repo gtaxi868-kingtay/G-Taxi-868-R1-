@@ -33,7 +33,13 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
     const binaryDer = base64urlToBytes(pemContents);
     return crypto.subtle.importKey(
         'pkcs8',
-        binaryDer,
+        // Uint8Array is typed as Uint8Array<ArrayBufferLike>, which TS will
+        // not accept as BufferSource (the buffer could in principle be a
+        // SharedArrayBuffer). Uint8Array.from always allocates a plain
+        // ArrayBuffer at offset 0, so this is a typing-only narrowing —
+        // runtime behaviour is unchanged. Without it, deno check fails on
+        // every function that imports this module.
+        binaryDer as unknown as BufferSource,
         { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
         false,
         ['sign']
