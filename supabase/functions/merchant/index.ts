@@ -440,6 +440,14 @@ serve(async (req) => {
           }
         }
 
+        // destination_address is optional in the payload but is written to
+        // the ride AND read back into the guest's WhatsApp message. Without
+        // a fallback the guest is told they are going to "undefined".
+        const dropoffAddress: string =
+          typeof destination_address === "string" && destination_address.trim()
+            ? destination_address.trim()
+            : `${Number(destination_lat).toFixed(5)}, ${Number(destination_lng).toFixed(5)}`;
+
         const ridePin = Math.floor(1000 + Math.random() * 9000).toString();
         const fareCents = estimateFareCents(merchant.lat, merchant.lng, destination_lat, destination_lng, vehicle_type, pricing);
 
@@ -450,7 +458,11 @@ serve(async (req) => {
             pickup_lat: merchant.lat, pickup_lng: merchant.lng,
             pickup_address: `${merchant.name} (${merchant.address})`,
             dropoff_lat: destination_lat, dropoff_lng: destination_lng,
-            dropoff_address,
+            // Was the shorthand `dropoff_address`, which has no value in
+            // scope — the body field is named destination_address. That is a
+            // hard ReferenceError at runtime, so concierge_dispatch could
+            // never create a ride.
+            dropoff_address: dropoffAddress,
             status: "searching", total_fare_cents: fareCents,
             vehicle_type, payment_method,
             billed_to_merchant_id: payment_method === "corporate_billing" ? merchant.id : null,
@@ -462,7 +474,7 @@ serve(async (req) => {
 
         if (insertError) throw insertError;
 
-        const smsMessage = `G-TAXI: ${merchant.name} has summoned a ride for you to ${destination_address}. Your driver will arrive soon. Your ride PIN is ${ridePin}. Track your ride: https://gtaxi.app/track/${newRide.id}`;
+        const smsMessage = `G-TAXI: ${merchant.name} has summoned a ride for you to ${dropoffAddress}. Your driver will arrive soon. Your ride PIN is ${ridePin}. Track your ride: https://gtaxi.app/track/${newRide.id}`;
         const waResult = await sendWhatsApp(guest_phone, smsMessage, { previewUrl: true }).catch(() => ({ success: false }));
         if (!waResult.success) {
           const deepLink = getDeepLink(guest_phone, smsMessage);
