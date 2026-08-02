@@ -194,15 +194,29 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     setHomeSuggestion(suggestion.cta_text);
                 }
 
+                // `unlocked_verticals` is now the EFFECTIVE list: the rider
+                // earned it AND the admin currently allows it. That
+                // intersection happens in get_rider_progress so it cannot be
+                // bypassed from here. Previously this only reflected what the
+                // rider earned, which is why the admin's vertical toggle
+                // appeared to do nothing.
                 const unlocked: string[] = progressRes.data?.data?.unlocked_verticals || [];
+
+                // Verticals with no progression gate (carnival, events) still
+                // have to respect the same admin switch. Default to true when
+                // the map is absent so an older payload can't blank the screen.
+                const platform: Record<string, boolean> = progressRes.data?.data?.platform_enabled || {};
+                const adminAllows = (name: string) => platform[name] !== false;
+
                 const flags = {
                     grocery: unlocked.includes('grocery'),
                     laundry: unlocked.includes('laundry_nfc') || unlocked.includes('laundry'),
                     merchant: unlocked.includes('merchant_delivery'),
                     kiosk: (unlocked.includes('laundry_nfc') || unlocked.includes('kiosk')) && (kioskFlagRes.data?.is_active === true),
                     caribbean_travel: unlocked.includes('g_escape') || unlocked.includes('caribbean_travel'),
-                    fete: carnivalFlagRes.data?.is_active === true,
-                    events: eventsFlagRes.data?.is_active === true,
+                    // Feature flag AND vertical switch — either one off hides it.
+                    fete: carnivalFlagRes.data?.is_active === true && adminAllows('carnival'),
+                    events: eventsFlagRes.data?.is_active === true && adminAllows('events'),
                 };
 
                 setFeatureFlags(flags);
