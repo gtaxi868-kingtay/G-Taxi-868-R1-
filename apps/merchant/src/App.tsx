@@ -3,15 +3,20 @@ import { supabase } from './lib/supabase';
 import { 
   Package, MapPin, CheckCircle, Clock, AlertTriangle, LogOut, 
   Sparkles, Bell, ShieldCheck, Users, DollarSign, Scan,
-  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X
+  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X, Megaphone, Wine
 } from 'lucide-react';
 import { MerchantFinancials } from './pages/MerchantFinancials';
+import { MerchantPromotions } from './pages/MerchantPromotions';
+import { MerchantGSpot } from './pages/MerchantGSpot';
+import { MerchantLogin } from './pages/MerchantLogin';
+import { MerchantRegister } from './pages/MerchantRegister';
+import { MerchantJoinWithCode } from './pages/MerchantJoinWithCode';
 
 type MerchantMode = 'HOTEL' | 'RETAIL' | 'SERVICE' | 'AIRPORT';
-type MerchantView = 'dashboard' | 'appointments' | 'financials';
+type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions' | 'gspot';
 
 function App() {
-  const [view, setView] = useState<'login' | 'app'>('login');
+  const [view, setView] = useState<'login' | 'register' | 'join' | 'app'>('login');
   const [activeTab, setActiveTab] = useState<MerchantView>('dashboard');
   const [merchant, setMerchant] = useState<any>(null);
   const [mode, setMode] = useState<MerchantMode>('SERVICE');
@@ -97,53 +102,30 @@ function App() {
   useEffect(() => { checkSession(); }, []);
 
   if (view === 'login') return (
-    <div className="min-h-screen bg-[#0B0E12] flex items-center justify-center p-6 overflow-y-auto">
-      <div className="w-full max-w-md bg-[#13171D] rounded-[3.5rem] p-8 sm:p-12 text-center shadow-2xl border border-[#007070]/20">
-        <div className="w-24 h-24 bg-[#007070] rounded-[2rem] mx-auto flex items-center justify-center shadow-xl mb-12 rotate-3 shadow-[#007070]/20">
-          <ShieldCheck size={48} color="white" />
-        </div>
-        <h1 className="text-4xl font-black text-white mb-2 italic">G-TAXI</h1>
-        <p className="text-[#0D9488] font-black text-[10px] uppercase tracking-[0.3em] mb-12">Universal Partner Terminal</p>
-        <form onSubmit={async (e) => {
-          e.preventDefault();
-          setLoginError('');
-          setLoginLoading(true);
-          const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
-          setLoginLoading(false);
-          if (error) setLoginError(error.message);
-          else checkSession();
-        }} className="space-y-4">
-          <input
-            type="email"
-            value={loginEmail}
-            onChange={e => setLoginEmail(e.target.value)}
-            placeholder="Partner Email"
-            required
-            autoFocus
-            className="w-full h-14 px-5 bg-[#0B0E12] text-white rounded-[1.5rem] text-base placeholder-[#5A5F66] border border-[#007070]/30 focus:border-[#0D9488] focus:outline-none transition-colors"
-          />
-          <input
-            type="password"
-            value={loginPassword}
-            onChange={e => setLoginPassword(e.target.value)}
-            placeholder="Security Key"
-            required
-            className="w-full h-14 px-5 bg-[#0B0E12] text-white rounded-[1.5rem] text-base placeholder-[#5A5F66] border border-[#007070]/30 focus:border-[#0D9488] focus:outline-none transition-colors"
-          />
-          {loginError && (
-            <p className="text-red-400 text-sm text-left px-1">{loginError}</p>
-          )}
-          <button
-            type="submit"
-            disabled={loginLoading}
-            className="w-full h-20 bg-[#007070] text-white rounded-[1.5rem] font-black text-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-4 disabled:opacity-50 disabled:hover:scale-100 shadow-lg shadow-[#007070]/20"
-          >
-            <Scan size={24} />
-            {loginLoading ? 'SIGNING IN...' : 'AUTHORIZE SESSION'}
-          </button>
-        </form>
-      </div>
-    </div>
+    <MerchantLogin
+      email={loginEmail} setEmail={setLoginEmail}
+      password={loginPassword} setPassword={setLoginPassword}
+      loading={loginLoading} error={loginError}
+      onSubmit={async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoginError('');
+        setLoginLoading(true);
+        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
+        setLoginLoading(false);
+        if (error) setLoginError(error.message);
+        else checkSession();
+      }}
+      onGoRegister={() => setView('register')}
+      onGoJoin={() => setView('join')}
+    />
+  );
+
+  if (view === 'register') return (
+    <MerchantRegister onDone={() => setView('login')} onBack={() => setView('login')} />
+  );
+
+  if (view === 'join') return (
+    <MerchantJoinWithCode onDone={() => setView('login')} onBack={() => setView('login')} />
   );
 
   return (
@@ -188,6 +170,8 @@ function App() {
               <MerchantNavItem active={activeTab === 'dashboard'} onClick={() => handleNav('dashboard')} icon={<Package size={20}/>} label="Live Manifests" />
               <MerchantNavItem active={activeTab === 'appointments'} onClick={() => handleNav('appointments')} icon={<Clock size={20}/>} label="Guest Schedule" />
               <MerchantNavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Audit" />
+              <MerchantNavItem active={activeTab === 'promotions'} onClick={() => handleNav('promotions')} icon={<Megaphone size={20}/>} label="Promotions" />
+              <MerchantNavItem active={activeTab === 'gspot'} onClick={() => handleNav('gspot')} icon={<Wine size={20}/>} label="G Spot" />
           </nav>
 
           <div className="mt-auto space-y-4">
@@ -293,6 +277,8 @@ function App() {
               )}
 
               {activeTab === 'financials' && <MerchantFinancials merchantId={merchant?.id} />}
+              {activeTab === 'promotions' && <MerchantPromotions merchantId={merchant?.id} />}
+              {activeTab === 'gspot' && <MerchantGSpot />}
           </div>
 
           {showDispatch && (

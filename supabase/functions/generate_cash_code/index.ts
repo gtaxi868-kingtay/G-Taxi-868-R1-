@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
       .select("role, verification_status")
       .eq("id", user.id)
       .single()
-      .catch(() => ({ data: null }));
+      .then((__r) => __r, () => ({ data: null }));
 
     if (!profile) {
       return new Response(JSON.stringify({ error: "Profile not found" }), {
@@ -89,7 +89,7 @@ Deno.serve(async (req: Request) => {
       .select("id, user_id, status, commission_debt_cents")
       .eq("id", driver_id)
       .single()
-      .catch(() => ({ data: null }));
+      .then((__r) => __r, () => ({ data: null }));
 
     if (!driver) {
       return new Response(JSON.stringify({ error: "Driver not found" }), {

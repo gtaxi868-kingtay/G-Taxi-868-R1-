@@ -134,7 +134,7 @@ serve(async (req: Request) => {
         const { data: pricingRows } = await adminClient
             .from("pricing_config")
             .select("key, value_cents")
-            .catch(() => ({ data: null }));
+            .then((__r) => __r, () => ({ data: null }));
         const pcfg: Record<string, number> = {};
         if (pricingRows) for (const r of pricingRows) pcfg[r.key] = r.value_cents;
 

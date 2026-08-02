@@ -111,8 +111,45 @@ serve(async (req: Request) => {
             );
         }
 
+        // Real promotion consumption: this is the one live surface a
+        // 'suggested_stop'/'map_pin' promotion actually reaches a rider
+        // through. Boost matching active, in-window promotions to the
+        // front and bill a real impression against their budget —
+        // charge_promotion_impression auto-pauses the promotion the
+        // instant it would exceed budget_cents, so a merchant is never
+        // overcharged past what they approved.
+        const merchantList = (merchants || []) as any[];
+        const merchantIds = merchantList.map((m: any) => m.id ?? m.merchant_id).filter(Boolean);
+        let promotedIds = new Set<string>();
+
+        if (merchantIds.length > 0) {
+            const today = new Date().toISOString().slice(0, 10);
+            const { data: activePromos } = await supabaseAdmin
+                .from("merchant_promotions")
+                .select("id, merchant_id")
+                .in("merchant_id", merchantIds)
+                .in("promotion_type", ["suggested_stop", "map_pin"])
+                .eq("is_active", true)
+                .lte("start_date", today)
+                .gte("end_date", today);
+
+            for (const promo of activePromos ?? []) {
+                const charged = await supabaseAdmin.rpc("charge_promotion_impression", {
+                    p_promotion_id: promo.id,
+                    p_user_id: user.id,
+                });
+                if (charged.data === true) promotedIds.add(promo.merchant_id);
+            }
+        }
+
+        const withPromotion = merchantList.map((m: any) => ({
+            ...m,
+            is_promoted: promotedIds.has(m.id ?? m.merchant_id),
+        }));
+        withPromotion.sort((a: any, b: any) => Number(b.is_promoted) - Number(a.is_promoted));
+
         return new Response(
-            JSON.stringify({ success: true, data: { merchants: merchants || [] } }),
+            JSON.stringify({ success: true, data: { merchants: withPromotion } }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     } catch (error: any) {

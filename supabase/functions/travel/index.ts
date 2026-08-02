@@ -170,7 +170,7 @@ serve(async (req) => {
           status: 'locked',
           source: 'travel_package',
           notes: `Travel booking ${booking_id} — ${package_title}`,
-        }).catch(() => {});
+        }).then((__r) => __r, () => {});
 
         await supabase.from('platform_revenue_logs').insert({
           source: 'travel_package',
@@ -178,7 +178,7 @@ serve(async (req) => {
           platform_margin_cents,
           reserve_cents: reserveCents,
           metadata: { booking_id, package_id, traveler_count, payment_method },
-        }).catch(() => {});
+        }).then((__r) => __r, () => {});
 
         const { data: riderProfile } = await supabase
           .from('profiles')
@@ -329,7 +329,7 @@ serve(async (req) => {
         const bookingRef: string | null = resRow?.booking_ref ?? null;
 
         const releaseHold = async () => {
-          await supabase.rpc('release_single_reservation', { p_reservation_id: reservationId }).catch(() => {});
+          await supabase.rpc('release_single_reservation', { p_reservation_id: reservationId }).then((__r) => __r, () => {});
         };
 
         if (payment_method === 'wallet') {
@@ -375,7 +375,7 @@ serve(async (req) => {
                 form_fields: { reservation_id: reservationId, escape_package_id },
                 status: 'pending',
               })
-              .catch((err: unknown) => console.error('[book_escape] wipay_session insert error:', err))
+              .then((__r) => __r, (err: unknown) => console.error('[book_escape] wipay_session insert error:', err))
 
             const wipayParams = new URLSearchParams({
               account_number: WIPAY_ACCOUNT_NUMBER,
@@ -497,7 +497,7 @@ serve(async (req) => {
 
         await supabase.rpc('increment_allocated_guests', {
           p_package_id: package_id, p_increment: party_size || 1,
-        }).catch(() => {});
+        }).then((__r) => __r, () => {});
 
         return json({
           participant,
@@ -560,7 +560,7 @@ serve(async (req) => {
                 if (!updateErr) {
                   await supabase.rpc('increment_confirmed_guests', {
                     p_package_id: pkg.id, p_increment: p.party_size,
-                  }).catch(() => {});
+                  }).then((__r) => __r, () => {});
                   charged++;
                 } else {
                   failed++;
@@ -653,7 +653,7 @@ serve(async (req) => {
             p_type: 'travel_package_refund',
             p_description: `Refund for cancelled trip to ${pkg?.destination_name || 'Caribbean'}`,
             p_reference_id: booking_id,
-          }).catch(() => ({ error: { message: 'RPC not found, insert directly' } }));
+          }).then((__r) => __r, () => ({ error: { message: 'RPC not found, insert directly' } }));
 
           if (refundErr) {
             const { data: wallet } = await supabase
@@ -676,14 +676,14 @@ serve(async (req) => {
             .update({ status: 'cancelled' })
             .eq('id', (booking as any).airport_transfer_ride_id)
             .in('status', ['searching', 'scheduled'])
-            .catch(() => {});
+            .then((__r) => __r, () => {});
         }
 
         await supabase.from('capital_reserve_ledger')
           .update({ status: 'released', notes: `Travel booking ${booking_id} cancelled` })
           .eq('source_booking_id', booking_id)
           .eq('status', 'locked')
-          .catch(() => {});
+          .then((__r) => __r, () => {});
 
         return json({
           cancelled: true, booking_id, refunded,

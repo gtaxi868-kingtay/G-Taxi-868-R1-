@@ -59,7 +59,7 @@ async function activateScheduledTransfers(supabase: ReturnType<typeof createClie
             title: "Anomaly Detected: activateScheduledTransfers",
             details: { message: `Attempted to activate ${rides.length} scheduled transfers at once. Circuit breaker tripped.` },
             severity: "CRITICAL"
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
         throw new Error("Circuit breaker tripped: activateScheduledTransfers exceeded 5 row safety limit.");
     }
 
@@ -376,7 +376,7 @@ async function orchestrateLiquidity(supabase: ReturnType<typeof createClient>) {
             await supabase.from("dispatch_queue")
                 .update({ status: "expired" })
                 .in("id", expiredIds)
-                .catch(() => null);
+                .then((__r) => __r, () => null);
         }
     }
 
@@ -397,7 +397,7 @@ async function orchestrateLiquidity(supabase: ReturnType<typeof createClient>) {
                 p_radius_meters: searchRadius,
                 p_limit: 1,
             })
-            .catch(() => ({ data: [] }));
+            .then((__r) => __r, () => ({ data: [] }));
 
         if (!drivers?.length) {
             await supabase.from("dispatch_queue")
@@ -437,7 +437,7 @@ async function orchestrateLiquidity(supabase: ReturnType<typeof createClient>) {
             tool_used: "orchestrateLiquidity",
             payload: { task_id: task.id, driver_id: driver.driver_id, task_type: task.task_type, priority: task.priority },
             outcome: "driver soft-pinged",
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
 
         console.log(`[orchestrateLiquidity] ${task.task_type} task ${task.id} → driver ${driver.driver_id}`);
     });
@@ -451,7 +451,7 @@ async function orchestrateLiquidity(supabase: ReturnType<typeof createClient>) {
 async function gridLiquidityCheck(supabase: ReturnType<typeof createClient>) {
     const { data: hotspots } = await supabase
         .rpc("get_demand_hotspots", { p_min_score: 1.2 })
-        .catch(() => ({ data: [] }));
+        .then((__r) => __r, () => ({ data: [] }));
 
     if (!hotspots?.length) return;
 
@@ -489,7 +489,7 @@ async function gridLiquidityCheck(supabase: ReturnType<typeof createClient>) {
                 supply_ratio: supplyRatio,
             },
             outcome: supplyRatio < 0.5 ? "UNDERSUPPLIED — consider relocation" : "adequate",
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
 
         if (nearbyCount === 0) {
             const { data: farDrivers } = await supabase
@@ -499,7 +499,7 @@ async function gridLiquidityCheck(supabase: ReturnType<typeof createClient>) {
                     p_radius_meters: 10000,
                     p_limit: 5,
                 })
-                .catch(() => ({ data: [] }));
+                .then((__r) => __r, () => ({ data: [] }));
 
             if (farDrivers?.length) {
                 await supabase.from("agent_decision_log").insert({
@@ -513,7 +513,7 @@ async function gridLiquidityCheck(supabase: ReturnType<typeof createClient>) {
                         candidate_drivers: farDrivers.slice(0, 3).map((d: any) => d.driver_id),
                     },
                     outcome: "relocation_suggested_but_not_forced",
-                }).catch(() => null);
+                }).then((__r) => __r, () => null);
             }
         }
     }
@@ -561,7 +561,7 @@ async function liaisonDraftCommanderMessages(supabase: ReturnType<typeof createC
                 wa_deep_link: `https://wa.me/1868XXXXXXX?text=${encodeURIComponent(message)}`,
             },
             outcome: "draft_ready_for_approval",
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
 
         // Push notification to commander with the draft
         const { data: profile } = await supabase
@@ -569,7 +569,7 @@ async function liaisonDraftCommanderMessages(supabase: ReturnType<typeof createC
             .select("push_token")
             .eq("id", commander.user_id)
             .single()
-            .catch(() => ({ data: null }));
+            .then((__r) => __r, () => ({ data: null }));
 
         if (profile?.push_token) {
             await sendExpoPush(
@@ -608,14 +608,14 @@ async function watchdogAudit(supabase: ReturnType<typeof createClient>) {
             tool_used: "watchdogAudit",
             payload: { surge_count: surgeCount, window_hours: 6 },
             outcome: "surge_rate_anomaly_detected",
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
 
         await supabase.from("system_alerts").insert({
             type: "WATCHDOG_ANOMALY",
             title: "Surge activation rate anomaly",
             details: { message: msg, surge_count: surgeCount, run_id: runId },
             severity: "HIGH",
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
     }
 
     // Check 2: Recent system alerts
@@ -634,7 +634,7 @@ async function watchdogAudit(supabase: ReturnType<typeof createClient>) {
                 tool_used: "watchdogAudit",
                 payload: { alert_id: alert.id, alert_type: alert.type },
                 outcome: "emergency_flag_raised",
-            }).catch(() => null);
+            }).then((__r) => __r, () => null);
         }
     }
 
@@ -654,14 +654,14 @@ async function watchdogAudit(supabase: ReturnType<typeof createClient>) {
             tool_used: "watchdogAudit",
             payload: { error_count: recentErrors.length, window: "1h" },
             outcome: "error_rate_anomaly_detected",
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
 
         await supabase.from("system_alerts").insert({
             type: "WATCHDOG_ANOMALY",
             title: "High agent error rate",
             details: { message: msg, error_count: recentErrors.length, run_id: runId },
             severity: "MEDIUM",
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
     }
 
     // Check 4: Verify RPCs still work (canary)
@@ -671,7 +671,7 @@ async function watchdogAudit(supabase: ReturnType<typeof createClient>) {
     ];
 
     for (const canary of canaryChecks) {
-        const { error } = await supabase.rpc(canary.rpc as any, canary.params).catch(() => ({ error: new Error("RPC unavailable") }));
+        const { error } = await supabase.rpc(canary.rpc as any, canary.params).then((__r) => __r, () => ({ error: new Error("RPC unavailable") }));
         if (error) {
             await supabase.from("agent_decision_log").insert({
                 run_id: runId,
@@ -680,7 +680,7 @@ async function watchdogAudit(supabase: ReturnType<typeof createClient>) {
                 tool_used: "watchdogAudit",
                 payload: { canary: canary.name, error: error.message },
                 outcome: "canary_failure",
-            }).catch(() => null);
+            }).then((__r) => __r, () => null);
         }
     }
 
@@ -693,7 +693,7 @@ async function watchdogAudit(supabase: ReturnType<typeof createClient>) {
             tool_used: "watchdogAudit",
             payload: { checks: ["surge_rate", "critical_alerts", "error_rate", "canary"] },
             outcome: "all_healthy",
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
     }
 }
 
@@ -942,7 +942,7 @@ async function executeTool(
             await supabase.rpc("sql", {
                 query: `UPDATE dispatch_queue SET attempts = attempts + 1, last_attempted = now() WHERE order_id = $1`,
                 params: [order_id],
-            }).catch(() => null);
+            }).then((__r) => __r, () => null);
 
             if (error) return { error: error.message };
 
@@ -1129,7 +1129,7 @@ Context:
                         title: "Anomaly Detected: AI Tool Spam",
                         details: { message: `AI attempted to execute ${assistantMsg.tool_calls.length} tools in one step. Circuit breaker tripped.` },
                         severity: "CRITICAL"
-                    }).catch(() => null);
+                    }).then((__r) => __r, () => null);
                     throw new Error("Circuit breaker tripped: AI exceeded 5 concurrent tool calls safety limit.");
                 }
 
@@ -1164,7 +1164,7 @@ Context:
             tool_used: null,
             payload: {},
             outcome: "error",
-        }).catch(() => null);
+        }).then((__r) => __r, () => null);
 
         return new Response(
             JSON.stringify({ error: msg }),

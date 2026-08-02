@@ -5,8 +5,11 @@
 //
 // Handler policy v1 (honest by design):
 //  - Draft/advisory types (draft_post, support_reply_draft, content_calendar,
-//    recommendation, grid_candidate): "executing" means acknowledging — the
-//    human posts/sends manually in phase 1. Marked executed with manual:true.
+//    recommendation): "executing" means acknowledging — the human posts/sends
+//    manually in phase 1. Marked executed with manual:true.
+//  - grid_candidate has a real handler below (G Co-Host lodging intake) —
+//    approving it actually creates the lodging_nodes row, flagged
+//    requires_verification until ops confirms the owner/property is real.
 //  - Types with no handler yet are marked FAILED with a clear note telling the
 //    owner to do it in the dashboard — never silently pretended done.
 //
@@ -59,8 +62,12 @@ const MANUAL_ACK_TYPES = new Set([
     "support_reply_draft",
     "content_calendar",
     "recommendation",
-    "grid_candidate",
     "unspecified",
+    // Filed by check_escape_lane_fare_freshness() every 14 days — no live
+    // fare API is wired, so there's nothing to auto-execute. Approving
+    // just acknowledges the lanes listed in payload.stale_lanes were
+    // re-verified and escape_lane_fare_baseline updated by hand.
+    "lane_fare_review",
 ]);
 
 const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResult>> = {
@@ -76,6 +83,26 @@ const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResul
         return error
             ? { ok: false, result: { error: error.message } }
             : { ok: true, result: { activated: promoId } };
+    },
+
+    // G proposes approving a driver's G Garage vehicle-sourcing request
+    // (e.g. "this driver's stats + earnings support it"); admin approval
+    // here runs the EXACT same admin_decide_garage_request() RPC the
+    // manual admin GGarage screen uses — one source of truth for what
+    // "approved" means, whether G or a human clicked it, matching the
+    // reasoning behind escape_confirm_group below.
+    async approve_garage_request(supabase, p) {
+        const requestId = p.payload?.request_id;
+        if (!requestId) return { ok: false, result: { error: "payload.request_id missing" } };
+        if (!p.decided_by) return { ok: false, result: { error: "proposal has no decided_by admin id" } };
+        const { data, error } = await supabase.rpc("admin_decide_garage_request", {
+            p_request_id: requestId,
+            p_decision: "approved",
+            p_admin_id: p.decided_by,
+            p_reason: p.reasoning ?? null,
+        });
+        if (error) return { ok: false, result: { error: error.message } };
+        return { ok: true, result: { request: data } };
     },
 
     // Admin's "send" for a G-Escape group that hit its tipping point.
@@ -118,6 +145,37 @@ const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResul
         }).select("id").single();
         if (error) return { ok: false, result: { error: error.message } };
         return { ok: true, result: { drafted_flight_block_id: data.id, status: "DRAFT" } };
+    },
+
+    // G Co-Host: commander/admin-sourced lodging candidate. Approving creates
+    // the real lodging_nodes row — requires_verification stays true so ops
+    // knows this came from an unvetted submission, not a direct admin entry.
+    // merchant_id is intentionally nullable: most small Caribbean rentals
+    // don't have a merchant account yet, and this isn't the place to invent one.
+    async grid_candidate(supabase, p) {
+        const pl = p.payload ?? {};
+        if (!pl.name || !pl.destination_code || !pl.location_zone || !pl.base_price_per_night_cents) {
+            return { ok: false, result: { error: "payload missing required fields (name, destination_code, location_zone, base_price_per_night_cents)" } };
+        }
+        const { data, error } = await supabase.from("lodging_nodes").insert({
+            name: pl.name,
+            merchant_id: pl.merchant_id ?? null,
+            destination_code: pl.destination_code,
+            location_zone: pl.location_zone,
+            nights: pl.nights ?? 2,
+            base_price_per_night_cents: pl.base_price_per_night_cents,
+            max_guests: pl.max_guests ?? 6,
+            min_guests: pl.min_guests ?? 1,
+            is_active: true,
+            requires_verification: true,
+            owner_name: pl.owner_name ?? null,
+            owner_phone: pl.owner_phone ?? null,
+            owner_whatsapp: pl.owner_whatsapp ?? null,
+            owner_email: pl.owner_email ?? null,
+            description: pl.notes ?? null,
+        }).select("id").single();
+        if (error) return { ok: false, result: { error: error.message } };
+        return { ok: true, result: { lodging_node_id: data.id, requires_verification: true } };
     },
 };
 

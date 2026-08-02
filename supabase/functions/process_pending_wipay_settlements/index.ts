@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
           resolved_at: new Date().toISOString(),
         })
         .eq("id", session.id)
-        .catch(() => {});
+        .then((__r) => __r, () => {});
 
       if (session.ride_id) {
         // Attempt refund via wallet credit
@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
           .select("rider_id, total_fare_cents, payment_method")
           .eq("id", session.ride_id)
           .single()
-          .catch(() => ({ data: null }));
+          .then((__r) => __r, () => ({ data: null }));
 
         if (ride?.rider_id && ride?.total_fare_cents) {
           await supabase
@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
               p_amount: -ride.total_fare_cents,
               p_idempotency_key: `wipay_refund_${session.id}`,
             })
-            .catch((err) => console.error("Refund failed:", err));
+            .then((__r) => __r, (err) => console.error("Refund failed:", err));
 
           // Notify rider
           const { data: profile } = await supabase
@@ -105,7 +105,7 @@ Deno.serve(async (req: Request) => {
             .select("push_token")
             .eq("id", ride.rider_id)
             .single()
-            .catch(() => ({ data: null }));
+            .then((__r) => __r, () => ({ data: null }));
 
           if (profile?.push_token) {
             try {
@@ -158,7 +158,7 @@ Deno.serve(async (req: Request) => {
             .from("rides")
             .update({ payment_status: "captured", wipay_transaction_id: session.transaction_id })
             .eq("id", session.ride_id)
-            .catch((err) => console.error("Failed to update ride payment:", err));
+            .then((__r) => __r, (err) => console.error("Failed to update ride payment:", err));
         }
 
         await supabase

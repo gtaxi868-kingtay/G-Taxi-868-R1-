@@ -31,6 +31,7 @@ export function SignupScreen({ navigation }: any) {
         phone: '',
         password: '',
         referralCode: '',
+        commanderCode: '',
         aiEnabled: true,
         termsAccepted: false,
     });
@@ -89,6 +90,18 @@ export function SignupScreen({ navigation }: any) {
                         p_type: 'rider',
                     });
                 } catch { /* non-fatal — bonus is a perk, not a requirement */ }
+            }
+
+            // Step 4: Link to a G-Lead's territory if a commander code was entered.
+            // Requires an active session — apply_commander_code reads auth.uid().
+            // If email confirmation is required (no session yet), this is silently
+            // skipped; nothing in this repo re-prompts for it post-verification.
+            if (formData.commanderCode.trim() && authData.session) {
+                try {
+                    await supabase.rpc('apply_commander_code', {
+                        p_code: formData.commanderCode.trim(),
+                    });
+                } catch { /* non-fatal — territory linking is a bonus, not a requirement */ }
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -214,6 +227,16 @@ export function SignupScreen({ navigation }: any) {
                                         onChange={(v: string) => setFormData({ ...formData, referralCode: v })}
                                         isFocused={focusedField === 'referral'}
                                         onFocus={() => setFocusedField('referral')}
+                                        onBlur={() => setFocusedField(null)}
+                                        optional
+                                    />
+                                    <Input
+                                        label="G-LEAD CODE"
+                                        placeholder="Got a code from your G-Lead?"
+                                        value={formData.commanderCode}
+                                        onChange={(v: string) => setFormData({ ...formData, commanderCode: v })}
+                                        isFocused={focusedField === 'commander'}
+                                        onFocus={() => setFocusedField('commander')}
                                         onBlur={() => setFocusedField(null)}
                                         optional
                                     />

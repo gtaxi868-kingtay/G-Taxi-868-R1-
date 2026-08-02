@@ -78,7 +78,7 @@ serve(async (req) => {
           p_title: `Trip confirmed! ${pkg.package_name}`,
           p_body: "Your trip is booked. Please submit your passport details to complete check-in.",
           p_data: { package_id, participant_id: p.id },
-        }).catch(() => {});
+        }).then((__r) => __r, () => {});
       }
 
       if (booking_reference) {
@@ -148,7 +148,7 @@ serve(async (req) => {
             p_title: "Trip update",
             p_body: message || "Your trip has been delayed. We'll notify you of the new schedule.",
             p_data: { package_id },
-          }).catch(() => {});
+          }).then((__r) => __r, () => {});
         }
       }
 
@@ -209,7 +209,7 @@ serve(async (req) => {
     });
   } catch (err) {
     if (err instanceof Response) return err;
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

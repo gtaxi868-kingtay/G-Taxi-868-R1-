@@ -1,8 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { initializeSupabaseClient } from '@gtaxi/core';
+import { supabase } from '../lib/supabase';
 import { DollarSign, Download, Calendar, ArrowUpRight, Sparkles } from 'lucide-react';
-
-const { supabase } = initializeSupabaseClient('web');
 
 interface RevenueSummary {
     month: string;

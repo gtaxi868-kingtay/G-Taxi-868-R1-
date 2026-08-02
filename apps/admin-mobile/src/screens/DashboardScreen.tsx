@@ -19,6 +19,9 @@ type RootStackParamList = {
   TagMarker: undefined;
   RegisterPuck: undefined;
   Intelligence: undefined;
+  Approvals: undefined;
+  GroundTransit: undefined;
+  ZoneRates: undefined;
 };
 
 type DashboardNavProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
@@ -200,6 +203,27 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
             <Text style={styles.headerMeta}>{nodes.length} deployed · {nodes.filter(n => n.is_active).length} active</Text>
           </View>
           <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('Approvals'); }}
+              style={styles.iconBtn}
+              accessibilityLabel="Approvals"
+            >
+              <Ionicons name="file-tray-full-outline" size={18} color={ACCENT} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('GroundTransit'); }}
+              style={styles.iconBtn}
+              accessibilityLabel="Ground Transit"
+            >
+              <Ionicons name="airplane-outline" size={18} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('ZoneRates'); }}
+              style={styles.iconBtn}
+              accessibilityLabel="Zone Rates"
+            >
+              <Ionicons name="map-outline" size={18} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('Intelligence'); }}
               style={styles.iconBtn}

@@ -110,6 +110,11 @@ export default function EscapeStorefrontScreen() {
       const { data } = await supabase
         .from('escape_lane_interest')
         .select('id, destination_code, destination_name, travel_month, party_size')
+        // RLS already scopes this to the signed-in rider (verified: policy
+        // eli_select_own USING rider_id = auth.uid()). Filtering explicitly
+        // too so the query states its own intent and does not depend solely
+        // on a policy living in another system.
+        .eq('rider_id', session.user.id)
         .gte('travel_month', new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)).toISOString().slice(0, 10))
         .order('travel_month', { ascending: true });
       setMyLanes(data ?? []);
@@ -164,7 +169,21 @@ export default function EscapeStorefrontScreen() {
   };
 
   const leaveLane = async (id: string) => {
-    await supabase.from('escape_lane_interest').delete().eq('id', id);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    // The error was previously discarded entirely — when this delete was
+    // being refused (missing table GRANT), the row silently stayed and the
+    // rider was told nothing. Ownership is enforced by RLS; the explicit
+    // rider_id filter states the same intent locally.
+    const { error } = await supabase
+      .from('escape_lane_interest')
+      .delete()
+      .eq('id', id)
+      .eq('rider_id', session.user.id);
+    if (error) {
+      Alert.alert('Could not leave the list', error.message);
+      return;
+    }
     loadMyLanes();
   };
 

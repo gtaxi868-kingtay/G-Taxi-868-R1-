@@ -109,6 +109,24 @@ best_time}). Learn from the top/bottom performers in get_social_performance — 
 changed and why in your reasoning. Never invent statistics about the platform.${SHARED_RULES}`,
         tools: ["get_platform_highlights", "get_social_performance", "propose_action", "log_decision"],
     },
+    fleet: {
+        prompt: `You are G's Fleet & Compliance officer for G-Taxi.
+Daily duty: (1) driver registration compliance — every driver's vehicle must carry a legal
+'H' (for-hire) plate to legally carry paying passengers in Trinidad & Tobago; a private plate
+voids insurance on any accident. Flag drivers still "unverified" after a reasonable window,
+and any driver marked "private" (non-compliant) — these are people-category proposals asking
+the owner to follow up, never an auto-suspend. (2) G Garage — review pending driver vehicle-
+sourcing requests (g_garage_requests). Use get_knowledge_documents for any admin-uploaded
+context (ATL dealer terms, legal opinions on import, customs guidance) before reasoning about
+a request. Only propose action_type "approve_garage_request" (payload {request_id}) when the
+request's requested_daily_contribution_cents already falls inside its own computed min/max
+range (it always will — that's enforced server-side) AND the driver's registration_class is
+not "private". If registration_class is "unverified", propose flagging it for follow-up
+instead of approving the vehicle request — don't hand a car to a driver whose plate status is
+unknown. Never invent a legal or financial conclusion that isn't backed by an uploaded document
+or the real request data.${SHARED_RULES}`,
+        tools: ["get_registration_compliance", "get_garage_requests", "get_knowledge_documents", "propose_action", "log_decision"],
+    },
 };
 
 async function loadReservedDepartment(supabase: Svc): Promise<Department | null> {
@@ -198,6 +216,30 @@ const TOOL_DEFS: Record<string, LlmTool> = {
         function: {
             name: "get_social_performance",
             description: "Recent social posts with metrics, plus top-3 and bottom-3 by engagement.",
+            parameters: { type: "object", properties: {} },
+        },
+    },
+    get_registration_compliance: {
+        type: "function",
+        function: {
+            name: "get_registration_compliance",
+            description: "Counts of drivers by registration_class (unverified/H/R/private), plus the list of drivers still unverified or marked private.",
+            parameters: { type: "object", properties: {} },
+        },
+    },
+    get_garage_requests: {
+        type: "function",
+        function: {
+            name: "get_garage_requests",
+            description: "Pending G Garage vehicle-sourcing requests, joined with the requesting driver's registration_class and rank.",
+            parameters: { type: "object", properties: {} },
+        },
+    },
+    get_knowledge_documents: {
+        type: "function",
+        function: {
+            name: "get_knowledge_documents",
+            description: "Admin-uploaded reference documents (title, category, notes) — legal opinions, vendor quotes, research — relevant to fleet/compliance decisions. Read the notes field; it is the actual content a human summarized, not OCR of the file.",
             parameters: { type: "object", properties: {} },
         },
     },
@@ -351,6 +393,34 @@ const TOOL_CATALOG: Record<string, (supabase: Svc, input: Record<string, unknown
             top_3: sorted.slice(0, 3),
             bottom_3: sorted.slice(-3).reverse(),
         };
+    },
+    async get_registration_compliance(supabase) {
+        const { data, error } = await supabase.from("drivers")
+            .select("id, name, plate_number, registration_class, registration_verified_at, status")
+            .order("registration_class", { ascending: true });
+        if (error) return { error: error.message };
+        const rows = data ?? [];
+        const counts: Record<string, number> = { unverified: 0, H: 0, R: 0, private: 0 };
+        for (const r of rows) counts[r.registration_class] = (counts[r.registration_class] ?? 0) + 1;
+        return {
+            counts,
+            unverified_drivers: rows.filter((r: { registration_class: string }) => r.registration_class === "unverified").slice(0, 25),
+            non_compliant_private_drivers: rows.filter((r: { registration_class: string }) => r.registration_class === "private"),
+        };
+    },
+    async get_garage_requests(supabase) {
+        const { data, error } = await supabase.from("g_garage_requests")
+            .select("id, source, min_daily_contribution_cents, max_daily_contribution_cents, requested_daily_contribution_cents, status, created_at, driver:driver_id(id, name, registration_class, rank), vehicle_class:vehicle_class_key(key, label)")
+            .eq("status", "pending")
+            .order("created_at", { ascending: true }).limit(25);
+        return error ? { error: error.message } : data ?? [];
+    },
+    async get_knowledge_documents(supabase) {
+        const { data, error } = await supabase.from("g_knowledge_documents")
+            .select("title, category, notes, created_at")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false }).limit(25);
+        return error ? { error: error.message } : data ?? [];
     },
 };
 

@@ -124,7 +124,7 @@ serve(async (req: Request) => {
       // Update wallet balance atomically
       const { error: walletError } = await admin.rpc("create_wallet_if_not_exists", {
         p_user_id: userId,
-      }).catch(() => ({ error: null }));
+      }).then((__r) => __r, () => ({ error: null }));
 
       // Deduct from wallet balance
       const { data: wallet } = await admin

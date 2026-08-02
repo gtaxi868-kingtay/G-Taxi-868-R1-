@@ -216,7 +216,7 @@ serve(async (req: Request) => {
             .select("value_cents")
             .eq("key", "PLATFORM_RATE_CENTS")
             .maybeSingle()
-            .catch(() => ({ data: null }));
+            .then((__r) => __r, () => ({ data: null }));
         const platRate = platRateRow ? (platRateRow.value_cents ?? 1500) / 10000 : 0.15;
         // Pioneer tier gets 3% lower rate
         const commissionRate = selectedDriver.commission_tier === 'pioneer'

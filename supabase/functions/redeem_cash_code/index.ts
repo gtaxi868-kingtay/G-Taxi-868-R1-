@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
       .select("role")
       .eq("id", user.id)
       .single()
-      .catch(() => ({ data: null }));
+      .then((__r) => __r, () => ({ data: null }));
 
     if (!profile) {
       return new Response(JSON.stringify({ error: "Profile not found" }), {
@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
       .select("id, driver_id, amount_cents, status, expires_at")
       .eq("code", code.toUpperCase())
       .single()
-      .catch(() => ({ data: null }));
+      .then((__r) => __r, () => ({ data: null }));
 
     if (!codeRecord) {
       return new Response(JSON.stringify({ error: "Code not found" }), {
@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
         .select("id")
         .eq("user_id", user.id)
         .single()
-        .catch(() => ({ data: null }));
+        .then((__r) => __r, () => ({ data: null }));
       return d?.id === codeRecord.driver_id;
     })();
 
@@ -139,7 +139,7 @@ Deno.serve(async (req: Request) => {
       .select("user_id")
       .eq("id", parsed.code_id)
       .single()
-      .catch(() => ({ data: null }));
+      .then((__r) => __r, () => ({ data: null }));
 
     if (codeFull?.user_id) {
       const { data: riderProfile } = await supabase
@@ -147,7 +147,7 @@ Deno.serve(async (req: Request) => {
         .select("push_token")
         .eq("id", codeFull.user_id)
         .single()
-        .catch(() => ({ data: null }));
+        .then((__r) => __r, () => ({ data: null }));
 
       if (riderProfile?.push_token) {
         try {

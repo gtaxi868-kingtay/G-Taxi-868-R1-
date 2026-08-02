@@ -63,18 +63,11 @@ export function RatingScreen({ navigation, route }: any) {
             await Promise.all([ratingPromise, rideUpdatePromise, tipPromise]);
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            navigation.navigate('Receipt', {
-                ride: {
-                    id: rideId,
-                    pickup_address: 'Pickup Location',
-                    dropoff_address: 'Dropoff Location',
-                    total_fare_cents: fare?.total_fare_cents || 0,
-                    payment_method: paymentMethod || 'cash',
-                    driver_name: driver?.name,
-                    vehicle_model: driver?.vehicle_model,
-                    plate_number: driver?.plate_number,
-                }
-            });
+            // Pass only the id. ReceiptScreen loads the real row itself —
+            // a receipt must show what the database actually recorded, not a
+            // client-side reconstruction with placeholder addresses and no
+            // payment_status.
+            navigation.navigate('Receipt', { rideId });
         } catch (err) {
             console.error(err);
         } finally {
@@ -85,29 +78,11 @@ export function RatingScreen({ navigation, route }: any) {
     const handleViewReceipt = async () => {
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            const { data: rideData, error } = await supabase
-                .from('rides')
-                .select('pickup_address, dropoff_address, distance_meters, duration_seconds, created_at')
-                .eq('id', rideId)
-                .single();
-
-            if (error) throw error;
-
-            navigation.navigate('Receipt', {
-                ride: {
-                    id: rideId,
-                    created_at: rideData?.created_at || new Date().toISOString(),
-                    pickup_address: rideData?.pickup_address || 'Pickup',
-                    dropoff_address: rideData?.dropoff_address || 'Dropoff',
-                    distance_meters: rideData?.distance_meters || 0,
-                    duration_seconds: rideData?.duration_seconds || 0,
-                    total_fare_cents: fare.total_fare_cents,
-                    payment_method: paymentMethod || 'cash',
-                    driver_name: driver.name,
-                    vehicle_model: driver.vehicle_model || driver.vehicle,
-                    plate_number: driver.plate_number || driver.plate,
-                }
-            });
+            // Same rule as handleSubmit: hand over the id and let the receipt
+            // read the authoritative row. This previously fetched a partial
+            // row, then overrode total_fare_cents with the client's own `fare`
+            // state and never read payment_status at all.
+            navigation.navigate('Receipt', { rideId });
         } catch (err) {
             console.error("View Receipt failed:", err);
             Alert.alert("Error", "Could not load receipt details.");

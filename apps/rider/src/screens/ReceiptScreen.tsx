@@ -24,6 +24,54 @@ interface RideData {
     dropoff_address: string;
     wallet_deduction_cents?: number;
     cash_payment_cents?: number;
+    payment_status?: string | null;
+    payment_method?: string | null;
+}
+
+const RECEIPT_COLUMNS =
+    'id, created_at, total_fare_cents, wait_fare_cents, distance_meters, duration_seconds, ' +
+    'pickup_address, dropoff_address, wallet_deduction_cents, cash_payment_cents, ' +
+    'payment_status, payment_method';
+
+/**
+ * The receipt must never assert an outcome the database hasn't confirmed.
+ * Values come from the live payment_status_enum:
+ *   pending | authorized | captured | failed | refunded | confirmed | receipt_sent
+ * Anything unrecognised falls through to a neutral, non-committal label rather
+ * than claiming success.
+ */
+function paymentPresentation(ride: RideData) {
+    const status = (ride.payment_status ?? '').toLowerCase();
+    const method = (ride.payment_method ?? '').toLowerCase();
+
+    switch (status) {
+        case 'captured':
+        case 'confirmed':
+        case 'receipt_sent':
+            return { label: 'PAID', tone: '#00E5FF', icon: 'checkmark' as const, note: null };
+        case 'failed':
+            return {
+                label: 'PAYMENT FAILED',
+                tone: '#EF4444',
+                icon: 'close' as const,
+                note: 'This payment did not go through. Please try another payment method or contact support.',
+            };
+        case 'refunded':
+            return { label: 'REFUNDED', tone: '#F59E0B', icon: 'return-down-back' as const, note: 'This trip was refunded.' };
+        case 'authorized':
+            return {
+                label: 'AUTHORIZED',
+                tone: '#F59E0B',
+                icon: 'time-outline' as const,
+                note: 'Your card is authorized. The final amount will be captured shortly.',
+            };
+        case 'pending':
+            return method === 'cash'
+                ? { label: 'PAY DRIVER IN CASH', tone: '#F59E0B', icon: 'cash-outline' as const, note: 'Settle this trip directly with your driver.' }
+                : { label: 'PAYMENT PENDING', tone: '#F59E0B', icon: 'time-outline' as const, note: 'This payment has not completed yet.' };
+        default:
+            return { label: 'PAYMENT STATUS UNAVAILABLE', tone: 'rgba(255,255,255,0.6)', icon: 'help-outline' as const, note: null };
+    }
 }
 
 export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) {
@@ -34,16 +82,33 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
     const [loading, setLoading] = useState(!initialRide);
     const [error, setError] = useState<string | null>(null);
 
+    // A receipt is a financial record, so the database is the only acceptable
+    // source for it. `initialRide` (when a caller passes one) is treated purely
+    // as an instant placeholder so the screen isn't blank — we ALWAYS refetch
+    // and overwrite it. Previously this effect returned early whenever a caller
+    // supplied a ride object, which meant RatingScreen's hand-built object —
+    // literally { pickup_address: 'Pickup Location' } and no payment_status —
+    // was rendered as the real receipt.
+    const effectiveRideId = rideId ?? initialRide?.id;
+
     useEffect(() => {
-        if (initialRide) return;
+        if (!effectiveRideId) {
+            setError('Unable to load ride details');
+            setLoading(false);
+            return;
+        }
+
+        let cancelled = false;
 
         const fetchRideData = async () => {
             try {
                 const { data, error: fetchError } = await supabase
                     .from('rides')
-                    .select('id, created_at, total_fare_cents, wait_fare_cents, distance_meters, duration_seconds, pickup_address, dropoff_address, wallet_deduction_cents, cash_payment_cents')
-                    .eq('id', rideId)
+                    .select(RECEIPT_COLUMNS)
+                    .eq('id', effectiveRideId)
                     .single();
+
+                if (cancelled) return;
 
                 if (fetchError || !data) {
                     console.error('Failed to fetch ride data:', fetchError);
@@ -52,9 +117,11 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
                     return;
                 }
 
-                setRide(data);
+                setRide(data as unknown as RideData);
+                setError(null);
                 setLoading(false);
             } catch (err) {
+                if (cancelled) return;
                 console.error('Error fetching ride:', err);
                 setError('Unable to load ride details');
                 setLoading(false);
@@ -62,7 +129,8 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
         };
 
         fetchRideData();
-    }, [rideId, initialRide]);
+        return () => { cancelled = true; };
+    }, [effectiveRideId]);
 
     const handleDone = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -108,6 +176,7 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
     const dateStr = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
+    const payment = paymentPresentation(ride);
     const totalFare = ((ride.total_fare_cents || 0) / 100).toFixed(2);
     const distanceKm = ride.distance_meters ? (ride.distance_meters / 1000).toFixed(1) : '—';
     const durationMin = ride.duration_seconds ? Math.round(ride.duration_seconds / 60) : '—';
@@ -136,11 +205,14 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
                         <View style={s.cardInner}>
 
                             <View style={s.statusHeader}>
-                                <View style={s.checkCircle}>
-                                    <Ionicons name="checkmark" size={32} color="#EAF3F6" />
+                                <View style={[s.checkCircle, { backgroundColor: payment.tone }]}>
+                                    <Ionicons name={payment.icon} size={32} color="#EAF3F6" />
                                 </View>
-                                <Text style={s.paidText}>PAID SUCCESS</Text>
+                                <Text style={[s.paidText, { color: payment.tone }]}>{payment.label}</Text>
                                 <Text style={s.dateText}>{dateStr} · {timeStr}</Text>
+                                {payment.note && (
+                                    <Text style={s.paymentNote}>{payment.note}</Text>
+                                )}
                             </View>
 
                             <View style={s.dashDivider} />
@@ -305,6 +377,15 @@ const s = StyleSheet.create({
         fontWeight: '500',
         color: 'rgba(255,255,255,0.6)',
         marginTop: 8,
+    },
+    paymentNote: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: 'rgba(255,255,255,0.7)',
+        marginTop: 12,
+        textAlign: 'center',
+        lineHeight: 18,
+        paddingHorizontal: 8,
     },
 
     dashDivider: { 

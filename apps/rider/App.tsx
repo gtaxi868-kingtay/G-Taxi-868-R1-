@@ -17,6 +17,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { SignupScreen } from './src/screens/SignupScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
+import { GSpotScreen } from './src/screens/GSpotScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AnimatedSplash } from './src/components/AnimatedSplash';
 import { ProfileScreen } from './src/screens/ProfileScreen';
@@ -136,6 +137,7 @@ function AppNavigator() {
                 <AppStack.Screen name="Home" component={HomeScreen} />
                 <AppStack.Screen name="Profile" component={ProfileScreen} />
                 <AppStack.Screen name="Subscription" component={SubscriptionScreen} />
+                <AppStack.Screen name="GSpot" component={GSpotScreen} />
                 <AppStack.Screen name="Notifications" component={NotificationsScreen} />
                 <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} />
                 <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} />
