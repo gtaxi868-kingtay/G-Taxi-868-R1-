@@ -443,3 +443,81 @@ Default five-role vocabulary (needs-triage, needs-info, ready-for-agent, ready-f
 ### Domain docs
 
 Multi-context repo. CONTEXT-MAP.md at root points to per-context CONTEXT.md files (one per app/backend area). See `docs/agents/domain.md`.
+
+---
+
+## COMMUNICATION STYLE
+
+Explain status in plain language first: what changed, what the user should
+see, and what to do next. Keep file paths, SQL, and stack traces in a
+"Technical details" section at the end. Never lead with jargon.
+
+If a status update is longer than a screen, it is too long. The user has
+asked for plain-language status more than once — treat that as standing.
+
+## VERIFICATION RULES
+
+A UI change is NOT verified until it is confirmed in the USER'S environment.
+After any frontend edit:
+  1. Confirm the dev server is running the same branch/worktree the user has
+     open — check `git branch` and the running server's path, not assumption.
+  2. State the exact URL and give a hard-refresh instruction.
+  3. Ask the user to confirm what they see BEFORE claiming success.
+
+Screenshots from the sandboxed browser are NOT sufficient evidence. It lacks
+WebGL and may serve cached or wrong-branch content. Two sessions ended with
+the user staring at an unchanged layout while success was being reported.
+
+If a styling change produces a byte-identical render, treat that as a FAILURE
+and investigate caching, the wrong worktree, or a component that never mounted
+— do not report it as done.
+
+Backend work has the same rule in a different form: prove it against the live
+database, not against source reading.
+
+## DATABASE & MIGRATION RULES
+
+Before writing any migration or RPC, read the CURRENT definition from the live
+database (`information_schema`, `pg_proc`, `pg_constraint`) to confirm columns,
+enum values, and function signatures actually exist. Most serious bugs here
+lived in the gap between "TypeScript compiles" and "the database accepts it".
+
+  - Dry-run every money-path migration in a rolled-back transaction against
+    real data BEFORE applying, then smoke-test with real ids after.
+  - `CREATE OR REPLACE FUNCTION` cannot add a trailing parameter — it creates
+    a NEW overload. `DROP FUNCTION` the old signature first, then re-`GRANT`,
+    because DROP wipes grants.
+  - After adding an overload, confirm every CALLER's argument set still
+    resolves. A call with named args matching no overload fails at runtime
+    while typechecking clean.
+  - Postgres `format()` does not support printf-style specifiers like `%d`.
+    Use `%s`.
+  - RLS policies alone guarantee nothing — the role also needs the table
+    GRANT. Check `pg_policies` AND `role_table_grants` together.
+  - NEVER run `supabase db push`. The live DB and the migration files have
+    diverged (far more applied than tracked, numbering does not line up).
+    Apply migrations individually and verify each.
+  - Anything applied straight to production must also be captured in a
+    migration file, or a rebuild silently loses it.
+
+## SECRETS & DEPLOYS
+
+Never inline a literal secret into SQL or a function body — it leaks into any
+`pg_get_functiondef` dump. Read secrets from Supabase Vault via
+`public.platform_cron_secret()` or an edge-function env var.
+
+Deploy edge functions in small batches (3-5 max). A bulk deploy has been
+blocked before. Preserve each function's existing `verify_jwt` setting — read
+it from the Management API first. Webhooks (`stripe_webhook`, `wipay_webhook`)
+and cron-secret callers MUST stay `verify_jwt=false` or the caller is rejected
+at the gateway before reaching our code.
+
+## CRON & SCHEDULED JOBS
+
+After creating or modifying any cron job, immediately query
+`cron.job_run_details` for failures and confirm the first scheduled fire time
+is correct. A prematurely-firing safety sweep once created 101 bogus alerts
+that had to be cleaned up by hand.
+
+Any new sweep that acts on historical rows needs a launch cutoff set BEFORE
+the job exists, not after.
