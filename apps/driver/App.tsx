@@ -29,6 +29,7 @@ import { ChatScreen } from './src/screens/ChatScreen';
 import { StrategySettingsScreen } from './src/screens/StrategySettingsScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
 import { ReportIssueScreen } from './src/screens/ReportIssueScreen';
+import ComplianceDocumentsScreen from './src/screens/ComplianceDocumentsScreen';
 import { RatingsScreen } from './src/screens/RatingsScreen';
 import { ScoutReferralScreen } from './src/screens/ScoutReferralScreen';
 import { DriverReferralScreen } from './src/screens/DriverReferralScreen';
@@ -183,6 +184,7 @@ function AppNavigator() {
             <AppStack.Screen name="StrategySettings" component={StrategySettingsScreen} />
             <AppStack.Screen name="Legal" component={LegalScreen} />
             <AppStack.Screen name="ReportIssue" component={ReportIssueScreen} />
+            <AppStack.Screen name="ComplianceDocuments" component={ComplianceDocumentsScreen} />
             <AppStack.Screen name="Ratings" component={RatingsScreen} />
             <AppStack.Screen name="ScoutReferral" component={ScoutReferralScreen} />
             <AppStack.Screen name="DriverReferral" component={DriverReferralScreen} />
