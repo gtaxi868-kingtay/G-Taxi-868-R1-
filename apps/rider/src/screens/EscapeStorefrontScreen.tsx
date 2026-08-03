@@ -283,46 +283,40 @@ export default function EscapeStorefrontScreen() {
     setShowGuestPicker(true);
   };
 
+  // Sends the rider to the real checkout instead of silently joining a
+  // group for free.
+  //
+  // This previously called travel/join_escape_group, which writes to
+  // escape_group_participants — the OLDER of the two G-Escape systems,
+  // and one that takes NO payment. EscapeCheckoutScreen calls
+  // travel/book_escape, which writes to package_reservations (the live
+  // system the tipping-point sweep and admin approvals actually read)
+  // and collects payment via WiPay.
+  //
+  // Net effect of the old wiring: the only reachable path booked riders
+  // into a deprecated table without charging them, while the screen that
+  // charges correctly was registered in the navigator but unreachable —
+  // nothing anywhere navigated to 'EscapeCheckout'.
   const handleConfirmGuests = async () => {
     if (!selectedPackage) return;
     setShowGuestPicker(false);
-    setJoiningPkgId(selectedPackage.id);
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        Alert.alert('Not logged in', 'Please sign in to join an escape.');
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke('travel', {
-        body: { action: 'join_escape_group', package_id: selectedPackage.id, party_size: guestCount },
-      });
-
-      if (error) throw error;
-
-      if (data?.error) {
-        if (data.participant_id) {
-          Alert.alert('Already Joined', 'You\'re already in this group!');
-          setJoinedPkgIds(prev => new Set(prev).add(selectedPackage.id));
-        } else {
-          Alert.alert('Error', data.error);
-        }
-        return;
-      }
-
-      Alert.alert(
-        'You\'re in!',
-        `You joined ${selectedPackage.package_name} with ${guestCount} guest${guestCount !== 1 ? 's' : ''}. We\'ll notify you when the group is ready to lock seats.`,
-        [{ text: 'View My Pass', onPress: () => navigation.navigate('ActivePass') }]
-      );
-      setJoinedPkgIds(prev => new Set(prev).add(selectedPackage.id));
-      loadPackages();
-    } catch (err: any) {
-      Alert.alert('Join failed', err.message ?? 'Something went wrong');
-    } finally {
-      setJoiningPkgId(null);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      Alert.alert('Not logged in', 'Please sign in to book an escape.');
+      return;
     }
+
+    // Checkout needs a location for the airport-transfer leg. Fall back
+    // to Port of Spain rather than blocking the booking outright — a
+    // missing GPS fix must not cost a sale.
+    const loc = userLocation ?? { latitude: 10.6549, longitude: -61.5019 };
+
+    navigation.navigate('EscapeCheckout', {
+      packageId: selectedPackage.id,
+      guestCount,
+      userLocation: loc,
+    });
   };
 
   const fmt = (cents: number) => `TTD ${(cents / 100).toFixed(0)}`;
