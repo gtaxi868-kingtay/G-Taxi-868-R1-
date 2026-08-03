@@ -73,17 +73,39 @@ BEGIN
     -- Property test. The split must account for every cent, at every
     -- fare, with no rounding leak. Regression guard for the 80/15/1.5
     -- model and for compute_ride_split being the single source of truth.
-    SELECT count(*) INTO bad FROM (
-        SELECT public.compute_ride_split(rid, g, d) AS s
-        FROM generate_series(1, 400) i,
-             LATERAL (SELECT (floor(random()*2000000)::bigint + 1) AS g) gg,
-             LATERAL (SELECT (floor(random()*50000)::bigint) AS d) dd
-    ) x
-    WHERE (s->>'driver_net')::bigint + (s->>'commander_cut')::bigint
-        + (s->>'vendor_cut')::bigint + (s->>'reserve')::bigint
-        + (s->>'platform_fee')::bigint + (s->>'discount_applied')::bigint
-      <> (s->>'net_collected')::bigint + (s->>'discount_applied')::bigint;
-    PERFORM pg_temp.assert('split accounts for every cent (400 random fares)', bad = 0,
+    -- Compare against the GROSS the caller passed in, never against
+    -- net_collected. An earlier version of this assertion had
+    -- discount_applied on BOTH sides, where it simply cancelled — which
+    -- meant net_collected was used as the reference and was therefore
+    -- never independently checked. It could have been wrong and this
+    -- test would still have passed.
+    CREATE TEMP TABLE IF NOT EXISTS _split_cases(gross bigint, disc bigint, s jsonb) ON COMMIT DROP;
+    DELETE FROM _split_cases;
+    INSERT INTO _split_cases(gross, disc, s)
+    SELECT g, d, public.compute_ride_split(rid, g, d)
+    FROM generate_series(1,400),
+         LATERAL (SELECT (floor(random()*2000000)::bigint + 1) AS g) gg,
+         LATERAL (SELECT (floor(random()*50000)::bigint) AS d) dd;
+
+    SELECT count(*) INTO bad FROM _split_cases
+     WHERE (s->>'driver_net')::bigint + (s->>'commander_cut')::bigint
+         + (s->>'vendor_cut')::bigint + (s->>'reserve')::bigint
+         + (s->>'platform_fee')::bigint + (s->>'discount_applied')::bigint <> gross;
+    PERFORM pg_temp.assert('every part sums to the gross fare (400 random fares)', bad = 0,
+        format('%s violations', bad));
+
+    SELECT count(*) INTO bad FROM _split_cases
+     WHERE (s->>'net_collected')::bigint <> gross - (s->>'discount_applied')::bigint;
+    PERFORM pg_temp.assert('net_collected equals gross minus discount', bad = 0,
+        format('%s violations', bad));
+
+    -- A discount must be funded by the PLATFORM's share, never by the
+    -- driver or the reserve, and never exceed what was asked for.
+    SELECT count(*) INTO bad FROM _split_cases
+     WHERE (s->>'discount_applied')::bigint > disc
+        OR (s->>'discount_applied')::bigint > gross
+        OR ((s->>'discount_applied')::bigint > 0 AND (s->>'platform_fee')::bigint < 0);
+    PERFORM pg_temp.assert('discount comes out of platform share only', bad = 0,
         format('%s violations', bad));
 
     -- Edge fares, including the 1-cent rounding boundary.
