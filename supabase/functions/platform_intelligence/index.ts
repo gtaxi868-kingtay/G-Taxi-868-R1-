@@ -13,7 +13,12 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+// NOTE: zod was imported here and never used — 0 occurrences of `z.` or
+// `safeParse` in this file. The validation library was present; the
+// validation was not. Removed rather than left as a false signal that tool
+// arguments are schema-checked. The real guard on the one tool that moves
+// money is now in the database: pricing_zones_multiplier_sane, plus an
+// explicit range check inside admin_set_surge_zone.
 import { chat, llmConfigured, BudgetExceededError } from "../_shared/llm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -1040,10 +1045,17 @@ serve(async (req) => {
             );
         }
 
-        // Cost gate: cron fires every 15 min for the deterministic pre-steps, but
-        // the LLM pass only runs on the first tick of each hour. Manual admin
-        // invocations ("Run agent now") always get the full loop.
-        if (viaCron && new Date().getUTCMinutes() >= 15) {
+        // Cost gate: the LLM pass runs on the FIRST tick of each hour only.
+        // Manual admin invocations ("Run agent now") always get the full loop.
+        //
+        // This was `>= 15`, written when the comment above claimed the cron
+        // fired every 15 minutes. The cron actually fires every 2 minutes
+        // (20260701000013_consolidated_cron_jobs.sql:52), so minutes
+        // 0,2,4,6,8,10,12,14 all passed the gate — the full LLM loop ran
+        // EIGHT times an hour, not once, against a daily budget of $0.80.
+        // `< 2` admits exactly one tick per hour at any cron cadence of 2
+        // minutes or coarser.
+        if (viaCron && new Date().getUTCMinutes() >= 2) {
             return new Response(
                 JSON.stringify({ success: true, run_id: runId, pre_steps_only: true, note: "llm_pass_hourly" }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } },
