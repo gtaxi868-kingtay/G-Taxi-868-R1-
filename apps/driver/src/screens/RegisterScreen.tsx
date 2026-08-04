@@ -5,6 +5,7 @@ import {
     Alert, ScrollView, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TERMS_VERSION, LEGAL_DOCUMENTS } from '@gtaxi/shared/legal';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -148,6 +149,25 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             if (authError) throw authError;
             if (!authData.user) throw new Error('Signup failed');
             const requiresEmailConfirmation = !authData.session;
+
+            // Record the acceptance as real evidence. The flags above go into
+            // raw_user_meta_data, which is USER-WRITABLE — a driver can call
+            // auth.updateUser and set their own terms_accepted, so it proves
+            // nothing. record_consent writes the append-only user_consents
+            // ledger, taking the id from auth.uid() rather than the client.
+            // Needs a session, so it is skipped while email confirmation is
+            // pending.
+            if (authData.session) {
+                try {
+                    await supabase.rpc('record_consent', {
+                        p_document: LEGAL_DOCUMENTS.TERMS,
+                        p_version: TERMS_VERSION,
+                        p_user_agent: Platform.OS,
+                    });
+                } catch (e) {
+                    console.warn('[Register] consent not recorded:', e);
+                }
+            }
 
             // 1. Upload Documents
             const ts = Date.now();

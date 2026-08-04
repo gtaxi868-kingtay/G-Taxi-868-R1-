@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
+import { TERMS_VERSION, LEGAL_DOCUMENTS } from '@gtaxi/shared/legal';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -79,6 +80,32 @@ export function SignupScreen({ navigation }: any) {
                     .from('profiles')
                     .update({ phone_number: formData.phone.trim() })
                     .eq('id', authData.user.id);
+            }
+
+            // Step 2b: Record the terms acceptance as real evidence.
+            //
+            // The flags passed into signUp's options.data land in
+            // raw_user_meta_data, which is USER-WRITABLE (any rider can call
+            // auth.updateUser and set their own terms_accepted). That is not
+            // proof. Verified live: 0 of 10 existing users carried the flag
+            // at all, so there was no record of anyone accepting anything.
+            //
+            // record_consent writes to the append-only user_consents ledger
+            // and takes the user id from auth.uid(), never from the client.
+            // Needs a session, so it is skipped when email confirmation is
+            // pending — same constraint as the commander code below.
+            if (authData.session) {
+                try {
+                    await supabase.rpc('record_consent', {
+                        p_document: LEGAL_DOCUMENTS.TERMS,
+                        p_version: TERMS_VERSION,
+                        p_user_agent: Platform.OS,
+                    });
+                } catch (e) {
+                    // Do not block signup on the ledger write, but make the
+                    // gap visible rather than silent.
+                    console.warn('[Signup] consent not recorded:', e);
+                }
             }
 
             // Step 3: Apply referral code if provided — TTD $15 credit for both parties
