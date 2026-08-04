@@ -51,7 +51,12 @@ serve(async (req: Request) => {
     const { data: prefs } = await supabaseAdmin
       .from("rider_ai_preferences")
       .select("metadata")
-      .eq("rider_id", user_id)
+      // The column is user_id. This said rider_id — a column that does not
+      // exist on rider_ai_preferences — so the lookup errored, `prefs` came
+      // back null, the 4-hour cache NEVER hit, and every single rider
+      // home-screen load made a fresh paid Groq call. Silent, permanent,
+      // unmetered spend.
+      .eq("user_id", user_id)
       .maybeSingle();
 
     const cached = prefs?.metadata?.cached_greeting;
@@ -89,11 +94,14 @@ serve(async (req: Request) => {
 
     await supabaseAdmin
       .from("rider_ai_preferences")
+      // Same fix on the write side: the primary key is user_id, so the old
+      // onConflict target did not exist either and the cache could never
+      // have been written even if the read had worked.
       .upsert({
-        rider_id: user_id,
+        user_id: user_id,
         metadata: newMetadata,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "rider_id" });
+      }, { onConflict: "user_id" });
 
     return new Response(
       JSON.stringify({ greeting, cached: false, patterns: patterns ? true : false }),
