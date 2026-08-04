@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { aiFetch, internalFetch } from "../_shared/networkUtility.ts";
+import { chat, BudgetExceededError, RateLimitedError } from "../_shared/llm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -84,7 +85,7 @@ serve(async (req: Request) => {
     const patternsData = await patternsRes.json();
     const patterns = patternsData.patterns;
 
-    const greeting = await generateGreetingWithAI(user_name, patterns);
+    const greeting = await generateGreetingWithAI(supabaseAdmin, user_name, patterns);
 
     const newMetadata = {
       ...prefs?.metadata,
@@ -120,37 +121,32 @@ serve(async (req: Request) => {
   }
 });
 
-async function generateGreetingWithAI(name: string, patterns: any): Promise<string> {
+// Routed through _shared/llm.ts rather than fetching api.groq.com directly.
+// This function ran on EVERY rider home-screen load, so it was the single
+// largest uncapped spender on the platform: the daily budget in llm.ts only
+// governed the admin-facing G stack, and rider traffic bypassed it entirely.
+// Now it counts against the same cap and lands in g_llm_usage.
+//
+// The `supabase` client is required so the gateway can read the budget and
+// record the spend.
+async function generateGreetingWithAI(
+  supabase: any,
+  name: string,
+  patterns: any,
+): Promise<string> {
   const prompt = buildPrompt(name, patterns);
 
   try {
-    const response = await aiFetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: "You are a friendly Trinidadian ride-hailing assistant. Generate warm, casual greetings under 15 words. Use local phrasing. No quotes. No markdown." },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.8,
-          max_tokens: 50,
-        }),
-      }
-    );
+    const res = await chat(supabase, {
+      department: "rider_greeting",
+      system:
+        "You are a friendly Trinidadian ride-hailing assistant. Generate warm, casual greetings under 15 words. Use local phrasing. No quotes. No markdown.",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.8,
+      maxTokens: 50,
+    });
 
-    if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || "";
-    
+    const text = res.choices?.[0]?.message?.content || "";
     const clean = text.replace(/["']/g, "").trim();
     const words = clean.split(/\s+/);
     if (words.length > 15) {
@@ -159,7 +155,14 @@ async function generateGreetingWithAI(name: string, patterns: any): Promise<stri
     return clean || buildFallback(name, patterns);
 
   } catch (err) {
-    console.error("Groq call failed:", err);
+    // Budget exhausted or rate limited is NOT an error condition for a
+    // greeting — the rider simply gets the deterministic one. Never let a
+    // cosmetic banner break the home screen or spend past the cap.
+    if (err instanceof BudgetExceededError || err instanceof RateLimitedError) {
+      console.log(`[generate_ai_greeting] falling back to template: ${err.name}`);
+    } else {
+      console.error("LLM call failed:", err);
+    }
     return buildFallback(name, patterns);
   }
 }
