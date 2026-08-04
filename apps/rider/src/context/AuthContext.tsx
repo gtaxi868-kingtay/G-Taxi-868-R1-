@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { flushPendingSignup } from '@gtaxi/shared/pendingSignup';
 import { supabase } from '@gtaxi/core';
 import { Session, User } from '@supabase/supabase-js';
 import { setAuthToken } from '../services/api';
@@ -156,6 +158,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (session?.access_token) {
                     setAuthToken(session.access_token);
                     if (session.user) fetchUserData(session.user.id);
+
+                    // Apply anything parked at signup that needed a session.
+                    // With email confirmation on, signUp returns a user but NO
+                    // session, so record_consent and apply_commander_code could
+                    // not run and were silently skipped forever. This is the
+                    // first moment they can. Idempotent, so it is safe on every
+                    // sign-in, and it clears itself once applied.
+                    if (session.user) {
+                        flushPendingSignup(supabase, AsyncStorage, session.user.id)
+                            .then((r) => {
+                                if (r.consentRecorded) console.log('AUTH: consent recorded post-verification');
+                                if (r.commanderApplied) console.log('AUTH: commander code applied post-verification');
+                            })
+                            .catch((e) => console.warn('AUTH: pending signup flush failed:', e));
+                    }
                 } else {
                     // Clear on logout
                     setProfile(null);

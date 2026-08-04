@@ -10,6 +10,8 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { TERMS_VERSION, LEGAL_DOCUMENTS } from '@gtaxi/shared/legal';
+import { savePendingSignup } from '@gtaxi/shared/pendingSignup';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -106,6 +108,21 @@ export function SignupScreen({ navigation }: any) {
                     // gap visible rather than silent.
                     console.warn('[Signup] consent not recorded:', e);
                 }
+            } else {
+                // Email confirmation is on, so there is no session yet and
+                // auth.uid() is null — record_consent and apply_commander_code
+                // would both be rejected. Park them; AuthContext flushes on the
+                // first real sign-in. Previously both were simply dropped and
+                // never retried.
+                await savePendingSignup(AsyncStorage, {
+                    forUserId: authData.user.id,
+                    consent: {
+                        document: LEGAL_DOCUMENTS.TERMS,
+                        version: TERMS_VERSION,
+                        userAgent: Platform.OS,
+                    },
+                    commanderCode: formData.commanderCode.trim() || undefined,
+                });
             }
 
             // Step 3: Apply referral code if provided — TTD $15 credit for both parties
