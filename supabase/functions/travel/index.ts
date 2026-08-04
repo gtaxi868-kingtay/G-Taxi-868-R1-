@@ -1,5 +1,12 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// `SB` with no type arguments instantiates the
+// generics at their CONSTRAINTS (unknown / never), not their DEFAULTS, so it
+// rejects the very client created at runtime
+// (SupabaseClient<any, "public", ...>). Supplying them explicitly fixes it.
+type SB = ReturnType<typeof createClient<any, "public", any>>;
+
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 
 const corsHeaders = {
@@ -20,7 +27,7 @@ const json = (body: unknown, status = 200) =>
   });
 
 async function notifyPoolMembers(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SB,
   packageId: string,
   newRiderId: string,
   guestCount: number,

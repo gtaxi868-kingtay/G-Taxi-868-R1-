@@ -1,4 +1,23 @@
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+// Deliberately NOT importing SupabaseClient from a pinned supabase-js.
+//
+// This module used `SupabaseClient` from supabase-js@2.45.0, but 65 of the
+// edge functions import bare `supabase-js@2` (which resolves to the latest
+// 2.x) while only 26 pin 2.45.0. Two copies of the library produce two
+// structurally-incompatible SupabaseClient types, so every bare-@2 function
+// that called checkRateLimit failed to typecheck:
+//
+//   TS2345: Argument of type 'SupabaseClient<any, "public", any>' is not
+//   assignable to parameter of type 'SupabaseClient<unknown, never, ...>'
+//
+// checkRateLimit only ever calls `.rpc()`. Typing that one method
+// structurally accepts a client from ANY supabase-js version and cannot
+// drift again when a function bumps its pin.
+type RpcCapableClient = {
+    rpc(
+        fn: string,
+        params?: Record<string, unknown>,
+    ): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+};
 
 interface RateLimitConfig {
     maxRequests: number;
@@ -29,7 +48,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
 };
 
 export async function checkRateLimit(
-    adminClient: SupabaseClient,
+    adminClient: RpcCapableClient,
     userId: string,
     endpoint: string
 ): Promise<{ allowed: boolean; error?: string }> {

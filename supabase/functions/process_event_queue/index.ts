@@ -5,6 +5,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// `SB` with no type arguments instantiates the
+// generics at their CONSTRAINTS (unknown / never), not their DEFAULTS, so it
+// rejects the very client created at runtime
+// (SupabaseClient<any, "public", ...>). Supplying them explicitly fixes it.
+type SB = ReturnType<typeof createClient<any, "public", any>>;
+
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
@@ -93,7 +100,7 @@ serve(async (req: Request) => {
 async function handleEvent(
   eventType: string,
   payload: any,
-  supabaseAdmin: ReturnType<typeof createClient>
+  supabaseAdmin: SB
 ): Promise<void> {
   switch (eventType) {
     case "ride.completed":
@@ -107,7 +114,7 @@ async function handleEvent(
   }
 }
 
-async function handleRideCompleted(payload: any, supabaseAdmin: ReturnType<typeof createClient>): Promise<void> {
+async function handleRideCompleted(payload: any, supabaseAdmin: SB): Promise<void> {
   const { ride_id, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, gross_cents, platform_cents, reserve_cents } = payload;
 
   // ── Pool Entry (hot-path cleared, this runs async) ──────────────────────
@@ -155,6 +162,6 @@ async function handleRideCompleted(payload: any, supabaseAdmin: ReturnType<typeo
   }
 }
 
-async function handlePaymentConfirmed(payload: any, _supabaseAdmin: ReturnType<typeof createClient>): Promise<void> {
+async function handlePaymentConfirmed(payload: any, _supabaseAdmin: SB): Promise<void> {
   console.log(`[Cog] payment.confirmed: ${JSON.stringify(payload)}`);
 }
