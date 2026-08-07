@@ -24,6 +24,7 @@ import { supabase } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
 import { Ionicons } from '@expo/vector-icons';
 import { NfcIdentityHandler } from '../components/NfcIdentityHandler';
+import { AreaSafetyCard } from '../components/AreaSafetyCard';
 import { SURFACE, ANIMATION, VOICES } from '@gtaxi/design-system';
 import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
@@ -459,6 +460,9 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                                     </View>
                                 </TouchableOpacity>
                             )}
+
+                            {/* What this driver's own check-ins have built, read back */}
+                            <AreaSafetyCard lat={currentLat} lng={currentLng} />
 
                             {/* Push notification banner */}
                             {pushMissing && (

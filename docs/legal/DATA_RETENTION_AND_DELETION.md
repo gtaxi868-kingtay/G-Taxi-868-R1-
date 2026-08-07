@@ -210,14 +210,22 @@ We would rather say this plainly than imply more than is true.
 - Access control — enforced by the database on every query, per user.
 - Private storage for identity documents and receipts, with time-limited links.
 
+- **Account deletion is in the app**, under Settings → Your account. It asks you
+  to type DELETE, warns you if you still have money in your wallet, and then
+  gives you 30 days in which one tap cancels the whole thing. Your account keeps
+  working normally during those 30 days — being locked out of the screen holding
+  your own cancel button would make the grace period meaningless.
+- **Files you uploaded are queued for deletion** when your account closes, and
+  removed from storage. Driver licences and insurance certificates are the
+  exception: those are kept as regulatory evidence under section 3.4.
+
 **Not yet complete:**
-- **Account deletion has no button in the app yet.** The machinery behind it is
-  built and tested — the request, the 30-day grace period, the legal-hold check,
-  and the anonymisation — but nothing in the app calls it. Until that screen
-  ships, email **privacy@gtaxi.tt** and we run the same process for you.
-- **Deleting a stored file is not yet automatic.** When a booking's passport
-  image is purged, the link to it is removed but the file itself is deleted by
-  hand. We would rather say this than imply otherwise.
+- **The file deletion runs on a schedule that is not yet switched on.** The
+  queue, the safeguards and the deletion step are built and tested, but the
+  credential that lets the nightly job trigger it has not been installed. Until
+  it is, queued files are removed by an administrator on request. Nothing is
+  lost in the meantime — the instruction sits in the queue until it is carried
+  out.
 
 ---
 
