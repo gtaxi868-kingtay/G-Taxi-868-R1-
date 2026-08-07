@@ -229,8 +229,17 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             setSelfieUploading(true);
             setSelfieError(null);
 
-            const userId = (await supabase.auth.getUser()).data.user?.id || 'unknown';
-            const fileName = `selfies/${userId}/${Date.now()}.jpg`;
+            const userId = (await supabase.auth.getUser()).data.user?.id;
+            if (!userId) {
+                setSelfieError('Please sign in again before verifying.');
+                setSelfieUploading(false);
+                return;
+            }
+            // Path MUST start with the user id. The storage policy keys on the
+            // first folder segment, and anonymise_user finds a deleted
+            // account's files by that same prefix. The old 'selfies/<uid>/...'
+            // shape would fail the policy AND be missed at deletion time.
+            const fileName = `${userId}/${Date.now()}.jpg`;
 
             const response = await fetch(photo.uri);
             const blob = await response.blob();
@@ -245,11 +254,15 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 return;
             }
 
-            const { data: urlData } = supabase.storage
+            // verification-photos is a PRIVATE bucket — an identity selfie is
+            // not something to hand out on a permanent public url.
+            // getPublicUrl would return a link that simply 403s, so the
+            // preview would silently break. One-hour signed link instead.
+            const { data: urlData } = await supabase.storage
                 .from('verification-photos')
-                .getPublicUrl(fileName);
+                .createSignedUrl(fileName, 3600);
 
-            setSelfieUri(urlData?.publicUrl || null);
+            setSelfieUri(urlData?.signedUrl || null);
             setSelfieVerified(true);
             setSelfieUploading(false);
             setSelfieMode(false);

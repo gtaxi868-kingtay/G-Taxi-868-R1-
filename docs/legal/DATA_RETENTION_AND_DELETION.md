@@ -219,13 +219,16 @@ We would rather say this plainly than imply more than is true.
   removed from storage. Driver licences and insurance certificates are the
   exception: those are kept as regulatory evidence under section 3.4.
 
+- **File deletion is automatic**, nightly, and has been tested end to end
+  against live storage. Files you uploaded are removed; driver licences and
+  insurance certificates are refused by that same job, because section 3.4
+  requires us to keep them.
+
 **Not yet complete:**
-- **The file deletion runs on a schedule that is not yet switched on.** The
-  queue, the safeguards and the deletion step are built and tested, but the
-  credential that lets the nightly job trigger it has not been installed. Until
-  it is, queued files are removed by an administrator on request. Nothing is
-  lost in the meantime — the instruction sits in the queue until it is carried
-  out.
+- Profile photos are held in a bucket that serves them by direct link, so your
+  driver can see your photo at pickup. The link is unguessable and only ever
+  given to someone already permitted to see your profile, but it is not
+  individually time-limited the way identity documents and receipts are.
 
 ---
 
