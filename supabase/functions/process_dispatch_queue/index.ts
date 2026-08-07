@@ -16,7 +16,10 @@ serve(async (req: Request) => {
 
     const { data: queueItems, error: queueErr } = await supabaseAdmin
       .from("dispatch_queue")
-      .select("id, task_type, order_id, ride_id, priority, pickup_lat, pickup_lng, attempts, expires_at, created_at, orders(merchant_id, total_cents, delivery_fee_cents, merchants(business_name))")
+      // merchants has no business_name column — it is `name`. This one wrong
+      // word made the whole dispatch sweep 500 on its very first query, once
+      // a minute, so no queued delivery has ever been dispatched by it.
+      .select("id, task_type, order_id, ride_id, priority, pickup_lat, pickup_lng, attempts, expires_at, created_at, orders(merchant_id, total_cents, delivery_fee_cents, merchants(name))")
       .eq("status", "pending")
       .lt("attempts", 5)
       .order("priority", { ascending: false })
@@ -45,7 +48,7 @@ serve(async (req: Request) => {
     for (const item of activeItems) {
       try {
         const order = (item as any).orders;
-        const merchantName = order?.merchants?.business_name || "Merchant";
+        const merchantName = order?.merchants?.name || "Merchant";
         const lat = item.pickup_lat;
         const lng = item.pickup_lng;
 
