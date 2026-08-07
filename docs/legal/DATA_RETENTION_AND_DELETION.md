@@ -187,23 +187,37 @@ processors is in section 4.2 of the [Privacy Policy](PRIVACY_POLICY.md).
 We would rather say this plainly than imply more than is true.
 
 **Built and working today:**
+- **The schedules in section 3 run automatically**, every night at 03:15. A
+  single sweep covers passport data, booking passenger details, trip addresses,
+  GPS breadcrumbs, safety-point identities, in-trip chat, incident detail, push
+  receipts, delivered reminders, admin IP addresses, and closed accounts.
+- **Every run is audited** — category, action taken, number of records, and
+  timestamp. A purge with no record of itself is indistinguishable from data
+  loss, so we keep the record.
+- **The schedule is data, not code.** Each period in section 3 is a row an
+  administrator can read and change, and any category can be switched off
+  instantly.
+- **Legal holds are honoured.** Records attached to an unresolved safety
+  incident or an open dispute are never purged on schedule, and an account
+  deletion in that situation is paused rather than completed. You are told when
+  this happens.
+- **Anonymisation preserves what the law requires.** Deleting an account
+  destroys your identity but keeps the financial record — the alternative would
+  break a seven-year trail we are obliged to hold.
 - Consent records — every acceptance of every document version is stored, with a
   timestamp, and cannot be altered by the user or by staff.
 - Assistant memory erasure — a real, working control in the app.
 - Access control — enforced by the database on every query, per user.
 - Private storage for identity documents and receipts, with time-limited links.
 
-**Not yet automated:**
-- **None of the deletion schedules in section 3 runs automatically.** There is no
-  scheduled job today that removes trip addresses at 12 months, purges passport
-  data at 90 days, or anonymises closed accounts.
-- Account self-deletion in the app is not yet built end to end; deletion requests
-  to privacy@gtaxi.tt are handled manually.
-
-Until those jobs are built, this notice describes the commitment, and the work is
-done by hand on request. **The 90-day passport purge in section 3.6 is the one
-that should be automated first**, because it is the most sensitive data and the
-shortest period.
+**Not yet complete:**
+- **Account deletion has no button in the app yet.** The machinery behind it is
+  built and tested — the request, the 30-day grace period, the legal-hold check,
+  and the anonymisation — but nothing in the app calls it. Until that screen
+  ships, email **privacy@gtaxi.tt** and we run the same process for you.
+- **Deleting a stored file is not yet automatic.** When a booking's passport
+  image is purged, the link to it is removed but the file itself is deleted by
+  hand. We would rather say this than imply otherwise.
 
 ---
 

@@ -161,23 +161,27 @@ We would rather be plain about this than imply a safety net that is not there.
 - Emergency contact messaged automatically, where one is saved.
 - Fallback to dialling emergency services if the alert cannot send.
 - Only the two people on a trip can raise an alert for it — verified server-side.
+- **An SOS now raises a top-severity alert to G-Taxi operations**, which is both
+  a permanent record and a push to any registered operations device.
+- **Drivers working near the incident are warned**, without being told who is
+  involved or where exactly — enough to be alert, not enough to identify anyone.
+- **A missed driver check-in raises the same kind of alert**, and warns nearby
+  drivers too. That is what makes "mark yourself safe" mean something: the signal
+  reaches people, and it leaves a mark on the map for whoever works that area
+  next.
 - Driver document review, with expiry tracking and account restriction.
 - Location trace retained for 90 days, so an investigation has evidence.
 
-**Not built yet — and it matters:**
-- **An SOS alert does not currently page anyone at G-Taxi in real time.** It is
-  recorded and your emergency contact is messaged, but no staff member is woken
-  up by it. The confirmation message says a safety specialist will review the
-  alert; **today that review happens when someone next opens the dashboard, not
-  immediately.**
-- There is no 24/7 staffed safety line. Support is email and WhatsApp, answered
-  during working hours.
+**Not built yet:**
+- **There is no 24/7 staffed safety line.** The alert now reaches operations
+  immediately; whether a person is awake to see it depends on staffing, and we
+  will not print a response-time promise we cannot keep.
+- No operations device has yet been registered to receive the push. Until one
+  is, the alert is a record waiting to be read rather than a phone that rings.
 - Automatic detection of a long stop or an off-route trip is not built.
 
-**Because of this, section 1 is not a formality.** Until real-time alerting and a
-staffed line exist, **calling 999 is the fastest route to help, not the backup
-one.** This policy should not be published with any response-time promise the
-operator cannot actually staff.
+**Because of this, section 1 is not a formality.** Until a staffed line exists,
+**calling 999 is the fastest route to help, not the backup one.**
 
 ---
 

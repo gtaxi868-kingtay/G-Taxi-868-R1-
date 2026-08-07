@@ -69,6 +69,37 @@ serve(async (req) => {
 
         console.log(`🚨 EMERGENCY TRIGGERED for Ride ${ride_id}`);
 
+        // ── Escalate to the people who can actually act ───────────────────────
+        // Until now this function told the RIDER'S OWN emergency contact and
+        // nobody at G-Taxi — while promising below that "a safety specialist
+        // will review it shortly". handle_sos closes that: a CRITICAL
+        // system_alerts row (which is also what G reads through its
+        // get_open_alerts tool), a safety point on the map, and a warning to
+        // online drivers near the incident.
+        //
+        // Identity is already verified above (the caller must be this ride's
+        // rider or driver), which is why handle_sos is service_role only and
+        // does not re-check.
+        let escalation: { success?: boolean; drivers_notified?: number } | null = null;
+        try {
+            const { data: sosResult, error: sosError } = await supabase.rpc("handle_sos", {
+                p_ride_id: ride_id,
+                p_raised_by: user.id,
+                p_raiser_role: ride.rider_id === user.id ? "rider" : "driver",
+            });
+            if (sosError) {
+                console.error("handle_sos failed:", sosError.message);
+            } else {
+                escalation = sosResult;
+                console.log("handle_sos:", JSON.stringify(sosResult));
+            }
+        } catch (e) {
+            // The alert is already durable in emergency_logs. A failure to
+            // escalate must never stop the rider's own contact being messaged
+            // below — that is the one message they are counting on.
+            console.error("handle_sos threw:", String(e));
+        }
+
         const riderName = fullRide?.rider?.full_name || "A rider";
         const driverName = fullRide?.driver?.name || "your driver";
         const driverPhone = fullRide?.driver?.phone || "N/A";
@@ -109,6 +140,8 @@ serve(async (req) => {
         return new Response(JSON.stringify({
             success: true,
             message: "Emergency alert dispatched to your safety contacts",
+            escalated: escalation?.success === true,
+            drivers_notified: escalation?.drivers_notified ?? 0,
         }), {
             status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },

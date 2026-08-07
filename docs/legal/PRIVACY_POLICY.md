@@ -171,8 +171,10 @@ Under the Data Protection Act, 2011 you may:
 To exercise any of these, contact **privacy@gtaxi.tt**. We respond within
 **30 days**.
 
-Deleting your account is available in the app. Some records must be retained —
-see below.
+To delete your account, email **privacy@gtaxi.tt** — the in-app button is not
+built yet, though everything behind it is. You get a 30-day grace period in which
+it can be undone. Some records must be retained; see section 7 and the
+[Data Retention and Deletion Notice](DATA_RETENTION_AND_DELETION.md).
 
 ---
 
