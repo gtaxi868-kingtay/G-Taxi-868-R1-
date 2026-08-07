@@ -17,6 +17,26 @@
 /** docs/legal/TERMS_OF_SERVICE.md — "Last updated: 2026-06-18" */
 export const TERMS_VERSION = '2026-06-18';
 
+/** docs/legal/PRIVACY_POLICY.md */
+export const PRIVACY_VERSION = '2026-08-05';
+
+/** docs/legal/DRIVER_OPERATOR_AGREEMENT.md */
+export const DRIVER_AGREEMENT_VERSION = '2026-08-05';
+
+/** docs/legal/MERCHANT_TERMS.md */
+export const MERCHANT_TERMS_VERSION = '2026-08-05';
+
+/** docs/legal/DATA_RETENTION_AND_DELETION.md */
+export const DATA_RETENTION_VERSION = '2026-08-05';
+
+/** docs/legal/SAFETY_AND_INCIDENT_POLICY.md */
+export const SAFETY_VERSION = '2026-08-05';
+
+// docs/legal/REFUND_AND_CANCELLATION_POLICY.md has no version constant on
+// purpose: it is incorporated by reference into the Terms rather than accepted
+// separately, and `user_consents.document` has no 'refund_policy' value. If it
+// ever needs its own acceptance, the CHECK constraint must be altered first.
+
 /** Document keys accepted by the record_consent() RPC. Keep in sync with the
  *  CHECK constraint on public.user_consents.document. */
 export const LEGAL_DOCUMENTS = {
