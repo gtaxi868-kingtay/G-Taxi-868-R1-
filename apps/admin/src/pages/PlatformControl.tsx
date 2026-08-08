@@ -10,9 +10,13 @@ interface Vertical {
     display_name: string;
     is_enabled: boolean;
     rollout_percentage: number;
-    commission_rate_percent: number;
-    driver_commission_percent: number;
     enabled_regions: string[];
+    // NOTE: vertical_settings.commission_rate_percent / driver_commission_percent
+    // used to be displayed here. They were DECORATION — this screen showed
+    // "commission 19% · driver 81%" while compute_ride_split actually paid
+    // 15% / 80% from pricing_config. Nothing ever read those columns for money,
+    // so an admin could edit them and change nothing. They have been dropped
+    // from the table; the real rates come from pricing_config below.
 }
 
 interface FeatureFlag {
@@ -29,6 +33,25 @@ const CONTACT_KEYS: { key: string; label: string; hint: string }[] = [
     { key: 'escape_whatsapp_number', label: 'G-Escape WhatsApp', hint: 'Travel concierge line' },
 ];
 
+// ── The REAL settlement rates ─────────────────────────────────────────────────
+// pricing_config is the only place the split actually lives — compute_ride_split
+// reads it, and Financials.tsx already surfaces it. Values are stored as
+// hundredths of a percent (1500 = 15.00%), matching DRIVER_SHARE_CENTS = 8000.
+//
+// Per-vertical platform rate keys. Anything not listed falls back to the global
+// PLATFORM_RATE_CENTS, which is what compute_ride_split does too.
+const VERTICAL_PLATFORM_RATE_KEY: Record<string, string> = {
+    ride_hailing:       'PLATFORM_RATE_CENTS_RIDE',
+    grocery:            'PLATFORM_RATE_CENTS_GROCERY',
+    laundry:            'PLATFORM_RATE_CENTS_LAUNDRY',
+    merchant_delivery:  'PLATFORM_RATE_CENTS_DELIVERY',
+    caribbean_travel:   'PLATFORM_RATE_CENTS_TRAVEL',
+    b2b_logistics:      'PLATFORM_RATE_CENTS_B2B',
+};
+
+const pct = (cents: number | undefined): string =>
+    cents === undefined ? '—' : `${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}%`;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const VERTICAL_ICONS: Record<string, React.ComponentType<LucideProps>> = {
@@ -39,14 +62,16 @@ const VERTICAL_ICONS: Record<string, React.ComponentType<LucideProps>> = {
     b2b_logistics:      Truck,
 };
 
-const FLAG_GROUP_ORDER = [
-    'grocery_active', 'laundry_active', 'grocery_module', 'laundry_module',
-    'grocery_vertical', 'laundry_vertical', 'pharma_vertical',
-    'ai_assistant_active', 'opt_in_ai_routing', 'sponsored_stops',
-    'promo_codes_active', 'scheduled_rides_enabled',
-    'merchant_commission_enabled', 'kiosk_active',
-    'driver_registration_active', 'airline_active', 'hotel_active',
-];
+// A FLAG_GROUP_ORDER array used to sit here listing flag ids. It was declared
+// and never referenced anywhere — dead code that only served to accumulate
+// stale ids. groupFlags() below is the single place grouping is decided.
+//
+// Grocery/laundry/pharma flags are gone entirely: there used to be THREE
+// switches per vertical (grocery_active / grocery_module / grocery_vertical)
+// contradicting each other — active=true while the other two were false — and
+// none of them were read by anything. Those verticals are governed by the
+// Verticals section (vertical_settings), enforced server-side in
+// get_rider_progress.
 
 function groupFlags(flags: FeatureFlag[]): Record<string, FeatureFlag[]> {
     const groups: Record<string, FeatureFlag[]> = {
@@ -57,15 +82,14 @@ function groupFlags(flags: FeatureFlag[]): Record<string, FeatureFlag[]> {
         'Other': [],
     };
     for (const f of flags) {
-        if (['grocery_active', 'laundry_active', 'grocery_module', 'laundry_module',
-            'grocery_vertical', 'laundry_vertical', 'pharma_vertical'].includes(f.id)) {
+        if (['kiosk_active', 'carnival_active', 'events_active'].includes(f.id)) {
             groups['Service Tiles'].push(f);
         } else if (['ai_assistant_active', 'opt_in_ai_routing', 'sponsored_stops'].includes(f.id)) {
             groups['AI & Routing'].push(f);
-        } else if (['promo_codes_active', 'merchant_commission_enabled', 'kiosk_active', 'wallet_active'].includes(f.id)) {
+        } else if (['promo_codes_active', 'merchant_commission_enabled', 'merchant_billing_enabled'].includes(f.id)) {
             groups['Commerce'].push(f);
         } else if (['driver_registration_active', 'scheduled_rides_enabled',
-            'airline_active', 'hotel_active', 'commander_system_active'].includes(f.id)) {
+            'airline_active', 'hotel_active'].includes(f.id)) {
             groups['Driver & Operations'].push(f);
         } else {
             groups['Other'].push(f);
@@ -79,6 +103,9 @@ function groupFlags(flags: FeatureFlag[]): Record<string, FeatureFlag[]> {
 export function PlatformControl() {
     const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [flags, setFlags] = useState<FeatureFlag[]>([]);
+    // The real settlement rates, keyed by pricing_config key. Read live so this
+    // screen can never again show a number that isn't what actually pays.
+    const [rates, setRates] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
     const [togglingVertical, setTogglingVertical] = useState<string | null>(null);
     const [togglingFlag, setTogglingFlag] = useState<string | null>(null);
@@ -90,12 +117,19 @@ export function PlatformControl() {
 
     const load = useCallback(async () => {
         setLoading(true);
-        const [vRes, fRes, cRes] = await Promise.all([
+        const [vRes, fRes, cRes, pRes] = await Promise.all([
             supabase.from('vertical_settings').select('*').order('sort_order'),
             supabase.from('system_feature_flags').select('*').order('id'),
             supabase.from('system_config').select('key, value').in('key', [...CONTACT_KEYS.map(c => c.key), 'maintenance_mode']),
+            supabase.from('pricing_config').select('key, value_cents'),
         ]);
         setVerticals((vRes.data as Vertical[]) || []);
+
+        const rateMap: Record<string, number> = {};
+        for (const row of (pRes.data as { key: string; value_cents: number }[] | null) || []) {
+            rateMap[row.key] = row.value_cents;
+        }
+        setRates(rateMap);
 
         const contactMap: Record<string, string> = {};
         for (const row of (cRes.data as { key: string; value: string }[] | null) || []) {
@@ -103,19 +137,14 @@ export function PlatformControl() {
         }
         setContact(contactMap);
         
-        let loadedFlags = (fRes.data as FeatureFlag[]) || [];
-        const requiredFlags = [
-            { id: 'wallet_active', description: 'Enable Wallet system across all apps', applies_to: 'global' },
-            { id: 'commander_system_active', description: 'Enable Pod Commander hierarchy', applies_to: 'global' }
-        ];
-        
-        for (const req of requiredFlags) {
-            if (!loadedFlags.find(f => f.id === req.id)) {
-                loadedFlags.push({ ...req, is_active: false, toggled_at: null });
-            }
-        }
-        
-        setFlags(loadedFlags);
+        // Only real rows. This used to inject 'wallet_active' and
+        // 'commander_system_active' into local state when they were missing from
+        // the database — which made two switches appear that could never work:
+        // admin_toggle_feature_flag is a bare UPDATE ... WHERE id = p_id, so
+        // toggling a non-existent flag matched zero rows, raised no error, and
+        // silently did nothing forever. A switch that cannot move is worse than
+        // no switch. Neither id is read anywhere in the codebase.
+        setFlags((fRes.data as FeatureFlag[]) || []);
         setLoading(false);
     }, []);
 
@@ -287,8 +316,15 @@ export function PlatformControl() {
                                         <div>
                                             <p className="font-black text-white text-sm">{v.display_name}</p>
                                             <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">
-                                                {v.vertical_name} · commission {v.commission_rate_percent}% ·
-                                                driver {v.driver_commission_percent}%
+                                                {v.vertical_name} · platform{' '}
+                                                {pct(rates[VERTICAL_PLATFORM_RATE_KEY[v.vertical_name] ?? 'PLATFORM_RATE_CENTS']
+                                                     ?? rates['PLATFORM_RATE_CENTS'])} ·
+                                                driver {pct(rates['DRIVER_SHARE_CENTS'])} ·
+                                                reserve {pct(rates['RESERVE_RATE_CENTS'])}
+                                            </p>
+                                            <p className="text-[9px] text-white/20 mt-0.5">
+                                                Live from pricing_config — the real split compute_ride_split pays.
+                                                Edit it in Financials, not here.
                                             </p>
                                             {v.enabled_regions.length > 0 && (
                                                 <p className="text-[10px] text-cyan-400/60 mt-0.5">
