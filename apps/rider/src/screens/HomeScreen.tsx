@@ -23,6 +23,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
+import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
 import { LayerDeck, Layer } from '../components/home/LayerDeck';
@@ -57,6 +58,9 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
+    // Platform-wide switches from the admin's Platform Control page. One query
+    // for all of them, kept live over realtime.
+    const { flags: platformFlags } = usePlatformFlags();
 
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
@@ -177,11 +181,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         const fetchEnabledVerticals = async () => {
             setIsVerticalsLoading(true);
             try {
-                const [progressRes, kioskFlagRes, carnivalFlagRes, eventsFlagRes] = await Promise.all([
+                // kiosk/carnival/events used to be three separate round-trips to
+                // system_feature_flags. usePlatformFlags fetches every switch in
+                // one query and keeps them live, so adding more gates costs
+                // nothing extra.
+                const [progressRes] = await Promise.all([
                     supabase.functions.invoke('get_rider_progress'),
-                    supabase.from('system_feature_flags').select('is_active').eq('id', 'kiosk_active').maybeSingle(),
-                    supabase.from('system_feature_flags').select('is_active').eq('id', 'carnival_active').maybeSingle(),
-                    supabase.from('system_feature_flags').select('is_active').eq('id', 'events_active').maybeSingle(),
                 ]);
 
                 if (progressRes.error) throw progressRes.error;
@@ -208,15 +213,20 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 const platform: Record<string, boolean> = progressRes.data?.data?.platform_enabled || {};
                 const adminAllows = (name: string) => platform[name] !== false;
 
+                // This effect has an empty dependency array, so it must NOT read
+                // platformFlags — it would capture the first render's values and
+                // never see an admin toggle. The platform switch is applied at
+                // render time in the `layers` memo below, which does depend on
+                // them. What is computed here is only: did the rider earn it,
+                // and does vertical_settings allow it.
                 const flags = {
                     grocery: unlocked.includes('grocery'),
                     laundry: unlocked.includes('laundry_nfc') || unlocked.includes('laundry'),
                     merchant: unlocked.includes('merchant_delivery'),
-                    kiosk: (unlocked.includes('laundry_nfc') || unlocked.includes('kiosk')) && (kioskFlagRes.data?.is_active === true),
+                    kiosk: unlocked.includes('laundry_nfc') || unlocked.includes('kiosk'),
                     caribbean_travel: unlocked.includes('g_escape') || unlocked.includes('caribbean_travel'),
-                    // Feature flag AND vertical switch — either one off hides it.
-                    fete: carnivalFlagRes.data?.is_active === true && adminAllows('carnival'),
-                    events: eventsFlagRes.data?.is_active === true && adminAllows('events'),
+                    fete: adminAllows('carnival'),
+                    events: adminAllows('events'),
                 };
 
                 setFeatureFlags(flags);
@@ -700,13 +710,16 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         if (featureFlags.grocery) arr.push({ id: 'market', name: 'Market', sub: 'Groceries delivered', accent: '#F59E0B', icon: 'cart-sharp', search: 'Shop groceries & more' });
         if (featureFlags.laundry) arr.push({ id: 'laundry', name: 'Laundry', sub: 'Fresh & folded', accent: '#34E6EC', icon: 'shirt-sharp', search: 'Schedule a pickup' });
         if (featureFlags.merchant) arr.push({ id: 'merchant', name: 'Food', sub: 'Delivery from local spots', accent: '#F97316', icon: 'fast-food-sharp', search: 'Order food & more' });
+        // Each of these needs BOTH gates: the rider earned it / the vertical is
+        // enabled (featureFlags), AND the platform switch on Platform Control is
+        // on (platformFlags). Either one off hides the tile.
         if (featureFlags.caribbean_travel) arr.push({ id: 'escape', name: 'G-Escape', sub: 'Caribbean packages', accent: '#CBD6DE', icon: 'airplane-sharp', search: 'Browse escapes' });
-        if (featureFlags.kiosk) arr.push({ id: 'tap', name: 'Tap', sub: 'Scan a puck', accent: BRAND, icon: 'radio-sharp', search: 'Open NFC scanner' });
-        if (featureFlags.events) arr.push({ id: 'events', name: 'Events', sub: 'Nightlife & fetes', accent: '#6D28D9', icon: 'calendar-sharp', search: 'What\'s happening' });
-        if (featureFlags.fete) arr.push({ id: 'fete', name: 'Carnival', sub: 'Bands & fetes', accent: '#FF2D55', icon: 'musical-notes-sharp', search: 'Find your band' });
+        if (featureFlags.kiosk && platformFlags.kiosk) arr.push({ id: 'tap', name: 'Tap', sub: 'Scan a puck', accent: BRAND, icon: 'radio-sharp', search: 'Open NFC scanner' });
+        if (featureFlags.events && platformFlags.events) arr.push({ id: 'events', name: 'Events', sub: 'Nightlife & fetes', accent: '#6D28D9', icon: 'calendar-sharp', search: 'What\'s happening' });
+        if (featureFlags.fete && platformFlags.carnival) arr.push({ id: 'fete', name: 'Carnival', sub: 'Bands & fetes', accent: '#FF2D55', icon: 'musical-notes-sharp', search: 'Find your band' });
         if (nextUnlock) arr.push({ id: 'locked', name: nextUnlock.vertical, accent: '#34E6EC', icon: 'lock-closed', locked: true, progress: nextUnlock.progress, need: nextUnlock.required, label: nextUnlock.label });
         return arr;
-    }, [featureFlags, nextUnlock, driverSubText, homeSuggestion]);
+    }, [featureFlags, platformFlags, nextUnlock, driverSubText, homeSuggestion]);
 
     const openDestinationSearch = () => {
         const accuracy = location?.coords?.accuracy;
@@ -931,18 +944,23 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         <Text style={s.greetText} numberOfLines={2}>
                             {aiGreeting || 'Where to next?'}
                         </Text>
-                        <TouchableOpacity
-                            style={s.micBtn}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                setVoiceInputText('');
-                                setVoiceModalVisible(true);
-                            }}
-                            accessibilityLabel="Ask G-Taxi by voice"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="mic" size={20} color={VOICES.rider.accent} />
-                        </TouchableOpacity>
+                        {/* 'ai_assistant_active' on Platform Control. That switch
+                            used to control nothing at all — an admin could turn the
+                            assistant "off" and the mic stayed right here. */}
+                        {platformFlags.aiAssistant && (
+                            <TouchableOpacity
+                                style={s.micBtn}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                    setVoiceInputText('');
+                                    setVoiceModalVisible(true);
+                                }}
+                                accessibilityLabel="Ask G-Taxi by voice"
+                                accessibilityRole="button"
+                            >
+                                <Ionicons name="mic" size={20} color={VOICES.rider.accent} />
+                            </TouchableOpacity>
+                        )}
                     </View>
 
                     {/* Swipeable layer deck — booking + verticals + level meter in one control */}

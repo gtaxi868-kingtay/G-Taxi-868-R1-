@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { Txt } from '@/design-system/primitives';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
@@ -31,6 +32,9 @@ export function SettingsScreen({ navigation }: any) {
     const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
+    // 'opt_in_ai_routing' on the admin's Platform Control page. Until now that
+    // switch controlled nothing; this is the read that makes it real.
+    const { flags } = usePlatformFlags();
 
     const [notifyRides, setNotifyRides] = useState(true);
     const [notifyPromos, setNotifyPromos] = useState(true);
@@ -264,13 +268,17 @@ export function SettingsScreen({ navigation }: any) {
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>PRIVACY & SECURITY</Txt>
                 <View style={s.card}>
-                    <SettingRow
-                        label="AI Route Opt-In"
-                        sub="Share data for discount routes"
-                        value={aiRouting}
-                        onToggle={(v: boolean) => toggleSetting('ai_routing', v)}
-                    />
-                    <View style={s.divider} />
+                    {flags.aiRoutingOffered && (
+                        <>
+                            <SettingRow
+                                label="AI Route Opt-In"
+                                sub="Share data for discount routes"
+                                value={aiRouting}
+                                onToggle={(v: boolean) => toggleSetting('ai_routing', v)}
+                            />
+                            <View style={s.divider} />
+                        </>
+                    )}
                     <TouchableOpacity style={s.row} onPress={async () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); try { const keys = await AsyncStorage.getAllKeys(); await AsyncStorage.multiRemove(keys); Alert.alert('Cache Cleared', 'Local storage has been refreshed.'); } catch { Alert.alert('Error', 'Could not clear cache.'); } }}>
                         <View style={{ flex: 1 }}>
                             <Txt variant="bodyBold" color="#EAF3F6">Clear App Cache</Txt>

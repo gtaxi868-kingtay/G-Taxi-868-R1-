@@ -49,6 +49,31 @@ const VERTICAL_PLATFORM_RATE_KEY: Record<string, string> = {
     b2b_logistics:      'PLATFORM_RATE_CENTS_B2B',
 };
 
+// Which switches actually control something, and what reads them.
+//
+// Nine of the fourteen switches on this page used to do nothing: an operator
+// could toggle "AI Assistant" or "Promo Codes", get a success toast, and no
+// app would behave differently, because no code read the flag. Rather than
+// hide that, the page now says it. Keep this map honest — if you wire a flag,
+// move it up here; if you delete the feature, delete the flag.
+const FLAG_WIRING: Record<string, string> = {
+    kiosk_active:               'Rider home: NFC Tap tile',
+    carnival_active:            'Rider home: Carnival tile',
+    events_active:              'Rider home: Events tile',
+    ai_assistant_active:        'Rider home: voice / G assistant',
+    opt_in_ai_routing:          'Rider settings: AI Route Opt-In row',
+    driver_registration_active: 'Driver app: registration',
+    merchant_billing_enabled:   'Admin: merchant billing',
+};
+
+const UNWIRED_NOTE: Record<string, string> = {
+    airline_active:             'Not wired yet — G-Escape flights ignore this.',
+    hotel_active:               'Not wired yet — G-Escape lodging ignores this.',
+    promo_codes_active:         'Not wired yet — the Promo screen ignores this.',
+    scheduled_rides_enabled:    'Not wired yet — ride scheduling ignores this.',
+    merchant_commission_enabled:'Not wired yet — needs an edge function deploy, currently blocked by the project function cap.',
+};
+
 const pct = (cents: number | undefined): string =>
     cents === undefined ? '—' : `${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}%`;
 
@@ -531,6 +556,15 @@ export function PlatformControl() {
                                                     {f.description && (
                                                         <p className="text-[10px] text-white/20 mt-0.5 truncate max-w-md">
                                                             {f.description}
+                                                        </p>
+                                                    )}
+                                                    {FLAG_WIRING[f.id] ? (
+                                                        <p className="text-[10px] text-emerald-400/70 mt-0.5">
+                                                            Controls: {FLAG_WIRING[f.id]}
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-[10px] text-amber-400/80 mt-0.5">
+                                                            {UNWIRED_NOTE[f.id] ?? 'Not wired yet — toggling this changes nothing.'}
                                                         </p>
                                                     )}
                                                     {f.toggled_at && (
