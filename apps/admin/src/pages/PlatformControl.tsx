@@ -62,16 +62,21 @@ const FLAG_WIRING: Record<string, string> = {
     events_active:              'Rider home: Events tile',
     ai_assistant_active:        'Rider home: voice / G assistant',
     opt_in_ai_routing:          'Rider settings: AI Route Opt-In row',
+    promo_codes_active:         'Rider: promo code entry',
+    airline_active:             'Rider: G-Escape flight packages',
+    hotel_active:               'Rider: G-Escape packages that include lodging',
     driver_registration_active: 'Driver app: registration',
     merchant_billing_enabled:   'Admin: merchant billing',
+    // Enforced in the DATABASE (credit_merchant_commission), not in an app, so
+    // it holds for every caller and needs no redeploy to take effect.
+    merchant_commission_enabled:'Payouts: merchant kiosk commission (enforced server-side)',
 };
 
-const UNWIRED_NOTE: Record<string, string> = {
-    airline_active:             'Not wired yet — G-Escape flights ignore this.',
-    hotel_active:               'Not wired yet — G-Escape lodging ignores this.',
-    promo_codes_active:         'Not wired yet — the Promo screen ignores this.',
-    scheduled_rides_enabled:    'Not wired yet — ride scheduling ignores this.',
-    merchant_commission_enabled:'Not wired yet — needs an edge function deploy, currently blocked by the project function cap.',
+// Switches kept deliberately, for features that genuinely do not exist yet.
+// These are roadmap placeholders, NOT broken wiring — the distinction matters
+// to whoever is looking at this page trying to decide if something is wrong.
+const PLANNED_NOTE: Record<string, string> = {
+    scheduled_rides_enabled: 'Planned — the scheduling engine is not built yet, so this has nothing to switch.',
 };
 
 const pct = (cents: number | undefined): string =>
@@ -563,8 +568,8 @@ export function PlatformControl() {
                                                             Controls: {FLAG_WIRING[f.id]}
                                                         </p>
                                                     ) : (
-                                                        <p className="text-[10px] text-amber-400/80 mt-0.5">
-                                                            {UNWIRED_NOTE[f.id] ?? 'Not wired yet — toggling this changes nothing.'}
+                                                        <p className="text-[10px] text-white/35 mt-0.5">
+                                                            {PLANNED_NOTE[f.id] ?? 'Not wired yet — toggling this changes nothing.'}
                                                         </p>
                                                     )}
                                                     {f.toggled_at && (
