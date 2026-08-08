@@ -18,6 +18,7 @@ import { IntelligenceScreen } from './src/screens/IntelligenceScreen';
 import { ApprovalsScreen } from './src/screens/ApprovalsScreen';
 import { GroundTransitScreen } from './src/screens/GroundTransitScreen';
 import { ZoneRatesScreen } from './src/screens/ZoneRatesScreen';
+import { PlatformControlScreen } from './src/screens/PlatformControlScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -44,6 +45,7 @@ function AppNavigator() {
       <AppStack.Screen name="CommanderManagement" component={CommanderManagementScreen} />
       <AppStack.Screen name="Intelligence" component={IntelligenceScreen} />
       <AppStack.Screen name="Approvals" component={ApprovalsScreen} />
+      <AppStack.Screen name="PlatformControl" component={PlatformControlScreen} />
       <AppStack.Screen name="GroundTransit" component={GroundTransitScreen} />
       <AppStack.Screen name="ZoneRates" component={ZoneRatesScreen} />
     </AppStack.Navigator>

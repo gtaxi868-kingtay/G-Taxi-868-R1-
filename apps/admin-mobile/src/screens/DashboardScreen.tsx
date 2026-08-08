@@ -8,23 +8,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AppStackParamList } from '../navigation/types';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 
 const { supabase } = initializeSupabaseClient('native');
 
-type RootStackParamList = {
-  Dashboard: undefined;
-  TagMarker: undefined;
-  RegisterPuck: undefined;
-  Intelligence: undefined;
-  Approvals: undefined;
-  GroundTransit: undefined;
-  ZoneRates: undefined;
-};
-
-type DashboardNavProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
+// Route list comes from src/navigation/types.ts, the same one App.tsx builds
+// the navigator from. There used to be a private copy here that had already
+// drifted — it was missing RevshareSettlement and CommanderManagement, so this
+// screen could not navigate to two screens that exist. One list, one truth.
+type DashboardNavProp = NativeStackNavigationProp<AppStackParamList, 'Dashboard'>;
 
 interface KioskNode {
   id: string;
@@ -230,6 +225,13 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               accessibilityLabel="Talk to G"
             >
               <Ionicons name="chatbubbles-outline" size={18} color={ACCENT} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('PlatformControl'); }}
+              style={styles.iconBtn}
+              accessibilityLabel="Platform Control"
+            >
+              <Ionicons name="toggle-outline" size={18} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('RegisterPuck'); }}
