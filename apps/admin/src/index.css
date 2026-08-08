@@ -1,8 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4 single-import. The old v3 three-directive form
+   (@tailwind base/components/utilities) is a no-op under v4 — it was still
+   here after the version bump, which is half of why no utility ever compiled. */
+@import "tailwindcss";
 
 :root {
   --text-primary: #F2F5F8;
