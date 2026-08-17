@@ -336,7 +336,19 @@ button{font:inherit;color:inherit}
   0%,100%{transform:translateY(0)}
   50%{transform:translateY(-14px)}
 }
-@media (max-width:980px){.hero__pin{width:min(46vw,220px)}}
+/* Below 980px hero__left and hero__right stack into one tall column, but
+   .hero__aura still centers itself against the FULL section height (it's
+   a grid sibling of .hero__inner, both filling the same cell) -- so the
+   pin/rings land wherever that midpoint falls, which is on top of
+   whichever content happens to sit there (found live: directly over the
+   Rider card). Rather than chase a moving target with a fixed offset,
+   drop the floating pin on narrow viewports -- the mark still appears in
+   the nav at every size, so the brand identity isn't lost, just the
+   decorative float that only works when the two columns sit side by
+   side. */
+@media (max-width:980px){
+  .hero__pin,.hero__ring,.hero__aura::before{display:none}
+}
 
 /* ---------- hero decoration: floating glass orbs ---------- */
 .hero__orbs{position:absolute;inset:0;z-index:1;overflow:hidden;pointer-events:none}

@@ -26,20 +26,27 @@
      a per-frame loop). CSS keyframes do the drifting. ~13 orbs is
      enough to read as "a lot" without becoming a rendering cost.
      ============================================================ */
+  // Positions deliberately avoid the two text columns (hero__left: roughly
+  // x 0-40%, y 12-72% -- eyebrow through the CTA/badge; hero__right:
+  // roughly x 58-100%, y 8-88% -- the role carousel through "Owned here.")
+  // so a bright orb never glows directly behind copy or a button. Found
+  // live: the original placements put a 96px "868" orb right behind the
+  // primary CTA and a 110px one behind the role carousel, both reading as
+  // overlap against the translucent button/card backgrounds.
   const ORB_CONFIGS = [
-    {top:'8%',  left:'4%',  size:64,  tint:'rgba(124,58,237,.4)', glow:'rgba(124,58,237,.5)', dur:15, delay:0,    num:false},
-    {top:'62%', left:'2%',  size:96,  tint:'rgba(34,211,238,.35)',glow:'rgba(34,211,238,.5)', dur:18, delay:1.2,  num:'868', numSize:'1.6rem'},
-    {top:'80%', left:'12%', size:40,  tint:'rgba(240,171,252,.4)',glow:'rgba(240,171,252,.5)',dur:13, delay:2.4,  num:false},
-    {top:'4%',  left:'30%', size:34,  tint:'rgba(94,234,212,.4)', glow:'rgba(94,234,212,.5)', dur:12, delay:.6,   num:false},
-    {top:'20%', left:'46%', size:56,  tint:'rgba(124,58,237,.35)',glow:'rgba(124,58,237,.45)',dur:17, delay:3.1,  num:false},
-    {top:'88%', left:'42%', size:80,  tint:'rgba(34,211,238,.3)', glow:'rgba(34,211,238,.45)',dur:16, delay:1.8,  num:'868', numSize:'1.3rem'},
-    {top:'12%', left:'86%', size:70,  tint:'rgba(240,171,252,.35)',glow:'rgba(240,171,252,.45)',dur:14,delay:.2,  num:false},
-    {top:'38%', left:'92%', size:110, tint:'rgba(124,58,237,.4)', glow:'rgba(124,58,237,.5)', dur:19, delay:2.6,  num:'868', numSize:'2rem'},
-    {top:'70%', left:'88%', size:46,  tint:'rgba(94,234,212,.35)',glow:'rgba(94,234,212,.45)',dur:11, delay:1.4,  num:false},
-    {top:'92%', left:'70%', size:56,  tint:'rgba(34,211,238,.35)',glow:'rgba(34,211,238,.45)',dur:15, delay:3.4,  num:false},
+    {top:'6%',  left:'1%',  size:50,  tint:'rgba(124,58,237,.4)', glow:'rgba(124,58,237,.5)', dur:15, delay:0,    num:false},
+    {top:'80%', left:'50%', size:70,  tint:'rgba(34,211,238,.35)',glow:'rgba(34,211,238,.5)', dur:18, delay:1.2,  num:'868', numSize:'1.5rem'},
+    {top:'92%', left:'20%', size:36,  tint:'rgba(240,171,252,.4)',glow:'rgba(240,171,252,.5)',dur:13, delay:2.4,  num:false},
+    {top:'3%',  left:'34%', size:34,  tint:'rgba(94,234,212,.4)', glow:'rgba(94,234,212,.5)', dur:12, delay:.6,   num:false},
+    {top:'18%', left:'47%', size:56,  tint:'rgba(124,58,237,.35)',glow:'rgba(124,58,237,.45)',dur:17, delay:3.1,  num:false},
+    {top:'92%', left:'62%', size:64,  tint:'rgba(34,211,238,.3)', glow:'rgba(34,211,238,.45)',dur:16, delay:1.8,  num:'868', numSize:'1.2rem'},
+    {top:'3%',  left:'88%', size:60,  tint:'rgba(240,171,252,.35)',glow:'rgba(240,171,252,.45)',dur:14,delay:.2,  num:false},
+    {top:'62%', left:'97%', size:80,  tint:'rgba(124,58,237,.4)', glow:'rgba(124,58,237,.5)', dur:19, delay:2.6,  num:'868', numSize:'1.7rem'},
+    {top:'92%', left:'90%', size:40,  tint:'rgba(94,234,212,.35)',glow:'rgba(94,234,212,.45)',dur:11, delay:1.4,  num:false},
+    {top:'56%', left:'50%', size:40,  tint:'rgba(34,211,238,.3)', glow:'rgba(34,211,238,.4)', dur:15, delay:3.4,  num:false},
     {top:'2%',  left:'62%', size:30,  tint:'rgba(240,171,252,.4)',glow:'rgba(240,171,252,.5)', dur:10, delay:.9,  num:false},
-    {top:'52%', left:'22%', size:26,  tint:'rgba(124,58,237,.4)', glow:'rgba(124,58,237,.5)', dur:12, delay:2.1,  num:false},
-    {top:'30%', left:'6%',  size:22,  tint:'rgba(94,234,212,.4)', glow:'rgba(94,234,212,.5)', dur:9,  delay:.4,   num:false},
+    {top:'70%', left:'2%',  size:24,  tint:'rgba(124,58,237,.35)',glow:'rgba(124,58,237,.45)', dur:12, delay:2.1, num:false},
+    {top:'46%', left:'99%', size:22,  tint:'rgba(94,234,212,.4)', glow:'rgba(94,234,212,.5)', dur:9,  delay:.4,   num:false},
   ];
 
   function buildOrbs(){
