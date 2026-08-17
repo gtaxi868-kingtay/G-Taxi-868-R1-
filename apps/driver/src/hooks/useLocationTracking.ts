@@ -5,6 +5,7 @@ import * as TaskManager from 'expo-task-manager';
 import { Accelerometer } from 'expo-sensors';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { updateDriverLocation } from '../services/api';
 
 const LOCATION_TASK_NAME = 'G_TAXI_BACKGROUND_LOCATION_ENGINE';
 const MAX_JUMP_METERS = 150;
@@ -24,14 +25,15 @@ if (!isTaskDefined) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) return;
       try {
-        await supabase.rpc('update_driver_location_packet', {
-          p_lat: parseFloat(loc.coords.latitude.toFixed(6)),
-          p_lng: parseFloat(loc.coords.longitude.toFixed(6)),
-          p_heading: loc.coords.heading || null,
-          p_speed: loc.coords.speed || null,
-        });
+        await updateDriverLocation(
+          session.user.id,
+          parseFloat(loc.coords.latitude.toFixed(6)),
+          parseFloat(loc.coords.longitude.toFixed(6)),
+          loc.coords.heading || 0,
+          loc.coords.speed || 0
+        );
       } catch (_err) {
-        // RPC fails silently — next update will retry
+        // Update fails silently — next update will retry
       }
     }
   });
@@ -188,14 +190,9 @@ export function useLocationTracking() {
 
     if (user?.id) {
       try {
-        await supabase.rpc('update_driver_location_packet', {
-          p_lat: lat,
-          p_lng: lng,
-          p_heading: heading,
-          p_speed: newLoc.coords.speed || null,
-        });
+        await updateDriverLocation(user.id, lat, lng, heading, newLoc.coords.speed || 0);
       } catch (_err) {
-        // RPC fails silently — next update retries
+        // Update fails silently — next update retries
       }
     }
   };

@@ -18,7 +18,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { useAuth } from '../context/AuthContext';
 import { useLocationTracking } from '../hooks/useLocationTracking';
-import { DEFAULT_LOCATION, ENV } from '@gtaxi/shared/env';
+import { DEFAULT_LOCATION, ENV } from '@g868/shared/env';
 import { useRideOfferSubscription, useDeliveryOfferSubscription } from '../services/realtime';
 import { supabase } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
@@ -310,7 +310,9 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
 
             <View style={[s.mapContainer, { height: mapHeightLocal }]} pointerEvents="box-none">
                 <MapView style={StyleSheet.absoluteFillObject} provider={PROVIDER_DEFAULT} initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}>
-                    <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
+                    {ENV.MAPBOX_PUBLIC_TOKEN && (
+                        <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
+                    )}
                     {/* Demand heat cells — gold intensity tracks relative demand */}
                     {demandHotspots.map((h: any, i: number) => (
                         h.lat != null && h.lng != null ? (

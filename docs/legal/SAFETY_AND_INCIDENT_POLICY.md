@@ -1,9 +1,9 @@
-# G-TAXI SAFETY AND INCIDENT POLICY
+# G868 SAFETY AND INCIDENT POLICY
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-15
 **Jurisdiction:** Trinidad and Tobago (primary) — scalable to other Caribbean jurisdictions
-**Platform:** G-Taxi mobile applications, websites, NFC kiosks, and related services
-**Operator:** G-Taxi Technology Ltd. (company registration to be filed, Trinidad and Tobago)
+**Platform:** G868 mobile applications, websites, NFC kiosks, and related services
+**Operator:** G868 Technology Ltd. (company registration to be filed, Trinidad and Tobago)
 
 > **Status: DRAFT — requires review by a qualified Trinidad and Tobago attorney
 > before publication.** Section 9 states plainly which parts of this policy are
@@ -161,7 +161,7 @@ We would rather be plain about this than imply a safety net that is not there.
 - Emergency contact messaged automatically, where one is saved.
 - Fallback to dialling emergency services if the alert cannot send.
 - Only the two people on a trip can raise an alert for it — verified server-side.
-- **An SOS now raises a top-severity alert to G-Taxi operations**, which is both
+- **An SOS now raises a top-severity alert to G868 operations**, which is both
   a permanent record and a push to any registered operations device.
 - **Drivers working near the incident are warned**, without being told who is
   involved or where exactly — enough to be alert, not enough to identify anyone.
@@ -190,7 +190,7 @@ We would rather be plain about this than imply a safety net that is not there.
 Operators carry their own insurance (section 3 of the
 [Driver and Operator Agreement](DRIVER_OPERATOR_AGREEMENT.md)).
 
-**G-Taxi does not provide accident, injury or liability cover** for clients,
+**G868 does not provide accident, injury or liability cover** for clients,
 operators or merchants. A claim arising from a trip is made against the
 operator's insurance.
 
@@ -217,7 +217,7 @@ new version. Your acceptance of each version is recorded.
 
 **Emergency: 999 (police) / 811 (ambulance)**
 
-**G-Taxi Technology Ltd.**
+**G868 Technology Ltd.**
 Safety and support: support@gtaxi.tt
 Legal notices: legal@gtaxi.tt
 WhatsApp: +1 868 703 1000

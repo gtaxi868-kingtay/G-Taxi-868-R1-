@@ -1,9 +1,9 @@
-# G-TAXI PRIVACY POLICY
+# G868 PRIVACY POLICY
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-15
 **Jurisdiction:** Trinidad and Tobago (primary) — scalable to other Caribbean jurisdictions
-**Platform:** G-Taxi mobile applications, websites, NFC kiosks, and related services
-**Operator:** G-Taxi Technology Ltd. (company registration to be filed, Trinidad and Tobago)
+**Platform:** G868 mobile applications, websites, NFC kiosks, and related services
+**Operator:** G868 Technology Ltd. (company registration to be filed, Trinidad and Tobago)
 
 > **Status: DRAFT — requires review by a qualified Trinidad and Tobago attorney
 > before publication.** Every fact about what data is collected and which third
@@ -15,11 +15,11 @@
 
 ## 1. WHO WE ARE
 
-G-Taxi Technology Ltd. ("G-Taxi", "we", "us") operates a technology platform
+G868 Technology Ltd. ("G868", "we", "us") operates a technology platform
 connecting independent drivers, merchants and service providers with clients in
 Trinidad and Tobago.
 
-For the purposes of the **Data Protection Act, 2011 (Act 13 of 2011)**, G-Taxi
+For the purposes of the **Data Protection Act, 2011 (Act 13 of 2011)**, G868
 is the **data controller** for personal information described in this policy.
 
 **Data protection enquiries:** privacy@gtaxi.tt
@@ -75,7 +75,7 @@ purpose, and is subject to the shortest retention period in section 7.
 
 ### 2.6 Payments
 Card details are entered directly into our payment processors and are **never
-stored on G-Taxi systems**. We hold only a processor-issued token and the last
+stored on G868 systems**. We hold only a processor-issued token and the last
 four digits.
 
 ### 2.7 Automatically collected
@@ -236,7 +236,7 @@ versions remain on record.
 
 ## 11. CONTACT
 
-**G-Taxi Technology Ltd.**
+**G868 Technology Ltd.**
 Data protection: privacy@gtaxi.tt
 General support: support@gtaxi.tt
 Legal notices: legal@gtaxi.tt

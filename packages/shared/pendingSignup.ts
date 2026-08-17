@@ -15,7 +15,10 @@
 // dependency-free and usable from any app.
 
 export interface PendingSignup {
-  consent?: { document: string; version: string; userAgent?: string };
+  /** One entry per document a rider/driver was asked to accept at signup —
+   *  was a single `consent` object before more than one document needed
+   *  recording; kept as an array so a signup flow can queue its whole set. */
+  consents?: { document: string; version: string; userAgent?: string }[];
   commanderCode?: string;
   /** Guards against replaying someone else's parked intent if a different
    *  account signs in on the same device. */
@@ -81,13 +84,20 @@ export async function flushPendingSignup(
     return result;
   }
 
-  if (parked.consent) {
-    const { error } = await supabase.rpc('record_consent', {
-      p_document: parked.consent.document,
-      p_version: parked.consent.version,
-      p_user_agent: parked.consent.userAgent ?? null,
-    });
-    if (!error) result.consentRecorded = true;
+  if (parked.consents?.length) {
+    // Each write is independently idempotent on (user_id, document, version),
+    // so a partial failure on one document does not block the others, and a
+    // retry on the next app open only re-attempts what actually failed.
+    let allRecorded = true;
+    for (const c of parked.consents) {
+      const { error } = await supabase.rpc('record_consent', {
+        p_document: c.document,
+        p_version: c.version,
+        p_user_agent: c.userAgent ?? null,
+      });
+      if (error) allRecorded = false;
+    }
+    result.consentRecorded = allRecorded;
   }
 
   if (parked.commanderCode) {
@@ -98,10 +108,10 @@ export async function flushPendingSignup(
     if (!error) result.commanderApplied = true;
   }
 
-  // Clear only when the consent (the part that matters legally) landed, or
-  // when there was no consent to record. A failed consent write is worth
-  // retrying on the next app open.
-  if (!parked.consent || result.consentRecorded) {
+  // Clear only when every consent (the part that matters legally) landed, or
+  // when there was nothing to record. A partial failure is worth retrying
+  // on the next app open rather than silently dropping the rest.
+  if (!parked.consents?.length || result.consentRecorded) {
     await clearPendingSignup(store);
   }
 

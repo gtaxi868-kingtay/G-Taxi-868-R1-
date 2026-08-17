@@ -1,0 +1,31 @@
+-- dispatch_queue.order_id and .delivery_method were both NOT NULL with
+-- no default -- fine for DELIVERY/GROCERY/LAUNDRY tasks (which always
+-- have a real order), but create_ride/index.ts's dispatch_queue insert
+-- for RIDE tasks passes order_id: null and never sets delivery_method
+-- at all (a ride has neither). Confirmed live: dispatch_queue had ZERO
+-- rows of ANY task_type in production, ever -- this insert has always
+-- failed with a 23502 not-null violation, for every single ride ever
+-- created, silently swallowed by create_ride's non-fatal try/catch.
+--
+-- process_dispatch_queue IS scheduled (cron, every minute, gated on
+-- pending rows existing) and DOES have real logic for task_type='RIDE'
+-- -- this was live, wired, never-exercised infrastructure, not dead
+-- code. Confirmed via dry-run then live end-to-end through the real
+-- deployed create_ride edge function: dispatch_queue now correctly
+-- receives a RIDE row on every real ride creation.
+--
+-- NOT fixed here, flagged in project memory (project_dispatch_queue_
+-- and_scheduled_rides.md) for a follow-up pass: even with this schema
+-- fix, process_dispatch_queue's RIDE branch only updates its own
+-- dispatch_queue row (status='assigned', driver_id=...) when it finds a
+-- driver -- it never updates rides.status/driver_id, never creates a
+-- ride_offers row, and never sends a push notification. Completing that
+-- branch to actually assign+notify (mirroring match_driver's real
+-- logic) is a separate, larger piece of work. Also not fixed: the
+-- scheduled/G-Escape-transfer promotion jobs (activateScheduledTransfers,
+-- promote_escape_transfer_rides) never insert a FRESH dispatch_queue row
+-- when flipping a ride from scheduled->searching -- the original row
+-- (if any) expired 10 minutes after ride creation, hours before the
+-- real pickup time.
+ALTER TABLE public.dispatch_queue ALTER COLUMN order_id DROP NOT NULL;
+ALTER TABLE public.dispatch_queue ALTER COLUMN delivery_method DROP NOT NULL;

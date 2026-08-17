@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14.0.0'
 import { requireAuth } from '../_shared/auth.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
+import { checkVerticalAccess } from '../_shared/verticalGate.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -297,6 +298,11 @@ Deno.serve(async (req) => {
         return json({ error: 'Invalid payment_method' }, 400)
       }
 
+      const access = await checkVerticalAccess(supabase, user.id, 'grocery')
+      if (!access.allowed) {
+        return json({ error: access.reason }, 403)
+      }
+
       const { data: cartItems } = await supabase
         .from('cart_items')
         .select('*')
@@ -362,6 +368,12 @@ Deno.serve(async (req) => {
         }).eq('id', order.id)
         await supabase.from('cart_items').delete().eq('user_id', user.id).eq('merchant_id', merchant_id)
 
+        await supabase.rpc('record_rider_activity', {
+          p_rider_id: user.id, p_event_type: 'grocery_order',
+          p_amount_cents: total, p_ride_id: null,
+          p_metadata: { order_id: order.id, payment_method: 'cash' },
+        }).then(null, () => {})
+
         return json({
           success: true,
           order: { order_id: order.id, total_cents: total, payment_method: 'cash', status: 'confirmed' },
@@ -379,6 +391,12 @@ Deno.serve(async (req) => {
           stripe_payment_intent_id: paymentIntent.id, payment_status: 'pending',
         }).eq('id', order.id)
 
+        // NOTE: card orders don't reach real payment success here — Stripe
+        // captures asynchronously via stripe_webhook, which is outside the
+        // four entry points this pass wires progression into. A card-paid
+        // grocery order will not currently increment total_grocery_orders.
+        // Flagging this rather than silently under-counting: the fix is a
+        // record_rider_activity call in stripe_webhook's order-capture path.
         return json({
           success: true,
           order: {
@@ -404,6 +422,12 @@ Deno.serve(async (req) => {
 
       await supabase.from('orders').update({ payment_status: 'captured', status: 'confirmed' }).eq('id', order.id)
       await supabase.from('cart_items').delete().eq('user_id', user.id).eq('merchant_id', merchant_id)
+
+      await supabase.rpc('record_rider_activity', {
+        p_rider_id: user.id, p_event_type: 'grocery_order',
+        p_amount_cents: total, p_ride_id: null,
+        p_metadata: { order_id: order.id, payment_method: 'wallet' },
+      }).then(null, () => {})
 
       return json({
         success: true,

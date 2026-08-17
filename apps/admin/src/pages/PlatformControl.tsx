@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { ToggleLeft, ToggleRight, RefreshCw, ShieldAlert, Sliders, Car, ShoppingCart, Wind, Package, Truck, MessageCircle, type LucideProps } from 'lucide-react';
+import { ToggleLeft, ToggleRight, RefreshCw, ShieldAlert, Sliders, Car, ShoppingCart, Wind, Package, Truck, MessageCircle, Siren, type LucideProps } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -10,6 +10,7 @@ interface Vertical {
     display_name: string;
     is_enabled: boolean;
     rollout_percentage: number;
+    emergency_disabled: boolean;
     enabled_regions: string[];
     // NOTE: vertical_settings.commission_rate_percent / driver_commission_percent
     // used to be displayed here. They were DECORATION — this screen showed
@@ -203,6 +204,32 @@ export function PlatformControl() {
         setTogglingVertical(null);
     };
 
+    // Emergency kill-switch — deliberately separate from toggleVertical /
+    // saveRollout. Those are the gradual-rollout dial; this is the "stop
+    // this right now" control, and it always wins server-side regardless
+    // of is_enabled/rollout_percentage. Confirms before firing since it's
+    // an immediate, platform-wide effect.
+    const toggleEmergency = async (v: Vertical) => {
+        const next = !v.emergency_disabled;
+        if (next && !confirm(
+            `EMERGENCY DISABLE "${v.display_name}"?\n\nThis immediately blocks the vertical for every rider, regardless of the rollout % or Live/Off toggle above. Use this only for a live incident.`
+        )) {
+            return;
+        }
+        setTogglingVertical(v.id);
+        const { error } = await supabase.rpc('admin_set_vertical_emergency', {
+            p_id: v.id,
+            p_emergency_disabled: next,
+        });
+        if (error) {
+            flash(`Failed to ${next ? 'engage' : 'release'} emergency stop: ${error.message}`, false);
+        } else {
+            flash(`${v.display_name} emergency stop ${next ? 'ENGAGED — blocked for all riders now' : 'released'}`, true);
+            await load();
+        }
+        setTogglingVertical(null);
+    };
+
     const saveRollout = async (v: Vertical) => {
         const val = parseInt(rolloutEditing[v.id] ?? String(v.rollout_percentage), 10);
         if (isNaN(val) || val < 0 || val > 100) {
@@ -336,10 +363,16 @@ export function PlatformControl() {
                         return (
                             <div
                                 key={v.id}
-                                className={`bg-white/5 rounded-2xl p-5 border transition-all ${
-                                    v.is_enabled ? 'border-cyan-400/20' : 'border-white/5'
+                                className={`bg-white/5 rounded-2xl p-5 border-2 transition-all ${
+                                    v.emergency_disabled ? 'border-red-500/60' : v.is_enabled ? 'border-cyan-400/20' : 'border-white/5'
                                 }`}
                             >
+                                {v.emergency_disabled && (
+                                    <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-widest">
+                                        <Siren size={14} />
+                                        Emergency stop engaged — blocked for all riders, ignores the toggle below
+                                    </div>
+                                )}
                                 <div className="flex items-center justify-between gap-4 flex-wrap">
                                     <div className="flex items-center gap-4">
                                         {(() => { const Icon = VERTICAL_ICONS[v.vertical_name] ?? Sliders; return <Icon size={22} className="text-white/60 flex-shrink-0" />; })()}
@@ -408,6 +441,21 @@ export function PlatformControl() {
                                             }`}>
                                                 {v.is_enabled ? 'Live' : 'Off'}
                                             </span>
+                                        </button>
+
+                                        {/* Emergency kill-switch — separate control, separate button, on purpose */}
+                                        <button
+                                            onClick={() => toggleEmergency(v)}
+                                            disabled={busy}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest disabled:opacity-40 transition-all ${
+                                                v.emergency_disabled
+                                                    ? 'bg-red-500/20 border-red-500/50 text-red-400 hover:bg-red-500/30'
+                                                    : 'bg-white/5 border-white/10 text-white/30 hover:border-red-500/30 hover:text-red-400'
+                                            }`}
+                                            title={v.emergency_disabled ? 'Release emergency stop' : 'Emergency stop — block instantly for all riders'}
+                                        >
+                                            <Siren size={12} />
+                                            {v.emergency_disabled ? 'Release' : 'Emergency Stop'}
                                         </button>
                                     </div>
                                 </div>

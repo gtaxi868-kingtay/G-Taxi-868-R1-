@@ -1,9 +1,9 @@
-# G-TAXI REFUND AND CANCELLATION POLICY
+# G868 REFUND AND CANCELLATION POLICY
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-15
 **Jurisdiction:** Trinidad and Tobago (primary) — scalable to other Caribbean jurisdictions
-**Platform:** G-Taxi mobile applications, websites, NFC kiosks, and related services
-**Operator:** G-Taxi Technology Ltd. (company registration to be filed, Trinidad and Tobago)
+**Platform:** G868 mobile applications, websites, NFC kiosks, and related services
+**Operator:** G868 Technology Ltd. (company registration to be filed, Trinidad and Tobago)
 
 > **Status: DRAFT — requires review by a qualified Trinidad and Tobago attorney
 > before publication.** The cancellation-fee amounts and free-cancellation
@@ -186,7 +186,7 @@ never automatic — a person reviews it.
 
 ## 9. CONTACT
 
-**G-Taxi Technology Ltd.**
+**G868 Technology Ltd.**
 Support: support@gtaxi.tt
 Legal notices: legal@gtaxi.tt
 WhatsApp: +1 868 703 1000

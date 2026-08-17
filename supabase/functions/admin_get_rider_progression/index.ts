@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
         const { data: configs } = await supabaseAdmin
             .from('progression_config')
-            .select('level, threshold_type, threshold_value, unlock_vertical, label')
+            .select('level, threshold_type, threshold_value, unlock_verticals, push_title')
             .order('level', { ascending: true })
 
         const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
@@ -84,10 +84,10 @@ Deno.serve(async (req) => {
                     case 'escape_booked':  progress = row.escape_ever_booked ? 1 : 0; break
                 }
                 next_unlock = {
-                    vertical: nextConfig.unlock_vertical,
+                    verticals: nextConfig.unlock_verticals,
                     progress,
                     required: nextConfig.threshold_value,
-                    label: nextConfig.label || nextConfig.unlock_vertical,
+                    label: nextConfig.push_title || nextConfig.unlock_verticals.join(', '),
                 }
             }
 

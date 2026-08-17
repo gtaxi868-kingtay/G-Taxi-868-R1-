@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@gtaxi/core';
-import { ENV } from '@gtaxi/shared/env';
+import { ENV } from '@g868/shared/env';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { AppScreenProps } from '../navigation/types';

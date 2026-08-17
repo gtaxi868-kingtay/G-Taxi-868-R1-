@@ -1,9 +1,9 @@
-# G-TAXI DATA RETENTION AND DELETION NOTICE
+# G868 DATA RETENTION AND DELETION NOTICE
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-15
 **Jurisdiction:** Trinidad and Tobago (primary) — scalable to other Caribbean jurisdictions
-**Platform:** G-Taxi mobile applications, websites, NFC kiosks, and related services
-**Operator:** G-Taxi Technology Ltd. (company registration to be filed, Trinidad and Tobago)
+**Platform:** G868 mobile applications, websites, NFC kiosks, and related services
+**Operator:** G868 Technology Ltd. (company registration to be filed, Trinidad and Tobago)
 
 > **Status: DRAFT — requires review by a qualified Trinidad and Tobago attorney
 > before publication.** Every period in section 3 is a **proposal**. The 7-year
@@ -234,7 +234,7 @@ We would rather say this plainly than imply more than is true.
 
 ## 8. CONTACT
 
-**G-Taxi Technology Ltd.**
+**G868 Technology Ltd.**
 Data protection: privacy@gtaxi.tt
 Support: support@gtaxi.tt
 Legal notices: legal@gtaxi.tt

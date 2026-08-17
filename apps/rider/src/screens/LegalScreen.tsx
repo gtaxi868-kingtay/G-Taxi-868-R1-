@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Linking, Switch } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,12 +9,33 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Txt } from '@/design-system/primitives';
 import { GlassCard } from '@gtaxi/design-system/native';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { LEGAL_DOC_URLS } from '@g868/shared/legal';
+import { usePlatformFlags } from '../hooks/usePlatformFlags';
+
+// Same AsyncStorage key SettingsScreen.tsx reads/writes for "AI Route
+// Opt-In" — this screen used to have its own disconnected useState here,
+// so toggling it did nothing real. One key, one real control, shown in
+// both places.
+const AI_ROUTING_KEY = '@ai_routing_opt_in';
 
 const CYAN = '#06B6D4';
 
 export function LegalScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
-    const [aiEnabled, setAiEnabled] = useState(true);
+    const { flags } = usePlatformFlags();
+    const [aiRouting, setAiRouting] = useState(false);
+
+    useEffect(() => {
+        AsyncStorage.getItem(AI_ROUTING_KEY)
+            .then(val => setAiRouting(val === 'true'))
+            .catch(() => {});
+    }, []);
+
+    const toggleAiRouting = async (value: boolean) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setAiRouting(value);
+        await AsyncStorage.setItem(AI_ROUTING_KEY, value ? 'true' : 'false');
+    };
 
     return (
         <View style={s.root}>
@@ -70,23 +93,25 @@ export function LegalScreen({ navigation }: any) {
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
                         Our Artificial Intelligence learns your habits to assist you, anticipate your needs, and secure your routes. Your personal data is never sold. It is used strictly to assist you.
                     </Txt>
-                    
-                    <View style={s.optOutRow}>
-                        <View style={s.optOutText}>
-                            <Txt variant="bodyReg" weight="bold" color="#EAF3F6">AI Predictive Assistance</Txt>
-                            <Txt variant="caption" color="#AEA9B5">Allow AI to learn from your movement</Txt>
+
+                    {flags.aiRoutingOffered && (
+                        <View style={s.optOutRow}>
+                            <View style={s.optOutText}>
+                                <Txt variant="bodyReg" weight="bold" color="#EAF3F6">AI Route Opt-In</Txt>
+                                <Txt variant="caption" color="#AEA9B5">Share data for discount routes</Txt>
+                            </View>
+                            <Switch
+                                trackColor={{ false: '#374151', true: CYAN }}
+                                thumbColor={'#EAF3F6'}
+                                ios_backgroundColor="#374151"
+                                onValueChange={toggleAiRouting}
+                                value={aiRouting}
+                            />
                         </View>
-                        <Switch
-                            trackColor={{ false: '#374151', true: CYAN }}
-                            thumbColor={'#EAF3F6'}
-                            ios_backgroundColor="#374151"
-                            onValueChange={setAiEnabled}
-                            value={aiEnabled}
-                        />
-                    </View>
+                    )}
                 </GlassCard>
 
-                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}>
+                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL(LEGAL_DOC_URLS.terms_of_service)}>
                     <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
                         Full Terms of Service
                     </Txt>
@@ -98,12 +123,48 @@ export function LegalScreen({ navigation }: any) {
                     </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}>
+                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL(LEGAL_DOC_URLS.privacy_policy)}>
                     <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
                         Full Privacy Policy
                     </Txt>
                     <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
                         Compliant with the Data Protection Act, 2011 of Trinidad and Tobago and international GDPR standards.
+                    </Txt>
+                    <View style={s.docLinkRow}>
+                        <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL(LEGAL_DOC_URLS.data_retention)}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
+                        Data Retention & Deletion Notice
+                    </Txt>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
+                        How long we keep your data, and how to request permanent deletion.
+                    </Txt>
+                    <View style={s.docLinkRow}>
+                        <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL(LEGAL_DOC_URLS.safety_policy)}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
+                        Safety & Incident Policy
+                    </Txt>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
+                        How incidents are reported, investigated, and resolved.
+                    </Txt>
+                    <View style={s.docLinkRow}>
+                        <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={s.docLinkCard} onPress={() => Linking.openURL(LEGAL_DOC_URLS.refund_policy)}>
+                    <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={s.sectionTitle}>
+                        Refund & Cancellation Policy
+                    </Txt>
+                    <Txt variant="bodyReg" color="#AEA9B5" style={s.bodyText}>
+                        When a ride, delivery, or booking qualifies for a refund or cancellation without a fee.
                     </Txt>
                     <View style={s.docLinkRow}>
                         <Txt variant="caption" color={CYAN} weight="bold">View Full Document →</Txt>

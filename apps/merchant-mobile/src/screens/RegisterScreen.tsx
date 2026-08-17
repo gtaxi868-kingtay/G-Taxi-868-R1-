@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+
+const LEGAL_BASE = 'https://ffbbuafgeypvkpcuvdnv.supabase.co/storage/v1/object/public/web/legal';
 
 type AuthStackParamList = {
   Login: undefined;
@@ -20,6 +23,7 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
@@ -31,9 +35,13 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
       Alert.alert('Weak Password', 'Password must be at least 6 characters.');
       return;
     }
+    if (!acceptedTerms) {
+      Alert.alert('Terms Required', 'You must accept the Merchant Terms, Terms of Service, and Privacy Policy to continue.');
+      return;
+    }
     setLoading(true);
     try {
-      await signUp(email.trim(), password, name.trim());
+      await signUp(email.trim(), password, name.trim(), acceptedTerms);
       Alert.alert('Check Email', 'Please check your email for a confirmation link.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
@@ -57,11 +65,25 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
             <TextInput style={s.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="rgba(255,255,255,0.6)" />
             <TextInput style={s.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="rgba(255,255,255,0.6)" />
 
+            <TouchableOpacity style={s.termsRow} onPress={() => setAcceptedTerms(!acceptedTerms)}>
+              <View style={[s.checkbox, acceptedTerms && { backgroundColor: VOICES.merchant.accent, borderColor: VOICES.merchant.accent }]}>
+                {acceptedTerms && <Ionicons name="checkmark" size={14} color={SURFACE.base} />}
+              </View>
+              <Text style={s.termsText}>
+                I accept the{' '}
+                <Text style={s.termsLink} onPress={() => Linking.openURL(`${LEGAL_BASE}/merchant_terms.html`)}>Merchant Terms</Text>
+                {', '}
+                <Text style={s.termsLink} onPress={() => Linking.openURL(`${LEGAL_BASE}/terms_of_service.html`)}>Terms of Service</Text>
+                {', and '}
+                <Text style={s.termsLink} onPress={() => Linking.openURL(`${LEGAL_BASE}/privacy_policy.html`)}>Privacy Policy</Text>
+              </Text>
+            </TouchableOpacity>
+
             {loading ? (
               <ActivityIndicator size="large" color={VOICES.merchant.accent} style={{ marginTop: 16 }} />
             ) : (
-              <TouchableOpacity style={s.registerBtn} onPress={handleRegister}>
-                <LinearGradient colors={[VOICES.merchant.accent, VOICES.merchant.accentDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.registerGradient}>
+              <TouchableOpacity style={s.registerBtn} onPress={handleRegister} disabled={!acceptedTerms}>
+                <LinearGradient colors={[VOICES.merchant.accent, VOICES.merchant.accentDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[s.registerGradient, !acceptedTerms && { opacity: 0.5 }]}>
                   <Text style={s.registerBtnText}>Register</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -85,6 +107,10 @@ const s = StyleSheet.create({
   cardBlur: { borderRadius: 24, overflow: 'hidden', ...ghostBorder(0.15) },
   card: { padding: 24 },
   input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 16, fontSize: 16, color: '#E9F5F3', marginBottom: 12, ...ghostBorder(0.15), fontFamily: 'Manrope' },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4, marginBottom: 4 },
+  checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 1 },
+  termsText: { flex: 1, fontSize: 12, lineHeight: 18, color: 'rgba(255,255,255,0.6)', fontFamily: 'Manrope' },
+  termsLink: { color: VOICES.merchant.accent, fontWeight: '600' },
   registerBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 8 },
   registerGradient: { padding: 16, alignItems: 'center' },
   registerBtnText: { color: SURFACE.base, fontSize: 16, fontWeight: '700', fontFamily: 'SpaceGrotesk' },

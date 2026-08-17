@@ -14,6 +14,7 @@ import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { Txt } from '@/design-system/primitives';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { LEGAL_DOC_URLS } from '@g868/shared/legal';
 
 const CYAN = '#06B6D4';
 
@@ -332,12 +333,12 @@ export function SettingsScreen({ navigation }: any) {
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>ABOUT</Txt>
                 <View style={s.card}>
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL('https://gtaxi.tt/terms'); }}>
+                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL(LEGAL_DOC_URLS.terms_of_service); }}>
                         <Txt variant="bodyBold" color="#EAF3F6">Terms of Service</Txt>
                         <Ionicons name="chevron-forward" size={18} color={R.muted} />
                     </TouchableOpacity>
                     <View style={s.divider} />
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL('https://gtaxi.tt/privacy'); }}>
+                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL(LEGAL_DOC_URLS.privacy_policy); }}>
                         <Txt variant="bodyBold" color="#EAF3F6">Privacy Policy</Txt>
                         <Ionicons name="chevron-forward" size={18} color={R.muted} />
                     </TouchableOpacity>

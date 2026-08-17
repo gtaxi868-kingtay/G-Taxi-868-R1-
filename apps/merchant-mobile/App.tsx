@@ -5,7 +5,7 @@ import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } 
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { ErrorBoundary } from '@gtaxi/shared';
+import { ErrorBoundary } from '@g868/shared';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';

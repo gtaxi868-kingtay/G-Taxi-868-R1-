@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkVerticalAccess } from "../_shared/verticalGate.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -36,6 +37,11 @@ serve(async (req: Request) => {
     if (!amount_cents || amount_cents <= 0) return json({ success: false, error: "amount_cents must be positive" }, 400);
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const access = await checkVerticalAccess(admin, user.id, "tap");
+    if (!access.allowed) {
+      return json({ success: false, error: access.reason }, 403);
+    }
 
     const tagUid = String(merchant_tag_uid).replace(/^https?:\/\/[^\/]+\/(node|nfc)\//, "").trim();
 
@@ -80,6 +86,12 @@ serve(async (req: Request) => {
     if (!result?.success) {
       return json({ success: false, error: result?.error_message || "Payment failed" }, 402);
     }
+
+    await admin.rpc("record_rider_activity", {
+      p_rider_id: user.id, p_event_type: "nfc_tap",
+      p_amount_cents: amount_cents, p_ride_id: null,
+      p_metadata: { merchant_id: merchantId, transaction_id: result.transaction_id },
+    }).then(null, () => {});
 
     return json({
       success: true,

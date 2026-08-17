@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string, acceptedTerms: boolean) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -46,9 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, acceptedTerms: boolean) => {
+    // merchant_signup rejects any request without accepted_terms.
     const { data, error } = await supabase.functions.invoke('merchant_signup', {
-      body: { email, password, full_name: name },
+      body: { email, password, full_name: name, accepted_terms: acceptedTerms },
     });
     if (error) throw error;
     if (!data?.success) throw new Error(data?.error || 'Registration failed');

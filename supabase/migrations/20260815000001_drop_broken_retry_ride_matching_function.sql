@@ -1,0 +1,24 @@
+-- retry_ride_matching() carried the exact same bug as
+-- dispatch_match_on_ride_insert() (see
+-- 20260815000000_drop_broken_dispatch_trigger_on_ride_insert.sql for the
+-- full root-cause writeup): body := jsonb_build_object(...)::text against
+-- a net.http_post signature that requires jsonb, plus NULL
+-- current_setting('supabase.url' / 'supabase.anon_key'), plus no way for
+-- a DB function to supply match_driver's required real rider JWT.
+--
+-- It was called from apps/rider/src/screens/SearchingDriverScreen.tsx as
+-- the auto-retry after a driver declines a ride offer — a common, real
+-- scenario. The call was fire-and-forget with no await, so the failure
+-- was completely silent: every driver decline left the rider stuck in
+-- "searching" with no real retry ever firing. Fixed client-side by
+-- calling matchDriver(rideId) (the same real, working function
+-- apps/rider/src/services/api.ts already uses for the initial dispatch)
+-- instead of this RPC. This function is now unreferenced anywhere.
+--
+-- Live-verified 2026-08-15: notify_drivers_nearby, escape_sweep_tipping_points,
+-- and handle_sos (the SOS/safety cron + trigger paths) were checked for the
+-- same bug pattern and confirmed NOT affected — they use correctly-typed
+-- jsonb bodies, real hardcoded URLs / platform_cron_secret(), and proper
+-- EXCEPTION WHEN OTHERS guards. Only this function and the ride-insert
+-- trigger shared the bug.
+DROP FUNCTION IF EXISTS public.retry_ride_matching(uuid);

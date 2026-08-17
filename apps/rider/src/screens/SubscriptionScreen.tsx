@@ -16,7 +16,7 @@ import { AppScreenProps } from '../navigation/types';
 
 interface LevelConfig {
     level: number;
-    unlock_vertical: string;
+    unlock_verticals: string[];
     threshold_type: string;
     threshold_value: number;
     discount_percent: number;
@@ -44,9 +44,20 @@ const LEVEL_META: Record<number, { label: string; icon: string; gradient: [strin
 
 const PERK_ICONS: Record<string, string> = {
     grocery: 'cart-outline',
+    food: 'fast-food-outline',
     laundry_nfc: 'shirt-outline',
+    tap: 'radio-outline',
     gwallet_bonus: 'wallet-outline',
     g_escape: 'airplane-outline',
+};
+
+const PERK_LABELS: Record<string, string> = {
+    grocery: 'Grocery',
+    food: 'Food',
+    laundry_nfc: 'Laundry NFC',
+    tap: 'Tap to Pay',
+    gwallet_bonus: 'G-Wallet',
+    g_escape: 'G-Escape',
 };
 
 function fmtPrice(cents: number): string {
@@ -235,7 +246,7 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                                     <View style={s.stepHead}>
                                         <View style={[s.stepIcon, isUnlocked && { backgroundColor: '#EAF3F6' }]}>
                                             <Ionicons
-                                                name={(isUnlocked ? PERK_ICONS[cfg?.unlock_vertical ?? ''] : 'lock-closed') as any}
+                                                name={(isUnlocked ? PERK_ICONS[cfg?.unlock_verticals?.[0] ?? ''] : 'lock-closed') as any}
                                                 size={18}
                                                 color={isUnlocked ? '#000' : 'rgba(255,255,255,0.3)'}
                                             />
@@ -246,7 +257,7 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                                             </Text>
                                             {isUnlocked && cfg && (
                                                 <Text style={s.stepUnlock}>
-                                                    {cfg.unlock_vertical.replace('_', ' ').replace('nfc', 'NFC').replace('gwallet', 'G-Wallet').replace('g_escape', 'G-Escape')}
+                                                    {(cfg.unlock_verticals ?? []).map(v => PERK_LABELS[v] ?? v.replace(/_/g, ' ')).join(' + ')}
                                                     {lvl > 1 && ` • ${cfg.discount_percent}% off`}
                                                     {cfg.priority_matching && ' • Priority'}
                                                     {` • ${cfg.free_wait_minutes}min grace`}

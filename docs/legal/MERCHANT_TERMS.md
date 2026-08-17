@@ -1,9 +1,9 @@
-# G-TAXI MERCHANT AND BUSINESS TERMS
+# G868 MERCHANT AND BUSINESS TERMS
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-15
 **Jurisdiction:** Trinidad and Tobago (primary) — scalable to other Caribbean jurisdictions
-**Platform:** G-Taxi mobile applications, websites, NFC kiosks, and related services
-**Operator:** G-Taxi Technology Ltd. (company registration to be filed, Trinidad and Tobago)
+**Platform:** G868 mobile applications, websites, NFC kiosks, and related services
+**Operator:** G868 Technology Ltd. (company registration to be filed, Trinidad and Tobago)
 
 > **Status: DRAFT — requires review by a qualified Trinidad and Tobago attorney
 > before publication.** The commission rate in section 4.1 is a **commercial
@@ -14,8 +14,8 @@
 
 ## 1. WHO THIS IS FOR
 
-This agreement is between your business ("you", "the Merchant") and G-Taxi
-Technology Ltd. ("G-Taxi", "we", "us"). It covers any business selling or
+This agreement is between your business ("you", "the Merchant") and G868
+Technology Ltd. ("G868", "we", "us"). It covers any business selling or
 fulfilling through the platform — shops, groceries, restaurants, service
 providers, kiosk nodes, and hosts.
 
@@ -67,7 +67,7 @@ until we receive it.
 > *The rate below is the platform's configured default. The operator must confirm
 > the final rate and any per-category variation before this is published.*
 
-G-Taxi retains a commission on the value of goods sold through the platform. Your
+G868 retains a commission on the value of goods sold through the platform. Your
 current rate is shown in your merchant dashboard and is the rate that applies —
 this document does not override it.
 
@@ -234,7 +234,7 @@ completed.
 
 ## 14. CONTACT
 
-**G-Taxi Technology Ltd.**
+**G868 Technology Ltd.**
 Merchant support: support@gtaxi.tt
 Legal notices: legal@gtaxi.tt
 WhatsApp: +1 868 703 1000

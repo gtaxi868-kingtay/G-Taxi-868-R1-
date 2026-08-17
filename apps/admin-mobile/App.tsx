@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { ErrorBoundary } from '@gtaxi/shared';
+import { ErrorBoundary } from '@g868/shared';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { SignupScreen } from './src/screens/SignupScreen';

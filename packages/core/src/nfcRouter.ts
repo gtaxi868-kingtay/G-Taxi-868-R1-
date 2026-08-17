@@ -39,6 +39,24 @@ export async function routeNfcTag(
     };
   }
 
+  // unified_identities is the table register_unified_identity/_admin
+  // actually write to (e.g. Carnival band keychains) -- identity_tags is
+  // the older table. A tag registered only in unified_identities used to
+  // fall through to 'blank' here, sending the tag's own owner to the
+  // "provision this as a new node" screen for a tag they already own.
+  const { data: unified } = await supabase
+    .from('unified_identities')
+    .select('tag_uid, profile_id')
+    .eq('tag_uid', tagUid)
+    .maybeSingle();
+
+  if (unified) {
+    return {
+      type: 'personal',
+      tag_uid: unified.tag_uid,
+    };
+  }
+
   const { data: identity } = await supabase
     .from('identity_tags')
     .select('tag_uid, profile_id')

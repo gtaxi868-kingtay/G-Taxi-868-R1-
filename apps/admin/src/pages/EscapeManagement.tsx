@@ -39,7 +39,23 @@ type PackageView = {
   auto_book_enabled: boolean | null;
   amadeus_booked_at: string | null;
   created_at: string;
+  flight_block_id: string;
+  // Live-system fields (flight_blocks/package_reservations) -- the group
+  // block-hold state a real operator needs to actually manage the block,
+  // distinct from the legacy escape_group_participants fields above.
+  flight_blocks: {
+    fill_deadline_date: string | null;
+    locked_group_size: number | null;
+    locked_discount_percent: number | null;
+    confirming_provider: string | null;
+    status: string;
+    departure_time: string;
+  } | null;
+  live_headcount?: number;
 };
+
+type GroupDiscountTier = { min_group_size: number; discount_percent: number };
+type CarrierPolicy = { carrier_name: string; name_submission_deadline_days: number };
 
 type Participant = {
   id: string;
@@ -129,6 +145,9 @@ export function EscapeManagement() {
   const [delayMsg, setDelayMsg] = useState('');
   const [bookingRef, setBookingRef] = useState('');
 
+  const [groupDiscountTiers, setGroupDiscountTiers] = useState<GroupDiscountTier[]>([]);
+  const [carrierPolicies, setCarrierPolicies] = useState<CarrierPolicy[]>([]);
+
   const [transferRides, setTransferRides] = useState<TransferRide[]>([]);
   const [transfersLoading, setTransfersLoading] = useState(false);
 
@@ -158,10 +177,41 @@ export function EscapeManagement() {
     setLoading(true);
     const { data } = await supabase
       .from('escape_packages')
-      .select('*')
+      .select('*, flight_blocks(fill_deadline_date, locked_group_size, locked_discount_percent, confirming_provider, status, departure_time)')
       .order('created_at', { ascending: false });
-    setPackages(data || []);
+
+    const rows = (data || []) as PackageView[];
+
+    // Live headcount comes from package_reservations (the system riders
+    // actually book through), not the legacy allocated_guests/confirmed_guests
+    // fields above -- those track escape_group_participants, which real
+    // riders never touch.
+    const flightBlockIds = rows.map((p) => p.flight_block_id).filter(Boolean);
+    if (flightBlockIds.length) {
+      const { data: reservations } = await supabase
+        .from('package_reservations')
+        .select('flight_block_id, guest_count')
+        .in('flight_block_id', flightBlockIds)
+        .in('status', ['CAPTURED', 'CONFIRMED']);
+
+      const headcountByBlock = new Map<string, number>();
+      for (const r of reservations || []) {
+        headcountByBlock.set(r.flight_block_id, (headcountByBlock.get(r.flight_block_id) || 0) + (r.guest_count || 0));
+      }
+      for (const p of rows) {
+        p.live_headcount = headcountByBlock.get(p.flight_block_id) || 0;
+      }
+    }
+
+    setPackages(rows);
     setLoading(false);
+  }, []);
+
+  const loadPricingConfig = useCallback(async () => {
+    const { data: tiers } = await supabase.from('group_discount_tiers').select('*').order('min_group_size');
+    setGroupDiscountTiers(tiers || []);
+    const { data: policies } = await supabase.from('carrier_policies').select('carrier_name, name_submission_deadline_days');
+    setCarrierPolicies(policies || []);
   }, []);
 
   const loadTransferRides = useCallback(async () => {
@@ -192,7 +242,7 @@ export function EscapeManagement() {
     setLodgingLoading(false);
   }, []);
 
-  useEffect(() => { loadPackages(); }, [loadPackages]);
+  useEffect(() => { loadPackages(); loadPricingConfig(); }, [loadPackages, loadPricingConfig]);
   useEffect(() => { if (tab === 'transfers') loadTransferRides(); }, [tab, loadTransferRides]);
   useEffect(() => { if (tab === 'zones') loadZones(); }, [tab, loadZones]);
   useEffect(() => { if (tab === 'lodging' || tab === 'author') loadLodging(); }, [tab, loadLodging]);
@@ -307,11 +357,15 @@ export function EscapeManagement() {
   // triggers (sync_flight_block_real_cost, sync_escape_package_real_costs)
   // do the actual pricing from driver_zone_rates/lodging_nodes/escape_lane_
   // fare_baseline; this form just supplies the real identifiers they key on.
+  // Sell price and platform margin are server-computed by
+  // trg_sync_escape_package_sell_price (real cost total run through
+  // calculate_escape_sell_price + pricing_rules) — never accepted from this
+  // form, so they're intentionally not sent here.
   const submitAuthorPackage = async () => {
     setAuthorMsg('');
     const f = authorForm;
     if (!f.package_name || !f.destination_code || !f.destination_name || !f.departure_time
-        || !f.lodging_node_id || !f.driver_origin_zone || !f.driver_destination_zone || !f.price_per_person_cents) {
+        || !f.lodging_node_id || !f.driver_origin_zone || !f.driver_destination_zone) {
       setAuthorMsg('All fields except return time are required');
       return;
     }
@@ -328,15 +382,14 @@ export function EscapeManagement() {
 
       const { error: pkgErr } = await supabase.from('escape_packages').insert({
         flight_block_id: block.id, lodging_node_id: f.lodging_node_id, package_name: f.package_name,
-        price_per_person_cents: Number(f.price_per_person_cents),
         driver_origin_zone: f.driver_origin_zone, driver_destination_zone: f.driver_destination_zone,
-        platform_margin_cents: Number(f.platform_margin_cents), max_total_guests: Number(f.max_total_guests),
+        max_total_guests: Number(f.max_total_guests),
         is_active: true,
       });
       if (pkgErr) throw pkgErr;
 
-      setAuthorMsg('Package created — real driver/lodging/flight costs applied automatically.');
-      setAuthorForm({ ...authorForm, package_name: '', destination_code: '', destination_name: '', departure_time: '', return_time: '', price_per_person_cents: '' });
+      setAuthorMsg('Package created — real driver/lodging/flight costs and sell price applied automatically.');
+      setAuthorForm({ ...authorForm, package_name: '', destination_code: '', destination_name: '', departure_time: '', return_time: '' });
       loadPackages();
     } catch (err: any) {
       setAuthorMsg(`Error: ${err.message}`);
@@ -387,6 +440,21 @@ export function EscapeManagement() {
       setActionMsg(`Error: ${err.message}`);
     }
     setActing(false);
+  };
+
+  // Highest group_discount_tiers row the given headcount qualifies for --
+  // mirrors calculate_escape_group_price's lookup, read from the real
+  // config table rather than a hardcoded 7/10/16 ladder client-side.
+  const projectedGroupDiscount = (headcount: number) => {
+    const applicable = groupDiscountTiers.filter((t) => t.min_group_size <= headcount);
+    if (!applicable.length) return 0;
+    return Math.max(...applicable.map((t) => t.discount_percent));
+  };
+
+  const daysUntil = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    const diffMs = new Date(dateStr).getTime() - Date.now();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   };
 
   const capacityPct = (pkg: PackageView) => {
@@ -877,8 +945,11 @@ export function EscapeManagement() {
                 {lodgingNodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
               </select>
             </LField>
-            <LField label="Price / Person (TTD)">
-              <input type="number" step="0.01" value={authorForm.price_per_person_cents ? (Number(authorForm.price_per_person_cents) / 100) : ''} onChange={(e) => setAuthorForm({ ...authorForm, price_per_person_cents: String(Math.round(Number(e.target.value) * 100)) })} className="admin-input" />
+            <LField label="Price / Person">
+              <p className="text-xs text-white/50 py-2">
+                Computed automatically at creation from real flight + lodging + driver costs,
+                run through the platform's pricing rules. Not editable here.
+              </p>
             </LField>
             <LField label="Driver Origin Zone">
               <select value={authorForm.driver_origin_zone} onChange={(e) => setAuthorForm({ ...authorForm, driver_origin_zone: e.target.value })} className="admin-input">
@@ -1029,6 +1100,44 @@ export function EscapeManagement() {
                           className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-300 transition-all"
                           style={{ width: `${Math.min(pct, 100)}%` }}
                         />
+                      </div>
+                    )}
+                    {pkg.flight_blocks && pkg.flight_blocks.status === 'POOLING' && (
+                      <div className="flex flex-wrap items-center gap-4 mt-3 pt-3 border-t border-white/5">
+                        <span className="text-xs text-white/50">
+                          <span className="text-white font-bold">{pkg.live_headcount ?? 0}</span> real riders booked
+                        </span>
+                        {pkg.flight_blocks.locked_group_size != null ? (
+                          <span className="text-xs font-bold text-purple-400">
+                            Locked: {pkg.flight_blocks.locked_group_size} riders @ {pkg.flight_blocks.locked_discount_percent}% off
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold text-cyan-400/80">
+                            Projected: {projectedGroupDiscount(pkg.live_headcount ?? 0)}% off (unlocked)
+                          </span>
+                        )}
+                        {pkg.flight_blocks.fill_deadline_date && pkg.flight_blocks.locked_group_size == null && (
+                          <span className="flex items-center gap-1 text-xs text-white/40">
+                            <Clock size={12} />
+                            {(() => {
+                              const d = daysUntil(pkg.flight_blocks.fill_deadline_date);
+                              return d === null ? '—' : d >= 0 ? `${d}d to fill deadline` : `${Math.abs(d)}d past fill deadline`;
+                            })()}
+                          </span>
+                        )}
+                        <span className="text-xs text-white/30">
+                          {pkg.flight_blocks.confirming_provider ? (
+                            (() => {
+                              const key = pkg.flight_blocks.confirming_provider!.trim().toLowerCase();
+                              const known = carrierPolicies.find((c) => c.carrier_name === key);
+                              return known
+                                ? `${pkg.flight_blocks.confirming_provider} (${known.name_submission_deadline_days}d policy)`
+                                : `${pkg.flight_blocks.confirming_provider} (no profiled policy — using default)`;
+                            })()
+                          ) : (
+                            'No carrier booked yet — deadline using default policy'
+                          )}
+                        </span>
                       </div>
                     )}
                   </div>

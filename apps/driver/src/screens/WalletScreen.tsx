@@ -16,7 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useStripe } from '@stripe/stripe-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { ENV } from '@gtaxi/shared/env';
+import { ENV } from '@g868/shared/env';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { elevationGlow, ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
@@ -33,16 +33,23 @@ interface Transaction {
 
 const INFO_ROWS = [
     {
+        // The real split (driver 80%, platform 15%, reserve 1.5%, driver
+        // drops to 78% with an active territory commander) lives in
+        // pricing_config, not here -- these numbers previously read
+        // 15%+3%/82%, an old figure that CLAUDE.md flags as wrong and
+        // never correct. Kept as static copy (not a live pricing_config
+        // fetch) since this is informational tooltip text, not a
+        // money-moving calculation.
         icon: 'cash-outline' as const,
         color: '#10B981',
         title: 'Cash Trips',
-        body: 'You collect & keep all cash. G-Taxi debits our 15% + 3% reserve from this ledger.',
+        body: 'You collect & keep all cash. G-Taxi debits our 15% + 1.5% reserve from this ledger.',
     },
     {
         icon: 'card-outline' as const,
         color: VOICES.driver.accent,
         title: 'Card / Wallet Trips',
-        body: 'We collect the payment. Your 82% share is credited to this ledger.',
+        body: 'We collect the payment. Your 80% share is credited to this ledger.',
     },
     {
         icon: 'lock-closed-outline' as const,
@@ -443,8 +450,13 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         ? [SURFACE.base, '#2A0A0A']
         : [SURFACE.base, '#0A2A1A'];
     const heroStatusColor = isOwed ? '#FF4D4D' : '#10B981';
+    // Commission debt rows (recorded by settle_cash_ride via
+    // compute_ride_split) already store the exact cents owed to the
+    // platform -- balance IS the amount owed, not 18% of some larger
+    // figure to back-calculate. The previous *0.18/0.82 factor didn't
+    // correspond to any real rate and inflated what was shown.
     const heroStatusLabel = isOwed
-        ? `You owe the platform TTD ${(Math.abs(balance || 0) * 0.18 / 0.82).toFixed(0)} (18% platform + reserve)`
+        ? `You owe the platform TTD ${Math.abs(balance || 0).toFixed(0)}`
         : 'Balance all clear ✓';
 
     return (

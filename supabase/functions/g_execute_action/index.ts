@@ -17,6 +17,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { secretMatches } from "../_shared/constantTime.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -254,8 +255,9 @@ async function deliverDueReminders(supabase: Svc): Promise<number> {
 // ── Auth ───────────────────────────────────────────────────────────────────────
 
 async function isAuthorized(req: Request, supabase: Svc): Promise<boolean> {
+    // M4: constant-time compare (see _shared/constantTime.ts)
     const cronHeader = req.headers.get("x-cron-secret");
-    if (PLATFORM_CRON_SECRET && cronHeader === PLATFORM_CRON_SECRET) return true;
+    if (await secretMatches(cronHeader, PLATFORM_CRON_SECRET)) return true;
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return false;
     const anonClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "");

@@ -17,10 +17,10 @@
       "@/*": [
         "src/*"
       ],
-      "@gtaxi/shared/*": [
+      "@g868/shared/*": [
         "../../packages/shared/*"
       ],
-      "@gtaxi/shared": [
+      "@g868/shared": [
         "../../packages/shared/src/index.ts"
       ],
       "@gtaxi/design-system/*": [

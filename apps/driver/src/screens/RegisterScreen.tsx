@@ -5,7 +5,9 @@ import {
     Alert, ScrollView, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TERMS_VERSION, LEGAL_DOCUMENTS } from '@gtaxi/shared/legal';
+import { DRIVER_CONSENT_DOCUMENTS, LEGAL_DOC_URLS } from '@g868/shared/legal';
+import { savePendingSignup } from '@g868/shared/pendingSignup';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -150,23 +152,41 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             if (!authData.user) throw new Error('Signup failed');
             const requiresEmailConfirmation = !authData.session;
 
-            // Record the acceptance as real evidence. The flags above go into
-            // raw_user_meta_data, which is USER-WRITABLE — a driver can call
-            // auth.updateUser and set their own terms_accepted, so it proves
-            // nothing. record_consent writes the append-only user_consents
-            // ledger, taking the id from auth.uid() rather than the client.
-            // Needs a session, so it is skipped while email confirmation is
-            // pending.
+            // Record every document a driver is asked to accept as real
+            // evidence — Terms, Driver Operator Agreement (the document that
+            // actually establishes independent-contractor status), Privacy
+            // Policy, Data Retention notice, Safety Policy. Was Terms-only.
+            // The flags above go into raw_user_meta_data, which is
+            // USER-WRITABLE — a driver can call auth.updateUser and set
+            // their own terms_accepted, so it proves nothing. record_consent
+            // writes the append-only user_consents ledger, taking the id
+            // from auth.uid() rather than the client. Needs a session, so it
+            // is queued for the first real sign-in when email confirmation
+            // is pending — previously this branch simply had no `else` and
+            // silently dropped consent forever for any driver who signed up
+            // with email confirmation on; the rider flow already had this
+            // queue-and-flush fix, this brings the driver flow to parity.
             if (authData.session) {
-                try {
-                    await supabase.rpc('record_consent', {
-                        p_document: LEGAL_DOCUMENTS.TERMS,
-                        p_version: TERMS_VERSION,
-                        p_user_agent: Platform.OS,
-                    });
-                } catch (e) {
-                    console.warn('[Register] consent not recorded:', e);
+                for (const doc of DRIVER_CONSENT_DOCUMENTS) {
+                    try {
+                        await supabase.rpc('record_consent', {
+                            p_document: doc.document,
+                            p_version: doc.version,
+                            p_user_agent: Platform.OS,
+                        });
+                    } catch (e) {
+                        console.warn(`[Register] consent not recorded for ${doc.document}:`, e);
+                    }
                 }
+            } else {
+                await savePendingSignup(AsyncStorage, {
+                    forUserId: authData.user.id,
+                    consents: DRIVER_CONSENT_DOCUMENTS.map(doc => ({
+                        document: doc.document,
+                        version: doc.version,
+                        userAgent: Platform.OS,
+                    })),
+                });
             }
 
             // 1. Upload Documents
@@ -178,6 +198,15 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             ]);
 
             // 2. Create Driver Record
+            // drivers.status only accepts online/offline/busy
+            // (drivers_status_check) -- 'pending' violated it, so this
+            // insert has always thrown and this direct-registration path
+            // (as opposed to the commander-code path in
+            // JoinWithCodeScreen.tsx) has never actually created a driver
+            // row. verified_status is the real "pending approval" signal
+            // (drivers_verified_status enum). vehicle_image_url is not a
+            // real column either -- the vehicle photo is already stored
+            // correctly via the driver_documents insert below.
             const { data: driverData, error: driverError } = await supabase.from('drivers').insert({
                 user_id: authData.user.id,
                 name: fullName.trim(),
@@ -185,8 +214,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                 vehicle_model: vehicleModel.trim(),
                 plate_number: licensePlate.trim().toUpperCase(),
                 vehicle_type: vehicleType,
-                vehicle_image_url: vehiclePathResult,
-                status: 'pending',
+                status: 'offline',
                 is_online: false,
                 verified_status: 'pending'
             }).select().single();
@@ -295,14 +323,14 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                                     I accept the{' '}
                                     <Text
                                         style={{ color: VOICES.driver.accent, fontWeight: '700' }}
-                                        onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}
+                                        onPress={() => Linking.openURL(LEGAL_DOC_URLS.terms_of_service)}
                                     >
                                         Terms of Service
                                     </Text>
                                     {' '}and{' '}
                                     <Text
                                         style={{ color: VOICES.driver.accent, fontWeight: '700' }}
-                                        onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}
+                                        onPress={() => Linking.openURL(LEGAL_DOC_URLS.privacy_policy)}
                                     >
                                         Privacy Policy
                                     </Text>

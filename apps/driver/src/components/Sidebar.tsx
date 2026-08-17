@@ -12,7 +12,7 @@ import {
     Alert,
 } from 'react-native';
 import { supabase } from '@gtaxi/core';
-import { Logo } from '@gtaxi/shared/design-system/components';
+import { Logo } from '@g868/shared/design-system/components';
 import { Ionicons } from '@expo/vector-icons';
 import { SURFACE, VOICES, ANIMATION, Z } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';

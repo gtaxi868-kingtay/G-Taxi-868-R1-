@@ -4,7 +4,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { checkRateLimit } from "../_shared/rateLimit.ts";
+import { enforceRateLimit } from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -58,8 +58,17 @@ serve(async (req: Request) => {
         return new Response("ok", { headers: corsHeaders });
     }
 
+    const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
     try {
-        // 1. Basic Rate Limiting Check would go here in production via Redis
+        // SECURITY (H1): rate limit on the CALLER IP before touching the key, so a
+        // failed key costs the attacker something. Previously checkRateLimit only
+        // ran after a key validated, leaving the B2B key space brute-forceable for
+        // free on a verify_jwt=false endpoint.
+        const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+            ?? req.headers.get("cf-connecting-ip")
+            ?? "unknown";
+        await enforceRateLimit(adminClient, `gw_ip_${ip}`, "merchant_gateway_auth", corsHeaders);
 
         // 2. Extract Authorization Bearer Token (The raw API Key)
         const authHeader = req.headers.get("Authorization");
@@ -69,8 +78,6 @@ serve(async (req: Request) => {
 
         const rawKey = authHeader.split(" ")[1];
         const hashedKey = await hashKey(rawKey);
-
-        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         // 3. Verify API Key
         const { data: apiKeyRef, error: keyError } = await adminClient
@@ -88,7 +95,7 @@ serve(async (req: Request) => {
              .update({ last_used_at: new Date().toISOString() })
              .eq("key_hash", hashedKey);
 
-        await checkRateLimit(adminClient, `merchant_${apiKeyRef.merchant_id}`, "merchant_gateway");
+        await enforceRateLimit(adminClient, `merchant_${apiKeyRef.merchant_id}`, "merchant_gateway", corsHeaders);
 
         // 4. Fetch the Merchant Info
         const { data: merchant, error: merchantError } = await adminClient
@@ -98,6 +105,16 @@ serve(async (req: Request) => {
             .single();
 
         if (merchantError || !merchant) throw new Error("Merchant not found");
+
+        // M5: rides.rider_id is derived from merchants.created_by, which is NULL on
+        // every live merchant row. Inserting a null rider orphans the ride and
+        // breaks rider-scoped RLS downstream — refuse rather than write bad data.
+        if (!merchant.created_by) {
+            return new Response(
+                JSON.stringify({ error: "Merchant has no linked owner account; cannot dispatch." }),
+                { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
 
         // 5. Parse the Payload from the B2B Provider (KFC POS)
         const {
@@ -187,9 +204,13 @@ serve(async (req: Request) => {
         );
 
     } catch (error: any) {
+        // enforceRateLimit / auth helpers throw a ready-made Response (429/401)
+        if (error instanceof Response) return error;
+        // M3: log detail server-side, return an opaque message. This endpoint is
+        // reachable unauthenticated, so error text is free reconnaissance.
         console.error("merchant_gateway error:", error);
         return new Response(
-            JSON.stringify({ success: false, error: error.message }),
+            JSON.stringify({ success: false, error: "Request failed" }),
             { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }

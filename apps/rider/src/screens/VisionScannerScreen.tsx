@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { supabase } from '@gtaxi/core';
-import { AIGateway } from '@gtaxi/shared';
+import { AIGateway } from '@g868/shared';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 

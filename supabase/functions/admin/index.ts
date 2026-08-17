@@ -86,21 +86,48 @@ Deno.serve(async (req) => {
       }
 
       case 'toggle_driver': {
-        const { user_id, action: subAction } = body
+        // user_id here is the driver's AUTH id (drivers.user_id), matching
+        // what get_pending_drivers/get_users hand back to the frontend --
+        // NOT drivers.id, a separate primary key. This action previously:
+        // (1) read body.action instead of body.sub_action, so subAction was
+        // always undefined and every call 400'd; (2) even past that,
+        // upserted with `id: user_id`, which creates a WRONG driver row
+        // keyed by the auth id instead of updating the real row (whose id
+        // is a separate generated uuid) -- a driver who registered would
+        // never actually get approved, a phantom duplicate row would
+        // instead be created; (3) set a base_fare_cents column that does
+        // not exist on drivers, which alone would 42703. No driver has ever
+        // been approved through this action. Fixed to UPDATE the real row
+        // by user_id -- register_driver_with_code already creates the row
+        // at signup, admin approval only ever needs to flip its status.
+        const { user_id, sub_action: subAction } = body
         if (!user_id || !['authorize', 'revoke'].includes(subAction)) {
-          return json({ error: 'user_id and action (authorize|revoke) required' }, 400)
+          return json({ error: 'user_id and sub_action (authorize|revoke) required' }, 400)
+        }
+        const { data: existingDriver, error: findError } = await supabaseAdmin
+          .from('drivers').select('id').eq('user_id', user_id).maybeSingle()
+        if (findError) throw findError
+        if (!existingDriver) {
+          return json({ success: false, error: 'No driver record found for this user -- they must complete registration first' }, 404)
         }
         if (subAction === 'authorize') {
-          const { error } = await supabaseAdmin.from('drivers').upsert({
-            id: user_id, status: 'active', is_verified: true, is_online: false,
-            vehicle_type: 'standard', base_fare_cents: 500,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'id' })
+          // drivers.status only accepts online/offline/busy (confirmed via
+          // drivers_status_check) -- an approved driver isn't online until
+          // they actually open the app, so 'offline' is the correct
+          // post-approval state, not a nonexistent 'active'.
+          const { error } = await supabaseAdmin.from('drivers')
+            .update({ status: 'offline', is_verified: true, verified_status: 'approved', updated_at: new Date().toISOString() })
+            .eq('user_id', user_id)
           if (error) throw error
         } else {
+          // 'suspended' is not a valid drivers.status value either (same
+          // constraint as above) -- is_verified=false is what actually
+          // gates a driver out (accept_ride checks it explicitly), forcing
+          // status='offline' just ensures they can't appear dispatchable
+          // to match_driver while the client syncs.
           const { error } = await supabaseAdmin.from('drivers')
-            .update({ status: 'suspended', is_verified: false, is_online: false })
-            .eq('id', user_id)
+            .update({ status: 'offline', is_verified: false, is_online: false, verified_status: 'rejected' })
+            .eq('user_id', user_id)
           if (error) throw error
         }
         return json({ success: true, user_id, action: subAction })
@@ -231,10 +258,13 @@ Deno.serve(async (req) => {
         if (!CANCELLABLE_STATUSES.includes(ride.status)) {
           throw new Error(`Cannot cancel ride in '${ride.status}' status`)
         }
-        await supabaseAdmin.from('rides')
-          .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: reason || 'Cancelled by admin' })
+        const { error: cancelError, count: cancelCount } = await supabaseAdmin.from('rides')
+          .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), cancellation_reason: reason || 'Cancelled by admin' }, { count: 'exact' })
           .eq('id', ride_id)
           .in('status', CANCELLABLE_STATUSES)
+        if (cancelError || cancelCount === 0) {
+          throw new Error(cancelError?.message || 'Ride status changed before cancellation could apply')
+        }
 
         await supabaseAdmin.from('ride_events').insert({
           ride_id, event_type: 'cancelled', actor_type: 'admin', actor_id: user.id,
@@ -581,32 +611,65 @@ Deno.serve(async (req) => {
       // ─── DRIVER APPROVAL ────────────────────────────────────────────────────
 
       case 'get_pending_drivers': {
+        // Drivers never get a `profiles` row in this system (confirmed
+        // live: `select count(*) from profiles where role='driver'` is
+        // always 0) -- this action queried profiles.role='driver' and so
+        // has NEVER returned a single real pending driver, ever. It also
+        // selected drivers.vehicle_plate/vehicle_make, columns that do not
+        // exist (the real columns are plate_number/vehicle_model), which
+        // alone would 42703 on every call regardless of the profiles bug.
+        // Rewritten to query `drivers` directly (the real source of
+        // pending/unverified rows) and resolve email via the auth admin
+        // API, since drivers have no profiles row to read one from.
         const { data: pendingDrivers, error: driversError } = await supabaseAdmin
-          .from('profiles').select('id, name, email, phone, created_at, avatar_url')
-          .eq('role', 'driver').order('created_at', { ascending: false })
+          .from('drivers')
+          .select('id, user_id, name, phone_number, created_at, status, is_verified, verified_status, vehicle_model, plate_number, insurance_expires_at')
+          .or('is_verified.eq.false,status.eq.pending')
+          .order('created_at', { ascending: false })
         if (driversError) throw driversError
-        const driverIds = pendingDrivers?.map((d: any) => d.id) || []
-        const { data: verifiedDrivers } = await supabaseAdmin
-          .from('drivers').select('id, is_verified, status, vehicle_plate, vehicle_make, vehicle_model')
-          .in('id', driverIds.length > 0 ? driverIds : ['00000000-0000-0000-0000-000000000000'])
+
+        const driverPks = pendingDrivers?.map((d: any) => d.id) || []
         const { data: documents } = await supabaseAdmin
-          .from('driver_documents').select('driver_id, document_type, storage_path, uploaded_at, status')
-          .in('driver_id', driverIds.length > 0 ? driverIds : ['00000000-0000-0000-0000-000000000000'])
-        const verifiedMap = new Map(verifiedDrivers?.map((d: any) => [d.id, d]))
+          .from('driver_documents').select('driver_id, document_type, storage_path, created_at, status')
+          .in('driver_id', driverPks.length > 0 ? driverPks : ['00000000-0000-0000-0000-000000000000'])
         const docsByDriver: Record<string, any[]> = {}
         documents?.forEach((doc: any) => {
           if (!docsByDriver[doc.driver_id]) docsByDriver[doc.driver_id] = []
           docsByDriver[doc.driver_id].push(doc)
         })
-        const pending = pendingDrivers?.filter((p: any) => {
-          const r = verifiedMap.get(p.id)
-          return !r || r.is_verified === false || r.status === 'pending'
-        }).map((p: any) => ({
-          ...p, driver_record: verifiedMap.get(p.id) || null, documents: docsByDriver[p.id] || [],
-          has_license: docsByDriver[p.id]?.some((d: any) => d.document_type === 'license') || false,
-          has_insurance: docsByDriver[p.id]?.some((d: any) => d.document_type === 'insurance') || false,
-          has_vehicle_photo: docsByDriver[p.id]?.some((d: any) => d.document_type === 'vehicle_photo') || false,
-        })) || []
+
+        const pending = await Promise.all((pendingDrivers || []).map(async (d: any) => {
+          let email = 'No Email'
+          try {
+            const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(d.user_id)
+            email = authUser?.user?.email || 'No Email'
+          } catch { /* auth lookup failures must not break the whole list */ }
+
+          const docs = docsByDriver[d.id] || []
+          // register_driver_with_code uploads permit_front/permit_back
+          // (the driver's permit/license) and vehicle_inspection -- these
+          // are the REAL document_type values written at signup. The
+          // previous version checked for 'license'/'insurance'/
+          // 'vehicle_photo', which are never actually written, so these
+          // flags were always false regardless of what a driver uploaded.
+          // No insurance-document upload flow exists yet -- insurance
+          // status is read from the real insurance_expires_at column
+          // instead of a nonexistent document type.
+          return {
+            id: d.user_id,
+            name: d.name,
+            email,
+            phone: d.phone_number,
+            created_at: d.created_at,
+            avatar_url: null,
+            driver_record: { id: d.id, is_verified: d.is_verified, status: d.status, vehicle_model: d.vehicle_model, plate_number: d.plate_number },
+            documents: docs,
+            has_license: docs.some((doc: any) => doc.document_type === 'permit_front') && docs.some((doc: any) => doc.document_type === 'permit_back'),
+            has_insurance: !!d.insurance_expires_at && new Date(d.insurance_expires_at) > new Date(),
+            has_vehicle_photo: docs.some((doc: any) => doc.document_type === 'vehicle_inspection'),
+          }
+        }))
+
         return json({ pending, count: pending.length, summary: { with_license: pending.filter((d: any) => d.has_license).length, with_insurance: pending.filter((d: any) => d.has_insurance).length, with_vehicle_photo: pending.filter((d: any) => d.has_vehicle_photo).length } })
       }
 
@@ -995,7 +1058,7 @@ Deno.serve(async (req) => {
 
         const riderIds = progression.map((p: any) => p.rider_id)
         const { data: profiles } = await supabaseAdmin.from('profiles').select('id, name, email').in('id', riderIds)
-        const { data: configs } = await supabaseAdmin.from('progression_config').select('level, threshold_type, threshold_value, unlock_vertical, label').order('level')
+        const { data: configs } = await supabaseAdmin.from('progression_config').select('level, threshold_type, threshold_value, unlock_verticals, push_title').order('level')
         const profileMap = Object.fromEntries((profiles || []).map((p: any) => [p.id, p]))
 
         const enriched = progression.map((row: any) => {
@@ -1011,7 +1074,7 @@ Deno.serve(async (req) => {
               case 'wallet_funded': progress = row.wallet_ever_funded ? 1 : 0; break
               case 'escape_booked': progress = row.escape_ever_booked ? 1 : 0; break
             }
-            next_unlock = { vertical: nextConfig.unlock_vertical, progress, required: nextConfig.threshold_value, label: nextConfig.label || nextConfig.unlock_vertical }
+            next_unlock = { verticals: nextConfig.unlock_verticals, progress, required: nextConfig.threshold_value, label: nextConfig.push_title || nextConfig.unlock_verticals.join(', ') }
           }
           return { rider_id: row.rider_id, name: profile.name || null, email: profile.email || null, level: row.level, level_label: LEVEL_LABELS[row.level] || `Level ${row.level}`, total_rides: row.total_rides, total_grocery_orders: row.total_grocery_orders, total_laundry_orders: row.total_laundry_orders, wallet_ever_funded: row.wallet_ever_funded, escape_ever_booked: row.escape_ever_booked, unlocked_verticals: row.unlocked_verticals || [], next_unlock }
         })

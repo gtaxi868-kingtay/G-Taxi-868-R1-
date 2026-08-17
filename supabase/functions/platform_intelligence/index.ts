@@ -20,6 +20,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 // money is now in the database: pricing_zones_multiplier_sane, plus an
 // explicit range check inside admin_set_surge_zone.
 import { chat, llmConfigured, BudgetExceededError } from "../_shared/llm.ts";
+import { secretMatches } from "../_shared/constantTime.ts";
 
 // Every helper below used to be typed `ReturnType<typeof createClient>` with
 // no type arguments. That instantiates createClient's generics at their
@@ -63,7 +64,7 @@ async function activateScheduledTransfers(supabase: SB) {
 
     const { data: rides, error } = await supabase
         .from("rides")
-        .select("id, rider_id")
+        .select("id, rider_id, pickup_lat, pickup_lng")
         .eq("status", "scheduled")
         .lte("scheduled_for", windowCutoff);
 
@@ -86,6 +87,24 @@ async function activateScheduledTransfers(supabase: SB) {
             .update({ status: "searching" })
             .eq("id", ride.id)
             .eq("status", "scheduled");
+
+        // The ride's ORIGINAL dispatch_queue row (created at request time)
+        // expired 10 minutes after the request, hours before this real
+        // pickup window. Without a fresh row here, a promoted scheduled
+        // ride sits at status='searching' forever with nothing ever
+        // offering it to a driver — mirrors the same fix applied to
+        // promote_escape_transfer_rides (project_dispatch_queue_and_scheduled_rides.md).
+        await supabase.from("dispatch_queue").insert({
+            task_type: "RIDE",
+            ride_id: ride.id,
+            order_id: null,
+            pickup_lat: ride.pickup_lat,
+            pickup_lng: ride.pickup_lng,
+            priority: 50,
+            status: "pending",
+            attempts: 0,
+            expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        }).then((__r) => __r, (err) => console.error("Failed to enqueue dispatch task for scheduled ride (non-fatal):", err));
 
         // Notify the rider their transfer is being matched
         const { data: profile } = await supabase
@@ -286,7 +305,7 @@ async function checkRateExpiry(supabase: SB) {
 async function checkProgressionUnlocks(supabase: SB) {
     const { data: configs } = await supabase
         .from("progression_config")
-        .select("level, threshold_type, threshold_value, unlock_vertical")
+        .select("level, threshold_type, threshold_value, unlock_verticals")
         .order("level", { ascending: true });
 
     if (!configs?.length) return;
@@ -322,9 +341,12 @@ async function checkProgressionUnlocks(supabase: SB) {
         }
 
         if (!qualifies) continue;
-        if (rider.unlocked_verticals?.includes(nextConfig.unlock_vertical)) continue;
+        const newVerticals: string[] = (nextConfig.unlock_verticals || []).filter(
+            (v: string) => !rider.unlocked_verticals?.includes(v),
+        );
+        if (newVerticals.length === 0) continue;
 
-        const sentinelKey = `progression_unlock_${rider.rider_id}_${nextConfig.unlock_vertical}`;
+        const sentinelKey = `progression_unlock_${rider.rider_id}_${nextConfig.level}`;
         const { data: existing } = await supabase
             .from("agent_decision_log")
             .select("id")
@@ -338,7 +360,7 @@ async function checkProgressionUnlocks(supabase: SB) {
             .from("rider_progression")
             .update({
                 level: nextConfig.level,
-                unlocked_verticals: [...(rider.unlocked_verticals || []), nextConfig.unlock_vertical],
+                unlocked_verticals: [...(rider.unlocked_verticals || []), ...newVerticals],
                 updated_at: new Date().toISOString(),
             })
             .eq("rider_id", rider.rider_id);
@@ -349,22 +371,23 @@ async function checkProgressionUnlocks(supabase: SB) {
             .eq("id", rider.rider_id)
             .single();
 
+        const unlockLabel = newVerticals.map((v) => v.replace(/_/g, " ")).join(" + ");
         await sendExpoPush(
             profile?.push_token ?? null,
             "New feature unlocked",
-            `${nextConfig.unlock_vertical.replace(/_/g, " ")} is now available on your home screen.`,
-            { type: "progression_unlock", vertical: nextConfig.unlock_vertical },
+            `${unlockLabel} is now available on your home screen.`,
+            { type: "progression_unlock", verticals: newVerticals },
         );
 
         await supabase.from("agent_decision_log").insert({
             decision_type: "progression_unlock",
-            reasoning: `Rider met threshold for ${nextConfig.unlock_vertical} (level ${nextConfig.level})`,
+            reasoning: `Rider met threshold for ${newVerticals.join(", ")} (level ${nextConfig.level})`,
             tool_used: "checkProgressionUnlocks",
-            payload: { sentinel: sentinelKey, rider_id: rider.rider_id, vertical: nextConfig.unlock_vertical },
-            outcome: `Unlocked ${nextConfig.unlock_vertical} for rider`,
+            payload: { sentinel: sentinelKey, rider_id: rider.rider_id, verticals: newVerticals },
+            outcome: `Unlocked ${newVerticals.join(", ")} for rider`,
         });
 
-        console.log(`[checkProgressionUnlocks] rider ${rider.rider_id} → unlocked ${nextConfig.unlock_vertical}`);
+        console.log(`[checkProgressionUnlocks] rider ${rider.rider_id} → unlocked ${newVerticals.join(", ")}`);
     }
 }
 
@@ -1008,7 +1031,8 @@ serve(async (req) => {
     let authorized = false;
     let viaCron = false;
 
-    if (PLATFORM_CRON_SECRET && cronHeader === PLATFORM_CRON_SECRET) {
+    // M4: constant-time compare (see _shared/constantTime.ts)
+    if (await secretMatches(cronHeader, PLATFORM_CRON_SECRET)) {
         authorized = true;
         viaCron = true;
     } else if (authHeader) {

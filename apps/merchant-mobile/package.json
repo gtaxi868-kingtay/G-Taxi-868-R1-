@@ -16,7 +16,7 @@
     "@expo/vector-icons": "14.0.4",
     "@gtaxi/core": "1.0.0",
     "@gtaxi/design-system": "1.0.0",
-    "@gtaxi/shared": "1.0.0",
+    "@g868/shared": "1.0.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-navigation/native": "7.0.14",
     "@react-navigation/native-stack": "7.2.0",

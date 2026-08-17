@@ -1,0 +1,584 @@
+/* ============================================================
+   G 868
+   Brand tokens are lifted verbatim from packages/design-system/src/tokens.ts (LUXE).
+   THE RULE: the violet -> cyan signature is a LIT EDGE. Hairlines, routes,
+   selected states. Never a fill, never a glow blob, never behind text.
+   ============================================================ */
+
+:root{
+  --base:#07070F;
+  --ink:#05060B;
+  --ice:#EAF3F6;
+  --ice-70:rgba(234,243,246,.70);
+  --ice-52:rgba(234,243,246,.52);
+  --ice-38:rgba(234,243,246,.38);
+  --platinum:#CBD6DE;
+  --violet:#6D28D9;
+  --cyan:#34E6EC;
+  --glass:rgba(255,255,255,.045);
+  --glass-hi:rgba(255,255,255,.07);
+  --stroke:rgba(255,255,255,.10);
+  --hair:rgba(255,255,255,.06);
+
+  --lit:linear-gradient(90deg,var(--violet),var(--cyan));
+  --ease:cubic-bezier(.16,1,.3,1);
+
+  --gut:clamp(20px,5vw,48px);
+  --maxw:1240px;
+  --sp:clamp(88px,13vh,168px);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+/* Deliberately no overflow-x:hidden on html/body: pairing it with a
+   default-visible overflow-y turns the element into its own scroll
+   container and breaks window.scrollY / scrollIntoView. Every section
+   is already contained by .wrap (max-width:var(--maxw)), so nothing
+   here should overflow horizontally in the first place; if a future
+   section needs to, give that element its own overflow-x:auto rather
+   than reintroducing this at the root. */
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+body{
+  margin:0;
+  background:var(--base);
+  color:var(--ice);
+  font-family:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+
+img{max-width:100%;display:block}
+::selection{background:rgba(52,230,236,.24);color:#fff}
+
+:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:4px}
+
+.skip{
+  position:absolute;left:-9999px;top:0;z-index:100;
+  background:var(--ink);color:var(--ice);padding:12px 18px;border-radius:0 0 10px 0;
+}
+.skip:focus{left:0}
+
+.wrap{width:100%;max-width:var(--maxw);margin-inline:auto;padding-inline:var(--gut)}
+
+/* ---------- type ---------- */
+.h2{
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-weight:600;
+  font-size:clamp(2.2rem,5.2vw,4.1rem);
+  line-height:1.06;
+  letter-spacing:-.015em;
+  margin:0 0 .5em;
+}
+.h3{
+  font-family:"Cormorant Garamond",Georgia,serif;
+  font-weight:600;font-size:clamp(1.5rem,3vw,2.1rem);
+  line-height:1.15;margin:0 0 .4em;
+}
+.lead{
+  color:var(--ice-70);
+  font-size:clamp(1rem,1.35vw,1.12rem);
+  line-height:1.65;max-width:56ch;margin:0;
+}
+.lead--wide{max-width:64ch}
+
+/* ---------- buttons ---------- */
+.btn{
+  --bh:52px;
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  min-height:var(--bh);padding:0 26px;border-radius:999px;
+  background:var(--glass-hi);color:var(--ice);
+  font:600 .94rem/1 "Space Grotesk",sans-serif;letter-spacing:.01em;
+  text-decoration:none;cursor:pointer;white-space:nowrap;
+  border:1px solid transparent;
+  background-clip:padding-box;
+  /* `scale` and `translate` are independent transform properties, so the
+     press feedback below and the magnetic JS (which writes `translate`)
+     compose instead of overwriting each other. Writing both through
+     `transform` meant the inline style silently killed :active. */
+  transition:scale .14s var(--ease),background-color .2s ease;
+}
+/* lit edge, drawn as a border via mask so it stays an EDGE and never a fill */
+.btn::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+  background:var(--lit);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  pointer-events:none;
+}
+.btn:active{scale:.97}
+.btn--sm{--bh:42px;padding:0 18px;font-size:.85rem}
+.btn--lg{--bh:58px;padding:0 34px;font-size:1rem}
+.btn--full{width:100%}
+.btn--ghost{background:transparent}
+.btn--ghost::before{background:var(--stroke)}
+
+/* ----------------------------------------------------------------
+   Glass: the one shared surface recipe. Nav, the unlock cards, the
+   role panels, and the claim form/done state are all the same glass
+   surface underneath — this rule exists once; components only set the
+   handful of --glass-* variables that make them theirs. Add .glass to
+   any static surface, add .glass--hover only where hovering should
+   lift it (interactive cards/panels, never the form itself).
+   ---------------------------------------------------------------- */
+.glass{
+  background:var(--glass-bg, var(--glass));
+  border:1px solid var(--glass-border, var(--hair));
+  backdrop-filter:var(--glass-filter, blur(10px));
+  -webkit-backdrop-filter:var(--glass-filter, blur(10px));
+  /* colour change, so plain `ease` and a shorter duration; the strong
+     ease-out curve is for things entering or leaving, not for tint */
+  transition:background-color .2s ease,border-color .2s ease;
+}
+
+/* Every hover state on the page lives behind this query. On touch, a tap
+   fires :hover and the lifted state sticks until you tap elsewhere. */
+@media (hover:hover) and (pointer:fine){
+  .glass--hover:hover{
+    background:var(--glass-bg-hover, var(--glass-hi));
+    border-color:var(--glass-border-hover, var(--stroke));
+  }
+  .btn:hover{background:rgba(255,255,255,.10)}
+  .nav__links a:hover{color:var(--ice)}
+}
+
+/* ---------- nav ---------- */
+.nav{
+  position:fixed;top:14px;left:50%;transform:translateX(-50%);
+  z-index:60;width:calc(100% - 2*var(--gut));max-width:var(--maxw);
+  display:flex;align-items:center;gap:18px;
+  padding:9px 9px 9px 18px;border-radius:999px;
+  --glass-bg:rgba(7,7,15,.62);
+  --glass-filter:blur(16px) saturate(160%);
+}
+.nav.is-stuck{background:rgba(7,7,15,.86);border-color:var(--stroke)}
+.nav__brand{
+  display:flex;align-items:center;gap:9px;color:var(--ice);text-decoration:none;
+  font-weight:700;letter-spacing:.06em;font-size:.85rem;
+}
+.nav__mark{position:relative;display:inline-flex}
+/* height-driven, width follows the 427:588 mark so it is never squashed */
+.nav__mark img{height:26px;width:auto;object-fit:contain}
+/* decorative brand accent, not a "service is live" status claim */
+.nav__pulse{
+  position:absolute;right:-1px;bottom:-1px;width:7px;height:7px;border-radius:50%;
+  background:var(--cyan);box-shadow:0 0 0 2px var(--base);
+}
+.nav__pulse::after{
+  content:"";position:absolute;inset:-3px;border-radius:50%;
+  border:1px solid var(--cyan);opacity:.6;
+  animation:pulseBadge 2.4s var(--ease) infinite;
+}
+@keyframes pulseBadge{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.9);opacity:0}}
+.nav__links{display:flex;gap:26px;margin-left:auto}
+.nav__links a{
+  color:var(--ice-52);text-decoration:none;font-size:.88rem;font-weight:500;
+  transition:color .2s ease;
+}
+@media (max-width:720px){.nav__links{display:none}.nav{gap:10px}.nav .btn--sm{margin-left:auto}}
+
+/* ---------- hero ---------- */
+.hero{
+  position:relative;min-height:100dvh;
+  display:grid;place-items:center;
+  padding:clamp(96px,12vh,116px) var(--gut) clamp(56px,8vh,80px);
+  overflow:hidden;
+}
+.hero__island{position:absolute;inset:0;width:100%;height:100%}
+/* three scrims, each controlling a different axis: a radial pool
+   behind the copy so type always wins, a vertical pass that settles
+   the top/bottom edges, a horizontal pass that settles the sides so
+   the scene never feels like it's bleeding off the canvas. */
+.hero__vignette{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(58% 34% at 50% 62%,rgba(7,7,15,.92) 0%,rgba(7,7,15,.62) 50%,transparent 82%),
+    linear-gradient(180deg,rgba(7,7,15,.55) 0%,transparent 22%,transparent 68%,rgba(7,7,15,.35) 100%),
+    linear-gradient(90deg,rgba(7,7,15,.5) 0%,transparent 16%,transparent 84%,rgba(7,7,15,.5) 100%);
+}
+.hero__inner{position:relative;text-align:center;max-width:min(920px,100%)}
+
+/* ----------------------------------------------------------------
+   The pin. Reference standard: a single, well-lit object floating in
+   dark space — soft key light, a believable contact shadow, and one
+   slow continuous rotation. No layered ghost-copies pretending to be
+   chromatic aberration; the "glass" reads through light, not smearing.
+   Three nested layers, each owning exactly one motion:
+     .pin        static positioning + glow + shadow
+     .pin__orbit idle rotation, always running, independent of input
+     .pin__stage cursor-tilt response only
+   ---------------------------------------------------------------- */
+/* assets/mark.png is cropped to the artwork's own bounds (427x588), so
+   these numbers are the SIZE OF THE VISIBLE MARK, not a box that is 60%
+   empty padding. The previous asset was a 1080x1080 canvas holding a
+   427x534 mark, which meant `width:280px` rendered a ~110px pin. If the
+   asset is ever swapped, re-crop it to content first or this breaks. */
+.pin{
+  position:relative;margin:0 auto clamp(18px,3vh,40px);
+  /* Sized against viewport HEIGHT as well as width. The mark is tall
+     (427:588), so a purely width-based clamp blew the hero past 100dvh
+     and pushed the CTA below the fold on a 900px-tall screen. 20.3vh is
+     28vh of height converted through the aspect ratio. */
+  width:clamp(150px, min(22vw, 20.3vh), 300px);
+  aspect-ratio:427/588;
+}
+/* soft key light behind the object, like a bounce card in a product shot */
+.pin__glow{
+  position:absolute;left:50%;top:50%;translate:-50% -50%;z-index:0;
+  width:200%;aspect-ratio:1;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(52,230,236,.16) 0%,rgba(109,40,217,.11) 38%,transparent 68%);
+  filter:blur(6px);
+  animation:glowBreathe 7s ease-in-out infinite;
+}
+@keyframes glowBreathe{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+
+.pin__orbit{
+  position:relative;z-index:1;perspective:1100px;
+  animation:idleTurn 13s cubic-bezier(.45,0,.55,1) infinite,
+            idleRise 6.5s ease-in-out infinite;
+}
+.pin__stage{
+  position:relative;transform-style:preserve-3d;
+  transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
+  transition:transform .6s var(--ease);
+}
+@keyframes idleTurn{
+  0%{transform:rotateY(-9deg)}
+  50%{transform:rotateY(9deg)}
+  100%{transform:rotateY(-9deg)}
+}
+@keyframes idleRise{0%,100%{translate:0 0}50%{translate:0 -10px}}
+
+.pin__img{
+  width:100%;height:auto;display:block;position:relative;z-index:2;
+  filter:
+    drop-shadow(0 2px 3px rgba(0,0,0,.5))
+    drop-shadow(0 26px 46px rgba(5,6,11,.6))
+    drop-shadow(-10px 0 26px rgba(109,40,217,.22))
+    drop-shadow(10px 0 26px rgba(52,230,236,.22));
+}
+/* one clean specular pass, masked tightly to the mark, low opacity */
+.pin__sweep{
+  position:absolute;inset:0;z-index:3;pointer-events:none;
+  mix-blend-mode:soft-light;
+  background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.85) 49%,transparent 58%);
+  -webkit-mask:url("assets/mark.png") center/contain no-repeat;
+  mask:url("assets/mark.png") center/contain no-repeat;
+  background-size:260% 100%;
+  animation:sweep 7s cubic-bezier(.45,0,.2,1) infinite;
+}
+@keyframes sweep{0%,12%{background-position:170% 0}62%,100%{background-position:-70% 0}}
+
+/* soft elliptical contact shadow grounding the object, like it rests on air */
+.pin__shadow{
+  position:absolute;left:50%;bottom:-4%;translate:-50% 0;z-index:0;
+  width:62%;height:22px;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(0,0,0,.55) 0%,rgba(0,0,0,.28) 45%,transparent 75%);
+  filter:blur(4px);
+  animation:shadowBreathe 6.5s ease-in-out infinite;
+}
+@keyframes shadowBreathe{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(.86);opacity:.55}}
+
+.hero__title{
+  font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;
+  font-size:clamp(2.7rem,8.2vw,6.2rem);line-height:.98;letter-spacing:-.022em;
+  margin:0 0 .34em;
+}
+/* one accent line, one glow, once — the second half of the headline
+   only. Never applied to a whole block of text. */
+.hero__accent{color:var(--cyan);text-shadow:0 0 30px rgba(52,230,236,.35)}
+.hero__sub{
+  color:var(--ice-70);margin:0 auto 2.1em;max-width:34ch;
+  font-size:clamp(1rem,1.6vw,1.16rem);
+}
+
+/* ---------- bands ---------- */
+.band{position:relative;padding-block:var(--sp)}
+.sec-head{margin-bottom:clamp(44px,6vw,80px);max-width:26ch}
+.sec-head .lead{margin-top:.2em}
+
+[data-reveal]{opacity:0;transform:translateY(22px);
+  transition:opacity .45s var(--ease),transform .5s var(--ease)}
+[data-reveal].in{opacity:1;transform:none}
+
+/* ---------- ride ---------- */
+.ride__grid{display:grid;gap:clamp(40px,6vw,72px);align-items:center;
+  grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)}
+@media (max-width:900px){.ride__grid{grid-template-columns:1fr}}
+.ticks{list-style:none;margin:2.2em 0 0;padding:0;display:grid;gap:0}
+.ticks li{
+  position:relative;padding:14px 0 14px 26px;
+  border-top:1px solid var(--hair);color:var(--ice-70);font-size:.95rem;
+}
+.ticks li:last-child{border-bottom:1px solid var(--hair)}
+.ticks li::before{
+  content:"";position:absolute;left:0;top:50%;translate:0 -50%;
+  width:7px;height:7px;border-radius:50%;
+  background:var(--lit);
+}
+.route svg{width:100%;height:auto;overflow:visible}
+.route__path{stroke-dasharray:1400;stroke-dashoffset:1400;
+  transition:stroke-dashoffset 2.4s var(--ease)}
+.in .route__path,.ride.in .route__path{stroke-dashoffset:0}
+.route__car{offset-path:path("M12 210 C 130 210, 150 130, 250 122 S 400 150, 470 96 S 580 60, 608 44");
+  offset-rotate:auto;offset-distance:0%;opacity:0;
+  animation:drive 7s var(--ease) infinite}
+@keyframes drive{
+  0%{offset-distance:0%;opacity:0}
+  8%{opacity:1}
+  88%{opacity:1}
+  100%{offset-distance:100%;opacity:0}
+}
+
+/* ---------- unlock: fanned deck (HorizonX arc, rebuilt in glass) ---------- */
+.deck{
+  --n:6;
+  position:relative;display:flex;justify-content:center;
+  gap:clamp(10px,1.4vw,20px);flex-wrap:nowrap;
+  padding-block:clamp(20px,4vw,50px);
+}
+.card{
+  position:relative;flex:1 1 0;min-width:0;
+  padding:clamp(20px,2vw,30px) clamp(16px,1.6vw,24px);
+  border-radius:20px;
+  --glass-filter:blur(8px);
+  /* fanned arc: rotate + vertical offset scale from the centre outward */
+  --mid:calc((var(--n) - 1) / 2);
+  --off:calc(var(--i) - var(--mid));
+  transform:rotate(calc(var(--off) * 2.1deg)) translateY(calc(abs(var(--off)) * 15px)) translateY(46px) scale(.94);
+  opacity:0;
+  /* spring overshoot so the deck settles with weight. Stagger stays at
+     55ms: six cards means the last one already waits 275ms before it
+     even starts, and longer steps make the section feel like it is
+     loading rather than arriving. */
+  transition:transform .5s cubic-bezier(.2,1.35,.4,1),opacity .34s var(--ease),
+             background-color .2s ease,border-color .2s ease;
+  transition-delay:calc(var(--i) * 55ms);
+}
+.deck.in .card{
+  transform:rotate(calc(var(--off) * 2.1deg)) translateY(calc(abs(var(--off)) * 15px));
+  opacity:1;
+}
+/* the lit edge: one hairline per card, top only */
+.card__edge{
+  position:absolute;left:20px;right:20px;top:0;height:1px;
+  background:var(--lit);opacity:0;transition:opacity .34s var(--ease);
+  /* matches the card stagger, then lands just after its own card settles */
+  transition-delay:calc(var(--i) * 55ms + 200ms);
+}
+.deck.in .card__edge{opacity:.85}
+.card__cond{
+  margin:0 0 14px;font-size:.68rem;font-weight:600;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--cyan);
+}
+.card__name{
+  font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;
+  font-size:clamp(1.35rem,2.1vw,1.85rem);line-height:1.1;margin:0 0 .45em;
+}
+.card__line{margin:0;color:var(--ice-52);font-size:.86rem;line-height:1.5}
+
+@media (max-width:1000px){
+  .deck{flex-wrap:wrap;gap:14px}
+  .card{flex:1 1 calc(50% - 14px);transform:translateY(30px)}
+  .deck.in .card{transform:none}
+}
+@media (max-width:560px){.card{flex:1 1 100%}}
+
+/* levels rail */
+.levels{
+  list-style:none;margin:clamp(48px,7vw,86px) 0 0;padding:0;
+  display:grid;grid-template-columns:repeat(5,1fr);gap:0;
+  border-top:1px solid var(--hair);
+}
+.levels li{padding:22px 18px 0;border-right:1px solid var(--hair)}
+.levels li:last-child{border-right:0}
+.levels b{display:block;font-size:.92rem;margin-bottom:6px}
+.levels span{display:block;color:var(--ice-38);font-size:.8rem;line-height:1.5}
+.levels i{font-style:normal;color:var(--platinum);font-weight:600}
+@media (max-width:820px){
+  .levels{grid-template-columns:1fr;border-top:0}
+  .levels li{border-right:0;border-top:1px solid var(--hair);padding:16px 0 16px}
+}
+
+/* ---------- tap ---------- */
+.tap__grid{display:grid;gap:clamp(40px,6vw,80px);align-items:center;
+  grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)}
+@media (max-width:900px){.tap__grid{grid-template-columns:1fr}}
+.puck{position:relative;aspect-ratio:1;display:grid;place-items:center;max-width:320px;margin-inline:auto;width:100%}
+.puck__disc{
+  width:34%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.10),transparent 60%),var(--ink);
+  border:1px solid var(--stroke);position:relative;z-index:2;
+  box-shadow:0 10px 40px rgba(0,0,0,.6);
+}
+.puck__disc::after{
+  content:"";position:absolute;inset:-1px;border-radius:50%;padding:1px;
+  background:var(--lit);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+}
+.puck__ring{
+  position:absolute;width:34%;aspect-ratio:1;border-radius:50%;
+  border:1px solid var(--cyan);opacity:0;
+  animation:ping 3.4s var(--ease) infinite;
+}
+.puck__ring--2{animation-delay:1.13s}
+.puck__ring--3{animation-delay:2.26s}
+@keyframes ping{
+  0%{transform:scale(1);opacity:.55}
+  100%{transform:scale(2.7);opacity:0}
+}
+
+/* ---------- roles ---------- */
+.roles__grid{
+  display:grid;gap:clamp(16px,1.6vw,22px);
+  grid-template-columns:1.35fr 1fr;
+  grid-template-areas:"lead a" "lead b";
+}
+@media (max-width:900px){
+  .roles__grid{grid-template-columns:1fr;grid-template-areas:"lead" "a" "b"}
+}
+.panel{
+  position:relative;padding:clamp(26px,3vw,44px);border-radius:22px;
+  --glass-filter:blur(8px);
+}
+.panel--lead{grid-area:lead;display:flex;flex-direction:column}
+.roles__grid .panel:nth-child(2){grid-area:a}
+.roles__grid .panel:nth-child(3){grid-area:b}
+.panel__edge{
+  position:absolute;left:clamp(26px,3vw,44px);top:0;width:56px;height:1px;background:var(--lit);
+}
+.panel__kicker{
+  margin:0 0 18px;font-size:.68rem;font-weight:700;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ice-38);
+}
+.panel__title{
+  font-family:"Cormorant Garamond",Georgia,serif;font-weight:600;
+  font-size:clamp(1.5rem,2.6vw,2.3rem);line-height:1.08;margin:0 0 .5em;
+}
+.panel__body{margin:0;color:var(--ice-70);font-size:.96rem;line-height:1.6;max-width:46ch}
+.figs{display:flex;flex-wrap:wrap;gap:32px;margin:auto 0 0;padding-top:36px}
+.figs div{min-width:96px}
+.figs__icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:50%;
+  border:1px solid var(--hair);color:var(--cyan);
+  margin-bottom:12px;
+}
+.figs__icon svg{width:15px;height:15px}
+.figs dt{
+  font-size:clamp(1.5rem,2.6vw,2rem);font-weight:600;color:var(--platinum);
+  line-height:1;margin-bottom:8px;
+}
+.figs dd{margin:0;color:var(--ice-38);font-size:.78rem;line-height:1.4;max-width:16ch}
+
+/* ---------- G ---------- */
+.gsec{text-align:center}
+.gsec__inner{display:grid;justify-items:center;gap:4px}
+.gsec .lead{margin-inline:auto;text-align:center}
+
+/* ---------- claim ---------- */
+.claim{position:relative;overflow:hidden}
+.claim__island{position:absolute;inset:0;width:100%;height:100%;opacity:.42}
+.claim{padding-top:calc(var(--sp) * 1.15)}
+.claim::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(180deg,var(--base) 0%,transparent 16%,transparent 82%,var(--base) 100%);
+}
+.claim__grid{z-index:1}
+.claim__grid{
+  position:relative;display:grid;gap:clamp(40px,6vw,84px);align-items:start;
+  grid-template-columns:1fr 1fr;
+}
+@media (max-width:900px){.claim__grid{grid-template-columns:1fr}}
+
+.form{display:grid;gap:20px;
+  padding:clamp(24px,3vw,38px);border-radius:24px;
+  --glass-bg:rgba(11,11,24,.72);--glass-border:var(--stroke);--glass-filter:blur(14px);
+}
+.field{display:grid;gap:8px;margin:0;padding:0;border:0}
+.field label,.field legend{
+  font-size:.8rem;font-weight:600;letter-spacing:.04em;color:var(--ice);padding:0;
+}
+.field input[type=text]{
+  width:100%;min-height:50px;padding:0 16px;border-radius:12px;
+  background:rgba(255,255,255,.05);border:1px solid var(--stroke);
+  color:var(--ice);font:400 1rem/1 "Space Grotesk",sans-serif;
+  transition:border-color .2s var(--ease),background-color .2s var(--ease);
+}
+.field input::placeholder{color:var(--ice-38)}
+.field input:focus{outline:none;border-color:var(--cyan);background:rgba(255,255,255,.07)}
+.field input[aria-invalid=true]{border-color:#F87171}
+.hint{margin:0;font-size:.76rem;color:var(--ice-38)}
+.err{margin:0;font-size:.78rem;color:#F87171;min-height:0}
+.err:empty{display:none}
+.err--form{margin-top:-6px}
+
+.segs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.seg{position:relative;cursor:pointer}
+.seg input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.seg span{
+  display:flex;align-items:center;justify-content:center;
+  min-height:46px;border-radius:12px;
+  background:rgba(255,255,255,.04);border:1px solid var(--stroke);
+  font-size:.87rem;font-weight:500;color:var(--ice-52);
+  transition:color .2s var(--ease),background-color .2s var(--ease),border-color .2s var(--ease);
+}
+.seg input:checked + span{color:var(--ice);background:rgba(255,255,255,.09);border-color:transparent}
+.seg input:checked + span::before{
+  content:"";position:absolute;inset:0;border-radius:12px;padding:1px;
+  background:var(--lit);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;
+}
+.seg input:focus-visible + span{outline:2px solid var(--cyan);outline-offset:2px}
+@media (max-width:420px){.segs{grid-template-columns:repeat(2,1fr)}}
+
+.note{margin:0;font-size:.78rem;color:var(--ice-38);text-align:center}
+
+.done{
+  grid-column:2;align-self:center;
+  padding:clamp(28px,3vw,42px);border-radius:24px;
+  --glass-bg:rgba(11,11,24,.72);--glass-border:var(--stroke);--glass-filter:blur(14px);
+}
+@media (max-width:900px){.done{grid-column:1}}
+.done__tick{
+  display:grid;place-items:center;width:46px;height:46px;border-radius:50%;
+  color:var(--cyan);border:1px solid var(--stroke);margin-bottom:20px;
+}
+.done__tick svg{width:22px;height:22px}
+.done__actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
+
+/* ---------- footer ---------- */
+.foot{border-top:1px solid var(--hair);padding-block:34px}
+.foot__inner{display:flex;justify-content:space-between;gap:16px;
+  color:var(--ice-38);font-size:.82rem;letter-spacing:.04em}
+
+/* ---------- grain: fixed overlay only, never on a scrolling container ---------- */
+.grain{
+  position:fixed;inset:0;z-index:90;pointer-events:none;opacity:.035;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+  mix-blend-mode:overlay;
+}
+
+/* ---------- reduced motion ---------- */
+/* Reduced motion means less movement, not a dead interface. Looping and
+   position-based animation goes; opacity and colour transitions stay,
+   because those are what tell you a hover or a focus registered. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation:none !important;
+  }
+  /* kill movement, keep the fade */
+  [data-reveal]{transform:none;transition:opacity .3s ease}
+  .card{
+    transform:rotate(calc(var(--off) * 2.1deg)) translateY(calc(abs(var(--off)) * 15px));
+    transition:opacity .3s ease,background-color .2s ease,border-color .2s ease;
+  }
+  .btn{transition:background-color .2s ease}
+  .btn:active{scale:1}
+  .card__edge{transition:opacity .3s ease}
+  .route__path{stroke-dashoffset:0}
+  .grain{display:none}
+}

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { flushPendingSignup } from '@gtaxi/shared/pendingSignup';
+import { flushPendingSignup } from '@g868/shared/pendingSignup';
 import { supabase } from '@gtaxi/core';
 import { Session, User } from '@supabase/supabase-js';
 import { setAuthToken } from '../services/api';

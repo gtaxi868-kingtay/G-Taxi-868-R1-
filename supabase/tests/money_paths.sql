@@ -45,16 +45,31 @@ DECLARE
     ref text; ok1 boolean; ok2 boolean;
 BEGIN
     -- ── Fixtures: real driver with an auth user, real rider, real ride ──
+    -- Reuses the newest existing ride if one is on record, but does not
+    -- assume one is — production can genuinely have zero rides (this
+    -- system's real transaction volume has been zero for long stretches
+    -- of its history), and the harness itself must not silently no-op
+    -- ('fixtures available: false') just because the table is empty
+    -- today. Everything below runs inside this file's own outer
+    -- transaction and is rolled back at the end either way.
     SELECT d.id INTO drv   FROM public.drivers d WHERE d.user_id IS NOT NULL LIMIT 1;
     SELECT id    INTO rider FROM public.profiles ORDER BY created_at LIMIT 1;
     SELECT id    INTO rid   FROM public.rides ORDER BY created_at DESC LIMIT 1;
 
-    IF drv IS NULL OR rider IS NULL OR rid IS NULL THEN
+    IF drv IS NULL OR rider IS NULL THEN
         PERFORM pg_temp.assert('fixtures available', false,
-            'need >=1 driver with user_id, >=1 profile, >=1 ride');
+            'need >=1 driver with user_id and >=1 profile to exist already');
         RETURN;
     END IF;
     PERFORM pg_temp.assert('fixtures available', true);
+
+    IF rid IS NULL THEN
+        INSERT INTO public.rides (
+            rider_id, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, status
+        ) VALUES (
+            rider, 10.6549, -61.5019, 10.6600, -61.5100, 'searching'
+        ) RETURNING id INTO rid;
+    END IF;
 
     -- in_progress + wallet: the real state at capture time. NOT
     -- completed+pending — check_payment_completion_safety() blocks that,
@@ -116,6 +131,68 @@ BEGIN
     WHERE (s->>'driver_net')::bigint < 0 OR (s->>'platform_fee')::bigint < 0
        OR (s->>'reserve')::bigint < 0;
     PERFORM pg_temp.assert('no negative component at edge fares', bad = 0);
+
+    -- ═══ 1b. LOYALTY RATE EXTENSION ═══════════════════════════════════
+    -- 2026-08-15: compute_ride_split gained p_loyalty_rate_bps so the
+    -- driver's reduced-platform-rate bonus is computed in the SAME place
+    -- as every other split component, instead of a separate JS formula
+    -- in complete_ride/index.ts that could (and did) drift from it.
+    -- These assert the two invariants that formula was designed to hold:
+    -- loyalty money comes ONLY from platform_fee (driver's own pool share,
+    -- commander_cut, vendor_cut, reserve are untouched), and applying it
+    -- never increases what the platform keeps.
+    DECLARE
+        s_base jsonb;
+        s_loyal jsonb;
+    BEGIN
+        s_base  := public.compute_ride_split(rid, 342500, 0, NULL);
+        s_loyal := public.compute_ride_split(rid, 342500, 0, 1200);
+
+        PERFORM pg_temp.assert('loyalty: driver_net increases vs base rate',
+            (s_loyal->>'driver_net')::bigint > (s_base->>'driver_net')::bigint,
+            format('base=%s loyal=%s', s_base->>'driver_net', s_loyal->>'driver_net'));
+
+        PERFORM pg_temp.assert('loyalty: commander_cut unchanged',
+            (s_loyal->>'commander_cut')::bigint = (s_base->>'commander_cut')::bigint,
+            format('base=%s loyal=%s', s_base->>'commander_cut', s_loyal->>'commander_cut'));
+
+        PERFORM pg_temp.assert('loyalty: vendor_cut unchanged',
+            (s_loyal->>'vendor_cut')::bigint = (s_base->>'vendor_cut')::bigint,
+            format('base=%s loyal=%s', s_base->>'vendor_cut', s_loyal->>'vendor_cut'));
+
+        PERFORM pg_temp.assert('loyalty: reserve unchanged',
+            (s_loyal->>'reserve')::bigint = (s_base->>'reserve')::bigint,
+            format('base=%s loyal=%s', s_base->>'reserve', s_loyal->>'reserve'));
+
+        PERFORM pg_temp.assert('loyalty: platform_fee absorbs the entire bonus',
+            (s_base->>'platform_fee')::bigint - (s_loyal->>'platform_fee')::bigint
+                = (s_loyal->>'driver_net')::bigint - (s_base->>'driver_net')::bigint,
+            format('platform delta=%s driver delta=%s',
+                (s_base->>'platform_fee')::bigint - (s_loyal->>'platform_fee')::bigint,
+                (s_loyal->>'driver_net')::bigint - (s_base->>'driver_net')::bigint));
+
+        PERFORM pg_temp.assert('loyalty: still sums to gross',
+            (s_loyal->>'driver_net')::bigint + (s_loyal->>'commander_cut')::bigint
+                + (s_loyal->>'vendor_cut')::bigint + (s_loyal->>'reserve')::bigint
+                + (s_loyal->>'platform_fee')::bigint + (s_loyal->>'discount_applied')::bigint
+                = 342500,
+            'loyalty-adjusted split leaks or invents cents');
+    END;
+
+    -- settle_cash_ride and process_wallet_payment_hardened must both
+    -- accept p_loyalty_rate_bps now — this was the actual gap: the field
+    -- existed in compute_ride_split for the discount case already, but
+    -- neither real money-moving RPC forwarded a loyalty rate to it until
+    -- this session, so the loyalty tier feature had never once reached
+    -- real money on any payment path.
+    PERFORM pg_temp.assert('settle_cash_ride accepts p_loyalty_rate_bps',
+        EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+                 WHERE ns.nspname='public' AND p.proname='settle_cash_ride'
+                   AND pg_get_function_identity_arguments(p.oid) ILIKE '%p_loyalty_rate_bps%'));
+    PERFORM pg_temp.assert('process_wallet_payment_hardened accepts p_loyalty_rate_bps',
+        EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace
+                 WHERE ns.nspname='public' AND p.proname='process_wallet_payment_hardened'
+                   AND pg_get_function_identity_arguments(p.oid) ILIKE '%p_loyalty_rate_bps%'));
 
     -- ═══ 2. WALLET PAYMENT — HAPPY PATH ═══════════════════════════════
     SELECT * INTO r FROM public.process_wallet_payment_hardened(rid, 4000, 'h_A', 0);
@@ -236,10 +313,10 @@ BEGIN
     -- ═══ 8. AUTHORISATION — money RPCs must not be client-callable ═══
     PERFORM pg_temp.assert('wallet payment not executable by authenticated',
         NOT has_function_privilege('authenticated',
-            'public.process_wallet_payment_hardened(uuid,integer,text,integer)', 'EXECUTE'));
+            'public.process_wallet_payment_hardened(uuid,integer,text,integer,integer)', 'EXECUTE'));
     PERFORM pg_temp.assert('wallet payment not executable by anon',
         NOT has_function_privilege('anon',
-            'public.process_wallet_payment_hardened(uuid,integer,text,integer)', 'EXECUTE'));
+            'public.process_wallet_payment_hardened(uuid,integer,text,integer,integer)', 'EXECUTE'));
 
     -- ═══ 9. ENUM / CONSTRAINT DRIFT ══════════════════════════════════
     -- stripe_webhook once wrote payment_status='paid' on orders, which

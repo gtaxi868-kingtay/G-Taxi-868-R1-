@@ -1,9 +1,9 @@
-# G-TAXI DRIVER AND OPERATOR AGREEMENT
+# G868 DRIVER AND OPERATOR AGREEMENT
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-15
 **Jurisdiction:** Trinidad and Tobago (primary) — scalable to other Caribbean jurisdictions
-**Platform:** G-Taxi mobile applications, websites, NFC kiosks, and related services
-**Operator:** G-Taxi Technology Ltd. (company registration to be filed, Trinidad and Tobago)
+**Platform:** G868 mobile applications, websites, NFC kiosks, and related services
+**Operator:** G868 Technology Ltd. (company registration to be filed, Trinidad and Tobago)
 
 > **Status: DRAFT — requires review by a qualified Trinidad and Tobago attorney
 > before publication.** The independent-contractor characterisation in section 2
@@ -14,8 +14,8 @@
 
 ## 1. WHAT THIS AGREEMENT IS
 
-This agreement is between you ("you", "the Operator") and G-Taxi Technology Ltd.
-("G-Taxi", "we", "us"). It applies from the moment you create a driver or
+This agreement is between you ("you", "the Operator") and G868 Technology Ltd.
+("G868", "we", "us"). It applies from the moment you create a driver or
 operator account and continues until either side ends it.
 
 By creating an account you confirm you have read this agreement and the
@@ -27,10 +27,10 @@ By creating an account you confirm you have read this agreement and the
 
 This is the foundation of everything below.
 
-**G-Taxi does not hire drivers. G-Taxi does not employ you.** We operate a
+**G868 does not hire drivers. G868 does not employ you.** We operate a
 technology platform that lets a client ask someone to take them somewhere, bring
 them food, or help them with a task. **The client pays you.** What the client
-pays G-Taxi is a fee for making the connection.
+pays G868 is a fee for making the connection.
 
 In practice this means:
 
@@ -42,7 +42,7 @@ In practice this means:
 - We do not supply you with a vehicle, fuel, insurance or equipment. Those are
   yours.
 - You are responsible for your own **income tax, National Insurance, and any
-  other statutory contributions**. G-Taxi does not deduct or remit these on your
+  other statutory contributions**. G868 does not deduct or remit these on your
   behalf.
 - You are free to work for any other platform or client at the same time,
   including a direct competitor.
@@ -72,7 +72,7 @@ You must hold, keep current, and upload proof of:
   designated authority
 
 **It is your responsibility to know and hold the correct authorisation for what
-you are doing.** G-Taxi records the documents you supply and checks their expiry
+you are doing.** G868 records the documents you supply and checks their expiry
 dates. We do not, and cannot, grant you any legal right to operate.
 
 If a document expires, we will restrict your account until you upload a current
@@ -171,10 +171,10 @@ will be paid out, less anything properly owed under 4.5.
 
 ## 7. INSURANCE AND LIABILITY
 
-**You must carry your own insurance.** G-Taxi does not insure you, your vehicle,
+**You must carry your own insurance.** G868 does not insure you, your vehicle,
 your passengers or your cargo, and does not provide occupational injury cover.
 
-You are responsible for what happens during a job. G-Taxi's role is limited to
+You are responsible for what happens during a job. G868's role is limited to
 connecting you with the client and handling the payment record.
 
 Our total liability to you, for any claim connected to this agreement, is limited
@@ -237,7 +237,7 @@ question and are resolved by showing you the ledger.
 
 ## 12. CONTACT
 
-**G-Taxi Technology Ltd.**
+**G868 Technology Ltd.**
 Operator support: support@gtaxi.tt
 Legal notices: legal@gtaxi.tt
 WhatsApp: +1 868 703 1000

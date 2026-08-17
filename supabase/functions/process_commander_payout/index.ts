@@ -8,6 +8,7 @@
 // Self-contained — no _shared/ imports.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { secretMatches } from "../_shared/constantTime.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -23,8 +24,9 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // M4: constant-time compare (see _shared/constantTime.ts)
   const cronHeader = req.headers.get("x-cron-secret");
-  if (!PLATFORM_CRON_SECRET || cronHeader !== PLATFORM_CRON_SECRET) {
+  if (!(await secretMatches(cronHeader, PLATFORM_CRON_SECRET))) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
