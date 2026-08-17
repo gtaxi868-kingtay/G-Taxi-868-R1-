@@ -66,10 +66,16 @@ interface ProviderSpec {
 const PROVIDERS: Record<string, ProviderSpec> = {
     groq: {
         url: "https://api.groq.com/openai/v1/chat/completions",
-        model: Deno.env.get("GROQ_MODEL") ?? "llama-3.3-70b-versatile",
+        // llama-3.3-70b-versatile was retired by Groq — confirmed live against
+        // console.groq.com/docs/models (2026-08-17): returns "model_not_found".
+        // This was the DEFAULT for every G department using this gateway with
+        // no GROQ_MODEL override set, so it silently broke every AI feature
+        // routed through chat() until fixed here. openai/gpt-oss-120b is
+        // Groq's current flagship production text model.
+        model: Deno.env.get("GROQ_MODEL") ?? "openai/gpt-oss-120b",
         keyEnv: "GROQ_API_KEY",
-        inputPerM: 0.59,
-        outputPerM: 0.79,
+        inputPerM: 0.15,
+        outputPerM: 0.60,
     },
     xai: {
         url: "https://api.x.ai/v1/chat/completions",
@@ -132,13 +138,28 @@ export async function chat(supabase: any, opts: ChatOptions): Promise<any> {
 
     const body: Record<string, unknown> = {
         model: provider.model,
-        max_tokens: Math.min(opts.maxTokens ?? 2048, 4096),
+        // GPT-OSS (Groq's current default model, see PROVIDERS.groq above) is
+        // a reasoning model: it spends completion_tokens on a hidden
+        // chain-of-thought BEFORE the actual answer. A caller-requested
+        // budget below what reasoning alone needs silently truncates to an
+        // EMPTY message.content with finish_reason:"length" -- confirmed
+        // live (2026-08-17): a 256-token request to openai/gpt-oss-120b
+        // burned 254 tokens on reasoning and returned "". Floor raised to
+        // 512 so short callers (intent classification, push-notification
+        // copy) still leave the model room to actually answer.
+        max_tokens: Math.min(Math.max(opts.maxTokens ?? 2048, 512), 4096),
         temperature: opts.temperature ?? 0.3,
         messages: [
             ...(opts.system ? [{ role: "system", content: opts.system }] : []),
             ...opts.messages,
         ],
     };
+    // reasoning_effort is GPT-OSS-specific (console.groq.com/docs/reasoning);
+    // "low" keeps reasoning-token spend small for the short classification/
+    // copywriting prompts every G department sends through this gateway.
+    if (provider.model.startsWith("openai/gpt-oss")) {
+        body.reasoning_effort = "low";
+    }
     if (opts.tools?.length) {
         body.tools = opts.tools;
         body.tool_choice = opts.toolChoice ?? "auto";

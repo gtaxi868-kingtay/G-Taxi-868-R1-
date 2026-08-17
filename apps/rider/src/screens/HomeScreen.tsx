@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
     useSharedValue, withSpring,
@@ -527,49 +528,107 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         }
     };
 
+    // Shared by both the typed-text path and the real voice-recording path
+    // below — handle_voice returns the same {success, intent, destination,
+    // reply} shape either way, transcription happens server-side.
+    const processVoiceResult = async (data: any, fallbackText: string) => {
+        if (data?.success) {
+            setAiGreeting(data.reply);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            if (data.intent === 'book_ride' && data.destination) {
+                await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
+                setTimeout(() => {
+                    navigation.navigate('RideConfirmation', {
+                        destination: {
+                            latitude: data.destination.lat,
+                            longitude: data.destination.lng,
+                            address: data.destination.address
+                        },
+                        pickup: {
+                            latitude: currentLat,
+                            longitude: currentLng,
+                            address: 'Current Location'
+                        }
+                    });
+                    clearFarePreview();
+                }, 2000);
+            } else {
+                // Additive: non-ride requests (remember/order/reminder/chat) go to
+                // G's concierge for a richer, memory-aware reply. Ride booking above
+                // is untouched. Concierge is consent-gated + has no payment tools.
+                await askConcierge(data.transcript || fallbackText);
+            }
+        } else {
+            // handle_voice couldn't classify it — let G's concierge try.
+            await askConcierge(fallbackText);
+        }
+    };
+
     const handleVoiceComplete = async (text: string) => {
         if (!profile?.id || !text) return;
         setIsAiThinking(true);
         setAiGreeting("On it...");
 
         try {
-            const { data, error } = await supabase.functions.invoke('handle_voice', {
+            const { data } = await supabase.functions.invoke('handle_voice', {
                 body: { text, rider_id: profile.id }
             });
-
-            if (data?.success) {
-                setAiGreeting(data.reply);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-                if (data.intent === 'book_ride' && data.destination) {
-                    await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
-                    setTimeout(() => {
-                        navigation.navigate('RideConfirmation', {
-                            destination: {
-                                latitude: data.destination.lat,
-                                longitude: data.destination.lng,
-                                address: data.destination.address
-                            },
-                            pickup: {
-                                latitude: currentLat,
-                                longitude: currentLng,
-                                address: 'Current Location'
-                            }
-                        });
-                        clearFarePreview();
-                    }, 2000);
-                } else {
-                    // Additive: non-ride requests (remember/order/reminder/chat) go to
-                    // G's concierge for a richer, memory-aware reply. Ride booking above
-                    // is untouched. Concierge is consent-gated + has no payment tools.
-                    await askConcierge(text);
-                }
-            } else {
-                // handle_voice couldn't classify it — let G's concierge try.
-                await askConcierge(text);
-            }
+            await processVoiceResult(data, text);
         } catch (err) {
             setAiGreeting("Connection failed. Please try again.");
+        } finally {
+            setIsAiThinking(false);
+        }
+    };
+
+    const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+    const voiceRecordingRef = useRef<Audio.Recording | null>(null);
+
+    const startVoiceRecording = async () => {
+        try {
+            const { status } = await Audio.requestPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Microphone Required', 'Enable microphone access to use voice commands.');
+                return;
+            }
+            await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+            const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+            voiceRecordingRef.current = recording;
+            setIsRecordingVoice(true);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch (err) {
+            Alert.alert('Recording Failed', 'Could not start the microphone. Please try again.');
+        }
+    };
+
+    const stopVoiceRecordingAndSend = async () => {
+        const recording = voiceRecordingRef.current;
+        if (!recording || !profile?.id) return;
+        setIsRecordingVoice(false);
+        voiceRecordingRef.current = null;
+
+        try {
+            await recording.stopAndUnloadAsync();
+            const uri = recording.getURI();
+            if (!uri) throw new Error('No recording produced');
+
+            setVoiceModalVisible(false);
+            setIsAiThinking(true);
+            setAiGreeting("Listening...");
+
+            const formData = new FormData();
+            formData.append('audio', {
+                uri,
+                name: 'voice.m4a',
+                type: 'audio/m4a',
+            } as any);
+            formData.append('rider_id', profile.id);
+
+            const { data } = await supabase.functions.invoke('handle_voice', { body: formData });
+            await processVoiceResult(data, data?.transcript || '');
+        } catch (err) {
+            setAiGreeting("Couldn't hear that. Please try again.");
         } finally {
             setIsAiThinking(false);
         }
@@ -1282,14 +1341,29 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             </View>
                             <Text style={s.voiceModalTitle}>AI Voice Command</Text>
                         </View>
-                        <Text style={s.voiceModalSubtitle}>Type your destination or command</Text>
+                        <Text style={s.voiceModalSubtitle}>
+                            {isRecordingVoice ? 'Listening — tap the mic to send' : 'Tap the mic to speak, or type below'}
+                        </Text>
+                        <TouchableOpacity
+                            style={[s.voiceMicBtn, isRecordingVoice && s.voiceMicBtnActive]}
+                            onPress={isRecordingVoice ? stopVoiceRecordingAndSend : startVoiceRecording}
+                            activeOpacity={0.85}
+                            accessibilityLabel={isRecordingVoice ? 'Stop recording and send' : 'Start voice recording'}
+                            accessibilityRole="button"
+                        >
+                            <LinearGradient
+                                colors={isRecordingVoice ? ['#EF4444', '#EF4444CC'] : [BRAND, `${BRAND}CC`]}
+                                style={s.voiceMicGradient}
+                            >
+                                <Ionicons name={isRecordingVoice ? 'stop' : 'mic'} size={28} color="#EAF3F6" />
+                            </LinearGradient>
+                        </TouchableOpacity>
                         <TextInput
                             style={s.voiceModalInput}
                             placeholder="e.g. Take me to Port of Spain"
                             placeholderTextColor="rgba(255,255,255,0.3)"
                             value={voiceInputText}
                             onChangeText={setVoiceInputText}
-                            autoFocus
                             autoCapitalize="sentences"
                             returnKeyType="send"
                             onSubmitEditing={() => {
@@ -1968,6 +2042,23 @@ const s = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)',
         marginBottom: 20,
         marginLeft: 46,
+    },
+    voiceMicBtn: {
+        alignSelf: 'center',
+        borderRadius: 40,
+        overflow: 'hidden',
+        marginBottom: 20,
+        ...elevationGlow(10),
+    },
+    voiceMicBtnActive: {
+        transform: [{ scale: 1.08 }],
+    },
+    voiceMicGradient: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     voiceModalInput: {
         backgroundColor: 'rgba(255,255,255,0.06)',

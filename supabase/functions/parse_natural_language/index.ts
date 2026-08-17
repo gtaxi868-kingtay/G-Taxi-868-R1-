@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
-import { aiFetch, secureFetch } from "../_shared/networkUtility.ts";
+import { secureFetch } from "../_shared/networkUtility.ts";
+import { chat } from "../_shared/llm.ts";
 
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
@@ -73,37 +74,30 @@ Rules:
 Output ONLY valid JSON. No markdown. No explanation.
 Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned location name" }], "service_type": "ride"" }`;
 
-      const groqBody = {
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Query: "${query}"\nCurrent location: [${current_lat}, ${current_lng}]` }
-        ],
-        temperature: 0.1,
-        max_tokens: 256,
-        response_format: { type: "json_object" }
-      };
-
       try {
-        const groqRes = await aiFetch(
-          "https://api.groq.com/openai/v1/chat/completions",
-          { method: "POST", headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(groqBody) }
-        );
+        const groqData = await chat(supabaseAdmin, {
+          department: "parse_natural_language",
+          system: systemPrompt,
+          messages: [{ role: "user", content: `Query: "${query}"\nCurrent location: [${current_lat}, ${current_lng}]` }],
+          temperature: 0.1,
+          maxTokens: 256,
+        });
 
-        if (groqRes.ok) {
-          const groqData = await groqRes.json();
-          const text = groqData?.choices?.[0]?.message?.content;
-          if (text) {
-            const parsed = JSON.parse(text);
-            if (parsed.stops && Array.isArray(parsed.stops)) {
-              stops = parsed.stops;
-              service_type = parsed.service_type || "ride";
-              nluSucceeded = true;
-            }
+        let text = groqData?.choices?.[0]?.message?.content;
+        if (text) {
+          text = text.replace(/```json|```/g, "").trim();
+          const parsed = JSON.parse(text);
+          if (parsed.stops && Array.isArray(parsed.stops)) {
+            stops = parsed.stops;
+            service_type = parsed.service_type || "ride";
+            nluSucceeded = true;
           }
         }
-      } catch (_err) {
-        // Groq failed — fall through to raw geocoding
+      } catch (_err: any) {
+        // Budget exceeded, rate-limited, or provider failure — fall through
+        // to the deterministic raw-geocoding path below (CLAUDE.md AI spend
+        // rules: a cosmetic AI feature must never break the screen).
+        console.error("[parse_natural_language] LLM gateway failed:", _err?.message, _err?.name);
       }
     }
 

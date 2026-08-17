@@ -1,7 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 import { aiFetch } from "../_shared/networkUtility.ts";
+import { chat, BudgetExceededError, RateLimitedError } from "../_shared/llm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -11,6 +13,34 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const MAX_AUDIO_BYTES = 15 * 1024 * 1024; // a 30s voice command is a few hundred KB at most
+
+// Transcribes a recorded clip via Groq's hosted Whisper endpoint directly
+// (Whisper is not a chat-completions model, so it doesn't go through the
+// _shared/llm.ts gateway -- that gateway is for the budget-metered chat call
+// below). Reuses GROQ_API_KEY, already configured -- no new secret required.
+async function transcribeAudio(audioFile: File): Promise<string> {
+  const groqForm = new FormData();
+  groqForm.append("file", audioFile, audioFile.name || "voice.m4a");
+  groqForm.append("model", "whisper-large-v3-turbo");
+  groqForm.append("response_format", "json");
+
+  const groqRes = await aiFetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${GROQ_API_KEY}` },
+    body: groqForm,
+  });
+
+  if (!groqRes.ok) {
+    const errText = await groqRes.text();
+    console.error("Groq transcription error:", errText);
+    throw new Error("Transcription failed");
+  }
+
+  const groqData = await groqRes.json();
+  return (groqData.text || "").trim();
+}
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -25,7 +55,36 @@ serve(async (req: Request) => {
     const user = await requireAuth(req);
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { text, rider_id } = await req.json();
+    const rateCheck = await checkRateLimit(supabaseAdmin, user.id, "handle_voice");
+    if (!rateCheck.allowed) {
+      return new Response(JSON.stringify({ success: false, error: rateCheck.error }), { status: 429, headers: corsHeaders });
+    }
+
+    // Two shapes are accepted:
+    //   - application/json { text, rider_id } -- the original, still-supported
+    //     path (typed voice-command modal).
+    //   - multipart/form-data { audio, rider_id } -- a real recorded clip from
+    //     the mic, previously nowhere in this app: the rider app's "AI Voice
+    //     Command" modal was a mislabeled text input with no actual voice
+    //     recognition. Transcribed here via Whisper before falling into the
+    //     exact same intent-parsing path below, so nothing downstream changes.
+    const contentType = req.headers.get("content-type") || "";
+    let text: string;
+    let rider_id: string;
+
+    if (contentType.startsWith("multipart/form-data")) {
+      const form = await req.formData();
+      const audioFile = form.get("audio");
+      rider_id = String(form.get("rider_id") || "");
+      if (!(audioFile instanceof File)) throw new Error("Missing 'audio' file field");
+      if (audioFile.size > MAX_AUDIO_BYTES) throw new Error("Audio clip too large");
+      text = await transcribeAudio(audioFile);
+      if (!text) throw new Error("Could not understand the recording");
+    } else {
+      const body = await req.json();
+      text = body.text;
+      rider_id = body.rider_id;
+    }
 
     if (!text || !rider_id) throw new Error("Text and rider_id required");
     if (rider_id !== user.id) throw new Error("Forbidden");
@@ -47,15 +106,13 @@ serve(async (req: Request) => {
     const merchantsContext = (serviceHistory || []).map((h: any) => h.merchants?.name ? `${h.merchants.name} (Address: ${h.merchants.address})` : '').filter(Boolean).join(", ");
     const availableMerchants = (serviceHistory || []).map((h: any) => h.merchants).filter(Boolean);
 
-    const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
-    
     const prompt = `
       User Command: "${text}"
       User Saved Places: [${placesContext}]
       User Frequently Visited Merchants/Services: [${merchantsContext}]
-      
-      Extract the user's intent. 
-      Options: 
+
+      Extract the user's intent.
+      Options:
       - "book_ride": User wants to go somewhere.
       - "add_stop": User wants to add a stop.
       - "check_wallet": User asks about balance.
@@ -74,24 +131,41 @@ serve(async (req: Request) => {
       Respond in plain JSON only.
     `;
 
-    const response = await aiFetch(groqUrl, {
-      method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json' 
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+    let groqData: any;
+    try {
+      groqData = await chat(supabaseAdmin, {
+        department: "handle_voice",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 500,
-        temperature: 0.7
-      })
-    });
+        maxTokens: 500,
+        temperature: 0.7,
+      });
+    } catch (err) {
+      // Budget/rate-limit are expected, normal outcomes (CLAUDE.md AI spend
+      // rules) -- degrade to a deterministic reply instead of a broken
+      // screen. The user still gets their transcript back so the typed-text
+      // fallback in the app can pick it up.
+      if (err instanceof BudgetExceededError || err instanceof RateLimitedError) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            transcript: text,
+            intent: "chat",
+            destination: null,
+            reply: "I heard you, but I'm at capacity right now — please try again in a moment.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw err;
+    }
 
-    const groqData = await response.json();
-    let aiText = groqData.choices?.[0]?.message?.content || "{}";
+    let aiText = groqData.choices?.[0]?.message?.content;
+    if (!aiText) {
+      console.error("Groq intent-parse call returned no content:", JSON.stringify(groqData));
+      throw new Error("AI intent parsing failed");
+    }
     aiText = aiText.replace(/```json|```/g, "").trim();
-    
+
     const aiResult = JSON.parse(aiText);
 
     if ((aiResult.intent === 'book_ride' || aiResult.intent === 'book_service') && aiResult.destination?.label) {
@@ -106,13 +180,13 @@ serve(async (req: Request) => {
                 aiResult.destination.lat = merch.lat;
                 aiResult.destination.lng = merch.lng;
                 aiResult.destination.address = merch.address;
-                aiResult.intent = 'book_service'; 
+                aiResult.intent = 'book_service';
             }
         }
     }
 
     return new Response(
-      JSON.stringify({ success: true, ...aiResult }),
+      JSON.stringify({ success: true, transcript: text, ...aiResult }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

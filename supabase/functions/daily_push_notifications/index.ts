@@ -4,7 +4,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { aiFetch, internalFetch } from "../_shared/networkUtility.ts";
+import { internalFetch } from "../_shared/networkUtility.ts";
+import { chat } from "../_shared/llm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -117,7 +118,7 @@ serve(async (req: Request) => {
         }
 
         // D. Generate push message with Groq
-        const message = await generatePushMessage(patterns);
+        const message = await generatePushMessage(supabaseAdmin, patterns);
 
         // E. Send push notification
         await internalFetch(`${SUPABASE_URL}/functions/v1/send_push_notification`, {
@@ -182,7 +183,7 @@ serve(async (req: Request) => {
   }
 });
 
-async function generatePushMessage(patterns: any): Promise<string> {
+async function generatePushMessage(supabaseAdmin: any, patterns: any): Promise<string> {
   const directionMap: Record<string, string> = {
     north: "north",
     south: "south",
@@ -195,41 +196,26 @@ async function generatePushMessage(patterns: any): Promise<string> {
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const dayName = dayNames[patterns.typical_travel_day];
 
-  // Try Groq first
+  // Try the LLM gateway first (budget-metered, degrades gracefully below)
   try {
-    const response = await aiFetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: "You are writing push notifications for a ride-hailing app in Trinidad and Tobago. Keep it under 10 words. Sound helpful and friendly, like a local. No corporate speak.",
-          },
-          {
-            role: "user",
-            content: `Write a push notification for a rider who usually travels ${direction} on ${dayName}s around ${patterns.typical_travel_hour}:00. Make it feel personal and helpful.`,
-          },
-        ],
-        max_tokens: 30,
-        temperature: 0.7,
-      }),
+    const data = await chat(supabaseAdmin, {
+      department: "daily_push_notifications",
+      system: "You are writing push notifications for a ride-hailing app in Trinidad and Tobago. Keep it under 10 words. Sound helpful and friendly, like a local. No corporate speak.",
+      messages: [{
+        role: "user",
+        content: `Write a push notification for a rider who usually travels ${direction} on ${dayName}s around ${patterns.typical_travel_hour}:00. Make it feel personal and helpful.`,
+      }],
+      maxTokens: 30,
+      temperature: 0.7,
     });
 
-    if (!response.ok) throw new Error(`Groq API error: ${response.status}`);
-
-    const data = await response.json();
     const message = data.choices?.[0]?.message?.content?.trim();
 
     if (message && message.length > 5 && message.length < 100) {
       return message.replace(/["']/g, "");
     }
   } catch (err) {
-    console.warn("[Daily Push] Groq failed, using fallback:", err);
+    console.warn("[Daily Push] LLM gateway failed, using fallback:", err);
   }
 
   // Fallback templates
