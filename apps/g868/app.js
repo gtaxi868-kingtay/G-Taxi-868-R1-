@@ -436,8 +436,17 @@
   const roleCta = document.getElementById('roleCta');
   let activeRole = 'rider';
 
+  // Hue-rotate applied only DURING the switch-spin flourish (see
+  // pinRoleSpin keyframes) so the pin visibly shifts toward the newly
+  // active role's accent, then settles back to its true violet/cyan
+  // artwork once the spin ends -- same idea as the reference's texture
+  // swap at the spin's peak, without needing a second rendered asset.
+  const ROLE_PIN_HUE = { rider: '0deg', driver: '20deg', partner: '-40deg', lead: '-160deg' };
+  const pinSpin = document.getElementById('pinSpin');
+
   function setActiveRole(key){
     if(!ROLES[key]) return;
+    const changed = key !== activeRole;
     activeRole = key;
     roleCards.forEach(c => {
       const on = c.getAttribute('data-role') === key;
@@ -446,8 +455,39 @@
     });
     roleDesc.textContent = ROLES[key].heroLine;
     roleCta.textContent = ROLES[key].ctaLabel + ' →';
+
+    if(changed && pinSpin && !REDUCED){
+      pinSpin.style.setProperty('--pin-hue', ROLE_PIN_HUE[key] || '0deg');
+      pinSpin.classList.remove('is-spinning');
+      // eslint-disable-next-line no-unused-expressions
+      pinSpin.offsetWidth; // restart the animation even if it's already mid-spin
+      pinSpin.classList.add('is-spinning');
+    }
   }
+  pinSpin && pinSpin.addEventListener('animationend', e => {
+    if(e.animationName === 'pinRoleSpin') pinSpin.classList.remove('is-spinning');
+  });
   setActiveRole('rider');
+
+  /* ---------- pin cursor tilt: tracks the whole hero, not just the pin,
+     so it reads as "the icon is aware of the cursor" the way the
+     reference's model-viewer camera-orbit did, rather than only
+     reacting once the pointer happens to be over the small pin itself. */
+  const pinTilt = document.getElementById('pinTilt');
+  const heroSection = document.getElementById('hero');
+  if(pinTilt && heroSection && !REDUCED && matchMedia('(hover:hover) and (pointer:fine)').matches){
+    heroSection.addEventListener('pointermove', e => {
+      const r = heroSection.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width - .5;
+      const py = (e.clientY - r.top) / r.height - .5;
+      pinTilt.style.setProperty('--tiltx', (-py * 22).toFixed(2) + 'deg');
+      pinTilt.style.setProperty('--tilty', (px * 28).toFixed(2) + 'deg');
+    }, {passive:true});
+    heroSection.addEventListener('pointerleave', () => {
+      pinTilt.style.setProperty('--tiltx', '0deg');
+      pinTilt.style.setProperty('--tilty', '0deg');
+    }, {passive:true});
+  }
 
   roleCards.forEach(card => {
     const key = card.getAttribute('data-role');

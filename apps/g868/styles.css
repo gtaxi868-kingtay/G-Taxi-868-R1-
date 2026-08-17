@@ -307,10 +307,24 @@ button{font:inherit;color:inherit}
 @media (max-width:980px){.hero__owned{text-align:center}}
 .hero__owned-white{color:var(--ink)}
 
-/* ---------- hero decoration: glow rings ---------- */
+/* ---------- hero decoration: glow rings + pin ---------- */
+/* Moved into the DOM between .hero__left and .hero__right (was a sibling
+   of .hero__inner, absolutely centered against the WHOLE hero section --
+   fine on desktop where that midpoint sits between the two columns, but
+   on mobile the columns stack into one tall block and that midpoint
+   drifts onto whatever content happens to be there; found live sitting
+   on top of the Rider card). As a real grid child it now gets its own
+   row: still an absolute-centered overlay on desktop (centered against
+   .hero__inner, which is its own positioned ancestor -- same visual
+   result as before), but genuine in-flow content on mobile, so both
+   sizes show the same pin with no collision risk either way. */
 .hero__aura{
-  position:absolute;inset:0;z-index:0;pointer-events:none;
+  position:relative;z-index:0;pointer-events:none;
   display:grid;place-items:center;
+  min-height:220px;
+}
+@media (min-width:981px){
+  .hero__aura{position:absolute;inset:0;min-height:0}
 }
 .hero__ring{
   position:absolute;width:min(50vw,560px);aspect-ratio:1;border-radius:50%;
@@ -327,27 +341,47 @@ button{font:inherit;color:inherit}
   background:radial-gradient(circle,rgba(124,58,237,.28) 0%,rgba(34,211,238,.12) 45%,transparent 72%);
   filter:blur(30px);
 }
-.hero__pin{
-  position:relative;z-index:1;width:min(30vw,340px);height:auto;
-  filter:drop-shadow(0 30px 60px rgba(0,0,0,.6)) drop-shadow(0 0 50px rgba(34,211,238,.22));
+/* Two nested transform layers so the continuous cursor-tilt and the
+   one-shot role-switch spin never fight over the same `transform`
+   property: the outer layer only ever holds the tilt (updated every
+   pointermove via --tiltx/--tilty), the inner layer only ever holds the
+   spin (a class toggled on role change). Each composes on top of its
+   already-transformed parent for free. */
+.hero__pin-tilt{
+  position:relative;z-index:1;
+  perspective:900px;
+  --tiltx:0deg;--tilty:0deg;
+  transform:rotateX(var(--tiltx)) rotateY(var(--tilty));
+}
+.hero__pin-spin{
+  transform-style:preserve-3d;
   animation:pinFloat 7s ease-in-out infinite;
+}
+.hero__pin-spin.is-spinning{
+  animation:pinFloat 7s ease-in-out infinite, pinRoleSpin .9s cubic-bezier(.3,.7,.2,1);
+}
+@keyframes pinRoleSpin{
+  0%{filter:brightness(1) blur(0)}
+  45%{filter:brightness(1.5) blur(3px)}
+  50%{transform:rotateY(360deg);filter:brightness(1.7) blur(4px) hue-rotate(var(--pin-hue,0deg))}
+  55%{filter:brightness(1.5) blur(3px)}
+  100%{transform:rotateY(720deg);filter:brightness(1) blur(0)}
+}
+.hero__pin{
+  display:block;width:min(30vw,340px);height:auto;
+  filter:drop-shadow(0 30px 60px rgba(0,0,0,.6)) drop-shadow(0 0 50px rgba(34,211,238,.22));
 }
 @keyframes pinFloat{
   0%,100%{transform:translateY(0)}
   50%{transform:translateY(-14px)}
 }
-/* Below 980px hero__left and hero__right stack into one tall column, but
-   .hero__aura still centers itself against the FULL section height (it's
-   a grid sibling of .hero__inner, both filling the same cell) -- so the
-   pin/rings land wherever that midpoint falls, which is on top of
-   whichever content happens to sit there (found live: directly over the
-   Rider card). Rather than chase a moving target with a fixed offset,
-   drop the floating pin on narrow viewports -- the mark still appears in
-   the nav at every size, so the brand identity isn't lost, just the
-   decorative float that only works when the two columns sit side by
-   side. */
+@media (prefers-reduced-motion:reduce){
+  .hero__pin-spin.is-spinning{animation:none}
+}
 @media (max-width:980px){
-  .hero__pin,.hero__ring,.hero__aura::before{display:none}
+  .hero__pin{width:min(52vw,240px)}
+  .hero__ring{width:min(70vw,320px)}
+  .hero__aura::before{width:min(80vw,380px)}
 }
 
 /* ---------- hero decoration: floating glass orbs ---------- */
