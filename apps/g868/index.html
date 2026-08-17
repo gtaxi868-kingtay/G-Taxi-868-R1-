@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>G 868 — Trinidad and Tobago moves on a tap</title>
-<meta name="description" content="Rides, groceries and laundry across Trinidad and Tobago. Going live one community at a time. Claim your area.">
-<meta name="theme-color" content="#07070F">
+<title>G 868 — Tap in. Own it.</title>
+<meta name="description" content="Trinidad and Tobago moves on a tap. Rides, groceries, laundry and G-Escape — owned by the drivers, shops and territory leads who build it. Put your hand up.">
+<meta name="theme-color" content="#04030a">
 
-<meta property="og:title" content="G 868">
-<meta property="og:description" content="The island moves on a tap. Going live one community at a time.">
+<meta property="og:title" content="G 868 — Tap in. Own it.">
+<meta property="og:description" content="It starts with one ride. Own the way you move, be a G. Going live community by community.">
 <meta property="og:type" content="website">
 <meta property="og:image" content="assets/mark.png">
 
 <link rel="icon" href="assets/mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Manrope:wght@400;500;600;700&family=Outfit:wght@800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<a class="skip" href="#claim">Skip to sign up</a>
+<a class="skip" href="#main">Skip to content</a>
 
 <!-- ================= NAV ================= -->
 <header class="nav glass" id="nav">
-  <a class="nav__brand" href="#top" aria-label="G 868 home">
+  <a class="nav__brand" href="#top" data-nav-home aria-label="G 868 home">
     <span class="nav__mark">
       <img src="assets/mark.png" alt="" width="427" height="588" decoding="async">
       <!-- decorative brand accent only, not a "service is live" claim -->
@@ -32,281 +32,85 @@
     </span>
     <span>G&nbsp;868</span>
   </a>
-  <nav class="nav__links" aria-label="Sections">
-    <a href="#ride">Ride</a>
-    <a href="#unlock">Services</a>
-    <a href="#roles">Earn</a>
+  <nav class="nav__links" aria-label="Primary">
+    <button type="button" class="navlink" data-nav-home>Home</button>
+    <button type="button" class="navlink" data-panel="tap">G Touch</button>
+    <button type="button" class="navlink" data-panel="ladder">G Membership</button>
+    <button type="button" class="navlink" data-panel="split">The Split</button>
+    <button type="button" class="navlink" data-panel="escape">G Escape</button>
   </nav>
-  <a class="btn btn--sm magnetic" href="#claim">Claim your area</a>
+  <button type="button" class="btn btn--sm" data-panel="waitlist">Join the waitlist</button>
 </header>
 
-<main id="top">
+<main id="main">
 
-<!-- ================= 1. HERO ================= -->
+<!-- ================= HERO ================= -->
 <section class="hero" id="hero">
-  <canvas class="hero__island" id="island" aria-hidden="true"></canvas>
-  <div class="hero__vignette" aria-hidden="true"></div>
+  <span id="top" class="anchor" aria-hidden="true"></span>
+  <div class="hero__orbs" id="orbs" aria-hidden="true"></div>
+
+  <div class="hero__aura" aria-hidden="true">
+    <span class="hero__ring hero__ring--cyan"></span>
+    <span class="hero__ring hero__ring--violet"></span>
+  </div>
 
   <div class="hero__inner">
-    <div class="pin" id="pin" aria-hidden="true">
-      <span class="pin__glow"></span>
-      <div class="pin__orbit">
-        <div class="pin__stage">
-          <img class="pin__img" src="assets/mark.png" alt="" width="427" height="588" fetchpriority="high" decoding="async">
-          <span class="pin__sweep"></span>
-        </div>
+
+    <div class="hero__left">
+      <p class="eyebrow"><span class="eyebrow__dot" aria-hidden="true"></span>Trinidad &amp; Tobago &middot; 868</p>
+
+      <h1 class="hero__title">
+        <span class="sweep">Tap in.</span><br>
+        <span class="hero__title-plain">Own it.</span>
+      </h1>
+
+      <p class="hero__sub">It starts with one ride. Own the way you move — be a G.</p>
+
+      <button type="button" class="btn btn--cta magnetic" data-panel="waitlist">
+        Put your hand up
+        <span class="btn__plus" aria-hidden="true">+</span>
+      </button>
+
+      <div class="hero__badge">
+        <span class="hero__badge-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.7 3.2 8.5 8 9.9 4.8-1.4 8-5.2 8-9.9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+        </span>
+        <span class="hero__badge-text">
+          <span class="hero__badge-label">Community by community</span>
+          <span class="hero__badge-copy">Your area opens as soon as enough of us are in</span>
+        </span>
       </div>
-      <span class="pin__shadow"></span>
     </div>
 
-    <h1 class="hero__title">The island moves<br><span class="hero__accent">on a tap.</span></h1>
-    <p class="hero__sub">Rides, groceries and laundry, going live one community at a time.</p>
-    <a class="btn btn--lg magnetic" href="#claim">Claim your area</a>
-  </div>
-</section>
+    <div class="hero__right">
+      <div class="roles" id="roleCarousel" role="group" aria-label="Choose your role">
+        <button type="button" class="role-card is-active" data-role="rider" style="--accent:#c084fc" aria-pressed="true">
+          <span class="role-card__name">Rider</span>
+          <span class="role-card__line">Rides Groceries Laundry &amp; Escape</span>
+        </button>
+        <button type="button" class="role-card" data-role="driver" style="--accent:#22d3ee" aria-pressed="false">
+          <span class="role-card__name">Driver</span>
+          <span class="role-card__line">Keep 80% of every fare</span>
+        </button>
+        <button type="button" class="role-card" data-role="partner" style="--accent:#f0abfc" aria-pressed="false">
+          <span class="role-card__name">G-Partner</span>
+          <span class="role-card__line">Your counter starts earning</span>
+        </button>
+        <button type="button" class="role-card" data-role="lead" style="--accent:#5eead4" aria-pressed="false">
+          <span class="role-card__name">G-Lead</span>
+          <span class="role-card__line">Build your area, earn 2%</span>
+        </button>
+      </div>
 
-<!-- ================= 2. RIDE ================= -->
-<section class="band ride" id="ride" data-reveal>
-  <div class="wrap ride__grid">
-    <div class="ride__copy">
-      <h2 class="h2">It starts with a ride.</h2>
-      <p class="lead">Book from anywhere in Trinidad and Tobago. Pay cash, or from your G&#8209;Wallet.</p>
-      <ul class="ticks">
-        <li>Live driver chat</li>
-        <li>Add a stop mid&#8209;trip</li>
-        <li>Emergency SOS</li>
-        <li>Cash or wallet</li>
-      </ul>
-    </div>
+      <p class="roles__desc" id="roleDesc" aria-live="polite"></p>
+      <button type="button" class="btn btn--pill magnetic" id="roleCta"></button>
 
-    <div class="route" aria-hidden="true">
-      <svg viewBox="0 0 620 260" fill="none" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id="lit" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stop-color="#6D28D9"/><stop offset="1" stop-color="#34E6EC"/>
-          </linearGradient>
-          <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="5"/>
-          </filter>
-        </defs>
-        <path id="trace" d="M12 210 C 130 210, 150 130, 250 122 S 400 150, 470 96 S 580 60, 608 44"
-              stroke="url(#lit)" stroke-width="1.5" stroke-linecap="round"
-              class="route__path" filter="url(#soft)" opacity=".55"/>
-        <path d="M12 210 C 130 210, 150 130, 250 122 S 400 150, 470 96 S 580 60, 608 44"
-              stroke="url(#lit)" stroke-width="1.25" stroke-linecap="round" class="route__path"/>
-        <g class="route__car">
-          <rect x="-15" y="-8" width="30" height="15" rx="5" fill="#0B0B18" stroke="url(#lit)" stroke-width="1.1"/>
-          <rect x="-8" y="-11" width="15" height="8" rx="3.4" fill="#0B0B18" stroke="url(#lit)" stroke-width="1"/>
-          <circle cx="-8" cy="8" r="2.6" fill="#07070F" stroke="#6D28D9" stroke-width="1"/>
-          <circle cx="9" cy="8" r="2.6" fill="#07070F" stroke="#34E6EC" stroke-width="1"/>
-        </g>
-      </svg>
-    </div>
-  </div>
-</section>
-
-<!-- ================= 3. THE UNLOCK ================= -->
-<section class="band unlock" id="unlock">
-  <div class="wrap">
-    <header class="sec-head" data-reveal>
-      <h2 class="h2">Ride more.<br>The island opens up.</h2>
-      <p class="lead">Every service you unlock stays unlocked.</p>
-    </header>
-
-    <!-- fanned deck: cards lift out of the arc as you scroll -->
-    <div class="deck" id="deck">
-      <article class="card glass glass--hover" style="--i:0">
-        <span class="card__edge"></span>
-        <p class="card__cond">Available now</p>
-        <h3 class="card__name">Ride</h3>
-        <p class="card__line">Get a taxi anywhere in Trinidad and Tobago.</p>
-      </article>
-      <article class="card glass glass--hover" style="--i:1">
-        <span class="card__edge"></span>
-        <p class="card__cond">5 rides</p>
-        <h3 class="card__name">Market</h3>
-        <p class="card__line">Groceries from shops near you, delivered.</p>
-      </article>
-      <article class="card glass glass--hover" style="--i:2">
-        <span class="card__edge"></span>
-        <p class="card__cond">2 Market orders</p>
-        <h3 class="card__name">Laundry</h3>
-        <p class="card__line">Washed, folded, brought back.</p>
-      </article>
-      <article class="card glass glass--hover" style="--i:3">
-        <span class="card__edge"></span>
-        <p class="card__cond">Unlocks with Laundry</p>
-        <h3 class="card__name">Tap</h3>
-        <p class="card__line">Tap a G&#8209;Touch Point to ride, book or pay.</p>
-      </article>
-      <article class="card glass glass--hover" style="--i:4">
-        <span class="card__edge"></span>
-        <p class="card__cond">Available with Market</p>
-        <h3 class="card__name">Food</h3>
-        <p class="card__line">Delivery from local spots.</p>
-      </article>
-      <article class="card glass glass--hover" style="--i:5">
-        <span class="card__edge"></span>
-        <p class="card__cond">1 Laundry order</p>
-        <h3 class="card__name">Wallet bonus</h3>
-        <p class="card__line">Top up TTD 200, get TTD 220.</p>
-      </article>
-    </div>
-
-    <ol class="levels" data-reveal aria-label="Rider levels">
-      <li><b>New Rider</b><span>No discount</span></li>
-      <li><b>Regular</b><span><i>5%</i> off · 5 min free wait</span></li>
-      <li><b>Loyal</b><span><i>8%</i> off · priority · 8 min</span></li>
-      <li><b>Elite</b><span><i>10%</i> off · priority · 10 min</span></li>
-      <li><b>G-Member</b><span><i>12%</i> off · priority · 12 min</span></li>
-    </ol>
-  </div>
-</section>
-
-<!-- ================= 4. TAP ================= -->
-<section class="band tap" id="tap" data-reveal>
-  <div class="wrap tap__grid">
-    <div class="puck" aria-hidden="true">
-      <span class="puck__disc"></span>
-      <span class="puck__ring"></span>
-      <span class="puck__ring puck__ring--2"></span>
-      <span class="puck__ring puck__ring--3"></span>
-    </div>
-    <div>
-      <h2 class="h2">Tap the puck.</h2>
-      <p class="lead">
-        G&#8209;Touch Points sit on counters and at taxi stands across the island.
-        Tap one with your phone. At a stand it books a ride from exactly where you
-        stand. At a shop it opens their services, or pays them straight from your wallet.
-      </p>
-    </div>
-  </div>
-</section>
-
-<!-- ================= 5. THE OTHER SIDE ================= -->
-<section class="band roles" id="roles">
-  <div class="wrap">
-    <h2 class="h2 sec-head" data-reveal>The island does not move itself.</h2>
-
-    <div class="roles__grid">
-      <article class="panel panel--lead glass glass--hover" data-reveal>
-        <span class="panel__edge"></span>
-        <p class="panel__kicker">Drive</p>
-        <h3 class="panel__title">Eighty percent is yours.</h3>
-        <p class="panel__body">
-          Go online when you want. Rides and deliveries, payouts from your wallet,
-          and access to G&#8209;Garage when you are ready for a vehicle.
-        </p>
-        <dl class="figs">
-          <div>
-            <span class="figs__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="17" r="2.4"/><line x1="18" y1="6" x2="6" y2="18"/></svg></span>
-            <dt>80%</dt><dd>of the fare</dd>
-          </div>
-          <div>
-            <span class="figs__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="2.4"/><circle cx="17" cy="17" r="2.4"/><line x1="18" y1="6" x2="6" y2="18"/></svg></span>
-            <dt>1%</dt><dd>on drivers you refer</dd>
-          </div>
-          <div>
-            <span class="figs__icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5v9M9.4 9.6c0-1.1 1.1-1.9 2.6-1.9s2.6.7 2.6 1.7c0 2.3-5.2 1-5.2 3.3 0 1 1.1 1.7 2.6 1.7s2.6-.8 2.6-1.9"/></svg></span>
-            <dt>TTD 500</dt><dd>per hotel or villa introduced</dd>
-          </div>
-        </dl>
-      </article>
-
-      <article class="panel glass glass--hover" data-reveal>
-        <span class="panel__edge"></span>
-        <p class="panel__kicker">Sell</p>
-        <h3 class="panel__title">Your counter becomes a taxi stand.</h3>
-        <p class="panel__body">
-          Take orders, run your catalog, accept payment with a tap. A G&#8209;Touch Point
-          at your counter earns you a share of the platform's take on every ride that
-          starts there. Payouts on the 1st and the 15th.
-        </p>
-      </article>
-
-      <article class="panel glass glass--hover" data-reveal>
-        <span class="panel__edge"></span>
-        <p class="panel__kicker">Lead</p>
-        <h3 class="panel__title">Run the grid in your district.</h3>
-        <p class="panel__body">
-          G&#8209;Leads recruit drivers and partners in their area and earn a 2% network
-          override. It opens at 500 completed rides, so it starts in the driver seat.
-        </p>
-      </article>
-    </div>
-  </div>
-</section>
-
-<!-- ================= 6. G ================= -->
-<section class="band gsec" id="g" data-reveal>
-  <div class="wrap gsec__inner">
-    <h2 class="h2">G watches the business.</h2>
-    <p class="lead lead--wide">
-      G is the chief of staff behind the platform. It reads the numbers, spots what
-      needs attention, and proposes what to do. Every proposal waits for a human to
-      approve it. G never moves money on its own.
-    </p>
-  </div>
-</section>
-
-<!-- ================= 7. CLAIM ================= -->
-<section class="band claim" id="claim">
-  <canvas class="claim__island" id="island2" aria-hidden="true"></canvas>
-  <div class="wrap claim__grid">
-    <div class="claim__copy" data-reveal>
-      <h2 class="h2">Put your area<br>on the map.</h2>
-      <p class="lead">
-        We go live community by community. Tell us where you are and we will come to
-        you sooner. When the app lands you sign in with the same email or number and
-        set your password.
+      <p class="hero__owned">
+        <span class="hero__owned-white">Owned</span><br>
+        <span class="sweep sweep--rev">here.</span>
       </p>
     </div>
 
-    <form class="form glass" id="wl" novalidate data-reveal>
-      <div class="field">
-        <label for="f-name">Full name</label>
-        <input id="f-name" name="name" type="text" autocomplete="name" required>
-        <p class="err" data-err="f-name"></p>
-      </div>
-
-      <div class="field">
-        <label for="f-contact">Email or WhatsApp number</label>
-        <input id="f-contact" name="contact" type="text" inputmode="email" autocomplete="email" required>
-        <p class="hint">We use this to reach you, and it becomes your login.</p>
-        <p class="err" data-err="f-contact"></p>
-      </div>
-
-      <div class="field">
-        <label for="f-area">Your area</label>
-        <input id="f-area" name="area" type="text" placeholder="for example, Sangre Grande" autocomplete="address-level2">
-      </div>
-
-      <fieldset class="field roles-pick">
-        <legend>I want to</legend>
-        <div class="segs" role="radiogroup" aria-label="I want to">
-          <label class="seg"><input type="radio" name="role" value="rider" checked><span>Ride</span></label>
-          <label class="seg"><input type="radio" name="role" value="driver"><span>Drive</span></label>
-          <label class="seg"><input type="radio" name="role" value="merchant"><span>Sell</span></label>
-          <label class="seg"><input type="radio" name="role" value="commander"><span>Lead</span></label>
-        </div>
-      </fieldset>
-
-      <button class="btn btn--lg btn--full magnetic" type="submit" id="submit">Claim your area</button>
-      <p class="note">We reach out when G&#8209;Taxi lands in your community. No spam.</p>
-      <p class="err err--form" id="formErr" role="alert"></p>
-    </form>
-
-    <div class="done glass" id="done" hidden>
-      <span class="done__tick" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4.5 4.5L19 7"/></svg>
-      </span>
-      <h3 class="h3">You're on the map.</h3>
-      <p class="lead">Your area moves up every time someone else from it joins. Send them this link.</p>
-      <div class="done__actions">
-        <button class="btn btn--ghost" id="copyLink" type="button">Copy your link</button>
-        <a class="btn" id="waLink" href="#" target="_blank" rel="noopener">Share on WhatsApp</a>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -318,6 +122,17 @@
     <span>Trinidad and Tobago</span>
   </div>
 </footer>
+
+<!-- ================= PANEL OVERLAY (single reusable shell) ================= -->
+<div class="overlay" id="overlay" hidden>
+  <div class="overlay__scrim" id="scrim"></div>
+  <button type="button" class="panel__close" id="panelClose" aria-label="Close panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="panelHeading" tabindex="-1">
+    <div class="panel__body" id="panelBody"></div>
+  </div>
+</div>
 
 <div class="grain" aria-hidden="true"></div>
 

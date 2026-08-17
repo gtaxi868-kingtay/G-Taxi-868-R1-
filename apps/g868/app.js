@@ -1,7 +1,9 @@
 /* ============================================================
-   G 868
-   No scroll listeners anywhere: IntersectionObserver for reveals,
-   rAF only while an element is actually on screen.
+   G 868 — "Tap in. Own it."
+   No build step, no dependencies. No scroll listeners: panels are
+   overlays, not sections, so the only motion budget is the hero's
+   CSS-driven orbs/rings (never per-frame JS) and the panel's own
+   open/close transition.
    ============================================================ */
 (() => {
   'use strict';
@@ -13,459 +15,591 @@
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmYmJ1YWZnZXlwdmtwY3V2ZG52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mzc5ODAsImV4cCI6MjA4NjUxMzk4MH0.0bvE6YskOdVROtbto3RrJA9Vj--9M2hKg76oZkOxia8';
 
   /* ============================================================
-     1. Island canvas.
-     A night seascape, not a map. Horizon low in frame, a Trinidad
-     ridge silhouette with rolling Northern Range hills and the
-     Chaguaramas peninsula reaching out at the NW tip, Tobago smaller
-     and further off. One lit rim traces the skyline (the brand's
-     lit-edge rule, applied to a horizon instead of a UI border). A
-     column of moonlight-style shimmer on the water ties back to the
-     pin floating above it. Village lights twinkle; they do NOT
-     represent live signup counts, because that data does not exist
-     yet. Light, not statistics.
+     0. helpers
      ============================================================ */
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
 
-  // Skyline profile: x fraction across the landmass, height fraction
-  // above the horizon baseline. Reads as a real coastline at this
-  // scale, not a cartographic trace.
-  const TRINIDAD_RIDGE = [
-    [0.00,0.04],[0.04,0.05],[0.07,0.19],[0.10,0.24],[0.10,0.10],
-    [0.15,0.16],[0.20,0.34],[0.24,0.52],[0.28,0.66],[0.33,0.56],
-    [0.37,0.68],[0.41,0.80],[0.46,0.62],[0.52,0.46],[0.58,0.35],
-    [0.65,0.27],[0.72,0.19],[0.80,0.24],[0.87,0.15],[0.94,0.08],
-    [1.00,0.04]
-  ];
-  const TOBAGO_RIDGE = [
-    [0.00,0.04],[0.14,0.20],[0.30,0.34],[0.48,0.44],
-    [0.66,0.30],[0.84,0.17],[1.00,0.04]
-  ];
-
-  // Port of Spain, low and coastal, sitting in front of the Northern
-  // Range so the hills still rise behind it. {x, w, h} are fractions
-  // of the city's own block: position, width, height. Two taller
-  // slabs mid-block read as the Twin Towers without spelling it out.
-  const CITY_BLOCK = [
-    {x:0.00,w:0.045,h:0.30},{x:0.045,w:0.035,h:0.20},{x:0.09,w:0.05,h:0.42},
-    {x:0.15,w:0.03,h:0.22},{x:0.19,w:0.045,h:0.58},{x:0.245,w:0.035,h:0.32},
-    {x:0.29,w:0.06,h:0.78},{x:0.36,w:0.055,h:0.74},{x:0.43,w:0.035,h:0.28},
-    {x:0.475,w:0.045,h:0.48},{x:0.53,w:0.03,h:0.18},{x:0.57,w:0.05,h:0.36},
-    {x:0.63,w:0.035,h:0.54},{x:0.675,w:0.045,h:0.24},{x:0.73,w:0.03,h:0.16},
-    {x:0.77,w:0.05,h:0.40},{x:0.83,w:0.035,h:0.21},{x:0.875,w:0.045,h:0.13},
+  /* ============================================================
+     1. Floating glass orbs — a static set, instantiated once (never
+     a per-frame loop). CSS keyframes do the drifting. ~13 orbs is
+     enough to read as "a lot" without becoming a rendering cost.
+     ============================================================ */
+  const ORB_CONFIGS = [
+    {top:'8%',  left:'4%',  size:64,  tint:'rgba(124,58,237,.4)', glow:'rgba(124,58,237,.5)', dur:15, delay:0,    num:false},
+    {top:'62%', left:'2%',  size:96,  tint:'rgba(34,211,238,.35)',glow:'rgba(34,211,238,.5)', dur:18, delay:1.2,  num:'868', numSize:'1.6rem'},
+    {top:'80%', left:'12%', size:40,  tint:'rgba(240,171,252,.4)',glow:'rgba(240,171,252,.5)',dur:13, delay:2.4,  num:false},
+    {top:'4%',  left:'30%', size:34,  tint:'rgba(94,234,212,.4)', glow:'rgba(94,234,212,.5)', dur:12, delay:.6,   num:false},
+    {top:'20%', left:'46%', size:56,  tint:'rgba(124,58,237,.35)',glow:'rgba(124,58,237,.45)',dur:17, delay:3.1,  num:false},
+    {top:'88%', left:'42%', size:80,  tint:'rgba(34,211,238,.3)', glow:'rgba(34,211,238,.45)',dur:16, delay:1.8,  num:'868', numSize:'1.3rem'},
+    {top:'12%', left:'86%', size:70,  tint:'rgba(240,171,252,.35)',glow:'rgba(240,171,252,.45)',dur:14,delay:.2,  num:false},
+    {top:'38%', left:'92%', size:110, tint:'rgba(124,58,237,.4)', glow:'rgba(124,58,237,.5)', dur:19, delay:2.6,  num:'868', numSize:'2rem'},
+    {top:'70%', left:'88%', size:46,  tint:'rgba(94,234,212,.35)',glow:'rgba(94,234,212,.45)',dur:11, delay:1.4,  num:false},
+    {top:'92%', left:'70%', size:56,  tint:'rgba(34,211,238,.35)',glow:'rgba(34,211,238,.45)',dur:15, delay:3.4,  num:false},
+    {top:'2%',  left:'62%', size:30,  tint:'rgba(240,171,252,.4)',glow:'rgba(240,171,252,.5)', dur:10, delay:.9,  num:false},
+    {top:'52%', left:'22%', size:26,  tint:'rgba(124,58,237,.4)', glow:'rgba(124,58,237,.5)', dur:12, delay:2.1,  num:false},
+    {top:'30%', left:'6%',  size:22,  tint:'rgba(94,234,212,.4)', glow:'rgba(94,234,212,.5)', dur:9,  delay:.4,   num:false},
   ];
 
-  function island(canvas){
-    if(!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let w = 0, h = 0, raf = 0, t = 0, live = false;
-    let horizonY = 0, glowX = 0;
-    let shimmer = [];
-    let cityBaseX = 0, cityBaseW = 0, cityMaxH = 0, cityRects = [], cityLights = [], tallestIdx = 0;
-    let traffic = { start: 0.5 + Math.random() * 0.5 };
-
-    function layout(){
-      const dpr = Math.min(devicePixelRatio || 1, 2);
-      const r = canvas.getBoundingClientRect();
-      w = r.width; h = r.height;
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      horizonY = h * 0.91;
-      glowX = w * 0.60;
-
-      // moonlight-on-water shimmer: denser near the horizon, sparser
-      // further down, faint horizontal drift, per-dash twinkle
-      shimmer = Array.from({length: 46}, (_, i) => {
-        const depth = Math.pow(i / 46, 1.6);
-        return {
-          y: horizonY + 6 + depth * (h - horizonY - 6),
-          baseX: glowX + (Math.random() - 0.5) * (60 + depth * (w * 0.5)),
-          len: 10 + Math.random() * 34 * (1 - depth * 0.5),
-          phase: Math.random() * 6.28,
-          speed: 0.5 + Math.random() * 0.6,
-        };
-      });
-
-      // Port of Spain: shorter than the hills behind it, sitting on
-      // the coast left of centre so the horizon glow lights it from
-      // the harbour side.
-      cityBaseX = w * 0.05;
-      cityBaseW = w * 0.46;
-      cityMaxH = h * 0.055;
-
-      cityRects = CITY_BLOCK.map(b => ({
-        x: cityBaseX + b.x * cityBaseW,
-        w: b.w * cityBaseW,
-        h: b.h * cityMaxH,
-      }));
-      tallestIdx = cityRects.reduce((best, r, i) => r.h > cityRects[best].h ? i : best, 0);
-
-      cityLights = [];
-      cityRects.forEach(r => {
-        const n = Math.max(2, Math.round(r.h / 6));
-        for (let i = 0; i < n; i++){
-          cityLights.push({
-            x: r.x + 1.5 + Math.random() * Math.max(1, r.w - 3),
-            y: horizonY - 2 - Math.random() * (r.h - 3),
-            phase: Math.random() * 6.28,
-            speed: 0.7 + Math.random() * 1.7,
-            warm: Math.random() < 0.62,
-          });
-        }
-      });
-    }
-
-    function ridge(pts, baseX, baseW, peakH){
-      const path = new Path2D();
-      pts.forEach(([x, hh], i) => {
-        const px = baseX + x * baseW;
-        const py = horizonY - hh * peakH;
-        i ? path.lineTo(px, py) : path.moveTo(px, py);
-      });
-      return path;
-    }
-
-    function fillLand(pts, baseX, baseW, peakH){
-      const path = ridge(pts, baseX, baseW, peakH);
-      const last = pts[pts.length - 1], first = pts[0];
-      path.lineTo(baseX + last[0] * baseW, horizonY + 2);
-      path.lineTo(baseX + first[0] * baseW, horizonY + 2);
-      path.closePath();
-      ctx.fillStyle = '#05050B';
-      ctx.fill(path);
-
-      // one lit rim along the skyline only, never the full outline
-      const lit = ctx.createLinearGradient(baseX, 0, baseX + baseW, 0);
-      lit.addColorStop(0, 'rgba(109,40,217,.75)');
-      lit.addColorStop(1, 'rgba(52,230,236,.75)');
-      ctx.strokeStyle = lit;
-      ctx.lineWidth = 1.1;
-      ctx.stroke(ridge(pts, baseX, baseW, peakH));
-    }
-
-    function draw(){
-      ctx.clearRect(0, 0, w, h);
-      t += 0.008;
-
-      // sky: near-black at the top, easing toward the horizon glow
-      const sky = ctx.createLinearGradient(0, 0, 0, horizonY);
-      sky.addColorStop(0, '#07070F');
-      sky.addColorStop(1, '#0B0A17');
-      ctx.fillStyle = sky;
-      ctx.fillRect(0, 0, w, horizonY);
-
-      // horizon glow: the brand duality read as a light source, not a moon disc
-      const hg = ctx.createRadialGradient(glowX, horizonY, 0, glowX, horizonY, w * 0.42);
-      hg.addColorStop(0, 'rgba(52,230,236,.16)');
-      hg.addColorStop(0.5, 'rgba(109,40,217,.08)');
-      hg.addColorStop(1, 'rgba(7,7,15,0)');
-      ctx.fillStyle = hg;
-      ctx.fillRect(0, 0, w, horizonY);
-
-      // sea
-      const sea = ctx.createLinearGradient(0, horizonY, 0, h);
-      sea.addColorStop(0, '#0A0B16');
-      sea.addColorStop(1, '#05050B');
-      ctx.fillStyle = sea;
-      ctx.fillRect(0, horizonY, w, h - horizonY);
-
-      // moonlight column on the water, tying to the pin's glow above it
-      const col = ctx.createRadialGradient(glowX, horizonY, 0, glowX, h, h * 0.6);
-      col.addColorStop(0, 'rgba(52,230,236,.10)');
-      col.addColorStop(1, 'rgba(52,230,236,0)');
-      ctx.fillStyle = col;
-      ctx.fillRect(0, horizonY, w, h - horizonY);
-
-      // shimmer dashes
-      shimmer.forEach((s, i) => {
-        const drift = Math.sin(t * s.speed + s.phase) * 5;
-        const alpha = 0.5 * (0.5 + 0.5 * Math.sin(t * s.speed * 1.4 + s.phase));
-        ctx.strokeStyle = `rgba(212,238,240,${alpha.toFixed(3)})`;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(s.baseX + drift - s.len / 2, s.y);
-        ctx.lineTo(s.baseX + drift + s.len / 2, s.y);
-        ctx.stroke();
-      });
-
-      // Tobago: smaller, further right, set slightly back
-      fillLand(TOBAGO_RIDGE, w * 0.74, w * 0.24, h * 0.05);
-      // Trinidad: the main ridge, spanning most of the frame
-      fillLand(TRINIDAD_RIDGE, w * -0.04, w * 0.86, h * 0.095);
-
-      // village lights nested in the Trinidad ridge, twinkling
-      TRINIDAD_RIDGE.forEach(([x, hh], i) => {
-        if (hh < 0.22 || i % 2) return;
-        const px = w * -0.04 + x * (w * 0.86);
-        const py = horizonY - hh * (h * 0.095) * 0.55;
-        const pulse = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 1.7 + i * 2.1));
-        const halo = ctx.createRadialGradient(px, py, 0, px, py, 9 * pulse + 4);
-        halo.addColorStop(0, `rgba(234,243,246,${0.5 * pulse})`);
-        halo.addColorStop(1, 'rgba(234,243,246,0)');
-        ctx.fillStyle = halo;
-        ctx.beginPath(); ctx.arc(px, py, 9 * pulse + 4, 0, 6.284); ctx.fill();
-        ctx.fillStyle = `rgba(255,255,255,${0.6 + 0.4 * pulse})`;
-        ctx.beginPath(); ctx.arc(px, py, 1.1, 0, 6.284); ctx.fill();
-      });
-
-      // Port of Spain, foreground and darker than the hills behind it
-      // so the two silhouettes separate at a glance
-      cityRects.forEach(r => { ctx.fillStyle = '#030307'; ctx.fillRect(r.x, horizonY - r.h, r.w, r.h + 2); });
-
-      // window lights: a stepped on/off blink, not a soft pulse, so the
-      // city reads as switching rather than breathing like the hills do
-      cityLights.forEach(L => {
-        const s = Math.sin(t * L.speed + L.phase);
-        const on = s > 0.35;
-        const a = on ? 0.55 + 0.35 * s : 0.05;
-        ctx.fillStyle = L.warm
-          ? `rgba(255,214,170,${a.toFixed(3)})`
-          : `rgba(198,240,244,${a.toFixed(3)})`;
-        ctx.fillRect(L.x, L.y, 1.3, 1.3);
-      });
-
-      // one slow aviation beacon on the tallest slab
-      const tall = cityRects[tallestIdx];
-      if (tall){
-        const bx = tall.x + tall.w / 2, by = horizonY - tall.h - 3;
-        const on = (Math.sin(t * 1.05) + 1) / 2 > 0.86;
-        if (on){
-          const halo = ctx.createRadialGradient(bx, by, 0, bx, by, 7);
-          halo.addColorStop(0, 'rgba(255,96,96,.55)');
-          halo.addColorStop(1, 'rgba(255,96,96,0)');
-          ctx.fillStyle = halo;
-          ctx.beginPath(); ctx.arc(bx, by, 7, 0, 6.284); ctx.fill();
-          ctx.fillStyle = 'rgba(255,120,120,.95)';
-          ctx.beginPath(); ctx.arc(bx, by, 1.5, 0, 6.284); ctx.fill();
-        }
+  function buildOrbs(){
+    const host = document.getElementById('orbs');
+    if(!host) return;
+    const frag = document.createDocumentFragment();
+    ORB_CONFIGS.forEach(o => {
+      const el = document.createElement('span');
+      el.className = 'orb';
+      el.style.top = o.top;
+      el.style.left = o.left;
+      el.style.width = o.size + 'px';
+      el.style.height = o.size + 'px';
+      el.style.setProperty('--orb-tint', o.tint);
+      el.style.setProperty('--orb-glow', o.glow);
+      el.style.setProperty('--orb-dur', o.dur + 's');
+      el.style.setProperty('--orb-delay', o.delay + 's');
+      if(o.num){
+        el.style.setProperty('--orb-num-size', o.numSize || '1.2rem');
+        const num = document.createElement('span');
+        num.className = 'orb__num';
+        num.textContent = o.num;
+        el.appendChild(num);
       }
+      frag.appendChild(el);
+    });
+    host.appendChild(frag);
+  }
+  buildOrbs();
 
-      // a single point of light drifting the coast road, fading in
-      // and out at each end of its pass rather than popping on loop
-      const cycle = ((t * 0.045 + traffic.start) % 1 + 1) % 1;
-      const carX = cityBaseX - 14 + cycle * (cityBaseW + 28);
-      const carA = Math.sin(cycle * Math.PI) * 0.55;
-      if (carA > 0.02){
-        const carY = horizonY - 1;
-        const glow = ctx.createRadialGradient(carX, carY, 0, carX, carY, 5);
-        glow.addColorStop(0, `rgba(214,246,248,${carA.toFixed(3)})`);
-        glow.addColorStop(1, 'rgba(214,246,248,0)');
-        ctx.fillStyle = glow;
-        ctx.beginPath(); ctx.arc(carX, carY, 5, 0, 6.284); ctx.fill();
-        ctx.fillStyle = `rgba(255,255,255,${Math.min(1, carA + .25).toFixed(3)})`;
-        ctx.beginPath(); ctx.arc(carX, carY, 1, 0, 6.284); ctx.fill();
-      }
+  /* ============================================================
+     2. Role data — hero carousel + role detail panels share this.
+     ============================================================ */
+  const ROLES = {
+    rider: {
+      label: 'Rider', accent: '#c084fc',
+      heroLine: 'Tap a stand or a shop counter and the car comes to you. No address to spell out — and more of G opens up the more you ride.',
+      ctaLabel: 'See what a Rider gets',
+      eyebrow: 'For riders',
+      heading: 'One tap gets you moving.',
+      lede: 'Tap the puck at a stand or a shop counter and a car comes to where you’re standing. No address to spell out, no explaining the corner you’re on. Then the rest of G opens up as you go.',
+      perks: [
+        {title:'Rides that know where you are', body:'Tap a G point and the pickup is set. It’s the easiest booking on the island — and it works even before you download anything.'},
+        {title:'More unlocks as you ride', body:'Five rides brings Market. Two Market orders bring Laundry. Nothing is dumped on you at once — you grow into it.'},
+        {title:'Better rates the longer you stay', body:'Regular, Loyal, Elite, G-Member — up to 12% back on what you spend, plus priority when the island is busy.'},
+      ],
+      ladderTitle: 'What opens up, and when',
+      steps: [
+        {when:'Day one', what:'Ride (tap any stand or counter)'},
+        {when:'5 rides', what:'Market (groceries brought to you)'},
+        {when:'2 Market orders', what:'Laundry, and Tap to pay in shops'},
+        {when:'1 Laundry order', what:'Wallet bonus (top up TTD 200, get 220)'},
+        {when:'Wallet funded', what:'G-Escape (regional trips, when it opens)'},
+      ],
+      tiers: ['New Rider','Regular · 5%','Loyal · 8%','Elite · 10%','G-Member · 12% + priority'],
+    },
+    driver: {
+      label: 'Driver', accent: '#22d3ee',
+      heroLine: 'Every fare pays 80% straight to your wallet — 78% where a G-Lead runs the territory — and both are paid before anything else.',
+      ctaLabel: 'See what a Driver gets',
+      eyebrow: 'For drivers',
+      heading: 'Keep 80% of every fare.',
+      lede: 'You already do the work. This is about how much of it you keep — and what you can build on top of it once you have been driving a while.',
+      perks: [
+        {title:'80% of the fare, plainly stated', body:'No shifting commission, no surprise deductions. 78% in territories with an active G-Lead, and you will always be told which one you are in.'},
+        {title:'Earn from who you bring in', body:'1% on every driver you introduce, and TTD 500 for every hotel that comes on through you.'},
+        {title:'A territory of your own', body:'At 500 rides you qualify to run one: recruit your own drivers and shops, and earn on the area you built.'},
+      ],
+      ladderTitle: 'How a driver moves up',
+      steps: [
+        {when:'Day one', what:'80% of every fare, paid to your wallet'},
+        {when:'First referral', what:'1% of what every driver you bring in earns'},
+        {when:'First hotel', what:'TTD 500 for each hotel introduced'},
+        {when:'500 rides', what:'You qualify to run a territory'},
+        {when:'As G-Lead', what:'2% override on the whole area you build'},
+      ],
+      tiers: ['New Driver','Verified','Trusted · priority dispatch','Territory-eligible · 500 rides'],
+    },
+    partner: {
+      label: 'G-Partner', accent: '#f0abfc',
+      heroLine: 'A tap at your counter is a booked ride. You earn on the traffic you already have — no card machine, no terminal fee.',
+      ctaLabel: 'See what a G-Partner gets',
+      eyebrow: 'For shops & counters',
+      heading: 'Your counter starts earning.',
+      lede: 'A puck on your counter turns your shop into a taxi stand and a storefront at the same time — and you get paid for the traffic you already have.',
+      perks: [
+        {title:'A share of every ride that starts with you', body:'Customers tap at your counter to get a car. You earn on it, whether or not they buy a thing that day.'},
+        {title:'Sell and take payment by tap', body:'List what you stock and take wallet payments on the spot — no card machine to rent, no terminal fees, no percentage skimmed off your own sales.'},
+        {title:'You are the trusted face', body:'People sign up because you vouch for it. That trust is the product — and it is credited to you.'},
+        {title:'90 days pinned on the map, free', body:'Every G-Partner opens with their shop pinned for riders to find. Keep it after that for TTD 150 a month — and only if the traffic has earned it.'},
+      ],
+      ladderTitle: 'How a counter grows',
+      steps: [
+        {when:'Day one', what:'A G-Touch puck on your counter, free'},
+        {when:'First taps', what:'You earn on every ride that starts with you'},
+        {when:'Catalog live', what:'Sell your stock and take wallet payments'},
+        {when:'Steady traffic', what:'Your shop is listed as a pickup point island-wide'},
+        {when:'First 90 days', what:'Pinned on the G map, free — no card, no catch'},
+        {when:'After 90 days', what:'Stay pinned for TTD 150 a month, or step back to the free listing'},
+      ],
+      tiers: ['Listed','Active counter','Pickup point','Anchor · higher share'],
+    },
+    lead: {
+      label: 'G-Lead', accent: '#5eead4',
+      heroLine: 'Recruit the drivers and counters in your area, and its 2% override keeps paying as long as you’re the one running it.',
+      ctaLabel: 'See what a G-Lead gets',
+      eyebrow: 'For area builders',
+      heading: 'Build your area. Earn on it.',
+      lede: 'A G-Lead opens a community: signing up the drivers, the shops and the stands that make it work, then earning from it for as long as it runs.',
+      perks: [
+        {title:'2% override on your territory', body:'Every ride in the area you built pays you — not once, but for as long as you’re running it.'},
+        {title:'Recruit your own network', body:'Your drivers, your merchants, your stands. You decide who represents the area.'},
+        {title:'Name your successor', body:'What you build stays with someone you choose. The territory is yours to hand on.'},
+      ],
+      ladderTitle: 'How a territory is built',
+      steps: [
+        {when:'Qualify', what:'500 rides as a driver, or invitation'},
+        {when:'Sign the stands', what:'Recruit drivers and G-Partner counters'},
+        {when:'Area switches on', what:'Your community goes live for riders'},
+        {when:'Running', what:'2% override on every ride in the area'},
+        {when:'Hand on', what:'Name the successor who takes it forward'},
+      ],
+      tiers: ['Candidate','Building','Live territory · 2%','Succession named'],
+    },
+  };
 
-      if (live && !REDUCED) raf = requestAnimationFrame(draw);
-    }
+  // maps a hero-carousel role key to the short code the DB expects
+  const ROLE_DB_CODE = { rider:'rider', driver:'driver', partner:'merchant', lead:'commander' };
+  // maps a <select> label back to a role key (used by the waitlist form)
+  const ROLE_SELECT_TO_KEY = {
+    'Rider':'rider', 'Driver':'driver',
+    'G-Partner (merchant)':'partner', 'G-Lead (territory)':'lead',
+  };
 
-    layout();
-    draw();
-    addEventListener('resize', () => { layout(); if (REDUCED || !live) draw(); }, {passive:true});
-
-    // only animate while actually on screen
-    new IntersectionObserver(es => {
-      es.forEach(e => {
-        live = e.isIntersecting;
-        cancelAnimationFrame(raf);
-        if (live && !REDUCED) raf = requestAnimationFrame(draw);
-      });
-    }, {threshold:0}).observe(canvas);
+  /* ============================================================
+     3. Panel content builders
+     ============================================================ */
+  function ladderRows(steps, hiLast){
+    return steps.map((s,i) => `
+      <div class="p-ladder__row${hiLast && i === steps.length-1 ? ' p-ladder__row--hi' : ''}">
+        <span class="p-ladder__label">${esc(s.when)}</span>
+        <span class="p-ladder__value">${esc(s.what)}</span>
+      </div>`).join('');
   }
 
-  island(document.getElementById('island'));
-  island(document.getElementById('island2'));
-
-  /* ============================================================
-     2. Reveals
-     ============================================================ */
-  const io = new IntersectionObserver(es => {
-    es.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
-  }, {threshold:.16, rootMargin:'0px 0px -8% 0px'});
-  document.querySelectorAll('[data-reveal]').forEach(el => io.observe(el));
-
-  // deck + ride get their own trigger so the stagger reads properly
-  ['deck','ride'].forEach(id => {
-    const el = document.getElementById(id);
-    if(!el) return;
-    new IntersectionObserver((es, o) => {
-      es.forEach(e => { if(e.isIntersecting){ el.classList.add('in'); o.disconnect(); } });
-    }, {threshold:.25}).observe(el);
-  });
-
-  /* ============================================================
-     3. Pin: cursor-reactive tilt. A few degrees, no more.
-     ============================================================ */
-  const pin = document.getElementById('pin');
-  const hero = document.getElementById('hero');
-  if(pin && hero && !REDUCED && matchMedia('(pointer:fine)').matches){
-    const stage = pin.querySelector('.pin__stage');
-    hero.addEventListener('pointermove', e => {
-      const r = hero.getBoundingClientRect();
-      const px = (e.clientX - r.left) / r.width - .5;
-      const py = (e.clientY - r.top) / r.height - .5;
-      stage.style.setProperty('--ry', (px * 13).toFixed(2) + 'deg');
-      stage.style.setProperty('--rx', (-py * 9).toFixed(2) + 'deg');
-    }, {passive:true});
-    hero.addEventListener('pointerleave', () => {
-      stage.style.setProperty('--ry','0deg');
-      stage.style.setProperty('--rx','0deg');
-    }, {passive:true});
+  function tierPills(tiers){
+    return tiers.map((t,i) => `<span class="p-pill${i === tiers.length-1 ? ' p-pill--hi' : ''}">${esc(t)}</span>`).join('');
   }
 
+  const PANEL_BUILDERS = {
+    tap(){
+      return `
+        <p class="p-eyebrow">01 — The Tap</p>
+        <h2 class="p-heading" id="panelHeading">No app needed<br>to get moving.</h2>
+        <p class="p-body">G-Touch Points are small NFC pucks sitting on shop counters and taxi stands across the island. Anyone can build an app in a weekend — but trust is built one counter at a time, and that’s what these are.</p>
+        <div class="p-cards">
+          <div class="p-card" style="--card-accent:#22d3ee">
+            <h3 class="p-card__title">Tap at a stand</h3>
+            <p class="p-card__body">Books a ride from exactly where you’re standing — no address to type, nothing to explain.</p>
+          </div>
+          <div class="p-card" style="--card-accent:#c084fc">
+            <h3 class="p-card__title">Tap at a shop</h3>
+            <p class="p-card__body">Opens that shop’s services, or pays straight from your wallet. People trust their shopkeeper — so the shopkeeper is the welcome.</p>
+          </div>
+          <div class="p-card p-card--tint">
+            <h3 class="p-card__title">The counter earns</h3>
+            <p class="p-card__body">A G-Partner earns a share of every ride that starts at their shop. The counter they already stand behind becomes a taxi stand too.</p>
+          </div>
+        </div>`;
+    },
+    ladder(){
+      return `
+        <p class="p-eyebrow">02 — Progression</p>
+        <h2 class="p-heading" id="panelHeading">You earn the island.</h2>
+        <p class="p-body">Most apps hand you eleven services on day one and you end up using one. G starts with a ride, and opens up as you go — so it grows at your pace, and every step is one you’ve already earned.</p>
+        <div class="p-ladder">
+          ${ladderRows([
+            {when:'Start', what:'Ride'},
+            {when:'5 rides', what:'Market — groceries delivered'},
+            {when:'2 Market orders', what:'Laundry + Tap'},
+            {when:'1 Laundry order', what:'Wallet bonus — top up TTD 200, get 220'},
+            {when:'Fund your wallet', what:'G-Escape'},
+          ], true)}
+        </div>
+        <div class="p-tiers">
+          <p class="p-tiers__label">And you climb</p>
+          <div class="p-tiers__row">${tierPills(['New Rider','Regular · 5%','Loyal · 8%','Elite · 10%','G-Member · 12% + priority'])}</div>
+        </div>`;
+    },
+    split(){
+      const bar = (label, value, width, gradA, gradB, caption) => `
+        <div>
+          <div class="p-bar__row"><span class="p-bar__label">${esc(label)}</span><span class="p-bar__value" style="color:${gradB}">${esc(value)}</span></div>
+          <div class="p-bar__track"><div class="p-bar__fill" style="width:${width};background:linear-gradient(90deg,${gradA},${gradB})"></div></div>
+          ${caption ? `<p class="p-bar__caption">${esc(caption)}</p>` : ''}
+        </div>`;
+      return `
+        <p class="p-eyebrow">03 — The Split</p>
+        <h2 class="p-heading" id="panelHeading">Where the money goes<br>is the whole point.</h2>
+        <p class="p-body">Every G ride pays a Trinidadian driver, a Trinidadian shopkeeper and a Trinidadian territory operator — and sets a slice aside to help open the next community. Here’s exactly how it splits.</p>
+        <div class="p-bars">
+          ${bar('Driver', '80%', '80%', '#22d3ee', '#7c3aed', '78% where a territory has an active G-Lead')}
+          ${bar('G-Lead override', '2%', '14%', '#f0abfc', '#c084fc', '')}
+          ${bar('Capital reserve', '1.5%', '11%', '#5eead4', '#22d3ee', '')}
+          <div class="p-plain-row">
+            <span class="p-plain-row__label">G-Partner counter share</span>
+            <span class="p-plain-row__value">a share of the platform’s own take</span>
+          </div>
+        </div>
+        <p class="p-callout">The reserve is what pays for referrals — so growth never comes quietly out of a driver’s earnings. If the reserve is empty, the payout waits. We’d rather be honest about the limit than invent money we don’t have.</p>`;
+    },
+    escape(){
+      return `
+        <p class="p-eyebrow">05 — G-Escape</p>
+        <h2 class="p-heading" id="panelHeading">The Caribbean deserves<br>better ways home.</h2>
+        <p class="p-body">Routes get cut because no airline can see enough demand to justify them — then nobody flies them, which proves the airline right. G-Escape aggregates the demand instead: groups pool into flight-plus-lodging packages with a tipping point, and riders can <b>open a lane</b> — pick a destination and a month, and if enough hands go up it becomes a real demand case with real names attached.</p>
+        <p class="p-body p-body--big">Not "we think people want to fly Port of Spain to St. Vincent." <b style="color:var(--cyan)">Here are 180 people who put their hands up for March.</b></p>
+        <p class="p-note">Rides fund the network. Escape is what makes it regional. Currently switched off.</p>`;
+    },
+  };
+
+  function buildRolePanel(key){
+    const r = ROLES[key];
+    return `
+      <p class="p-eyebrow">${esc(r.eyebrow)}</p>
+      <h2 class="p-heading" id="panelHeading">${esc(r.heading)}</h2>
+      <p class="p-body">${esc(r.lede)}</p>
+      <div class="p-cards${r.perks.length > 3 ? ' p-cards--2col' : ''}">
+        ${r.perks.map((p,i) => `
+          <div class="p-card${i === 0 || i >= 3 ? ' p-card--tint' : ''}">
+            <h3 class="p-card__title" style="--card-accent:${r.accent}">${esc(p.title)}</h3>
+            <p class="p-card__body">${esc(p.body)}</p>
+          </div>`).join('')}
+      </div>
+      <h3 class="p-sub">${esc(r.ladderTitle)}</h3>
+      <div class="p-ladder">${ladderRows(r.steps)}</div>
+      <div class="p-tiers">
+        <p class="p-tiers__label">Tiers</p>
+        <div class="p-tiers__row">${tierPills(r.tiers)}</div>
+      </div>
+      ${waitlistFormMarkup(key)}`;
+  }
+
+  function waitlistFormMarkup(roleKey){
+    const r = roleKey ? ROLES[roleKey] : null;
+    const heading = r ? `Join as a ${esc(r.label)}.` : 'Help us open<br>your area first.';
+    const eyebrow = 'Put your hand up';
+    const submitLabel = r ? `Join as ${esc(r.label)}` : 'Count me in';
+    const areaOptions = [
+      'Port of Spain','San Fernando','Chaguanas','Arima',
+      'Diego Martin / Westmoorings','Tunapuna / St. Augustine',
+      'Couva / Point Lisas','Sangre Grande','Princes Town / Debe','Tobago',
+    ];
+    const roleOptions = ['Rider','Driver','G-Partner (merchant)','G-Lead (territory)'];
+    const preselectLabel = r ? Object.keys(ROLE_SELECT_TO_KEY).find(k => ROLE_SELECT_TO_KEY[k] === roleKey) : null;
+
+    return `
+      <div class="waitlist-block" style="margin-top:${r ? '3em' : '0'};padding-top:${r ? '2em' : '0'};${r ? 'border-top:1px solid var(--hair)' : ''}">
+        <p class="p-eyebrow">${eyebrow}</p>
+        <h2 class="p-heading" ${r ? '' : 'id="panelHeading"'}>${heading}</h2>
+        <p class="p-body">A community comes alive when there are enough drivers to answer and enough shops worth opening. Tell us where you are and how you’d like to join — every hand counts toward switching your area on.</p>
+
+        <form class="form" id="wl" novalidate data-submit-label="${esc(submitLabel)}">
+          <div class="field">
+            <label for="f-name">Full name</label>
+            <input id="f-name" name="name" type="text" autocomplete="name" required>
+            <p class="err" data-err="f-name"></p>
+          </div>
+
+          <div class="field">
+            <label for="f-email">Email</label>
+            <input id="f-email" name="email" type="email" placeholder="you@email.tt" autocomplete="email" required>
+            <p class="err" data-err="f-email"></p>
+          </div>
+
+          <div class="field">
+            <label for="f-area">Your area</label>
+            <select id="f-area" name="area" autocomplete="address-level2">
+              <option value="" disabled selected>Choose your area</option>
+              ${areaOptions.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="f-role">I want to join as</label>
+            <select id="f-role" name="role" required>
+              <option value="" disabled ${preselectLabel ? '' : 'selected'}>Choose one</option>
+              ${roleOptions.map(o => `<option value="${esc(o)}" ${o === preselectLabel ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+            </select>
+          </div>
+
+          <button class="btn btn--submit btn--full magnetic" type="submit" id="submit">
+            <span id="submitLabel">${esc(submitLabel)}</span>
+            <span class="btn__arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </span>
+          </button>
+          <p class="err err--form" id="formErr" role="alert"></p>
+          <p class="form__fine">Nothing to pay and nothing to install yet — we’re simply counting who’s ready, area by area. Your details stay with us.</p>
+        </form>
+
+        <div class="done" id="done" hidden>
+          <span class="done__tick" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4.5 4.5L19 7"/></svg>
+          </span>
+          <h3 class="p-sub" style="margin-top:0">You’re on the map.</h3>
+          <p class="p-body" style="margin-bottom:0">Your area moves up every time someone else from it joins. Send them this link.</p>
+          <div class="done__actions">
+            <button class="btn btn--ghost" id="copyLink" type="button">Copy your link</button>
+            <a class="btn" id="waLink" href="#" target="_blank" rel="noopener">Share on WhatsApp</a>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  PANEL_BUILDERS.waitlist = () => waitlistFormMarkup(null);
+  ['rider','driver','partner','lead'].forEach(k => { PANEL_BUILDERS['role:' + k] = () => buildRolePanel(k); });
+
   /* ============================================================
-     4. Magnetic buttons (quickTo-style lerp, no dependency)
+     4. Panel overlay controller — focus trap, Escape, backdrop click,
+     return focus.
      ============================================================ */
-  if(!REDUCED && matchMedia('(hover:hover) and (pointer:fine)').matches){
-    document.querySelectorAll('.magnetic').forEach(el => {
-      let tx=0, ty=0, cx=0, cy=0, raf=0, on=false;
-      const loop = () => {
-        cx += (tx - cx) * .16; cy += (ty - cy) * .16;
-        // `translate`, not `transform`: an inline `transform` outranks the
-        // :active rule and silently removes the press feedback. These are
-        // independent properties, so scale-on-press still composes.
-        el.style.translate = `${cx.toFixed(2)}px ${cy.toFixed(2)}px`;
-        if(on || Math.abs(tx-cx) > .1 || Math.abs(ty-cy) > .1){
-          raf = requestAnimationFrame(loop);
-        }else{
-          el.style.translate = '';
-          el.style.willChange = '';   // only a layer while it is actually moving
-        }
-      };
-      el.addEventListener('pointerenter', () => {
-        on = true;
-        el.style.willChange = 'translate';
-        cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(loop);
-      });
-      el.addEventListener('pointermove', e => {
-        const r = el.getBoundingClientRect();
-        tx = (e.clientX - r.left - r.width/2) * .22;
-        ty = (e.clientY - r.top - r.height/2) * .32;
-      }, {passive:true});
-      el.addEventListener('pointerleave', () => { on = false; tx = 0; ty = 0; });
+  const overlay = document.getElementById('overlay');
+  const scrim = document.getElementById('scrim');
+  const panelEl = document.getElementById('panel');
+  const panelBody = document.getElementById('panelBody');
+  const panelClose = document.getElementById('panelClose');
+  let lastFocused = null;
+
+  function focusablesIn(el){
+    return Array.from(el.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(n => n.offsetParent !== null);
+  }
+
+  function trapKeydown(e){
+    if(e.key === 'Escape'){ e.preventDefault(); closePanel(); return; }
+    if(e.key !== 'Tab') return;
+    const items = focusablesIn(overlay);
+    if(!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  }
+
+  function openPanel(key, opener){
+    const build = PANEL_BUILDERS[key];
+    if(!build) return;
+    lastFocused = opener || document.activeElement;
+    panelBody.innerHTML = build();
+    overlay.hidden = false;
+    document.body.style.overflow = 'hidden';
+    panelEl.scrollTop = 0;
+    wireFormIn(panelBody);
+    document.addEventListener('keydown', trapKeydown, true);
+    // move focus into the panel
+    requestAnimationFrame(() => {
+      const heading = document.getElementById('panelHeading');
+      (heading || panelEl).setAttribute('tabindex', heading ? (heading.getAttribute('tabindex') || '-1') : '-1');
+      (heading || panelEl).focus();
     });
   }
 
-  /* ============================================================
-     5. Nav state, without a scroll listener
-     ============================================================ */
-  const nav = document.getElementById('nav');
-  const sentinel = document.createElement('div');
-  sentinel.style.cssText = 'position:absolute;top:0;left:0;width:1px;height:90px;pointer-events:none';
-  document.body.prepend(sentinel);
-  new IntersectionObserver(es => {
-    nav.classList.toggle('is-stuck', !es[0].isIntersecting);
-  }, {threshold:0}).observe(sentinel);
+  function closePanel(){
+    if(overlay.hidden) return;
+    overlay.hidden = true;
+    document.body.style.overflow = '';
+    document.removeEventListener('keydown', trapKeydown, true);
+    if(lastFocused && document.contains(lastFocused)) lastFocused.focus();
+    lastFocused = null;
+  }
+
+  document.querySelectorAll('[data-panel]').forEach(el => {
+    el.addEventListener('click', e => openPanel(el.getAttribute('data-panel'), el));
+  });
+  document.querySelectorAll('[data-nav-home]').forEach(el => {
+    el.addEventListener('click', e => { e.preventDefault(); closePanel(); });
+  });
+  panelClose.addEventListener('click', closePanel);
+  scrim.addEventListener('click', closePanel);
 
   /* ============================================================
-     6. Waitlist
+     5. Hero role carousel
      ============================================================ */
-  const form   = document.getElementById('wl');
-  const done   = document.getElementById('done');
-  const btn    = document.getElementById('submit');
-  const fErr   = document.getElementById('formErr');
-  const params = new URLSearchParams(location.search);
-  const REF    = params.get('ref') || null;
+  const roleCards = Array.from(document.querySelectorAll('.role-card'));
+  const roleDesc = document.getElementById('roleDesc');
+  const roleCta = document.getElementById('roleCta');
+  let activeRole = 'rider';
 
-  const setErr = (id, msg) => {
-    const p = document.querySelector(`[data-err="${id}"]`);
-    const input = document.getElementById(id);
-    if(p) p.textContent = msg || '';
-    if(input) input.setAttribute('aria-invalid', msg ? 'true' : 'false');
-  };
+  function setActiveRole(key){
+    if(!ROLES[key]) return;
+    activeRole = key;
+    roleCards.forEach(c => {
+      const on = c.getAttribute('data-role') === key;
+      c.classList.toggle('is-active', on);
+      c.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    roleDesc.textContent = ROLES[key].heroLine;
+    roleCta.textContent = ROLES[key].ctaLabel + ' →';
+  }
+  setActiveRole('rider');
 
+  roleCards.forEach(card => {
+    const key = card.getAttribute('data-role');
+    card.addEventListener('click', () => setActiveRole(key));
+    card.addEventListener('focus', () => setActiveRole(key));
+    if(!REDUCED && matchMedia('(hover:hover) and (pointer:fine)').matches){
+      card.addEventListener('pointerenter', () => setActiveRole(key));
+    }
+  });
+  roleCta.addEventListener('click', () => openPanel('role:' + activeRole, roleCta));
+
+  /* ============================================================
+     6. Waitlist submit — wired fresh each time the form is (re)built
+     inside the panel body, since the panel content is swapped in.
+     ============================================================ */
   const isEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-  const digits  = v => v.replace(/[^\d]/g, '');
 
-  form?.addEventListener('submit', async e => {
-    e.preventDefault();
-    fErr.textContent = '';
+  function wireFormIn(root){
+    const form = root.querySelector('#wl');
+    if(!form) return;
+    const done = root.querySelector('#done');
+    const btn = root.querySelector('#submit');
+    const submitLabelEl = root.querySelector('#submitLabel');
+    const fErr = root.querySelector('#formErr');
+    const params = new URLSearchParams(location.search);
+    const REF = params.get('ref') || null;
 
-    const name    = document.getElementById('f-name').value.trim();
-    const contact = document.getElementById('f-contact').value.trim();
-    const area    = document.getElementById('f-area').value.trim();
-    const role    = form.querySelector('input[name=role]:checked').value;
+    const setErr = (id, msg) => {
+      const p = root.querySelector(`[data-err="${id}"]`);
+      const el = root.querySelector(`#${id}`);
+      if(p) p.textContent = msg || '';
+      if(el) el.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    };
 
-    let ok = true;
-    if(name.length < 2){ setErr('f-name','Please add your name.'); ok = false; } else setErr('f-name','');
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      if(fErr) fErr.textContent = '';
 
-    const email = isEmail(contact) ? contact.toLowerCase() : null;
-    const phone = !email && digits(contact).length >= 7 ? contact : null;
-    if(!email && !phone){
-      setErr('f-contact','Enter a valid email address or WhatsApp number.'); ok = false;
-    } else setErr('f-contact','');
+      const name = form.querySelector('#f-name').value.trim();
+      const email = form.querySelector('#f-email').value.trim().toLowerCase();
+      const area = form.querySelector('#f-area').value.trim();
+      const roleLabel = form.querySelector('#f-role').value;
 
-    if(!ok){ form.querySelector('[aria-invalid=true]')?.focus(); return; }
+      let ok = true;
+      if(name.length < 2){ setErr('f-name', 'Please add your name.'); ok = false; } else setErr('f-name', '');
+      if(!isEmail(email)){ setErr('f-email', 'Enter a valid email address.'); ok = false; } else setErr('f-email', '');
+      if(!roleLabel){ ok = false; }
 
-    btn.disabled = true;
-    const label = btn.textContent;
-    btn.textContent = 'Claiming...';
+      if(!ok){ form.querySelector('[aria-invalid=true]')?.focus(); return; }
 
-    try{
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
-        method:'POST',
-        headers:{
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-          'Content-Type':'application/json',
-          Prefer:'return=minimal'
-        },
-        body: JSON.stringify({
-          full_name: name,
-          email,
-          phone,
-          community: area || null,
-          user_type: role,          // rider | driver | merchant | commander
-          source: 'g868',
-          referred_by: REF
-        })
-      });
+      const roleKey = ROLE_SELECT_TO_KEY[roleLabel];
+      const dbRole = ROLE_DB_CODE[roleKey] || 'rider';
 
-      if(!res.ok){
-        const body = await res.text();
-        // 23505 = unique violation. Today only email is unique; phone uniqueness
-        // arrives with the planned migration.
-        if(res.status === 409 || body.includes('23505')){
-          setErr('f-contact', "You're already on the list with that contact.");
-          btn.disabled = false; btn.textContent = label;
-          return;
+      btn.disabled = true;
+      const label = submitLabelEl.textContent;
+      submitLabelEl.textContent = 'Claiming...';
+
+      try{
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+          method: 'POST',
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify({
+            full_name: name,
+            email,
+            phone: null,
+            community: area || null,
+            user_type: dbRole, // rider | driver | merchant | commander
+            source: 'g868',
+            referred_by: REF,
+          }),
+        });
+
+        if(!res.ok){
+          const body = await res.text();
+          if(res.status === 409 || body.includes('23505')){
+            setErr('f-email', "You're already on the list with that email.");
+            btn.disabled = false; submitLabelEl.textContent = label;
+            return;
+          }
+          throw new Error(body || 'save failed');
         }
-        throw new Error(body || 'save failed');
+
+        form.hidden = true;
+        done.hidden = false;
+        done.querySelector('h3')?.focus?.();
+        wireShareIn(root, REF);
+      }catch(err){
+        if(fErr) fErr.textContent = 'Could not save that. Check your connection and try again.';
+        btn.disabled = false;
+        submitLabelEl.textContent = label;
       }
+    });
+  }
 
-      form.hidden = true;
-      done.hidden = false;
-      done.querySelector('h3').focus?.();
-      done.scrollIntoView({behavior: REDUCED ? 'auto' : 'smooth', block:'center'});
-    }catch(err){
-      fErr.textContent = 'Could not save that. Check your connection and try again.';
-      btn.disabled = false;
-      btn.textContent = label;
-    }
-  });
+  /* ---------- share (copy link + WhatsApp) ---------- */
+  function wireShareIn(root, REF){
+    const shareUrl = () => {
+      const u = new URL(location.href);
+      u.search = '';
+      u.hash = '';
+      if(REF) u.searchParams.set('ref', REF);
+      return u.toString();
+    };
+    const SHARE_TEXT = 'G 868 is coming to Trinidad and Tobago. Put your hand up so it lands sooner: ';
 
-  /* ---------- share ---------- */
-  const shareUrl = () => {
-    const u = new URL(location.href);
-    u.search = '';
-    u.hash = '';
-    if(REF) u.searchParams.set('ref', REF);
-    return u.toString();
-  };
-  const SHARE_TEXT = 'G 868 is coming to Trinidad and Tobago. Add your area so we land there sooner: ';
+    root.querySelector('#copyLink')?.addEventListener('click', async e => {
+      const b = e.currentTarget;
+      try{
+        await navigator.clipboard.writeText(shareUrl());
+        const t = b.textContent; b.textContent = 'Copied';
+        setTimeout(() => { b.textContent = t; }, 1800);
+      }catch{
+        b.textContent = shareUrl();
+      }
+    });
 
-  document.getElementById('copyLink')?.addEventListener('click', async e => {
-    const b = e.currentTarget;
-    try{
-      await navigator.clipboard.writeText(shareUrl());
-      const t = b.textContent; b.textContent = 'Copied';
-      setTimeout(() => { b.textContent = t; }, 1800);
-    }catch{
-      b.textContent = shareUrl();
-    }
-  });
+    const wa = root.querySelector('#waLink');
+    if(wa) wa.href = `https://wa.me/?text=${encodeURIComponent(SHARE_TEXT + shareUrl())}`;
+  }
 
-  const wa = document.getElementById('waLink');
-  if(wa) wa.href = `https://wa.me/?text=${encodeURIComponent(SHARE_TEXT + shareUrl())}`;
+  /* ============================================================
+     7. Magnetic buttons (quickTo-style lerp, no dependency)
+     ============================================================ */
+  if(!REDUCED && matchMedia('(hover:hover) and (pointer:fine)').matches){
+    document.addEventListener('pointerenter', e => {
+      const el = e.target.closest && e.target.closest('.magnetic');
+      if(!el || el.__magnetic) return;
+      el.__magnetic = true;
+      let tx = 0, ty = 0, cx = 0, cy = 0, raf = 0, on = true;
+      const loop = () => {
+        cx += (tx - cx) * .16; cy += (ty - cy) * .16;
+        el.style.translate = `${cx.toFixed(2)}px ${cy.toFixed(2)}px`;
+        if(on || Math.abs(tx - cx) > .1 || Math.abs(ty - cy) > .1){
+          raf = requestAnimationFrame(loop);
+        }else{
+          el.style.translate = '';
+          el.style.willChange = '';
+          el.__magnetic = false;
+        }
+      };
+      el.style.willChange = 'translate';
+      raf = requestAnimationFrame(loop);
+      const move = ev => {
+        const r = el.getBoundingClientRect();
+        tx = (ev.clientX - r.left - r.width / 2) * .18;
+        ty = (ev.clientY - r.top - r.height / 2) * .26;
+      };
+      const leave = () => {
+        on = false; tx = 0; ty = 0;
+        el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerleave', leave);
+      };
+      el.addEventListener('pointermove', move, {passive: true});
+      el.addEventListener('pointerleave', leave, {passive: true});
+    }, true);
+  }
 })();

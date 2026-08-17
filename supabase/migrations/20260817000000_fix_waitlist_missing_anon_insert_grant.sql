@@ -1,0 +1,19 @@
+-- Found 2026-08-17 while live-verifying the g868 waitlist site's real
+-- form submission (apps/g868/app.js POSTs directly to
+-- {SUPABASE_URL}/rest/v1/waitlist with the public anon key). The request
+-- failed with a live 401. Root cause: same recurring pattern as
+-- drivers/orders/order_items/delivery_offers this session -- two RLS
+-- policies already correctly allow public inserts
+-- ("Anyone can insert to waitlist", "waitlist_public_insert",
+-- both with_check:true, roles include anon) but the base table GRANT
+-- for anon never included INSERT (anon only had SELECT). RLS is
+-- evaluated AFTER the base grant check, so the policy never even ran --
+-- meaning the g868 waitlist form (both the old design and the new one,
+-- and apps/qr-landing if it submits to the same table) has likely never
+-- successfully saved a single real submission.
+--
+-- Live-verified through the real deployed site (not a dry run): a real
+-- form submission through the rebuilt apps/g868 UI correctly landed a
+-- row (full_name, email, community, user_type: rider, source: g868).
+-- Test row deleted after.
+GRANT INSERT ON public.waitlist TO anon, authenticated;
