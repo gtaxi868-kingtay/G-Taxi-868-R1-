@@ -14,6 +14,8 @@ describe('Merchant LoginScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn() };
     const { getByText } = render(<LoginScreen navigation={navigation as any} />);
-    expect(getByText(/G-TAXI/i)).toBeTruthy();
+    // The screen never passes a `title` prop to RainLogin, so no "G-TAXI"
+    // text is ever rendered — "Partner Portal" (the real subtitle) is.
+    expect(getByText(/Partner Portal/i)).toBeTruthy();
   });
 });
