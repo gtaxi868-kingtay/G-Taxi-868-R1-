@@ -90,6 +90,47 @@ Deno.serve(async (req: Request) => {
     return serveHtml("Processing", "Payout is being processed...", "info");
   }
 
+  // ── COMMANDER BUY-IN CALLBACK ───────────────────────────────
+  if (orderId.startsWith("commander_buyin_")) {
+    const applicationId = orderId.slice("commander_buyin_".length);
+
+    const { data: app } = await supabaseAdmin
+      .from("commander_applications")
+      .select("id, payment_status")
+      .eq("id", applicationId)
+      .maybeSingle();
+
+    if (!app) {
+      console.error("[WiPay Webhook] Commander application not found for order_id:", orderId);
+      return serveHtml("Error", "Application record not found", "error");
+    }
+
+    if (status === "success" || status === "completed") {
+      // Idempotent: a re-delivered callback on an already-paid application is a no-op.
+      if (app.payment_status !== "paid") {
+        await supabaseAdmin
+          .from("commander_applications")
+          .update({ payment_status: "paid", wipay_transaction_id: txnId || null, paid_at: new Date().toISOString() })
+          .eq("id", app.id);
+      }
+      console.log("[WiPay Webhook] Commander buy-in paid:", { application_id: app.id, transaction_id: txnId });
+      return serveHtml("Payment Successful", "Your commander application is paid and now awaiting admin review.", "success");
+    }
+
+    if (status === "cancelled" || status === "failed" || errorMsg) {
+      await supabaseAdmin
+        .from("commander_applications")
+        .update({ payment_status: "failed" })
+        .eq("id", app.id)
+        .then((__r) => __r, () => {});
+
+      console.error("[WiPay Webhook] Commander buy-in failed:", { application_id: app.id, status, error: errorMsg });
+      return serveHtml("Payment Failed", errorMsg || `Payment status: ${status || "unknown"}. Please try again.`, "error");
+    }
+
+    return serveHtml("Processing", "Payment is being processed...", "info");
+  }
+
   // ── G-ESCAPE CALLBACK ──────────────────────────────────────
   if (orderId.startsWith("gescape-")) {
     const reservationId = orderId.split("-").slice(2).join("-");

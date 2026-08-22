@@ -28,8 +28,9 @@ import { Users as UsersPage } from './pages/Users';
 import { GGarage } from './pages/GGarage';
 import { GSpotVenues } from './pages/GSpotVenues';
 import { GMemory } from './pages/GMemory';
+import { SystemHealth } from './pages/SystemHealth';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain, HeartPulse } from 'lucide-react';
 
 function AdminSecurityGate({ children }: { children: React.ReactNode }) {
     const [gateState, setGateState] = useState<'loading' | 'unauthorized' | 'authorized'>('loading');
@@ -91,7 +92,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
@@ -119,6 +120,7 @@ const TAB_LABELS: Record<AdminView, string> = {
     ggarage: 'G Garage',
     gspot: 'G Spot Venues',
     gmemory: 'G Memory',
+    health: 'System Health',
 };
 
 function App() {
@@ -230,6 +232,7 @@ function App() {
                         <NavItem active={activeTab === 'ggarage'} onClick={() => handleNav('ggarage')} icon={<Wrench size={20}/>} label="G Garage" />
                         <NavItem active={activeTab === 'gspot'} onClick={() => handleNav('gspot')} icon={<Wine size={20}/>} label="G Spot Venues" />
                         <NavItem active={activeTab === 'gmemory'} onClick={() => handleNav('gmemory')} icon={<Brain size={20}/>} label="G Memory" />
+                        <NavItem active={activeTab === 'health'} onClick={() => handleNav('health')} icon={<HeartPulse size={20}/>} label="System Health" />
                     </nav>
 
                     <div className="pt-8 mt-8 border-t" style={{ borderColor: 'var(--glass-border)' }}>
@@ -310,6 +313,7 @@ function App() {
                         {activeTab === 'ggarage' && <GGarage />}
                         {activeTab === 'gspot' && <GSpotVenues />}
                         {activeTab === 'gmemory' && <GMemory />}
+                        {activeTab === 'health' && <SystemHealth />}
                     </div>
                 </main>
 

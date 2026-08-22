@@ -794,6 +794,7 @@ Deno.serve(async (req) => {
             const { data: app, error: appError } = await supabaseAdmin.from('commander_applications').select('*').eq('id', application_id).single()
             if (appError) throw appError
             if (app.status !== 'pending') return json({ error: `Application already ${app.status}` }, 409)
+            if (app.payment_status !== 'paid') return json({ error: 'Application buy-in payment has not cleared yet' }, 409)
             await supabaseAdmin.from('profiles').update({ role: 'pod_commander' }).eq('id', app.user_id)
             const snapshot = { phone: app.phone, whatsapp: app.whatsapp, area: app.area, source_application_id: app.id, approved_at: new Date().toISOString() }
             const { data: commander } = await supabaseAdmin.from('pod_commanders').upsert({ user_id: app.user_id, status: 'active', metrics: snapshot }, { onConflict: 'user_id' }).select().single()
