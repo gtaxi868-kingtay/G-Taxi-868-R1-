@@ -21,6 +21,6 @@ describe('LegalScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: {}, key: 'test', name: 'Legal' as const };
     const { getByText } = render(<LegalScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/LEGAL PROTOCOL/i)).toBeTruthy();
+    expect(getByText(/LEGAL & PRIVACY PROTOCOL/i)).toBeTruthy();
   });
 });

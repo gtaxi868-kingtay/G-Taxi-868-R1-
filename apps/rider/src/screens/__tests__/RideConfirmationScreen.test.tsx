@@ -2,7 +2,30 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { RideConfirmationScreen } from '../RideConfirmationScreen';
 
-jest.mock('@gtaxi/core', () => ({ supabase: { channel: () => ({ on: () => ({ subscribe: jest.fn() }) }), from: () => ({ select: () => ({ eq: () => ({ single: jest.fn(), maybeSingle: jest.fn() }), order: () => ({ limit: () => ({ data: null }) }) }) }), functions: { invoke: jest.fn().mockResolvedValue({ data: { success: true, data: {} } }) }, auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test' } } }) }, storage: { from: () => ({ upload: jest.fn(), getPublicUrl: () => ({ data: { publicUrl: '' } }) }) } }, initializeSupabaseClient: () => ({ supabase: { auth: { getUser: jest.fn() } }, getSupabase: jest.fn() }), ENV: { MAPBOX_PUBLIC_TOKEN: '' } }));
+jest.mock('@gtaxi/core', () => {
+  // RideConfirmationScreen reads `supabase` from initializeSupabaseClient('native')'s
+  // return value, not the module's top-level `supabase` export — the previous
+  // version of this mock gave that call a separate, incomplete stub object
+  // (only `.auth.getUser`), so `supabase.from(...)` failed with "not a function"
+  // even though the mock above it looked complete. Same object, both places.
+  const mockSupabase = {
+    channel: () => ({ on: () => ({ subscribe: jest.fn() }) }),
+    from: () => ({
+      select: () => ({
+        eq: () => ({ single: jest.fn(), maybeSingle: jest.fn() }),
+        order: () => Promise.resolve({ data: null }),
+      }),
+    }),
+    functions: { invoke: jest.fn().mockResolvedValue({ data: { success: true, data: {} } }) },
+    auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test' } } }) },
+    storage: { from: () => ({ upload: jest.fn(), getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
+  };
+  return {
+    supabase: mockSupabase,
+    initializeSupabaseClient: () => ({ supabase: mockSupabase, getSupabase: jest.fn(() => mockSupabase) }),
+    ENV: { MAPBOX_PUBLIC_TOKEN: '' },
+  };
+});
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('expo-haptics', () => ({ impactAsync: jest.fn(), notificationAsync: jest.fn(), ImpactFeedbackStyle: { Light: 'Light', Medium: 'Medium', Heavy: 'Heavy' }, NotificationFeedbackType: { Success: 'Success', Warning: 'Warning' } }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));

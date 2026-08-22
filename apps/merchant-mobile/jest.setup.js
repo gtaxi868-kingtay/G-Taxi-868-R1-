@@ -126,8 +126,26 @@ jest.mock('expo-constants', () => {
 // ---- Mock design-system packages to avoid native component resolution ----
 jest.mock('@gtaxi/design-system-native', () => {
   const React = require('react');
-  const { View, Text } = require('react-native');
+  const { View, Text, TextInput, Pressable } = require('react-native');
   return {
+    // Missing before — same bug independently present in rider's jest.setup.js:
+    // real CrystalInput/CrystalButton/RainLogin exist and work, this mock's
+    // shape just predates them, so every screen using them rendered undefined.
+    CrystalInput: (props) => React.createElement(TextInput, {
+      testID: props.testID, placeholder: props.placeholder, value: props.value,
+      onChangeText: props.onChangeText, secureTextEntry: props.secureTextEntry,
+      keyboardType: props.keyboardType,
+    }),
+    CrystalButton: (props) => React.createElement(
+      Pressable, { onPress: props.onPress, disabled: props.disabled || props.loading, testID: props.testID },
+      React.createElement(Text, null, props.title)
+    ),
+    RainLogin: ({ title, subtitle, children, footer }) => React.createElement(
+      View, null,
+      title ? React.createElement(Text, null, title) : null,
+      subtitle ? React.createElement(Text, null, subtitle) : null,
+      children, footer,
+    ),
     VOICES: {
       rider: {
         bg: '#050505', surface: 'rgba(255,255,255,0.04)', text: '#FFFFFF',

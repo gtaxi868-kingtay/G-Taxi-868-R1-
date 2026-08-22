@@ -368,7 +368,7 @@ jest.mock('@stripe/stripe-react-native', () => {
 // ---- design-system /native subpath (slash) — screens import LiquidGlass from here ----
 jest.mock('@gtaxi/design-system/native', () => {
   const React = require('react');
-  const { View, Text } = require('react-native');
+  const { View, Text, TextInput, Pressable } = require('react-native');
   const Pass = ({ children }) => React.createElement(View, null, children);
   return {
     LiquidGlass: Pass,
@@ -381,6 +381,26 @@ jest.mock('@gtaxi/design-system/native', () => {
     InfoChip: Pass,
     StatusBadge: Pass,
     Txt: ({ children }) => React.createElement(Text, null, children),
+    // CrystalInput/CrystalButton/RainLogin were missing from this mock, which
+    // is why LoginScreen/LegalScreen/RideConfirmationScreen's tests failed
+    // with "Element type is invalid: ...got: undefined" — the real components
+    // exist and work fine (verified by direct import), Jest just substitutes
+    // this mock for the whole module and this mock never had them.
+    CrystalInput: (props) => React.createElement(TextInput, {
+      testID: props.testID, placeholder: props.placeholder, value: props.value,
+      onChangeText: props.onChangeText, secureTextEntry: props.secureTextEntry,
+      keyboardType: props.keyboardType,
+    }),
+    CrystalButton: (props) => React.createElement(
+      Pressable, { onPress: props.onPress, disabled: props.disabled || props.loading, testID: props.testID },
+      React.createElement(Text, null, props.title)
+    ),
+    RainLogin: ({ title, subtitle, children, footer }) => React.createElement(
+      View, null,
+      title ? React.createElement(Text, null, title) : null,
+      subtitle ? React.createElement(Text, null, subtitle) : null,
+      children, footer,
+    ),
     VOICES: { rider: { accent: '#00FFFF' }, driver: { accent: '#00FFFF' }, admin: {}, merchant: {} },
     SURFACE: { base: '#050505', containerLow: '#0A0A0A', containerHigh: '#1A1A1A', containerHighest: '#2A2A2A' },
     ANIMATION: { spring: { damping: 18, stiffness: 150, mass: 1 } },

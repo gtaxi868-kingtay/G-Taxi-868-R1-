@@ -14,6 +14,8 @@ const mockNavigation = { navigate: jest.fn() } as any;
 describe('Admin LoginScreen', () => {
   it('renders without crashing', () => {
     const { getByText } = render(<LoginScreen navigation={mockNavigation} />);
-    expect(getByText(/Admin/i)).toBeTruthy();
+    // "Admin" never appears as rendered text — title is "G-TAXI 868",
+    // subtitle is "Command Terminal". Check the real subtitle instead.
+    expect(getByText(/Command Terminal/i)).toBeTruthy();
   });
 });
