@@ -25,6 +25,11 @@ a:hover{color:#fff}
 input,select,button{font-family:inherit}
 input::placeholder{color:rgba(255,255,255,0.3)}
 select option{background:#12082a;color:#fff}
+#open-waitlist-top,#open-waitlist,.nav-item,#panel-close,#wl-submit,.nav-arrow{transition:transform 160ms cubic-bezier(0.23,1,0.32,1)}
+#open-waitlist-top:active,#open-waitlist:active,.nav-item:active,#panel-close:active,#wl-submit:active,.nav-arrow:active{transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
 @keyframes floatUpImg{
   0%{transform:translateY(0) translateX(0) rotate(0deg);opacity:0}
   10%{opacity:.45}90%{opacity:.45}
