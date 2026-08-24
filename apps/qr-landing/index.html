@@ -54,6 +54,7 @@ select option{background:#12082a;color:#fff}
   .pins-container,.pins-container-bg{overflow:hidden}
   .header{padding:1rem 5%!important}
   .nav{display:none!important}
+  #mobile-nav-toggle{display:flex!important}
   #open-waitlist-top{padding:.7rem 1.15rem!important;font-size:.74rem!important}
   .hero{height:auto!important;min-height:100vh!important;min-height:100dvh!important;padding:5.5rem 6% 3rem!important;align-items:flex-start!important}
   .hero-content{flex-direction:column!important;height:auto!important;gap:2.25rem}
@@ -70,11 +71,11 @@ select option{background:#12082a;color:#fff}
   .role-carousel .card img{width:40px!important}
   .scrim{display:none!important}
   /* icon sits behind the copy once stacked — dim it and scrim the text band instead */
-  .hero-center{opacity:.34!important}
+  .hero-center{opacity:.14!important}
   .hero-left,.hero-right{position:relative;z-index:130}
   /* keep the 868 shells as ambient scale, not obstruction */
   .pins-container,.pins-container-bg{transform:scale(.52)!important;opacity:.5}
-  .pin-stage{position:absolute!important;top:34%!important;width:88vw!important;height:44vh!important}
+  .pin-stage{position:absolute!important;top:46%!important;left:50%!important;width:62vw!important;height:32vh!important}
   #pin-3d{width:min(78vw,340px)!important}
   #arrival-preview{left:10px!important;bottom:10px!important}
   #panel-layer{padding:4.5rem 4% 1.25rem!important;align-items:flex-start!important}
@@ -100,8 +101,16 @@ select option{background:#12082a;color:#fff}
     <a href="#" class="nav-item" data-panel="split" style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,0.7);font-size:.82rem;font-weight:500;padding:.5rem 1.15rem;border-radius:100px;transition:all .3s ease" style-hover="background:#22d3ee;color:#04030a">The Split</a>
     <a href="#" class="nav-item" data-panel="escape" style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,0.7);font-size:.82rem;font-weight:500;padding:.5rem 1.15rem;border-radius:100px;transition:all .3s ease" style-hover="background:#22d3ee;color:#04030a">G Escape</a>
   </nav>
+  <button id="mobile-nav-toggle" aria-label="Menu" style="display:none;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:50%;width:38px;height:38px;align-items:center;justify-content:center;color:#fff;font-size:1.1rem;cursor:pointer;flex-shrink:0">☰</button>
   <button id="open-waitlist-top" style="background:rgba(0,0,0,0.5);color:#fff;border:none;padding:.9rem 1.9rem;border-radius:100px;font-weight:600;font-size:.82rem;cursor:pointer;transition:all .3s ease" style-hover="background:rgba(0,0,0,0.75);transform:translateY(-2px)">Join the waitlist</button>
 </header>
+<div id="mobile-nav-panel" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(4,3,10,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:400;padding:6rem 6% 2rem;flex-direction:column;gap:.5rem">
+  <a href="#" class="nav-item" data-panel="home" style="font-family:'Manrope',sans-serif;color:#fff;font-size:1.05rem;font-weight:600;padding:1rem 1.25rem;border-radius:14px;background:rgba(255,255,255,0.06)">Home</a>
+  <a href="#" class="nav-item" data-panel="tap" style="font-family:'Manrope',sans-serif;color:#fff;font-size:1.05rem;font-weight:600;padding:1rem 1.25rem;border-radius:14px;background:rgba(255,255,255,0.06)">G Touch</a>
+  <a href="#" class="nav-item" data-panel="ladder" style="font-family:'Manrope',sans-serif;color:#fff;font-size:1.05rem;font-weight:600;padding:1rem 1.25rem;border-radius:14px;background:rgba(255,255,255,0.06)">G Membership</a>
+  <a href="#" class="nav-item" data-panel="split" style="font-family:'Manrope',sans-serif;color:#fff;font-size:1.05rem;font-weight:600;padding:1rem 1.25rem;border-radius:14px;background:rgba(255,255,255,0.06)">The Split</a>
+  <a href="#" class="nav-item" data-panel="escape" style="font-family:'Manrope',sans-serif;color:#fff;font-size:1.05rem;font-weight:600;padding:1rem 1.25rem;border-radius:14px;background:rgba(255,255,255,0.06)">G Escape</a>
+</div>
 
 <main class="hero" style="height:100vh;display:flex;align-items:center;justify-content:center;padding:5rem 4% 0">
   <div class="hero-content" style="display:flex;justify-content:space-between;align-items:stretch;width:100%;height:100%;position:relative">
@@ -802,8 +811,22 @@ class Component extends DCLogic {
         item.style.color = '#04030a';
         const key = item.dataset.panel;
         if (key === 'home') closePanel(); else openPanel(key);
+        const mobilePanel = root.getElementById('mobile-nav-panel');
+        if (mobilePanel) mobilePanel.style.display = 'none';
       });
     });
+
+    const mobileNavToggle = root.getElementById('mobile-nav-toggle');
+    const mobileNavPanel = root.getElementById('mobile-nav-panel');
+    if (mobileNavToggle && mobileNavPanel) {
+      mobileNavToggle.addEventListener('click', () => {
+        const isOpen = mobileNavPanel.style.display === 'flex';
+        mobileNavPanel.style.display = isOpen ? 'none' : 'flex';
+      });
+      mobileNavPanel.addEventListener('click', (e) => {
+        if (e.target === mobileNavPanel) mobileNavPanel.style.display = 'none';
+      });
+    }
 
     // ---- Role switch (soda flavor-switch choreography) -----------
     const setActive = (card) => {
