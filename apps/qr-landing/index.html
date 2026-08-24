@@ -853,8 +853,12 @@ class Component extends DCLogic {
     const switchRole = (card) => {
       if (isSwitching) return;
       isSwitching = true;
+      setTimeout(() => { isSwitching = false; }, 3000);
       const theme = card.dataset.theme;
       const target = THEMES[theme] || THEMES.violet;
+
+      if (roleLine) roleLine.textContent = ROLE_LINES[card.dataset.role];
+      if (this.syncCta) this.syncCta(card.dataset.role);
 
       gsap.to(document.body, {
         '--bg-inner': target.inner, '--bg-mid': target.mid, '--bg-outer': target.outer,
@@ -867,8 +871,6 @@ class Component extends DCLogic {
         onUpdate: () => { switchSpin = spinObj.val; pin.style.filter = `blur(${spinObj.blur}px) drop-shadow(0 40px 70px rgba(0,0,0,.7))`; },
         onComplete: () => {
           pin.style.filter = `blur(${spinObj.blur}px) drop-shadow(0 40px 70px rgba(0,0,0,.7)) drop-shadow(0 0 60px ${target.glow}.45))`;
-          if (roleLine) roleLine.textContent = ROLE_LINES[card.dataset.role];
-          if (this.syncCta) this.syncCta(card.dataset.role);
           gsap.to(spinObj, {
             val: 720, blur: 0, duration: 1.5, ease: 'back.out(0.7)',
             onUpdate: () => { switchSpin = spinObj.val; pin.style.filter = `blur(${spinObj.blur}px) drop-shadow(0 40px 70px rgba(0,0,0,.7))`; },
