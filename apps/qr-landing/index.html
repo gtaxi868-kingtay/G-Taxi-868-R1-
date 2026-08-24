@@ -56,13 +56,12 @@ select option{background:#12082a;color:#fff}
 @media (max-width:760px){
   html{overflow-x:hidden}
   body{overflow-y:auto;overflow-x:hidden;height:auto;min-height:100vh;min-height:100dvh}
-  .pins-container,.pins-container-bg{overflow:hidden}
   .header{padding:1rem 5%!important}
   .nav{display:none!important}
   #mobile-nav-toggle{display:flex!important}
   #open-waitlist-top{padding:.7rem 1.15rem!important;font-size:.74rem!important}
   .hero{height:auto!important;min-height:100vh!important;min-height:100dvh!important;padding:5.5rem 6% 3rem!important;align-items:flex-start!important}
-  .hero-content{flex-direction:column!important;height:auto!important;gap:2.25rem}
+  .hero-content{flex-direction:column!important;height:auto!important;gap:2.25rem;overflow:hidden}
   .hero-left,.hero-right{height:auto!important;max-width:100%!important;width:100%!important;padding:0!important}
   .hero-right{align-items:flex-start!important;text-align:left!important;justify-content:flex-start!important;gap:1.75rem}
   .main-title{font-size:clamp(3rem,15vw,4.4rem)!important;line-height:.9!important}
@@ -73,7 +72,7 @@ select option{background:#12082a;color:#fff}
   #role-line{max-width:none!important}
   .role-carousel .card{flex-direction:row-reverse!important;justify-content:flex-start!important;text-align:left!important;gap:.75rem!important;padding:.6rem .9rem!important;min-height:56px}
   .role-carousel .card>div{align-items:flex-start!important}
-  .role-carousel .card img{width:40px!important}
+  .role-carousel .card img{width:40px!important;flex-grow:0!important;flex-shrink:0!important}
   .scrim{display:none!important}
   /* icon sits behind the copy once stacked — dim it and scrim the text band instead */
   .hero-center{opacity:.14!important}
@@ -298,7 +297,7 @@ select option{background:#12082a;color:#fff}
 </div>
 
 <div id="panel-layer" style="position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:6rem 4% 3rem;background:rgba(4,3,10,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)">
-  <div id="panel-card" style="width:100%;max-width:960px;max-height:100%;overflow:auto;padding:clamp(1.75rem,3.5vw,3rem);border-radius:32px;background:linear-gradient(150deg,rgba(124,58,237,.22),rgba(4,3,10,.7) 60%,rgba(34,211,238,.14));border:1px solid rgba(255,255,255,.16);box-shadow:0 40px 120px rgba(0,0,0,.6);position:relative">
+  <div id="panel-card" style="width:100%;max-width:960px;max-height:100%;overflow:auto;padding:clamp(1.75rem,3.5vw,3rem);border-radius:32px;background:linear-gradient(150deg,rgba(124,58,237,.26),rgba(24,16,44,.94) 60%,rgba(34,211,238,.16));border:1px solid rgba(255,255,255,.22);box-shadow:0 20px 60px rgba(0,0,0,.5);position:relative">
     <button id="panel-close" style="position:absolute;top:1.1rem;right:1.1rem;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1" style-hover="background:rgba(255,255,255,.18)">✕</button>
     <div id="panel-body"></div>
   </div>
