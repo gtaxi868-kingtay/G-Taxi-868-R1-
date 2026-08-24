@@ -62,25 +62,27 @@ select option{background:#12082a;color:#fff}
   #open-waitlist-top{padding:.7rem 1.15rem!important;font-size:.74rem!important}
   .hero{height:auto!important;min-height:100vh!important;min-height:100dvh!important;padding:5.5rem 6% 3rem!important;align-items:flex-start!important}
   .hero-content{flex-direction:column!important;height:auto!important;gap:2.25rem;overflow:hidden}
-  .hero-left,.hero-right{height:auto!important;max-width:100%!important;width:100%!important;padding:0!important}
-  .hero-right{align-items:flex-start!important;text-align:left!important;justify-content:flex-start!important;gap:1.75rem}
-  .main-title{font-size:clamp(3rem,15vw,4.4rem)!important;line-height:.9!important}
-  .side-title{font-size:clamp(2.4rem,12vw,3.6rem)!important;align-self:flex-start!important;text-align:left!important}
-  .description{font-size:1rem!important;max-width:none!important}
-  .award-badge{margin-top:1rem!important}
-  .role-carousel,.carousel-cards{align-items:stretch!important;max-width:none!important;width:100%!important}
+  .hero-left,.hero-right{height:auto!important;max-width:100%!important;width:100%!important;padding:0!important;display:contents!important}
+  /* hero-left/hero-right no longer generate their own box on mobile — their
+     children become direct siblings under .hero-content and are reordered
+     here into one stack: headline, hero image, role tabs, then the CTAs. */
+  .main-title{font-size:clamp(3rem,15vw,4.4rem)!important;line-height:.9!important;order:1;position:relative;z-index:130}
+  .description{font-size:1rem!important;max-width:none!important;order:2;position:relative;z-index:130}
+  .hero-center{order:3;position:relative!important;opacity:1!important;width:100%!important;height:min(78vw,360px)!important;top:auto!important;left:auto!important;animation:none!important;z-index:50;margin:.25rem 0}
+  .pin-stage{position:absolute!important;top:50%!important;left:50%!important;width:78vw!important;height:100%!important}
+  #pin-3d{width:min(78vw,340px)!important}
+  .role-carousel{order:4;position:relative;z-index:130;align-items:stretch!important;max-width:none!important;width:100%!important;text-align:left!important}
+  .cta-group{order:5;position:relative;z-index:130}
+  .award-badge{order:6;position:relative;z-index:130;margin-top:0!important}
+  .side-title{font-size:clamp(2.4rem,12vw,3.6rem)!important;align-self:flex-start!important;text-align:left!important;order:7;position:relative;z-index:130}
+  .carousel-cards{align-items:stretch!important;max-width:none!important;width:100%!important}
   #role-line{max-width:none!important}
   .role-carousel .card{flex-direction:row-reverse!important;justify-content:flex-start!important;text-align:left!important;gap:.75rem!important;padding:.6rem .9rem!important;min-height:56px}
   .role-carousel .card>div{align-items:flex-start!important}
   .role-carousel .card img{width:40px!important;flex-grow:0!important;flex-shrink:0!important}
   .scrim{display:none!important}
-  /* icon sits behind the copy once stacked — dim it and scrim the text band instead */
-  .hero-center{opacity:.14!important}
-  .hero-left,.hero-right{position:relative;z-index:130}
   /* keep the 868 shells as ambient scale, not obstruction */
   .pins-container,.pins-container-bg{transform:scale(.52)!important;opacity:.5}
-  .pin-stage{position:absolute!important;top:46%!important;left:50%!important;width:62vw!important;height:32vh!important}
-  #pin-3d{width:min(78vw,340px)!important}
   #arrival-preview{left:10px!important;bottom:10px!important}
   #panel-layer{padding:4.5rem 4% 1.25rem!important;align-items:flex-start!important}
   #panel-card{border-radius:22px!important;padding:1.4rem 1.15rem!important}
