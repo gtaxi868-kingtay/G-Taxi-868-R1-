@@ -68,18 +68,19 @@ select option{background:#12082a;color:#fff}
      here into one stack: headline, hero image, role tabs, then the CTAs. */
   .main-title{font-size:clamp(3rem,15vw,4.4rem)!important;line-height:.9!important;order:1;position:relative;z-index:130}
   .description{font-size:1rem!important;max-width:none!important;order:2;position:relative;z-index:130}
-  .hero-center{order:3;position:relative!important;opacity:1!important;width:100%!important;height:min(78vw,360px)!important;top:auto!important;left:auto!important;animation:none!important;z-index:50;margin:.25rem 0}
-  .pin-stage{position:absolute!important;top:50%!important;left:50%!important;width:78vw!important;height:100%!important}
-  #pin-3d{width:min(78vw,340px)!important}
-  .role-carousel{order:4;position:relative;z-index:130;align-items:stretch!important;max-width:none!important;width:100%!important;text-align:left!important}
+  .hero-center{order:3;position:relative!important;opacity:1!important;width:100%!important;height:min(calc(156vw + 30px),750px)!important;top:auto!important;left:auto!important;animation:none!important;z-index:50;margin:.25rem 0 0;overflow:visible}
+  .pin-stage{position:absolute!important;top:50%!important;left:50%!important;width:156vw!important;height:100%!important}
+  #pin-3d{width:min(calc(156vw + 30px),710px)!important}
+  .role-carousel{order:4;position:relative;z-index:130;align-items:stretch!important;max-width:none!important;width:100%!important;text-align:left!important;margin-top:-.75rem}
   .cta-group{order:5;position:relative;z-index:130}
+  #open-waitlist{width:100%!important;justify-content:space-between!important}
   .award-badge{order:6;position:relative;z-index:130;margin-top:0!important}
   .side-title{font-size:clamp(2.4rem,12vw,3.6rem)!important;align-self:flex-start!important;text-align:left!important;order:7;position:relative;z-index:130}
-  .carousel-cards{align-items:stretch!important;max-width:none!important;width:100%!important}
+  .carousel-cards{display:grid!important;grid-template-columns:1fr 1fr!important;gap:.6rem!important;max-width:none!important;width:100%!important}
   #role-line{max-width:none!important}
-  .role-carousel .card{flex-direction:row-reverse!important;justify-content:flex-start!important;text-align:left!important;gap:.75rem!important;padding:.6rem .9rem!important;min-height:56px}
+  .role-carousel .card{flex-direction:column!important;align-items:flex-start!important;justify-content:flex-start!important;text-align:left!important;gap:.5rem!important;padding:.85rem .9rem!important;min-height:56px}
   .role-carousel .card>div{align-items:flex-start!important}
-  .role-carousel .card img{width:40px!important;flex-grow:0!important;flex-shrink:0!important}
+  .role-carousel .card img{width:32px!important;flex-grow:0!important;flex-shrink:0!important}
   .scrim{display:none!important}
   /* keep the 868 shells as ambient scale, not obstruction */
   .pins-container,.pins-container-bg{transform:scale(.52)!important;opacity:.5}
@@ -155,7 +156,7 @@ select option{background:#12082a;color:#fff}
         It starts with one ride.&nbsp;<br>Own the way you Move be a G.<br><br></p>
       <div class="cta-group">
         <button id="open-waitlist" class="primary-btn" style="display: flex; align-items: center; gap: 1.5rem; background: rgba(0,0,0,0.5); color: #fff; border: none; padding: .4rem .4rem .4rem 1.5rem; border-radius: 100px; font-weight: 700; cursor: pointer; width: fit-content; transition: all .3s ease; position: relative" style-hover="background:rgba(0,0,0,0.75);transform:translateY(-3px)">
-          Put your hand up
+          Let G know where you are
           <span class="plus-icon" style="background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:1.3rem;font-weight:900;line-height:1;padding-bottom:2px">+</span>
         </button>
       </div>
