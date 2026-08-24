@@ -56,13 +56,12 @@ select option{background:#12082a;color:#fff}
 @media (max-width:760px){
   html{overflow-x:hidden}
   body{overflow-y:auto;overflow-x:hidden;height:auto;min-height:100vh;min-height:100dvh}
-  .pins-container,.pins-container-bg{overflow:hidden}
   .header{padding:1rem 5%!important}
   .nav{display:none!important}
   #mobile-nav-toggle{display:flex!important}
   #open-waitlist-top{padding:.7rem 1.15rem!important;font-size:.74rem!important}
   .hero{height:auto!important;min-height:100vh!important;min-height:100dvh!important;padding:5.5rem 6% 3rem!important;align-items:flex-start!important}
-  .hero-content{flex-direction:column!important;height:auto!important;gap:2.25rem}
+  .hero-content{flex-direction:column!important;height:auto!important;gap:2.25rem;overflow:hidden}
   .hero-left,.hero-right{height:auto!important;max-width:100%!important;width:100%!important;padding:0!important}
   .hero-right{align-items:flex-start!important;text-align:left!important;justify-content:flex-start!important;gap:1.75rem}
   .main-title{font-size:clamp(3rem,15vw,4.4rem)!important;line-height:.9!important}
@@ -73,7 +72,7 @@ select option{background:#12082a;color:#fff}
   #role-line{max-width:none!important}
   .role-carousel .card{flex-direction:row-reverse!important;justify-content:flex-start!important;text-align:left!important;gap:.75rem!important;padding:.6rem .9rem!important;min-height:56px}
   .role-carousel .card>div{align-items:flex-start!important}
-  .role-carousel .card img{width:40px!important}
+  .role-carousel .card img{width:40px!important;flex-grow:0!important;flex-shrink:0!important}
   .scrim{display:none!important}
   /* icon sits behind the copy once stacked — dim it and scrim the text band instead */
   .hero-center{opacity:.14!important}
