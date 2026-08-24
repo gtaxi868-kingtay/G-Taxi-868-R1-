@@ -15,7 +15,7 @@ html,body{height:100%}
 body{
   --bg-inner:#3b0f6e;--bg-mid:#14062c;--bg-outer:#04030a;
   background:radial-gradient(circle at center,var(--bg-inner) 0%,var(--bg-mid) 50%,var(--bg-outer) 100%);
-  color:#fff;font-family:'Inter',sans-serif;overflow:hidden;height:100vh;
+  color:#fff;font-family:'Inter',sans-serif;overflow:hidden;height:100vh;height:100dvh;
   transition:background 1.2s cubic-bezier(0.4,0,0.2,1);
   -webkit-font-smoothing:antialiased;
 }
@@ -50,12 +50,12 @@ select option{background:#12082a;color:#fff}
 /* ---- Mobile / QR traffic ---- */
 @media (max-width:760px){
   html{overflow-x:hidden}
-  body{overflow-y:auto;overflow-x:hidden;height:auto;min-height:100vh}
+  body{overflow-y:auto;overflow-x:hidden;height:auto;min-height:100vh;min-height:100dvh}
   .pins-container,.pins-container-bg{overflow:hidden}
   .header{padding:1rem 5%!important}
   .nav{display:none!important}
   #open-waitlist-top{padding:.7rem 1.15rem!important;font-size:.74rem!important}
-  .hero{height:auto!important;min-height:100vh!important;padding:5.5rem 6% 3rem!important;align-items:flex-start!important}
+  .hero{height:auto!important;min-height:100vh!important;min-height:100dvh!important;padding:5.5rem 6% 3rem!important;align-items:flex-start!important}
   .hero-content{flex-direction:column!important;height:auto!important;gap:2.25rem}
   .hero-left,.hero-right{height:auto!important;max-width:100%!important;width:100%!important;padding:0!important}
   .hero-right{align-items:flex-start!important;text-align:left!important;justify-content:flex-start!important;gap:1.75rem}
