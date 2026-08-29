@@ -215,21 +215,36 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
         const nextStep = STEPS[currentIdx + 1].key;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        if (nextStep === 'delivered') {
-            await captureProofAndConfirm();
+        setIsUpdating(true);
+
+        const { data, error } = await supabase.functions.invoke('process_stop_arrival', {
+            body: { delivery_id: orderId },
+        });
+
+        if (error || !data?.success) {
+            Alert.alert('Error', data?.error || error?.message || 'Failed to advance delivery');
+            setIsUpdating(false);
             return;
         }
 
-        setIsUpdating(true);
-        // 'out_for_delivery' (not 'in_delivery') — it is the status the payout
-        // RPC accepts as a valid pre-delivery state.
-        await supabase
-            .from('orders')
-            .update({ delivery_status: STATUS_MAP[nextStep], status: 'out_for_delivery' })
-            .eq('id', orderId);
-
-        setStep(nextStep);
+        const reverse: Record<string, DeliveryStep> = {
+            driver_assigned: 'en_route_pickup',
+            driver_picked_up: 'picked_up',
+            driver_en_route: 'en_route_dropoff',
+            delivered: 'delivered',
+        };
+        const newStep = reverse[data.current_status] || step;
+        setStep(newStep);
         setIsUpdating(false);
+
+        if (data.is_delivered) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert(
+                'Delivery Complete!',
+                'Great work. Your earnings have been added to your wallet.',
+                [{ text: 'Done', onPress: () => navigation.replace('Dashboard') }]
+            );
+        }
     };
 
     const callPhone = (phone: string | null | undefined) => {

@@ -540,6 +540,42 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                     </TouchableOpacity>
                 </LinearGradient>
 
+                <TouchableOpacity
+                    style={s.cashCard}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate('CashWithdrawal');
+                    }}
+                    activeOpacity={0.75}
+                >
+                    <View style={[s.txIcon, { backgroundColor: 'rgba(29, 224, 230, 0.1)' }]}>
+                        <Ionicons name="cash-outline" size={20} color="#1DE0E6" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>Cash Withdrawal</Text>
+                        <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2}}>Cardless cash via Republic Bank SMS</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[s.cashCard, { marginTop: 0 }]}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate('RedeemCashCode');
+                    }}
+                    activeOpacity={0.75}
+                >
+                    <View style={[s.txIcon, { backgroundColor: 'rgba(251, 191, 36, 0.1)' }]}>
+                        <Ionicons name="key-outline" size={20} color="#FBBF24" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>Redeem Cash Code</Text>
+                        <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2}}>Enter a code from a rider to receive cash</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
+                </TouchableOpacity>
+
                 <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 12 }}>
                     TRANSACTION HISTORY
                 </Text>
@@ -800,5 +836,12 @@ const s = StyleSheet.create({
     infoDivider: {
         height: 1, backgroundColor: 'rgba(255,255,255,0.05)',
         marginHorizontal: 16,
+    },
+    cashCard: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: SURFACE.containerLow,
+        paddingHorizontal: 16, paddingVertical: 14,
+        borderRadius: 20, marginBottom: 20,
+        ...ghostBorder(0.15),
     },
 });

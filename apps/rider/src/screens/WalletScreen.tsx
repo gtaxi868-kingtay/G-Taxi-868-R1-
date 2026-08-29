@@ -231,6 +231,10 @@ export function WalletScreen({ navigation }: any) {
                                 <View style={s.actionIcon}><Ionicons name="list" size={22} color="rgba(255,255,255,0.6)" /></View>
                                 <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>HISTORY</Txt>
                             </TouchableOpacity>
+                            <TouchableOpacity style={s.actionBtn} accessibilityLabel="Cash withdrawal" accessibilityRole="button" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('CashWithdrawal'); }}>
+                                <View style={s.actionIcon}><Ionicons name="cash-outline" size={22} color="rgba(255,255,255,0.6)" /></View>
+                                <Txt variant="caption" weight="heavy" color="rgba(255,255,255,0.6)" style={{ marginTop: 12 }}>WITHDRAW</Txt>
+                            </TouchableOpacity>
                         </View>
 
                         <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 16 }}>RECENT ACTIVITY</Txt>

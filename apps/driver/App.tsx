@@ -40,6 +40,8 @@ import { CommanderDashboardScreen } from './src/screens/CommanderDashboardScreen
 import { CommanderConsoleScreen } from './src/screens/CommanderConsoleScreen';
 import { CommanderRegisterNodeScreen } from './src/screens/CommanderRegisterNodeScreen';
 import { BecomeCommanderScreen } from './src/screens/BecomeCommanderScreen';
+import { CashWithdrawalScreen } from './src/screens/CashWithdrawalScreen';
+import { RedeemCashCodeScreen } from './src/screens/RedeemCashCodeScreen';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { DriverActiveRideRestorationHandler } from './src/components/DriverActiveRideRestorationHandler';
@@ -194,6 +196,8 @@ function AppNavigator() {
             <AppStack.Screen name="CommanderConsole" component={CommanderConsoleScreen} />
             <AppStack.Screen name="CommanderRegisterNode" component={CommanderRegisterNodeScreen} />
             <AppStack.Screen name="BecomeCommander" component={BecomeCommanderScreen} />
+            <AppStack.Screen name="CashWithdrawal" component={CashWithdrawalScreen} />
+            <AppStack.Screen name="RedeemCashCode" component={RedeemCashCodeScreen} />
         </AppStack.Navigator>
         </>);
 }

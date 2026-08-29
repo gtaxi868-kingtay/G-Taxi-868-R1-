@@ -206,6 +206,7 @@ export type AppStackParamList = {
   PassportSubmission: { participantId: string };
   Carnival: undefined;
   Events: undefined;
+  CashWithdrawal: undefined;
 };
 
 export type RootStackParamList = AppStackParamList;

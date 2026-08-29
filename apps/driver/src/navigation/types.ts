@@ -42,6 +42,8 @@ export type AppStackParamList = {
   CommanderConsole: undefined;
   CommanderRegisterNode: undefined;
   BecomeCommander: undefined;
+  CashWithdrawal: undefined;
+  RedeemCashCode: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;
