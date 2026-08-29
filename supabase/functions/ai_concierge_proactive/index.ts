@@ -110,22 +110,21 @@ serve(async (req) => {
       `;
     }
 
-    const response = await aiFetch("https://api.groq.com/openai/v1/chat/completions", {
+    const JARVIS_SERVICE_URL = Deno.env.get("JARVIS_SERVICE_URL") ?? "http://host.docker.internal:8000/concierge";
+    
+    // Call the AGY Python Microservice
+    const response = await aiFetch(JARVIS_SERVICE_URL, {
       method: "POST",
-      headers: { 
-        "Authorization": `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json" 
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 50,
-        temperature: 0.7
+        user_id: user.id,
+        user_name: riderName,
+        context: prompt
       })
     });
 
-    const groqData = await response.json();
-    let suggestion = groqData.choices?.[0]?.message?.content?.trim();
+    const agyData = await response.json();
+    let suggestion = agyData.suggestion?.trim();
 
     if (!suggestion) {
       const timeBlock = hour >= 6 && hour < 11 ? 'morning' :
