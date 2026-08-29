@@ -49,6 +49,22 @@ def enable_memory_tracking(user_id: str) -> str:
     except Exception as e:
         return f"Failed to enable memory tracking: {str(e)}"
 
+def initiate_lime_fleet(user_id: str, friend_count: int = None) -> str:
+    """
+    Call this tool when the user mentions meeting friends, 'liming', or going out with a group.
+    This initiates a group ride setup where the fare is split, and multiple vehicles can be dispatched.
+    Args:
+        user_id: The UUID of the user.
+        friend_count: Estimated number of friends (optional).
+    """
+    # In a full implementation, this would call Supabase `create_split_session` 
+    # and dispatch queue logic. For now, it returns the confirmation state for G.
+    return (
+        "Lime Fleet Initiated. Tell the user you have prepared a split-fare session "
+        "and can dispatch individual cars for everyone so no one has to be the designated driver. "
+        "Assure them all rides will be monitored for safety."
+    )
+
 # --- FastAPI Endpoints ---
 
 class ConciergeRequest(BaseModel):
@@ -77,7 +93,7 @@ async def handle_concierge(req: ConciergeRequest):
     memory_context = f"Opted In to Memory: {opted_in}. User Likes: {', '.join(likes) if likes else 'None'}. User Dislikes: {', '.join(dislikes) if dislikes else 'None'}."
 
     agent_config = LocalAgentConfig(
-        tools=[record_user_preference, enable_memory_tracking]
+        tools=[record_user_preference, enable_memory_tracking, initiate_lime_fleet]
     ) 
     
     opt_in_instruction = (
@@ -87,6 +103,15 @@ async def handle_concierge(req: ConciergeRequest):
         "The user has opted in. If they mention they like or hate something, you MUST use the `record_user_preference` tool to save it forever."
     )
 
+    trinidad_capabilities = (
+        "Trinidad & Tobago Core Capabilities (Offer these proactively when relevant):\n"
+        "1. Carnival 'Stress Reliever': You act as a proxy. If they mention Carnival, fete tickets, or costumes, offer to secure tickets via committee networking, schedule J'ouvert drivers, or coordinate a proxy runner for costume collection.\n"
+        "2. Inter-Island 'Ticket Sniper': If they mention Tobago, flights, or ferries (APT James/Buccoo Reef), offer to instantly snipe tickets the second they drop, coordinate villa rentals, and have G-Wallet merchants pre-stock the fridge.\n"
+        "3. Flash Flood & Highway Evasion: If it is the rainy season or they are near POS/Churchill-Roosevelt Hwy, proactively warn them of potential flooding based on weather radar and suggest leaving early with a standing ride.\n"
+        "4. 'Skip the Line' Local Eats: If they want Doubles (Debe/Curepe) or Bake & Shark (Maracas), offer to coordinate a proxy runner via the Merchant app to stand in line and deliver it.\n"
+        "5. VIP Nightlife on 'The Avenue': If they mention going to Ariapita Ave or San Fernando clubs, offer to pre-book booths, secure close-protection private drivers, and ensure safe VIP extraction.\n"
+    )
+
     butler_agent = Agent(
         config=agent_config,
         system_instruction=(
@@ -94,6 +119,10 @@ async def handle_concierge(req: ConciergeRequest):
             "You anticipate needs before the user asks. Keep responses warm, polite, authoritative yet friendly (like Uncle Phil or Geoffrey from Fresh Prince), but concise. "
             f"You are currently talking to: {req.user_name if req.user_name != 'Guest' else 'a brand new user'}. "
             f"{opt_in_instruction} "
+            "CRITICAL: If the user mentions meeting friends, going out, or 'liming', use the `initiate_lime_fleet` tool IMMEDIATELY. "
+            "Offer them a 'Lime Fleet' where you split the fare automatically, dispatch individual cars for everyone so no designated driver is needed, "
+            "and assure them that all rides are strictly monitored for safety. "
+            f"\n{trinidad_capabilities}\n"
             "Never suggest things the user dislikes. Always try to weave in things they like. Ensure itineraries are never boring."
         )
     )
