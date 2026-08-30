@@ -5,19 +5,36 @@ import { aiFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
+const JARVIS_SERVICE_URL = Deno.env.get("JARVIS_SERVICE_URL") ?? "http://host.docker.internal:8000/concierge";
+const JARVIS_SECRET = Deno.env.get("JARVIS_SECRET") ?? "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ── Rule-based fallback (no AI needed) ───────────────────────────────────────
+function ruleBasedFallback(riderName: string, hour: number, isHomeMode: boolean, destName: string, poiData: any[]): string {
+  const timeBlock =
+    hour >= 6 && hour < 11 ? "morning" :
+    hour >= 11 && hour < 14 ? "lunch" :
+    hour >= 14 && hour < 18 ? "afternoon" : "evening";
+
+  const greeting = isHomeMode
+    ? `Good ${timeBlock}, ${riderName}!`
+    : `Smooth travels to ${destName || "your destination"}.`;
+
+  if (poiData && poiData.length > 0) {
+    const top = poiData[0];
+    const emoji = top.category?.toLowerCase().includes("food") ? "🍽️" :
+                  top.category?.toLowerCase().includes("fuel") ? "⛽" : "📍";
+    return `${greeting} ${emoji} ${top.name} is nearby.`;
+  }
+  return greeting;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-
-  if (!GROQ_API_KEY) {
-    return new Response(JSON.stringify({ error: "GROQ_API_KEY not configured" }), { status: 503, headers: corsHeaders });
-  }
 
   try {
     const user = await requireAuth(req);
@@ -25,117 +42,88 @@ serve(async (req) => {
     const { ride_id, lat, lng, destination_name, mode, profile_id } = await req.json();
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    
-    let ride = null;
-    let riderName = 'Guest';
+
+    let riderName = "Guest";
     let dropoffLat = lat;
     let dropoffLng = lng;
     let destName = destination_name;
-    
+
     if (ride_id) {
-      const { data: rideData } = await supabase.from('rides').select('*, rider:rider_id(*)').eq('id', ride_id).single();
-      ride = rideData;
-      if (ride) {
-        if (ride.rider_id !== user.id && ride.driver_id !== user.id) {
+      const { data: rideData } = await supabase
+        .from("rides")
+        .select("*, rider:rider_id(*)")
+        .eq("id", ride_id)
+        .single();
+
+      if (rideData) {
+        if (rideData.rider_id !== user.id && rideData.driver_id !== user.id) {
           return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
         }
-        riderName = ride.rider?.full_name || 'Guest';
-        dropoffLat = ride.dropoff_lat;
-        dropoffLng = ride.dropoff_lng;
-        destName = ride.dropoff_address;
+        riderName = rideData.rider?.full_name || "Guest";
+        dropoffLat = rideData.dropoff_lat;
+        dropoffLng = rideData.dropoff_lng;
+        destName = rideData.dropoff_address;
       }
     } else if (profile_id) {
       if (profile_id !== user.id) {
         return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
       }
-      const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', profile_id).single();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", profile_id)
+        .single();
       if (profile) riderName = profile.full_name;
     }
-    
-    const isHomeMode = mode === 'home' || !ride_id;
 
-    const { data: poiData } = await supabase.rpc('get_proactive_poi_context', {
+    const isHomeMode = mode === "home" || !ride_id;
+
+    const { data: poiData } = await supabase.rpc("get_proactive_poi_context", {
       p_lat: lat || dropoffLat,
       p_lng: lng || dropoffLng,
-      p_radius_meters: 1500
+      p_radius_meters: 1500,
     });
 
-    let poiContext = "No immediate POIs found.";
-    if (poiData && poiData.length > 0) {
-      poiContext = "Nearby options: " + poiData.map((p: any) => 
-        `${p.name} (${p.category}${p.is_partner ? ' - PARTNER' : ''}) at ${p.distance_meters}m`
-      ).join(", ");
-    }
-
+    // AST offset (UTC-4)
     const hour = new Date().getUTCHours() - 4;
     const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
-    const trafficContext = isRushHour ? "EXPECT HEAVY TRAFFIC. Rush hour patterns detected on Highway/Main Road." : "Traffic flowing normally.";
 
-    let prompt;
-    
-    if (isHomeMode) {
-      const timeContext = hour >= 6 && hour < 11 ? 'morning' : 
-                         hour >= 11 && hour < 14 ? 'lunch' : 
-                         hour >= 14 && hour < 18 ? 'afternoon' : 'evening';
-      prompt = `
-        You are G-TAXI AI, a premium logistics concierge for Trinidad & Tobago.
-        User: ${riderName}
-        Time: ${timeContext} (${hour}:00 AST)
-        Location: ${lat}, ${lng}
-        Nearby POIs: ${poiContext}
-        
-        TASK: Suggest ONE thing based on time of day and location.
-        - Morning (6-11am): Suggest coffee nearby
-        - Lunch (11am-2pm): Suggest food/restaurant  
-        - Afternoon (2-6pm): Suggest errands, pharmacy, gas
-        - Evening (6pm+): Suggest dinner, late pharmacy
-        - If partner merchant nearby, mention by name
-        Be brief (10 words max).
-        Format: "[Emoji] [Suggestion] at [Place]".
-        Examples: "☕ Coffee at Rituals?", "🍽️ Lunch at Kenny's?", "⛽ Gas at NP?"
-      `;
-    } else {
-      prompt = `
-        You are G-TAXI AI, a premium logistics concierge for Trinidad & Tobago.
-        Rider: ${riderName}
-        Current Journey: Heading to ${destName || 'destination'}.
-        Traffic State: ${trafficContext}.
-        Real-Time POI Context: ${poiContext}.
-        
-        TASK: Suggest ONE proactive move OR explain a delay. 
-        - If traffic is heavy, explain why (e.g. "Peak flow on the Highway..."). 
-        - If a PARTNER merchant is nearby, suggest a STOP.
-        - Be brief (15 words max). 
-        - Format: "AI SIGHT: [Message]".
-      `;
+    // ── Try Jarvis microservice ───────────────────────────────────────────────
+    let suggestion: string | null = null;
+
+    try {
+      const jarvisRes = await aiFetch(JARVIS_SERVICE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Jarvis-Secret": JARVIS_SECRET,
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          user_name: riderName,
+          is_home_mode: isHomeMode,
+          hour,
+          is_rush_hour: isRushHour,
+          lat: lat || dropoffLat,
+          lng: lng || dropoffLng,
+          destination_name: destName,
+          poi_data: poiData ?? [],
+        }),
+      });
+
+      if (jarvisRes.ok) {
+        const agyData = await jarvisRes.json();
+        suggestion = agyData.suggestion?.trim() || null;
+      } else {
+        console.warn(`[ai_concierge] Jarvis returned ${jarvisRes.status} — using fallback`);
+      }
+    } catch (jarvisErr) {
+      console.warn(`[ai_concierge] Jarvis unreachable: ${jarvisErr} — using fallback`);
     }
 
-    const JARVIS_SERVICE_URL = Deno.env.get("JARVIS_SERVICE_URL") ?? "http://host.docker.internal:8000/concierge";
-    
-    // Call the AGY Python Microservice
-    const response = await aiFetch(JARVIS_SERVICE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: user.id,
-        user_name: riderName,
-        context: prompt
-      })
-    });
-
-    const agyData = await response.json();
-    let suggestion = agyData.suggestion?.trim();
-
+    // ── Rule-based fallback if Jarvis failed or returned empty ───────────────
     if (!suggestion) {
-      const timeBlock = hour >= 6 && hour < 11 ? 'morning' :
-                        hour >= 11 && hour < 14 ? 'lunch' :
-                        hour >= 14 && hour < 18 ? 'afternoon' : 'evening';
-      const greeting = isHomeMode
-        ? `Good ${timeBlock}, ${riderName}!`
-        : `Smooth travels to ${destName || 'your destination'}`;
-      suggestion = poiData && poiData.length > 0
-        ? `${greeting} ${poiData[0].name} is nearby.`
-        : greeting;
+      suggestion = ruleBasedFallback(riderName, hour, isHomeMode, destName, poiData ?? []);
     }
 
     return new Response(JSON.stringify({ suggestion }), {
@@ -144,6 +132,9 @@ serve(async (req) => {
 
   } catch (err: any) {
     if (err instanceof Response) return err;
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 });
