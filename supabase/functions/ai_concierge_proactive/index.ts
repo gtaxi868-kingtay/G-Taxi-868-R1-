@@ -1,36 +1,47 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
-import { aiFetch } from "../_shared/networkUtility.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const JARVIS_SERVICE_URL = Deno.env.get("JARVIS_SERVICE_URL") ?? "http://host.docker.internal:8000/concierge";
-const JARVIS_SECRET = Deno.env.get("JARVIS_SECRET") ?? "";
+const JARVIS_URL = Deno.env.get("JARVIS_SERVICE_URL") ?? "http://host.docker.internal:8000/concierge";
+const JARVIS_SECRET = Deno.env.get("JARVIS_SECRET")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ── Rule-based fallback (no AI needed) ───────────────────────────────────────
-function ruleBasedFallback(riderName: string, hour: number, isHomeMode: boolean, destName: string, poiData: any[]): string {
+// Rule-based fallback when Jarvis is down
+function ruleBasedSuggestion(
+  riderName: string,
+  hour: number,
+  isHomeMode: boolean,
+  destName?: string,
+  poiData?: any[]
+): string {
   const timeBlock =
-    hour >= 6 && hour < 11 ? "morning" :
-    hour >= 11 && hour < 14 ? "lunch" :
-    hour >= 14 && hour < 18 ? "afternoon" : "evening";
+    hour >= 6 && hour < 11 ? "morning"
+    : hour >= 11 && hour < 14 ? "lunch"
+    : hour >= 14 && hour < 18 ? "afternoon"
+    : "evening";
 
-  const greeting = isHomeMode
-    ? `Good ${timeBlock}, ${riderName}!`
-    : `Smooth travels to ${destName || "your destination"}.`;
-
-  if (poiData && poiData.length > 0) {
-    const top = poiData[0];
-    const emoji = top.category?.toLowerCase().includes("food") ? "🍽️" :
-                  top.category?.toLowerCase().includes("fuel") ? "⛽" : "📍";
-    return `${greeting} ${emoji} ${top.name} is nearby.`;
+  if (!isHomeMode) {
+    return `Smooth travels to ${destName || "your destination"}, ${riderName}!`;
   }
-  return greeting;
+
+  const greetings: Record<string, string> = {
+    morning: `☕ Good morning, ${riderName}! Need a ride or coffee?`,
+    lunch: `🍽️ Lunch time, ${riderName}! I can suggest spots nearby.`,
+    afternoon: `🌤️ Good afternoon! Running errands? I can help find stops.`,
+    evening: `🌙 Good evening! Heading out for dinner? Let me know.`,
+  };
+
+  const base = greetings[timeBlock] || greetings.evening;
+  if (poiData?.length) {
+    return `${base} ${poiData[0].name} is nearby.`;
+  }
+  return base;
 }
 
 serve(async (req) => {
@@ -38,10 +49,13 @@ serve(async (req) => {
 
   try {
     const user = await requireAuth(req);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { ride_id, lat, lng, destination_name, mode, profile_id } = await req.json();
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    if (profile_id && profile_id !== user.id) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
+    }
 
     let riderName = "Guest";
     let dropoffLat = lat;
@@ -49,30 +63,23 @@ serve(async (req) => {
     let destName = destination_name;
 
     if (ride_id) {
-      const { data: rideData } = await supabase
+      const { data: ride } = await supabase
         .from("rides")
         .select("*, rider:rider_id(*)")
         .eq("id", ride_id)
         .single();
 
-      if (rideData) {
-        if (rideData.rider_id !== user.id && rideData.driver_id !== user.id) {
+      if (ride) {
+        if (ride.rider_id !== user.id && ride.driver_id !== user.id) {
           return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
         }
-        riderName = rideData.rider?.full_name || "Guest";
-        dropoffLat = rideData.dropoff_lat;
-        dropoffLng = rideData.dropoff_lng;
-        destName = rideData.dropoff_address;
+        riderName = ride.rider?.full_name || "Guest";
+        dropoffLat = ride.dropoff_lat;
+        dropoffLng = ride.dropoff_lng;
+        destName = ride.dropoff_address;
       }
     } else if (profile_id) {
-      if (profile_id !== user.id) {
-        return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: corsHeaders });
-      }
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", profile_id)
-        .single();
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", profile_id).single();
       if (profile) riderName = profile.full_name;
     }
 
@@ -84,15 +91,12 @@ serve(async (req) => {
       p_radius_meters: 1500,
     });
 
-    // AST offset (UTC-4)
     const hour = new Date().getUTCHours() - 4;
     const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
 
-    // ── Try Jarvis microservice ───────────────────────────────────────────────
-    let suggestion: string | null = null;
-
+    // Try Jarvis first
     try {
-      const jarvisRes = await aiFetch(JARVIS_SERVICE_URL, {
+      const res = await fetch(JARVIS_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -111,30 +115,32 @@ serve(async (req) => {
         }),
       });
 
-      if (jarvisRes.ok) {
-        const agyData = await jarvisRes.json();
-        suggestion = agyData.suggestion?.trim() || null;
-      } else {
-        console.warn(`[ai_concierge] Jarvis returned ${jarvisRes.status} — using fallback`);
-      }
+      if (!res.ok) throw new Error(`Jarvis ${res.status}`);
+
+      const data = await res.json();
+      return new Response(
+        JSON.stringify({
+          suggestion: data.suggestion,
+          source: "jarvis",
+          meta: data.meta ?? {},
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     } catch (jarvisErr) {
-      console.warn(`[ai_concierge] Jarvis unreachable: ${jarvisErr} — using fallback`);
+      console.error("[ai_concierge] Jarvis failed, using fallback:", jarvisErr);
+      // Graceful fallback — never 500 the user
+      const fallback = ruleBasedSuggestion(riderName, hour, isHomeMode, destName, poiData);
+      return new Response(
+        JSON.stringify({ suggestion: fallback, source: "fallback" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-
-    // ── Rule-based fallback if Jarvis failed or returned empty ───────────────
-    if (!suggestion) {
-      suggestion = ruleBasedFallback(riderName, hour, isHomeMode, destName, poiData ?? []);
-    }
-
-    return new Response(JSON.stringify({ suggestion }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
   } catch (err: any) {
     if (err instanceof Response) return err;
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: corsHeaders,
-    });
+    console.error("[ai_concierge] error:", err);
+    return new Response(
+      JSON.stringify({ error: "Service temporarily unavailable" }),
+      { status: 503, headers: corsHeaders }
+    );
   }
 });
