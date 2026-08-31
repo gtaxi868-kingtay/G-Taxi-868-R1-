@@ -29,7 +29,7 @@ serve(async (req) => {
   const { data } = await q.maybeSingle();
   if (!data || data.is_active === false) return json({ found: false, reason: "touchpoint not active yet" });
 
-  supabase.from("kiosk_nodes").update({ last_heartbeat: new Date().toISOString() }).eq("id", data.id).then(null, () => null);
+  try { await supabase.from("kiosk_nodes").update({ last_heartbeat: new Date().toISOString() }).eq("id", data.id); } catch (e) { console.error("[kiosk] heartbeat failed:", e); }
   return json({
     found: true,
     pickup: { name: data.location_name ?? "G-Taxi touchpoint", address: data.pickup_address ?? null, lat: data.lat ?? null, lng: data.lng ?? null },

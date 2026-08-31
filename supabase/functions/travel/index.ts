@@ -329,7 +329,7 @@ serve(async (req) => {
         const bookingRef: string | null = resRow?.booking_ref ?? null;
 
         const releaseHold = async () => {
-          await supabase.rpc('release_single_reservation', { p_reservation_id: reservationId }).then((__r) => __r, () => {});
+          try { await supabase.rpc('release_single_reservation', { p_reservation_id: reservationId }); } catch (e) { console.error('[travel] release failed:', reservationId, e); }
         };
 
         if (payment_method === 'wallet') {

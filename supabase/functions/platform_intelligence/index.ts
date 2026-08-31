@@ -671,7 +671,7 @@ async function watchdogAudit(supabase: ReturnType<typeof createClient>) {
     ];
 
     for (const canary of canaryChecks) {
-        const { error } = await supabase.rpc(canary.rpc as any, canary.params).then((__r) => __r, () => ({ error: new Error("RPC unavailable") }));
+        let error = null; try { await supabase.rpc(canary.rpc as any, canary.params); } catch (e) { error = new Error("RPC unavailable"); console.error("[canary] failed:", canary.rpc, e); }
         if (error) {
             await supabase.from("agent_decision_log").insert({
                 run_id: runId,
