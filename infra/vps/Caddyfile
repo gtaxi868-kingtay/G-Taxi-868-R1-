@@ -1,0 +1,21 @@
+{
+  email {$CADDY_EMAIL}
+  auto_https disable_redirects
+}
+
+{$DOMAIN} {
+  encode gzip
+
+  @status path /status* /health* /ready*
+  respond @status 200 {
+    body "ok"
+    close
+  }
+
+  reverse_proxy uptime-kuma:3001
+}
+
+localhost {
+  encode gzip
+  reverse_proxy uptime-kuma:3001
+}

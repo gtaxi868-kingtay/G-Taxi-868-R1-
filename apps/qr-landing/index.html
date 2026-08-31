@@ -323,5 +323,56 @@
   }
   function openStore(){ alert('The G-Taxi apps are launching soon. Use WhatsApp for now.'); }
 </script>
+<!-- Override network calls to use local proxy endpoints (keeps appearance unchanged) -->
+<script>
+  // Replace client-side Supabase calls with server-side proxies to avoid exposing keys
+  async function loadContactNumber(){
+    try{
+      const res = await fetch(`/api/system_config?key=eq.support_whatsapp_number&select=value`);
+      if(!res.ok) return;
+      const rows = await res.json();
+      const digits = ((rows&&rows[0]&&rows[0].value)||'').replace(/[^\d]/g,'');
+      if(digits.length>=7) supportNumber = digits;
+    }catch(_){ }
+  }
+
+  async function resolveTouchpoint(){
+    if(!qrData) return;
+    const key=/^[0-9a-f]{8}-/i.test(qrData)?'node':'tag';
+    try{
+      const res = await fetch(`/api/site?resolve=1&${key}=${encodeURIComponent(qrData)}`);
+      if(!res.ok) return;
+      const d = await res.json();
+      if(d.found && d.pickup){
+        resolvedPickup = d.pickup;
+        document.getElementById('mainSubtitle').textContent = `Pickup: ${d.pickup.name}. Choose where you're going.`;
+        const code = document.getElementById('cardCode'); code.textContent = d.pickup.name; code.hidden = false; document.getElementById('codeSep').hidden = false;
+      }
+    }catch(_){ }
+  }
+
+  async function joinWaitlist(e){
+    e.preventDefault();
+    const btn=document.getElementById('wlSubmit'), msg=document.getElementById('wlMsg');
+    const name=document.getElementById('wlName').value.trim();
+    const phone=document.getElementById('wlPhone').value.trim();
+    const area=document.getElementById('wlArea').value.trim();
+    msg.textContent='';
+    if(name.length<2||phone.replace(/[^\d]/g,'').length<7){ msg.textContent='Please add your name and a valid WhatsApp number.'; return false; }
+    btn.disabled=true; const label=btn.textContent; btn.textContent='Joining…';
+    try{
+      const res = await fetch(`/api/waitlist`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({full_name:name,phone:phone,community:area||null,user_type:chosenRole,source:'site'})
+      });
+      if(!res.ok) throw new Error('save failed');
+      document.getElementById('wlForm').classList.add('hidden');
+      document.getElementById('wlDone').classList.add('show');
+    }catch(err){ msg.textContent='Could not save — check your connection and try again.'; btn.disabled=false; btn.textContent=label; }
+    return false;
+  }
+  // Wire the overridden join function to the form submit (in case original remains)
+  document.getElementById('wlForm')?.addEventListener('submit', joinWaitlist);
+</script>
 </body>
 </html>

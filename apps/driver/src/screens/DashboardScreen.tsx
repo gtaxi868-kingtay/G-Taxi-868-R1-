@@ -56,7 +56,7 @@ const QUICK_NAV = [
 export function DashboardScreen({ navigation }: { navigation: { navigate: (screen: string, params?: object) => void; goBack: () => void; replace: (screen: string, params?: object) => void } }) {
     const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
-    const { driver, toggleOnline, signOut, refreshPushToken } = useAuth();
+    const { driver, user, toggleOnline, signOut, refreshPushToken } = useAuth();
     const { location, signalStatus } = useLocationTracking();
     const { offer, clearOffer } = useRideOfferSubscription(driver?.id);
     const { offer: deliveryOffer, clearOffer: clearDeliveryOffer } = useDeliveryOfferSubscription(driver?.id);
@@ -170,9 +170,11 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         };
         checkActiveTrip();
         const fetchBalance = async () => {
-            if (!driver?.id) return;
+            if (!user?.id) return;
             try {
-                const { data, error } = await supabase.rpc('get_wallet_balance', { p_user_id: driver.id });
+                // get_wallet_balance enforces p_user_id === auth.uid() — the
+                // driver's auth user ID, NOT the drivers table row id.
+                const { data, error } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
                 if (!error && data != null) setBalanceCents(data as number);
             } catch (e) { /* Balance fetch failed */ }
         };
@@ -200,7 +202,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         fetchDemand();
         const demandTimer = setInterval(fetchDemand, 10 * 60 * 1000);
         return () => clearInterval(demandTimer);
-    }, [driver?.id]);
+    }, [driver?.id, user?.id]);
 
     useEffect(() => {
         glowRadius.value = withSpring(isOnline ? 80 : 0, ANIMATION.spring);

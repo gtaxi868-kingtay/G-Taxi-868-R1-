@@ -59,3 +59,4 @@ packages/*/node_modules/
 graphify-out/
 .claude/
 .env.secrets
+third_party/

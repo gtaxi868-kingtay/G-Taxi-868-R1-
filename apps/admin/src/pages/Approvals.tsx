@@ -69,6 +69,14 @@ export function Approvals() {
 
     useEffect(() => { load(); }, [load]);
 
+    // Auto-refresh: proposals arrive from the AI chief-of-staff every few
+    // minutes; reload every 30s so a fresh proposal shows up without a
+    // manual refresh.
+    useEffect(() => {
+        const t = setInterval(load, 30_000);
+        return () => clearInterval(t);
+    }, [load]);
+
     const decide = async (id: string, decision: 'approved' | 'rejected') => {
         setBusyId(id);
         setError(null);

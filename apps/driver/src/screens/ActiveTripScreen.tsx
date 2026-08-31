@@ -397,8 +397,13 @@ export function ActiveTripScreen({ route, navigation }: any) {
                                                 const { error } = await supabase.functions.invoke('update_ride_status', { body: { ride_id: rideId, cash_confirmed: true } });
                                                 if (error) console.error('cash confirm fallback failed:', error);
                                             }
-} catch (err) { console.error('cash confirmation error:', err); Alert.alert('Cash Error', 'Cash receipt recorded but confirmation may not have synced.'); }
-        finally { setCashConfirming(false); setCashConfirmed(true); }
+                                            setCashConfirmed(true);
+                                        } catch (err) {
+                                            console.error('cash confirmation error:', err);
+                                            Alert.alert('Cash Error', 'Could not confirm cash receipt. Try again.');
+                                        } finally {
+                                            setCashConfirming(false);
+                                        }
                                     }}
                                     accessibilityLabel="Confirm cash collected"
                                     accessibilityRole="button"

@@ -185,7 +185,17 @@ export function PaymentScreen({ navigation, route }: any) {
                 }
             }, 3000);
 
-            setTimeout(() => clearInterval(checkPayment), 120000);
+            setTimeout(() => {
+                clearInterval(checkPayment);
+                Alert.alert(
+                    'Still Waiting',
+                    'We haven\'t received payment confirmation yet. If you completed the payment, it may take a moment. You can check again or try a different method.',
+                    [
+                        { text: 'Check Again', onPress: () => navigation.goBack() },
+                        { text: 'Cancel', style: 'cancel', onPress: () => navigation.goBack() },
+                    ]
+                );
+            }, 120000);
         } catch (err: any) {
             Alert.alert('Error', err.message);
         } finally {
