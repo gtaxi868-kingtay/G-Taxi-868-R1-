@@ -58,3 +58,4 @@ apps/merchant-mobile/node_modules/
 packages/*/node_modules/
 graphify-out/
 .claude/
+.env.secrets
