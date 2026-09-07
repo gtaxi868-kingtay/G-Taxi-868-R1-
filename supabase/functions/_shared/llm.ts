@@ -58,6 +58,15 @@ export interface ChatOptions {
     toolChoice?: "auto" | "none";
     maxTokens?: number;
     temperature?: number;
+    /**
+     * Restrict this call to a single provider by label ("cerebras", "gemini", ...).
+     *
+     * A fallback you have never exercised is a guess, not a fallback — the whole
+     * point of the chain is that it works on the day the primary fails, and that
+     * is the worst possible moment to discover the key was pasted wrong. This
+     * makes a fallback provable on demand, while the primary is still healthy.
+     */
+    onlyProvider?: string;
 }
 
 export class BudgetExceededError extends Error {
@@ -124,8 +133,12 @@ const PROVIDERS: Record<string, ProviderSpec> = {
     cerebras: {
         label: "cerebras",
         url: "https://api.cerebras.ai/v1/chat/completions",
-        model: Deno.env.get("CEREBRAS_MODEL") ?? "zai-glm-4.7",
-        fallbackModels: ["llama3.1-70b"],
+        // zai-glm-4.7 came from a public free-API directory and was ARCHIVED —
+        // proved by a live probe on 2026-09-07, not by reading a table. Any
+        // model id taken from a third-party list is a hypothesis until probed.
+        // Note Cerebras uses a bare "gpt-oss-120b" (no "openai/" prefix).
+        model: Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b",
+        fallbackModels: ["qwen-3.8-27b"],
         keyEnv: "CEREBRAS_API_KEY",
         // Free tier: 10 RPM / 100 RPD / 1M TPD. Metered at the nearest paid
         // equivalent so g_llm_usage stays honest across a failover.
@@ -184,6 +197,25 @@ const DEFAULT_FALLBACK_PROVIDERS = "cerebras,gemini";
 // bundling this entire gateway.
 export { GROQ_CHAT_MODEL } from "./ai_model.ts";
 
+/**
+ * Strip anything key-shaped out of a provider error before it is stored or
+ * returned.
+ *
+ * Not hypothetical: Google's 403 for a suspended key embeds the full
+ * "api_key:AIza..." value in the human-readable message. Without this, that
+ * text lands verbatim in system_alerts.details and in the probe response —
+ * writing a live credential into the database and into every log that reads it.
+ * Found by running the probe for real on 2026-09-07.
+ */
+function redactSecrets(text: string): string {
+    return text
+        .replace(/AIza[0-9A-Za-z_\-]{20,}/g, "AIza<redacted>")
+        .replace(/\b(sk|csk|gsk|xai|sk-or-v1)[-_][A-Za-z0-9_\-]{16,}/gi, "$1-<redacted>")
+        .replace(/\bBearer\s+[A-Za-z0-9._\-]{16,}/gi, "Bearer <redacted>")
+        .replace(/("?(?:api[_-]?key|authorization|token)"?\s*[:=]\s*"?)[A-Za-z0-9._\-]{16,}/gi,
+            "$1<redacted>");
+}
+
 /** A provider error that means "this model is gone", not "bad request". */
 function isModelGone(status: number, body: string): boolean {
     // Groq answers a retired/entitlement-gated id with a clean 404
@@ -192,6 +224,11 @@ function isModelGone(status: number, body: string): boolean {
     if (status !== 400 && status !== 403 && status !== 404) return false;
     const b = body.toLowerCase();
     return b.includes("model_not_found") ||
+        // Cerebras says "Model X is archived and unavailable for the
+        // organization" with code model_archived. Missing this meant the
+        // gateway treated a dead model as a generic 4xx and skipped straight
+        // past its OWN fallback list — caught by the ?probe drill, 2026-09-07.
+        b.includes("archived") ||
         b.includes("does not exist") ||
         b.includes("decommission") ||
         b.includes("no longer available") ||
@@ -275,7 +312,13 @@ function primaryProviderName(): string {
  * actually has a key. An unkeyed fallback is a no-op, not an error — that is
  * what makes arming one a pure secret change.
  */
-function providerChain(): ProviderSpec[] {
+function providerChain(onlyProvider?: string): ProviderSpec[] {
+    if (onlyProvider) {
+        const spec = PROVIDERS[onlyProvider.toLowerCase()];
+        // An unkeyed provider yields an empty chain, so the caller gets a clear
+        // "key not configured" rather than a silent fall through to the primary.
+        return spec && Deno.env.get(spec.keyEnv) ? [spec] : [];
+    }
     const names = [
         primaryProviderName(),
         ...(Deno.env.get("G_LLM_FALLBACKS") ?? DEFAULT_FALLBACK_PROVIDERS)
@@ -318,6 +361,13 @@ export function llmGatewayInfo(): Record<string, unknown> {
         // primary is a single point of failure no matter how many models it lists.
         provider_chain: chain.map((p) => p.label),
         provider_fallbacks_armed: Math.max(chain.length - 1, 0),
+        // Every provider the gateway knows, and whether its key is present.
+        // Booleans only — never the key itself.
+        providers_known: Object.values(PROVIDERS).map((p) => ({
+            provider: p.label,
+            model: p.model,
+            key_configured: Boolean(Deno.env.get(p.keyEnv)),
+        })),
     };
 }
 
@@ -336,9 +386,13 @@ async function readSpentToday(supabase: any): Promise<number> {
 }
 
 export async function chat(supabase: any, opts: ChatOptions): Promise<any> {
-    const chain = providerChain();
+    const chain = providerChain(opts.onlyProvider);
     if (chain.length === 0) {
-        throw new Error(`LLM key ${PROVIDERS[primaryProviderName()].keyEnv} not configured`);
+        const missing = opts.onlyProvider
+            ? (PROVIDERS[opts.onlyProvider.toLowerCase()]?.keyEnv ??
+                `unknown provider "${opts.onlyProvider}"`)
+            : PROVIDERS[primaryProviderName()].keyEnv;
+        throw new Error(`LLM key ${missing} not configured`);
     }
 
     const [budget, spent] = await Promise.all([
@@ -415,14 +469,14 @@ export async function chat(supabase: any, opts: ChatOptions): Promise<any> {
                     });
 
                     if (res.status === 429 || res.status >= 500) {
-                        lastErr = `${provider.label} ${res.status}: ${await res.text()}`;
+                        lastErr = redactSecrets(`${provider.label} ${res.status}: ${await res.text()}`);
                         await new Promise((r) => setTimeout(r, backoffs[attempt]));
                         continue;
                     }
 
                     if (!res.ok) {
                         const text = await res.text();
-                        lastErr = `${provider.label} ${res.status}: ${text}`;
+                        lastErr = redactSecrets(`${provider.label} ${res.status}: ${text}`);
                         // Model retired — no amount of retrying fixes it. Move on
                         // to this provider's next model.
                         if (isModelGone(res.status, text)) {
@@ -461,7 +515,7 @@ export async function chat(supabase: any, opts: ChatOptions): Promise<any> {
                 } catch (err) {
                     // Network failure or the 30s abort. Retry within this model,
                     // then let the loops carry us onward.
-                    lastErr = `${provider.label} fetch failed: ${(err as Error).message}`;
+                    lastErr = redactSecrets(`${provider.label} fetch failed: ${(err as Error).message}`);
                     if (attempt < backoffs.length - 1) {
                         await new Promise((r) => setTimeout(r, backoffs[attempt]));
                         continue;
