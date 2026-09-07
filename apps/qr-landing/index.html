@@ -328,6 +328,49 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const SB_HEAD = { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` };
 // waitlist.user_type is constrained to the app's three values; the exact G role rides along in `source`
 const ROLE_TO_TYPE = { 'Rider': 'ride', 'Driver': 'drive', 'G-Partner (merchant)': 'sell', 'G-Lead (territory)': 'drive' };
+// Consumer-facing subset of merchants.category's live CHECK constraint (grocery…carwash).
+// Excludes airline/hotel/logistics_hub — those are B2B accounts, not self-serve waitlist signups.
+const MERCHANT_CATEGORIES = [
+  ['grocery', 'Grocery'], ['restaurant', 'Restaurant'], ['local', 'Local kitchen / lime spot'],
+  ['indian', 'Indian'], ['chinese', 'Chinese'], ['american', 'American'], ['pizza', 'Pizza'],
+  ['seafood', 'Seafood'], ['bakery', 'Bakery'], ['creole', 'Creole'],
+  ['pharmacy', 'Pharmacy'], ['laundry', 'Laundry'], ['barber', 'Barber'], ['salon', 'Salon'], ['carwash', 'Carwash']
+];
+// Fallback until the live fetch below resolves — kept in sync manually with the 3 seeded-active
+// passenger classes (heavy classes like truck/hiab/wrecker are seeded inactive, see CLAUDE.md).
+let VEHICLE_TYPES = [['standard', 'Standard'], ['xl', 'XL'], ['premium', 'Premium']];
+async function loadVehicleTypes() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/vehicle_classes?is_active=eq.true&select=key,label&order=sort_order.asc`, { headers: SB_HEAD });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows.length) VEHICLE_TYPES = rows.map(r => [r.key, r.label]);
+  } catch (_) {}
+}
+loadVehicleTypes();
+
+// Role-specific extra fields shown under the community/role row on the waitlist form.
+// These map straight into waitlist.details (JSONB) — see the 2026-09-07 migration.
+function waitlistExtraHTML(role) {
+  if (role === 'Driver') {
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <select id="wl-vehicle-type" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none;cursor:pointer">
+        ${VEHICLE_TYPES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}
+      </select>
+      <input id="wl-plate" type="text" placeholder="Plate number (optional)" autocomplete="off" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
+    </div>`;
+  }
+  if (role === 'G-Partner (merchant)') {
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <select id="wl-category" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none;cursor:pointer">
+        <option value="">What do you sell?</option>
+        ${MERCHANT_CATEGORIES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}
+      </select>
+      <input id="wl-address" type="text" placeholder="Business address (optional)" autocomplete="street-address" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
+    </div>`;
+  }
+  return '';
+}
 
 const QP = new URLSearchParams(location.search);
 const IS_ARRIVAL = ['tag', 'node', 'merchant', 'store', 'driver', 'ref', 'ride', 'r', 'stand'].some(k => QP.has(k));
@@ -554,6 +597,7 @@ const roleFormHTML = (r) => `
           ${['Rider', 'Driver', 'G-Partner (merchant)', 'G-Lead (territory)'].map(o => `<option${o === r.value ? ' selected' : ''}>${o}</option>`).join('')}
         </select>
       </div>
+      <div id="wl-extra">${waitlistExtraHTML(r.value)}</div>
       <button type="submit" id="wl-submit" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;border:none;padding:.55rem .55rem .55rem 1.4rem;border-radius:100px;font-weight:800;font-size:.95rem;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,.42)">
         Join as ${r.label}
         <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:#22d3ee;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
@@ -609,6 +653,7 @@ const PANELS = {
           <option>Rider</option><option>Driver</option><option>G-Partner (merchant)</option><option>G-Lead (territory)</option>
         </select>
       </div>
+      <div id="wl-extra"></div>
       <button type="submit" id="wl-submit" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;border:none;padding:.55rem .55rem .55rem 1.4rem;border-radius:100px;font-weight:800;font-size:.95rem;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,.42)">
         Count me in
         <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:#22d3ee;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
@@ -755,6 +800,12 @@ class Component extends DCLogic {
       body.innerHTML = PANELS[key];
       layer.style.display = 'flex';
       const f = root.getElementById('wl-form');
+      if (f) {
+        const roleSel = root.getElementById('wl-role');
+        const extraBox = root.getElementById('wl-extra');
+        const syncExtra = () => { if (extraBox) extraBox.innerHTML = waitlistExtraHTML(roleSel.value); };
+        if (roleSel && extraBox) { roleSel.addEventListener('change', syncExtra); syncExtra(); }
+      }
       if (f) f.addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = root.getElementById('wl-submit');
@@ -774,6 +825,22 @@ class Component extends DCLogic {
           msg.textContent = 'We need your name and a WhatsApp number we can actually reach.';
           return;
         }
+        let details = {};
+        if (role === 'Driver') {
+          const vt = root.getElementById('wl-vehicle-type');
+          const plate = root.getElementById('wl-plate');
+          if (vt && vt.value) details.vehicle_type = vt.value;
+          if (plate && plate.value.trim()) details.plate_number = plate.value.trim();
+        } else if (role === 'G-Partner (merchant)') {
+          const cat = root.getElementById('wl-category');
+          const addr = root.getElementById('wl-address');
+          if (!cat || !cat.value) {
+            msg.textContent = "Let us know what you'll be selling.";
+            return;
+          }
+          details.category = cat.value;
+          if (addr && addr.value.trim()) details.address = addr.value.trim();
+        }
         const label = btn ? btn.textContent : '';
         if (btn) { btn.disabled = true; btn.textContent = 'Counting you in…'; }
         try {
@@ -785,7 +852,8 @@ class Component extends DCLogic {
               phone: phone,
               community: area || null,
               user_type: ROLE_TO_TYPE[role] || 'ride',
-              source: `g868:${role || 'unspecified'}`
+              source: `g868:${role || 'unspecified'}`,
+              details
             })
           });
           if (!res.ok) throw new Error('save failed');

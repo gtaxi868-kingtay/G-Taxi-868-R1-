@@ -149,6 +149,26 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             if (!authData.user) throw new Error('Signup failed');
             const requiresEmailConfirmation = !authData.session;
 
+            // Pre-fill from an approved waitlist signup, if this phone matches
+            // one. Must happen AFTER signUp (claim_waitlist_details is
+            // authenticated-only by design — an anon version would let anyone
+            // probe or claim someone else's waitlist entry by phone before
+            // they sign up themselves, which is worse than not pre-filling at
+            // all). Only applies a claimed value where the user left the form
+            // at its untouched default — anything they actually typed wins.
+            // If email confirmation is required there's no session yet and
+            // this silently no-ops; that's fine, it only affects prefill.
+            let claimedVehicleType = vehicleType;
+            if (authData.session) {
+                try {
+                    const { data: claimed } = await supabase.rpc('claim_waitlist_details', { p_phone: phone.trim() });
+                    const details = claimed?.details as { vehicle_type?: string } | undefined;
+                    if (details?.vehicle_type && vehicleType === 'standard') {
+                        claimedVehicleType = details.vehicle_type;
+                    }
+                } catch (_) { /* no match, not approved yet, or RPC unavailable — never block signup on this */ }
+            }
+
             // 1. Upload Documents
             const ts = Date.now();
             const [frontPath, backPath, vehiclePathResult] = await Promise.all([
@@ -164,7 +184,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                 phone_number: phone.trim(),
                 vehicle_model: vehicleModel.trim(),
                 plate_number: licensePlate.trim().toUpperCase(),
-                vehicle_type: vehicleType,
+                vehicle_type: claimedVehicleType,
                 vehicle_image_url: vehiclePathResult,
                 status: 'pending',
                 is_online: false,

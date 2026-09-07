@@ -1,11 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
 
+import { getCorsHeaders } from '../_shared/cors.ts'
 const ipAttempts = new Map<string, { count: number; resetAt: number }>()
 
 function checkIpRateLimit(ip: string): boolean {
@@ -21,6 +17,7 @@ function checkIpRateLimit(ip: string): boolean {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS')
     return new Response('ok', { headers: corsHeaders })
 
@@ -34,7 +31,7 @@ Deno.serve(async (req) => {
     }
 
     const {
-      email, password, full_name,
+      email, password, full_name, phone,
       invite_token,
       bank_name, account_holder, account_number, account_type,
     } = await req.json()
@@ -92,11 +89,31 @@ Deno.serve(async (req) => {
     if (createError) throw createError
     if (!newUser?.user?.id) throw new Error('Failed to create user')
 
+    // Pre-fill from an approved waitlist signup, if this phone matches one.
+    // claim_waitlist_details() is granted to `authenticated` only (deliberately
+    // NOT anon — an anon version would let anyone probe or claim someone
+    // else's waitlist entry by phone before that person signs up themselves).
+    // Calling it here as service_role bypasses that grant, which is fine: this
+    // function IS the authenticated boundary — the phone was typed into this
+    // exact signup form, by the person completing this exact signup.
+    let claimedCategory: string | null = null
+    let claimedAddress: string | null = null
+    if (phone) {
+      const { data: claimed } = await supabaseAdmin.rpc('claim_waitlist_details', { p_phone: String(phone).trim() })
+      const details = (claimed as { details?: { category?: string; address?: string } } | null)?.details
+      if (details?.category) claimedCategory = details.category
+      if (details?.address) claimedAddress = details.address
+    }
+
     const { data: merchant, error: merchantError } = await supabaseAdmin
       .from('merchants')
       .insert({
         name: full_name,
-        category: 'local',
+        // category is CHECK-constrained to a fixed 18-value list — safe to use
+        // claimedCategory unvalidated here because it can only ever have come
+        // from that same fixed list on the public waitlist form.
+        category: claimedCategory || 'local',
+        address: claimedAddress || null,
         created_by: newUser.user.id,
         activation_status: 'pending',
         is_active: false,
@@ -115,6 +132,7 @@ Deno.serve(async (req) => {
         id: newUser.user.id,
         full_name,
         email,
+        phone_number: phone ? String(phone).trim() : null,
         role: 'merchant',
         merchant_id: merchant.id,
       })

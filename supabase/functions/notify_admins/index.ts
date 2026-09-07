@@ -12,11 +12,17 @@
 // graceful-degrade gap elsewhere in this project; Expo's own push relay
 // works with just the token already stored on profiles.push_token.
 //
-// ── ADDED 2026-09-07: two WhatsApp actions ───────────────────────────────
-//   action: "send_welcome"   — admin sends a rider/driver/merchant a welcome
-//                              WhatsApp with a link to their profile.
-//   action: "capacity_sweep" — when a zone hits its verified-driver target,
-//                              its people get a download link. Cron only.
+// ── ADDED 2026-09-07: three WhatsApp actions ─────────────────────────────
+//   action: "send_welcome"    — admin sends a rider/driver/merchant a welcome
+//                               WhatsApp with a link to their profile.
+//   action: "capacity_sweep"  — when a zone hits its verified-driver target,
+//                               its people get a download link. Cron only.
+//   action: "approve_waitlist" — admin approves one waitlist.* row: marks it
+//                               approved and sends the download-link WhatsApp.
+//                               This is the actual gate behind "sign up, wait
+//                               a spell, then get the app" — status/approved_at/
+//                               approved_by already existed on waitlist and were
+//                               never written by anything until this.
 //
 // WHY HERE AND NOT IN A NEW FUNCTION
 // This project is AT its 100-edge-function plan cap — a deploy of a new
@@ -171,6 +177,18 @@ function welcomeText(r: Recipient, links: Record<string, string>): string {
 function zoneLiveText(name: string, zone: string, downloadUrl: string): string {
   return `Good news ${name} — G-Taxi is now live in ${zone}! \u{1F389}\n\n` +
     `We've got enough drivers on the road in your area. Download the app and take your first ride:\n${downloadUrl}`;
+}
+
+// waitlist.user_type is 'ride' | 'drive' | 'sell' (free text, no CHECK constraint
+// live) — map to the right g_config.app_links key and a role-flavored message.
+const WAITLIST_TYPE_TO_DOWNLOAD_KEY: Record<string, string> = {
+  ride: "rider_download_url", drive: "driver_download_url", sell: "merchant_download_url",
+};
+const WAITLIST_TYPE_LABEL: Record<string, string> = { ride: "rider", drive: "driver", sell: "merchant" };
+
+function waitlistApprovedText(name: string, userType: string, downloadUrl: string): string {
+  return `Good news ${name} — you're approved on G-Taxi! \u{1F389}\n\n` +
+    `Download the app and set up your ${WAITLIST_TYPE_LABEL[userType] ?? "profile"} — most of what you told us is already filled in:\n${downloadUrl}`;
 }
 
 /**
@@ -333,6 +351,68 @@ Deno.serve(async (req: Request) => {
         // still returns 200 and would otherwise read as a success.
         note: result.channel === "noop"
           ? "NOT DELIVERED — WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_ACCESS_TOKEN are not set as Supabase secrets, so the WhatsApp send was a no-op. The outbox row is marked failed."
+          : undefined,
+      });
+    }
+
+    // ---- approve_waitlist : admin only ----------------------------------
+    // The actual gate for "sign up, wait a spell, then get the app". Marks one
+    // waitlist row approved and sends the download-link WhatsApp. Reuses the
+    // same claimAndSend/outbound_messages idempotency the other two actions
+    // use, so re-clicking Approve twice on the same row cannot double-send.
+    if (action === "approve_waitlist") {
+      const adminId = await adminUserId(req);
+      if (!adminId) return json({ success: false, error: "Forbidden: admin role required" }, 403);
+
+      const waitlistId = payload?.id as string;
+      if (!waitlistId) return json({ success: false, error: "id is required" }, 400);
+
+      const { data: row, error: rowErr } = await supabase
+        .from("waitlist")
+        .select("id, full_name, phone, user_type, status")
+        .eq("id", waitlistId)
+        .maybeSingle();
+      if (rowErr) return json({ success: false, error: rowErr.message }, 500);
+      if (!row) return json({ success: false, error: `waitlist row ${waitlistId} not found` }, 404);
+      if (!row.phone) {
+        return json({ success: false, reason: "no_phone_on_file", detail: "This waitlist entry has no phone number." });
+      }
+      if (row.status === "approved" || row.status === "claimed") {
+        return json({ success: false, reason: "already_approved", detail: `This entry is already ${row.status}.` });
+      }
+
+      const { error: updateErr } = await supabase
+        .from("waitlist")
+        .update({ status: "approved", approved_at: new Date().toISOString(), approved_by: adminId })
+        .eq("id", waitlistId);
+      if (updateErr) return json({ success: false, error: updateErr.message }, 500);
+
+      const links = await readLinks(supabase);
+      const downloadKey = WAITLIST_TYPE_TO_DOWNLOAD_KEY[row.user_type ?? "ride"] ?? "rider_download_url";
+      const outboxRole = WAITLIST_TYPE_LABEL[row.user_type ?? "ride"] ?? "rider";
+      const result = await claimAndSend(supabase, {
+        role: outboxRole as Role, recipientId: row.id, phone: row.phone,
+        template: "waitlist_approved", territoryId: null,
+        body: waitlistApprovedText(row.full_name ?? "there", row.user_type ?? "ride", links[downloadKey]),
+        payload: { name: row.full_name, approved_by: adminId },
+      });
+
+      return json({
+        success: result.sent,
+        waitlist_id: row.id,
+        status: "approved",
+        channel: result.channel,
+        reason: result.reason,
+        // The approval itself always succeeds and is recorded even when
+        // delivery fails — don't let a broken WhatsApp integration look like
+        // the approval never happened. Covers both failure shapes seen live:
+        // "noop" (creds absent) and a whatsapp_api error (creds present but
+        // the token is invalid/expired — the actual state as of 2026-09-07,
+        // see project_credential_health_2026_09_07).
+        note: !result.sent
+          ? (result.channel === "noop"
+              ? "APPROVED, BUT NOT DELIVERED — WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_ACCESS_TOKEN are not set as Supabase secrets, so the WhatsApp send was a no-op."
+              : `APPROVED, BUT NOT DELIVERED — WhatsApp send failed (${result.reason ?? "unknown error"}). The outbox row is marked failed; status is still approved.`)
           : undefined,
       });
     }
