@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
 import { aiFetch, secureFetch } from "../_shared/networkUtility.ts";
+import { GROQ_CHAT_MODEL } from "../_shared/llm.ts";
 
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
@@ -74,7 +75,7 @@ Output ONLY valid JSON. No markdown. No explanation.
 Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned location name" }], "service_type": "ride"" }`;
 
       const groqBody = {
-        model: "llama-3.3-70b-versatile",
+        model: GROQ_CHAT_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Query: "${query}"\nCurrent location: [${current_lat}, ${current_lng}]` }

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { aiFetch } from "../_shared/networkUtility.ts";
+import { GROQ_CHAT_MODEL } from "../_shared/llm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -117,7 +118,7 @@ serve(async (req) => {
         "Content-Type": "application/json" 
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: GROQ_CHAT_MODEL,
         messages: [{ role: "user", content: prompt }],
         max_tokens: 50,
         temperature: 0.7
