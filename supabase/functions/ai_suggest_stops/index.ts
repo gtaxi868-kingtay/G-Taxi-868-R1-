@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { requireAuth } from "../_shared/auth.ts"
 import { aiFetch } from "../_shared/networkUtility.ts"
-import { GROQ_CHAT_MODEL } from "../_shared/llm.ts";
+import { GROQ_CHAT_MODEL, isGptOss } from "../_shared/ai_model.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

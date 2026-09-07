@@ -32,6 +32,8 @@
 
 // deno-lint-ignore-file no-explicit-any
 
+import { GROQ_CHAT_MODEL as GROQ_MODEL_ID, isGptOss } from "./ai_model.ts";
+
 export interface LlmTool {
     type: "function";
     function: {
@@ -112,7 +114,7 @@ const PROVIDERS: Record<string, ProviderSpec> = {
     groq: {
         label: "groq",
         url: "https://api.groq.com/openai/v1/chat/completions",
-        model: Deno.env.get("GROQ_MODEL") ?? "openai/gpt-oss-120b",
+        model: GROQ_MODEL_ID,
         fallbackModels: ["openai/gpt-oss-20b", "llama-3.1-8b-instant"],
         keyEnv: "GROQ_API_KEY",
         inputPerM: 0.15,
@@ -177,24 +179,10 @@ const PROVIDERS: Record<string, ProviderSpec> = {
 const DEFAULT_DAILY_BUDGET_USD = 0.80;
 const DEFAULT_FALLBACK_PROVIDERS = "cerebras,gemini";
 
-/**
- * The chat model id the direct (non-gateway) Groq callers should use.
- *
- * Six edge functions call Groq's REST endpoint directly instead of going
- * through chat(): parse_natural_language, handle_voice, daily_push_notifications,
- * ai_concierge_proactive, generate_ai_greeting, ai_suggest_stops. Each had the
- * retired model id hardcoded as a string literal. Verified from the LIVE
- * deployed bundles on 2026-09-06 — handle_voice and generate_ai_greeting are
- * still serving `llama-3.3-70b-versatile` today, because the 2026-09-06 CORS
- * redeploy shipped from a branch that predated the 2026-08-17 AI fix and
- * overwrote it.
- *
- * Importing this does not give them budget metering or the fallback chain —
- * routing them through chat() is the real fix and is still outstanding — but it
- * does mean the next model retirement is one secret away from fixed everywhere,
- * instead of six string literals in six files.
- */
-export const GROQ_CHAT_MODEL: string = PROVIDERS.groq.model;
+// Re-exported for callers that already import it from here. The definition
+// lives in ./ai_model.ts so the six direct callers can take the string without
+// bundling this entire gateway.
+export { GROQ_CHAT_MODEL } from "./ai_model.ts";
 
 /** A provider error that means "this model is gone", not "bad request". */
 function isModelGone(status: number, body: string): boolean {
@@ -407,7 +395,7 @@ export async function chat(supabase: any, opts: ChatOptions): Promise<any> {
             body.model = model;
             // reasoning_effort is a GPT-OSS-only parameter; a fallback to a
             // non-GPT-OSS model must not carry it or the request is rejected.
-            if (model.startsWith("openai/gpt-oss")) body.reasoning_effort = "low";
+            if (isGptOss(model)) body.reasoning_effort = "low";
             else delete body.reasoning_effort;
 
             let modelGone = false;

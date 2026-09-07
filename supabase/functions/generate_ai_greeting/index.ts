@@ -2,7 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { aiFetch, internalFetch } from "../_shared/networkUtility.ts";
-import { GROQ_CHAT_MODEL } from "../_shared/llm.ts";
+import { GROQ_CHAT_MODEL, isGptOss } from "../_shared/ai_model.ts";
+
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -10,12 +12,9 @@ const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -132,7 +131,11 @@ async function generateGreetingWithAI(name: string, patterns: any): Promise<stri
             { role: "user", content: prompt },
           ],
           temperature: 0.8,
-          max_tokens: 50,
+          // GPT-OSS spends completion_tokens on hidden reasoning before the
+          // visible answer — 50 is consumed entirely by it, returning empty
+          // content with a 200 and silently falling back to the template.
+          max_tokens: isGptOss(GROQ_CHAT_MODEL) ? 512 : 50,
+          ...(isGptOss(GROQ_CHAT_MODEL) ? { reasoning_effort: "low" } : {}),
         }),
       }
     );

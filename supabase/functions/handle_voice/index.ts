@@ -2,18 +2,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { aiFetch } from "../_shared/networkUtility.ts";
-import { GROQ_CHAT_MODEL } from "../_shared/llm.ts";
+import { GROQ_CHAT_MODEL, isGptOss } from "../_shared/ai_model.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -75,18 +73,26 @@ serve(async (req: Request) => {
       Respond in plain JSON only.
     `;
 
+    // GPT-OSS spends completion tokens on hidden reasoning before the visible
+    // answer, so a tight max_tokens returns empty content with a 200. Budget
+    // raised and reasoning_effort turned down, matching the gateway's floor —
+    // see _shared/llm.ts for the measured case (254 of 256 tokens on reasoning).
+    const useLowReasoning = isGptOss(GROQ_CHAT_MODEL);
+    const groqBody: Record<string, unknown> = {
+      model: GROQ_CHAT_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 800,
+      temperature: 0.7
+    };
+    if (useLowReasoning) groqBody.reasoning_effort = "low";
+
     const response = await aiFetch(groqUrl, {
       method: 'POST',
       headers: { 
         'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json' 
       },
-      body: JSON.stringify({
-        model: GROQ_CHAT_MODEL,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 500,
-        temperature: 0.7
-      })
+      body: JSON.stringify(groqBody)
     });
 
     const groqData = await response.json();
