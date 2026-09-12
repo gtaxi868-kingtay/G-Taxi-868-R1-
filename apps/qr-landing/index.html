@@ -1003,7 +1003,19 @@ class Component extends DCLogic {
 
     cards.forEach(card => {
       const img = card.querySelector('img');
-      card.addEventListener('click', () => { if (isSwitching) return; setActive(card); switchRole(card); });
+      // A real user tapped a role card, watched it recolor, and then went
+      // looking for how to actually read about it or sign up — the reveal
+      // lived on a separate small pill ("See what a Rider gets") below the
+      // carousel, easy to miss on a first visit. The tap itself now opens
+      // that reading/signup window directly; setActive/switchRole still run
+      // first so the background theme and role text are correct once the
+      // panel's backdrop blur covers the page.
+      card.addEventListener('click', () => {
+        if (isSwitching) return;
+        setActive(card);
+        switchRole(card);
+        openPanel('role-' + card.dataset.role);
+      });
       card.addEventListener('mouseenter', () => {
         if (img && !card.classList.contains('active')) img.style.opacity = '.8';
         if (img) img.style.transform = 'rotate(-8deg) scale(1.14)';
