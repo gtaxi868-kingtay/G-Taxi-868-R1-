@@ -61,3 +61,5 @@ graphify-out/
 
 # TypeScript incremental build artifacts
 *.tsbuildinfo
+.env.secrets
+third_party/

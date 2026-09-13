@@ -105,12 +105,23 @@ Deno.serve(async (req: Request) => {
         .eq("id", driver.id);
 
       // Notify driver
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("push_token")
-        .eq("id", (await supabase.from("drivers").select("user_id").eq("id", driver.id).single().then((__r) => __r, () => ({ data: null })))?.data?.user_id)
-        .single()
-        .then((__r) => __r, () => ({ data: null }));
+      let targetUserId: string | null = null;
+      try {
+        const { data: d } = await supabase.from("drivers").select("user_id").eq("id", driver.id).single();
+        targetUserId = d?.user_id ?? null;
+      } catch (e) {
+        console.error("[lease_default] driver lookup failed:", e);
+      }
+
+      let profile: { push_token?: string } | null = null;
+      if (targetUserId) {
+        try {
+          const { data: p } = await supabase.from("profiles").select("push_token").eq("id", targetUserId).single();
+          profile = p;
+        } catch (e) {
+          console.error("[lease_default] push token lookup failed:", e);
+        }
+      }
 
       if (profile?.push_token) {
         try {

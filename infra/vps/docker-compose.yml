@@ -1,0 +1,60 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: g-taxi-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy_data:/data
+      - ./caddy_config:/config
+    networks:
+      - appnet
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      CADDY_EMAIL: ${CADDY_EMAIL:-admin@example.com}
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: g-taxi-uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - ./uptime-kuma-data:/app/data
+    ports:
+      - "3001:3001"
+    networks:
+      - appnet
+
+  redis:
+    image: redis:7-alpine
+    container_name: g-taxi-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./redis-data:/data
+    networks:
+      - appnet
+
+  worker:
+    build:
+      context: ./worker
+    container_name: g-taxi-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      WORKER_TICK_SECONDS: ${WORKER_TICK_SECONDS:-60}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      DOMAIN: ${DOMAIN:-localhost}
+    depends_on:
+      - redis
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge

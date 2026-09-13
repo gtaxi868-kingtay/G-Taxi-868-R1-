@@ -10,6 +10,31 @@ jest.mock('../../context/AuthContext', () => ({
     }),
 }));
 
+jest.mock('@gtaxi/design-system/native', () => ({
+    RainLogin: ({ children, footer }: any) => {
+        const React = require('react');
+        const { View } = require('react-native');
+        return React.createElement(View, null, children, footer);
+    },
+    CrystalInput: ({ label, placeholder, value, onChangeText, secureTextEntry, keyboardType }: any) => {
+        const React = require('react');
+        const { TextInput, View, Text } = require('react-native');
+        return React.createElement(View, null,
+            React.createElement(Text, null, label),
+            React.createElement(TextInput, { placeholder, value, onChangeText, secureTextEntry, keyboardType })
+        );
+    },
+    CrystalButton: ({ title, onPress, loading }: any) => {
+        const React = require('react');
+        const { TouchableOpacity, Text } = require('react-native');
+        return React.createElement(TouchableOpacity, { onPress }, React.createElement(Text, null, loading ? 'Loading...' : title));
+    },
+}));
+
+jest.mock('@gtaxi/design-system', () => ({
+    VOICES: { rider: { accent: '#d2bbff' } },
+}));
+
 // Mock Navigation
 const mockNavigation = {
     navigate: jest.fn(),
