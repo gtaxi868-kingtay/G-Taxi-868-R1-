@@ -46,7 +46,7 @@
 // deno-lint-ignore-file no-explicit-any
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendWhatsApp } from "../_shared/sms.ts";
+import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
 
 import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -390,10 +390,11 @@ Deno.serve(async (req: Request) => {
       const links = await readLinks(supabase);
       const downloadKey = WAITLIST_TYPE_TO_DOWNLOAD_KEY[row.user_type ?? "ride"] ?? "rider_download_url";
       const outboxRole = WAITLIST_TYPE_LABEL[row.user_type ?? "ride"] ?? "rider";
+      const messageBody = waitlistApprovedText(row.full_name ?? "there", row.user_type ?? "ride", links[downloadKey]);
       const result = await claimAndSend(supabase, {
         role: outboxRole as Role, recipientId: row.id, phone: row.phone,
         template: "waitlist_approved", territoryId: null,
-        body: waitlistApprovedText(row.full_name ?? "there", row.user_type ?? "ride", links[downloadKey]),
+        body: messageBody,
         payload: { name: row.full_name, approved_by: adminId },
       });
 
@@ -414,6 +415,12 @@ Deno.serve(async (req: Request) => {
               ? "APPROVED, BUT NOT DELIVERED — WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_ACCESS_TOKEN are not set as Supabase secrets, so the WhatsApp send was a no-op."
               : `APPROVED, BUT NOT DELIVERED — WhatsApp send failed (${result.reason ?? "unknown error"}). The outbox row is marked failed; status is still approved.`)
           : undefined,
+        // While the Business API is down (no verified WhatsApp Business
+        // account yet — see docs/agents notes), this is a real, working
+        // substitute: it opens the ADMIN's own WhatsApp with the message
+        // already typed, ready to hit send. No API, no token, no Meta
+        // approval needed — just a plain wa.me link.
+        deep_link: !result.sent ? getDeepLink(row.phone, messageBody) : undefined,
       });
     }
 
