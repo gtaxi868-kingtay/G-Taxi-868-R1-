@@ -66,6 +66,11 @@ serve(async (req) => {
     // exercised is a guess, not a fallback: the day it is needed is the worst
     // possible moment to discover the key was pasted wrong. This proves it
     // works while the primary is still healthy. Costs a handful of tokens.
+    //
+    // Its first real run on 2026-09-07 immediately found three things a config
+    // table could not: an archived Cerebras model, a SUSPENDED Gemini key that
+    // looked perfectly healthy as a "key is configured" boolean, and a Google
+    // error body that echoes the API key back in plaintext.
     const probeProvider = url.searchParams.get("probe");
     if (probeProvider) {
         try {
@@ -85,6 +90,7 @@ serve(async (req) => {
         } catch (err) {
             // Deliberately 200 with success:false — a failed probe is a
             // successful diagnosis, and the caller wants to read the reason.
+            // The message is already redacted inside the gateway.
             return json({
                 success: false,
                 requested_provider: probeProvider,

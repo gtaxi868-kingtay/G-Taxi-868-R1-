@@ -21,9 +21,13 @@
 // So providers are now a chain too. G_LLM_FALLBACKS is a comma-separated list
 // (default "cerebras,gemini"); any provider whose key is not configured is
 // skipped, which means arming a fallback is a secret change with no redeploy.
-// All providers below are OpenAI-compatible with a free tier and no credit card
-// (directory: github.com/open-free-llm-api/awesome-freellm-apis, model ids
-// cross-checked against each provider's own docs 2026-09-06).
+//
+// A NOTE ON WHERE THESE MODEL IDS COME FROM
+// They were seeded from a public free-API directory
+// (github.com/open-free-llm-api/awesome-freellm-apis). That directory is a
+// starting point, NOT a source of truth: its Cerebras entry pointed at
+// zai-glm-4.7, which a live ?probe on 2026-09-07 proved was archived. Every id
+// here is a hypothesis until g_briefing?probe=<provider> returns success.
 //
 // Costs are metered at PAID rates even on free tiers so g_llm_usage stays an
 // honest meter; when the day's spend crosses g_config.daily_llm_budget_usd,
@@ -89,7 +93,7 @@ export class RateLimitedError extends Error {
 // g_rider_concierge sat on a retired model for three weeks after g_chat was
 // fixed. Exposed via each function's ?health=1 branch so drift is provable
 // instead of assumed.
-export const LLM_GATEWAY_VERSION = "2026-09-07";
+export const LLM_GATEWAY_VERSION = "2026-09-07b";
 
 interface ProviderSpec {
     /** Short name used in alerts, logs and llmGatewayInfo(). */
@@ -97,8 +101,8 @@ interface ProviderSpec {
     url: string;
     model: string;
     /**
-     * Tried in order when the primary model 404s (model_not_found). A provider
-     * retiring a model must degrade to a working one, never take G offline.
+     * Tried in order when the primary model is gone. A provider retiring a
+     * model must degrade to a working one, never take G offline.
      */
     fallbackModels: string[];
     keyEnv: string;
@@ -114,11 +118,6 @@ interface ProviderSpec {
 // limits both "Contact Sales"). It was the DEFAULT here, so every department
 // using chat() with no GROQ_MODEL override was silently broken — Groq returns
 // a clean 404 model_not_found on a free-tier key, not a hang.
-//
-// Re-confirmed live 2026-09-05: g_chat/g_briefing/admin's bundled copies of
-// this file still had the dead model — the 2026-08-17 fix only touched the 4
-// functions that bypassed the gateway with raw fetch() at the time, not this
-// file's other consumers, since each edge function bundles its own copy.
 const PROVIDERS: Record<string, ProviderSpec> = {
     groq: {
         label: "groq",
@@ -295,7 +294,7 @@ async function alertProviderFailover(
             p_details: {
                 from_provider: from,
                 to_provider: to,
-                detail: detail.slice(0, 500),
+                detail: redactSecrets(detail).slice(0, 500),
                 gateway: LLM_GATEWAY_VERSION,
             },
         });
@@ -362,7 +361,9 @@ export function llmGatewayInfo(): Record<string, unknown> {
         provider_chain: chain.map((p) => p.label),
         provider_fallbacks_armed: Math.max(chain.length - 1, 0),
         // Every provider the gateway knows, and whether its key is present.
-        // Booleans only — never the key itself.
+        // Booleans only — never the key itself. NOTE: "key_configured" means the
+        // secret exists, NOT that it works — a suspended Gemini key looked
+        // identical here until ?probe=gemini actually called it.
         providers_known: Object.values(PROVIDERS).map((p) => ({
             provider: p.label,
             model: p.model,

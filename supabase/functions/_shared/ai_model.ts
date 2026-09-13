@@ -36,5 +36,5 @@ export const GROQ_CHAT_MODEL: string =
  * models room and turn reasoning_effort down.
  */
 export function isGptOss(model: string): boolean {
-    return model.startsWith("openai/gpt-oss");
+    return model.startsWith("openai/gpt-oss") || model.startsWith("gpt-oss");
 }
