@@ -1,2 +1,2 @@
-// Relay: @gtaxi/shared/env → @gtaxi/core
+// Relay: @g868/shared/env → @gtaxi/core
 export * from '@gtaxi/core';

@@ -304,6 +304,23 @@ export function ProfileScreen({ navigation }: { navigation: NavigationProp }) {
                     <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
 
+                {/* The compliance front door. submit_compliance_document and the
+                    admin review screen both existed; drivers had no way in, so
+                    compliance_queue had zero rows ever. */}
+                <TouchableOpacity
+                    style={s.menuRow}
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate('ComplianceDocuments');
+                    }}
+                >
+                    <View style={[s.rowIcon, { backgroundColor: 'rgba(255,255,255,0.03)' }]}>
+                        <Ionicons name="shield-checkmark-outline" size={20} color="#22C55E" />
+                    </View>
+                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', flex: 1, marginLeft: 16}}>MY DOCUMENTS</Text>
+                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
+
                 <TouchableOpacity
                     style={s.menuRow}
                     onPress={() => {

@@ -1,8 +1,8 @@
 import { supabase } from '@gtaxi/core';
-import { ENV } from '@gtaxi/shared/env';
-import { fetchWithRetry } from '@gtaxi/shared/retryWrapper';
-import { OutboxService } from '@gtaxi/shared/OutboxService';
-import { RideEngine } from '@gtaxi/shared';
+import { ENV } from '@g868/shared/env';
+import { fetchWithRetry } from '@g868/shared/retryWrapper';
+import { OutboxService } from '@g868/shared/OutboxService';
+import { RideEngine } from '@g868/shared';
 
 const FUNCTIONS_URL = `${ENV.SUPABASE_URL}/functions/v1`;
 
@@ -43,13 +43,20 @@ export async function getRide(rideId: string) {
     return { data, error };
 }
 
-export async function updateDriverLocation(driverId: string, lat: number, lng: number, heading: number) {
+export async function updateDriverLocation(
+    driverId: string,
+    lat: number,
+    lng: number,
+    heading: number,
+    speed?: number,
+    sos?: boolean
+) {
     // Fire and forget — Edge Function validates auth + GPS spoof detection
     const headers = await getAuthHeaders();
     return fetch(`${FUNCTIONS_URL}/update_driver_location`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ lat, lng, heading })
+        body: JSON.stringify({ lat, lng, heading, speed, sos })
     });
 }
 

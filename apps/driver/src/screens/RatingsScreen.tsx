@@ -33,15 +33,19 @@ export function RatingsScreen({ navigation }: { navigation: { goBack: () => void
     const fetchRatings = useCallback(async () => {
         if (!driver?.id) return;
 
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('avg_rating, total_ratings')
+        // Drivers never get a profiles row in this system -- avg_rating/
+        // total_ratings on profiles were always null for every driver.
+        // The real aggregate lives on drivers.rating/rating_count, kept
+        // current by trg_compute_avg_rating/trg_refresh_driver_rating.
+        const { data: driverRow } = await supabase
+            .from('drivers')
+            .select('rating, rating_count')
             .eq('id', driver.id)
             .single();
 
-        if (profile) {
-            setAvgRating(profile.avg_rating);
-            setTotalRatings(profile.total_ratings || 0);
+        if (driverRow) {
+            setAvgRating(driverRow.rating);
+            setTotalRatings(driverRow.rating_count || 0);
         }
 
         const { data: rows } = await supabase

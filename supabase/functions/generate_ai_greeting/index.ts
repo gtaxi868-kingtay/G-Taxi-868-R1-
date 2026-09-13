@@ -2,9 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { aiFetch, internalFetch } from "../_shared/networkUtility.ts";
-import { GROQ_CHAT_MODEL, isGptOss } from "../_shared/ai_model.ts";
-
-import { getCorsHeaders } from "../_shared/cors.ts";
+import { chat, BudgetExceededError, RateLimitedError } from "../_shared/llm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -12,9 +10,12 @@ const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req: Request) => {
-  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -51,7 +52,12 @@ serve(async (req: Request) => {
     const { data: prefs } = await supabaseAdmin
       .from("rider_ai_preferences")
       .select("metadata")
-      .eq("rider_id", user_id)
+      // The column is user_id. This said rider_id — a column that does not
+      // exist on rider_ai_preferences — so the lookup errored, `prefs` came
+      // back null, the 4-hour cache NEVER hit, and every single rider
+      // home-screen load made a fresh paid Groq call. Silent, permanent,
+      // unmetered spend.
+      .eq("user_id", user_id)
       .maybeSingle();
 
     const cached = prefs?.metadata?.cached_greeting;
@@ -79,7 +85,7 @@ serve(async (req: Request) => {
     const patternsData = await patternsRes.json();
     const patterns = patternsData.patterns;
 
-    const greeting = await generateGreetingWithAI(user_name, patterns);
+    const greeting = await generateGreetingWithAI(supabaseAdmin, user_name, patterns);
 
     const newMetadata = {
       ...prefs?.metadata,
@@ -89,11 +95,14 @@ serve(async (req: Request) => {
 
     await supabaseAdmin
       .from("rider_ai_preferences")
+      // Same fix on the write side: the primary key is user_id, so the old
+      // onConflict target did not exist either and the cache could never
+      // have been written even if the read had worked.
       .upsert({
-        rider_id: user_id,
+        user_id: user_id,
         metadata: newMetadata,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "rider_id" });
+      }, { onConflict: "user_id" });
 
     return new Response(
       JSON.stringify({ greeting, cached: false, patterns: patterns ? true : false }),
@@ -112,41 +121,32 @@ serve(async (req: Request) => {
   }
 });
 
-async function generateGreetingWithAI(name: string, patterns: any): Promise<string> {
+// Routed through _shared/llm.ts rather than fetching api.groq.com directly.
+// This function ran on EVERY rider home-screen load, so it was the single
+// largest uncapped spender on the platform: the daily budget in llm.ts only
+// governed the admin-facing G stack, and rider traffic bypassed it entirely.
+// Now it counts against the same cap and lands in g_llm_usage.
+//
+// The `supabase` client is required so the gateway can read the budget and
+// record the spend.
+async function generateGreetingWithAI(
+  supabase: any,
+  name: string,
+  patterns: any,
+): Promise<string> {
   const prompt = buildPrompt(name, patterns);
 
   try {
-    const response = await aiFetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: GROQ_CHAT_MODEL,
-          messages: [
-            { role: "system", content: "You are a friendly Trinidadian ride-hailing assistant. Generate warm, casual greetings under 15 words. Use local phrasing. No quotes. No markdown." },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.8,
-          // GPT-OSS spends completion_tokens on hidden reasoning before the
-          // visible answer — 50 is consumed entirely by it, returning empty
-          // content with a 200 and silently falling back to the template.
-          max_tokens: isGptOss(GROQ_CHAT_MODEL) ? 512 : 50,
-          ...(isGptOss(GROQ_CHAT_MODEL) ? { reasoning_effort: "low" } : {}),
-        }),
-      }
-    );
+    const res = await chat(supabase, {
+      department: "rider_greeting",
+      system:
+        "You are a friendly Trinidadian ride-hailing assistant. Generate warm, casual greetings under 15 words. Use local phrasing. No quotes. No markdown.",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.8,
+      maxTokens: 50,
+    });
 
-    if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content || "";
-    
+    const text = res.choices?.[0]?.message?.content || "";
     const clean = text.replace(/["']/g, "").trim();
     const words = clean.split(/\s+/);
     if (words.length > 15) {
@@ -155,7 +155,14 @@ async function generateGreetingWithAI(name: string, patterns: any): Promise<stri
     return clean || buildFallback(name, patterns);
 
   } catch (err) {
-    console.error("Groq call failed:", err);
+    // Budget exhausted or rate limited is NOT an error condition for a
+    // greeting — the rider simply gets the deterministic one. Never let a
+    // cosmetic banner break the home screen or spend past the cap.
+    if (err instanceof BudgetExceededError || err instanceof RateLimitedError) {
+      console.log(`[generate_ai_greeting] falling back to template: ${err.name}`);
+    } else {
+      console.error("LLM call failed:", err);
+    }
     return buildFallback(name, patterns);
   }
 }

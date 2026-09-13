@@ -16,7 +16,7 @@ jest.mock('@/design-system/primitives', () => {
   return { Txt: ({ children }: any) => React.createElement(Text, null, children) };
 });
 jest.mock('@stripe/stripe-react-native', () => ({ useStripe: () => ({ initPaymentSheet: jest.fn(), presentPaymentSheet: jest.fn() }) }));
-jest.mock('@gtaxi/shared/env', () => ({ ENV: { SUPABASE_URL: 'https://test.supabase.co' } }));
+jest.mock('@g868/shared/env', () => ({ ENV: { SUPABASE_URL: 'https://test.supabase.co' } }));
 
 describe('WalletTopUpScreen', () => {
   it('renders without crashing', () => {

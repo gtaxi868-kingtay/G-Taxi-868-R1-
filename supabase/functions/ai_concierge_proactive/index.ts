@@ -1,8 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
-import { aiFetch } from "../_shared/networkUtility.ts";
-import { GROQ_CHAT_MODEL, isGptOss } from "../_shared/ai_model.ts";
+import { chat } from "../_shared/llm.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -111,26 +110,20 @@ serve(async (req) => {
       `;
     }
 
-    const response = await aiFetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { 
-        "Authorization": `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json" 
-      },
-      body: JSON.stringify({
-        model: GROQ_CHAT_MODEL,
+    let suggestion: string | undefined;
+    try {
+      const groqData = await chat(supabase, {
+        department: "ai_concierge_proactive",
         messages: [{ role: "user", content: prompt }],
-        // GPT-OSS spends completion_tokens on hidden reasoning before the
-        // visible answer — 50 is consumed entirely by it, returning empty
-        // content with a 200 and silently falling back to the template.
-        max_tokens: isGptOss(GROQ_CHAT_MODEL) ? 512 : 50,
-        ...(isGptOss(GROQ_CHAT_MODEL) ? { reasoning_effort: "low" } : {}),
-        temperature: 0.7
-      })
-    });
-
-    const groqData = await response.json();
-    let suggestion = groqData.choices?.[0]?.message?.content?.trim();
+        maxTokens: 50,
+        temperature: 0.7,
+      });
+      suggestion = groqData.choices?.[0]?.message?.content?.trim();
+    } catch (err) {
+      // Budget exceeded, rate-limited, or provider failure — fall through
+      // to the deterministic greeting below (CLAUDE.md AI spend rules).
+      console.warn("[ai_concierge_proactive] LLM gateway failed, using fallback:", err);
+    }
 
     if (!suggestion) {
       const timeBlock = hour >= 6 && hour < 11 ? 'morning' :

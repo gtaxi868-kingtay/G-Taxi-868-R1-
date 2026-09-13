@@ -169,6 +169,16 @@ serve(async (req: Request) => {
             );
         }
 
+        // ── Driver reliability score ─────────────────────────────────────
+        // update_driver_acceptance_rate existed but had no caller anywhere
+        // in the codebase, so acceptance_rate never moved regardless of
+        // driver behavior. Called on both sides now: true here, false in
+        // cancel_ride_atomic when a driver cancels a ride they'd already
+        // accepted. Non-fatal -- must never block a successful accept.
+        supabaseAdmin
+            .rpc("update_driver_acceptance_rate", { p_driver_id: driver.id, p_accepted: true })
+            .then((res) => res, (err: unknown) => console.error("update_driver_acceptance_rate failed (non-fatal):", err));
+
         // ── Push Notification to Rider ─────────────────────────────────────
         try {
             const { data: riderProfile } = await supabaseAdmin

@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { ErrorBoundary } from '@gtaxi/shared';
+import { ErrorBoundary } from '@g868/shared';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { SignupScreen } from './src/screens/SignupScreen';
@@ -18,6 +18,7 @@ import { IntelligenceScreen } from './src/screens/IntelligenceScreen';
 import { ApprovalsScreen } from './src/screens/ApprovalsScreen';
 import { GroundTransitScreen } from './src/screens/GroundTransitScreen';
 import { ZoneRatesScreen } from './src/screens/ZoneRatesScreen';
+import { PlatformControlScreen } from './src/screens/PlatformControlScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -44,6 +45,7 @@ function AppNavigator() {
       <AppStack.Screen name="CommanderManagement" component={CommanderManagementScreen} />
       <AppStack.Screen name="Intelligence" component={IntelligenceScreen} />
       <AppStack.Screen name="Approvals" component={ApprovalsScreen} />
+      <AppStack.Screen name="PlatformControl" component={PlatformControlScreen} />
       <AppStack.Screen name="GroundTransit" component={GroundTransitScreen} />
       <AppStack.Screen name="ZoneRates" component={ZoneRatesScreen} />
     </AppStack.Navigator>

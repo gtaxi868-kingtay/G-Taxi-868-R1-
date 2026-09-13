@@ -1,6 +1,6 @@
 import { describe } from 'vitest';
 
-describe.skip('@gtaxi/shared', () => {
+describe.skip('@g868/shared', () => {
   // TODO: Add unit tests for packages/shared
 });
 

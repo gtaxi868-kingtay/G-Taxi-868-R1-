@@ -171,7 +171,7 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
                                 <Ionicons name="restaurant-sharp" size={14} color={FOOD_ORANGE} />
                                 <Text style={s.typeBadgeText}>FOOD DELIVERY</Text>
                             </View>
-                            <Text style={s.subLabel}>82% of delivery fee</Text>
+                            <Text style={s.subLabel}>80% of delivery fee</Text>
                         </View>
 
                         <View style={s.timerOuter}>

@@ -521,3 +521,42 @@ that had to be cleaned up by hand.
 
 Any new sweep that acts on historical rows needs a launch cutoff set BEFORE
 the job exists, not after.
+
+## DOMAIN INVARIANTS
+
+The settlement split is **80 / 15 / 1.5** — driver 80%, platform 15%, reserve
+1.5%. The driver drops to 78% where the territory has an active commander.
+
+Read these from live `pricing_config` (`DRIVER_SHARE_CENTS`,
+`PLATFORM_RATE_CENTS`, `RESERVE_RATE_CENTS`); never hardcode them.
+
+**An 82/15/3 split appears in several older documents and in generated
+reports. It is wrong and has never been correct.** It has now been repeated
+in at least three places. If a doc, a summary, or an AI-written report cites
+82/15/3, that document is stale — trust `pricing_config`.
+
+`compute_ride_split` is the single source of truth for the ride split. Any
+change to fare or settlement logic must go through it, must cover BOTH the
+wallet and cash paths, and must be property-tested with
+`supabase/tests/money_paths.sql` before commit. No database trigger may
+overwrite a settled value — `tr_ensure_fare_waterfall` writes split *numbers*
+onto the ride row but must never create or alter `wallet_transactions`.
+
+Surge is hard-capped 1.0–2.0 by `pricing_zones_multiplier_sane`. The AI prompt
+only *suggests* a ceiling; the constraint enforces it.
+
+## AI SPEND RULES
+
+Every LLM call goes through `_shared/llm.ts` (`chat()`), which enforces the
+daily budget in `g_config.daily_llm_budget_usd` and records spend in
+`g_llm_usage`. Never call `api.groq.com` (or any provider) with a raw `fetch`
+— that bypasses the cap silently. Rider-facing functions are the ones that
+scale, so they matter most.
+
+Treat `BudgetExceededError` and `RateLimitedError` as normal, expected
+outcomes: degrade to the deterministic fallback. A cosmetic AI feature must
+never break a screen or spend past the cap.
+
+An AI may propose; reviewed code executes. New AI-triggered actions belong in
+`g_execute_action`'s `HANDLERS` registry behind `g_proposed_actions` — never
+as a direct write from a tool call.

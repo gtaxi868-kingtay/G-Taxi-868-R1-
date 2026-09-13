@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
         .not('driver_id', 'is', null)
 
       const activeOnRide = new Set((activeRideDrivers || []).map(r => r.driver_id)).size
-      const driverUtil = activeDrivers > 0 ? activeOnRide / activeDrivers : null
+      const driverUtil = (activeDrivers ?? 0) > 0 ? activeOnRide / (activeDrivers as number) : null
 
       const { count: newDrivers7d } = await supabaseAdmin
         .from('drivers').select('*', { count: 'exact', head: true })

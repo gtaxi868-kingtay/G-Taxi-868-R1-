@@ -22,16 +22,15 @@ interface RiderRow {
     wallet_ever_funded: boolean;
     escape_ever_booked: boolean;
     unlocked_verticals: string[];
-    next_unlock: { vertical: string; progress: number; required: number; label: string } | null;
+    next_unlock: { verticals: string[]; progress: number; required: number; label: string } | null;
 }
 
 interface ProgressionRule {
-    id: string;
     level: number;
     threshold_type: string;
     threshold_value: number;
-    unlock_vertical: string;
-    label: string;
+    unlock_verticals: string[];
+    push_title: string;
 }
 
 interface AiSuggestion {
@@ -153,10 +152,10 @@ export function Progression() {
                 .update({
                     threshold_type: editingRule.threshold_type,
                     threshold_value: editingRule.threshold_value,
-                    unlock_vertical: editingRule.unlock_vertical,
-                    label: editingRule.label,
+                    unlock_verticals: editingRule.unlock_verticals,
+                    push_title: editingRule.push_title,
                 })
-                .eq('id', editingRule.id);
+                .eq('level', editingRule.level);
 
             if (error) throw error;
             setEditingRule(null);
@@ -214,8 +213,8 @@ export function Progression() {
                 </div>
                 <div className="divide-y divide-white/5">
                     {rules.map(rule => (
-                        <div key={rule.id} className="px-6 py-4 flex items-center justify-between gap-4">
-                            {editingRule?.id === rule.id ? (
+                        <div key={rule.level} className="px-6 py-4 flex items-center justify-between gap-4">
+                            {editingRule?.level === rule.level ? (
                                 <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-3">
                                     <div>
                                         <label className="text-[10px] text-white/40 block mb-1">Threshold type</label>
@@ -241,10 +240,10 @@ export function Progression() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="text-[10px] text-white/40 block mb-1">Unlock vertical</label>
+                                        <label className="text-[10px] text-white/40 block mb-1">Unlock verticals (comma-separated)</label>
                                         <input
-                                            value={editingRule.unlock_vertical}
-                                            onChange={e => setEditingRule({ ...editingRule, unlock_vertical: e.target.value })}
+                                            value={editingRule.unlock_verticals.join(',')}
+                                            onChange={e => setEditingRule({ ...editingRule, unlock_verticals: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })}
                                             className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono"
                                         />
                                     </div>
@@ -272,7 +271,7 @@ export function Progression() {
                                         </div>
                                         <ChevronRight size={14} className="text-white/20" />
                                         <div>
-                                            <p className="text-sm font-bold text-white">{rule.unlock_vertical.replace(/_/g, ' ')}</p>
+                                            <p className="text-sm font-bold text-white">{rule.unlock_verticals.map(v => v.replace(/_/g, ' ')).join(' + ')}</p>
                                             <p className="text-xs text-white/40">{rule.threshold_value} {rule.threshold_type.replace(/_/g, ' ')} required</p>
                                         </div>
                                     </div>

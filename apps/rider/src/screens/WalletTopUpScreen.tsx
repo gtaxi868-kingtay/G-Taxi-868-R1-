@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
-import { ENV } from '@gtaxi/shared/env';
+import { ENV } from '@g868/shared/env';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 

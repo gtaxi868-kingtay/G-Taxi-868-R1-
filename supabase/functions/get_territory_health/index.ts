@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
       .not('driver_id', 'is', null)
 
     const uniqueActiveDrivers = new Set((activeDriverIds || []).map(r => r.driver_id)).size
-    const driverUtilization = onlineDrivers > 0 ? uniqueActiveDrivers / onlineDrivers : 0
+    const driverUtilization = (onlineDrivers ?? 0) > 0 ? uniqueActiveDrivers / (onlineDrivers as number) : 0
 
     // ─── WAIT TIME ───
     const { data: waitTimes } = await supabaseAdmin

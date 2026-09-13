@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, {
     useSharedValue, withSpring,
@@ -23,6 +24,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { useAuth } from '../context/AuthContext';
 import { useRide } from '../context/RideContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
+import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
 import { LayerDeck, Layer } from '../components/home/LayerDeck';
@@ -57,6 +59,9 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
+    // Platform-wide switches from the admin's Platform Control page. One query
+    // for all of them, kept live over realtime.
+    const { flags: platformFlags } = usePlatformFlags();
 
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
@@ -177,11 +182,12 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         const fetchEnabledVerticals = async () => {
             setIsVerticalsLoading(true);
             try {
-                const [progressRes, kioskFlagRes, carnivalFlagRes, eventsFlagRes] = await Promise.all([
+                // kiosk/carnival/events used to be three separate round-trips to
+                // system_feature_flags. usePlatformFlags fetches every switch in
+                // one query and keeps them live, so adding more gates costs
+                // nothing extra.
+                const [progressRes] = await Promise.all([
                     supabase.functions.invoke('get_rider_progress'),
-                    supabase.from('system_feature_flags').select('is_active').eq('id', 'kiosk_active').maybeSingle(),
-                    supabase.from('system_feature_flags').select('is_active').eq('id', 'carnival_active').maybeSingle(),
-                    supabase.from('system_feature_flags').select('is_active').eq('id', 'events_active').maybeSingle(),
                 ]);
 
                 if (progressRes.error) throw progressRes.error;
@@ -208,15 +214,20 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 const platform: Record<string, boolean> = progressRes.data?.data?.platform_enabled || {};
                 const adminAllows = (name: string) => platform[name] !== false;
 
+                // This effect has an empty dependency array, so it must NOT read
+                // platformFlags — it would capture the first render's values and
+                // never see an admin toggle. The platform switch is applied at
+                // render time in the `layers` memo below, which does depend on
+                // them. What is computed here is only: did the rider earn it,
+                // and does vertical_settings allow it.
                 const flags = {
                     grocery: unlocked.includes('grocery'),
                     laundry: unlocked.includes('laundry_nfc') || unlocked.includes('laundry'),
                     merchant: unlocked.includes('merchant_delivery'),
-                    kiosk: (unlocked.includes('laundry_nfc') || unlocked.includes('kiosk')) && (kioskFlagRes.data?.is_active === true),
+                    kiosk: unlocked.includes('laundry_nfc') || unlocked.includes('kiosk'),
                     caribbean_travel: unlocked.includes('g_escape') || unlocked.includes('caribbean_travel'),
-                    // Feature flag AND vertical switch — either one off hides it.
-                    fete: carnivalFlagRes.data?.is_active === true && adminAllows('carnival'),
-                    events: eventsFlagRes.data?.is_active === true && adminAllows('events'),
+                    fete: adminAllows('carnival'),
+                    events: adminAllows('events'),
                 };
 
                 setFeatureFlags(flags);
@@ -517,49 +528,107 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         }
     };
 
+    // Shared by both the typed-text path and the real voice-recording path
+    // below — handle_voice returns the same {success, intent, destination,
+    // reply} shape either way, transcription happens server-side.
+    const processVoiceResult = async (data: any, fallbackText: string) => {
+        if (data?.success) {
+            setAiGreeting(data.reply);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            if (data.intent === 'book_ride' && data.destination) {
+                await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
+                setTimeout(() => {
+                    navigation.navigate('RideConfirmation', {
+                        destination: {
+                            latitude: data.destination.lat,
+                            longitude: data.destination.lng,
+                            address: data.destination.address
+                        },
+                        pickup: {
+                            latitude: currentLat,
+                            longitude: currentLng,
+                            address: 'Current Location'
+                        }
+                    });
+                    clearFarePreview();
+                }, 2000);
+            } else {
+                // Additive: non-ride requests (remember/order/reminder/chat) go to
+                // G's concierge for a richer, memory-aware reply. Ride booking above
+                // is untouched. Concierge is consent-gated + has no payment tools.
+                await askConcierge(data.transcript || fallbackText);
+            }
+        } else {
+            // handle_voice couldn't classify it — let G's concierge try.
+            await askConcierge(fallbackText);
+        }
+    };
+
     const handleVoiceComplete = async (text: string) => {
         if (!profile?.id || !text) return;
         setIsAiThinking(true);
         setAiGreeting("On it...");
 
         try {
-            const { data, error } = await supabase.functions.invoke('handle_voice', {
+            const { data } = await supabase.functions.invoke('handle_voice', {
                 body: { text, rider_id: profile.id }
             });
-
-            if (data?.success) {
-                setAiGreeting(data.reply);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-                if (data.intent === 'book_ride' && data.destination) {
-                    await fetchFareEstimate(data.destination.lat, data.destination.lng, data.destination.address);
-                    setTimeout(() => {
-                        navigation.navigate('RideConfirmation', {
-                            destination: {
-                                latitude: data.destination.lat,
-                                longitude: data.destination.lng,
-                                address: data.destination.address
-                            },
-                            pickup: {
-                                latitude: currentLat,
-                                longitude: currentLng,
-                                address: 'Current Location'
-                            }
-                        });
-                        clearFarePreview();
-                    }, 2000);
-                } else {
-                    // Additive: non-ride requests (remember/order/reminder/chat) go to
-                    // G's concierge for a richer, memory-aware reply. Ride booking above
-                    // is untouched. Concierge is consent-gated + has no payment tools.
-                    await askConcierge(text);
-                }
-            } else {
-                // handle_voice couldn't classify it — let G's concierge try.
-                await askConcierge(text);
-            }
+            await processVoiceResult(data, text);
         } catch (err) {
             setAiGreeting("Connection failed. Please try again.");
+        } finally {
+            setIsAiThinking(false);
+        }
+    };
+
+    const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+    const voiceRecordingRef = useRef<Audio.Recording | null>(null);
+
+    const startVoiceRecording = async () => {
+        try {
+            const { status } = await Audio.requestPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Microphone Required', 'Enable microphone access to use voice commands.');
+                return;
+            }
+            await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+            const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+            voiceRecordingRef.current = recording;
+            setIsRecordingVoice(true);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } catch (err) {
+            Alert.alert('Recording Failed', 'Could not start the microphone. Please try again.');
+        }
+    };
+
+    const stopVoiceRecordingAndSend = async () => {
+        const recording = voiceRecordingRef.current;
+        if (!recording || !profile?.id) return;
+        setIsRecordingVoice(false);
+        voiceRecordingRef.current = null;
+
+        try {
+            await recording.stopAndUnloadAsync();
+            const uri = recording.getURI();
+            if (!uri) throw new Error('No recording produced');
+
+            setVoiceModalVisible(false);
+            setIsAiThinking(true);
+            setAiGreeting("Listening...");
+
+            const formData = new FormData();
+            formData.append('audio', {
+                uri,
+                name: 'voice.m4a',
+                type: 'audio/m4a',
+            } as any);
+            formData.append('rider_id', profile.id);
+
+            const { data } = await supabase.functions.invoke('handle_voice', { body: formData });
+            await processVoiceResult(data, data?.transcript || '');
+        } catch (err) {
+            setAiGreeting("Couldn't hear that. Please try again.");
         } finally {
             setIsAiThinking(false);
         }
@@ -700,13 +769,16 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         if (featureFlags.grocery) arr.push({ id: 'market', name: 'Market', sub: 'Groceries delivered', accent: '#F59E0B', icon: 'cart-sharp', search: 'Shop groceries & more' });
         if (featureFlags.laundry) arr.push({ id: 'laundry', name: 'Laundry', sub: 'Fresh & folded', accent: '#34E6EC', icon: 'shirt-sharp', search: 'Schedule a pickup' });
         if (featureFlags.merchant) arr.push({ id: 'merchant', name: 'Food', sub: 'Delivery from local spots', accent: '#F97316', icon: 'fast-food-sharp', search: 'Order food & more' });
+        // Each of these needs BOTH gates: the rider earned it / the vertical is
+        // enabled (featureFlags), AND the platform switch on Platform Control is
+        // on (platformFlags). Either one off hides the tile.
         if (featureFlags.caribbean_travel) arr.push({ id: 'escape', name: 'G-Escape', sub: 'Caribbean packages', accent: '#CBD6DE', icon: 'airplane-sharp', search: 'Browse escapes' });
-        if (featureFlags.kiosk) arr.push({ id: 'tap', name: 'Tap', sub: 'Scan a puck', accent: BRAND, icon: 'radio-sharp', search: 'Open NFC scanner' });
-        if (featureFlags.events) arr.push({ id: 'events', name: 'Events', sub: 'Nightlife & fetes', accent: '#6D28D9', icon: 'calendar-sharp', search: 'What\'s happening' });
-        if (featureFlags.fete) arr.push({ id: 'fete', name: 'Carnival', sub: 'Bands & fetes', accent: '#FF2D55', icon: 'musical-notes-sharp', search: 'Find your band' });
+        if (featureFlags.kiosk && platformFlags.kiosk) arr.push({ id: 'tap', name: 'Tap', sub: 'Scan a puck', accent: BRAND, icon: 'radio-sharp', search: 'Open NFC scanner' });
+        if (featureFlags.events && platformFlags.events) arr.push({ id: 'events', name: 'Events', sub: 'Nightlife & fetes', accent: '#6D28D9', icon: 'calendar-sharp', search: 'What\'s happening' });
+        if (featureFlags.fete && platformFlags.carnival) arr.push({ id: 'fete', name: 'Carnival', sub: 'Bands & fetes', accent: '#FF2D55', icon: 'musical-notes-sharp', search: 'Find your band' });
         if (nextUnlock) arr.push({ id: 'locked', name: nextUnlock.vertical, accent: '#34E6EC', icon: 'lock-closed', locked: true, progress: nextUnlock.progress, need: nextUnlock.required, label: nextUnlock.label });
         return arr;
-    }, [featureFlags, nextUnlock, driverSubText, homeSuggestion]);
+    }, [featureFlags, platformFlags, nextUnlock, driverSubText, homeSuggestion]);
 
     const openDestinationSearch = () => {
         const accuracy = location?.coords?.accuracy;
@@ -931,18 +1003,23 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         <Text style={s.greetText} numberOfLines={2}>
                             {aiGreeting || 'Where to next?'}
                         </Text>
-                        <TouchableOpacity
-                            style={s.micBtn}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                setVoiceInputText('');
-                                setVoiceModalVisible(true);
-                            }}
-                            accessibilityLabel="Ask G-Taxi by voice"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="mic" size={20} color={VOICES.rider.accent} />
-                        </TouchableOpacity>
+                        {/* 'ai_assistant_active' on Platform Control. That switch
+                            used to control nothing at all — an admin could turn the
+                            assistant "off" and the mic stayed right here. */}
+                        {platformFlags.aiAssistant && (
+                            <TouchableOpacity
+                                style={s.micBtn}
+                                onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                    setVoiceInputText('');
+                                    setVoiceModalVisible(true);
+                                }}
+                                accessibilityLabel="Ask G-Taxi by voice"
+                                accessibilityRole="button"
+                            >
+                                <Ionicons name="mic" size={20} color={VOICES.rider.accent} />
+                            </TouchableOpacity>
+                        )}
                     </View>
 
                     {/* Swipeable layer deck — booking + verticals + level meter in one control */}
@@ -1264,14 +1341,29 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             </View>
                             <Text style={s.voiceModalTitle}>AI Voice Command</Text>
                         </View>
-                        <Text style={s.voiceModalSubtitle}>Type your destination or command</Text>
+                        <Text style={s.voiceModalSubtitle}>
+                            {isRecordingVoice ? 'Listening — tap the mic to send' : 'Tap the mic to speak, or type below'}
+                        </Text>
+                        <TouchableOpacity
+                            style={[s.voiceMicBtn, isRecordingVoice && s.voiceMicBtnActive]}
+                            onPress={isRecordingVoice ? stopVoiceRecordingAndSend : startVoiceRecording}
+                            activeOpacity={0.85}
+                            accessibilityLabel={isRecordingVoice ? 'Stop recording and send' : 'Start voice recording'}
+                            accessibilityRole="button"
+                        >
+                            <LinearGradient
+                                colors={isRecordingVoice ? ['#EF4444', '#EF4444CC'] : [BRAND, `${BRAND}CC`]}
+                                style={s.voiceMicGradient}
+                            >
+                                <Ionicons name={isRecordingVoice ? 'stop' : 'mic'} size={28} color="#EAF3F6" />
+                            </LinearGradient>
+                        </TouchableOpacity>
                         <TextInput
                             style={s.voiceModalInput}
                             placeholder="e.g. Take me to Port of Spain"
                             placeholderTextColor="rgba(255,255,255,0.3)"
                             value={voiceInputText}
                             onChangeText={setVoiceInputText}
-                            autoFocus
                             autoCapitalize="sentences"
                             returnKeyType="send"
                             onSubmitEditing={() => {
@@ -1950,6 +2042,23 @@ const s = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)',
         marginBottom: 20,
         marginLeft: 46,
+    },
+    voiceMicBtn: {
+        alignSelf: 'center',
+        borderRadius: 40,
+        overflow: 'hidden',
+        marginBottom: 20,
+        ...elevationGlow(10),
+    },
+    voiceMicBtnActive: {
+        transform: [{ scale: 1.08 }],
+    },
+    voiceMicGradient: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     voiceModalInput: {
         backgroundColor: 'rgba(255,255,255,0.06)',

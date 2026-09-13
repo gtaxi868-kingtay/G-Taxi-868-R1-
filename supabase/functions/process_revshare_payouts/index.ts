@@ -52,7 +52,7 @@ async function disburseToOrganizer(
     .eq('ledger_type', ledgerType)
     .eq('is_default', true)
     .maybeSingle()
-    .then((__r) => __r, () => ({ data: null }))
+    .then((__r: unknown) => __r, () => ({ data: null }))
 
   if (!bankAccount) {
     await supabaseAdmin.rpc('admin_update_revshare_wipay_status', {
@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('id', retry_payout_id)
         .single()
-        .then((__r) => __r, () => ({ data: null }))
+        .then((__r: unknown) => __r, () => ({ data: null }))
 
       if (!payout) {
         return new Response(JSON.stringify({ error: 'Payout not found' }), {

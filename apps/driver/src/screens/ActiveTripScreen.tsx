@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
-import { ENV } from '@gtaxi/shared/env';
+import { ENV } from '@g868/shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { updateRideStatus } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -492,7 +492,9 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 provider={PROVIDER_DEFAULT}
                 initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
             >
-                <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
+                {ENV.MAPBOX_PUBLIC_TOKEN && (
+                    <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
+                )}
                 <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
                     <View style={s.driverMarker}>
                         <Ionicons name="car-sport" size={22} color={VOICES.driver.accent} />

@@ -18,9 +18,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { LiquidGlass } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
-import { ENV } from '@gtaxi/shared/env';
+import { ENV } from '@g868/shared/env';
 import { supabase } from '@gtaxi/core';
-import { cancelRide } from '../services/api';
+import { cancelRide, matchDriver } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
 
 const WARNING = '#F59E0B';
@@ -187,13 +187,16 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                         setRejectionCount(prev => prev + 1);
                         setShowRejectionToast(true);
 
-                        // Auto-retry matching via server-owned RPC after 10 seconds
+                        // Auto-retry matching after 10 seconds. Was routed through a
+                        // server-side RPC (retry_ride_matching) that called
+                        // net.http_post with a body type mismatch against this
+                        // project's real pg_net signature — it always threw, and
+                        // the call wasn't even awaited, so the failure was silent.
+                        // Every driver decline left the rider stuck in "searching"
+                        // with no real retry. matchDriver() is the same real,
+                        // working call the initial dispatch already uses.
                         setTimeout(() => {
-                            try {
-                                supabase.rpc('retry_ride_matching', {
-                                    p_ride_id: rideId
-                                });
-                            } catch (_) {}
+                            matchDriver(rideId).catch(() => {});
                             setShowRejectionToast(false);
                         }, 10000);
                     }

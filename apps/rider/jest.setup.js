@@ -90,6 +90,22 @@ jest.mock('expo-location', () => ({
   Accuracy: { High: 'High', Balanced: 'Balanced', Low: 'Low' },
 }));
 
+jest.mock('expo-av', () => ({
+  Audio: {
+    requestPermissionsAsync: jest.fn(() => Promise.resolve({ status: 'granted' })),
+    setAudioModeAsync: jest.fn(() => Promise.resolve()),
+    Recording: {
+      createAsync: jest.fn(() => Promise.resolve({
+        recording: {
+          stopAndUnloadAsync: jest.fn(() => Promise.resolve()),
+          getURI: jest.fn(() => 'file://test-recording.m4a'),
+        },
+      })),
+    },
+    RecordingOptionsPresets: { HIGH_QUALITY: {} },
+  },
+}));
+
 jest.mock('expo-camera', () => ({
   CameraView: 'CameraView',
   CameraType: { front: 'front', back: 'back' },
