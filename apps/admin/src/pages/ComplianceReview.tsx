@@ -21,7 +21,8 @@ interface ComplianceQueueItem {
     id: string;
     user_id: string;
     insurance_expires_at: string | null;
-    profiles: { full_name: string; email: string; phone: string } | null;
+    name: string | null;
+    phone_number: string | null;
   } | null;
 }
 
@@ -33,7 +34,7 @@ interface ReviewLog {
   notes: string | null;
   submitted_at: string;
   reviewed_at: string | null;
-  drivers: { profiles: { full_name: string } | null } | null;
+  drivers: { name: string | null } | null;
 }
 
 function fmtTTD(cents: number) {
@@ -85,8 +86,7 @@ export function ComplianceReview() {
           .select(`
             *,
             drivers!inner(
-              id, user_id, insurance_expires_at,
-              profiles!inner(full_name, email, phone)
+              id, user_id, insurance_expires_at, name, phone_number
             )
           `)
           .order('submitted_at', { ascending: false }),
@@ -94,7 +94,7 @@ export function ComplianceReview() {
           .from('compliance_queue')
           .select(`
             id, driver_id, document_type, status, notes, submitted_at, reviewed_at,
-            drivers!inner(profiles!inner(full_name))
+            drivers!inner(name)
           `)
           .neq('status', 'pending')
           .order('reviewed_at', { ascending: false })
@@ -271,7 +271,6 @@ export function ComplianceReview() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {filteredItems.map((item) => {
                 const driver = item.drivers;
-                const profile = driver?.profiles;
                 const isPending = item.status === 'pending';
                 const isBusy = actionLoading === item.id;
                 const docColor = DOC_TYPE_COLORS[item.document_type] || 'from-white/5 to-transparent border-white/10';
@@ -302,13 +301,10 @@ export function ComplianceReview() {
                           </div>
                           <div>
                             <p className="text-sm font-black text-white">
-                              {profile?.full_name || 'Unknown Driver'}
+                              {driver?.name || 'Unknown Driver'}
                             </p>
-                            <p className="text-[10px] text-white/30 uppercase tracking-widest mt-0.5">
-                              {profile?.email || 'No email'}
-                            </p>
-                            {profile?.phone && (
-                              <p className="text-[10px] text-white/20 mt-0.5 font-mono">{profile.phone}</p>
+                            {driver?.phone_number && (
+                              <p className="text-[10px] text-white/20 mt-0.5 font-mono">{driver.phone_number}</p>
                             )}
                           </div>
                         </div>
@@ -477,7 +473,7 @@ export function ComplianceReview() {
                   </div>
                   <div className="flex-1">
                     <p className="text-xs font-bold text-white">
-                      {entry.drivers?.profiles?.full_name || 'Unknown'} — {DOC_TYPE_LABELS[entry.document_type] || entry.document_type}
+                      {entry.drivers?.name || 'Unknown'} — {DOC_TYPE_LABELS[entry.document_type] || entry.document_type}
                     </p>
                     <p className="text-[10px] text-white/30 mt-0.5">
                       {formatDate(entry.submitted_at)} → {formatDate(entry.reviewed_at)}

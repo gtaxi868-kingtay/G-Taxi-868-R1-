@@ -1,19 +1,7 @@
 import { requireAdmin } from '../_shared/auth.ts'
 import { captureException } from '../_shared/sentry.ts'
 import { chat, llmConfigured } from '../_shared/llm.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}
+import { getCorsHeaders } from '../_shared/cors.ts'
 
 async function computeSettlement(grossCents: number, supabaseAdmin: any): Promise<{
   reserveCents: number; platformFeeCents: number; driverPayoutCents: number; platformRate: number
@@ -41,6 +29,12 @@ async function computeSettlement(grossCents: number, supabaseAdmin: any): Promis
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -51,22 +45,31 @@ Deno.serve(async (req) => {
     const { action } = body
 
     switch (action) {
-      // ─── USER / RIDER MANAGEMENT ────────────────────────────────────────────
-
       case 'get_users': {
+        // Bounded to 500 until the admin UI grows real pagination — was
+        // unbounded (full-table scan on every dashboard load).
         const { data: profiles, error: pErr } = await supabaseAdmin
           .from('profiles')
           .select('id, full_name, email, role')
           .order('created_at', { ascending: false })
+          .limit(500)
         if (pErr) throw pErr
 
         const { data: drivers } = await supabaseAdmin.from('drivers').select('user_id')
         const driverIds = new Set((drivers || []).map((d: any) => d.user_id))
 
-        const { data: txs } = await supabaseAdmin.from('wallet_transactions').select('user_id, amount')
+        // Balance is SUM(amount) computed in Postgres, scoped to only the
+        // users being displayed — was pulling the ENTIRE wallet_transactions
+        // table into JS and summing per user here (contradicts this
+        // project's own rule that wallet_transactions truth is SUM(amount),
+        // read via SQL, not accumulated client/function-side).
+        const profileIds = (profiles || []).map((p: any) => p.id)
+        const { data: balanceRows } = await supabaseAdmin
+          .rpc('get_wallet_balances', { p_user_ids: profileIds })
+          .then((v: any) => v, () => ({ data: null }))
         const balances: Record<string, number> = {}
-        txs?.forEach((tx: any) => {
-          balances[tx.user_id] = (balances[tx.user_id] || 0) + tx.amount
+        balanceRows?.forEach((row: any) => {
+          balances[row.user_id] = Number(row.balance_cents) || 0
         })
 
         const users = (profiles || []).map((p: any) => ({
@@ -202,8 +205,6 @@ Deno.serve(async (req) => {
         if (error) throw error
         return json({ success: true, merchant_id, activation_status: 'deactivated' })
       }
-
-      // ─── RIDE MANAGEMENT ────────────────────────────────────────────────────
 
       case 'get_rides': {
         const { data, error } = await supabaseAdmin
@@ -427,8 +428,6 @@ Deno.serve(async (req) => {
         return json({ success: true, ride_id, refunded_cents: ride.total_fare_cents })
       }
 
-      // ─── FINANCIALS ─────────────────────────────────────────────────────────
-
       case 'get_revenue_logs': {
         const { data, error } = await supabaseAdmin
           .from('platform_revenue_logs')
@@ -454,20 +453,54 @@ Deno.serve(async (req) => {
       }
 
       case 'verify_deposit': {
-        const { deposit_id, status, amount_cents } = body
+        const { deposit_id, status, amount_cents, override, override_reason } = body
         if (!deposit_id || !['approved', 'rejected'].includes(status)) {
           return json({ success: false, error: 'Invalid parameters' }, 400)
         }
+
+        const { data: existingDeposit, error: fetchErr } = await supabaseAdmin
+          .from('manual_deposits').select('claimed_amount_cents, amount_cents').eq('id', deposit_id).single()
+        if (fetchErr || !existingDeposit) {
+          return json({ success: false, error: 'Deposit not found' }, 404)
+        }
+
+        const claimed = existingDeposit.claimed_amount_cents ?? existingDeposit.amount_cents
+        const amountDiffers = amount_cents !== undefined && amount_cents !== claimed
+        if (amountDiffers && (!override || !override_reason)) {
+          return json({
+            success: false,
+            error: 'Entered amount differs from the claimed amount. Pass override: true and override_reason to confirm.',
+            claimed_amount_cents: claimed,
+          }, 400)
+        }
+
         const updateData: any = { status, updated_at: new Date().toISOString() }
         if (amount_cents !== undefined) updateData.amount_cents = amount_cents
         const { data, error } = await supabaseAdmin
           .from('manual_deposits').update(updateData).eq('id', deposit_id).select().single()
         if (error) throw error
+
+        if (amountDiffers) {
+          supabaseAdmin.from('admin_audit_log').insert({
+            admin_id: user.id, admin_email: user.email, action: 'verify_deposit_override',
+            target_type: 'manual_deposit', target_id: deposit_id, reason: override_reason,
+            metadata: { claimed_amount_cents: claimed, admin_amount_cents: amount_cents, status },
+            ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+            user_agent: req.headers.get('user-agent') || 'unknown',
+          }).then(null, () => {})
+        }
+
         return json({ success: true, data })
       }
 
       case 'process_payout': {
-        const { request_id, action: payoutAction, reason } = body
+        // body.action is already consumed by the outer switch as the
+        // routing key ('process_payout' itself) — destructuring `action`
+        // again here always yielded 'process_payout', so payoutAction was
+        // NEVER 'approve'/'reject' and every driver payout approval from
+        // Support.tsx (which sends `sub_action`) silently 400'd. Read the
+        // field the client actually sends.
+        const { request_id, sub_action: payoutAction, reason } = body
         if (!request_id || !['approve', 'reject'].includes(payoutAction)) {
           return json({ error: 'request_id and action (approve|reject) required' }, 400)
         }
@@ -545,10 +578,6 @@ Deno.serve(async (req) => {
           const balance = typeof balanceResult === 'number' ? balanceResult : (balanceResult[0]?.balance ?? balanceResult.balance ?? 0)
           if (balance < amount_cents) throw new Error(`Insufficient balance`)
         }
-        // NOTE: wallet_transactions has no `metadata` column — this insert
-        // would crash on the very first real admin debt settlement.
-        // The admin id is already embedded in the description text below,
-        // which is the only free-text slot this table actually has.
         const { error } = await supabaseAdmin.from('wallet_transactions').insert({
           user_id, amount: -amount_cents, transaction_type: 'debt_settlement',
           description: `Admin Manual Debt Settlement — authorized by admin ${user.id}`,
@@ -558,7 +587,26 @@ Deno.serve(async (req) => {
         return json({ success: true, user_id, amount_cents })
       }
 
-      // ─── FEATURE FLAGS / CONFIG ────────────────────────────────────────────
+      case 'get_alerts': {
+        const { data, error } = await supabaseAdmin
+          .from('system_alerts')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200)
+        if (error) throw error
+        return json({ success: true, data })
+      }
+
+      case 'resolve_alert': {
+        const { id } = body
+        if (!id) throw new Error('id required')
+        const { error } = await supabaseAdmin
+          .from('system_alerts')
+          .update({ resolved_at: new Date().toISOString() })
+          .eq('id', id)
+        if (error) throw error
+        return json({ success: true, id })
+      }
 
       case 'get_flags': {
         const { data: flags, error: flagsError } = await supabaseAdmin
@@ -578,39 +626,87 @@ Deno.serve(async (req) => {
         return json({ success: true, id, is_active: !is_active })
       }
 
-      // ─── DRIVER APPROVAL ────────────────────────────────────────────────────
-
       case 'get_pending_drivers': {
-        const { data: pendingDrivers, error: driversError } = await supabaseAdmin
-          .from('profiles').select('id, name, email, phone, created_at, avatar_url')
-          .eq('role', 'driver').order('created_at', { ascending: false })
+        const { data: candidateDrivers, error: driversError } = await supabaseAdmin
+          .from('drivers')
+          .select('id, user_id, is_verified, status, plate_number, vehicle_model, vehicle_type, created_at')
+          .or('is_verified.eq.false,status.eq.pending')
+          .order('created_at', { ascending: false })
         if (driversError) throw driversError
-        const driverIds = pendingDrivers?.map((d: any) => d.id) || []
-        const { data: verifiedDrivers } = await supabaseAdmin
-          .from('drivers').select('id, is_verified, status, vehicle_plate, vehicle_make, vehicle_model')
-          .in('id', driverIds.length > 0 ? driverIds : ['00000000-0000-0000-0000-000000000000'])
+
+        const userIds = candidateDrivers?.map((d: any) => d.user_id).filter(Boolean) || []
+        const { data: profiles } = await supabaseAdmin
+          .from('profiles').select('id, name, email, phone, created_at, avatar_url')
+          .in('id', userIds.length > 0 ? userIds : ['00000000-0000-0000-0000-000000000000'])
+        const profileMap = new Map(profiles?.map((p: any) => [p.id, p]))
+
+        const driverRowIds = candidateDrivers?.map((d: any) => d.id) || []
         const { data: documents } = await supabaseAdmin
           .from('driver_documents').select('driver_id, document_type, storage_path, uploaded_at, status')
-          .in('driver_id', driverIds.length > 0 ? driverIds : ['00000000-0000-0000-0000-000000000000'])
-        const verifiedMap = new Map(verifiedDrivers?.map((d: any) => [d.id, d]))
+          .in('driver_id', driverRowIds.length > 0 ? driverRowIds : ['00000000-0000-0000-0000-000000000000'])
         const docsByDriver: Record<string, any[]> = {}
         documents?.forEach((doc: any) => {
           if (!docsByDriver[doc.driver_id]) docsByDriver[doc.driver_id] = []
           docsByDriver[doc.driver_id].push(doc)
         })
-        const pending = pendingDrivers?.filter((p: any) => {
-          const r = verifiedMap.get(p.id)
-          return !r || r.is_verified === false || r.status === 'pending'
-        }).map((p: any) => ({
-          ...p, driver_record: verifiedMap.get(p.id) || null, documents: docsByDriver[p.id] || [],
-          has_license: docsByDriver[p.id]?.some((d: any) => d.document_type === 'license') || false,
-          has_insurance: docsByDriver[p.id]?.some((d: any) => d.document_type === 'insurance') || false,
-          has_vehicle_photo: docsByDriver[p.id]?.some((d: any) => d.document_type === 'vehicle_photo') || false,
-        })) || []
+
+        const pending = (candidateDrivers || []).map((d: any) => {
+          const profile = profileMap.get(d.user_id) || {}
+          const docs = docsByDriver[d.id] || []
+          return {
+            id: d.user_id, name: profile.name, email: profile.email, phone: profile.phone,
+            created_at: profile.created_at || d.created_at, avatar_url: profile.avatar_url,
+            driver_record: d, documents: docs,
+            has_license: docs.some((doc: any) => doc.document_type === 'license'),
+            has_insurance: docs.some((doc: any) => doc.document_type === 'insurance'),
+            has_vehicle_photo: docs.some((doc: any) => doc.document_type === 'vehicle_photo'),
+          }
+        })
         return json({ pending, count: pending.length, summary: { with_license: pending.filter((d: any) => d.has_license).length, with_insurance: pending.filter((d: any) => d.has_insurance).length, with_vehicle_photo: pending.filter((d: any) => d.has_vehicle_photo).length } })
       }
 
-      // ─── NODE / PUCK MANAGEMENT ─────────────────────────────────────────────
+      case 'mark_waitlist_contacted': {
+        const { waitlist_id } = body
+        if (!waitlist_id) return json({ success: false, error: 'waitlist_id required' }, 400)
+        const { data, error } = await supabaseAdmin
+          .from('waitlist')
+          .update({ status: 'contacted', contacted_at: new Date().toISOString(), contacted_by: user.id })
+          .eq('id', waitlist_id)
+          .select('id, status, contacted_at')
+          .maybeSingle()
+        if (error) throw error
+        if (!data) return json({ success: false, error: 'Waitlist entry not found' }, 404)
+        return json({ success: true, entry: data })
+      }
+
+      case 'approve_waitlist_driver': {
+        const { waitlist_id, commander_id } = body
+        if (!waitlist_id || !commander_id) return json({ success: false, error: 'waitlist_id and commander_id required' }, 400)
+
+        const { data: commander, error: commanderError } = await supabaseAdmin
+          .from('pod_commanders')
+          .select('id, onboarding_code, status, territory:territory_id(id, name, code)')
+          .eq('id', commander_id)
+          .single()
+        if (commanderError || !commander) return json({ success: false, error: 'Commander not found' }, 404)
+        if (commander.status !== 'active') return json({ success: false, error: 'Commander is not active — cannot issue this code' }, 409)
+
+        const { data, error } = await supabaseAdmin
+          .from('waitlist')
+          .update({
+            status: 'approved',
+            approved_at: new Date().toISOString(),
+            approved_by: user.id,
+            assigned_commander_id: commander.id,
+          })
+          .eq('id', waitlist_id)
+          .select('id, status, approved_at, assigned_commander_id')
+          .maybeSingle()
+        if (error) throw error
+        if (!data) return json({ success: false, error: 'Waitlist entry not found' }, 404)
+
+        return json({ success: true, entry: data, onboarding_code: commander.onboarding_code, territory: commander.territory })
+      }
 
       case 'manage_nodes': {
         const { node, node_id } = body
@@ -718,16 +814,26 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ─── TERRITORY / COMMANDER MANAGEMENT ───────────────────────────────────
-
       case 'manage_territories': {
         const { territory: t } = body
         switch (body.action_type || 'list') {
           case 'list': {
-            const { data, error } = await supabaseAdmin
-              .from('territories').select('*, commander:commander_id(id, email, full_name)').order('name')
+            // territories.commander_id references auth.users, not a public-schema
+            // table — PostgREST can't auto-embed across schemas, so the old
+            // `commander:commander_id(...)` syntax 404'd this endpoint on every
+            // call (confirmed live: PGRST200, "no matches were found"). Fetch
+            // territories, then resolve commander profiles separately, matching
+            // the pattern already used by 'get_pending_drivers' below.
+            const { data: territories, error } = await supabaseAdmin
+              .from('territories').select('*').order('name')
             if (error) throw error
-            return json({ success: true, territories: data })
+            const commanderIds = [...new Set((territories || []).map((t: any) => t.commander_id).filter(Boolean))]
+            const { data: profiles } = commanderIds.length
+              ? await supabaseAdmin.from('profiles').select('id, email, full_name').in('id', commanderIds)
+              : { data: [] }
+            const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]))
+            const enriched = (territories || []).map((t: any) => ({ ...t, commander: t.commander_id ? profileMap.get(t.commander_id) || null : null }))
+            return json({ success: true, territories: enriched })
           }
           case 'create': {
             if (!t?.name || !t?.code) return json({ error: 'name and code required' }, 400)
@@ -763,11 +869,21 @@ Deno.serve(async (req) => {
         const { user_id, territory_id, status: cmdStatus, application_id, notes } = body
         switch (body.action_type || 'list') {
           case 'list': {
-            const { data, error } = await supabaseAdmin
-              .from('pod_commanders').select('*, user:user_id(id, email, full_name, role), territory:territory_id(id, name, code)')
+            // pod_commanders.user_id references auth.users — same cross-schema
+            // embed problem as manage_territories above (confirmed live:
+            // PGRST200 on 'pod_commanders'/'user_id'). territory_id DOES stay
+            // in public, so that embed is left as-is.
+            const { data: commanders, error } = await supabaseAdmin
+              .from('pod_commanders').select('*, territory:territory_id(id, name, code)')
               .order('created_at', { ascending: false })
             if (error) throw error
-            return json({ success: true, commanders: data })
+            const userIds = [...new Set((commanders || []).map((c: any) => c.user_id).filter(Boolean))]
+            const { data: profiles } = userIds.length
+              ? await supabaseAdmin.from('profiles').select('id, email, full_name, role').in('id', userIds)
+              : { data: [] }
+            const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]))
+            const enriched = (commanders || []).map((c: any) => ({ ...c, user: profileMap.get(c.user_id) || null }))
+            return json({ success: true, commanders: enriched })
           }
           case 'update_status': {
             if (!user_id || !cmdStatus) return json({ error: 'user_id and status required' }, 400)
@@ -784,10 +900,18 @@ Deno.serve(async (req) => {
             return json({ success: true, commander: data })
           }
           case 'list_applications': {
-            const { data, error } = await supabaseAdmin
-              .from('commander_applications').select('*, user:user_id(id, email, full_name, role)').order('created_at', { ascending: false })
+            // Same cross-schema embed problem: commander_applications.user_id
+            // references auth.users (confirmed live: PGRST200).
+            const { data: applications, error } = await supabaseAdmin
+              .from('commander_applications').select('*').order('created_at', { ascending: false })
             if (error) throw error
-            return json({ success: true, applications: data })
+            const userIds = [...new Set((applications || []).map((a: any) => a.user_id).filter(Boolean))]
+            const { data: profiles } = userIds.length
+              ? await supabaseAdmin.from('profiles').select('id, email, full_name, role').in('id', userIds)
+              : { data: [] }
+            const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]))
+            const enriched = (applications || []).map((a: any) => ({ ...a, user: profileMap.get(a.user_id) || null }))
+            return json({ success: true, applications: enriched })
           }
           case 'approve_application': {
             if (!application_id) return json({ error: 'application_id required' }, 400)
@@ -812,7 +936,10 @@ Deno.serve(async (req) => {
           case 'list_revshare': {
             const { data: entries, error: revErr } = await supabaseAdmin
               .from('commander_revshare_ledger')
-              .select('*, commander:commander_id(id), ride:ride_id(id, fare_cents, status, created_at)')
+              // rides has no `fare_cents` column — the real column is
+              // `total_fare_cents` (confirmed live: 42703 "column
+              // rides_1.fare_cents does not exist" on every call).
+              .select('*, commander:commander_id(id), ride:ride_id(id, total_fare_cents, status, created_at)')
               .order('created_at', { ascending: false })
               .limit(200)
             if (revErr) throw revErr
@@ -834,8 +961,6 @@ Deno.serve(async (req) => {
             return json({ error: `Unknown action_type: ${body.action_type}` }, 400)
         }
       }
-
-      // ─── TRAVEL PACKAGE CRUD ────────────────────────────────────────────────
 
       case 'upsert_travel_package': {
         const { id: pkgId } = body
@@ -918,8 +1043,6 @@ Deno.serve(async (req) => {
         })
       }
 
-      // ─── ESCAPE SEATS (travel auto-refund/delay) ───────────────────────────
-
       case 'confirm_escape_seats': {
         const { package_id, action: escAction } = body
         if (!package_id || !escAction) return json({ error: 'package_id and action required' }, 400)
@@ -984,8 +1107,6 @@ Deno.serve(async (req) => {
         return json({ error: `Unknown action: ${escAction}. Use confirm, delay, or refund_all.` }, 400)
       }
 
-      // ─── RIDER PROGRESSION ──────────────────────────────────────────────────
-
       case 'get_rider_progression': {
         const LEVEL_LABELS: Record<number, string> = { 1: 'New Rider', 2: 'Regular', 3: 'Power User', 4: 'Loyalist', 5: 'G-Escape' }
         const { data: progression, error: progError } = await supabaseAdmin
@@ -1018,8 +1139,6 @@ Deno.serve(async (req) => {
         })
         return json({ data: enriched })
       }
-
-      // ─── SURGE ZONES ────────────────────────────────────────────────────────
 
       case 'manage_surge_zones': {
         switch (body.action_type || 'list') {
@@ -1062,12 +1181,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ─── FLEET LEASE INSURANCE BROKERAGE ────────────────────────────────────
-      // Platform brokers the policy for the operator leasing a fleet vehicle
-      // (Hiace/Maextro-class VIP tier) and earns a commission on the premium —
-      // separate from, and never touching, the per-ride lease deduction that
-      // already runs in complete_ride. Idempotent: re-binding the same policy
-      // number on an already-paid lease does not double-credit.
       case 'bind_lease_insurance': {
         const { lease_id, provider, policy_number, annual_premium_cents, commission_bps, expires_at, broker_license_ref, broker_of_record } = body
         if (!lease_id || !provider || !policy_number || !annual_premium_cents || commission_bps === undefined || !expires_at || !broker_license_ref || !broker_of_record) {
@@ -1088,7 +1201,6 @@ Deno.serve(async (req) => {
         return json(data)
       }
 
-      // ─── FLEET LEASES (list — service-role relay, no admin RLS on this table yet) ──
       case 'list_fleet_leases': {
         const { data, error } = await supabaseAdmin
           .from('fleet_leases')
@@ -1107,9 +1219,6 @@ Deno.serve(async (req) => {
         return json({ success: true, leases: data ?? [] })
       }
 
-      // ─── FLEET VEHICLES CRUD (service-role relay — fleet_vehicles RLS only grants
-      // service_role write access, and read access is scoped to available/leased
-      // status only, not full admin visibility) ───
       case 'manage_fleet_vehicles': {
         switch (body.action_type || 'list') {
           case 'list': {
@@ -1147,9 +1256,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ─── G-ESCAPE GROUND-TRANSIT VISIBILITY (service-role relay — rides has no
-      // admin RLS; escrow_prepaid rides are created by
-      // execute_escape_group_confirmation and were previously invisible to ops) ──
       case 'list_escape_transfer_rides': {
         const { data: rides, error } = await supabaseAdmin
           .from('rides')
@@ -1177,9 +1283,6 @@ Deno.serve(async (req) => {
         return json({ success: true, rides: enriched })
       }
 
-      // ─── G-MEMBER WAITLIST (service-role relay — user_events RLS is own-rows
-      // only; the waitlist join event has been written since the G-Member
-      // giveaway-hole fix but nothing ever read it back for ops) ───
       case 'list_g_member_waitlist': {
         const { data: events, error } = await supabaseAdmin
           .from('user_events')
@@ -1201,11 +1304,6 @@ Deno.serve(async (req) => {
         return json({ success: true, waitlist: enriched, count: enriched.length })
       }
 
-      // ─── G CO-HOST: LODGING CANDIDATE INTAKE ────────────────────────────────
-      // Commander/admin-sourced property submission — files into the existing
-      // G approvals inbox (action_type 'grid_candidate', which g_execute_action
-      // now has a real handler for) rather than inserting lodging_nodes
-      // directly, since these are less-vetted than an admin's own direct entry.
       case 'submit_lodging_candidate': {
         const c = body.candidate
         if (!c?.name || !c?.destination_code || !c?.location_zone || !c?.base_price_per_night_cents) {
@@ -1231,9 +1329,6 @@ Deno.serve(async (req) => {
         return json({ success: true, proposal_id: data.id })
       }
 
-      // ─── G CO-HOST: AI DESCRIPTION DRAFT ────────────────────────────────────
-      // On-demand copy draft for a lodging listing — admin reviews/edits before
-      // hitting Save on the existing form; nothing here writes to the DB itself.
       case 'draft_lodging_copy': {
         const { name, destination_code, location_zone, max_guests, nights, amenities } = body
         if (!name || !destination_code) return json({ success: false, error: 'name and destination_code required' }, 400)
@@ -1255,27 +1350,53 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ─── LIVE DRIVER LOCATIONS (service-role relay — driver_locations RLS
-      // only lets a driver read their own row or a rider read their active
-      // driver's row; there is no admin policy at all, so the dashboard's
-      // fleet map was silently getting zero rows regardless of how many
-      // drivers were actually online) ───
+      case 'request_lodging_quote': {
+        const { lodging_node_id } = body
+        if (!lodging_node_id) return json({ success: false, error: 'lodging_node_id required' }, 400)
+        const { data, error } = await supabaseAdmin.rpc('request_lodging_quote', {
+          p_lodging_node_id: lodging_node_id,
+        })
+        if (error) throw error
+        return json(data)
+      }
+
+      case 'record_lodging_quote': {
+        const { lodging_node_id, rate_per_night_cents, contact_note, validity_days } = body
+        if (!lodging_node_id || !rate_per_night_cents) {
+          return json({ success: false, error: 'lodging_node_id and rate_per_night_cents required' }, 400)
+        }
+        const { data, error } = await supabaseAdmin.rpc('record_lodging_quote', {
+          p_admin_id: user.id,
+          p_lodging_node_id: lodging_node_id,
+          p_rate_per_night_cents: rate_per_night_cents,
+          p_contact_note: contact_note ?? null,
+          p_validity_days: validity_days ?? 30,
+        })
+        if (error) throw error
+        return json(data)
+      }
+
       case 'list_driver_locations': {
+        // Unbounded — pulled every historical GPS ping ever logged just to
+        // keep the newest one per driver. Harmless today (table is empty)
+        // but the same unbounded-select shape that's caused real timeouts
+        // elsewhere in this project. Bounded to the last hour, which is
+        // already far more than enough rows to find every online driver's
+        // latest ping.
         const { data, error } = await supabaseAdmin
           .from('driver_locations')
           .select('driver_id, lat, lng, heading, speed, created_at, ride_id')
+          .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false })
+          .limit(2000)
         if (error) throw error
 
-        // One row per driver — most recent ping only.
         const latest = new Map<string, any>()
         for (const row of data ?? []) {
           if (!latest.has(row.driver_id)) latest.set(row.driver_id, row)
         }
         return json({ success: true, locations: Array.from(latest.values()) })
       }
-
-      // ─── DRIVER REGISTRATION CLASS ('H' PLATE COMPLIANCE) ──────────────────
 
       case 'get_registration_audit': {
         const { data: drivers, error } = await supabaseAdmin
@@ -1325,24 +1446,6 @@ Deno.serve(async (req) => {
         return json({ success: true, driver: data })
       }
 
-      // ─── DRIVER COMPLIANCE (INSURANCE / DOCUMENT VERIFICATION) ────────────
-      //
-      // These two actions exist because the admin web app previously called
-      // `approve_compliance_document` DIRECTLY from the browser with the
-      // authenticated (anon-role) client. That could never have worked:
-      //   1. the live function signature is
-      //      approve_compliance_document(p_queue_id uuid, p_reviewer_id uuid,
-      //      p_new_expiry timestamptz) — the UI sent p_driver_id /
-      //      p_insurance_expires_at / p_notes, none of which exist, and
-      //   2. 20260708000003_comprehensive_security_hardening.sql REVOKEs
-      //      EXECUTE from anon+authenticated and GRANTs it to service_role
-      //      only (verified against live grants: postgres, service_role).
-      // So driver insurance verification was 100% non-functional. Routing it
-      // through here fixes both halves at once — service_role executes the
-      // RPC, and the reviewer id is the real authenticated admin resolved by
-      // requireAdmin, so `compliance_queue.reviewed_by` finally records who
-      // actually approved a document instead of being left null.
-
       case 'verify_compliance_document': {
         const { queue_id, expires_at } = body
         if (!queue_id) {
@@ -1354,8 +1457,6 @@ Deno.serve(async (req) => {
           p_new_expiry: expires_at || null,
         })
         if (error) throw error
-        // The RPC returns { success, error? } / { success, data } itself —
-        // surface its own verdict rather than claiming success blindly.
         if (data && data.success === false) {
           return json({ success: false, error: data.error || 'Verification rejected by database' }, 400)
         }
@@ -1386,8 +1487,6 @@ Deno.serve(async (req) => {
         return json({ success: true, document: data })
       }
 
-      // ─── G GARAGE (DRIVER VEHICLE-SOURCING REQUESTS) ───────────────────────
-
       case 'get_garage_requests': {
         const { data, error } = await supabaseAdmin
           .from('g_garage_requests')
@@ -1411,8 +1510,6 @@ Deno.serve(async (req) => {
         if (error) return json({ success: false, error: error.message }, 400)
         return json({ success: true, request: data })
       }
-
-      // ─── G SPOT VENUES (BAR MEMBERSHIP) ────────────────────────────────────
 
       case 'get_g_spot_venues': {
         const { data, error } = await supabaseAdmin
@@ -1468,10 +1565,6 @@ Deno.serve(async (req) => {
         return json({ success: true, venue: data })
       }
 
-      // Admin picks a real registered merchant to own a venue — the
-      // venue owner then redeems codes from their own merchant app,
-      // not admin. Only lists merchants NOT already owning a venue,
-      // so the picker can't accidentally double-assign one.
       case 'get_unassigned_merchants': {
         const { data: assigned } = await supabaseAdmin.from('g_spot_venues').select('merchant_id').not('merchant_id', 'is', null)
         const assignedIds = (assigned || []).map((v: any) => v.merchant_id)
@@ -1494,6 +1587,94 @@ Deno.serve(async (req) => {
         })
         if (error) return json({ success: false, error: error.message }, 400)
         return json({ success: true, result: data })
+      }
+
+      case 'list_service_partners': {
+        const { data: partners, error: partnersError } = await supabaseAdmin
+          .from('service_partners')
+          .select('*')
+          .order('name')
+        if (partnersError) throw partnersError
+        const { data: services, error: servicesError } = await supabaseAdmin
+          .from('partner_services')
+          .select('*')
+          .order('name')
+        if (servicesError) throw servicesError
+        return json({ success: true, partners: partners ?? [], services: services ?? [] })
+      }
+
+      case 'set_service_partner': {
+        const { id, name, category, phone, whatsapp, territory_id, commission_pct, is_active } = body
+        const { data, error } = await supabaseAdmin.rpc('admin_set_service_partner', {
+          p_admin_id: user.id,
+          p_id: id ?? null,
+          p_name: name,
+          p_category: category,
+          p_phone: phone ?? null,
+          p_whatsapp: whatsapp ?? null,
+          p_territory_id: territory_id ?? null,
+          p_commission_pct: commission_pct,
+          p_is_active: is_active ?? null,
+        })
+        if (error) return json({ success: false, error: error.message }, 400)
+        return json({ success: true, partner: data })
+      }
+
+      case 'set_partner_service': {
+        const { id, partner_id, name, price_cents, driver_discount_pct, is_active } = body
+        const { data, error } = await supabaseAdmin.rpc('admin_set_partner_service', {
+          p_admin_id: user.id,
+          p_id: id ?? null,
+          p_partner_id: partner_id ?? null,
+          p_name: name,
+          p_price_cents: price_cents,
+          p_driver_discount_pct: driver_discount_pct,
+          p_is_active: is_active ?? null,
+        })
+        if (error) return json({ success: false, error: error.message }, 400)
+        return json({ success: true, service: data })
+      }
+
+      case 'get_partner_usage': {
+        const { status } = body
+        let query = supabaseAdmin
+          .from('driver_partner_usage')
+          .select('*, service_partners(name, category), partner_services(name)')
+          .order('claimed_at', { ascending: false })
+        if (status) query = query.eq('status', status)
+        const { data, error } = await query
+        if (error) throw error
+        return json({ success: true, usage: data ?? [] })
+      }
+
+      case 'decide_partner_usage': {
+        const { usage_id, decision, dispute_reason } = body
+        if (!usage_id || !['confirmed', 'disputed'].includes(decision)) {
+          return json({ success: false, error: 'usage_id and decision (confirmed|disputed) required' }, 400)
+        }
+        const { data, error } = await supabaseAdmin.rpc('admin_decide_partner_usage', {
+          p_usage_id: usage_id,
+          p_admin_id: user.id,
+          p_decision: decision,
+          p_dispute_reason: dispute_reason ?? null,
+        })
+        if (error) return json({ success: false, error: error.message }, 400)
+        return json({ success: true, usage: data })
+      }
+
+      case 'settle_partner_commission': {
+        const { partner_id, amount_collected_cents, note } = body
+        if (!partner_id || !amount_collected_cents) {
+          return json({ success: false, error: 'partner_id and amount_collected_cents required' }, 400)
+        }
+        const { data, error } = await supabaseAdmin.rpc('admin_settle_partner_commission', {
+          p_partner_id: partner_id,
+          p_admin_id: user.id,
+          p_amount_collected_cents: amount_collected_cents,
+          p_note: note ?? null,
+        })
+        if (error) return json({ success: false, error: error.message }, 400)
+        return json({ success: true, partner: data })
       }
 
       default:

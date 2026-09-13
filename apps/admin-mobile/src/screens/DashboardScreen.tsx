@@ -11,6 +11,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { LiveOpsMap } from '../components/LiveOpsMap';
 
 const { supabase } = initializeSupabaseClient('native');
 
@@ -49,6 +50,7 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -204,6 +206,16 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setViewMode(m => (m === 'list' ? 'map' : 'list'));
+              }}
+              style={styles.iconBtn}
+              accessibilityLabel={viewMode === 'list' ? 'Show map' : 'Show list'}
+            >
+              <Ionicons name={viewMode === 'list' ? 'map-outline' : 'list-outline'} size={18} color={ACCENT} />
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('Approvals'); }}
               style={styles.iconBtn}
               accessibilityLabel="Approvals"
@@ -270,27 +282,33 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
         </View>
       </View>
 
-      <FlatList
-        data={nodes}
-        keyExtractor={item => item.id}
-        renderItem={renderNode}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={ACCENT}
-            progressBackgroundColor={VOICES.admin.surface}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="radio-outline" size={44} color="rgba(255,255,255,0.12)" />
-            <Text style={styles.emptyTitle}>No nodes deployed</Text>
-            <Text style={styles.emptyDesc}>Tap + to provision a G-Touch Point</Text>
-          </View>
-        }
-      />
+      {viewMode === 'map' ? (
+        <View style={[styles.mapWrap, { paddingBottom: insets.bottom + 24 }]}>
+          <LiveOpsMap nodes={nodes} />
+        </View>
+      ) : (
+        <FlatList
+          data={nodes}
+          keyExtractor={item => item.id}
+          renderItem={renderNode}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={ACCENT}
+              progressBackgroundColor={VOICES.admin.surface}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="radio-outline" size={44} color="rgba(255,255,255,0.12)" />
+              <Text style={styles.emptyTitle}>No nodes deployed</Text>
+              <Text style={styles.emptyDesc}>Tap + to provision a G-Touch Point</Text>
+            </View>
+          }
+        />
+      )}
 
       <TouchableOpacity
         style={[styles.fab, { bottom: insets.bottom + 24 }]}
@@ -337,6 +355,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   list: { padding: 16, gap: 10 },
+  mapWrap: { flex: 1, padding: 16 },
   nodeCard: {
     backgroundColor: 'rgba(30,41,59,0.6)',
     borderRadius: 16,
