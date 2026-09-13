@@ -1,6 +1,13 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { RefreshCw, Search, Users2, MapPin } from 'lucide-react';
+import { RefreshCw, Search, Users2, MapPin, Check, AlertTriangle } from 'lucide-react';
+
+interface WaitlistDetails {
+    vehicle_type?: string;
+    plate_number?: string;
+    category?: string;
+    address?: string;
+}
 
 interface WaitlistRow {
     id: string;
@@ -13,6 +20,7 @@ interface WaitlistRow {
     community: string | null;
     referred_by: string | null;
     source: string | null;
+    details: WaitlistDetails | null;
 }
 
 const C = {
@@ -24,6 +32,8 @@ const C = {
     surfaceHigh: 'rgba(255,255,255,0.08)',
     accent: '#A78BFA',
     ok: '#10B981',
+    warn: '#F59E0B',
+    danger: '#EF4444',
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -34,9 +44,32 @@ const ROLE_LABELS: Record<string, string> = {
 
 const roleLabel = (t: string | null) => (t ? ROLE_LABELS[t] || t : '—');
 
+const STATUS_COLOR: Record<string, string> = {
+    pending: C.muted,
+    approved: C.ok,
+    claimed: C.accent,
+};
+
 const fmt = (iso: string) => new Date(iso).toLocaleString('en-TT', {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
 });
+
+// Extra info captured on the public site alongside name/phone/community —
+// added 2026-09-07 so a driver/merchant's in-app profile isn't a blank re-ask
+// of what they already told us. See waitlist.details (JSONB).
+function detailsSummary(r: WaitlistRow): string {
+    const d = r.details;
+    if (!d) return '—';
+    if (r.user_type === 'drive') {
+        const bits = [d.vehicle_type, d.plate_number].filter(Boolean);
+        return bits.length ? bits.join(' · ') : '—';
+    }
+    if (r.user_type === 'sell') {
+        const bits = [d.category, d.address].filter(Boolean);
+        return bits.length ? bits.join(' · ') : '—';
+    }
+    return '—';
+}
 
 export function Waitlist() {
     const [rows, setRows] = useState<WaitlistRow[]>([]);
@@ -45,12 +78,17 @@ export function Waitlist() {
     const [search, setSearch] = useState('');
     const [communityFilter, setCommunityFilter] = useState('all');
     const [roleFilter, setRoleFilter] = useState('all');
+    const [approvingId, setApprovingId] = useState<string | null>(null);
+    // Per-row result note (e.g. "approved but WhatsApp delivery failed") — kept
+    // visible rather than swallowed, since the approve action can succeed at
+    // the database write and still fail to deliver.
+    const [rowNotes, setRowNotes] = useState<Record<string, { kind: 'ok' | 'warn' | 'error'; text: string }>>({});
 
     const fetchRows = useCallback(async () => {
         setError(null);
         const { data, error: err } = await supabase
             .from('waitlist')
-            .select('id, full_name, email, phone, user_type, status, created_at, community, referred_by, source')
+            .select('id, full_name, email, phone, user_type, status, created_at, community, referred_by, source, details')
             .order('created_at', { ascending: false });
         if (err) {
             setError(err.message);
@@ -65,6 +103,39 @@ export function Waitlist() {
         const interval = setInterval(fetchRows, 60000);
         return () => clearInterval(interval);
     }, [fetchRows]);
+
+    const approve = useCallback(async (row: WaitlistRow) => {
+        setApprovingId(row.id);
+        setRowNotes(prev => { const next = { ...prev }; delete next[row.id]; return next; });
+        try {
+            const { data, error: invokeErr } = await supabase.functions.invoke('notify_admins', {
+                body: { action: 'approve_waitlist', id: row.id },
+            });
+            if (invokeErr) throw invokeErr;
+
+            if (data?.status === 'approved') {
+                setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'approved' } : r));
+            }
+
+            if (data?.note) {
+                // Approval succeeded but delivery didn't — e.g. the WhatsApp
+                // token is currently invalid. Real, known state — surface it,
+                // don't hide it behind a green checkmark.
+                setRowNotes(prev => ({ ...prev, [row.id]: { kind: 'warn', text: data.note } }));
+            } else if (!data?.success) {
+                setRowNotes(prev => ({
+                    ...prev,
+                    [row.id]: { kind: 'error', text: data?.detail || data?.error || data?.reason || 'Approve failed.' },
+                }));
+            } else {
+                setRowNotes(prev => ({ ...prev, [row.id]: { kind: 'ok', text: 'Approved — download link sent.' } }));
+            }
+        } catch (err: any) {
+            setRowNotes(prev => ({ ...prev, [row.id]: { kind: 'error', text: err?.message || 'Approve failed.' } }));
+        } finally {
+            setApprovingId(null);
+        }
+    }, []);
 
     const byCommunity = useMemo(() => {
         const map = new Map<string, number>();
@@ -185,36 +256,76 @@ export function Waitlist() {
                                 <th className="text-left px-4 py-3 font-bold text-xs uppercase tracking-wider" style={{ color: C.muted }}>Phone</th>
                                 <th className="text-left px-4 py-3 font-bold text-xs uppercase tracking-wider" style={{ color: C.muted }}>Community</th>
                                 <th className="text-left px-4 py-3 font-bold text-xs uppercase tracking-wider" style={{ color: C.muted }}>Role</th>
-                                <th className="text-left px-4 py-3 font-bold text-xs uppercase tracking-wider" style={{ color: C.muted }}>Source</th>
+                                <th className="text-left px-4 py-3 font-bold text-xs uppercase tracking-wider" style={{ color: C.muted }}>Details</th>
+                                <th className="text-left px-4 py-3 font-bold text-xs uppercase tracking-wider" style={{ color: C.muted }}>Status</th>
                                 <th className="text-left px-4 py-3 font-bold text-xs uppercase tracking-wider" style={{ color: C.muted }}>Signed up</th>
+                                <th className="text-left px-4 py-3 font-bold text-xs uppercase tracking-wider" style={{ color: C.muted }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center" style={{ color: C.faint }}>
+                                    <td colSpan={8} className="px-4 py-8 text-center" style={{ color: C.faint }}>
                                         <Users2 size={20} className="mx-auto mb-2" style={{ opacity: 0.4 }} />
                                         No signups match this filter.
                                     </td>
                                 </tr>
                             )}
-                            {filtered.map(r => (
-                                <tr key={r.id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                                    <td className="px-4 py-3 font-semibold" style={{ color: C.text }}>{r.full_name}</td>
-                                    <td className="px-4 py-3" style={{ color: C.body }}>{r.phone || '—'}</td>
-                                    <td className="px-4 py-3" style={{ color: C.body }}>{r.community || 'Unspecified'}</td>
-                                    <td className="px-4 py-3">
-                                        <span
-                                            className="px-2 py-1 rounded-full text-[11px] font-bold"
-                                            style={{ background: 'rgba(167,139,250,0.14)', color: C.accent }}
-                                        >
-                                            {roleLabel(r.user_type)}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-xs" style={{ color: C.faint }}>{r.source || '—'}</td>
-                                    <td className="px-4 py-3 text-xs" style={{ color: C.faint }}>{fmt(r.created_at)}</td>
-                                </tr>
-                            ))}
+                            {filtered.map(r => {
+                                const status = r.status || 'pending';
+                                const note = rowNotes[r.id];
+                                return (
+                                    <tr key={r.id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                        <td className="px-4 py-3 font-semibold" style={{ color: C.text }}>{r.full_name}</td>
+                                        <td className="px-4 py-3" style={{ color: C.body }}>{r.phone || '—'}</td>
+                                        <td className="px-4 py-3" style={{ color: C.body }}>{r.community || 'Unspecified'}</td>
+                                        <td className="px-4 py-3">
+                                            <span
+                                                className="px-2 py-1 rounded-full text-[11px] font-bold"
+                                                style={{ background: 'rgba(167,139,250,0.14)', color: C.accent }}
+                                            >
+                                                {roleLabel(r.user_type)}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-xs" style={{ color: C.faint }}>{detailsSummary(r)}</td>
+                                        <td className="px-4 py-3">
+                                            <span className="text-xs font-bold" style={{ color: STATUS_COLOR[status] || C.faint }}>
+                                                {status}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-xs" style={{ color: C.faint }}>{fmt(r.created_at)}</td>
+                                        <td className="px-4 py-3">
+                                            {status === 'pending' ? (
+                                                <div className="space-y-1.5">
+                                                    <button
+                                                        onClick={() => approve(r)}
+                                                        disabled={approvingId === r.id || !r.phone}
+                                                        title={!r.phone ? 'No phone number on file' : undefined}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold disabled:opacity-40"
+                                                        style={{ background: 'rgba(16,185,129,0.16)', color: C.ok }}
+                                                    >
+                                                        {approvingId === r.id
+                                                            ? <RefreshCw size={12} className="animate-spin" />
+                                                            : <Check size={12} />}
+                                                        Approve
+                                                    </button>
+                                                    {note && (
+                                                        <div
+                                                            className="flex items-start gap-1 text-[11px] max-w-[220px]"
+                                                            style={{ color: note.kind === 'error' ? C.danger : note.kind === 'warn' ? C.warn : C.ok }}
+                                                        >
+                                                            {note.kind !== 'ok' && <AlertTriangle size={11} className="mt-0.5 shrink-0" />}
+                                                            <span>{note.text}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs" style={{ color: C.faint }}>—</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
