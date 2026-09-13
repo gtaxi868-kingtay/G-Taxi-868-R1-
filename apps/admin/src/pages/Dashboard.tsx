@@ -91,8 +91,11 @@ export const Dashboard = ({ rides }: { rides: any[] }) => {
                 <DriverMap onLocationsChange={(locs: DriverLocation[]) => setDriverCount(locs.length)} />
             </div>
 
-            {/* TOP OVERLAY BAR */}
-            <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center gap-3">
+            {/* TOP OVERLAY BAR — right edge stops short of the Live Ops sidebar
+                (top-4 right-4, w-[340px] at sm+) instead of sharing its right-4,
+                which let the search box's flex-1 width run underneath the
+                sidebar panel on desktop widths. */}
+            <div className="absolute top-4 left-4 right-4 sm:right-[372px] z-20 flex flex-wrap items-center gap-3">
                 <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-2.5 flex items-center gap-3">
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 10px var(--cyan-glow)' }} className="animate-pulse" />
                     <span className="text-[10px] font-black text-white uppercase tracking-widest">Live</span>

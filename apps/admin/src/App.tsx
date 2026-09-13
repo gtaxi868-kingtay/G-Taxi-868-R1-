@@ -30,8 +30,9 @@ import { GSpotVenues } from './pages/GSpotVenues';
 import { GMemory } from './pages/GMemory';
 import { SystemHealth } from './pages/SystemHealth';
 import { Waitlist } from './pages/Waitlist';
+import { SosAlerts } from './pages/SosAlerts';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain, HeartPulse, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, AlertOctagon, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain, HeartPulse, ClipboardList } from 'lucide-react';
 
 function AdminSecurityGate({ children }: { children: React.ReactNode }) {
     const [gateState, setGateState] = useState<'loading' | 'unauthorized' | 'authorized'>('loading');
@@ -93,7 +94,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist' | 'sosalerts';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
@@ -123,6 +124,7 @@ const TAB_LABELS: Record<AdminView, string> = {
     gmemory: 'G Memory',
     health: 'System Health',
     waitlist: 'Waitlist Signups',
+    sosalerts: 'SOS & Safety Alerts',
 };
 
 function App() {
@@ -210,6 +212,7 @@ function App() {
 
                     <nav className="flex-1 flex flex-col gap-1">
                         <NavItem active={activeTab === 'dashboard'} onClick={() => handleNav('dashboard')} icon={<LayoutDashboard size={20}/>} label="Operations" />
+                        <NavItem active={activeTab === 'sosalerts'} onClick={() => handleNav('sosalerts')} icon={<AlertOctagon size={20}/>} label="SOS & Safety" />
                         <NavItem active={activeTab === 'users'} onClick={() => handleNav('users')} icon={<KeyRound size={20}/>} label="Users & Access" />
                         <NavItem active={activeTab === 'fleet'} onClick={() => handleNav('fleet')} icon={<Users size={20}/>} label="Fleet & Personnel" />
                         <NavItem active={activeTab === 'commander'} onClick={() => handleNav('commander')} icon={<ShieldCheck size={20}/>} label="Commanders" />
@@ -292,6 +295,7 @@ function App() {
                     )}
                     <div className="max-w-7xl animate-in" style={{ animationDelay: '0.1s' }}>
                         {activeTab === 'dashboard' && <Dashboard rides={rides} />}
+                        {activeTab === 'sosalerts' && <SosAlerts />}
                         {activeTab === 'users' && <UsersPage />}
                         {activeTab === 'fleet' && <FleetManager rides={rides} allUsers={allUsers} orders={orders} onRefresh={fetchData} />}
                         {activeTab === 'commander' && <CommanderManagement />}

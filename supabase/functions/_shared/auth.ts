@@ -1,12 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+import { getCorsHeaders } from './cors.ts'
 
 export async function requireAuth(req: Request) {
+    const corsHeaders = getCorsHeaders(req)
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
         throw new Response(JSON.stringify({ error: 'Missing authorization header' }), {
@@ -33,7 +29,22 @@ export async function requireAuth(req: Request) {
 }
 
 export async function requireDriver(req: Request, supabaseAdmin: any) {
+    const corsHeaders = getCorsHeaders(req)
     const user = await requireAuth(req)
+
+    const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('platform_blocked, platform_blocked_reason')
+        .eq('id', user.id)
+        .maybeSingle()
+
+    if (profile?.platform_blocked) {
+        throw new Response(JSON.stringify({
+            error: profile.platform_blocked_reason || 'Account blocked. Contact support.',
+        }), {
+            status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+    }
 
     const { data: driver, error } = await supabaseAdmin
         .from('drivers')
@@ -51,6 +62,7 @@ export async function requireDriver(req: Request, supabaseAdmin: any) {
 }
 
 export async function requireAdmin(req: Request) {
+    const corsHeaders = getCorsHeaders(req)
     const user = await requireAuth(req)
 
     const supabaseAdmin = createClient(
@@ -74,6 +86,7 @@ export async function requireAdmin(req: Request) {
 }
 
 export async function requireCommander(req: Request) {
+  const corsHeaders = getCorsHeaders(req)
   const user = await requireAuth(req)
 
   const supabaseAdmin = createClient(

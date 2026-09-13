@@ -16,14 +16,11 @@ export async function captureException(
         const errorObj = error instanceof Error ? error : new Error(String(error));
 
         const envelope = [
-            // Envelope header
             JSON.stringify({
                 dsn: SENTRY_DSN,
                 sdk: { name: 'sentry.javascript.deno', version: '1.0.0' }
             }),
-            // Event header
             JSON.stringify({ type: 'event' }),
-            // Event payload
             JSON.stringify({
                 event_id: crypto.randomUUID().replace(/-/g, ''),
                 timestamp: new Date().toISOString(),
@@ -58,7 +55,6 @@ export async function captureException(
             timeoutMs: 5000,
         });
     } catch (sentryError) {
-        // Never let Sentry errors break the main function
         console.error('[Sentry] Failed to capture exception:', sentryError);
     }
 }
