@@ -9,11 +9,12 @@ import { MerchantAuthShell } from './MerchantAuthShell';
 export function MerchantRegister({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [done, setDone] = useState(false);
-    const [focused, setFocused] = useState<'name' | 'email' | 'password' | null>(null);
+    const [focused, setFocused] = useState<'name' | 'email' | 'phone' | 'password' | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -25,7 +26,10 @@ export function MerchantRegister({ onDone, onBack }: { onDone: () => void; onBac
         setError('');
         try {
             const { data, error: fnErr } = await supabase.functions.invoke('merchant_signup', {
-                body: { email: email.trim().toLowerCase(), password, full_name: name.trim() },
+                body: {
+                    email: email.trim().toLowerCase(), password, full_name: name.trim(),
+                    phone: phone.trim() || undefined,
+                },
             });
             if (fnErr) throw fnErr;
             if (!data?.success) throw new Error(data?.error || 'Registration failed');
@@ -72,6 +76,22 @@ export function MerchantRegister({ onDone, onBack }: { onDone: () => void; onBac
                             type="email" required placeholder="partner@business.com"
                             value={email} onChange={e => setEmail(e.target.value)}
                             onFocus={() => setFocused('email')} onBlur={() => setFocused(null)}
+                            className="rain-input"
+                        />
+                    </div>
+                </div>
+
+                {/* Optional — but if it matches an approved waitlist signup, the
+                    category and address they already gave us get applied
+                    automatically (see merchant_signup's claim_waitlist_details() call). */}
+                <div className="rain-field">
+                    <label className={`rain-label ${focused === 'phone' ? 'focused' : ''}`}>WhatsApp Number (optional)</label>
+                    <div className={`rain-input-shell ${focused === 'phone' ? 'focused' : ''}`}>
+                        <div className="rain-focus-ring" />
+                        <input
+                            type="tel" placeholder="1868…"
+                            value={phone} onChange={e => setPhone(e.target.value)}
+                            onFocus={() => setFocused('phone')} onBlur={() => setFocused(null)}
                             className="rain-input"
                         />
                     </div>

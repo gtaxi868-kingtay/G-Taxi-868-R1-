@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
 import { aiFetch, secureFetch } from "../_shared/networkUtility.ts";
+import { GROQ_CHAT_MODEL, isGptOss } from "../_shared/ai_model.ts";
 
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
@@ -74,13 +75,17 @@ Output ONLY valid JSON. No markdown. No explanation.
 Schema: { "stops": [{ "type": "pickup|stop|dropoff", "search_term": "cleaned location name" }], "service_type": "ride"" }`;
 
       const groqBody = {
-        model: "llama-3.3-70b-versatile",
+        model: GROQ_CHAT_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Query: "${query}"\nCurrent location: [${current_lat}, ${current_lng}]` }
         ],
         temperature: 0.1,
-        max_tokens: 256,
+        // GPT-OSS spends completion_tokens on hidden reasoning before the
+        // visible answer — 256 is consumed entirely by it, returning empty
+        // content with a 200 and silently falling back to the template.
+        max_tokens: isGptOss(GROQ_CHAT_MODEL) ? 512 : 256,
+        ...(isGptOss(GROQ_CHAT_MODEL) ? { reasoning_effort: "low" } : {}),
         response_format: { type: "json_object" }
       };
 

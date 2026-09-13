@@ -5,26 +5,21 @@
 // Auth: x-cron-secret (PLATFORM_CRON_SECRET — the laptop cockpit carries the
 // same secret) OR an admin JWT. Deployed with verify_jwt=false because the
 // cockpit path has no JWT; the guard below is the auth.
+//
+// Also carries two operational probes (?health=1 and ?probe=<provider>) behind
+// that same guard — see the comments at their branches for why they exist here.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { chat, llmConfigured, BudgetExceededError } from "../_shared/llm.ts";
+import { chat, llmConfigured, llmGatewayInfo, BudgetExceededError } from "../_shared/llm.ts";
+import { getPlatformIdentity } from "../_shared/identity.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const PLATFORM_CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
 
-function json(payload: unknown, status = 200): Response {
-    return new Response(JSON.stringify(payload), {
-        status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-}
 
 async function isAuthorized(req: Request): Promise<boolean> {
     const cronHeader = req.headers.get("x-cron-secret");
@@ -41,12 +36,69 @@ async function isAuthorized(req: Request): Promise<boolean> {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  function json(payload: unknown, status = 200): Response {
+      return new Response(JSON.stringify(payload), {
+          status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+  }
+
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
     if (!(await isAuthorized(req))) return json({ error: "Unauthorized" }, 401);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const url = new URL(req.url);
+
+    // ?health=1 — what THIS bundle is actually running: gateway version, the
+    // resolved provider chain, and which provider keys are present (booleans
+    // only, never values). Every edge function bundles its own copy of
+    // _shared/llm.ts, so comparing this across functions is the only way to
+    // prove they are in sync instead of assuming it. Assuming it is what let a
+    // retired model survive in three functions after being fixed in three others.
+    if (url.searchParams.get("health") === "1") {
+        return json({ success: true, gateway: llmGatewayInfo() });
+    }
+
+    // ?probe=<provider> — one real, minimal call forced through a named
+    // provider ("cerebras", "gemini", ...). A fallback nobody has ever
+    // exercised is a guess, not a fallback: the day it is needed is the worst
+    // possible moment to discover the key was pasted wrong. This proves it
+    // works while the primary is still healthy. Costs a handful of tokens.
+    //
+    // Its first real run on 2026-09-07 immediately found three things a config
+    // table could not: an archived Cerebras model, a SUSPENDED Gemini key that
+    // looked perfectly healthy as a "key is configured" boolean, and a Google
+    // error body that echoes the API key back in plaintext.
+    const probeProvider = url.searchParams.get("probe");
+    if (probeProvider) {
+        try {
+            const res = await chat(supabase, {
+                department: "probe",
+                onlyProvider: probeProvider,
+                messages: [{ role: "user", content: "Reply with the single word: ok" }],
+                maxTokens: 16,
+            });
+            return json({
+                success: true,
+                requested_provider: probeProvider,
+                served_by: res._g_provider ?? null,
+                model: res._g_model ?? null,
+                reply: res.choices?.[0]?.message?.content ?? null,
+            });
+        } catch (err) {
+            // Deliberately 200 with success:false — a failed probe is a
+            // successful diagnosis, and the caller wants to read the reason.
+            // The message is already redacted inside the gateway.
+            return json({
+                success: false,
+                requested_provider: probeProvider,
+                error: err instanceof Error ? err.message : String(err),
+            });
+        }
+    }
+
     const wantProse = url.searchParams.get("prose") === "true";
 
     const todayStart = new Date();
@@ -163,9 +215,10 @@ serve(async (req) => {
         }
 
         try {
+            const identity = await getPlatformIdentity(supabase);
             const res = await chat(supabase, {
                 department: "briefing",
-                system: "You are G, chief of staff for G-Taxi (Trinidad & Tobago ride-hailing). " +
+                system: `You are G, chief of staff for ${identity.description}. ` +
                     "Narrate this JSON brief for the owner in under 150 words. Plain, direct, truthful. " +
                     "Lead with what needs attention; then money (amounts are in TTD cents — convert to dollars); " +
                     "then one line on G's own activity. Never invent numbers not present in the JSON.",

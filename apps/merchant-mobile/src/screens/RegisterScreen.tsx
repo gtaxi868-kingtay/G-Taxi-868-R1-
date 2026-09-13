@@ -19,6 +19,7 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
   const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -33,7 +34,7 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
     }
     setLoading(true);
     try {
-      await signUp(email.trim(), password, name.trim());
+      await signUp(email.trim(), password, name.trim(), phone.trim() || undefined);
       Alert.alert('Check Email', 'Please check your email for a confirmation link.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
@@ -55,6 +56,10 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
           <View style={s.card}>
             <TextInput style={s.input} placeholder="Business Name" value={name} onChangeText={setName} placeholderTextColor="rgba(255,255,255,0.6)" />
             <TextInput style={s.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="rgba(255,255,255,0.6)" />
+            {/* Optional — but if it matches an approved waitlist signup, the category
+                and address they already gave us get applied automatically (see
+                merchant_signup's claim_waitlist_details() call). */}
+            <TextInput style={s.input} placeholder="WhatsApp Number (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholderTextColor="rgba(255,255,255,0.6)" />
             <TextInput style={s.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="rgba(255,255,255,0.6)" />
 
             {loading ? (

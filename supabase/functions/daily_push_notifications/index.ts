@@ -5,6 +5,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { aiFetch, internalFetch } from "../_shared/networkUtility.ts";
+import { GROQ_CHAT_MODEL, isGptOss } from "../_shared/ai_model.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -204,7 +205,7 @@ async function generatePushMessage(patterns: any): Promise<string> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: GROQ_CHAT_MODEL,
         messages: [
           {
             role: "system",
@@ -215,7 +216,11 @@ async function generatePushMessage(patterns: any): Promise<string> {
             content: `Write a push notification for a rider who usually travels ${direction} on ${dayName}s around ${patterns.typical_travel_hour}:00. Make it feel personal and helpful.`,
           },
         ],
-        max_tokens: 30,
+        // GPT-OSS spends completion_tokens on hidden reasoning before the
+        // visible answer — 30 is consumed entirely by it, returning empty
+        // content with a 200 and silently falling back to the template.
+        max_tokens: isGptOss(GROQ_CHAT_MODEL) ? 512 : 30,
+        ...(isGptOss(GROQ_CHAT_MODEL) ? { reasoning_effort: "low" } : {}),
         temperature: 0.7,
       }),
     });
