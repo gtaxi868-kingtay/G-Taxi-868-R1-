@@ -82,7 +82,7 @@ export function Waitlist() {
     // Per-row result note (e.g. "approved but WhatsApp delivery failed") — kept
     // visible rather than swallowed, since the approve action can succeed at
     // the database write and still fail to deliver.
-    const [rowNotes, setRowNotes] = useState<Record<string, { kind: 'ok' | 'warn' | 'error'; text: string }>>({});
+    const [rowNotes, setRowNotes] = useState<Record<string, { kind: 'ok' | 'warn' | 'error'; text: string; deepLink?: string }>>({});
 
     const fetchRows = useCallback(async () => {
         setError(null);
@@ -120,8 +120,10 @@ export function Waitlist() {
             if (data?.note) {
                 // Approval succeeded but delivery didn't — e.g. the WhatsApp
                 // token is currently invalid. Real, known state — surface it,
-                // don't hide it behind a green checkmark.
-                setRowNotes(prev => ({ ...prev, [row.id]: { kind: 'warn', text: data.note } }));
+                // don't hide it behind a green checkmark. data.deep_link (a
+                // plain wa.me link, no API/token involved) lets the admin
+                // send the same message from their own phone right now.
+                setRowNotes(prev => ({ ...prev, [row.id]: { kind: 'warn', text: data.note, deepLink: data.deep_link } }));
             } else if (!data?.success) {
                 setRowNotes(prev => ({
                     ...prev,
@@ -310,12 +312,25 @@ export function Waitlist() {
                                                         Approve
                                                     </button>
                                                     {note && (
-                                                        <div
-                                                            className="flex items-start gap-1 text-[11px] max-w-[220px]"
-                                                            style={{ color: note.kind === 'error' ? C.danger : note.kind === 'warn' ? C.warn : C.ok }}
-                                                        >
-                                                            {note.kind !== 'ok' && <AlertTriangle size={11} className="mt-0.5 shrink-0" />}
-                                                            <span>{note.text}</span>
+                                                        <div className="max-w-[240px] space-y-1">
+                                                            <div
+                                                                className="flex items-start gap-1 text-[11px]"
+                                                                style={{ color: note.kind === 'error' ? C.danger : note.kind === 'warn' ? C.warn : C.ok }}
+                                                            >
+                                                                {note.kind !== 'ok' && <AlertTriangle size={11} className="mt-0.5 shrink-0" />}
+                                                                <span>{note.text}</span>
+                                                            </div>
+                                                            {note.deepLink && (
+                                                                <a
+                                                                    href={note.deepLink}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold"
+                                                                    style={{ background: 'rgba(16,185,129,0.16)', color: C.ok }}
+                                                                >
+                                                                    Send WhatsApp yourself
+                                                                </a>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
