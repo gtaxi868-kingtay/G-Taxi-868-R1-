@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { recordMerchantConsents } from '../_shared/legalVersions.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,11 +13,21 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { business_name, email, password, commander_code, name } = await req.json()
+    const { business_name, email, password, commander_code, name, accepted_terms } = await req.json()
 
     if (!business_name || !email || !password || !commander_code) {
       return new Response(
         JSON.stringify({ success: false, error: 'business_name, email, password, and commander_code required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Merchants previously had zero consent recording of any kind — no
+    // checkbox, no ledger row. This account creation cannot proceed without
+    // an explicit accept, matching the rider/driver signup requirement.
+    if (accepted_terms !== true) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'You must accept the Merchant Terms, Terms of Service, and Privacy Policy to register.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -55,6 +66,15 @@ Deno.serve(async (req) => {
 
     if (createError) throw createError
     if (!newUser?.user?.id) throw new Error('Failed to create user')
+
+    // Record consent immediately after the account exists — see
+    // merchant_signup for why this writes directly rather than through
+    // record_consent()'s auth.uid()-based RPC.
+    await recordMerchantConsents(
+      supabaseAdmin,
+      newUser.user.id,
+      req.headers.get('user-agent'),
+    )
 
     const { data: merchant, error: merchantError } = await supabaseAdmin
       .from('merchants')

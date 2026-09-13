@@ -9,7 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { ENV } from '@gtaxi/shared/env';
+import { ENV } from '@g868/shared/env';
 import type { AppScreenProps } from '../navigation/types';
 
 const ACCENT = '#E6B450';

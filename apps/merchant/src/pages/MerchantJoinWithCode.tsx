@@ -14,6 +14,7 @@ export function MerchantJoinWithCode({ onDone, onBack }: { onDone: () => void; o
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [commanderCode, setCommanderCode] = useState('');
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [done, setDone] = useState(false);
@@ -28,9 +29,15 @@ export function MerchantJoinWithCode({ onDone, onBack }: { onDone: () => void; o
             setError('Password must be at least 6 characters');
             return;
         }
+        if (!acceptedTerms) {
+            setError('You must accept the Merchant Terms, Terms of Service, and Privacy Policy to register.');
+            return;
+        }
         setLoading(true);
         setError('');
         try {
+            // merchant_register_with_code rejects any request without
+            // accepted_terms — this form previously never sent it.
             const { data, error: fnErr } = await supabase.functions.invoke('merchant_register_with_code', {
                 body: {
                     business_name: businessName.trim(),
@@ -38,6 +45,7 @@ export function MerchantJoinWithCode({ onDone, onBack }: { onDone: () => void; o
                     password,
                     commander_code: commanderCode.trim().toUpperCase(),
                     name: contactName.trim() || businessName.trim(),
+                    accepted_terms: acceptedTerms,
                 },
             });
             if (fnErr) throw fnErr;
@@ -129,13 +137,28 @@ export function MerchantJoinWithCode({ onDone, onBack }: { onDone: () => void; o
                     </div>
                 </div>
 
+                <label className="rain-field" style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                    <input
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={e => setAcceptedTerms(e.target.checked)}
+                        style={{ marginTop: '3px' }}
+                    />
+                    <span style={{ fontSize: '13px', lineHeight: 1.5 }}>
+                        I accept the{' '}
+                        <a href="https://ffbbuafgeypvkpcuvdnv.supabase.co/storage/v1/object/public/web/legal/merchant_terms.html" target="_blank" rel="noreferrer">Merchant Terms</a>,{' '}
+                        <a href="https://ffbbuafgeypvkpcuvdnv.supabase.co/storage/v1/object/public/web/legal/terms_of_service.html" target="_blank" rel="noreferrer">Terms of Service</a>, and{' '}
+                        <a href="https://ffbbuafgeypvkpcuvdnv.supabase.co/storage/v1/object/public/web/legal/privacy_policy.html" target="_blank" rel="noreferrer">Privacy Policy</a>
+                    </span>
+                </label>
+
                 {error && (
                     <div className="rain-error">
                         <span>{error}</span>
                     </div>
                 )}
 
-                <button type="submit" disabled={loading} className="rain-btn">
+                <button type="submit" disabled={loading || !acceptedTerms} className="rain-btn">
                     {loading ? 'Joining…' : 'Join Territory'}
                 </button>
             </form>

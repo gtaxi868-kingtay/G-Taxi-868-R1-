@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { LEGAL_DOC_URLS } from '@g868/shared/legal';
 
 export function LegalScreen({ navigation }: { navigation: any }) {
     const insets = useSafeAreaInsets();
@@ -24,7 +25,7 @@ export function LegalScreen({ navigation }: { navigation: any }) {
             <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 40 }}>
                 <TouchableOpacity
                     style={s.docLink}
-                    onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}
+                    onPress={() => Linking.openURL(LEGAL_DOC_URLS.terms_of_service)}
                 >
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#EAF3F6', marginBottom: 4 }}>
                         Terms of Service
@@ -40,13 +41,58 @@ export function LegalScreen({ navigation }: { navigation: any }) {
 
                 <TouchableOpacity
                     style={[s.docLink, { marginTop: 0 }]}
-                    onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}
+                    onPress={() => Linking.openURL(LEGAL_DOC_URLS.driver_agreement)}
+                >
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#EAF3F6', marginBottom: 4 }}>
+                        Driver & Operator Agreement
+                    </Text>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                        Your independent-contractor status, payout terms, and platform conduct rules.
+                    </Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#06B6D4' }}>
+                        View Full Document →
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[s.docLink, { marginTop: 0 }]}
+                    onPress={() => Linking.openURL(LEGAL_DOC_URLS.privacy_policy)}
                 >
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#EAF3F6', marginBottom: 4 }}>
                         Privacy Policy
                     </Text>
                     <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
                         Data collection, processing, and protection. Compliant with the Data Protection Act, 2011 of Trinidad and Tobago.
+                    </Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#06B6D4' }}>
+                        View Full Document →
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[s.docLink, { marginTop: 0 }]}
+                    onPress={() => Linking.openURL(LEGAL_DOC_URLS.data_retention)}
+                >
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#EAF3F6', marginBottom: 4 }}>
+                        Data Retention & Deletion Notice
+                    </Text>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                        How long we keep your data, and how to request permanent deletion.
+                    </Text>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#06B6D4' }}>
+                        View Full Document →
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[s.docLink, { marginTop: 0 }]}
+                    onPress={() => Linking.openURL(LEGAL_DOC_URLS.safety_policy)}
+                >
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#EAF3F6', marginBottom: 4 }}>
+                        Safety & Incident Policy
+                    </Text>
+                    <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 8 }}>
+                        How incidents are reported, investigated, and resolved.
                     </Text>
                     <Text style={{ fontSize: 12, fontWeight: '700', color: '#06B6D4' }}>
                         View Full Document →

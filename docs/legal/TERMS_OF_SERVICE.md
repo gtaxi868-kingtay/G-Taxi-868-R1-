@@ -1,19 +1,19 @@
-# G-TAXI TERMS OF SERVICE
+# G868 TERMS OF SERVICE
 
-**Last updated:** 2026-06-18  
+**Last updated:** 2026-08-15  
 **Jurisdiction:** Trinidad and Tobago (primary) — scalable to other Caribbean jurisdictions  
-**Platform:** G-Taxi mobile applications, websites, NFC kiosks, and related services  
-**Operator:** G-Taxi Technology Ltd. (company registration to be filed, Trinidad and Tobago)
+**Platform:** G868 mobile applications, websites, NFC kiosks, and related services  
+**Operator:** G868 Technology Ltd. (company registration to be filed, Trinidad and Tobago)
 
 ---
 
 ## 1. INTRODUCTION & PLATFORM ROLE
 
-### 1.1 What G-Taxi Is
-G-Taxi is a **technology platform** that connects independent providers — drivers, merchants, delivery couriers, travel operators, and other service providers — with clients who request transportation, delivery, retail, and travel services.
+### 1.1 What G868 Is
+G868 is a **technology platform** that connects independent providers — drivers, merchants, delivery couriers, travel operators, and other service providers — with clients who request transportation, delivery, retail, and travel services.
 
-### 1.2 What G-Taxi Is NOT
-**G-Taxi is NOT a public passenger carrier, transportation service, courier service, travel agency, retail store, or employment agency.** G-Taxi does not own, operate, or control any vehicle, does not employ or engage any drivers or service providers as employees or agents, and does not transport passengers or goods itself.
+### 1.2 What G868 Is NOT
+**G868 is NOT a public passenger carrier, transportation service, courier service, travel agency, retail store, or employment agency.** G868 does not own, operate, or control any vehicle, does not employ or engage any drivers or service providers as employees or agents, and does not transport passengers or goods itself.
 
 ### 1.3 Legal Basis
 These Terms are governed by:
@@ -24,18 +24,18 @@ These Terms are governed by:
 - The Motor Vehicles Insurance (Third-Party Risks) Act, Chap. 48:51
 - Other applicable laws of Trinidad and Tobago
 
-By creating an account or using the G-Taxi platform, you agree to these Terms.
+By creating an account or using the G868 platform, you agree to these Terms.
 
 ---
 
 ## 2. DEFINITIONS
 
-- **"Platform"** — the G-Taxi mobile applications, websites, NFC kiosk system, APIs, and any related software or services operated by G-Taxi Technology Ltd.
+- **"Platform"** — the G868 mobile applications, websites, NFC kiosk system, APIs, and any related software or services operated by G868 Technology Ltd.
 - **"Client"** — any person who uses the Platform to request services (includes riders, shoppers, travel bookers, and service requesters).
 - **"Driver"** — an independent contractor who uses the Platform to offer transportation or delivery services.
 - **"Merchant"** — an independent business (store, restaurant, laundry, etc.) that uses the Platform to offer goods or services.
 - **"Service Provider"** — collectively, Drivers, Merchants, Travel Operators, and any other independent provider accessible through the Platform.
-- **"G-Wallet"** — a stored-value account maintained by G-Taxi Technology Ltd. that records Client and Service Provider balances.
+- **"G-Wallet"** — a stored-value account maintained by G868 Technology Ltd. that records Client and Service Provider balances.
 - **"NFC Kiosk"** — a physical tap-point that enables NFC-enabled devices to interact with the Platform at a physical location.
 - **"Vertical"** — a category of service on the Platform (ride-hailing, grocery delivery, food delivery, laundry, G-Escape travel, merchant delivery, etc.).
 - **"T&T"** — the Republic of Trinidad and Tobago.
@@ -58,23 +58,23 @@ You must be at least 18 years old (or the age of majority in your jurisdiction) 
 If you access the Platform from a CARICOM member state other than Trinidad and Tobago, additional local terms may apply. You are responsible for compliance with local laws in your jurisdiction of residence and the jurisdiction where you receive services.
 
 ### 3.4 Verification
-G-Taxi reserves the right to verify identities, driver's permits, vehicle documents, merchant business licenses, and other credentials. Failure to provide verification documents may result in account suspension.
+G868 reserves the right to verify identities, driver's permits, vehicle documents, merchant business licenses, and other credentials. Failure to provide verification documents may result in account suspension.
 
 ---
 
 ## 4. SERVICES
 
 ### 4.1 Ride-Hailing
-G-Taxi connects Clients with independent Drivers for point-to-point transportation. Clients request rides through the Platform; Drivers accept or decline requests at their sole discretion. G-Taxi does not guarantee ride availability, response time, or route accuracy.
+G868 connects Clients with independent Drivers for point-to-point transportation. Clients request rides through the Platform; Drivers accept or decline requests at their sole discretion. G868 does not guarantee ride availability, response time, or route accuracy.
 
 ### 4.2 Grocery, Food & Merchant Delivery
-G-Taxi connects Clients with Merchants and independent delivery Drivers. Merchants list products; Clients place orders; Drivers deliver. G-Taxi does not guarantee product availability, quality, or delivery times.
+G868 connects Clients with Merchants and independent delivery Drivers. Merchants list products; Clients place orders; Drivers deliver. G868 does not guarantee product availability, quality, or delivery times.
 
 ### 4.3 Laundry & Other Services
-G-Taxi connects Clients with service providers for laundry and other verticals. All services are provided by independent operators.
+G868 connects Clients with service providers for laundry and other verticals. All services are provided by independent operators.
 
 ### 4.4 G-Escape (Travel)
-G-Taxi facilitates group travel aggregation for charter flights, hotel bookings, and ground transportation. G-Taxi is not a travel agency and does not operate flights or hotels. All travel services are provided by third-party operators under their own terms.
+G868 facilitates group travel aggregation for charter flights, hotel bookings, and ground transportation. G868 is not a travel agency and does not operate flights or hotels. All travel services are provided by third-party operators under their own terms.
 
 ### 4.5 NFC Kiosk Services
 NFC Kiosks enable tap-to-order at physical locations. A kiosk tap creates a service request through the Platform. The Client is responsible for confirming any order created by a kiosk tap.
@@ -87,10 +87,10 @@ G-Wallet is a stored-value account for Platform transactions. Funds in G-Wallet 
 ## 5. PLATFORM ROLE & INDEPENDENT PROVIDER STATUS
 
 ### 5.1 Independent Contractor Relationship
-ALL Service Providers on the G-Taxi Platform are independent contractors. **No employment, agency, partnership, joint venture, or master-servant relationship exists** between G-Taxi Technology Ltd. and any Driver, Merchant, courier, travel operator, or other Service Provider.
+ALL Service Providers on the G868 Platform are independent contractors. **No employment, agency, partnership, joint venture, or master-servant relationship exists** between G868 Technology Ltd. and any Driver, Merchant, courier, travel operator, or other Service Provider.
 
 ### 5.2 No Control
-G-Taxi does not:
+G868 does not:
 - Control when, where, or how Service Providers perform services
 - Require Service Providers to accept any particular request
 - Dictate the route Drivers take to destinations
@@ -107,9 +107,9 @@ Each Service Provider is solely responsible for:
 - Maintaining their own equipment, vehicles, and premises
 
 ### 5.4 Client Acknowledgment
-Clients acknowledge that Services are provided by independent contractors and not by G-Taxi. G-Taxi is a technology platform facilitating connections, not a service provider.
+Clients acknowledge that Services are provided by independent contractors and not by G868. G868 is a technology platform facilitating connections, not a service provider.
 
-**By using the Platform, Clients release G-Taxi Technology Ltd. from all liability arising from acts or omissions of independent Service Providers, including but not limited to traffic accidents, property damage, personal injury, delayed deliveries, and product quality issues.**
+**By using the Platform, Clients release G868 Technology Ltd. from all liability arising from acts or omissions of independent Service Providers, including but not limited to traffic accidents, property damage, personal injury, delayed deliveries, and product quality issues.**
 
 ---
 
@@ -124,30 +124,30 @@ Clients may pay via:
 - Other payment methods as introduced from time to time
 
 ### 6.2 Payment Processing
-All electronic payments are processed by third-party payment processors (Stripe, WiPay). G-Taxi does not store full payment card details.
+All electronic payments are processed by third-party payment processors (Stripe, WiPay). G868 does not store full payment card details.
 
 ### 6.3 Pricing & Fees
 Ride fares are calculated based on time, distance, vehicle type, and applicable zone rates. Delivery fees are set by Merchants. Travel package prices include third-party costs plus a platform margin. All prices are displayed in TTD (or applicable local currency) before confirmation.
 
 ### 6.4 Service Fee / Platform Commission
-G-Taxi charges a service fee or platform commission on each completed transaction. The applicable rate varies by vertical and is disclosed in the pricing section of the Platform. Current rates are approximately:
+G868 charges a service fee or platform commission on each completed transaction. The applicable rate varies by vertical and is disclosed in the pricing section of the Platform. Current rates are approximately:
 - Ride-hailing: 12–19%
 - Delivery: 15–20%
 - Merchant services: 12–19%
 - Travel: per-package margin
 
 ### 6.5 Driver / Service Provider Settlement
-Drivers and Service Providers are paid via the G-Wallet system. Settlement to external bank accounts is facilitated through WiPay or other payment partners. G-Taxi uses reasonable efforts to process payouts promptly but does not guarantee specific settlement timelines.
+Drivers and Service Providers are paid via the G-Wallet system. Settlement to external bank accounts is facilitated through WiPay or other payment partners. G868 uses reasonable efforts to process payouts promptly but does not guarantee specific settlement timelines.
 
 ### 6.6 Taxes
-Clients and Service Providers are solely responsible for all taxes, duties, levies, and fiscal contributions arising from their use of the Platform. G-Taxi does not withhold or remit taxes on behalf of any user unless required by applicable law.
+Clients and Service Providers are solely responsible for all taxes, duties, levies, and fiscal contributions arising from their use of the Platform. G868 does not withhold or remit taxes on behalf of any user unless required by applicable law.
 
 ---
 
 ## 7. INSURANCE
 
-### 7.1 No Insurance Provided by G-Taxi
-**G-Taxi does not provide insurance coverage** for any vehicle, driver, passenger, cargo, or service transaction. G-Taxi is not an insurer.
+### 7.1 No Insurance Provided by G868
+**G868 does not provide insurance coverage** for any vehicle, driver, passenger, cargo, or service transaction. G868 is not an insurer.
 
 ### 7.2 Driver Insurance Obligations
 Drivers are required to maintain:
@@ -155,7 +155,7 @@ Drivers are required to maintain:
 - Comprehensive or hire-and-reward insurance where required by their vehicle financing or lease agreements
 
 ### 7.3 Client Insurance
-Clients should ensure they have adequate personal accident, health, and travel insurance for their own protection. G-Taxi does not assess or verify the adequacy of any party's insurance.
+Clients should ensure they have adequate personal accident, health, and travel insurance for their own protection. G868 does not assess or verify the adequacy of any party's insurance.
 
 ### 7.4 Merchant Insurance
 Merchants are responsible for maintaining appropriate liability, property, and product liability insurance for their operations.
@@ -171,7 +171,7 @@ Users of the Platform must NOT:
 - Use unauthorized third-party apps or bots to interact with the Platform
 - Create false accounts, submit fake requests, or engage in fraudulent transactions
 - Damage the Platform or attempt to gain unauthorized access
-- Violate the intellectual property rights of G-Taxi or any third party
+- Violate the intellectual property rights of G868 or any third party
 - Carry weapons, illegal substances, or dangerous goods
 - Discriminate against any person based on race, colour, creed, sex, age, disability, or any protected characteristic under the laws of Trinidad and Tobago or applicable jurisdiction
 - Solicit direct business from Clients or Service Providers outside the Platform to avoid Platform fees
@@ -180,23 +180,23 @@ Users of the Platform must NOT:
 
 ## 9. INTELLECTUAL PROPERTY
 
-All intellectual property rights in the G-Taxi Platform, including software, designs, logos, trademarks, and content, are owned by G-Taxi Technology Ltd. Users may not copy, modify, reverse engineer, distribute, or create derivative works without written permission.
+All intellectual property rights in the G868 Platform, including software, designs, logos, trademarks, and content, are owned by G868 Technology Ltd. Users may not copy, modify, reverse engineer, distribute, or create derivative works without written permission.
 
-The name "G-Taxi", the G-Taxi logo, "G-Wallet", "G-Escape", "G-Level", "G-Member", "Rider Command", and related marks are trademarks of G-Taxi Technology Ltd.
+The name "G868", the G868 logo, "G-Taxi", "G-Wallet", "G-Escape", "G-Garage", "G-Level", "G-Member", "Rider Command", and related marks are trademarks of G868 Technology Ltd.
 
 ---
 
 ## 10. DATA PROTECTION & PRIVACY
 
 ### 10.1 Data Protection Act, 2011
-G-Taxi collects, processes, and stores personal data in accordance with the Data Protection Act, 2011 (Act 13 of 2011) of Trinidad and Tobago. Users have rights to:
+G868 collects, processes, and stores personal data in accordance with the Data Protection Act, 2011 (Act 13 of 2011) of Trinidad and Tobago. Users have rights to:
 - Access personal data held about them
 - Correct inaccurate data
 - Withdraw consent for data processing (subject to legal retention requirements)
 - Request deletion of personal data (subject to Platform obligations)
 
 ### 10.2 Data Collection
-G-Taxi collects:
+G868 collects:
 - Account information (name, email, phone, payment details)
 - Location data (for ride matching, delivery tracking, and service optimization)
 - Transaction records
@@ -208,7 +208,7 @@ G-Taxi collects:
 As the Platform scales to other Caribbean jurisdictions, personal data may be processed in servers located in the United States, Trinidad and Tobago, or other countries. By using the Platform, you consent to cross-border data processing in compliance with the Data Protection Act, 2011 and any applicable local legislation.
 
 ### 10.4 CARICOM & Regional Data Protection
-Where the Platform operates in other CARICOM member states, G-Taxi will comply with applicable local data protection legislation, including:
+Where the Platform operates in other CARICOM member states, G868 will comply with applicable local data protection legislation, including:
 - Barbados: Data Protection Act, 2019
 - Jamaica: Data Protection Act, 2020
 - Guyana: Data Protection Act, 2011 (as amended)
@@ -221,9 +221,9 @@ The Platform uses automated systems for driver matching, pricing, fraud detectio
 
 ## 11. DISCLAIMER OF WARRANTIES
 
-THE G-TAXI PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, OR AVAILABILITY.
+THE G868 PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, OR AVAILABILITY.
 
-G-TAXI DOES NOT WARRANT THAT:
+G868 DOES NOT WARRANT THAT:
 - THE PLATFORM WILL BE UNINTERRUPTED OR ERROR-FREE
 - THE QUALITY OF ANY SERVICE PROVIDED BY INDEPENDENT THIRD PARTIES WILL MEET EXPECTATIONS
 - THE PLATFORM IS FREE FROM VIRUSES OR HARMFUL COMPONENTS
@@ -236,7 +236,7 @@ This disclaimer applies to the maximum extent permitted by the Consumer Protecti
 ## 12. LIMITATION OF LIABILITY
 
 ### 12.1 General Limitation
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, G-TAXI TECHNOLOGY LTD., ITS DIRECTORS, OFFICERS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING FROM OR RELATED TO THE USE OF THE PLATFORM, INCLUDING BUT NOT LIMITED TO:
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, G868 TECHNOLOGY LTD., ITS DIRECTORS, OFFICERS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING FROM OR RELATED TO THE USE OF THE PLATFORM, INCLUDING BUT NOT LIMITED TO:
 
 - LOSS OF PROFITS, REVENUE, OR DATA
 - PERSONAL INJURY OR PROPERTY DAMAGE ARISING FROM SERVICES PROVIDED BY INDEPENDENT THIRD PARTIES
@@ -244,16 +244,16 @@ TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, G-TAXI TECHNOLOGY LTD., ITS D
 - DISPUTES BETWEEN USERS OF THE PLATFORM
 
 ### 12.2 Aggregate Liability Cap
-G-TAXI TECHNOLOGY LTD.'S TOTAL LIABILITY FOR ANY CLAIM ARISING FROM THESE TERMS OR THE USE OF THE PLATFORM SHALL NOT EXCEED THE TOTAL FEES PAID BY THE CLAIMANT TO G-TAXI IN THE SIX (6) MONTHS PRECEDING THE EVENT GIVING RISE TO THE CLAIM.
+G868 TECHNOLOGY LTD.'S TOTAL LIABILITY FOR ANY CLAIM ARISING FROM THESE TERMS OR THE USE OF THE PLATFORM SHALL NOT EXCEED THE TOTAL FEES PAID BY THE CLAIMANT TO G868 IN THE SIX (6) MONTHS PRECEDING THE EVENT GIVING RISE TO THE CLAIM.
 
 ### 12.3 Jurisdictional Variations
-Some jurisdictions (including certain CARICOM member states) do not allow the exclusion or limitation of certain damages or liabilities. In such jurisdictions, G-Taxi's liability is limited to the greatest extent permitted by local law.
+Some jurisdictions (including certain CARICOM member states) do not allow the exclusion or limitation of certain damages or liabilities. In such jurisdictions, G868's liability is limited to the greatest extent permitted by local law.
 
 ---
 
 ## 13. INDEMNIFICATION
 
-You agree to indemnify, defend, and hold harmless G-Taxi Technology Ltd., its affiliates, directors, officers, employees, and agents from and against all claims, liabilities, damages, losses, and expenses (including legal costs) arising from:
+You agree to indemnify, defend, and hold harmless G868 Technology Ltd., its affiliates, directors, officers, employees, and agents from and against all claims, liabilities, damages, losses, and expenses (including legal costs) arising from:
 - Your use or misuse of the Platform
 - Your breach of these Terms
 - Your violation of any applicable law
@@ -269,7 +269,7 @@ You agree to indemnify, defend, and hold harmless G-Taxi Technology Ltd., its af
 These Terms are governed by the laws of the Republic of Trinidad and Tobago, without regard to conflict of law principles. Where the Platform operates in other CARICOM member states, the laws of Trinidad and Tobago shall apply, supplemented by mandatory local consumer protection laws.
 
 ### 14.2 Informal Resolution
-Before initiating any formal proceedings, you agree to contact G-Taxi support (support@gtaxi.tt) and attempt to resolve the dispute informally for at least thirty (30) days.
+Before initiating any formal proceedings, you agree to contact G868 support (support@gtaxi.tt) and attempt to resolve the dispute informally for at least thirty (30) days.
 
 ### 14.3 Arbitration
 Any dispute arising from these Terms that cannot be resolved informally shall be submitted to binding arbitration in accordance with the Arbitration Act, Chap. 5:01 of Trinidad and Tobago (or the equivalent legislation of the applicable jurisdiction). The arbitration shall be conducted in Port of Spain, Trinidad and Tobago, by a single arbitrator mutually agreed upon.
@@ -294,15 +294,15 @@ The seat of arbitration shall remain Port of Spain, Trinidad and Tobago, unless 
 ## 15. TERMINATION
 
 ### 15.1 Termination by User
-You may terminate your account at any time by deleting the G-Taxi application and ceasing use of the Platform. Outstanding transactions must be completed first.
+You may terminate your account at any time by deleting the G868 application and ceasing use of the Platform. Outstanding transactions must be completed first.
 
-### 15.2 Termination by G-Taxi
-G-Taxi may suspend or terminate your access to the Platform:
+### 15.2 Termination by G868
+G868 may suspend or terminate your access to the Platform:
 - For breach of these Terms
 - For illegal or prohibited conduct
 - If required by applicable law or regulation
 - For inactivity exceeding 24 months
-- For any other reason at G-Taxi's reasonable discretion
+- For any other reason at G868's reasonable discretion
 
 ### 15.3 Effect of Termination
 Upon termination:
@@ -333,7 +333,7 @@ These Terms are designed to be adaptable for operation in multiple Caribbean jur
 - Other CARICOM and Caribbean nations
 
 ### 16.2 Local Addenda
-When G-Taxi operations begin in a new jurisdiction, a local addendum may supplement these Terms. The addendum will address:
+When G868 operations begin in a new jurisdiction, a local addendum may supplement these Terms. The addendum will address:
 - Local licensing and regulatory requirements
 - Mandatory consumer protection provisions
 - Local tax obligations
@@ -341,7 +341,7 @@ When G-Taxi operations begin in a new jurisdiction, a local addendum may supplem
 - Local language versions where required
 
 ### 16.3 CARICOM Compliance
-G-Taxi will comply with relevant CARICOM agreements and standards, including:
+G868 will comply with relevant CARICOM agreements and standards, including:
 - Revised Treaty of Chaguaramas establishing the Caribbean Community
 - CARICOM Consumer Protection Guideline
 - CARICOM Data Protection and Privacy Standards
@@ -354,15 +354,15 @@ Where the laws of another jurisdiction impose mandatory requirements that confli
 
 ## 17. CHANGES TO TERMS
 
-G-Taxi reserves the right to modify these Terms at any time. Changes will be communicated via the Platform, email, or in-app notification at least fourteen (14) days before taking effect. Continued use of the Platform after changes take effect constitutes acceptance of the modified Terms.
+G868 reserves the right to modify these Terms at any time. Changes will be communicated via the Platform, email, or in-app notification at least fourteen (14) days before taking effect. Continued use of the Platform after changes take effect constitutes acceptance of the modified Terms.
 
-For material changes that significantly affect user rights, G-Taxi may require affirmative acknowledgment.
+For material changes that significantly affect user rights, G868 may require affirmative acknowledgment.
 
 ---
 
 ## 18. CONTACT INFORMATION
 
-**G-Taxi Technology Ltd.**  
+**G868 Technology Ltd.**  
 support@gtaxi.tt  
 
 For legal notices:  
@@ -373,6 +373,6 @@ privacy@gtaxi.tt
 
 ---
 
-**By using the G-Taxi Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.**
+**By using the G868 Platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.**
 
 *These Terms were prepared with reference to the laws of the Republic of Trinidad and Tobago and are designed for scalability across the Caribbean region. They do not constitute legal advice. Independent legal counsel should be consulted for jurisdiction-specific compliance requirements.*

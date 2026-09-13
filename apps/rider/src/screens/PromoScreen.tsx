@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
+import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { useAuth } from '../context/AuthContext';
 import { Txt } from '@/design-system/primitives';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
@@ -29,6 +30,8 @@ const R = {
 };
 
 export function PromoScreen({ navigation }: any) {
+    // 'promo_codes_active' on the admin's Platform Control page.
+    const { flags } = usePlatformFlags();
     const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -97,6 +100,23 @@ export function PromoScreen({ navigation }: any) {
                 <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Promotions</Txt>
             </View>
 
+            {/* 'promo_codes_active' on Platform Control: "Enables riders to enter
+                promo codes for discounts." Switched off, the rider gets a calm
+                explanation rather than a code box that silently rejects
+                everything. Screen-level so it holds even via a deep link. */}
+            {!flags.promoCodes && (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+                    <Ionicons name="pricetag-outline" size={40} color="rgba(234,243,246,0.25)" />
+                    <Txt variant="bodyBold" color="#EAF3F6" style={{ marginTop: 16, textAlign: 'center' }}>
+                        Promotions are paused
+                    </Txt>
+                    <Txt variant="small" color="rgba(234,243,246,0.5)" style={{ marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
+                        Promo codes are switched off right now. Your rides and orders are unaffected.
+                    </Txt>
+                </View>
+            )}
+
+            {flags.promoCodes && (
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
@@ -155,6 +175,7 @@ export function PromoScreen({ navigation }: any) {
 
             </ScrollView>
             </KeyboardAvoidingView>
+            )}
         </View>
     );
 }

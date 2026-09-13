@@ -10,9 +10,11 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { Txt } from '@/design-system/primitives';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { LEGAL_DOC_URLS } from '@g868/shared/legal';
 
 const CYAN = '#06B6D4';
 
@@ -31,6 +33,9 @@ export function SettingsScreen({ navigation }: any) {
     const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
+    // 'opt_in_ai_routing' on the admin's Platform Control page. Until now that
+    // switch controlled nothing; this is the read that makes it real.
+    const { flags } = usePlatformFlags();
 
     const [notifyRides, setNotifyRides] = useState(true);
     const [notifyPromos, setNotifyPromos] = useState(true);
@@ -38,6 +43,78 @@ export function SettingsScreen({ navigation }: any) {
 
     const [contactName, setContactName] = useState('');
     const [contactPhone, setContactPhone] = useState('');
+
+    // ── Account deletion ────────────────────────────────────────────────────
+    // The backend has had request/cancel/status since 20260806010000; nothing
+    // called them, so the Privacy Policy had to tell people to send an email.
+    // This is that call site.
+    const [delStatus, setDelStatus] = useState<any>(null);
+    const [delBusy, setDelBusy] = useState(false);
+    const [confirmText, setConfirmText] = useState('');
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    const loadDeletionStatus = async () => {
+        // .then(ok, err) — supabase.rpc returns a THENABLE with no .catch.
+        const { data, error } = await supabase.rpc('get_my_deletion_status')
+            .then((r: any) => r, (e: any) => ({ data: null, error: e }));
+        if (!error && data) setDelStatus(data);
+    };
+
+    useEffect(() => { loadDeletionStatus(); }, [user?.id]);
+
+    const submitDeletion = async () => {
+        setDelBusy(true);
+        const { data, error } = await supabase.rpc('request_account_deletion')
+            .then((r: any) => r, (e: any) => ({ data: null, error: e }));
+        setDelBusy(false);
+
+        if (error || !data?.success) {
+            Alert.alert('Could not submit', 'Please try again, or email privacy@gtaxi.tt.');
+            return;
+        }
+
+        setShowConfirm(false);
+        setConfirmText('');
+        await loadDeletionStatus();
+
+        const when = new Date(data.scheduled_at).toLocaleDateString();
+        Alert.alert(
+            'Deletion scheduled',
+            `Your account will be deleted on ${when}. You can cancel any time before then from this screen.` +
+            (data.warning ? `\n\n${data.warning}` : ''),
+        );
+    };
+
+    const startDeletion = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        const bal = Number(delStatus?.wallet_balance_cents ?? 0);
+        Alert.alert(
+            'Delete your account?',
+            'Your name, contact details, saved places and assistant memory are erased.\n\n' +
+            'Records the law requires us to keep — payments and trip totals — stay, ' +
+            'but with nothing linking them to you.\n\n' +
+            `You get 30 days to change your mind.${bal > 0
+                ? `\n\nYou have TT$${(bal / 100).toFixed(2)} in your wallet. Withdraw it first — it cannot be returned afterwards.`
+                : ''}`,
+            [
+                { text: 'Keep my account', style: 'cancel' },
+                { text: 'Continue', style: 'destructive', onPress: () => setShowConfirm(true) },
+            ],
+        );
+    };
+
+    const cancelDeletion = async () => {
+        setDelBusy(true);
+        const { data, error } = await supabase.rpc('cancel_account_deletion')
+            .then((r: any) => r, (e: any) => ({ data: null, error: e }));
+        setDelBusy(false);
+        if (error || !data?.success) {
+            Alert.alert('Could not cancel', 'Please try again, or email privacy@gtaxi.tt.');
+            return;
+        }
+        await loadDeletionStatus();
+        Alert.alert('Deletion cancelled', 'Your account is staying. Nothing was removed.');
+    };
     const [savingContact, setSavingContact] = useState(false);
 
     const [progLevel, setProgLevel] = useState(1);
@@ -192,13 +269,17 @@ export function SettingsScreen({ navigation }: any) {
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>PRIVACY & SECURITY</Txt>
                 <View style={s.card}>
-                    <SettingRow
-                        label="AI Route Opt-In"
-                        sub="Share data for discount routes"
-                        value={aiRouting}
-                        onToggle={(v: boolean) => toggleSetting('ai_routing', v)}
-                    />
-                    <View style={s.divider} />
+                    {flags.aiRoutingOffered && (
+                        <>
+                            <SettingRow
+                                label="AI Route Opt-In"
+                                sub="Share data for discount routes"
+                                value={aiRouting}
+                                onToggle={(v: boolean) => toggleSetting('ai_routing', v)}
+                            />
+                            <View style={s.divider} />
+                        </>
+                    )}
                     <TouchableOpacity style={s.row} onPress={async () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); try { const keys = await AsyncStorage.getAllKeys(); await AsyncStorage.multiRemove(keys); Alert.alert('Cache Cleared', 'Local storage has been refreshed.'); } catch { Alert.alert('Error', 'Could not clear cache.'); } }}>
                         <View style={{ flex: 1 }}>
                             <Txt variant="bodyBold" color="#EAF3F6">Clear App Cache</Txt>
@@ -252,12 +333,12 @@ export function SettingsScreen({ navigation }: any) {
 
                 <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>ABOUT</Txt>
                 <View style={s.card}>
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL('https://gtaxi.tt/terms'); }}>
+                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL(LEGAL_DOC_URLS.terms_of_service); }}>
                         <Txt variant="bodyBold" color="#EAF3F6">Terms of Service</Txt>
                         <Ionicons name="chevron-forward" size={18} color={R.muted} />
                     </TouchableOpacity>
                     <View style={s.divider} />
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL('https://gtaxi.tt/privacy'); }}>
+                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL(LEGAL_DOC_URLS.privacy_policy); }}>
                         <Txt variant="bodyBold" color="#EAF3F6">Privacy Policy</Txt>
                         <Ionicons name="chevron-forward" size={18} color={R.muted} />
                     </TouchableOpacity>
@@ -266,6 +347,87 @@ export function SettingsScreen({ navigation }: any) {
                         <Txt variant="bodyBold" color="#EAF3F6">Version</Txt>
                         <Txt variant="small" color={R.muted}>2.4.0 (Nano Banana)</Txt>
                     </View>
+                </View>
+
+                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>YOUR ACCOUNT</Txt>
+                <View style={s.card}>
+                    {delStatus?.pending ? (
+                        <View style={{ padding: 20 }}>
+                            <Txt variant="bodyBold" color="#F59E0B">
+                                {delStatus.status === 'on_hold'
+                                    ? 'Deletion paused'
+                                    : 'Deletion scheduled'}
+                            </Txt>
+                            <Txt variant="small" color={R.muted} style={{ marginTop: 6, lineHeight: 18 }}>
+                                {delStatus.status === 'on_hold'
+                                    ? `We cannot finish this yet: ${delStatus.hold_reason ?? 'an open matter on your account'}. It will complete once that is resolved.`
+                                    : `Your account will be deleted on ${new Date(delStatus.scheduled_at).toLocaleDateString()}. You can stop this at any time before then.`}
+                            </Txt>
+                            {Number(delStatus.wallet_balance_cents ?? 0) > 0 && (
+                                <Txt variant="small" color="#F59E0B" style={{ marginTop: 10, lineHeight: 18 }}>
+                                    You still have TT${(Number(delStatus.wallet_balance_cents) / 100).toFixed(2)} in your wallet.
+                                    Withdraw it before then — it cannot be returned afterwards.
+                                </Txt>
+                            )}
+                            <TouchableOpacity
+                                style={[s.row, { marginTop: 14, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16 }]}
+                                disabled={delBusy}
+                                onPress={cancelDeletion}
+                            >
+                                {delBusy
+                                    ? <ActivityIndicator size="small" color="#EAF3F6" />
+                                    : <Txt variant="bodyBold" color={R.purple}>Keep my account</Txt>}
+                            </TouchableOpacity>
+                        </View>
+                    ) : showConfirm ? (
+                        <View style={{ padding: 20 }}>
+                            <Txt variant="bodyBold" color="#EAF3F6">Type DELETE to confirm</Txt>
+                            <Txt variant="small" color={R.muted} style={{ marginTop: 6, lineHeight: 18 }}>
+                                This starts a 30-day countdown. You can stop it any time before it ends.
+                            </Txt>
+                            <TextInput
+                                value={confirmText}
+                                onChangeText={setConfirmText}
+                                autoCapitalize="characters"
+                                autoCorrect={false}
+                                placeholder="DELETE"
+                                placeholderTextColor="rgba(255,255,255,0.25)"
+                                style={{
+                                    marginTop: 14, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14,
+                                    backgroundColor: 'rgba(0,0,0,0.25)', color: '#EAF3F6', fontWeight: '700',
+                                    letterSpacing: 2, borderWidth: 1, borderColor: R.border,
+                                }}
+                            />
+                            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                                <TouchableOpacity
+                                    style={{ flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)' }}
+                                    onPress={() => { setShowConfirm(false); setConfirmText(''); }}
+                                >
+                                    <Txt variant="bodyBold" color="#EAF3F6">Cancel</Txt>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={{
+                                        flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 16,
+                                        backgroundColor: confirmText.trim() === 'DELETE' ? '#B91C1C' : 'rgba(185,28,28,0.25)',
+                                    }}
+                                    disabled={confirmText.trim() !== 'DELETE' || delBusy}
+                                    onPress={submitDeletion}
+                                >
+                                    {delBusy
+                                        ? <ActivityIndicator size="small" color="#EAF3F6" />
+                                        : <Txt variant="bodyBold" color="#EAF3F6">Delete account</Txt>}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ) : (
+                        <TouchableOpacity style={s.row} onPress={startDeletion}>
+                            <View style={{ flex: 1 }}>
+                                <Txt variant="bodyBold" color="#EAF3F6">Delete my account</Txt>
+                                <Txt variant="small" color={R.muted}>Erases your details. 30 days to change your mind.</Txt>
+                            </View>
+                            <Ionicons name="close-circle-outline" size={20} color="#B91C1C" />
+                        </TouchableOpacity>
+                    )}
                 </View>
 
             </ScrollView>

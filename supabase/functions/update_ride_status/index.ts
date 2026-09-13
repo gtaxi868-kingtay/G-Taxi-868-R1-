@@ -228,8 +228,13 @@ serve(async (req: Request) => {
         const waitMinutes = (now - arrivalTime) / (1000 * 60);
 
         if (waitMinutes > 0) {
+            // is_stationary was written here but the column was never created —
+            // referencing it made every real arrived->in_progress transition
+            // with any wait time (i.e. almost all of them) fail outright with
+            // a PostgREST "column not found" error. Nothing in this codebase
+            // reads is_stationary; wait_fee_cents is the real field that
+            // downstream fare logic actually uses.
             updatePayload.wait_fee_cents = Math.floor(waitMinutes * 100);
-            updatePayload.is_stationary = true;
         }
       }
     }

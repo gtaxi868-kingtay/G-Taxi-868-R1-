@@ -5,6 +5,8 @@ import { Alert, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { flushPendingSignup } from '@g868/shared/pendingSignup';
 
 interface DriverProfile {
     id: string;
@@ -121,6 +123,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             if (session?.user) {
                 fetchDriverProfile(session.user.id);
+
+                // Apply anything parked at registration that needed a real
+                // session — with email confirmation on, signUp returns a
+                // user but no session, so record_consent could not run yet.
+                // Idempotent on (user_id, document, version), safe on every
+                // sign-in, clears itself once every parked document lands.
+                flushPendingSignup(supabase, AsyncStorage, session.user.id)
+                    .then((r) => {
+                        if (r.consentRecorded) __DEV__ && console.log('AUTH: consent recorded post-verification');
+                    })
+                    .catch((e) => console.warn('AUTH: pending signup flush failed:', e));
             } else {
                 setDriver(null);
                 setLoading(false);

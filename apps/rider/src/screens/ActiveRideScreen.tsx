@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
-import { ENV } from '@gtaxi/shared/env';
+import { ENV } from '@g868/shared/env';
 import { supabase, supportWhatsAppLink } from '@gtaxi/core';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
@@ -319,7 +319,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
         if (feeApplies) {
             Alert.alert(
                 "Cancel this ride?",
-                "Your driver has already accepted.\nA TTD 10.00 cancellation fee will apply.",
+                "Your driver has already accepted.\nA TTD 5.00 cancellation fee may apply if they're close to pickup or have arrived.",
                 [
                     { text: "Keep My Ride", style: "cancel" },
                     { text: "Cancel Anyway", style: "destructive", onPress: executeCancelRide }

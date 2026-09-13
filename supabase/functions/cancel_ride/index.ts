@@ -1,7 +1,17 @@
 // Supabase Edge Function: cancel_ride
-// REBUILT - Clean implementation with proper Supabase auth
 //
-// Cancels a ride request. Only the rider can cancel.
+// Cancels a ride request. Rider or the assigned driver may cancel.
+//
+// All the actual state-mutation (fee math, driver-identity resolution,
+// acceptance-rate penalty, ride_offers cleanup, the atomic status update)
+// lives in cancel_ride_atomic() (Postgres, SECURITY DEFINER, service_role
+// only) -- this file only does auth/ownership verification, then reports
+// the result. Moved there 2026-08-16 to close a TOCTOU race (the old inline
+// version decided the cancellation fee off a stale pre-fetched ride row)
+// and a silent identity bug (the fee credit targeted rides.driver_id
+// directly, which is drivers.id not an auth user id, violating the
+// wallet_transactions FK on every single "nearby cancellation" -- the fee
+// never actually charged, and the error was swallowed).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -61,7 +71,7 @@ serve(async (req: Request) => {
         // 3. GET RIDE AND VERIFY OWNERSHIP
         const { data: ride, error: rideError } = await supabaseAdmin
             .from("rides")
-            .select("*")
+            .select("id, rider_id, driver_id")
             .eq("id", ride_id)
             .single();
 
@@ -77,7 +87,6 @@ serve(async (req: Request) => {
 
         let isDriver = false;
         if (ride.driver_id) {
-            // Need to get the driver's user_id from the drivers table
             const { data: driverData } = await supabaseAdmin
                 .from("drivers")
                 .select("user_id")
@@ -94,146 +103,90 @@ serve(async (req: Request) => {
             );
         }
 
-        // Check if ride can be cancelled
-        const cancellableStatuses = ["requested", "searching", "assigned", "arrived"];
+        // 4. ATOMIC CANCELLATION (fee math, driver identity, acceptance-rate
+        // penalty, ride_offers cleanup, and the status update all happen
+        // together, against the ride row locked at the moment of decision --
+        // not a value read earlier in this request.)
+        const { data: result, error: rpcError } = await supabaseAdmin
+            .rpc("cancel_ride_atomic", {
+                p_ride_id: ride_id,
+                p_is_rider: isRider,
+                p_is_driver: isDriver,
+                p_reason: reason || null,
+            });
 
-        if (!cancellableStatuses.includes(ride.status)) {
+        if (rpcError || !result?.success) {
+            const message = result?.error || rpcError?.message || "Ride cannot be cancelled";
+            console.error("Cancel ride failed:", { ride_id, message, rpcError });
             return new Response(
-                JSON.stringify({ success: false, error: "Ride cannot be cancelled", data: null }),
+                JSON.stringify({ success: false, error: message, data: null }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
-        const updatePayload: any = {
-            status: "cancelled",
-            cancelled_at: new Date().toISOString(),
-            cancellation_reason: reason || (isRider ? "Rider cancelled" : "Driver cancelled"),
-        };
-
-        // Helper: Haversine distance
-        function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
-            const R = 6371000; // Earth radius in meters
-            const toRadians = (deg: number) => deg * (Math.PI / 180);
-            const dLat = toRadians(lat2 - lat1);
-            const dLng = toRadians(lng2 - lng1);
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-                Math.sin(dLng / 2) * Math.sin(dLng / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        // PHASE 8: Failsafes 
-        // 1. Smart Rider Penalty ($5 TTD) if canceling when driver is close (<1km) OR arrived
-        if (isRider && (ride.status === "assigned" || ride.status === "arrived") && ride.driver_id) {
-            let shouldCharge = ride.status === "arrived";
-
-            if (!shouldCharge) {
-                // Fetch driver's current location to check proximity
-                const { data: driverLoc } = await supabaseAdmin
-                    .from("drivers")
-                    .select("lat, lng")
-                    .eq("id", ride.driver_id)
-                    .single();
-
-                if (driverLoc && driverLoc.lat && driverLoc.lng) {
-                    const dist = haversine(driverLoc.lat, driverLoc.lng, ride.pickup_lat, ride.pickup_lng);
-                    // 1000 meters = approx 2.2 mins in city traffic
-                    if (dist < 1000) {
-                        shouldCharge = true;
-                    }
-                }
-            }
-
-            if (shouldCharge) {
-                await supabaseAdmin.from("wallet_transactions").insert([{
-                    user_id: userId, // Rider (from auth)
-                    ride_id: ride_id,
-                    amount: -500,
-                    transaction_type: "cancellation_fee",
-                    description: "Nearby cancellation fee ($5 TTD)",
-                    status: "completed"
-                }, {
-                    user_id: ride.driver_id, // Driver
-                    ride_id: ride_id,
-                    amount: 500,
-                    transaction_type: "cancellation_fee",
-                    description: "Compensation for nearby cancellation",
-                    status: "completed"
-                }]);
-            }
-        }
-
-        // 2. Driver Platform Leakage Trapdoor
-        // If driver cancels *after* arrival, schedule a 3-minute proximity audit
-        if (isDriver && ride.status === "arrived") {
-            updatePayload.audit_needed_at = new Date(Date.now() + 3 * 60 * 1000).toISOString();
-        }
-
-        // 4. UPDATE RIDE STATUS (Atomic)
-        const { data: updatedRide, error: updateError } = await supabaseAdmin
-            .from("rides")
-            .update(updatePayload)
-            .eq("id", ride_id)
-            .in("status", cancellableStatuses)
-            .select()
-            .single();
-
         // ── Push Notification on Cancellation ───────────────────────────────
         // Notify the DRIVER if the RIDER cancels
-        if (isRider && ride.driver_id) {
+        if (isRider && result.driver_id) {
             const { data: driverProfile } = await supabaseAdmin
                 .from('drivers')
                 .select('push_token')
-                .eq('id', ride.driver_id)
+                .eq('id', result.driver_id)
                 .single();
-            
+
             if (driverProfile?.push_token) {
                 sendPushNotification(
                     driverProfile.push_token,
                     '🛑 Ride Cancelled',
-                    'The rider has cancelled the request. You are now available for new orders.',
-                    { type: 'RIDE_CANCELLED', ride_id: ride.id }
+                    result.fee_charged
+                        ? 'The rider has cancelled. You have been compensated $5 TTD for the trip to pickup. You are now available for new orders.'
+                        : 'The rider has cancelled the request. You are now available for new orders.',
+                    { type: 'RIDE_CANCELLED', ride_id }
                 ).catch(err => console.error("Driver cancel notification failed:", err));
             }
         }
 
         // Notify the RIDER if the DRIVER cancels
-        if (isDriver && ride.rider_id) {
+        if (isDriver && result.rider_id) {
             const { data: riderProfile } = await supabaseAdmin
                 .from('profiles')
                 .select('push_token')
-                .eq('id', ride.rider_id)
+                .eq('id', result.rider_id)
                 .single();
 
             if (riderProfile?.push_token) {
+                // Nothing automatically re-dispatches this ride to another
+                // driver -- the rider has to request again. Previously this
+                // claimed "we are looking for a new driver for you," which
+                // was never true.
                 sendPushNotification(
                     riderProfile.push_token,
-                    '🛑 Ride Cancelled',
-                    'The driver has cancelled the ride. We are looking for a new driver for you.',
-                    { type: 'RIDE_CANCELLED', ride_id: ride.id }
+                    '🛑 Driver Cancelled',
+                    'Your driver has cancelled the ride. Please request a new ride.',
+                    { type: 'RIDE_CANCELLED', ride_id }
                 ).catch(err => console.error("Rider cancel notification failed:", err));
             }
-        }
-
-        if (updateError || !updatedRide) {
-            console.error("Update error or no rows matching:", updateError);
-            return new Response(
-                JSON.stringify({ success: false, error: "Failed to cancel ride: already in progress or completed", data: null }),
-                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
         }
 
         // AI LAYER: Log ride_cancelled event
         await supabaseAdmin.from("user_events").insert({
             user_id: userId,
             event_type: "ride_cancelled",
-            payload: { 
-                ride_id, 
-                reason: updatePayload.cancellation_reason,
-                was_rider: isRider
+            payload: {
+                ride_id,
+                reason: reason || (isRider ? "Rider cancelled" : "Driver cancelled"),
+                was_rider: isRider,
+                fee_charged: result.fee_charged,
             }
-        });
+        }).then((res) => res, (err: unknown) => console.error("user_events insert failed (non-fatal):", err));
+
+        // Rider-side repeated-cancellation tracking (profiles.cancellation_count
+        // existed with no writer anywhere -- wired here so a pattern of
+        // cancellations is at least visible for future fraud/abuse review).
+        if (isRider) {
+            await supabaseAdmin
+                .rpc("increment_rider_cancellation_count", { p_rider_id: userId })
+                .then((res) => res, (err: unknown) => console.error("cancellation_count update failed (non-fatal):", err));
+        }
 
         return new Response(
             JSON.stringify({
@@ -242,6 +195,8 @@ serve(async (req: Request) => {
                 data: {
                     ride_id,
                     status: "cancelled",
+                    fee_charged: result.fee_charged,
+                    fee_cents: result.fee_cents,
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

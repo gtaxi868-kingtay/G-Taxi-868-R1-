@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>G 868 — Tap in. Own it.</title>
+<meta name="description" content="Trinidad and Tobago moves on a tap. Rides, groceries, laundry and G-Escape — owned by the drivers, shops and territory leads who build it. Put your hand up.">
+<meta name="theme-color" content="#04030a">
+
+<meta property="og:title" content="G 868 — Tap in. Own it.">
+<meta property="og:description" content="It starts with one ride. Own the way you move, be a G. Going live community by community.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/mark.png">
+
+<link rel="icon" href="assets/mark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Manrope:wght@400;500;600;700&family=Outfit:wght@800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- ================= NAV ================= -->
+<header class="nav glass" id="nav">
+  <a class="nav__brand" href="#top" data-nav-home aria-label="G 868 home">
+    <span class="nav__mark">
+      <img src="assets/mark.png" alt="" width="427" height="588" decoding="async">
+      <!-- decorative brand accent only, not a "service is live" claim -->
+      <span class="nav__pulse" aria-hidden="true"></span>
+    </span>
+    <span>G&nbsp;868</span>
+  </a>
+  <nav class="nav__links" aria-label="Primary">
+    <button type="button" class="navlink" data-nav-home>Home</button>
+    <button type="button" class="navlink" data-panel="tap">G Touch</button>
+    <button type="button" class="navlink" data-panel="ladder">G Membership</button>
+    <button type="button" class="navlink" data-panel="split">The Split</button>
+    <button type="button" class="navlink" data-panel="escape">G Escape</button>
+  </nav>
+  <button type="button" class="btn btn--sm" data-panel="waitlist">Join the waitlist</button>
+</header>
+
+<main id="main">
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="hero">
+  <span id="top" class="anchor" aria-hidden="true"></span>
+  <div class="hero__orbs" id="orbs" aria-hidden="true"></div>
+
+  <div class="hero__inner">
+
+    <div class="hero__left">
+      <p class="eyebrow"><span class="eyebrow__dot" aria-hidden="true"></span>Trinidad &amp; Tobago &middot; 868</p>
+
+      <h1 class="hero__title">
+        <span class="sweep">Tap in.</span><br>
+        <span class="hero__title-plain">Own it.</span>
+      </h1>
+
+      <p class="hero__sub">It starts with one ride. Own the way you move — be a G.</p>
+
+      <button type="button" class="btn btn--cta magnetic" data-panel="waitlist">
+        Put your hand up
+        <span class="btn__plus" aria-hidden="true">+</span>
+      </button>
+
+      <div class="hero__badge">
+        <span class="hero__badge-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.7 3.2 8.5 8 9.9 4.8-1.4 8-5.2 8-9.9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+        </span>
+        <span class="hero__badge-text">
+          <span class="hero__badge-label">Community by community</span>
+          <span class="hero__badge-copy">Your area opens as soon as enough of us are in</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="hero__aura" aria-hidden="true">
+      <span class="hero__ring hero__ring--cyan"></span>
+      <span class="hero__ring hero__ring--violet"></span>
+      <div class="hero__pin-tilt" id="pinTilt">
+        <div class="hero__pin-spin" id="pinSpin">
+          <img class="hero__pin" src="assets/pin-3d.png" alt="" width="1080" height="1080" fetchpriority="high" decoding="async">
+        </div>
+      </div>
+    </div>
+
+    <div class="hero__right">
+      <div class="roles" id="roleCarousel" role="group" aria-label="Choose your role">
+        <button type="button" class="role-card is-active" data-role="rider" style="--accent:#c084fc" aria-pressed="true">
+          <span class="role-card__name">Rider</span>
+          <span class="role-card__line">Rides Groceries Laundry &amp; Escape</span>
+        </button>
+        <button type="button" class="role-card" data-role="driver" style="--accent:#22d3ee" aria-pressed="false">
+          <span class="role-card__name">Driver</span>
+          <span class="role-card__line">Keep 80% of every fare</span>
+        </button>
+        <button type="button" class="role-card" data-role="partner" style="--accent:#f0abfc" aria-pressed="false">
+          <span class="role-card__name">G-Partner</span>
+          <span class="role-card__line">Your counter starts earning</span>
+        </button>
+        <button type="button" class="role-card" data-role="lead" style="--accent:#5eead4" aria-pressed="false">
+          <span class="role-card__name">G-Lead</span>
+          <span class="role-card__line">Build your area, earn 2%</span>
+        </button>
+      </div>
+
+      <p class="roles__desc" id="roleDesc" aria-live="polite"></p>
+      <button type="button" class="btn btn--pill magnetic" id="roleCta"></button>
+
+      <p class="hero__owned">
+        <span class="hero__owned-white">Owned</span><br>
+        <span class="sweep sweep--rev">here.</span>
+      </p>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot__inner">
+    <span>G 868</span>
+    <span>Trinidad and Tobago</span>
+  </div>
+</footer>
+
+<!-- ================= PANEL OVERLAY (single reusable shell) ================= -->
+<div class="overlay" id="overlay" hidden>
+  <div class="overlay__scrim" id="scrim"></div>
+  <button type="button" class="panel__close" id="panelClose" aria-label="Close panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <div class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="panelHeading" tabindex="-1">
+    <div class="panel__body" id="panelBody"></div>
+  </div>
+</div>
+
+<div class="grain" aria-hidden="true"></div>
+
+<script src="app.js" defer></script>
+</body>
+</html>

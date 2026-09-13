@@ -290,17 +290,98 @@ serve(async (req: Request) => {
             console.log("Trust score calculation failed (non-fatal)");
         }
 
+        // ── Merchant-originated ride: business name + location + live distance ──
+        // billed_to_merchant_id is set for the kiosk-summon path always, but only
+        // conditionally (payment_method === 'corporate_billing') for concierge
+        // dispatch — so it is not a reliable "is this a merchant ride" signal on
+        // its own. ride.metadata.merchant_name is written on BOTH dispatch paths
+        // regardless of billing, so that is the real detection + display-name
+        // source; billed_to_merchant_id (when present) is used only to fetch a
+        // clean address for the location field.
+        const merchantName: string | null = ride.metadata?.merchant_name ?? null;
+        const isMerchantRide = Boolean(ride.metadata?.is_merchant_dispatch || ride.metadata?.is_concierge || merchantName);
+
+        let pushTitle: string;
+        let pushBody: string;
+        let waMsg: string;
+
+        if (isMerchantRide && merchantName) {
+            let location: string | null = null;
+
+            if (ride.billed_to_merchant_id) {
+                const { data: merchantRow } = await supabaseAdmin
+                    .from("merchants")
+                    .select("address, lat, lng")
+                    .eq("id", ride.billed_to_merchant_id)
+                    .maybeSingle();
+
+                if (merchantRow?.address) {
+                    location = merchantRow.address;
+                } else if (merchantRow?.lat != null && merchantRow?.lng != null) {
+                    // No stored address — reverse-geocode via the same Mapbox
+                    // integration already used in create_safe_zone/index.ts,
+                    // rather than adding a new geocoding dependency.
+                    const mapboxToken = Deno.env.get("MAPBOX_PUBLIC_TOKEN") || Deno.env.get("MAPBOX_ACCESS_TOKEN");
+                    if (mapboxToken) {
+                        try {
+                            const geoUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${merchantRow.lng},${merchantRow.lat}.json?types=address&limit=1&access_token=${mapboxToken}`;
+                            const geoRes = await fetch(geoUrl);
+                            if (geoRes.ok) {
+                                const geoJson = await geoRes.json();
+                                location = geoJson.features?.[0]?.place_name ?? null;
+                            }
+                        } catch (geoErr) {
+                            console.error("[MatchDriver] Mapbox reverse geocode failed (non-fatal):", geoErr);
+                        }
+                    }
+                }
+            }
+
+            // Last resort: pickup_address is always set to a merchant-name +
+            // address string for merchant rides — never leave location blank.
+            if (!location) location = ride.pickup_address || "location pending";
+
+            // Distance: claim_available_driver already computed distance_km for
+            // this exact driver against this exact pickup point — reuse it
+            // rather than recomputing. Only trust it if the driver's location is
+            // actually fresh: drivers.last_location_update is the same column
+            // cleanup_stale_drivers() uses to decide a driver has gone dark (at
+            // a much looser 5-minute bar, since that check is "still online at
+            // all"). Foreground/background tracking pushes a packet every 5s
+            // under normal conditions (apps/driver/src/hooks/useLocationTracking.ts,
+            // TIME_INTERVAL_MS), so 120s here is a generous multiple of that —
+            // tolerant of a missed beat or two, still tight enough that the
+            // number shown is meaningfully true. This is a reasoned threshold,
+            // not one backed by observed traffic — this platform has had zero
+            // real completed rides to measure actual update cadence against.
+            const lastUpdate = selectedDriver.last_location_update ? new Date(selectedDriver.last_location_update).getTime() : null;
+            const locationFreshEnough = lastUpdate !== null && (Date.now() - lastUpdate) <= 120_000;
+            const distanceKm = typeof selectedDriverSummary.distance_km === "number" ? selectedDriverSummary.distance_km : null;
+
+            const headline = (locationFreshEnough && distanceKm !== null)
+                ? `${merchantName} · ${location} · ${distanceKm.toFixed(1)}km away`
+                : `${merchantName} · ${location}`;
+
+            pushTitle = headline;
+            pushBody = "New ride request — accept in app";
+            waMsg = `${headline}\nNew ride request — accept in app`;
+        } else {
+            pushTitle = trustBadge === 'VERIFIED_SAFE' ? '✅ Verified Safe Ride' :
+                trustBadge === 'SAFE_ROUTE' ? '🛡️ Safe Route' : '🚖 New Ride Request';
+            pushBody = trustBadge !== 'STANDARD'
+                ? `Trust Score ${trustScore}/100 · Rider is in your safety network.`
+                : 'A rider is waiting nearby. Tap to view the offer.';
+            waMsg = `G-TAXI: New Ride Request at ${ride.pickup_address || 'nearby location'}. Tap to view.`;
+        }
+
         // ── Phase 5 Fix 5.6: Push notification to the matched driver ─────────
         // Fire-and-forget — push failure must never block the offer creation.
         // The driver's app also listens via Realtime subscription as a fallback.
         if (selectedDriver.push_token) {
             sendPushNotification(
                 selectedDriver.push_token,
-                trustBadge === 'VERIFIED_SAFE' ? '✅ Verified Safe Ride' :
-                trustBadge === 'SAFE_ROUTE' ? '🛡️ Safe Route' : '🚖 New Ride Request',
-                trustBadge !== 'STANDARD'
-                    ? `Trust Score ${trustScore}/100 · Rider is in your safety network.`
-                    : 'A rider is waiting nearby. Tap to view the offer.',
+                pushTitle,
+                pushBody,
                 {
                     type: 'NEW_RIDE_OFFER',
                     ride_id: ride.id,
@@ -315,7 +396,6 @@ serve(async (req: Request) => {
         }
 
         if (selectedDriver.phone_number) {
-            const waMsg = `G-TAXI: New Ride Request at ${ride.pickup_address || 'nearby location'}. Tap to view.`;
             sendWhatsApp(selectedDriver.phone_number, waMsg)
                 .then(r => {
                     if (!r.success) console.log(`[MatchDriver] WhatsApp unavailable — ${r.error || r.channel}`);

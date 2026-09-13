@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, SafeAreaView, Image, Alert,
@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip } from '../context/EscapeContext';
+import { usePlatformFlags } from '../hooks/usePlatformFlags';
 
 const BRAND = '#34E6EC';
 
@@ -79,6 +80,8 @@ function nextMonths(count: number): Array<{ value: string; label: string }> {
 type RouteT = RouteProp<AppStackParamList, 'EscapeStorefront'>;
 
 export default function EscapeStorefrontScreen() {
+  // 'airline_active' and 'hotel_active' on the admin's Platform Control page.
+  const { flags } = usePlatformFlags();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteT>();
   const deepLinkPkgId = (route.params as any)?.packageId as string | undefined;
@@ -267,6 +270,22 @@ export default function EscapeStorefrontScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  // Applied HERE and not inside loadPackages: that callback has an empty
+  // dependency array, so reading flags in it would freeze them at first render
+  // and an admin toggle would never reach the list. Every escape package is
+  // built on a flight block, so airline_active off empties the storefront;
+  // hotel_active only removes the packages that include lodging.
+  const visiblePackages = useMemo(() => {
+    if (!flags.airline) return [];
+    if (flags.hotel) return packages;
+    return packages.filter(p => {
+      const ln = Array.isArray((p as any).lodging_nodes)
+        ? (p as any).lodging_nodes[0]
+        : (p as any).lodging_nodes;
+      return !ln;
+    });
+  }, [packages, flags.airline, flags.hotel]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -543,7 +562,7 @@ export default function EscapeStorefrontScreen() {
         </View>
       ) : (
         <FlatList
-          data={packages}
+          data={visiblePackages}
           keyExtractor={item => item.id}
           renderItem={renderCard}
           contentContainerStyle={styles.list}

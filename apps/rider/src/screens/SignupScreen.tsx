@@ -9,6 +9,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
+import { RIDER_CONSENT_DOCUMENTS, LEGAL_DOC_URLS } from '@g868/shared/legal';
+import { savePendingSignup } from '@g868/shared/pendingSignup';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -55,6 +58,17 @@ export function SignupScreen({ navigation }: any) {
         setError('');
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+        // The "AI assistant" toggle above was captured in formData and never
+        // sent anywhere — a real dead control, same class of bug as the old
+        // Legal screen toggle. There is one real AI preference in this app,
+        // AsyncStorage key '@ai_routing_opt_in' (read by SettingsScreen and
+        // LegalScreen, gated by the admin's opt_in_ai_routing platform flag).
+        // It's a local-only preference — no auth or network needed to write
+        // it — so honor whatever the user chose here immediately, rather
+        // than silently discarding it and leaving the real toggle at its
+        // SettingsScreen default (off) regardless of the user's answer.
+        await AsyncStorage.setItem('@ai_routing_opt_in', formData.aiEnabled ? 'true' : 'false').catch(() => {});
+
         try {
             // Step 1: Create the auth account with email + password
             const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -81,14 +95,71 @@ export function SignupScreen({ navigation }: any) {
                     .eq('id', authData.user.id);
             }
 
+            // Step 2b: Record every document a rider is asked to accept as
+            // real evidence — Terms, Privacy Policy, Data Retention notice,
+            // Safety Policy. Was Terms-only; the other three had real
+            // versioned docs in docs/legal/ and a real CHECK-constraint slot
+            // in user_consents, but nothing ever wrote to them.
+            //
+            // The flags passed into signUp's options.data land in
+            // raw_user_meta_data, which is USER-WRITABLE (any rider can call
+            // auth.updateUser and set their own terms_accepted). That is not
+            // proof. Verified live: 0 of 10 existing users carried the flag
+            // at all, so there was no record of anyone accepting anything.
+            //
+            // record_consent writes to the append-only user_consents ledger
+            // and takes the user id from auth.uid(), never from the client.
+            // Needs a session, so it is skipped when email confirmation is
+            // pending — same constraint as the commander code below.
+            if (authData.session) {
+                for (const doc of RIDER_CONSENT_DOCUMENTS) {
+                    try {
+                        await supabase.rpc('record_consent', {
+                            p_document: doc.document,
+                            p_version: doc.version,
+                            p_user_agent: Platform.OS,
+                        });
+                    } catch (e) {
+                        // One document failing to record must not stop the
+                        // rest — do not block signup on any ledger write,
+                        // but make the gap visible rather than silent.
+                        console.warn(`[Signup] consent not recorded for ${doc.document}:`, e);
+                    }
+                }
+            } else {
+                // Email confirmation is on, so there is no session yet and
+                // auth.uid() is null — record_consent and apply_commander_code
+                // would both be rejected. Park them; AuthContext flushes on the
+                // first real sign-in. Previously both were simply dropped and
+                // never retried.
+                await savePendingSignup(AsyncStorage, {
+                    forUserId: authData.user.id,
+                    consents: RIDER_CONSENT_DOCUMENTS.map(doc => ({
+                        document: doc.document,
+                        version: doc.version,
+                        userAgent: Platform.OS,
+                    })),
+                    commanderCode: formData.commanderCode.trim() || undefined,
+                });
+            }
+
             // Step 3: Apply referral code if provided — TTD $15 credit for both parties
+            // apply_referral_code returns {success:false, error} on a bad/
+            // expired/self-referral code rather than raising, so the
+            // try/catch below never fired either way — a wrong code looked
+            // identical to a correct one. Surfaced (non-blocking) so the
+            // rider actually learns their code didn't apply.
+            let referralWarning: string | null = null;
             if (formData.referralCode.trim()) {
                 try {
-                    await supabase.rpc('apply_referral_code', {
+                    const { data: referralResult } = await supabase.rpc('apply_referral_code', {
                         p_referee_id: authData.user.id,
                         p_code: formData.referralCode.trim().toUpperCase(),
                         p_type: 'rider',
                     });
+                    if (referralResult && referralResult.success === false) {
+                        referralWarning = referralResult.error || 'That referral code could not be applied.';
+                    }
                 } catch { /* non-fatal — bonus is a perk, not a requirement */ }
             }
 
@@ -120,6 +191,12 @@ export function SignupScreen({ navigation }: any) {
                     'Your account is ready. Please log in with your email and password.',
                     [{ text: 'Sign In', onPress: () => navigation.navigate('Login') }]
                 );
+            }
+            if (referralWarning) {
+                // Shown after the main success alert, non-blocking —
+                // signup already succeeded, this only clarifies the code
+                // itself didn't apply.
+                Alert.alert('Referral Code', referralWarning);
             }
 
         } catch (err: any) {
@@ -274,11 +351,11 @@ export function SignupScreen({ navigation }: any) {
                                         </View>
                                         <Text style={s.termsText}>
                                             I accept the{' '}
-                                            <Text style={s.termsLink} onPress={() => Linking.openURL('https://gtaxi.tt/legal/terms')}>
+                                            <Text style={s.termsLink} onPress={() => Linking.openURL(LEGAL_DOC_URLS.terms_of_service)}>
                                                 Terms of Service
                                             </Text>
                                             {' '}and{' '}
-                                            <Text style={s.termsLink} onPress={() => Linking.openURL('https://gtaxi.tt/legal/privacy')}>
+                                            <Text style={s.termsLink} onPress={() => Linking.openURL(LEGAL_DOC_URLS.privacy_policy)}>
                                                 Privacy Policy
                                             </Text>
                                         </Text>

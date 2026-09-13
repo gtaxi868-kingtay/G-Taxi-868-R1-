@@ -15,8 +15,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@gtaxi/shared/*": ["../../packages/shared/*"],
-      "@gtaxi/shared": ["../../packages/shared/src/index.ts"],
+      "@g868/shared/*": ["../../packages/shared/*"],
+      "@g868/shared": ["../../packages/shared/src/index.ts"],
       "@gtaxi/design-system/*": ["../../packages/design-system/*"],
       "@gtaxi/design-system": ["../../packages/design-system/src/index.ts"]
     }

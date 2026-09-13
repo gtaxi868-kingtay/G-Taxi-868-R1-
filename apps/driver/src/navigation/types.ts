@@ -31,6 +31,7 @@ export type AppStackParamList = {
   StrategySettings: undefined;
   Legal: undefined;
   ReportIssue: undefined;
+  ComplianceDocuments: undefined;
   Ratings: undefined;
   ScoutReferral: undefined;
   DriverReferral: undefined;

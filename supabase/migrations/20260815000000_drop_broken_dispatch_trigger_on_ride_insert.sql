@@ -1,0 +1,38 @@
+-- trigger_match_on_insert fired synchronously (PERFORM, not backgrounded)
+-- inside the same transaction as every INSERT INTO rides with
+-- status='searching' — which is the default status for every real,
+-- non-scheduled ride (create_ride/index.ts: `rideStatus = body.scheduled_for
+-- ? "scheduled" : "searching"`). Its target function,
+-- dispatch_match_on_ride_insert(), has been broken since it was written:
+--
+--   1. `body := jsonb_build_object(...)::text` does not match this
+--      project's real net.http_post signature (body is typed jsonb, not
+--      text) — Postgres cannot resolve an overload, so the call fails at
+--      parse time, aborting the whole transaction.
+--   2. Even with (1) fixed, current_setting('supabase.url') and
+--      current_setting('supabase.anon_key') both resolve to NULL — these
+--      GUCs were never set on this project (verified live via
+--      current_setting(..., true) returning NULL for both).
+--   3. Even with (1) and (2) fixed, match_driver requires a real rider JWT
+--      (verify_jwt=true at the gateway, plus an internal
+--      ride.rider_id !== userId ownership check) — a database trigger has
+--      no way to supply one, so this call could never succeed even with a
+--      real URL and a real service credential.
+--
+-- Net effect: every real ride creation was failing outright. Live-verified
+-- 2026-08-15: a direct INSERT into rides with status='searching' threw
+--   "function net.http_post(url => text, headers => jsonb, body => text,
+--    timeout_milliseconds => integer) does not exist"
+-- Confirmed fixed by dropping this trigger in a rolled-back transaction
+-- first, then applying for real and re-verifying with a second live INSERT
+-- that succeeded cleanly (test row deleted immediately after).
+--
+-- This is not a loss of functionality. The real, working dispatch path
+-- already exists and does not depend on this trigger at all: the rider
+-- app calls create_ride, then separately calls match_driver with the
+-- rider's own real session (apps/rider/src/services/api.ts —
+-- _createRideInternal followed by matchDriver()). This trigger was a
+-- parallel, always-broken attempt at server-side auto-dispatch.
+
+DROP TRIGGER IF EXISTS trigger_match_on_insert ON public.rides;
+DROP FUNCTION IF EXISTS public.dispatch_match_on_ride_insert();

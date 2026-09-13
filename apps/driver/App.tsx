@@ -10,8 +10,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { supabase } from '@gtaxi/core';
-import { ENV } from '@gtaxi/shared/env';
-import { OutboxService } from '@gtaxi/shared/OutboxService';
+import { ENV } from '@g868/shared/env';
+import { OutboxService } from '@g868/shared/OutboxService';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
@@ -29,6 +29,7 @@ import { ChatScreen } from './src/screens/ChatScreen';
 import { StrategySettingsScreen } from './src/screens/StrategySettingsScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
 import { ReportIssueScreen } from './src/screens/ReportIssueScreen';
+import ComplianceDocumentsScreen from './src/screens/ComplianceDocumentsScreen';
 import { RatingsScreen } from './src/screens/RatingsScreen';
 import { ScoutReferralScreen } from './src/screens/ScoutReferralScreen';
 import { DriverReferralScreen } from './src/screens/DriverReferralScreen';
@@ -183,6 +184,7 @@ function AppNavigator() {
             <AppStack.Screen name="StrategySettings" component={StrategySettingsScreen} />
             <AppStack.Screen name="Legal" component={LegalScreen} />
             <AppStack.Screen name="ReportIssue" component={ReportIssueScreen} />
+            <AppStack.Screen name="ComplianceDocuments" component={ComplianceDocumentsScreen} />
             <AppStack.Screen name="Ratings" component={RatingsScreen} />
             <AppStack.Screen name="ScoutReferral" component={ScoutReferralScreen} />
             <AppStack.Screen name="DriverReferral" component={DriverReferralScreen} />

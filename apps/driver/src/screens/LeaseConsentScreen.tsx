@@ -71,16 +71,16 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
         if (!agreed || !driverId) return;
         setSubmitting(true);
         try {
-            const { data: consentData, error: consentError } = await supabase.rpc('record_driver_lease_consent', {
-                p_driver_id: driverId,
+            const { error: consentError } = await supabase.rpc('record_consent', {
+                p_document: 'byd_lease_earnings_assignment',
                 p_version: ADDENDUM_VERSION,
-                p_device_info: {},
+                p_user_agent: 'driver-app',
             });
 
-            if (consentError || !consentData?.success) {
+            if (consentError) {
                 Alert.alert(
                     'Could not record consent',
-                    consentData?.error ?? consentError?.message ?? 'Unknown error. Please try again.',
+                    consentError.message ?? 'Unknown error. Please try again.',
                 );
                 return;
             }

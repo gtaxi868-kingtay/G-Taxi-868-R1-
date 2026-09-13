@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { recordMerchantConsents } from '../_shared/legalVersions.ts'
 
 
 import { getCorsHeaders } from '../_shared/cors.ts'
@@ -34,11 +35,22 @@ Deno.serve(async (req) => {
       email, password, full_name, phone,
       invite_token,
       bank_name, account_holder, account_number, account_type,
+      accepted_terms,
     } = await req.json()
 
     if (!email || !password || !full_name) {
       return new Response(
         JSON.stringify({ success: false, error: 'email, password, and full_name required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Merchants previously had zero consent recording of any kind — no
+    // checkbox, no ledger row. This account creation cannot proceed without
+    // an explicit accept, matching the rider/driver signup requirement.
+    if (accepted_terms !== true) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'You must accept the Merchant Terms, Terms of Service, and Privacy Policy to register.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -88,6 +100,17 @@ Deno.serve(async (req) => {
     })
     if (createError) throw createError
     if (!newUser?.user?.id) throw new Error('Failed to create user')
+
+    // Record consent immediately after the account exists. Server-side,
+    // not via record_consent() RPC — this runs under service_role with no
+    // rider-style session for auth.uid() to resolve, so it writes directly
+    // to the same append-only ledger using the id we just created (never
+    // client-supplied).
+    await recordMerchantConsents(
+      supabaseAdmin,
+      newUser.user.id,
+      req.headers.get('user-agent'),
+    )
 
     // Pre-fill from an approved waitlist signup, if this phone matches one.
     // claim_waitlist_details() is granted to `authenticated` only (deliberately

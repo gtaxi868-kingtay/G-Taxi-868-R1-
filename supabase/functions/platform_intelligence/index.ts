@@ -13,8 +13,26 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+// NOTE: zod was imported here and never used — 0 occurrences of `z.` or
+// `safeParse` in this file. The validation library was present; the
+// validation was not. Removed rather than left as a false signal that tool
+// arguments are schema-checked. The real guard on the one tool that moves
+// money is now in the database: pricing_zones_multiplier_sane, plus an
+// explicit range check inside admin_set_surge_zone.
 import { chat, llmConfigured, BudgetExceededError } from "../_shared/llm.ts";
+import { secretMatches } from "../_shared/constantTime.ts";
+
+// Every helper below used to be typed `ReturnType<typeof createClient>` with
+// no type arguments. That instantiates createClient's generics at their
+// CONSTRAINTS (unknown / never) rather than their DEFAULTS, yielding
+// SupabaseClient<unknown, never, GenericSchema>. The client actually built at
+// runtime infers SupabaseClient<any, "public", any>, so every one of those
+// helpers rejected the very client being passed to it:
+//   TS2345: Type '"public"' is not assignable to type 'never'
+// Query results then degraded to `{}`, which is where the cascade of
+// "Property 'length' does not exist on type '{}'" errors came from.
+// Supplying the type arguments explicitly fixes the root, not the symptoms.
+type SB = ReturnType<typeof createClient<any, "public", any>>;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -41,12 +59,12 @@ async function sendExpoPush(token: string | null, title: string, body: string, d
 // ── PRE-STEP 1: Activate scheduled transfers ─────────────────────────────────
 // Rides with status='scheduled' that depart in ≤45 min → flip to 'searching'
 // so the match engine can assign a driver in time.
-async function activateScheduledTransfers(supabase: ReturnType<typeof createClient>) {
+async function activateScheduledTransfers(supabase: SB) {
     const windowCutoff = new Date(Date.now() + 45 * 60 * 1000).toISOString();
 
     const { data: rides, error } = await supabase
         .from("rides")
-        .select("id, rider_id")
+        .select("id, rider_id, pickup_lat, pickup_lng")
         .eq("status", "scheduled")
         .lte("scheduled_for", windowCutoff);
 
@@ -70,6 +88,24 @@ async function activateScheduledTransfers(supabase: ReturnType<typeof createClie
             .eq("id", ride.id)
             .eq("status", "scheduled");
 
+        // The ride's ORIGINAL dispatch_queue row (created at request time)
+        // expired 10 minutes after the request, hours before this real
+        // pickup window. Without a fresh row here, a promoted scheduled
+        // ride sits at status='searching' forever with nothing ever
+        // offering it to a driver — mirrors the same fix applied to
+        // promote_escape_transfer_rides (project_dispatch_queue_and_scheduled_rides.md).
+        await supabase.from("dispatch_queue").insert({
+            task_type: "RIDE",
+            ride_id: ride.id,
+            order_id: null,
+            pickup_lat: ride.pickup_lat,
+            pickup_lng: ride.pickup_lng,
+            priority: 50,
+            status: "pending",
+            attempts: 0,
+            expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        }).then((__r) => __r, (err) => console.error("Failed to enqueue dispatch task for scheduled ride (non-fatal):", err));
+
         // Notify the rider their transfer is being matched
         const { data: profile } = await supabase
             .from("profiles")
@@ -90,7 +126,7 @@ async function activateScheduledTransfers(supabase: ReturnType<typeof createClie
 
 // ── PRE-STEP 2: Travel departure reminders (48h and 24h) ─────────────────────
 // Deduped via agent_decision_log sentinel key `travel_reminder_{booking_id}_{hours}h`.
-async function sendTravelReminders(supabase: ReturnType<typeof createClient>) {
+async function sendTravelReminders(supabase: SB) {
     const now = Date.now();
     const windows = [
         { hours: 48, label: "48h" },
@@ -150,7 +186,7 @@ async function sendTravelReminders(supabase: ReturnType<typeof createClient>) {
 // ── PRE-STEP 3: Merchant overdue warnings (day 4) ────────────────────────────
 // Merchants overdue for 3–5 days get one warning push: "your map pin disappears in 3 days."
 // Deduped via agent_decision_log sentinel key `merchant_overdue_warning_{merchant_id}`.
-async function sendMerchantOverdueWarnings(supabase: ReturnType<typeof createClient>) {
+async function sendMerchantOverdueWarnings(supabase: SB) {
     const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -208,7 +244,7 @@ async function sendMerchantOverdueWarnings(supabase: ReturnType<typeof createCli
 // ── PRE-STEP 4: Rate expiry alerts (Rockefeller) ─────────────────────────────
 // Active travel packages with rate_expiry_at < now()+7days → push admin + log.
 // Deduped via agent_decision_log sentinel key `rate_expiry_alert_{pkg_id}`.
-async function checkRateExpiry(supabase: ReturnType<typeof createClient>) {
+async function checkRateExpiry(supabase: SB) {
     const sevenDaysOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: expiring } = await supabase
@@ -266,10 +302,10 @@ async function checkRateExpiry(supabase: ReturnType<typeof createClient>) {
 // Catches riders who have met the next level threshold but weren't unlocked yet.
 // Guards against complete_ride failures mid-way or riders who existed before progression launched.
 // Deduped via agent_decision_log sentinel key `progression_unlock_{rider_id}_{vertical}`.
-async function checkProgressionUnlocks(supabase: ReturnType<typeof createClient>) {
+async function checkProgressionUnlocks(supabase: SB) {
     const { data: configs } = await supabase
         .from("progression_config")
-        .select("level, threshold_type, threshold_value, unlock_vertical")
+        .select("level, threshold_type, threshold_value, unlock_verticals")
         .order("level", { ascending: true });
 
     if (!configs?.length) return;
@@ -305,9 +341,12 @@ async function checkProgressionUnlocks(supabase: ReturnType<typeof createClient>
         }
 
         if (!qualifies) continue;
-        if (rider.unlocked_verticals?.includes(nextConfig.unlock_vertical)) continue;
+        const newVerticals: string[] = (nextConfig.unlock_verticals || []).filter(
+            (v: string) => !rider.unlocked_verticals?.includes(v),
+        );
+        if (newVerticals.length === 0) continue;
 
-        const sentinelKey = `progression_unlock_${rider.rider_id}_${nextConfig.unlock_vertical}`;
+        const sentinelKey = `progression_unlock_${rider.rider_id}_${nextConfig.level}`;
         const { data: existing } = await supabase
             .from("agent_decision_log")
             .select("id")
@@ -321,7 +360,7 @@ async function checkProgressionUnlocks(supabase: ReturnType<typeof createClient>
             .from("rider_progression")
             .update({
                 level: nextConfig.level,
-                unlocked_verticals: [...(rider.unlocked_verticals || []), nextConfig.unlock_vertical],
+                unlocked_verticals: [...(rider.unlocked_verticals || []), ...newVerticals],
                 updated_at: new Date().toISOString(),
             })
             .eq("rider_id", rider.rider_id);
@@ -332,22 +371,23 @@ async function checkProgressionUnlocks(supabase: ReturnType<typeof createClient>
             .eq("id", rider.rider_id)
             .single();
 
+        const unlockLabel = newVerticals.map((v) => v.replace(/_/g, " ")).join(" + ");
         await sendExpoPush(
             profile?.push_token ?? null,
             "New feature unlocked",
-            `${nextConfig.unlock_vertical.replace(/_/g, " ")} is now available on your home screen.`,
-            { type: "progression_unlock", vertical: nextConfig.unlock_vertical },
+            `${unlockLabel} is now available on your home screen.`,
+            { type: "progression_unlock", verticals: newVerticals },
         );
 
         await supabase.from("agent_decision_log").insert({
             decision_type: "progression_unlock",
-            reasoning: `Rider met threshold for ${nextConfig.unlock_vertical} (level ${nextConfig.level})`,
+            reasoning: `Rider met threshold for ${newVerticals.join(", ")} (level ${nextConfig.level})`,
             tool_used: "checkProgressionUnlocks",
-            payload: { sentinel: sentinelKey, rider_id: rider.rider_id, vertical: nextConfig.unlock_vertical },
-            outcome: `Unlocked ${nextConfig.unlock_vertical} for rider`,
+            payload: { sentinel: sentinelKey, rider_id: rider.rider_id, verticals: newVerticals },
+            outcome: `Unlocked ${newVerticals.join(", ")} for rider`,
         });
 
-        console.log(`[checkProgressionUnlocks] rider ${rider.rider_id} → unlocked ${nextConfig.unlock_vertical}`);
+        console.log(`[checkProgressionUnlocks] rider ${rider.rider_id} → unlocked ${newVerticals.join(", ")}`);
     }
 }
 
@@ -355,7 +395,7 @@ async function checkProgressionUnlocks(supabase: ReturnType<typeof createClient>
 // Reads pending dispatch_queue tasks (RIDE, GROCERY, LAUNDRY, DELIVERY),
 // sorts by priority DESC + created_at ASC, soft-pings nearest idle driver.
 // Deduped: each task is only assigned once (status → 'assigned' after ping).
-async function orchestrateLiquidity(supabase: ReturnType<typeof createClient>) {
+async function orchestrateLiquidity(supabase: SB) {
     const { data: tasks } = await supabase
         .from("dispatch_queue")
         .select("id, task_type, order_id, ride_id, priority, pickup_lat, pickup_lng, attempts, created_at, expires_at")
@@ -448,7 +488,7 @@ async function orchestrateLiquidity(supabase: ReturnType<typeof createClient>) {
 // ── PRE-STEP 7: Grid — check driver liquidity distribution ───────────────────
 // Identifies territories where demand_score >= 1.2 but online driver count
 // is low. Logs grid_liquidity_check decision for dashboard consumption.
-async function gridLiquidityCheck(supabase: ReturnType<typeof createClient>) {
+async function gridLiquidityCheck(supabase: SB) {
     const { data: hotspots } = await supabase
         .rpc("get_demand_hotspots", { p_min_score: 1.2 })
         .then((__r) => __r, () => ({ data: [] }));
@@ -523,7 +563,7 @@ async function gridLiquidityCheck(supabase: ReturnType<typeof createClient>) {
 // For each active commander, drafts a WhatsApp-style notification with
 // their territory's performance metrics. The commander can one-tap approve
 // to send via WhatsApp deep link. Logs liaison_whatsapp_draft decision.
-async function liaisonDraftCommanderMessages(supabase: ReturnType<typeof createClient>) {
+async function liaisonDraftCommanderMessages(supabase: SB) {
     const { data: commanders } = await supabase
         .from("pod_commanders")
         .select("id, user_id, territory_id, metrics, onboarding_code")
@@ -586,7 +626,7 @@ async function liaisonDraftCommanderMessages(supabase: ReturnType<typeof createC
 // Reviews recent agent_decision_log entries and system_alerts for anomalies.
 // Checks: excessive surge activations, failed cron jobs, RLS changes.
 // Creates watchdog_audit and watchdog_emergency_toggle decisions.
-async function watchdogAudit(supabase: ReturnType<typeof createClient>) {
+async function watchdogAudit(supabase: SB) {
     const runId = crypto.randomUUID();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
@@ -793,7 +833,7 @@ const TOOLS = [
 async function executeTool(
     toolName: string,
     input: Record<string, unknown>,
-    supabase: ReturnType<typeof createClient>,
+    supabase: SB,
     runId: string,
 ): Promise<unknown> {
     switch (toolName) {
@@ -991,7 +1031,8 @@ serve(async (req) => {
     let authorized = false;
     let viaCron = false;
 
-    if (PLATFORM_CRON_SECRET && cronHeader === PLATFORM_CRON_SECRET) {
+    // M4: constant-time compare (see _shared/constantTime.ts)
+    if (await secretMatches(cronHeader, PLATFORM_CRON_SECRET)) {
         authorized = true;
         viaCron = true;
     } else if (authHeader) {
@@ -1040,10 +1081,17 @@ serve(async (req) => {
             );
         }
 
-        // Cost gate: cron fires every 15 min for the deterministic pre-steps, but
-        // the LLM pass only runs on the first tick of each hour. Manual admin
-        // invocations ("Run agent now") always get the full loop.
-        if (viaCron && new Date().getUTCMinutes() >= 15) {
+        // Cost gate: the LLM pass runs on the FIRST tick of each hour only.
+        // Manual admin invocations ("Run agent now") always get the full loop.
+        //
+        // This was `>= 15`, written when the comment above claimed the cron
+        // fired every 15 minutes. The cron actually fires every 2 minutes
+        // (20260701000013_consolidated_cron_jobs.sql:52), so minutes
+        // 0,2,4,6,8,10,12,14 all passed the gate — the full LLM loop ran
+        // EIGHT times an hour, not once, against a daily budget of $0.80.
+        // `< 2` admits exactly one tick per hour at any cron cadence of 2
+        // minutes or coarser.
+        if (viaCron && new Date().getUTCMinutes() >= 2) {
             return new Response(
                 JSON.stringify({ success: true, run_id: runId, pre_steps_only: true, note: "llm_pass_hourly" }),
                 { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -1068,7 +1116,17 @@ Context:
 - Platform fee: 18.5% of ride fare (drops to 16% for drivers with $500+ wallet balance)
 - Travel packages: Caribbean destinations (Tobago TAB, Barbados BGI, Grenada GND)`;
 
-        const messages: Array<{ role: string; content: unknown }> = [
+        // tool_call_id and tool_calls are part of the OpenAI-compatible
+        // tool-use protocol Groq implements: a `role: "tool"` message MUST
+        // carry the id of the call it answers, or the model cannot match the
+        // result to the request. They were being set at runtime but omitted
+        // from this type, so the object literal below failed to typecheck.
+        const messages: Array<{
+            role: string;
+            content: unknown;
+            tool_call_id?: string;
+            tool_calls?: unknown;
+        }> = [
             {
                 role: "user",
                 content: "Run your 15-minute platform check. Gather relevant data and make interventions where thresholds are met.",

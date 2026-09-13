@@ -40,7 +40,11 @@ Deno.serve(async (req: Request) => {
   // ── PENDING RESOLUTION SWEEP ─────────────────────────────────
   const { data: pendingSessions, error: fetchError } = await supabase
     .from("wipay_sessions")
-    .select("id, order_id, ride_id, transaction_id, amount_cents, created_at, pending_since")
+    // amount_cents does NOT exist on wipay_sessions — the amount lives inside
+    // form_fields (jsonb). Selecting it made every run 500 at the fetch, so
+    // this sweep has never resolved a single pending WiPay settlement. It was
+    // also never read anywhere below, so dropping it is the whole fix.
+    .select("id, order_id, ride_id, transaction_id, created_at, pending_since")
     .eq("status", "pending_resolution")
     .lte("pending_since", fiveMinutesAgo);
 

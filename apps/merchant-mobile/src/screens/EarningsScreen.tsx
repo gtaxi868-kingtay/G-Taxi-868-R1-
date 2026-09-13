@@ -220,7 +220,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
               <View>
                 <View style={[s.infoCard, glassSurface(0.12)]}>
                   <Ionicons name="information-circle-outline" size={20} color={VOICES.merchant.accent} style={{ marginRight: 10 }} />
-                  <Text style={s.infoText}>3% commission on every G-Taxi ride originating from your NFC kiosk tap.</Text>
+                  <Text style={s.infoText}>2% of G-Taxi's platform fee on every ride originating from your NFC kiosk tap.</Text>
                 </View>
                 <View style={[s.infoCard, glassSurface(0.12)]}>
                   <Ionicons name="time-outline" size={20} color={VOICES.merchant.textMuted} style={{ marginRight: 10 }} />
