@@ -28,7 +28,11 @@ interface PendingDriver {
   has_vehicle_photo: boolean;
 }
 
-export const DriverApproval = ({ onRefresh }: { onRefresh: () => void }) => {
+export const DriverApproval = ({ onRefresh, focusPhone, onClearFocus }: {
+  onRefresh: () => void;
+  focusPhone?: string | null;
+  onClearFocus?: () => void;
+}) => {
   const [pendingDrivers, setPendingDrivers] = useState<PendingDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDriver, setSelectedDriver] = useState<PendingDriver | null>(null);
@@ -43,6 +47,19 @@ export const DriverApproval = ({ onRefresh }: { onRefresh: () => void }) => {
   useEffect(() => {
     fetchPendingDrivers();
   }, []);
+
+  // Deep-link from a claimed waitlist row: scroll to and highlight the
+  // matching applicant once the list has loaded. Cleared on unmount so
+  // re-opening this tab later doesn't re-highlight a stale target.
+  useEffect(() => {
+    if (!focusPhone || loading) return;
+    const match = pendingDrivers.find(d => d.phone === focusPhone);
+    if (match) {
+      document.getElementById(`driver-approval-${match.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [focusPhone, loading, pendingDrivers]);
+
+  useEffect(() => () => { onClearFocus?.(); }, [onClearFocus]);
 
   const fetchPendingDrivers = async () => {
     try {
@@ -169,8 +186,16 @@ export const DriverApproval = ({ onRefresh }: { onRefresh: () => void }) => {
     );
   }
 
+  const focusMatchExists = !focusPhone || pendingDrivers.some(d => d.phone === focusPhone);
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {focusPhone && !loading && !focusMatchExists && (
+        <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-amber-400/10 border border-amber-500/20 text-amber-300 text-sm">
+          <span>No pending application matches that waitlist entry's phone number — they may already be approved or rejected.</span>
+          <button onClick={onClearFocus} className="text-xs font-bold uppercase tracking-widest text-amber-200 hover:text-white shrink-0">Dismiss</button>
+        </div>
+      )}
       {/* STATS CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard 
@@ -209,9 +234,14 @@ export const DriverApproval = ({ onRefresh }: { onRefresh: () => void }) => {
       ) : (
         <div className="space-y-4">
           {pendingDrivers.map((driver) => (
-            <div 
+            <div
               key={driver.id}
-              className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all"
+              id={`driver-approval-${driver.id}`}
+              className={`bg-white/5 border rounded-2xl p-6 transition-all ${
+                focusPhone && driver.phone === focusPhone
+                  ? 'border-purple-400/60 shadow-lg shadow-purple-500/10'
+                  : 'border-white/10 hover:border-white/20'
+              }`}
             >
               <div className="flex items-start gap-4">
                 {/* AVATAR */}

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
-import { RefreshCw, Search, Users2, MapPin, Check, AlertTriangle } from 'lucide-react';
+import { supabase, adminFetch } from '../lib/supabase';
+import { RefreshCw, Search, Users2, MapPin, Check, AlertTriangle, ArrowRight, ShieldCheck, XCircle } from 'lucide-react';
 
 interface WaitlistDetails {
     vehicle_type?: string;
@@ -71,7 +71,13 @@ function detailsSummary(r: WaitlistRow): string {
     return '—';
 }
 
-export function Waitlist() {
+interface DriverLookupResult {
+    phone_number: string;
+    verified_status: 'unverified' | 'pending' | 'approved' | 'rejected';
+    is_verified: boolean;
+}
+
+export function Waitlist({ onOpenDriverApproval }: { onOpenDriverApproval?: (phone: string) => void }) {
     const [rows, setRows] = useState<WaitlistRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -83,6 +89,11 @@ export function Waitlist() {
     // visible rather than swallowed, since the approve action can succeed at
     // the database write and still fail to deliver.
     const [rowNotes, setRowNotes] = useState<Record<string, { kind: 'ok' | 'warn' | 'error'; text: string; deepLink?: string }>>({});
+    // Once a driver-role waitlist entry is claimed (the person actually
+    // registered), the only place left to act on them is Driver Approval —
+    // this can't be read directly (no admin-role SELECT policy on `drivers`),
+    // so it's fetched separately, keyed by phone, once we know who to ask about.
+    const [driverStatusByPhone, setDriverStatusByPhone] = useState<Record<string, DriverLookupResult>>({});
 
     const fetchRows = useCallback(async () => {
         setError(null);
@@ -92,10 +103,28 @@ export function Waitlist() {
             .order('created_at', { ascending: false });
         if (err) {
             setError(err.message);
-        } else {
-            setRows(data || []);
+            setLoading(false);
+            return;
         }
+        setRows(data || []);
         setLoading(false);
+
+        const claimedDriverPhones = [...new Set(
+            (data || [])
+                .filter(r => r.user_type === 'drive' && r.status === 'claimed' && r.phone)
+                .map(r => r.phone as string)
+        )];
+        if (claimedDriverPhones.length > 0) {
+            try {
+                const res = await adminFetch('admin', { action: 'lookup_drivers_by_phone', phones: claimedDriverPhones });
+                const map: Record<string, DriverLookupResult> = {};
+                (res?.drivers || []).forEach((d: DriverLookupResult) => { map[d.phone_number] = d; });
+                setDriverStatusByPhone(map);
+            } catch {
+                // Non-critical — the row still shows "Registered" without the
+                // extra detail rather than blocking the whole page.
+            }
+        }
     }, []);
 
     useEffect(() => {
@@ -334,6 +363,11 @@ export function Waitlist() {
                                                         </div>
                                                     )}
                                                 </div>
+                                            ) : status === 'claimed' && r.user_type === 'drive' && r.phone ? (
+                                                <ClaimedDriverAction
+                                                    driverStatus={driverStatusByPhone[r.phone]}
+                                                    onOpenDriverApproval={() => onOpenDriverApproval?.(r.phone as string)}
+                                                />
                                             ) : (
                                                 <span className="text-xs" style={{ color: C.faint }}>—</span>
                                             )}
@@ -346,5 +380,46 @@ export function Waitlist() {
                 </div>
             </div>
         </div>
+    );
+}
+
+// The Action cell for a driver-role waitlist row once they've actually
+// registered (status flips to 'claimed' by claim_waitlist_details on real
+// signup). Their application now lives in Driver Approval, not here — this
+// closes the "approved a driver, saw no reflection anywhere" gap by giving
+// a direct link instead of making the admin search a separate tab by name.
+function ClaimedDriverAction({ driverStatus, onOpenDriverApproval }: {
+    driverStatus?: { verified_status: string; is_verified: boolean };
+    onOpenDriverApproval: () => void;
+}) {
+    if (!driverStatus) {
+        return (
+            <span className="text-[11px]" style={{ color: C.faint }}>
+                Registered — checking status…
+            </span>
+        );
+    }
+    if (driverStatus.verified_status === 'approved') {
+        return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: 'rgba(16,185,129,0.16)', color: C.ok }}>
+                <ShieldCheck size={12} /> Approved as driver
+            </span>
+        );
+    }
+    if (driverStatus.verified_status === 'rejected') {
+        return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: 'rgba(239,68,68,0.14)', color: C.danger }}>
+                <XCircle size={12} /> Rejected
+            </span>
+        );
+    }
+    return (
+        <button
+            onClick={onOpenDriverApproval}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold"
+            style={{ background: 'rgba(167,139,250,0.16)', color: C.accent }}
+        >
+            Review in Driver Approval <ArrowRight size={12} />
+        </button>
     );
 }

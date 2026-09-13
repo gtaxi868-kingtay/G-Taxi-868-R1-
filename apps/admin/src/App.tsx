@@ -165,6 +165,10 @@ function App() {
     const [rides, setRides] = useState<any[]>([]);
     const [allUsers, setAllUsers] = useState<any[]>([]);
     const [orders, setOrders] = useState<any[]>([]);
+    // Set when a claimed waitlist row's "Review in Driver Approval" link is
+    // clicked, so that tab opens scrolled/highlighted to the right person
+    // instead of making the admin search a flat list by name.
+    const [approvalFocusPhone, setApprovalFocusPhone] = useState<string | null>(null);
 
     const handleNav = (tab: AdminView) => {
         setActiveTab(tab);
@@ -299,7 +303,7 @@ function App() {
                         {activeTab === 'users' && <UsersPage />}
                         {activeTab === 'fleet' && <FleetManager rides={rides} allUsers={allUsers} orders={orders} onRefresh={fetchData} />}
                         {activeTab === 'commander' && <CommanderManagement />}
-                        {activeTab === 'approval' && <DriverApproval onRefresh={fetchData} />}
+                        {activeTab === 'approval' && <DriverApproval onRefresh={fetchData} focusPhone={approvalFocusPhone} onClearFocus={() => setApprovalFocusPhone(null)} />}
                         {activeTab === 'compliance' && <ComplianceReview />}
                         {activeTab === 'financials' && <Financials />}
                         {activeTab === 'nodes' && <NodeRegistry />}
@@ -321,7 +325,7 @@ function App() {
                         {activeTab === 'gspot' && <GSpotVenues />}
                         {activeTab === 'gmemory' && <GMemory />}
                         {activeTab === 'health' && <SystemHealth />}
-                        {activeTab === 'waitlist' && <Waitlist />}
+                        {activeTab === 'waitlist' && <Waitlist onOpenDriverApproval={(phone) => { setApprovalFocusPhone(phone); handleNav('approval'); }} />}
                     </div>
                 </main>
 

@@ -741,6 +741,23 @@ Deno.serve(async (req) => {
         return json({ success: true })
       }
 
+      case 'lookup_drivers_by_phone': {
+        // Backs the "jump to Driver Approval" link on a claimed waitlist
+        // row -- Waitlist.tsx can't read `drivers` directly (no admin-role
+        // SELECT policy; only "own record" and service_role), so this hands
+        // back just enough to render the right badge/link: whether a phone
+        // that claimed a waitlist entry actually has a driver row yet, and
+        // whether it's still awaiting review or already decided.
+        const phones = Array.isArray(body?.phones) ? body.phones.filter((p: unknown) => typeof p === 'string' && p) : []
+        if (phones.length === 0) return json({ success: true, drivers: [] })
+        const { data, error } = await supabaseAdmin
+          .from('drivers')
+          .select('phone_number, verified_status, is_verified')
+          .in('phone_number', phones)
+        if (error) throw error
+        return json({ success: true, drivers: data || [] })
+      }
+
       case 'mark_waitlist_contacted': {
         const { waitlist_id } = body
         if (!waitlist_id) return json({ success: false, error: 'waitlist_id required' }, 400)
