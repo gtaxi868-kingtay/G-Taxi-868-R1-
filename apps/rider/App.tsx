@@ -70,6 +70,7 @@ import ActivePassScreen from './src/screens/ActivePassScreen';
 import PassportSubmissionScreen from './src/screens/PassportSubmissionScreen';
 import CarnivalScreen from './src/screens/CarnivalScreen';
 import EventsScreen from './src/screens/EventsScreen';
+import { CashWithdrawalScreen } from './src/screens/CashWithdrawalScreen';
 
 
 import { EscapeTripProvider } from './src/context/EscapeContext';
@@ -187,6 +188,7 @@ function AppNavigator() {
                 <AppStack.Screen name="PassportSubmission" component={PassportSubmissionScreen} />
                 <AppStack.Screen name="Carnival" component={CarnivalScreen} />
                 <AppStack.Screen name="Events" component={EventsScreen} />
+                <AppStack.Screen name="CashWithdrawal" component={CashWithdrawalScreen} />
             </AppStack.Navigator>
         </>
     );

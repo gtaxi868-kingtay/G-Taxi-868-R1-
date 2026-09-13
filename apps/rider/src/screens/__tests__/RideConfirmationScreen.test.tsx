@@ -2,28 +2,30 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { RideConfirmationScreen } from '../RideConfirmationScreen';
 
+// Built INSIDE the factory, not as module-level consts referenced by it:
+// ES imports (including the RideConfirmationScreen import above, which
+// transitively imports @gtaxi/core) execute before any later top-level
+// `const`, so a factory that only closes over an outer `mockSupabase`
+// const sees it as still-uninitialized (TDZ) the first time Jest actually
+// invokes this factory -- `supabase` came back undefined at runtime even
+// though the static "mock"-prefix check let it past lint.
 jest.mock('@gtaxi/core', () => {
-  // RideConfirmationScreen reads `supabase` from initializeSupabaseClient('native')'s
-  // return value, not the module's top-level `supabase` export — the previous
-  // version of this mock gave that call a separate, incomplete stub object
-  // (only `.auth.getUser`), so `supabase.from(...)` failed with "not a function"
-  // even though the mock above it looked complete. Same object, both places.
+  const vehicleClassesQuery = {
+    select: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    then: jest.fn().mockResolvedValue({ data: [{ key: 'standard', label: 'Standard', description: 'Daily logistics', icon: 'car-outline', multiplier_x100: 100, min_fare_cents: null, sort_order: 1 }] })
+  };
   const mockSupabase = {
     channel: () => ({ on: () => ({ subscribe: jest.fn() }) }),
-    from: () => ({
-      select: () => ({
-        eq: () => ({ single: jest.fn(), maybeSingle: jest.fn() }),
-        order: () => Promise.resolve({ data: null }),
-      }),
-    }),
+    from: jest.fn(() => vehicleClassesQuery),
     functions: { invoke: jest.fn().mockResolvedValue({ data: { success: true, data: {} } }) },
     auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test' } } }) },
-    storage: { from: () => ({ upload: jest.fn(), getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
+    storage: { from: () => ({ upload: jest.fn(), getPublicUrl: () => ({ data: { publicUrl: '' } }) }) }
   };
   return {
     supabase: mockSupabase,
-    initializeSupabaseClient: () => ({ supabase: mockSupabase, getSupabase: jest.fn(() => mockSupabase) }),
-    ENV: { MAPBOX_PUBLIC_TOKEN: '' },
+    initializeSupabaseClient: () => ({ supabase: mockSupabase, getSupabase: jest.fn() }),
+    ENV: { MAPBOX_PUBLIC_TOKEN: '' }
   };
 });
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
