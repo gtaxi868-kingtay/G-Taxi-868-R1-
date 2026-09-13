@@ -47,6 +47,12 @@ class ConciergeRequest(BaseModel):
     lng: Optional[float] = None
     destination_name: Optional[str] = None
     poi_data: List[dict] = []
+    # The rider's own access token, forwarded by ai_concierge_proactive.
+    # Needed so initiate_lime_fleet can call create_split_session AS this
+    # rider -- that edge function resolves creator_id from a real user JWT,
+    # not from a client-supplied id, so Jarvis must carry the real token
+    # rather than asserting user_id itself.
+    access_token: Optional[str] = None
 
 class ConciergeResponse(BaseModel):
     suggestion: str
@@ -81,42 +87,66 @@ def enable_memory_tracking(user_id: str) -> str:
         logger.error(f"enable_memory_tracking failed: {e}")
         return f"Failed: {e}"
 
-def initiate_lime_fleet(user_id: str, friend_count: Optional[int] = None) -> str:
+def make_initiate_lime_fleet(access_token: Optional[str]):
     """
-    Create a split-fare session for a group outing.
-    Returns a shareable session ID.
+    Builds the initiate_lime_fleet tool bound to THIS request's rider.
+
+    create_split_session is an edge function, not a Postgres RPC (there is
+    no such RPC live -- calling .rpc("create_split_session", ...) 404s
+    every single time). It also resolves creator_id from a real user JWT
+    via auth.getUser(), not from a client-supplied id, so this must call it
+    as an authenticated HTTP request carrying the rider's own access token
+    rather than asserting a user_id with the service role key.
     """
-    try:
-        count = friend_count or 3
-        total = 40000  # $400 TTD placeholder
-        share = total // (count + 1)
+    def initiate_lime_fleet(friend_count: Optional[int] = None) -> str:
+        """
+        Create a split-fare session for a group outing.
+        Returns a shareable session ID.
+        """
+        if not access_token:
+            return "I need you to be signed in to start a Lime Fleet -- try again from the app."
+        try:
+            count = friend_count or 3
+            total = 40000  # $400 TTD placeholder
+            participant_count = count + 1
+            share = total // participant_count
 
-        res = supabase.rpc("create_split_session", {
-            "p_creator_id": user_id,
-            "p_total_cents": total,
-            "p_participant_count": count + 1,
-            "p_title": "Lime Fleet",
-        }).execute()
+            resp = httpx.post(
+                f"{SUPABASE_URL}/functions/v1/create_split_session",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "total_cents": total,
+                    "participant_count": participant_count,
+                    "title": "Lime Fleet",
+                },
+                timeout=10.0,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+            session = body.get("data") or {}
+            session_id = session.get("id", "unknown")
 
-        if hasattr(res, 'data') and res.data:
-            session_id = res.data.get("id") if isinstance(res.data, dict) else str(res.data)
             return (
                 f"Lime Fleet created! Session ID: {session_id}. "
                 f"Each person pays ${share/100:.2f} TTD. "
                 f"Share this code with your friends to join."
             )
-        return "Lime Fleet created. Share the session with your friends."
-    except Exception as e:
-        logger.error(f"initiate_lime_fleet failed: {e}")
-        return "I couldn't set up the Lime Fleet right now. Try again in a moment."
+        except Exception as e:
+            logger.error(f"initiate_lime_fleet failed: {e}")
+            return "I couldn't set up the Lime Fleet right now. Try again in a moment."
+
+    return initiate_lime_fleet
 
 # ── AGY Agent Setup ─────────────────────────────────────────
 
-def build_agent(user_id: str, user_name: str, opted_in: bool):
+def build_agent(user_id: str, user_name: str, opted_in: bool, access_token: Optional[str]):
     if not AGY_AVAILABLE:
         return None
 
-    tools = [record_user_preference, enable_memory_tracking, initiate_lime_fleet]
+    tools = [record_user_preference, enable_memory_tracking, make_initiate_lime_fleet(access_token)]
 
     opt_in_instruction = (
         "The user has NOT opted in to memory tracking. Politely ask for permission. "
@@ -239,7 +269,7 @@ async def concierge(req: ConciergeRequest, x_jarvis_secret: Optional[str] = Head
 
     try:
         if AGY_AVAILABLE:
-            agent = build_agent(req.user_id, req.user_name, opted_in)
+            agent = build_agent(req.user_id, req.user_name, opted_in, req.access_token)
             conversation = Conversation(agent=agent)
 
             context = (

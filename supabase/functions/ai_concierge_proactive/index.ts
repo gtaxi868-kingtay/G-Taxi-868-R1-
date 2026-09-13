@@ -50,6 +50,11 @@ serve(async (req) => {
   try {
     const user = await requireAuth(req);
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    // Forwarded to Jarvis so its initiate_lime_fleet tool can call
+    // create_split_session as this real rider, not as a bare user_id Jarvis
+    // could otherwise be tricked into spending on behalf of. Jarvis never
+    // sees the service role key.
+    const riderAccessToken = req.headers.get("Authorization")?.replace("Bearer ", "") ?? null;
 
     const { ride_id, lat, lng, destination_name, mode, profile_id } = await req.json();
 
@@ -112,6 +117,7 @@ serve(async (req) => {
           lng: lng || dropoffLng,
           destination_name: destName,
           poi_data: poiData ?? [],
+          access_token: riderAccessToken,
         }),
       });
 

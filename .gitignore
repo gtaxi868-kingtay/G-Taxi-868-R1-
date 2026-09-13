@@ -63,3 +63,4 @@ graphify-out/
 *.tsbuildinfo
 .env.secrets
 third_party/
+__pycache__/
