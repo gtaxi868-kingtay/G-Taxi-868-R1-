@@ -671,6 +671,7 @@ Deno.serve(async (req) => {
           .from('drivers')
           .select('id, user_id, name, phone_number, created_at, status, is_verified, verified_status, vehicle_model, plate_number, insurance_expires_at')
           .or('is_verified.eq.false,status.eq.pending')
+          .neq('verified_status', 'rejected')
           .order('created_at', { ascending: false })
         if (driversError) throw driversError
 
@@ -717,6 +718,27 @@ Deno.serve(async (req) => {
         }))
 
         return json({ pending, count: pending.length, summary: { with_license: pending.filter((d: any) => d.has_license).length, with_insurance: pending.filter((d: any) => d.has_insurance).length, with_vehicle_photo: pending.filter((d: any) => d.has_vehicle_photo).length } })
+      }
+
+      case 'reject_driver': {
+        // DriverApproval.tsx's "Reject" previously only sent a push
+        // notification and dropped the row from local state -- nothing was
+        // written to the database, so get_pending_drivers (which never
+        // filtered out a rejection) handed the same applicant right back on
+        // the next load. verified_status already has a real 'rejected'
+        // value in the live enum; this is the first thing that ever wrote it.
+        const { user_id } = body
+        if (!user_id) return json({ success: false, error: 'user_id is required' }, 400)
+        const { data: existingDriver, error: findError } = await supabaseAdmin
+          .from('drivers').select('id').eq('user_id', user_id).maybeSingle()
+        if (findError) throw findError
+        if (!existingDriver) return json({ success: false, error: 'No driver record found for this user' }, 404)
+        const { error } = await supabaseAdmin
+          .from('drivers')
+          .update({ verified_status: 'rejected', is_verified: false, updated_at: new Date().toISOString() })
+          .eq('user_id', user_id)
+        if (error) throw error
+        return json({ success: true })
       }
 
       case 'mark_waitlist_contacted': {

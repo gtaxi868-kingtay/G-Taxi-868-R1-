@@ -103,16 +103,21 @@ export const DriverApproval = ({ onRefresh }: { onRefresh: () => void }) => {
     
     setProcessing(driver.id);
     try {
-      // For now, we just send a notification. Could also update status to 'rejected' if that field exists
-      await adminFetch('send_push_notification', {
-        user_id: driver.id,
-        title: 'G-Taxi - Application Update',
-        body: reason 
-          ? `Your driver application needs attention: ${reason}. Please update your documents and reapply.`
-          : `Your driver application could not be approved at this time. Please contact support for more information.`,
-        data: { type: 'driver_rejected' }
-      });
-      
+      await adminFetch('admin', { action: 'reject_driver', user_id: driver.id });
+
+      try {
+        await adminFetch('send_push_notification', {
+          user_id: driver.id,
+          title: 'G-Taxi - Application Update',
+          body: reason
+            ? `Your driver application needs attention: ${reason}. Please update your documents and reapply.`
+            : `Your driver application could not be approved at this time. Please contact support for more information.`,
+          data: { type: 'driver_rejected' }
+        });
+      } catch (pushErr) {
+        console.warn('Push notification failed:', pushErr);
+      }
+
       setPendingDrivers(prev => prev.filter(d => d.id !== driver.id));
       setStats(prev => ({ ...prev, total: prev.total - 1 }));
     } catch (err: any) {
