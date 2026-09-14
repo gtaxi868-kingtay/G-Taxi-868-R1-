@@ -48,10 +48,10 @@ class ConciergeRequest(BaseModel):
     destination_name: Optional[str] = None
     poi_data: List[dict] = []
     # The rider's own access token, forwarded by ai_concierge_proactive.
-    # Needed so initiate_lime_fleet can call create_split_session AS this
-    # rider -- that edge function resolves creator_id from a real user JWT,
-    # not from a client-supplied id, so Jarvis must carry the real token
-    # rather than asserting user_id itself.
+    # No longer used by initiate_lime_fleet (that now files a
+    # g_proposed_actions row instead of acting directly, so it only needs
+    # user_id) -- kept on the request shape for any future tool that does
+    # need to act as the calling rider specifically.
     access_token: Optional[str] = None
 
 class ConciergeResponse(BaseModel):
@@ -87,52 +87,51 @@ def enable_memory_tracking(user_id: str) -> str:
         logger.error(f"enable_memory_tracking failed: {e}")
         return f"Failed: {e}"
 
-def make_initiate_lime_fleet(access_token: Optional[str]):
+def make_initiate_lime_fleet(user_id: str):
     """
     Builds the initiate_lime_fleet tool bound to THIS request's rider.
 
-    create_split_session is an edge function, not a Postgres RPC (there is
-    no such RPC live -- calling .rpc("create_split_session", ...) 404s
-    every single time). It also resolves creator_id from a real user JWT
-    via auth.getUser(), not from a client-supplied id, so this must call it
-    as an authenticated HTTP request carrying the rider's own access token
-    rather than asserting a user_id with the service role key.
+    Previously called create_split_session directly with the rider's own
+    access token -- meaning a wrong AI guess about friend count/fare created
+    a real, other-people-visible split session with zero admin oversight,
+    the one action in this codebase that bypassed the propose/approve/
+    execute pattern every other consequential action goes through. Now it
+    files a g_proposed_actions row (category: money) instead of acting --
+    same table, same Approvals.tsx inbox, same g_execute_action handler
+    registry G's own proposals use. Reviewed code (g_execute_action's
+    initiate_lime_fleet handler) creates the real split_sessions row only
+    after an admin approves, using p_user_id from the row rather than a
+    rider access token that may have long since expired by decision time.
     """
     def initiate_lime_fleet(friend_count: Optional[int] = None) -> str:
         """
-        Create a split-fare session for a group outing.
-        Returns a shareable session ID.
+        Propose a split-fare session for a group outing, pending admin approval.
         """
-        if not access_token:
-            return "I need you to be signed in to start a Lime Fleet -- try again from the app."
         try:
             count = friend_count or 3
             total = 40000  # $400 TTD placeholder
             participant_count = count + 1
             share = total // participant_count
 
-            resp = httpx.post(
-                f"{SUPABASE_URL}/functions/v1/create_split_session",
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "total_cents": total,
+            supabase.table("g_proposed_actions").insert({
+                "department": "jarvis",
+                "action_type": "initiate_lime_fleet",
+                "title": f"Lime Fleet for {participant_count} people",
+                "reasoning": "Rider asked Jarvis to start a group split-fare via chat.",
+                "category": "money",
+                "amount_cents": total,
+                "payload": {
+                    "rider_id": user_id,
+                    "friend_count": count,
                     "participant_count": participant_count,
-                    "title": "Lime Fleet",
+                    "share_cents": share,
                 },
-                timeout=10.0,
-            )
-            resp.raise_for_status()
-            body = resp.json()
-            session = body.get("data") or {}
-            session_id = session.get("id", "unknown")
+                "status": "pending",
+            }).execute()
 
             return (
-                f"Lime Fleet created! Session ID: {session_id}. "
-                f"Each person pays ${share/100:.2f} TTD. "
-                f"Share this code with your friends to join."
+                f"I've sent this to the team for a quick check -- you'll hear back shortly "
+                f"about your Lime Fleet for {participant_count} people."
             )
         except Exception as e:
             logger.error(f"initiate_lime_fleet failed: {e}")
@@ -146,7 +145,7 @@ def build_agent(user_id: str, user_name: str, opted_in: bool, access_token: Opti
     if not AGY_AVAILABLE:
         return None
 
-    tools = [record_user_preference, enable_memory_tracking, make_initiate_lime_fleet(access_token)]
+    tools = [record_user_preference, enable_memory_tracking, make_initiate_lime_fleet(user_id)]
 
     opt_in_instruction = (
         "The user has NOT opted in to memory tracking. Politely ask for permission. "
