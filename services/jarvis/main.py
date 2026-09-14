@@ -179,7 +179,19 @@ def build_agent(user_id: str, user_name: str, opted_in: bool, access_token: Opti
 # ── Direct LLM Fallback (if AGY unavailable) ────────────────
 
 async def direct_llm_fallback(req: ConciergeRequest, likes: List[str], dislikes: List[str]) -> str:
-    """Fallback using Groq directly when AGY SDK is not available."""
+    """Fallback using Groq directly when AGY SDK is not available.
+
+    Model pinned to match supabase/functions/_shared/ai_model.ts's
+    GROQ_CHAT_MODEL -- llama-3.3-70b-versatile (what this literally said until
+    now) moved off Groq's free developer plan and 404s on every call, exactly
+    the bug documented there as having already broken 5 other features in
+    this app. openai/gpt-oss-120b spends completion_tokens on a hidden
+    chain-of-thought before the visible answer, so max_tokens must have real
+    headroom (60 returned empty content, all of it burned on reasoning) and
+    reasoning_effort needs to be turned down -- same two fixes _shared/llm.ts
+    already applies for this model, kept in sync by hand since Jarvis is a
+    separate Python service that doesn't import that file.
+    """
     if not GROQ_API_KEY:
         raise RuntimeError("No AI provider available")
 
@@ -212,9 +224,10 @@ Give ONE brief, warm suggestion (10-15 words). Include an emoji."""
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
             json={
-                "model": "llama-3.3-70b-versatile",
+                "model": "openai/gpt-oss-120b",
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 60,
+                "max_tokens": 512,
+                "reasoning_effort": "low",
                 "temperature": 0.7,
             },
         )
