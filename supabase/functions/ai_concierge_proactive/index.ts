@@ -4,15 +4,16 @@ import { requireAuth } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const JARVIS_URL = Deno.env.get("JARVIS_SERVICE_URL") ?? "http://host.docker.internal:8000/concierge";
-const JARVIS_SECRET = Deno.env.get("JARVIS_SECRET")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Rule-based fallback when Jarvis is down
+// Deterministic fallback when g_rider_concierge can't answer (a real system
+// limit -- daily cap, budget exhausted, transient error) rather than a
+// deliberate rider choice. NOT used when the rider has suggestions off --
+// that's a consent decision, not an outage, and gets no suggestion at all.
 function ruleBasedSuggestion(
   riderName: string,
   hour: number,
@@ -50,11 +51,10 @@ serve(async (req) => {
   try {
     const user = await requireAuth(req);
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    // Forwarded to Jarvis so its initiate_lime_fleet tool can call
-    // create_split_session as this real rider, not as a bare user_id Jarvis
-    // could otherwise be tricked into spending on behalf of. Jarvis never
-    // sees the service role key.
-    const riderAccessToken = req.headers.get("Authorization")?.replace("Bearer ", "") ?? null;
+    // Forwarded to g_rider_concierge so it resolves identity from the real
+    // rider JWT (never a client-supplied id) -- same pattern this project
+    // requires everywhere.
+    const riderAuthHeader = req.headers.get("Authorization") ?? "";
 
     const { ride_id, lat, lng, destination_name, mode, profile_id } = await req.json();
 
@@ -99,42 +99,54 @@ serve(async (req) => {
     const hour = new Date().getUTCHours() - 4;
     const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
 
-    // Try Jarvis first
+    // g_rider_concierge is the one rider voice now -- proactive mode reuses
+    // its consent checks, memory, tools (including initiate_lime_fleet) and
+    // budget-capped gateway instead of a separate, un-budget-capped service.
     try {
-      const res = await fetch(JARVIS_URL, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/g_rider_concierge`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Jarvis-Secret": JARVIS_SECRET,
+          "Authorization": riderAuthHeader,
         },
         body: JSON.stringify({
-          user_id: user.id,
-          user_name: riderName,
-          is_home_mode: isHomeMode,
+          mode: "proactive",
+          lat: lat ?? dropoffLat ?? null,
+          lng: lng ?? dropoffLng ?? null,
           hour,
           is_rush_hour: isRushHour,
-          lat: lat || dropoffLat,
-          lng: lng || dropoffLng,
+          is_home_mode: isHomeMode,
           destination_name: destName,
           poi_data: poiData ?? [],
-          access_token: riderAccessToken,
         }),
       });
 
-      if (!res.ok) throw new Error(`Jarvis ${res.status}`);
+      if (!res.ok) throw new Error(`g_rider_concierge ${res.status}`);
 
       const data = await res.json();
+
+      // Rider explicitly has suggestions off -- respect it fully, no
+      // suggestion at all, not even the generic deterministic one.
+      if (data.skipped === "suggestions_off") {
+        return new Response(JSON.stringify({ suggestion: null, source: "consent_off" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // A real system limit (daily cap, budget, transient error), or the
+      // model genuinely had nothing useful to say -- deterministic fallback
+      // keeps the rider from seeing a blank concierge for a system reason.
+      if (!data.reply) {
+        const fallback = ruleBasedSuggestion(riderName, hour, isHomeMode, destName, poiData);
+        return new Response(JSON.stringify({ suggestion: fallback, source: "fallback" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
       return new Response(
-        JSON.stringify({
-          suggestion: data.suggestion,
-          source: "jarvis",
-          meta: data.meta ?? {},
-        }),
+        JSON.stringify({ suggestion: data.reply, source: "g_rider_concierge" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    } catch (jarvisErr) {
-      console.error("[ai_concierge] Jarvis failed, using fallback:", jarvisErr);
-      // Graceful fallback — never 500 the user
+    } catch (conciergeErr) {
+      console.error("[ai_concierge] g_rider_concierge failed, using fallback:", conciergeErr);
       const fallback = ruleBasedSuggestion(riderName, hour, isHomeMode, destName, poiData);
       return new Response(
         JSON.stringify({ suggestion: fallback, source: "fallback" }),
