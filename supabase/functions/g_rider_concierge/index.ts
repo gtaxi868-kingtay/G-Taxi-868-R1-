@@ -11,33 +11,39 @@
 //
 // Money guard: G has NO payment tools. create_order_list / reorder_usual return
 // DRAFTS the app renders into a cart; the rider always taps to confirm.
+// initiate_lime_fleet is the one exception that touches money-adjacent intent
+// (a group split-fare) -- it never calls a payment API itself, it only files a
+// g_proposed_actions row for admin approval, same as every other consequential
+// G action in this codebase. See the tool's own comment below.
 //
 // Cost guard: 5 LLM calls per rider per day (g_llm_usage, department
 // "rider_concierge") on top of the global daily budget in _shared/llm.ts.
+// Proactive (unsolicited) calls share a SEPARATE daily counter from
+// conversational ones -- a rider who chats twice shouldn't lose their one
+// daily "want coffee?" nudge, and vice versa.
+//
+// Proactive mode: previously a separate Python service (Jarvis, on Render)
+// called via ai_concierge_proactive handled unsolicited suggestions, with its
+// own memory table, its own un-budget-capped AI calls, and a fabricated
+// integration against an AI SDK that never actually worked. Folded in here
+// instead -- one rider voice, one memory table, one budget, reusing this
+// function's already-proven consent/rate-limit/tool machinery rather than
+// running a second AI system with weaker guarantees for the same job.
 //
 // Auth: rider JWT (verify_jwt true).
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chat, llmConfigured, BudgetExceededError, LlmMessage, LlmTool } from "../_shared/llm.ts";
+import { getPlatformIdentity } from "../_shared/identity.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const MAX_ITERATIONS = 4;
 const PER_RIDER_DAILY_CALLS = 5;
-
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-function json(payload: unknown, status = 200): Response {
-    return new Response(JSON.stringify(payload), {
-        status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-}
+const PER_RIDER_DAILY_PROACTIVE_CALLS = 2;
 
 // deno-lint-ignore no-explicit-any
 type Svc = any;
@@ -115,6 +121,19 @@ const TOOL_DEFS: LlmTool[] = [
                 type: "object",
                 properties: {
                     store_type: { type: "string", description: "e.g. grocery, restaurant, pharmacy; omit for all" },
+                },
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "initiate_lime_fleet",
+            description: "Propose a split-fare 'Lime Fleet' for a group outing (individual cars for everyone, no designated driver needed). Use IMMEDIATELY when the rider mentions meeting friends, going out, or 'liming'. Files a request for a quick admin check -- never creates the session directly.",
+            parameters: {
+                type: "object",
+                properties: {
+                    friend_count: { type: "number", description: "how many friends besides the rider, e.g. 3" },
                 },
             },
         },
@@ -205,6 +224,45 @@ async function executeTool(
             return error ? { error: error.message } : data ?? [];
         }
 
+        // Previously (as Jarvis's initiate_lime_fleet) called create_split_session
+        // directly with the rider's own access token -- a wrong AI guess about
+        // friend count/fare created a real, other-people-visible split session
+        // with zero admin oversight. Files a g_proposed_actions row instead, same
+        // table/inbox/execution pattern every other consequential G action uses.
+        // g_execute_action's initiate_lime_fleet handler creates the real
+        // split_sessions row only after an admin approves, reading rider_id from
+        // the row itself rather than a token that may have expired by then.
+        case "initiate_lime_fleet": {
+            const count = typeof input.friend_count === "number" && input.friend_count > 0
+                ? Math.min(Math.floor(input.friend_count), 19) : 3;
+            const total = 40000; // $400 TTD placeholder
+            const participantCount = count + 1;
+            const share = Math.floor(total / participantCount);
+
+            const { error } = await supabase.from("g_proposed_actions").insert({
+                department: "rider_concierge",
+                action_type: "initiate_lime_fleet",
+                title: `Lime Fleet for ${participantCount} people`,
+                reasoning: "Rider asked G to start a group split-fare via chat.",
+                category: "money",
+                amount_cents: total,
+                payload: {
+                    rider_id: ctx.riderId,
+                    friend_count: count,
+                    participant_count: participantCount,
+                    share_cents: share,
+                },
+                status: "pending",
+            });
+            if (error) return { error: error.message };
+            return {
+                success: true,
+                pending_admin_review: true,
+                note: "Sent to the team for a quick check -- the rider will hear back shortly.",
+                participant_count: participantCount,
+            };
+        }
+
         default:
             return { error: `unknown tool ${name}` };
     }
@@ -213,6 +271,14 @@ async function executeTool(
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  function json(payload: unknown, status = 200): Response {
+      return new Response(JSON.stringify(payload), {
+          status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+  }
+
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
     // Identity from JWT — never from the request body.
@@ -225,7 +291,11 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    let body: { message?: string; lat?: number; lng?: number; action?: string } = {};
+    let body: {
+        message?: string; lat?: number; lng?: number; action?: string;
+        mode?: string; hour?: number; is_rush_hour?: boolean; is_home_mode?: boolean;
+        destination_name?: string; poi_data?: Array<Record<string, unknown>>;
+    } = {};
     try { body = await req.json(); } catch { /* empty */ }
 
     // Consent flags.
@@ -244,21 +314,35 @@ serve(async (req) => {
         return json({ success: true, forgotten: true });
     }
 
+    const isProactive = body.mode === "proactive";
     const message = String(body.message ?? "").slice(0, 1000);
-    if (!message) return json({ error: "message required" }, 400);
+    if (!isProactive && !message) return json({ error: "message required" }, 400);
     if (!llmConfigured()) return json({ error: "assistant offline", offline: true }, 503);
 
-    // Per-rider daily cap (shares the g_llm_usage meter; per-rider count via
-    // memory-cheap department key would explode rows, so count today's calls
-    // from the rider's own recent decisions instead: simple counter table row).
+    // Proactive suggestions need the rider to have opted in at all -- unlike a
+    // conversational message (the rider is actively asking), an unsolicited
+    // nudge with suggestions off would be exactly the "pushy, invasive" thing
+    // this function's own system prompt promises never to be.
+    if (isProactive && !suggestionsOn) {
+        return json({ success: true, reply: null, skipped: "suggestions_off" });
+    }
+
+    // Per-rider daily cap. Proactive and conversational calls use SEPARATE
+    // counters (different department keys) so a chatty rider doesn't burn
+    // their one daily proactive nudge, and a string of nudges doesn't eat into
+    // a rider's ability to actually ask G something.
     const today = new Date().toISOString().slice(0, 10);
+    const usageDept = isProactive ? `rider_proactive:${user.id}` : `rider:${user.id}`;
+    const dailyCap = isProactive ? PER_RIDER_DAILY_PROACTIVE_CALLS : PER_RIDER_DAILY_CALLS;
     const { data: usage } = await supabase.from("g_llm_usage")
-        .select("calls").eq("day", today).eq("department", `rider:${user.id}`).maybeSingle();
-    if ((usage?.calls ?? 0) >= PER_RIDER_DAILY_CALLS) {
-        return json({ reply: "You've reached today's G limit — I'll be fresh again tomorrow.", limited: true });
+        .select("calls").eq("day", today).eq("department", usageDept).maybeSingle();
+    if ((usage?.calls ?? 0) >= dailyCap) {
+        return isProactive
+            ? json({ success: true, reply: null, skipped: "daily_cap" })
+            : json({ reply: "You've reached today's G limit — I'll be fresh again tomorrow.", limited: true });
     }
     await supabase.rpc("g_add_llm_usage", {
-        p_department: `rider:${user.id}`, p_prompt: 0, p_completion: 0, p_cost: 0,
+        p_department: usageDept, p_prompt: 0, p_completion: 0, p_cost: 0,
     }).then(null, () => null);
 
     const ctx: RiderCtx = {
@@ -286,15 +370,26 @@ serve(async (req) => {
         memoryBlock = "Suggestions are on but memory is OFF: you may use suggest_places, but do not store or reference personal history.";
     }
 
-    const system = `You are G, the rider's personal assistant inside the G-Taxi app (Trinidad & Tobago).
+    // Platform description sourced from g_config.platform_identity, not
+    // hardcoded here — see _shared/identity.ts.
+    const platformIdentity = await getPlatformIdentity(supabase);
+    const proactiveGuidance = isProactive
+        ? `\nThis is an UNSOLICITED proactive check-in, not a reply to something the rider said -- keep it to one short, warm suggestion (10-15 words, one emoji), not a full conversation.
+Trinidad & Tobago moments to draw on when relevant: Carnival (fete tickets, J'ouvert drivers, costume runners), inter-island trips (CAL/ferry to Tobago, villas), flash-flood-season routing (POS/Churchill-Roosevelt), local eats (doubles from Debe/Curepe, bake & shark from Maracas via the Merchant app), VIP nightlife (Ariapita Ave).`
+        : "";
+    const system = `You are G, the rider's personal assistant inside the ${platformIdentity.name} app (${platformIdentity.market}).
 Warm, brief, useful — never pushy, never invasive. You help them move, order, and remember.
-${memoryBlock}
+${memoryBlock}${proactiveGuidance}
 Hard rules:
-- You cannot spend money. Order tools return DRAFTS the rider confirms in the app — say so naturally.
+- You cannot spend money. Order tools return DRAFTS the rider confirms in the app — say so naturally. initiate_lime_fleet only files a request for admin approval -- never claim a Lime Fleet is confirmed.
 - Only call remember_fact for things the rider clearly stated or asked you to remember${memoryOn ? "" : " (memory is OFF — never call it)"}.
 - Keep replies under 80 words. TTD currency. If you used a tool, weave the result in naturally.`;
 
-    const messages: LlmMessage[] = [{ role: "user", content: message }];
+    const userContent = isProactive
+        ? `Time: ${body.hour ?? new Date().getUTCHours()}:00 AST. ${body.is_rush_hour ? "Rush hour traffic." : "Traffic normal."} ${body.is_home_mode === false ? `In a ride toward ${body.destination_name || "their destination"}.` : "At home/idle."} Nearby: ${JSON.stringify((body.poi_data ?? []).slice(0, 5))}. Give one proactive suggestion or say nothing useful applies.`
+        : message;
+
+    const messages: LlmMessage[] = [{ role: "user", content: userContent }];
     const tools = TOOL_DEFS.filter((t) =>
         memoryOn ? true : t.function.name !== "remember_fact"
     );
@@ -330,13 +425,15 @@ Hard rules:
                 messages.push({ role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) });
             }
         }
-        return json({ success: true, reply: reply || "Done.", tool_results: toolResults });
+        return json({ success: true, reply: reply || (isProactive ? null : "Done."), tool_results: toolResults });
     } catch (err) {
         if (err instanceof BudgetExceededError) {
-            return json({ reply: "I'm resting to stay within budget — try me tomorrow.", limited: true });
+            return isProactive
+                ? json({ success: true, reply: null, skipped: "budget_exceeded" })
+                : json({ reply: "I'm resting to stay within budget — try me tomorrow.", limited: true });
         }
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[g_rider_concierge]", msg);
-        return json({ error: msg }, 500);
+        return isProactive ? json({ success: true, reply: null, skipped: "error" }) : json({ error: msg }, 500);
     }
 });
