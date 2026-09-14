@@ -8,13 +8,28 @@ from fastapi import FastAPI, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Try AGY SDK; fall back to direct LLM if unavailable
+# Try AGY SDK; fall back to direct LLM if unavailable.
+#
+# google-antigravity is a real, Google-published SDK (Apache 2.0,
+# https://github.com/Google-Antigravity/antigravity-sdk-python) -- but this
+# file's original AGY integration was written against an API that doesn't
+# exist: `from google_antigravity import ...` (underscore) is not an
+# importable module at all -- the real top-level package is `google.antigravity`
+# (dotted, a namespace under `google`). That's a plain ImportError, every
+# time, regardless of whether the pip package is installed. It also called
+# `Conversation(agent=agent)` / `.send_message()` synchronously, an API shape
+# that doesn't exist anywhere in the real SDK (real Conversation is
+# `Conversation.create(strategy)`, async, and takes a ConnectionStrategy +
+# ToolRunner, not an Agent). And it never required GEMINI_API_KEY, which
+# this SDK needs to talk to Gemini -- confirmed from the real README, fetched
+# 2026-09-14 (pypi.org/pypi/google-antigravity/json), not assumed.
 try:
-    from google_antigravity import LocalAgentConfig, Agent, Conversation
-    AGY_AVAILABLE = True
+    from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
+    from google.antigravity.hooks.policy import deny, allow
+    _AGY_IMPORTED = True
 except ImportError:
-    AGY_AVAILABLE = False
-    print("WARNING: google_antigravity not installed. Using direct Groq fallback.")
+    _AGY_IMPORTED = False
+    print("WARNING: google.antigravity not installed. Using direct Groq fallback.")
 
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -29,7 +44,16 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 JARVIS_SECRET = os.getenv("JARVIS_SECRET", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 PORT = int(os.getenv("PORT", "8000"))
+
+# The SDK importing successfully isn't enough -- it needs a real key to talk
+# to Gemini. Without GEMINI_API_KEY set, Agent() would construct fine and
+# fail on the first real call; check for it up front so the health endpoint
+# and logs are honest about which mode is actually active.
+AGY_AVAILABLE = _AGY_IMPORTED and bool(GEMINI_API_KEY)
+if _AGY_IMPORTED and not GEMINI_API_KEY:
+    print("WARNING: google.antigravity installed but GEMINI_API_KEY not set. Using direct Groq fallback.")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required")
@@ -141,10 +165,27 @@ def make_initiate_lime_fleet(user_id: str):
 
 # ── AGY Agent Setup ─────────────────────────────────────────
 
-def build_agent(user_id: str, user_name: str, opted_in: bool, access_token: Optional[str]):
-    if not AGY_AVAILABLE:
-        return None
+def build_agent_config(user_id: str, user_name: str, opted_in: bool) -> "LocalAgentConfig":
+    """
+    Builds the LocalAgentConfig for this request's rider. Real usage per the
+    SDK's own README ("Simple Agent" / "Custom Tools" sections): plain Python
+    functions in `tools=`, `system_instructions` (plural -- not the singular
+    `system_instruction` this file used to pass), and `capabilities=
+    CapabilitiesConfig()` -- Agent runs READ-ONLY by default per the SDK docs,
+    so without this, record_user_preference/enable_memory_tracking/
+    initiate_lime_fleet would all be silently blocked even with AGY working.
+    GEMINI_API_KEY is picked up from the environment automatically (same
+    convention as the SDK's own quickstart, which doesn't pass api_key
+    explicitly for the non-Vertex path) -- already verified present via
+    AGY_AVAILABLE before this is ever called.
 
+    CapabilitiesConfig() alone would unlock every built-in Antigravity tool,
+    not just the three defined here -- the SDK's own "Hooks and Policies"
+    docs list built-ins like view_file/run_command, which have no business
+    being reachable from a rider-facing chat endpoint. deny("*") first, then
+    allow only the three tools actually passed in, closes that off --
+    everything unrecognized stays refused rather than silently exposed.
+    """
     tools = [record_user_preference, enable_memory_tracking, make_initiate_lime_fleet(user_id)]
 
     opt_in_instruction = (
@@ -156,7 +197,7 @@ def build_agent(user_id: str, user_name: str, opted_in: bool, access_token: Opti
         "use record_user_preference to save it permanently."
     )
 
-    system_instruction = (
+    system_instructions = (
         "Your name is G. You are a highly attentive, deeply personal concierge for the G-Platform. "
         "You anticipate needs before the user asks. Warm, polite, authoritative yet friendly. "
         f"You are talking to: {user_name}. {opt_in_instruction} "
@@ -172,8 +213,17 @@ def build_agent(user_id: str, user_name: str, opted_in: bool, access_token: Opti
         "Never suggest things the user dislikes. Weave in things they like. Keep itineraries exciting."
     )
 
-    config = LocalAgentConfig(tools=tools)
-    return Agent(config=config, system_instruction=system_instruction)
+    return LocalAgentConfig(
+        system_instructions=system_instructions,
+        tools=tools,
+        capabilities=CapabilitiesConfig(),
+        policies=[
+            deny("*"),
+            allow("record_user_preference"),
+            allow("enable_memory_tracking"),
+            allow("initiate_lime_fleet"),
+        ],
+    )
 
 # ── Direct LLM Fallback (if AGY unavailable) ────────────────
 
@@ -281,8 +331,7 @@ async def concierge(req: ConciergeRequest, x_jarvis_secret: Optional[str] = Head
 
     try:
         if AGY_AVAILABLE:
-            agent = build_agent(req.user_id, req.user_name, opted_in, req.access_token)
-            conversation = Conversation(agent=agent)
+            config = build_agent_config(req.user_id, req.user_name, opted_in)
 
             context = (
                 f"USER ID: {req.user_id}\n"
@@ -298,8 +347,14 @@ async def concierge(req: ConciergeRequest, x_jarvis_secret: Optional[str] = Head
                 f"Respond warmly and concisely. Suggest ONE thing."
             )
 
-            response = conversation.send_message(context)
-            suggestion = response.text.strip()
+            # Real API (Layer 1, "Simple Agent" in the SDK's own README):
+            # Agent is an async context manager, .chat() is async, and the
+            # response text is itself awaited -- none of which the previous
+            # Conversation(agent=agent).send_message() shape provided, because
+            # that shape isn't part of the real SDK at all.
+            async with Agent(config) as agent:
+                response = await agent.chat(context)
+                suggestion = (await response.text()).strip()
         else:
             suggestion = await direct_llm_fallback(req, likes, dislikes)
 
