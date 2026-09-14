@@ -55,6 +55,26 @@ services:
     networks:
       - appnet
 
+  # Jarvis (rider AI concierge, ../../services/jarvis) had a real Dockerfile
+  # but was never wired into this stack -- docker-compose up here would
+  # start Caddy/Kuma/Redis/worker and nothing would ever be listening on
+  # :8000, so ai_concierge_proactive's calls to JARVIS_SERVICE_URL would
+  # always fail over to its deterministic fallback, forever, even with a
+  # VPS fully provisioned. Added so it starts with everything else.
+  jarvis:
+    build:
+      context: ../../services/jarvis
+    container_name: g-taxi-jarvis
+    restart: unless-stopped
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      JARVIS_SECRET: ${JARVIS_SECRET:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      PORT: "8000"
+    networks:
+      - appnet
+
 networks:
   appnet:
     driver: bridge

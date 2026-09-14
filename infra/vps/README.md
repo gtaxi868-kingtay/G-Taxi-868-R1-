@@ -8,9 +8,20 @@ This directory is a minimal operational base for a small VPS before you scale in
 - Uptime Kuma for uptime monitoring
 - Redis for background queues and lightweight caching
 - A minimal Python worker container that can be extended later
+- Jarvis (`../../services/jarvis`), the rider AI concierge, reverse-proxied at `/jarvis/*`
 - A clean `.env` pattern for secrets
 
 This is intentionally lean. It is not a large-scale AI platform yet; it is a stable foundation for operational work.
+
+## Wiring up Jarvis once this stack is running
+
+1. Set `JARVIS_SECRET` and `GROQ_API_KEY` in `.env` (see `.env.example`).
+2. `sudo docker compose up -d --build` — this now also builds and starts the `jarvis` container.
+3. In Supabase edge function secrets, set:
+   - `JARVIS_SERVICE_URL=https://your-domain.com/jarvis/concierge`
+   - `JARVIS_SECRET=` (same value as in this stack's `.env`)
+4. Redeploy `ai_concierge_proactive` (`supabase functions deploy ai_concierge_proactive`) so it picks up the new env vars — Supabase edge functions read secrets at cold start, not per-request.
+5. Confirm with `curl https://your-domain.com/jarvis/health` — should return `{"status":"healthy",...}`.
 
 ## Prerequisites
 
