@@ -804,6 +804,71 @@ Deno.serve(async (req) => {
         }
       }
 
+      // The "personalized keychain" -- identity_tags binds one physical NFC
+      // fob to one rider's account, so a merchant tapping it with their own
+      // phone (merchant_nfc_charge) or the rider tapping their own phone at a
+      // kiosk (rider_nfc_pay) resolves straight to their wallet. That
+      // charging path has existed and worked all along; what never existed
+      // was any way to actually CREATE the row -- confirmed live: 0 rows in
+      // identity_tags, and no RLS policy grants any role but admin (via
+      // service role here) the ability to insert one.
+      case 'issue_identity_tag': {
+        const { tag_uid, profile_id, replace_existing } = body
+        if (!tag_uid || !profile_id) return json({ success: false, error: 'tag_uid and profile_id required' }, 400)
+
+        const { data: profile, error: profileErr } = await supabaseAdmin
+          .from('profiles').select('id, full_name').eq('id', profile_id).maybeSingle()
+        if (profileErr) throw profileErr
+        if (!profile) return json({ success: false, error: 'No profile found for that user' }, 404)
+
+        // A physical tag already bound to someone else must be explicitly
+        // deactivated first, never silently reassigned -- that would let a
+        // found/stolen fob get re-pointed at a different wallet by mistake.
+        const { data: existingTag, error: existingErr } = await supabaseAdmin
+          .from('identity_tags').select('id, profile_id, is_active').eq('tag_uid', tag_uid).maybeSingle()
+        if (existingErr) throw existingErr
+        if (existingTag && existingTag.is_active && existingTag.profile_id !== profile_id) {
+          return json({ success: false, error: 'This physical tag is already bound to a different account. Deactivate it first if reissuing.' }, 409)
+        }
+
+        // A rider with two live tags makes "which one paid" ambiguous --
+        // replacing (lost keychain, new one issued) is the normal case, so
+        // require an explicit flag rather than silently stacking tags.
+        if (!replace_existing) {
+          const { data: current, error: currentErr } = await supabaseAdmin
+            .from('identity_tags').select('id').eq('profile_id', profile_id).eq('is_active', true)
+          if (currentErr) throw currentErr
+          if (current?.length) {
+            return json({ success: false, error: 'This rider already has an active tag. Confirm reissue to deactivate it and issue this one.', existing_count: current.length }, 409)
+          }
+        } else {
+          const { error: deactivateErr } = await supabaseAdmin
+            .from('identity_tags').update({ is_active: false }).eq('profile_id', profile_id).eq('is_active', true)
+          if (deactivateErr) throw deactivateErr
+        }
+
+        const { data, error } = existingTag
+          ? await supabaseAdmin.from('identity_tags')
+              .update({ profile_id, is_active: true, tag_type: 'keychain' })
+              .eq('id', existingTag.id).select().single()
+          : await supabaseAdmin.from('identity_tags')
+              .insert({ tag_uid, profile_id, tag_type: 'keychain', is_active: true })
+              .select().single()
+        if (error) throw error
+        return json({ success: true, tag: data, rider_name: profile.full_name })
+      }
+
+      case 'search_riders': {
+        const q = String(body.q || '').trim()
+        if (q.length < 2) return json({ success: true, riders: [] })
+        const { data, error } = await supabaseAdmin
+          .from('profiles').select('id, full_name, email, phone_number')
+          .or(`full_name.ilike.%${q}%,phone_number.ilike.%${q}%,email.ilike.%${q}%`)
+          .limit(10)
+        if (error) throw error
+        return json({ success: true, riders: data })
+      }
+
       case 'manage_puck_inventory': {
         const VALID_LIFECYCLE = ['manufactured', 'assigned', 'activated', 'live', 'suspended', 'replaced']
         const { node, node_id } = body
