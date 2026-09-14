@@ -72,6 +72,11 @@ const MANUAL_ACK_TYPES = new Set([
     // Support-filed refunds have no automated handler — a human actually
     // issues the refund via Stripe/WiPay/wallet. Approving acknowledges it.
     "refund",
+    // Filed by g_driver_concierge's flag_concern tool (safety, pay question,
+    // or general feedback from a driver). No automated handler by design —
+    // this only ever needs a human to see it and act manually; "approving"
+    // means "seen," not "system did something."
+    "driver_concern",
 ]);
 
 const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResult>> = {
