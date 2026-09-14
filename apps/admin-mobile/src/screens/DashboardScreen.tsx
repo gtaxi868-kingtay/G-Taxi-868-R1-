@@ -252,6 +252,13 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               <Ionicons name="keypad-outline" size={18} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
             <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('IssueKeychain'); }}
+              style={styles.iconBtn}
+              accessibilityLabel="Issue Keychain"
+            >
+              <Ionicons name="key-outline" size={18} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() => {
                 Alert.alert(
                   'Delete Account',
