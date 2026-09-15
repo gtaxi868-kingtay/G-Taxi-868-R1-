@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://gtaxi.tt/sitemap.xml
+Sitemap: https://g-taxi-868-r1-admin.vercel.app/sitemap.xml
