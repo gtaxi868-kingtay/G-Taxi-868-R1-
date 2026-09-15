@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://g-taxi-868-r1-admin.vercel.app/sitemap.xml
