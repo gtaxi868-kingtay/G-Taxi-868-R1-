@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<!--
+  DRAFT — GENERATED FROM THE G-TAXI CODEBASE AND LIVE DATABASE (2026-09-11).
+  This is not legal advice. It MUST be reviewed and approved by a lawyer
+  qualified in Trinidad and Tobago before launch.
+
+  Every statement about data handling was checked against code or the live
+  database. Items the code does not define are written neutrally and listed
+  in the drafting report. Placeholders to replace before publishing:
+    [[COMPANY LEGAL NAME]]  [[REGISTERED ADDRESS]]  [[CONTACT EMAIL]]  [[EFFECTIVE DATE]]
+  If the code changes (new provider, new data field, different retention
+  period), this page must change with it.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy | G 868</title>
+<meta name="description" content="How G-Taxi (G 868) collects, uses, shares and deletes personal information across the website and the Rider, Driver, Merchant and Admin apps.">
+<link rel="canonical" href="https://gtaxi.tt/legal/privacy">
+<meta name="theme-color" content="#07070F">
+<link rel="icon" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Manrope:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07070F;
+  --ink:#EAF3F6;
+  --ink-2:rgba(234,243,246,.82);
+  --muted:rgba(234,243,246,.64);
+  --line:rgba(255,255,255,.11);
+  --panel:rgba(255,255,255,.035);
+  --cyan:#34E6EC;
+  --violet:#7c3aed;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  background:var(--bg);
+  background-image:
+    radial-gradient(900px 520px at 12% -8%,rgba(124,58,237,.22),transparent 62%),
+    radial-gradient(760px 480px at 100% 0%,rgba(52,230,236,.07),transparent 60%);
+  background-repeat:no-repeat;
+  color:var(--ink-2);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:1.0625rem;line-height:1.72;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--cyan);text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{color:#fff}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:4px}
+.skip{position:absolute;left:-9999px;top:0;background:var(--cyan);color:#06131A;padding:.6rem 1rem;border-radius:0 0 10px 0;font-weight:600;z-index:10}
+.skip:focus{left:0}
+
+.site-header{border-bottom:1px solid var(--line)}
+.site-header .inner{max-width:1080px;margin:0 auto;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.brand{display:flex;align-items:center;gap:.6rem;color:var(--ink);text-decoration:none}
+.brand img{width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 4px 14px rgba(52,230,236,.25))}
+.brand span{font-family:'Outfit',sans-serif;font-weight:800;letter-spacing:.02em;font-size:1.1rem}
+.header-links{display:flex;gap:1.1rem;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem}
+.header-links a{color:var(--muted);text-decoration:none}
+.header-links a:hover,.header-links a[aria-current="page"]{color:var(--ink)}
+
+main{max-width:760px;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+.eyebrow{font-family:'Manrope',sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan)}
+h1{font-family:'Outfit',sans-serif;font-weight:800;color:var(--ink);font-size:clamp(2.1rem,7vw,3.1rem);line-height:1.05;letter-spacing:-.02em;margin:.5rem 0 .9rem}
+.lit{width:120px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--violet),var(--cyan));margin:0 0 1.2rem}
+.meta{color:var(--muted);font-size:.92rem}
+.lede{font-size:1.12rem;color:var(--ink-2);margin:1.4rem 0 0}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:1.3rem 1.4rem;margin:2rem 0}
+.card h2{margin-top:0;font-size:1.15rem}
+.card ul{margin-bottom:0}
+.toc ol{margin:.6rem 0 0 1.2rem;columns:1}
+@media (min-width:640px){.toc ol{columns:2;column-gap:2.2rem}}
+.toc li{margin:.2rem 0;break-inside:avoid}
+.toc a{color:var(--ink-2);text-decoration:none}
+.toc a:hover{color:var(--cyan);text-decoration:underline}
+
+h2{font-family:'Outfit',sans-serif;font-weight:700;color:var(--ink);font-size:clamp(1.4rem,4.4vw,1.7rem);line-height:1.2;letter-spacing:-.01em;margin:3rem 0 .8rem;scroll-margin-top:1.5rem}
+h3{font-family:'Manrope',sans-serif;font-weight:700;color:var(--ink);font-size:1.08rem;margin:1.8rem 0 .5rem;scroll-margin-top:1.5rem}
+p{margin:0 0 1rem}
+ul,ol{margin:0 0 1rem 1.25rem}
+li{margin:.3rem 0}
+li::marker{color:rgba(52,230,236,.75)}
+strong{color:var(--ink);font-weight:600}
+
+.table-wrap{overflow-x:auto;margin:1rem 0 1.4rem;border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:.95rem;line-height:1.55}
+th,td{text-align:left;vertical-align:top;padding:.75rem .9rem;border-bottom:1px solid var(--line)}
+th{font-family:'Manrope',sans-serif;font-weight:700;color:var(--ink);background:rgba(255,255,255,.04);font-size:.85rem;letter-spacing:.02em}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--ink);font-weight:500}
+
+.site-footer{border-top:1px solid var(--line)}
+.site-footer .inner{max-width:1080px;margin:0 auto;padding:1.6rem 1.25rem 2.2rem;display:flex;flex-wrap:wrap;gap:.8rem 1.6rem;align-items:center;justify-content:space-between;color:var(--muted);font-size:.9rem}
+.site-footer nav{display:flex;flex-wrap:wrap;gap:1.2rem}
+.site-footer a{color:var(--ink-2)}
+
+@media print{
+  body{background:#fff;color:#111;font-size:11pt}
+  h1,h2,h3,strong,td:first-child{color:#000}
+  a{color:#000}
+  .site-header,.site-footer,.skip,.lit{display:none}
+  .card,.table-wrap{border-color:#bbb}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="/" aria-label="G 868 home">
+      <img src="/logo.png" alt="" width="32" height="32">
+      <span>G 868</span>
+    </a>
+    <nav class="header-links" aria-label="Legal">
+      <a href="/legal/privacy" aria-current="page">Privacy</a>
+      <a href="/legal/terms">Terms</a>
+    </nav>
+  </div>
+</header>
+
+<main id="content">
+  <p class="eyebrow">Legal</p>
+  <h1>Privacy Policy</h1>
+  <div class="lit" aria-hidden="true"></div>
+  <p class="meta">Effective date: [[EFFECTIVE DATE]]</p>
+
+  <p class="lede">This policy explains what personal information [[COMPANY LEGAL NAME]] (“G-Taxi”, “G 868”, “we”, “us”) collects through the website at gtaxi.tt and the G-Taxi Rider, Driver, Merchant and Admin apps. It covers what we do with that information, who else receives it, how long we keep it, and the choices you have.</p>
+
+  <section class="card" aria-labelledby="summary">
+    <h2 id="summary">The short version</h2>
+    <ul>
+      <li>We collect what we need to run rides, deliveries, payments and travel bookings. That includes precise location while you use those services, and a driver’s location whenever they are online.</li>
+      <li>We never receive or store your full card number or security code. Card details are entered directly with Stripe or WiPay.</li>
+      <li>Some features send information to outside AI services. G, our AI assistant, can suggest business actions, but anything involving money must be approved by a human administrator before it happens.</li>
+      <li>Our main database is hosted in the United States.</li>
+      <li>Several kinds of data are deleted, or stripped of the details that identify you, automatically on a fixed schedule (see <a href="#retention">section 9</a>).</li>
+      <li>You can ask for a copy of your information, correct it, or ask us to delete your account.</li>
+    </ul>
+  </section>
+
+  <nav class="card toc" aria-labelledby="toc-title">
+    <h2 id="toc-title">Contents</h2>
+    <ol>
+      <li><a href="#who-we-are">Who we are</a></li>
+      <li><a href="#collect">Information we collect</a></li>
+      <li><a href="#use">How we use information</a></li>
+      <li><a href="#ai">AI and automated processing</a></li>
+      <li><a href="#other-people">Who else can see your information</a></li>
+      <li><a href="#providers">Service providers</a></li>
+      <li><a href="#transfers">Data stored outside Trinidad and Tobago</a></li>
+      <li><a href="#cookies">Cookies and website storage</a></li>
+      <li><a href="#retention">How long we keep information</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#rights">Your rights and choices</a></li>
+      <li><a href="#children">Children</a></li>
+      <li><a href="#changes">Changes to this policy</a></li>
+      <li><a href="#contact">Contact us</a></li>
+    </ol>
+  </nav>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="who-we-are">1. Who we are</h2>
+  <p>G-Taxi is a platform in Trinidad and Tobago. It connects riders with independent drivers, lets people order from local merchants for delivery, sells G-Escape group travel packages, and runs a network of “G nodes”: NFC tap points and QR codes at partner locations, set up by area leads called G-Leads.</p>
+  <p>[[COMPANY LEGAL NAME]] is responsible for the personal information described in this policy. Our registered address is [[REGISTERED ADDRESS]].</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="collect">2. Information we collect</h2>
+  <p>What we collect depends on how you use G-Taxi. Most of it comes from you. Some is created as you use the service, such as ride records and location, and some comes from other users, such as a rating a driver gives you.</p>
+
+  <h3 id="collect-website">2.1 Visiting the website</h3>
+  <p>When you load gtaxi.tt, your browser connects to our website host (Vercel) and to Google Fonts, which supplies the typefaces. On the home page it also connects to jsDelivr, which supplies an animation library. Each of these receives your IP address and standard browser information, such as browser type and the page requested.</p>
+  <p>The home page also contacts our backend (Supabase) to load our support WhatsApp number. If you arrived by scanning a G-Taxi QR code or tapping an NFC tag, the tag or location code in the link is sent too, so we can show you the right place. Website analytics are covered in <a href="#cookies">section 8</a>.</p>
+
+  <h3 id="collect-waitlist">2.2 Joining the waitlist</h3>
+  <p>The waitlist form asks for your <strong>name</strong>, <strong>WhatsApp number</strong>, <strong>community</strong> and the <strong>role</strong> you are joining as (Rider, Driver, G-Partner or G-Lead). We also record that the sign-up came from the website.</p>
+  <p>When our team follows up, we may add when you were contacted and by whom, whether you were approved, which G-Lead covers your area, and any details you give us, such as your vehicle for driving or your business type for a store.</p>
+
+  <h3 id="collect-account">2.3 Creating an account</h3>
+  <ul>
+    <li>Name, email address, phone number and password. Passwords are handled by our authentication provider and are not visible to us in plain text.</li>
+    <li>Your role (rider, driver, merchant, G-Lead or administrator), and a profile photo if you add one.</li>
+    <li>A record that you accepted the Terms and this Privacy Policy, with the date and time.</li>
+    <li>Any referral code or G-Lead code you enter when signing up, and who referred you.</li>
+    <li>Your device’s push notification token and your notification settings.</li>
+  </ul>
+
+  <h3 id="collect-riders">2.4 Riders</h3>
+  <ul>
+    <li>Pickup, drop-off and stop addresses and map coordinates, plus scheduled ride times.</li>
+    <li>Ride history: route, distance, duration, vehicle class, fare, waiting charges, payment method, tips and cancellations.</li>
+    <li>Saved places (for example “Home”) with their address and coordinates.</li>
+    <li>An emergency contact’s name and phone number, if you add one.</li>
+    <li>A selfie, if the app asks you to verify yourself before a ride. The photo is stored in a private storage area, and your phone remembers that the device has been verified.</li>
+    <li>Grocery and merchant orders, delivery addresses, cart contents and appointment bookings.</li>
+    <li>Photos you take with the product scanner or the photo-based pickup finder (see <a href="#collect-ai">2.13</a>).</li>
+    <li>Ride and assistant preferences (for example a quiet ride, routes to avoid, AI settings), drivers you prefer, people you block, and members of family or trusted-contact groups you set up.</li>
+    <li>Your progress and rewards, frequent places, and the merchants you use. These are built from your activity and used for suggestions and rewards.</li>
+  </ul>
+
+  <h3 id="collect-drivers">2.5 Drivers</h3>
+  <ul>
+    <li>Name, phone number, vehicle model, plate number, vehicle class and registration class.</li>
+    <li>Photos of the front and back of your driving licence and of your vehicle.</li>
+    <li>Compliance documents you submit (insurance, licence, vehicle registration, PSV badge), with expiry dates and the outcome of our review.</li>
+    <li>Emergency contact details, and bank account details for payouts.</li>
+    <li>Earnings, payouts, platform fees, amounts owed, acceptance rate and ratings.</li>
+    <li>Online status and location, including a trail of location points (see <a href="#collect-location">2.10</a>), plus records of location readings our systems flag as implausible.</li>
+    <li>Photos of receipts you upload in the wallet.</li>
+    <li>If you apply for a vehicle lease or savings plan: your signed consent to earnings deductions (with version and date), an earnings summary (number of rides, total and average earnings) sent as proof of income, and your savings balance. If you ask about buying a vehicle, we also keep that request.</li>
+  </ul>
+
+  <h3 id="collect-merchants">2.6 Merchants</h3>
+  <ul>
+    <li>Business name, login email and password.</li>
+    <li>Business address, map location, category, opening hours, delivery settings and photos.</li>
+    <li>Staff accounts linked to your store.</li>
+    <li>Payout bank details (bank, account holder, account number, account type), if you provide them.</li>
+    <li>Orders, commissions, fees, billing and any rider discount you choose to offer.</li>
+    <li>For rides you book on a customer’s behalf, the customer’s phone number and any name or note you enter.</li>
+  </ul>
+
+  <h3 id="collect-leads">2.7 G-Leads</h3>
+  <p>Phone and WhatsApp numbers, the area you are applying for, application and review status, the reference for your application payment, your territory, the drivers and merchants you recruit, revenue share, and payout details.</p>
+
+  <h3 id="collect-escape">2.8 G-Escape travel</h3>
+  <ul>
+    <li>Booking details: package, number of guests, price, payment method and references, airport-transfer pickup address and coordinates, special requests and booking reference.</li>
+    <li>Travel document details you submit for the airline booking: full name as on your passport, date of birth, gender, nationality, passport number, issue date, expiry date and place of issue, place of birth, email, phone, emergency contact and dietary notes.</li>
+    <li>Passenger names and a passport image, where these are added to a booking.</li>
+    <li>Routes you have registered interest in.</li>
+  </ul>
+
+  <h3 id="collect-payments">2.9 Payments, wallet and cash codes</h3>
+  <ul>
+    <li><strong>Cards through Stripe:</strong> you enter card details into Stripe’s payment form, not ours. We keep a Stripe customer ID and payment references. When you pay by card, Stripe saves the card to your Stripe customer record so it can be used for later rides.</li>
+    <li><strong>Cards through WiPay:</strong> you enter card details on WiPay’s payment page. We keep the order and transaction references.</li>
+    <li><strong>We do not store card numbers or security codes</strong> anywhere in our systems.</li>
+    <li><strong>Wallet:</strong> every credit and debit, including top-ups, fares, tips, refunds, cancellation fees, rewards and withdrawals.</li>
+    <li><strong>Cash withdrawal codes:</strong> the amount, fee, code, the driver who redeems it, and when it was created, redeemed or expired.</li>
+    <li><strong>Split payments:</strong> who joined a split and each person’s share.</li>
+    <li><strong>Withdrawal requests:</strong> amount, fee, the phone number given, and bank reference.</li>
+  </ul>
+
+  <h3 id="collect-location">2.10 Location</h3>
+  <ul>
+    <li><strong>Riders:</strong> with your permission, the Rider app uses your precise location while the app is open, to show where you are, set your pickup and show your trip on the map. It does not ask for background location. What we store is the pickup, drop-off and stop locations on each ride, plus your coordinates if you use the photo-based pickup finder.</li>
+    <li><strong>Drivers:</strong> while you are online, the Driver app sends your precise location, heading and speed, <strong>including when the app is in the background</strong>. We store your current position and a trail of location points. We use them for dispatch, fares, safety monitoring, dispute resolution and detecting falsified locations.</li>
+    <li><strong>Merchants:</strong> your store’s location.</li>
+    <li><strong>Website visitors:</strong> we do not request your location. Your IP address may indicate roughly where you are.</li>
+  </ul>
+
+  <h3 id="collect-safety">2.11 Safety and SOS</h3>
+  <p>If a rider presses SOS during a ride, we create an incident record. It holds the ride, rider and driver, the time, the rider’s and driver’s names, the driver’s phone number and the driver’s location.</p>
+  <p>We send a WhatsApp message to the rider’s emergency contact, if one is saved. It includes the rider’s name, the driver’s name and phone number, and the location. If no contact is saved, we send the rider a confirmation instead.</p>
+  <p>Our systems also run automatic safety checks on trips and deliveries. These record safety events linked to an area, and at first to the driver, ride or order involved. We also keep reports that users file about each other.</p>
+
+  <h3 id="collect-messages">2.12 Messages, ratings and support</h3>
+  <ul>
+    <li>In-trip chat messages between rider and driver.</li>
+    <li>Ratings and optional comments.</li>
+    <li>Support requests and disputes: subject, description, category, the ride involved, our notes, and any refund decision.</li>
+    <li>WhatsApp messages and push notifications we send you, and their delivery receipts.</li>
+  </ul>
+
+  <h3 id="collect-ai">2.13 AI features and voice commands</h3>
+  <ul>
+    <li><strong>Voice and typed commands</strong> on the Rider home screen: we receive the words as text. The app does not upload audio recordings.</li>
+    <li><strong>Chat with G</strong> (the rider assistant): the messages you send, up to 1,000 characters each. Suggestions are on by default and can be turned off. G’s memory is <strong>off by default</strong>. If you switch it on, G saves short notes about your preferences, and it can set reminders you ask for.</li>
+    <li><strong>Photos</strong> you send to identify a product, or to work out your pickup spot from your surroundings.</li>
+    <li><strong>Personalised greetings</strong> built from your first name and ride patterns.</li>
+  </ul>
+
+  <h3 id="collect-nfc">2.14 NFC taps and QR codes</h3>
+  <p>When you tap a G node, a G-Taxi tag or an event wristband, or scan a G-Taxi QR code, we record the tag ID, the location or merchant it belongs to, your account (if you are signed in), the type of event, the time and the result.</p>
+  <p>Tags and wristbands can be linked to your profile. We also use taps to check that a ride really started at a partner location before crediting that merchant.</p>
+
+  <h3 id="collect-technical">2.15 Device and technical information</h3>
+  <p>This includes push notification tokens, and browser or device details recorded when you accept a policy. It also includes records used to limit repeated requests, error reports, and server logs kept by our hosting providers. For administrator accounts, we keep an audit log of actions, including IP address.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="use">3. How we use information</h2>
+  <ul>
+    <li><strong>To provide the service:</strong> matching riders with drivers, dispatching deliveries, running G-Escape bookings, processing payments and keeping your wallet.</li>
+    <li><strong>To calculate fares and pay people:</strong> splitting each payment between the driver, the platform, a capital reserve, and where applicable the G-Lead and partner merchant.</li>
+    <li><strong>To verify people:</strong> reviewing driver documents and approving merchants, merchant locations and G-Lead applications.</li>
+    <li><strong>For safety:</strong> SOS alerts, trip safety checks, identity checks before rides, and investigating incidents.</li>
+    <li><strong>To prevent fraud and abuse:</strong> detecting falsified locations, repeated cancellations, false merchant attribution and misuse of referral rewards.</li>
+    <li><strong>For support and disputes:</strong> answering requests, reviewing fares and deciding refunds.</li>
+    <li><strong>To communicate:</strong> ride updates, receipts, booking confirmations, reminders and personalised daily notifications, sent by push notification or WhatsApp.</li>
+    <li><strong>To personalise:</strong> saved places, suggested stops and merchants, greetings and rewards.</li>
+    <li><strong>To plan and improve:</strong> demand forecasts, deciding when to open a community, and internal business reporting.</li>
+    <li><strong>To meet legal duties:</strong> keeping financial records and responding to lawful requests.</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="ai">4. AI and automated processing</h2>
+  <p><strong>Rider assistant and voice commands.</strong> Your message or command is sent to an outside AI service, together with context such as the names and addresses of your saved places, merchants you have used recently, and your first name. G’s answers can be wrong, so check a suggestion before relying on it.</p>
+  <p><strong>G, the operations assistant.</strong> G helps our team by reading business records and proposing actions. Those records include ride and payment totals, open support requests and their contents, and driver compliance details such as names and plate numbers. Anything G proposes goes to an approval inbox. It does nothing until an administrator approves it, and approved actions run through fixed, reviewed code, not through the AI. Nothing G proposes that involves money can happen without that human approval.</p>
+  <p><strong>Photos.</strong> Product photos and pickup-spot photos are sent to Google’s Gemini service. Driver receipt photos are sent to Google Cloud Vision to read the text.</p>
+  <p><strong>Automated rules that affect you.</strong> Some decisions are made automatically by fixed rules, not AI:</p>
+  <ul>
+    <li>Prices can rise in busy areas.</li>
+    <li>Riders may be charged a cancellation fee in the situations described in the Terms.</li>
+    <li>A driver’s acceptance rate drops when they cancel a ride they accepted.</li>
+    <li>A driver account can be suspended pending review if our systems detect falsified location readings.</li>
+  </ul>
+  <p>If you think an automated decision about you is wrong, contact support and a person will review it.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="other-people">5. Who else can see your information</h2>
+  <ul>
+    <li><strong>Riders and drivers on a trip.</strong> During an active ride, each can see the other’s name and the information needed to complete the trip: pickup and drop-off, vehicle and plate, live driver location, and in-app chat. A driver can see the assigned rider’s profile only while the ride is in progress.</li>
+    <li><strong>Merchants</strong> see the orders placed with them and the delivery details needed to fulfil them.</li>
+    <li><strong>G-Leads</strong> see the drivers and merchants in their territory and the performance and earnings information behind their revenue share.</li>
+    <li><strong>Your emergency contact</strong> receives the SOS alert described in <a href="#collect-safety">2.11</a>.</li>
+    <li><strong>Customers of merchant-booked rides</strong> receive a WhatsApp message with trip tracking details.</li>
+    <li><strong>Other people in a split payment</strong> see the split and each share.</li>
+    <li><strong>Vehicle financing partners and car dealers</strong> receive your lease application, earnings summary or vehicle purchase request, if you apply or ask.</li>
+    <li><strong>Airlines, accommodation and transfer providers</strong> receive the traveller details needed to complete a G-Escape booking.</li>
+    <li><strong>Our staff</strong> can access information when needed to run and support the service. Administrator actions are logged.</li>
+    <li><strong>Authorities</strong>, when the law requires it, or when needed to protect someone’s safety or investigate fraud.</li>
+  </ul>
+  <p>We do not sell personal information.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="providers">6. Service providers</h2>
+  <p>We use the outside services below to run G-Taxi. They receive only the information needed for their part of the work. Some are being switched on as we approach launch, so a service listed here may not yet be active.</p>
+  <div class="table-wrap" role="region" aria-label="Service providers" tabindex="0">
+    <table>
+      <thead>
+        <tr><th scope="col">Provider</th><th scope="col">What it does for us</th><th scope="col">What it receives</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Supabase</td><td>Database, sign-in, file storage and server functions</td><td>All account, ride, order, booking, wallet, location and uploaded-file data described above. Hosted in the United States.</td></tr>
+        <tr><td>Vercel</td><td>Hosts the gtaxi.tt website</td><td>IP address, browser details and pages requested</td></tr>
+        <tr><td>Google (Analytics)</td><td>Website analytics, only if you accept</td><td>IP address, browser and device details, pages viewed and actions taken on the website; a cookie identifying your browser across visits, if you accept</td></tr>
+        <tr><td>Google Fonts</td><td>Typefaces on the website</td><td>IP address and browser details when a page loads</td></tr>
+        <tr><td>jsDelivr</td><td>Animation library on the home page</td><td>IP address and browser details when the page loads</td></tr>
+        <tr><td>Mapbox</td><td>Maps, directions and place search in the apps</td><td>The map area being viewed, route and stop coordinates, place searches, and your IP address</td></tr>
+        <tr><td>Stripe</td><td>Card payments</td><td>Name, email, account ID, payment amounts, and the card details you enter with Stripe</td></tr>
+        <tr><td>WiPay</td><td>Card payments, G-Lead application payments and payouts</td><td>Payment amount, order reference, and the details you enter on WiPay’s page</td></tr>
+        <tr><td>Groq (or xAI, if we switch providers)</td><td>AI assistant, voice commands, greetings and notification text</td><td>Message and command text, saved place names and addresses, recent merchants, first name, ride patterns; for the operations assistant, business records including support request contents and driver compliance details</td></tr>
+        <tr><td>Google (Gemini)</td><td>Identifying products and pickup spots from photos</td><td>The photo, and your approximate coordinates for pickup-spot photos</td></tr>
+        <tr><td>Google (Cloud Vision)</td><td>Reading receipt photos uploaded by drivers</td><td>The receipt image</td></tr>
+        <tr><td>Meta (WhatsApp Business)</td><td>Service and safety messages</td><td>Phone number and message content</td></tr>
+        <tr><td>Google (Firebase Cloud Messaging) and Expo</td><td>Push notifications</td><td>Device push token, notification text and a ride or order reference</td></tr>
+        <tr><td>Sentry</td><td>Error monitoring</td><td>Error details and technical context, which can include account or ride IDs</td></tr>
+        <tr><td>Upstash</td><td>Fast cache for finding nearby drivers</td><td>Driver ID and current coordinates, set to lapse when the driver stops sending updates</td></tr>
+        <tr><td>Amadeus and Booking.com</td><td>Flight and accommodation availability for G-Escape</td><td>Search details such as routes and dates; no traveller information</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="transfers">7. Data stored outside Trinidad and Tobago</h2>
+  <p>Our database and file storage are hosted by Supabase in the United States. Most of the providers in <a href="#providers">section 6</a> process information outside Trinidad and Tobago, mainly in the United States. By using G-Taxi, your information will be transferred to and stored in those countries, where data protection laws may differ from those of Trinidad and Tobago.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="cookies">8. Cookies and website storage</h2>
+  <p>The gtaxi.tt website does not set cookies or store information in your browser's local storage for tracking unless you accept analytics below. We do store your accept/decline choice itself in local storage, so we do not ask on every visit.</p>
+  <p><strong>Analytics only with your permission.</strong> We use Google Analytics to count visits and see which pages are used. It loads only after you accept analytics in the cookie banner, and it sets cookies in your browser once it does. If you decline, or ignore the banner, nothing loads and no analytics cookie is set. Your choice is remembered on your device, and you can change it at any time.</p>
+  <p><strong>Fonts and libraries.</strong> Whatever you choose, loading the site sends your IP address to Google Fonts and, on the home page, jsDelivr, as described in <a href="#collect-website">2.1</a>.</p>
+  <p><strong>In the apps.</strong> The mobile apps keep your sign-in session in your phone’s secure storage. The Rider app also stores small settings on the device, such as whether the device has been verified.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="retention">9. How long we keep information</h2>
+  <p>The periods below are enforced by automated jobs that run every day. Where an item is not listed, we keep it while your account is active, or until you ask us to delete it, except records we must keep for legal or financial reasons.</p>
+  <div class="table-wrap" role="region" aria-label="Retention periods" tabindex="0">
+    <table>
+      <thead>
+        <tr><th scope="col">Information</th><th scope="col">What happens, and when</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>G-Escape travel document details (passport number, date of birth, emergency contact and so on)</td><td>Deleted 90 days after the later of when you submitted them or your return flight</td></tr>
+        <tr><td>Passenger names and passport image on a G-Escape booking</td><td>Removed 90 days after the flight. The booking itself is kept as a financial record.</td></tr>
+        <tr><td>Written pickup and drop-off addresses on completed rides</td><td>Removed one year after the ride, unless an open safety incident or support request involves that ride. The fare, date and other trip details, including map coordinates, are kept.</td></tr>
+        <tr><td>Driver location trail</td><td>Points not linked to a ride are deleted after 24 hours. All points are deleted after 90 days.</td></tr>
+        <tr><td>In-trip chat messages</td><td>Deleted after 90 days, unless an open support request involves that ride</td></tr>
+        <tr><td>Driver, ride or order link on a safety observation</td><td>Removed after 90 days. The observation stays on the safety map without it.</td></tr>
+        <tr><td>Names, phone numbers and coordinates inside an SOS incident record</td><td>Removed once the incident is resolved and two years have passed since it was created. The incident record itself is kept.</td></tr>
+        <tr><td>Push notification delivery receipts</td><td>Deleted after 90 days</td></tr>
+        <tr><td>Reminders from G that have already been delivered</td><td>Deleted after 90 days</td></tr>
+        <tr><td>IP addresses in the administrator audit log</td><td>Removed after one year</td></tr>
+        <tr><td>Unredeemed cash withdrawal codes</td><td>Expire after 2 hours; the amount is refunded to your wallet automatically</td></tr>
+        <tr><td>Your account after a deletion request</td><td>See <a href="#rights-delete">section 11</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="security">10. Security</h2>
+  <p>We protect information with access controls in the database, so each user can reach only their own records and what they need for an active trip. Money-moving operations and administrator functions run on the server, where every request is checked against the signed-in account. Identity documents, verification photos and receipts are kept in private storage.</p>
+  <p>Card details are handled by Stripe and WiPay, not by us. Administrator actions are logged. No system is perfectly secure, so please keep your password private and tell us straight away if you think your account has been misused.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="rights">11. Your rights and choices</h2>
+  <h3 id="rights-law">About the law</h3>
+  <p>Trinidad and Tobago’s Data Protection Act, 2011 has only been partly brought into force. Some of its provisions, including those that would give individuals enforceable rights against private companies through the Information Commissioner, have not yet been proclaimed. Whatever the legal position, we offer the choices below and follow the Act’s general privacy principles.</p>
+  <!-- LAWYER: confirm exactly which provisions of the Data Protection Act, 2011 are proclaimed as at the effective date, and adjust this paragraph. -->
+
+  <h3 id="rights-access">Access and correction</h3>
+  <p>You can see and edit most of your profile in the app. To get a copy of the personal information we hold about you, or to correct something you cannot change yourself, email [[CONTACT EMAIL]] from the address on your account. We may need to confirm your identity before acting on the request.</p>
+
+  <h3 id="rights-delete">Deleting your account</h3>
+  <!--
+    OWNER / ENGINEERING — PRE-LAUNCH BLOCKER: this section describes the
+    database's deletion process (request_account_deletion → 30-day grace →
+    purge_expired_personal_data → anonymise_user). Every app's "Delete account"
+    button currently calls the delete_account edge function instead, which
+    tries to hard-delete the sign-in record. Many tables reference that record
+    with ON DELETE NO ACTION (wallet_transactions, package_reservations,
+    ride_messages, saved_places, passenger_details and others), so that call
+    will likely fail for any user with activity. Wire the app buttons to
+    request_account_deletion before this page goes live, or rewrite this section.
+  -->
+  <p>You can ask to delete your account from the profile screen in the app, or by emailing [[CONTACT EMAIL]]. After you ask, there is a <strong>30-day window</strong> during which you can change your mind. After that, we remove the information that identifies you:</p>
+  <ul>
+    <li>Your name, email, phone number, profile photo, push token, emergency contact, hashed ID number and linked NFC tag, all removed or replaced with a placeholder.</li>
+    <li>For drivers: name, phone number, emergency contact, bank details on the driver profile, and location.</li>
+    <li>Saved places, G’s memory and reminders, G-Escape travel document details, pickup and drop-off addresses on your rides, and chat messages you sent.</li>
+    <li>Files you uploaded to profile photos, receipts, verification photos and merchant intake photos, which are queued for deletion.</li>
+  </ul>
+  <p><strong>What we keep.</strong> We keep records we need for legal and financial reasons, such as fares, wallet transactions and booking records, with your identity removed. Deletion is paused while a safety incident or an unresolved support request involving you is still open.</p>
+  <p><strong>Your wallet.</strong> Withdraw any wallet balance before the 30-day window ends. It cannot be returned afterwards.</p>
+  <p><strong>Not yet covered automatically.</strong> Driver licence and vehicle photos, compliance documents, payout bank account records held separately from the driver profile, merchant payout details, and waitlist entries are not yet removed by this process. Tell us if you want them removed and we will review the request, subject to records we must keep.</p>
+
+  <h3 id="rights-choices">Other choices</h3>
+  <ul>
+    <li><strong>AI:</strong> turn G’s suggestions or memory off in the app, or use “forget” to delete G’s saved memory and pending reminders straight away.</li>
+    <li><strong>Notifications:</strong> change notification settings in the app or in your phone’s settings.</li>
+    <li><strong>Location:</strong> control location permission in your phone’s settings. Rides cannot be booked, and drivers cannot go online, without it.</li>
+    <li><strong>Website analytics:</strong> decline or withdraw consent in the cookie banner.</li>
+    <li><strong>Waitlist:</strong> email [[CONTACT EMAIL]] to be removed.</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="children">12. Children</h2>
+  <p>G-Taxi is not designed for children, and the apps do not currently verify age. If you believe a child has given us personal information, contact us at [[CONTACT EMAIL]].</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="changes">13. Changes to this policy</h2>
+  <p>We will update this policy when the way we handle information changes. The new version will be posted on this page with a new effective date. Where a change is significant, we will also tell you in the app or by message.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="contact">14. Contact us</h2>
+  <p>[[COMPANY LEGAL NAME]]<br>[[REGISTERED ADDRESS]]<br>Email: <a href="mailto:[[CONTACT EMAIL]]">[[CONTACT EMAIL]]</a></p>
+  <p>See also our <a href="/legal/terms">Terms &amp; Conditions</a>.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span>© [[COMPANY LEGAL NAME]]</span>
+    <nav aria-label="Footer">
+      <a href="/">Home</a>
+      <a href="/legal/privacy" aria-current="page">Privacy Policy</a>
+      <a href="/legal/terms">Terms &amp; Conditions</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>
