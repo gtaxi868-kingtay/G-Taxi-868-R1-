@@ -671,6 +671,7 @@ Deno.serve(async (req) => {
           .from('drivers')
           .select('id, user_id, name, phone_number, created_at, status, is_verified, verified_status, vehicle_model, plate_number, insurance_expires_at')
           .or('is_verified.eq.false,status.eq.pending')
+          .neq('verified_status', 'rejected')
           .order('created_at', { ascending: false })
         if (driversError) throw driversError
 
@@ -717,6 +718,44 @@ Deno.serve(async (req) => {
         }))
 
         return json({ pending, count: pending.length, summary: { with_license: pending.filter((d: any) => d.has_license).length, with_insurance: pending.filter((d: any) => d.has_insurance).length, with_vehicle_photo: pending.filter((d: any) => d.has_vehicle_photo).length } })
+      }
+
+      case 'reject_driver': {
+        // DriverApproval.tsx's "Reject" previously only sent a push
+        // notification and dropped the row from local state -- nothing was
+        // written to the database, so get_pending_drivers (which never
+        // filtered out a rejection) handed the same applicant right back on
+        // the next load. verified_status already has a real 'rejected'
+        // value in the live enum; this is the first thing that ever wrote it.
+        const { user_id } = body
+        if (!user_id) return json({ success: false, error: 'user_id is required' }, 400)
+        const { data: existingDriver, error: findError } = await supabaseAdmin
+          .from('drivers').select('id').eq('user_id', user_id).maybeSingle()
+        if (findError) throw findError
+        if (!existingDriver) return json({ success: false, error: 'No driver record found for this user' }, 404)
+        const { error } = await supabaseAdmin
+          .from('drivers')
+          .update({ verified_status: 'rejected', is_verified: false, updated_at: new Date().toISOString() })
+          .eq('user_id', user_id)
+        if (error) throw error
+        return json({ success: true })
+      }
+
+      case 'lookup_drivers_by_phone': {
+        // Backs the "jump to Driver Approval" link on a claimed waitlist
+        // row -- Waitlist.tsx can't read `drivers` directly (no admin-role
+        // SELECT policy; only "own record" and service_role), so this hands
+        // back just enough to render the right badge/link: whether a phone
+        // that claimed a waitlist entry actually has a driver row yet, and
+        // whether it's still awaiting review or already decided.
+        const phones = Array.isArray(body?.phones) ? body.phones.filter((p: unknown) => typeof p === 'string' && p) : []
+        if (phones.length === 0) return json({ success: true, drivers: [] })
+        const { data, error } = await supabaseAdmin
+          .from('drivers')
+          .select('phone_number, verified_status, is_verified')
+          .in('phone_number', phones)
+        if (error) throw error
+        return json({ success: true, drivers: data || [] })
       }
 
       case 'mark_waitlist_contacted': {
