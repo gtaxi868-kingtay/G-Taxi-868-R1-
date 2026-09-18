@@ -14,6 +14,7 @@ export function MerchantJoinWithCode({ onDone, onBack }: { onDone: () => void; o
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [commanderCode, setCommanderCode] = useState('');
+    const [driverReferralCode, setDriverReferralCode] = useState('');
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -46,6 +47,7 @@ export function MerchantJoinWithCode({ onDone, onBack }: { onDone: () => void; o
                     commander_code: commanderCode.trim().toUpperCase(),
                     name: contactName.trim() || businessName.trim(),
                     accepted_terms: acceptedTerms,
+                    driver_referral_code: driverReferralCode.trim() ? driverReferralCode.trim().toUpperCase() : undefined,
                 },
             });
             if (fnErr) throw fnErr;
@@ -133,6 +135,19 @@ export function MerchantJoinWithCode({ onDone, onBack }: { onDone: () => void; o
                             value={password} onChange={e => setPassword(e.target.value)}
                             onFocus={() => setFocused('password')} onBlur={() => setFocused(null)}
                             className="rain-input"
+                        />
+                    </div>
+                </div>
+
+                <div className="rain-field">
+                    <label className={label('referral')}>Friend's Referral Code (optional)</label>
+                    <div className={field('referral')}>
+                        <div className="rain-focus-ring" />
+                        <input
+                            type="text" placeholder="REFERRAL CODE"
+                            value={driverReferralCode} onChange={e => setDriverReferralCode(e.target.value)}
+                            onFocus={() => setFocused('referral')} onBlur={() => setFocused(null)}
+                            className="rain-input" style={{ textTransform: 'uppercase' }}
                         />
                     </div>
                 </div>
