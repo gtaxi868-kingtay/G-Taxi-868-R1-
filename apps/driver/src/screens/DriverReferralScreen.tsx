@@ -22,10 +22,12 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const [code, setCode] = useState<string | null>(null);
+    const [merchantCode, setMerchantCode] = useState<string | null>(null);
     const [earnings, setEarnings] = useState<any[]>([]);
     const [totalEarned, setTotalEarned] = useState(0);
     const [loading, setLoading] = useState(true);
     const [copying, setCopying] = useState(false);
+    const [copyingMerchant, setCopyingMerchant] = useState(false);
 
     const load = useCallback(async () => {
         if (!user) return;
@@ -44,6 +46,21 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                 const { data: newCode } = await supabase
                     .rpc('generate_referral_code', { p_user_id: user.id, p_type: 'driver' });
                 if (newCode) setCode(newCode);
+            }
+
+            const { data: existingMerchant } = await supabase
+                .from('referral_codes')
+                .select('code')
+                .eq('user_id', user.id)
+                .eq('type', 'merchant')
+                .maybeSingle();
+
+            if (existingMerchant?.code) {
+                setMerchantCode(existingMerchant.code);
+            } else {
+                const { data: newMerchantCode } = await supabase
+                    .rpc('generate_referral_code', { p_user_id: user.id, p_type: 'merchant' });
+                if (newMerchantCode) setMerchantCode(newMerchantCode);
             }
 
             const { data: rows } = await supabase
@@ -83,6 +100,23 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
         await Share.share({
             message: `Drive with G-Taxi! Use my driver referral code ${code} when you register — we both earn when you complete rides. Sign up: https://gtaxi.tt/driver`,
             title: 'Drive with G-Taxi',
+        });
+    };
+
+    const copyMerchantCode = async () => {
+        if (!merchantCode) return;
+        setCopyingMerchant(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Clipboard.setString(merchantCode);
+        setTimeout(() => setCopyingMerchant(false), 1500);
+    };
+
+    const shareMerchantCode = async () => {
+        if (!merchantCode) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        await Share.share({
+            message: `Got a business-owning friend? Tell them to join G-Taxi as a merchant with my referral code ${merchantCode} — we both earn when they sign up. Register: https://gtaxi.tt/merchant`,
+            title: 'Refer a Merchant to G-Taxi',
         });
     };
 
@@ -161,6 +195,29 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                                 </View>
                             )}
 
+                            {merchantCode && (
+                                <View style={styles.merchantCard}>
+                                    <View style={styles.merchantHeader}>
+                                        <Ionicons name="storefront-outline" size={20} color="#E6B450" />
+                                        <Text style={styles.merchantTitle}>Know a Business Owner?</Text>
+                                    </View>
+                                    <Text style={styles.merchantSub}>
+                                        Send this code to a friend who owns a business — you both earn when they join as a G-Taxi merchant.
+                                    </Text>
+                                    <View style={styles.merchantCodeRow}>
+                                        <Text style={styles.merchantCodeText}>{merchantCode}</Text>
+                                        <View style={styles.codeActions}>
+                                            <TouchableOpacity style={styles.merchantBtn} onPress={copyMerchantCode}>
+                                                <Ionicons name={copyingMerchant ? 'checkmark' : 'copy-outline'} size={16} color="#E6B450" />
+                                            </TouchableOpacity>
+                                            <TouchableOpacity style={[styles.merchantBtn, styles.merchantShareBtn]} onPress={shareMerchantCode}>
+                                                <Ionicons name="share-social-outline" size={16} color="#08090D" />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </View>
+                            )}
+
                             <View style={styles.statsRow}>
                                 <View style={styles.statBox}>
                                     <Text style={styles.statNum}>{earnings.length}</Text>
@@ -228,6 +285,14 @@ const styles = StyleSheet.create({
     codeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 99, backgroundColor: 'rgba(16,185,129,0.15)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.4)' },
     shareBtn: { backgroundColor: ACCENT, borderColor: ACCENT },
     codeBtnText: { color: ACCENT, fontWeight: '700', fontSize: 14 },
+    merchantCard: { backgroundColor: 'rgba(230,180,80,0.08)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(230,180,80,0.25)', padding: 18 },
+    merchantHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+    merchantTitle: { color: '#EAF3F6', fontWeight: '700', fontSize: 15 },
+    merchantSub: { color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 18, marginBottom: 14 },
+    merchantCodeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    merchantCodeText: { color: '#E6B450', fontSize: 22, fontWeight: '900', letterSpacing: 3 },
+    merchantBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(230,180,80,0.15)', borderWidth: 1, borderColor: 'rgba(230,180,80,0.4)', marginLeft: 8 },
+    merchantShareBtn: { backgroundColor: '#E6B450', borderColor: '#E6B450' },
     statsRow: { flexDirection: 'row', gap: 12 },
     statBox: { flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
     statNum: { color: '#EAF3F6', fontSize: 24, fontWeight: '800' },
