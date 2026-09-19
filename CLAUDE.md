@@ -524,16 +524,39 @@ the job exists, not after.
 
 ## DOMAIN INVARIANTS
 
-The settlement split is **80 / 15 / 1.5** — driver 80%, platform 15%, reserve
-1.5%. The driver drops to 78% where the territory has an active commander.
+There is no fixed platform percentage, by design (confirmed against the
+founder's own notes, `docs/g868-manus-brief.md`, 2026-09-18) — the platform
+keeps whatever is left after driver, commander, reserve, and merchant/node
+are paid. Never state a flat "platform keeps X%" anywhere (marketing copy,
+docs, reports) — the founder's notes explicitly call out **"Any 82/15/3
+split"** and **"3% commission for merchants"** as wrong phrasings to avoid,
+for exactly this reason.
 
-Read these from live `pricing_config` (`DRIVER_SHARE_CENTS`,
-`PLATFORM_RATE_CENTS`, `RESERVE_RATE_CENTS`); never hardcode them.
+The real, founder-confirmed shares:
+  - **Driver: 80%** of the fare (`DRIVER_SHARE_CENTS` = 8000), dropping to
+    **78%** when the ride's driver was recruited by a currently-active
+    commander (the 2% below comes OUT of the driver's pool, not on top of it).
+  - **Commander ("G-Lead") network override: 2%** of the fare
+    (`COMMANDER_REVSHARE_RATE_CENTS` = 200), paid only while that specific
+    recruiter is still an active commander — see `compute_ride_split`'s
+    `v_recruiter_uid` lookup.
+  - **Reserve: 1.5%** of the fare (`RESERVE_RATE_CENTS` = 150).
+  - **Merchant/node ("G-Touch Point") commission: 1% of the platform's
+    take** (`NODE_COMMISSION_RATE_ON_PLATFORM_BPS` = 100), only when the
+    ride's kiosk-node origin is verified (`verify_kiosk_origin()`) — this is
+    a share of what's LEFT after driver/commander/reserve, not 1% of gross,
+    matching the founder's notes ("a share of the platform's take," never a
+    flat merchant commission on gross fare). Fixed from a stale 2% to the
+    correct 1% via migration `20260918120000_fix_merchant_node_commission_rate_to_1pct.sql`.
+  - **Platform: whatever remains** — currently ~18.3-18.5% of gross in the
+    common case, and this number moving when the other four don't is
+    EXPECTED, not a bug. `PLATFORM_RATE_CENTS` (1500) is real config but is
+    only used by `compute_ride_split` as a loyalty-discount reference rate,
+    never to size the platform's actual cut directly — don't "fix" that
+    without checking with the founder first, it already reflects a
+    deliberate design confirmed against his own notes.
 
-**An 82/15/3 split appears in several older documents and in generated
-reports. It is wrong and has never been correct.** It has now been repeated
-in at least three places. If a doc, a summary, or an AI-written report cites
-82/15/3, that document is stale — trust `pricing_config`.
+Read all of these from live `pricing_config`; never hardcode them.
 
 `compute_ride_split` is the single source of truth for the ride split. Any
 change to fare or settlement logic must go through it, must cover BOTH the

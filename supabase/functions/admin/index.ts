@@ -189,13 +189,67 @@ Deno.serve(async (req) => {
       }
 
       case 'get_pending_merchants': {
+        // Was `profiles!inner(...)` -- an inner join on created_by, which
+        // silently excluded every merchant with no owner linked yet (created_by
+        // IS NULL). Those are exactly the merchants an admin most needs to see
+        // here -- they're pending AND ownerless. Left join so they show up
+        // with null owner fields instead of vanishing from the queue.
         const { data: pending, error } = await supabaseAdmin
           .from('merchants')
-          .select('id, name, category, address, lat, lng, activation_status, activated_at, activation_note, created_at, is_active, created_by, profiles!inner(full_name, email)')
+          .select('id, name, category, address, lat, lng, activation_status, activated_at, activation_note, created_at, is_active, created_by, profiles(full_name, email)')
           .eq('activation_status', 'pending')
           .order('created_at', { ascending: false })
         if (error) throw error
         return json({ success: true, pending: pending ?? [] })
+      }
+
+      // Links a real owner account to an EXISTING merchant row that has none
+      // (created_by IS NULL) -- distinct from create_merchant_user, which
+      // always makes a brand-new merchant. This covers merchants that were
+      // seeded or onboarded by a commander before any owner ever signed up:
+      // until this exists, that merchant's app screens (all gated on
+      // merchants.created_by = auth.uid()) show completely empty to anyone,
+      // forever, with no way to fix it. Reuses the exact same
+      // createUser + profiles.upsert pattern as create_merchant_user, just
+      // targeting an existing merchant id instead of inserting a new one.
+      case 'link_merchant_owner': {
+        const { merchant_id, email, password, full_name } = body
+        if (!merchant_id || !email || !password || !full_name) {
+          return json({ success: false, error: 'merchant_id, email, password, full_name required' }, 400)
+        }
+        const { data: existingMerchant, error: findErr } = await supabaseAdmin
+          .from('merchants').select('id, name, created_by').eq('id', merchant_id).maybeSingle()
+        if (findErr) throw findErr
+        if (!existingMerchant) return json({ success: false, error: 'Merchant not found' }, 404)
+        if (existingMerchant.created_by) {
+          return json({ success: false, error: 'This merchant already has an owner linked' }, 409)
+        }
+
+        const { data: authUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email, password, email_confirm: true,
+          user_metadata: { full_name, role: 'merchant' },
+        })
+        if (createError) throw createError
+
+        const { error: mErr } = await supabaseAdmin
+          .from('merchants')
+          .update({ created_by: authUser.user.id })
+          .eq('id', merchant_id)
+        if (mErr) {
+          await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
+          throw mErr
+        }
+
+        const { error: pErr } = await supabaseAdmin
+          .from('profiles')
+          .upsert({ id: authUser.user.id, full_name, email, merchant_id, role: 'merchant' }, { onConflict: 'id' })
+        if (pErr) {
+          await supabaseAdmin.from('merchants').update({ created_by: null }).eq('id', merchant_id)
+          await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
+          throw pErr
+        }
+
+        return json({ success: true, user_id: authUser.user.id, merchant_id, email })
       }
 
       case 'activate_merchant': {
@@ -841,6 +895,71 @@ Deno.serve(async (req) => {
           default:
             return json({ success: false, error: `Unknown manage_nodes action_type: ${body.action_type}` }, 400)
         }
+      }
+
+      // The "personalized keychain" -- identity_tags binds one physical NFC
+      // fob to one rider's account, so a merchant tapping it with their own
+      // phone (merchant_nfc_charge) or the rider tapping their own phone at a
+      // kiosk (rider_nfc_pay) resolves straight to their wallet. That
+      // charging path has existed and worked all along; what never existed
+      // was any way to actually CREATE the row -- confirmed live: 0 rows in
+      // identity_tags, and no RLS policy grants any role but admin (via
+      // service role here) the ability to insert one.
+      case 'issue_identity_tag': {
+        const { tag_uid, profile_id, replace_existing } = body
+        if (!tag_uid || !profile_id) return json({ success: false, error: 'tag_uid and profile_id required' }, 400)
+
+        const { data: profile, error: profileErr } = await supabaseAdmin
+          .from('profiles').select('id, full_name').eq('id', profile_id).maybeSingle()
+        if (profileErr) throw profileErr
+        if (!profile) return json({ success: false, error: 'No profile found for that user' }, 404)
+
+        // A physical tag already bound to someone else must be explicitly
+        // deactivated first, never silently reassigned -- that would let a
+        // found/stolen fob get re-pointed at a different wallet by mistake.
+        const { data: existingTag, error: existingErr } = await supabaseAdmin
+          .from('identity_tags').select('id, profile_id, is_active').eq('tag_uid', tag_uid).maybeSingle()
+        if (existingErr) throw existingErr
+        if (existingTag && existingTag.is_active && existingTag.profile_id !== profile_id) {
+          return json({ success: false, error: 'This physical tag is already bound to a different account. Deactivate it first if reissuing.' }, 409)
+        }
+
+        // A rider with two live tags makes "which one paid" ambiguous --
+        // replacing (lost keychain, new one issued) is the normal case, so
+        // require an explicit flag rather than silently stacking tags.
+        if (!replace_existing) {
+          const { data: current, error: currentErr } = await supabaseAdmin
+            .from('identity_tags').select('id').eq('profile_id', profile_id).eq('is_active', true)
+          if (currentErr) throw currentErr
+          if (current?.length) {
+            return json({ success: false, error: 'This rider already has an active tag. Confirm reissue to deactivate it and issue this one.', existing_count: current.length }, 409)
+          }
+        } else {
+          const { error: deactivateErr } = await supabaseAdmin
+            .from('identity_tags').update({ is_active: false }).eq('profile_id', profile_id).eq('is_active', true)
+          if (deactivateErr) throw deactivateErr
+        }
+
+        const { data, error } = existingTag
+          ? await supabaseAdmin.from('identity_tags')
+              .update({ profile_id, is_active: true, tag_type: 'keychain' })
+              .eq('id', existingTag.id).select().single()
+          : await supabaseAdmin.from('identity_tags')
+              .insert({ tag_uid, profile_id, tag_type: 'keychain', is_active: true })
+              .select().single()
+        if (error) throw error
+        return json({ success: true, tag: data, rider_name: profile.full_name })
+      }
+
+      case 'search_riders': {
+        const q = String(body.q || '').trim()
+        if (q.length < 2) return json({ success: true, riders: [] })
+        const { data, error } = await supabaseAdmin
+          .from('profiles').select('id, full_name, email, phone_number')
+          .or(`full_name.ilike.%${q}%,phone_number.ilike.%${q}%,email.ilike.%${q}%`)
+          .limit(10)
+        if (error) throw error
+        return json({ success: true, riders: data })
       }
 
       case 'manage_puck_inventory': {

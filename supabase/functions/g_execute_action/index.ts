@@ -3,37 +3,37 @@
 // sweep (executes anything approved from a phone push, delivers due rider
 // reminders). The LLM never runs here: action_type → reviewed handler code.
 //
-// Handler policy v1 (honest by design):
+// Handler policy (honest by design):
 //  - Draft/advisory types (draft_post, support_reply_draft, content_calendar,
 //    recommendation): "executing" means acknowledging — the human posts/sends
-//    manually in phase 1. Marked executed with manual:true.
-//  - grid_candidate has a real handler below (G Co-Host lodging intake) —
-//    approving it actually creates the lodging_nodes row, flagged
-//    requires_verification until ops confirms the owner/property is real.
+//    manually. Marked executed with manual:true.
+//  - 9 real handlers below actually do the thing: activate_merchant_promo,
+//    approve_garage_request, escape_confirm_group, escape_open_lane,
+//    grid_candidate, grant_transition_bonus, reactivate_cron_job,
+//    set_g_config_key, unlock_territory_vertical.
+//  - g_action_types (see 20260908000000_g_action_type_registry.sql) is the
+//    single source of truth for which action_type is which — this file's
+//    HANDLERS is cross-checked against it on every invocation
+//    (executeProposal), and a mismatch refuses the drifted type with a
+//    G_HANDLER_DRIFT alert instead of silently no-opping or crashing.
 //  - Types with no handler yet are marked FAILED with a clear note telling the
 //    owner to do it in the dashboard — never silently pretended done.
+//  - Every settled proposal writes an 'outcome' memory (g_memory) regardless
+//    of success/failure — this is what lets a future department run know
+//    what happened to something it proposed, instead of re-proposing blind.
 //
 // Auth: x-cron-secret (PLATFORM_CRON_SECRET) or admin JWT. verify_jwt=false.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { secretMatches } from "../_shared/constantTime.ts";
+import { validateActionPayloadShape } from "../_shared/actionPayloadSchema.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const PLATFORM_CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
 
-function json(payload: unknown, status = 200): Response {
-    return new Response(JSON.stringify(payload), {
-        status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-}
 
 async function sendExpoPush(token: string | null, title: string, body: string) {
     if (!token || !token.startsWith("ExponentPushToken[")) return;
@@ -56,7 +56,7 @@ interface ExecResult {
     result: Record<string, unknown>;
 }
 
-// ── Handler registry (reviewed code only) ──────────────────────────────────────
+// ── Handler registry (reviewed code only) ───────────────────────────────────
 
 const MANUAL_ACK_TYPES = new Set([
     "draft_post",
@@ -69,9 +69,105 @@ const MANUAL_ACK_TYPES = new Set([
     // just acknowledges the lanes listed in payload.stale_lanes were
     // re-verified and escape_lane_fare_baseline updated by hand.
     "lane_fare_review",
+    // Support-filed refunds have no automated handler — a human actually
+    // issues the refund via Stripe/WiPay/wallet. Approving acknowledges it.
+    "refund",
+    // Filed by g_rider_concierge's driver-mode flag_concern tool (safety, pay question,
+    // or general feedback from a driver). No automated handler by design —
+    // this only ever needs a human to see it and act manually; "approving"
+    // means "seen," not "system did something."
+    "driver_concern",
 ]);
 
 const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResult>> = {
+    // Jarvis (rider-facing concierge) used to call create_split_session
+    // directly with the rider's own access token the moment the LLM decided
+    // to -- a wrong guess about friend count/fare created a real,
+    // other-people-visible split session with zero admin oversight, the one
+    // consequential action in this codebase that bypassed the propose →
+    // approve → execute pattern everything else goes through. Jarvis now
+    // files a g_proposed_actions row instead; this handler does what
+    // create_split_session's own insert does, as reviewed code, using
+    // payload.rider_id rather than a rider JWT that may have expired by the
+    // time an admin gets to it (approval can be minutes to hours later).
+    async initiate_lime_fleet(supabase, p) {
+        const riderId = p.payload?.rider_id;
+        const participantCount = p.payload?.participant_count;
+        const totalCents = p.amount_cents ?? p.payload?.total_cents;
+        if (!riderId) return { ok: false, result: { error: "payload.rider_id missing" } };
+        if (!participantCount || participantCount < 2 || participantCount > 20) {
+            return { ok: false, result: { error: "payload.participant_count must be 2-20" } };
+        }
+        if (!totalCents || totalCents <= 0) {
+            return { ok: false, result: { error: "amount_cents missing or invalid" } };
+        }
+        const shareCents = p.payload?.share_cents ?? Math.floor(totalCents / participantCount);
+
+        const { data: session, error } = await supabase
+            .from("split_sessions")
+            .insert({
+                creator_id: riderId,
+                ride_id: p.payload?.ride_id || null,
+                total_cents: totalCents,
+                participant_count: participantCount,
+                share_cents: shareCents,
+                title: p.title || "Lime Fleet",
+                status: "collecting",
+            })
+            .select()
+            .single();
+        if (error) return { ok: false, result: { error: error.message } };
+
+        const { data: profile } = await supabase.from("profiles")
+            .select("push_token").eq("id", riderId).maybeSingle();
+        await sendExpoPush(
+            profile?.push_token ?? null,
+            "Your Lime Fleet is ready! 🚗",
+            `Approved — each person pays $${(shareCents / 100).toFixed(2)} TTD. Share it with your friends.`,
+        );
+
+        return { ok: true, result: { session } };
+    },
+
+    // Filed by check_territory_vertical_unlocks() (daily cron,
+    // 20260912040000_territory_vertical_unlock.sql) once a territory's
+    // distinct completed-ride rider count crosses that vertical's
+    // configured threshold. Approving here appends the territory's code to
+    // vertical_settings.enabled_regions — the actual "unlock the next
+    // vertical for this community" moment. is_enabled/rollout_percentage on
+    // the vertical still apply on top of this; this only adds the territory
+    // to the allow-list, it doesn't switch the vertical on platform-wide.
+    async unlock_territory_vertical(supabase, p) {
+        const territoryId = p.payload?.territory_id;
+        const verticalName = p.payload?.vertical_name;
+        if (!territoryId || !verticalName) {
+            return { ok: false, result: { error: "payload missing territory_id or vertical_name" } };
+        }
+
+        const { data: territory, error: terrError } = await supabase
+            .from("territories").select("code, name").eq("id", territoryId).maybeSingle();
+        if (terrError) return { ok: false, result: { error: terrError.message } };
+        if (!territory?.code) return { ok: false, result: { error: "territory not found or has no code" } };
+
+        const { data: vertical, error: vertError } = await supabase
+            .from("vertical_settings").select("enabled_regions").eq("vertical_name", verticalName).maybeSingle();
+        if (vertError) return { ok: false, result: { error: vertError.message } };
+        if (!vertical) return { ok: false, result: { error: `no vertical_settings row for '${verticalName}'` } };
+
+        const currentRegions: string[] = vertical.enabled_regions ?? [];
+        if (currentRegions.includes(territory.code)) {
+            return { ok: true, result: { already_unlocked: true, territory: territory.name, vertical: verticalName } };
+        }
+
+        const { error: updateError } = await supabase
+            .from("vertical_settings")
+            .update({ enabled_regions: [...currentRegions, territory.code], updated_at: new Date().toISOString() })
+            .eq("vertical_name", verticalName);
+        if (updateError) return { ok: false, result: { error: updateError.message } };
+
+        return { ok: true, result: { unlocked: true, territory: territory.name, territory_code: territory.code, vertical: verticalName } };
+    },
+
     // Approving a merchant promo flips it live so g_rank_merchants starts
     // boosting it ("Featured" placement). merchant_promotions is the existing
     // ads table: is_active boolean + start_date/end_date window.
@@ -178,7 +274,106 @@ const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResul
         if (error) return { ok: false, result: { error: error.message } };
         return { ok: true, result: { lodging_node_id: data.id, requires_verification: true } };
     },
+
+    // ICE→EV transition bonus (G Garage Phase D). Filed automatically by
+    // file_transition_bonus_proposal() when an admin approves a garage
+    // request for a driver with a ready_for_assignment Earn-to-Deposit plan
+    // (20260902020000_transition_bonus_phase_d.sql). Approving here calls
+    // start_transition_bonus_schedule, which pays month 1 immediately as a
+    // real wallet_transactions credit and creates the schedule row; months
+    // 2-6 are paid by the pay_due_transition_bonus_installments daily cron.
+    // Idempotent on double-execute via the wallet_transactions reference_id
+    // unique index.
+    //
+    // NOTE: this handler existed live in production but was absent from this
+    // repo's git history entirely until discovered while building Phase 2 of
+    // the G-employee plan (2026-09-06) — the "deployed code ahead of git"
+    // hazard this project's CLAUDE.md warns about. Registered into
+    // g_action_types (20260908030000) so the new drift check below
+    // recognizes it as a real handler instead of flagging it.
+    async grant_transition_bonus(supabase, p) {
+        const pl = p.payload ?? {};
+        if (!pl.driver_user_id || !pl.deposit_savings_id || !pl.garage_request_id || !pl.monthly_bonus_cents || !pl.months_total) {
+            return { ok: false, result: { error: "payload missing required fields (driver_user_id, deposit_savings_id, garage_request_id, monthly_bonus_cents, months_total)" } };
+        }
+
+        // Never trust the proposal's own dollar figure — it may have come
+        // from an LLM propose_action call rather than the deterministic
+        // file_transition_bonus_proposal() filer. Recompute it from the same
+        // real data (recompute_transition_bonus_cents, added 2026-09-12) and
+        // refuse to execute if the proposal's number doesn't match exactly,
+        // rather than silently substituting a different amount than what an
+        // admin actually approved.
+        const { data: recomputed, error: recomputeError } = await supabase
+            .rpc("recompute_transition_bonus_cents", { p_garage_request_id: pl.garage_request_id })
+            .single();
+        if (recomputeError) return { ok: false, result: { error: recomputeError.message } };
+        if (recomputed?.error_message) {
+            return { ok: false, result: { error: `Cannot verify bonus amount: ${recomputed.error_message}` } };
+        }
+        if (recomputed.monthly_bonus_cents !== pl.monthly_bonus_cents || recomputed.months_total !== pl.months_total) {
+            return {
+                ok: false,
+                result: {
+                    error: `Proposal amount does not match the deterministic calculation — refusing to execute. Proposed: ${pl.monthly_bonus_cents} cents/${pl.months_total} months. Recomputed from real data: ${recomputed.monthly_bonus_cents} cents/${recomputed.months_total} months.`,
+                },
+            };
+        }
+
+        const { data, error } = await supabase.rpc("start_transition_bonus_schedule", {
+            p_driver_user_id: pl.driver_user_id,
+            p_deposit_savings_id: pl.deposit_savings_id,
+            p_monthly_bonus_cents: recomputed.monthly_bonus_cents,
+            p_months_total: recomputed.months_total,
+            p_proposal_id: p.id,
+        });
+        if (error) return { ok: false, result: { error: error.message } };
+        return { ok: true, result: data };
+    },
+
+    // 2b-i, allowlisted in g_reactivate_cron_job itself (SQL, not here) —
+    // only 9 named G/maintenance jobs, never settlement/payout/lease/dispatch.
+    async reactivate_cron_job(supabase, p) {
+        const jobName = p.payload?.job_name;
+        if (!jobName) return { ok: false, result: { error: "payload.job_name missing" } };
+        const { data, error } = await supabase.rpc("g_reactivate_cron_job", { p_job_name: jobName });
+        if (error) return { ok: false, result: { error: error.message } };
+        if (data?.ok === false) return { ok: false, result: data };
+        return { ok: true, result: data };
+    },
+
+    // 2b-i, allowlisted in g_set_config_key itself (SQL, not here) — a fixed
+    // set of 4 g_config keys with range validation; g_enabled excluded.
+    async set_g_config_key(supabase, p) {
+        const key = p.payload?.key;
+        const value = p.payload?.value;
+        if (!key || value === undefined) return { ok: false, result: { error: "payload.key / payload.value missing" } };
+        const { data, error } = await supabase.rpc("g_set_config_key", { p_key: key, p_value: value });
+        if (error) return { ok: false, result: { error: error.message } };
+        if (data?.ok === false) return { ok: false, result: data };
+        return { ok: true, result: data };
+    },
 };
+
+// Deduped alert: g_action_types (the DB registry) and HANDLERS (this file's
+// in-code registry) drifting apart means either a type was seeded in SQL
+// with no matching handler written, or a handler exists here with no
+// registry row — either way, propose_action's dynamically-built enum
+// (g_agent_runner) and this executor disagree about what G can actually do.
+// Raised once per action_type per unresolved window, not once per sweep run.
+async function alertHandlerDrift(supabase: Svc, actionType: string, detail: string) {
+    const { data: open } = await supabase.from("system_alerts")
+        .select("id").eq("type", "G_HANDLER_DRIFT").is("resolved_at", null)
+        .contains("details", { action_type: actionType }).maybeSingle();
+    if (open) return;
+    await supabase.rpc("raise_admin_alert", {
+        p_type: "G_HANDLER_DRIFT",
+        p_title: `Handler registry drift: ${actionType}`,
+        p_body: detail,
+        p_severity: "WARNING",
+        p_details: { action_type: actionType },
+    }).then(null, () => null);
+}
 
 async function executeProposal(supabase: Svc, p: Proposal): Promise<ExecResult> {
     if (MANUAL_ACK_TYPES.has(p.action_type)) {
@@ -187,6 +382,30 @@ async function executeProposal(supabase: Svc, p: Proposal): Promise<ExecResult> 
             result: { manual: true, note: "Approved — action is manual in phase 1 (post/send it yourself; the draft is in payload)." },
         };
     }
+
+    // Cross-check the DB registry against this file's HANDLERS before
+    // running anything — the deploy-order safety net for g_action_types.
+    // Confirmed live: g_agent_runner's propose_action enum comes from
+    // g_action_types where execution_mode='handler', so a type reaching here
+    // should always have a matching handler UNLESS the two have drifted
+    // (e.g. this migration lands before this function is redeployed, or vice
+    // versa). Refuse the drifted type specifically rather than either
+    // silently no-opping or crashing the whole sweep.
+    const { data: registryRow } = await supabase.from("g_action_types")
+        .select("execution_mode, is_enabled").eq("action_type", p.action_type).maybeSingle();
+    const hasHandler = p.action_type in HANDLERS;
+
+    if (registryRow?.execution_mode === "handler" && registryRow.is_enabled && !hasHandler) {
+        await alertHandlerDrift(supabase, p.action_type,
+            `g_action_types says '${p.action_type}' has a real handler, but g_execute_action's HANDLERS registry has no matching function. This function needs redeploying.`);
+        return { ok: false, result: { error: `Handler registry drift for '${p.action_type}' — flagged to the owner, not executed.` } };
+    }
+    if (hasHandler && registryRow?.execution_mode !== "handler") {
+        await alertHandlerDrift(supabase, p.action_type,
+            `g_execute_action has a real handler for '${p.action_type}', but g_action_types does not list it as execution_mode='handler' (row: ${registryRow ? JSON.stringify(registryRow) : "missing entirely"}). The registry migration needs updating.`);
+        return { ok: false, result: { error: `Handler registry drift for '${p.action_type}' — flagged to the owner, not executed.` } };
+    }
+
     const handler = HANDLERS[p.action_type];
     if (!handler) {
         return {
@@ -194,6 +413,20 @@ async function executeProposal(supabase: Svc, p: Proposal): Promise<ExecResult> 
             result: { error: `No automated handler for '${p.action_type}' yet — carry it out in the admin dashboard.` },
         };
     }
+
+    // Second independent check on the same *_cents/*_id shape convention
+    // g_agent_runner validates at proposal time — a proposal could have been
+    // filed before that validation existed, or by anything other than
+    // propose_action. Refuse to hand a malformed payload to a handler that
+    // will pass it straight into a real RPC.
+    const payloadViolations = validateActionPayloadShape(p.payload ?? {});
+    if (payloadViolations.length > 0) {
+        return {
+            ok: false,
+            result: { error: `Refusing to execute — payload has invalid field(s): ${payloadViolations.join("; ")}` },
+        };
+    }
+
     try {
         return await handler(supabase, p);
     } catch (err) {
@@ -216,10 +449,34 @@ async function settleProposal(supabase: Svc, p: Proposal): Promise<ExecResult> {
         payload: { proposal_id: p.id, ...res.result },
         outcome: res.ok ? "executed" : "failed",
     }).then(null, () => null);
+
+    // Phase 2d: the thing that makes this a LOOP, not just an executor. G
+    // gets to learn what happened to what it proposed. embedding is left
+    // NULL deliberately — this executor stays free of a network dependency
+    // on the embedding gateway; full-text search already covers this until
+    // a future backfill job fills embeddings in for outcome rows.
+    await supabase.rpc("g_memory_write", {
+        p_scope: "department",
+        p_department: p.department ?? null,
+        p_entity_type: "proposal",
+        p_entity_key: String(p.id),
+        p_entity_id: p.id,
+        p_kind: "outcome",
+        p_title: `${p.action_type}: ${res.ok ? "executed" : "failed"} — ${String(p.title ?? "").slice(0, 150)}`,
+        p_body: `${p.reasoning ?? ""}\n\nResult: ${JSON.stringify(res.result).slice(0, 1000)}`.slice(0, 1500),
+        p_confidence: 1.0, // observed fact, not inference
+        p_source: "execution_outcome",
+        p_source_ref: { proposal_id: p.id },
+        p_valid_until: null,
+        p_supersedes_id: null,
+        p_embedding: null,
+        p_embedding_model: null,
+    }).then(null, () => null); // memory is an enhancement — never let it fail the real settlement
+
     return res;
 }
 
-// ── Rider reminder delivery (part of the sweep) ────────────────────────────────
+// ── Rider reminder delivery (part of the sweep) ─────────────────────────────
 
 async function deliverDueReminders(supabase: Svc): Promise<number> {
     const { data: due } = await supabase.from("g_rider_reminders")
@@ -252,12 +509,11 @@ async function deliverDueReminders(supabase: Svc): Promise<number> {
     return delivered;
 }
 
-// ── Auth ───────────────────────────────────────────────────────────────────────
+// ── Auth ───────────────────────────────────────────────────────
 
 async function isAuthorized(req: Request, supabase: Svc): Promise<boolean> {
-    // M4: constant-time compare (see _shared/constantTime.ts)
     const cronHeader = req.headers.get("x-cron-secret");
-    if (await secretMatches(cronHeader, PLATFORM_CRON_SECRET)) return true;
+    if (PLATFORM_CRON_SECRET && cronHeader === PLATFORM_CRON_SECRET) return true;
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return false;
     const anonClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY") ?? "");
@@ -267,9 +523,17 @@ async function isAuthorized(req: Request, supabase: Svc): Promise<boolean> {
     return profile?.role === "admin";
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  function json(payload: unknown, status = 200): Response {
+      return new Response(JSON.stringify(payload), {
+          status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+  }
+
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

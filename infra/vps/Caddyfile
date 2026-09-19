@@ -12,6 +12,13 @@
     close
   }
 
+  # Jarvis is reachable at https://{$DOMAIN}/jarvis/concierge -- set that as
+  # JARVIS_SERVICE_URL in Supabase edge function secrets once this domain is
+  # live. strip_prefix so Jarvis itself only ever sees /concierge, /health.
+  handle_path /jarvis/* {
+    reverse_proxy jarvis:8000
+  }
+
   reverse_proxy uptime-kuma:3001
 }
 

@@ -16,6 +16,7 @@ export type AppStackParamList = {
   GroundTransit: undefined;
   ZoneRates: undefined;
   PlatformControl: undefined;
+  IssueKeychain: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;

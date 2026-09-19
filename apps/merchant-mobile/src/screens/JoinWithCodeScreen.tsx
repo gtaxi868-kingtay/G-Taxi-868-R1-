@@ -31,6 +31,7 @@ export function JoinWithCodeScreen({ navigation }: { navigation: JoinNavProp }) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [commanderCode, setCommanderCode] = useState('');
+  const [driverReferralCode, setDriverReferralCode] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -58,6 +59,7 @@ export function JoinWithCodeScreen({ navigation }: { navigation: JoinNavProp }) 
           commander_code: commanderCode.trim().toUpperCase(),
           name: contactName.trim() || businessName.trim(),
           accepted_terms: acceptedTerms,
+          driver_referral_code: driverReferralCode.trim() ? driverReferralCode.trim().toUpperCase() : undefined,
         },
       });
       if (error || !data?.success) {
@@ -94,6 +96,7 @@ export function JoinWithCodeScreen({ navigation }: { navigation: JoinNavProp }) 
               <TextInput style={s.input} placeholder="Contact Name (optional)" value={contactName} onChangeText={setContactName} placeholderTextColor="rgba(255,255,255,0.6)" />
               <TextInput style={s.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholderTextColor="rgba(255,255,255,0.6)" />
               <TextInput style={s.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry placeholderTextColor="rgba(255,255,255,0.6)" />
+              <TextInput style={s.input} placeholder="Friend's Referral Code (optional)" value={driverReferralCode} onChangeText={setDriverReferralCode} autoCapitalize="characters" placeholderTextColor="rgba(255,255,255,0.6)" />
 
               <TouchableOpacity style={s.termsRow} onPress={() => setAcceptedTerms(!acceptedTerms)}>
                 <View style={[s.checkbox, acceptedTerms && { backgroundColor: VOICES.merchant.accent, borderColor: VOICES.merchant.accent }]}>

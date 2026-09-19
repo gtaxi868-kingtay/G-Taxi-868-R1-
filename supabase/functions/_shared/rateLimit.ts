@@ -52,6 +52,11 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     // Was being called with a key that had no config, i.e. no limit at all.
     grocery_create_payment_intent: { maxRequests: 5, windowSeconds: 60 },
     handle_voice: { maxRequests: 20, windowSeconds: 60 },
+    decline_ride: { maxRequests: 20, windowSeconds: 60 },
+    generate_cash_code: { maxRequests: 5, windowSeconds: 60 },
+    redeem_cash_code: { maxRequests: 10, windowSeconds: 60 },
+    referral_driver_signup: { maxRequests: 5, windowSeconds: 300 },
+    register_driver_with_code: { maxRequests: 5, windowSeconds: 300 },
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

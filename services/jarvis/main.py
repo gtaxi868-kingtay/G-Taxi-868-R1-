@@ -8,13 +8,28 @@ from fastapi import FastAPI, HTTPException, Header, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Try AGY SDK; fall back to direct LLM if unavailable
+# Try AGY SDK; fall back to direct LLM if unavailable.
+#
+# google-antigravity is a real, Google-published SDK (Apache 2.0,
+# https://github.com/Google-Antigravity/antigravity-sdk-python) -- but this
+# file's original AGY integration was written against an API that doesn't
+# exist: `from google_antigravity import ...` (underscore) is not an
+# importable module at all -- the real top-level package is `google.antigravity`
+# (dotted, a namespace under `google`). That's a plain ImportError, every
+# time, regardless of whether the pip package is installed. It also called
+# `Conversation(agent=agent)` / `.send_message()` synchronously, an API shape
+# that doesn't exist anywhere in the real SDK (real Conversation is
+# `Conversation.create(strategy)`, async, and takes a ConnectionStrategy +
+# ToolRunner, not an Agent). And it never required GEMINI_API_KEY, which
+# this SDK needs to talk to Gemini -- confirmed from the real README, fetched
+# 2026-09-14 (pypi.org/pypi/google-antigravity/json), not assumed.
 try:
-    from google_antigravity import LocalAgentConfig, Agent, Conversation
-    AGY_AVAILABLE = True
+    from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
+    from google.antigravity.hooks.policy import deny, allow
+    _AGY_IMPORTED = True
 except ImportError:
-    AGY_AVAILABLE = False
-    print("WARNING: google_antigravity not installed. Using direct Groq fallback.")
+    _AGY_IMPORTED = False
+    print("WARNING: google.antigravity not installed. Using direct Groq fallback.")
 
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -29,7 +44,16 @@ SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 JARVIS_SECRET = os.getenv("JARVIS_SECRET", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 PORT = int(os.getenv("PORT", "8000"))
+
+# The SDK importing successfully isn't enough -- it needs a real key to talk
+# to Gemini. Without GEMINI_API_KEY set, Agent() would construct fine and
+# fail on the first real call; check for it up front so the health endpoint
+# and logs are honest about which mode is actually active.
+AGY_AVAILABLE = _AGY_IMPORTED and bool(GEMINI_API_KEY)
+if _AGY_IMPORTED and not GEMINI_API_KEY:
+    print("WARNING: google.antigravity installed but GEMINI_API_KEY not set. Using direct Groq fallback.")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required")
@@ -48,10 +72,10 @@ class ConciergeRequest(BaseModel):
     destination_name: Optional[str] = None
     poi_data: List[dict] = []
     # The rider's own access token, forwarded by ai_concierge_proactive.
-    # Needed so initiate_lime_fleet can call create_split_session AS this
-    # rider -- that edge function resolves creator_id from a real user JWT,
-    # not from a client-supplied id, so Jarvis must carry the real token
-    # rather than asserting user_id itself.
+    # No longer used by initiate_lime_fleet (that now files a
+    # g_proposed_actions row instead of acting directly, so it only needs
+    # user_id) -- kept on the request shape for any future tool that does
+    # need to act as the calling rider specifically.
     access_token: Optional[str] = None
 
 class ConciergeResponse(BaseModel):
@@ -87,52 +111,51 @@ def enable_memory_tracking(user_id: str) -> str:
         logger.error(f"enable_memory_tracking failed: {e}")
         return f"Failed: {e}"
 
-def make_initiate_lime_fleet(access_token: Optional[str]):
+def make_initiate_lime_fleet(user_id: str):
     """
     Builds the initiate_lime_fleet tool bound to THIS request's rider.
 
-    create_split_session is an edge function, not a Postgres RPC (there is
-    no such RPC live -- calling .rpc("create_split_session", ...) 404s
-    every single time). It also resolves creator_id from a real user JWT
-    via auth.getUser(), not from a client-supplied id, so this must call it
-    as an authenticated HTTP request carrying the rider's own access token
-    rather than asserting a user_id with the service role key.
+    Previously called create_split_session directly with the rider's own
+    access token -- meaning a wrong AI guess about friend count/fare created
+    a real, other-people-visible split session with zero admin oversight,
+    the one action in this codebase that bypassed the propose/approve/
+    execute pattern every other consequential action goes through. Now it
+    files a g_proposed_actions row (category: money) instead of acting --
+    same table, same Approvals.tsx inbox, same g_execute_action handler
+    registry G's own proposals use. Reviewed code (g_execute_action's
+    initiate_lime_fleet handler) creates the real split_sessions row only
+    after an admin approves, using p_user_id from the row rather than a
+    rider access token that may have long since expired by decision time.
     """
     def initiate_lime_fleet(friend_count: Optional[int] = None) -> str:
         """
-        Create a split-fare session for a group outing.
-        Returns a shareable session ID.
+        Propose a split-fare session for a group outing, pending admin approval.
         """
-        if not access_token:
-            return "I need you to be signed in to start a Lime Fleet -- try again from the app."
         try:
             count = friend_count or 3
             total = 40000  # $400 TTD placeholder
             participant_count = count + 1
             share = total // participant_count
 
-            resp = httpx.post(
-                f"{SUPABASE_URL}/functions/v1/create_split_session",
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "total_cents": total,
+            supabase.table("g_proposed_actions").insert({
+                "department": "jarvis",
+                "action_type": "initiate_lime_fleet",
+                "title": f"Lime Fleet for {participant_count} people",
+                "reasoning": "Rider asked Jarvis to start a group split-fare via chat.",
+                "category": "money",
+                "amount_cents": total,
+                "payload": {
+                    "rider_id": user_id,
+                    "friend_count": count,
                     "participant_count": participant_count,
-                    "title": "Lime Fleet",
+                    "share_cents": share,
                 },
-                timeout=10.0,
-            )
-            resp.raise_for_status()
-            body = resp.json()
-            session = body.get("data") or {}
-            session_id = session.get("id", "unknown")
+                "status": "pending",
+            }).execute()
 
             return (
-                f"Lime Fleet created! Session ID: {session_id}. "
-                f"Each person pays ${share/100:.2f} TTD. "
-                f"Share this code with your friends to join."
+                f"I've sent this to the team for a quick check -- you'll hear back shortly "
+                f"about your Lime Fleet for {participant_count} people."
             )
         except Exception as e:
             logger.error(f"initiate_lime_fleet failed: {e}")
@@ -142,11 +165,28 @@ def make_initiate_lime_fleet(access_token: Optional[str]):
 
 # ── AGY Agent Setup ─────────────────────────────────────────
 
-def build_agent(user_id: str, user_name: str, opted_in: bool, access_token: Optional[str]):
-    if not AGY_AVAILABLE:
-        return None
+def build_agent_config(user_id: str, user_name: str, opted_in: bool) -> "LocalAgentConfig":
+    """
+    Builds the LocalAgentConfig for this request's rider. Real usage per the
+    SDK's own README ("Simple Agent" / "Custom Tools" sections): plain Python
+    functions in `tools=`, `system_instructions` (plural -- not the singular
+    `system_instruction` this file used to pass), and `capabilities=
+    CapabilitiesConfig()` -- Agent runs READ-ONLY by default per the SDK docs,
+    so without this, record_user_preference/enable_memory_tracking/
+    initiate_lime_fleet would all be silently blocked even with AGY working.
+    GEMINI_API_KEY is picked up from the environment automatically (same
+    convention as the SDK's own quickstart, which doesn't pass api_key
+    explicitly for the non-Vertex path) -- already verified present via
+    AGY_AVAILABLE before this is ever called.
 
-    tools = [record_user_preference, enable_memory_tracking, make_initiate_lime_fleet(access_token)]
+    CapabilitiesConfig() alone would unlock every built-in Antigravity tool,
+    not just the three defined here -- the SDK's own "Hooks and Policies"
+    docs list built-ins like view_file/run_command, which have no business
+    being reachable from a rider-facing chat endpoint. deny("*") first, then
+    allow only the three tools actually passed in, closes that off --
+    everything unrecognized stays refused rather than silently exposed.
+    """
+    tools = [record_user_preference, enable_memory_tracking, make_initiate_lime_fleet(user_id)]
 
     opt_in_instruction = (
         "The user has NOT opted in to memory tracking. Politely ask for permission. "
@@ -157,7 +197,7 @@ def build_agent(user_id: str, user_name: str, opted_in: bool, access_token: Opti
         "use record_user_preference to save it permanently."
     )
 
-    system_instruction = (
+    system_instructions = (
         "Your name is G. You are a highly attentive, deeply personal concierge for the G-Platform. "
         "You anticipate needs before the user asks. Warm, polite, authoritative yet friendly. "
         f"You are talking to: {user_name}. {opt_in_instruction} "
@@ -173,13 +213,34 @@ def build_agent(user_id: str, user_name: str, opted_in: bool, access_token: Opti
         "Never suggest things the user dislikes. Weave in things they like. Keep itineraries exciting."
     )
 
-    config = LocalAgentConfig(tools=tools)
-    return Agent(config=config, system_instruction=system_instruction)
+    return LocalAgentConfig(
+        system_instructions=system_instructions,
+        tools=tools,
+        capabilities=CapabilitiesConfig(),
+        policies=[
+            deny("*"),
+            allow("record_user_preference"),
+            allow("enable_memory_tracking"),
+            allow("initiate_lime_fleet"),
+        ],
+    )
 
 # ── Direct LLM Fallback (if AGY unavailable) ────────────────
 
 async def direct_llm_fallback(req: ConciergeRequest, likes: List[str], dislikes: List[str]) -> str:
-    """Fallback using Groq directly when AGY SDK is not available."""
+    """Fallback using Groq directly when AGY SDK is not available.
+
+    Model pinned to match supabase/functions/_shared/ai_model.ts's
+    GROQ_CHAT_MODEL -- llama-3.3-70b-versatile (what this literally said until
+    now) moved off Groq's free developer plan and 404s on every call, exactly
+    the bug documented there as having already broken 5 other features in
+    this app. openai/gpt-oss-120b spends completion_tokens on a hidden
+    chain-of-thought before the visible answer, so max_tokens must have real
+    headroom (60 returned empty content, all of it burned on reasoning) and
+    reasoning_effort needs to be turned down -- same two fixes _shared/llm.ts
+    already applies for this model, kept in sync by hand since Jarvis is a
+    separate Python service that doesn't import that file.
+    """
     if not GROQ_API_KEY:
         raise RuntimeError("No AI provider available")
 
@@ -212,9 +273,10 @@ Give ONE brief, warm suggestion (10-15 words). Include an emoji."""
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
             json={
-                "model": "llama-3.3-70b-versatile",
+                "model": "openai/gpt-oss-120b",
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 60,
+                "max_tokens": 512,
+                "reasoning_effort": "low",
                 "temperature": 0.7,
             },
         )
@@ -269,8 +331,7 @@ async def concierge(req: ConciergeRequest, x_jarvis_secret: Optional[str] = Head
 
     try:
         if AGY_AVAILABLE:
-            agent = build_agent(req.user_id, req.user_name, opted_in, req.access_token)
-            conversation = Conversation(agent=agent)
+            config = build_agent_config(req.user_id, req.user_name, opted_in)
 
             context = (
                 f"USER ID: {req.user_id}\n"
@@ -286,8 +347,14 @@ async def concierge(req: ConciergeRequest, x_jarvis_secret: Optional[str] = Head
                 f"Respond warmly and concisely. Suggest ONE thing."
             )
 
-            response = conversation.send_message(context)
-            suggestion = response.text.strip()
+            # Real API (Layer 1, "Simple Agent" in the SDK's own README):
+            # Agent is an async context manager, .chat() is async, and the
+            # response text is itself awaited -- none of which the previous
+            # Conversation(agent=agent).send_message() shape provided, because
+            # that shape isn't part of the real SDK at all.
+            async with Agent(config) as agent:
+                response = await agent.chat(context)
+                suggestion = (await response.text()).strip()
         else:
             suggestion = await direct_llm_fallback(req, likes, dislikes)
 

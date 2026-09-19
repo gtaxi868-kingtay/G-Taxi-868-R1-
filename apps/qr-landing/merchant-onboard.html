@@ -1,12 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- CANONICAL_ORIGIN: keep in sync with the same constant in index.html.
+         Currently g-taxi-868-r1-admin.vercel.app (live now); switch this and
+         the URLs below to https://gtaxi.tt once that domain is pointed at
+         this Vercel project. -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="theme-color" content="#07070F">
-    <title>Register Your Store — G-Taxi</title>
+    <title>Register Your Store | G 868</title>
+    <meta name="description" content="Claim your invited G 868 spot: create your merchant account, add payout details, and submit your store for review.">
+    <link rel="canonical" href="https://g-taxi-868-r1-admin.vercel.app/merchant-onboard">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="G 868">
+    <meta property="og:title" content="Register Your Store | G 868">
+    <meta property="og:description" content="Claim your invited G 868 spot: create your merchant account, add payout details, and submit your store for review.">
+    <meta property="og:url" content="https://g-taxi-868-r1-admin.vercel.app/merchant-onboard">
+    <meta property="og:image" content="https://g-taxi-868-r1-admin.vercel.app/og-preview.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Register Your Store | G 868">
+    <meta name="twitter:description" content="Claim your invited G 868 spot: create your merchant account, add payout details, and submit your store for review.">
+    <meta name="twitter:image" content="https://g-taxi-868-r1-admin.vercel.app/og-preview.jpg">
+    <link rel="icon" href="logo.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://ffbbuafgeypvkpcuvdnv.supabase.co">
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -156,7 +177,7 @@
 <body>
     <div class="field"></div>
     <div class="wrap">
-        <img class="logo-mark" src="logo.png" alt="G-Taxi">
+        <img class="logo-mark" src="logo.png" alt="G-Taxi" width="44" height="44">
 
         <div id="loadingState">
             <p style="text-align:center; color:rgba(234,243,246,0.35); font-size:13px; letter-spacing:0.05em;">Loading your invite…</p>
@@ -197,6 +218,7 @@
                     <label>Password</label>
                     <input id="fPassword" type="password" placeholder="At least 8 characters">
                 </div>
+                <input id="fWebsite" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
 
                 <button class="btn btn-primary" onclick="goToStep(2)">Continue</button>
                 <p class="error-text hidden" id="step1Error"></p>
@@ -278,14 +300,28 @@
             document.getElementById('seg3').classList.toggle('done', step >= 3);
         }
 
+        function isValidEmail(v) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        }
+
         function goToStep(step) {
             if (step === 2) {
                 const name = document.getElementById('fBusinessName').value.trim();
                 const email = document.getElementById('fEmail').value.trim();
                 const password = document.getElementById('fPassword').value;
                 const err = document.getElementById('step1Error');
-                if (!name || !email || !password || password.length < 8) {
-                    err.textContent = 'Fill in your business name, email, and an 8+ character password.';
+                if (!name || !email || !password) {
+                    err.textContent = 'Fill in your business name, email, and password.';
+                    err.classList.remove('hidden');
+                    return;
+                }
+                if (!isValidEmail(email)) {
+                    err.textContent = 'That email address doesn’t look right.';
+                    err.classList.remove('hidden');
+                    return;
+                }
+                if (password.length < 8) {
+                    err.textContent = 'Password needs to be at least 8 characters.';
                     err.classList.remove('hidden');
                     return;
                 }
@@ -317,6 +353,9 @@
         async function submitClaim() {
             const btn = document.getElementById('submitBtn');
             const err = document.getElementById('step3Error');
+            if (btn.disabled) return; // no double-submit
+            const honeypot = document.getElementById('fWebsite');
+            if (honeypot && honeypot.value.trim() !== '') return;
             err.classList.add('hidden');
             btn.disabled = true;
             btn.textContent = 'Submitting…';
@@ -391,6 +430,56 @@
         }
 
         loadInvite();
+    </script>
+
+    <div id="cookie-banner" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:500;padding:1rem 4% 1.25rem">
+      <div style="max-width:520px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;justify-content:space-between;background:rgba(8,6,20,.94);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:.9rem 1rem;backdrop-filter:blur(14px)">
+        <p style="font-size:.78rem;color:rgba(234,243,246,.7);line-height:1.5;flex:1;min-width:180px;margin:0">We use analytics to see how this page performs. No tracking until you accept.</p>
+        <div style="display:flex;gap:.5rem;flex-shrink:0">
+          <button id="cookie-decline" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#EAF3F6;padding:.55rem 1rem;border-radius:100px;font-family:'Inter',sans-serif;font-weight:600;font-size:.78rem;cursor:pointer;min-height:40px">Decline</button>
+          <button id="cookie-accept" style="background:var(--cyan);color:var(--ink-on-cyan);border:none;padding:.55rem 1.1rem;border-radius:100px;font-family:'Inter',sans-serif;font-weight:800;font-size:.78rem;cursor:pointer;min-height:40px">Accept</button>
+        </div>
+      </div>
+    </div>
+    <script>
+    /* ---- Cookie consent gate for Google Analytics (GA4) ----------------
+       Same key/behavior as index.html so a choice made on either page
+       carries over — declining must leave nothing loaded here either. */
+    (function () {
+      var GA_MEASUREMENT_ID = 'GA_MEASUREMENT_ID'; // replace with the real G-XXXXXXXXXX
+      var KEY = 'g868-analytics-consent';
+      function getConsent() { try { return localStorage.getItem(KEY); } catch (_) { return null; } }
+      function setConsent(v) { try { localStorage.setItem(KEY, v); } catch (_) {} }
+      function loadAnalytics() {
+        if (document.getElementById('ga4-script')) return;
+        var s = document.createElement('script');
+        s.id = 'ga4-script';
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_MEASUREMENT_ID;
+        document.head.appendChild(s);
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+        window.gtag('js', new Date());
+        window.gtag('config', GA_MEASUREMENT_ID);
+      }
+      var consent = getConsent();
+      if (consent === 'accepted') loadAnalytics();
+      if (!consent) {
+        document.addEventListener('DOMContentLoaded', function () {
+          var banner = document.getElementById('cookie-banner');
+          if (!banner) return;
+          banner.style.display = 'block';
+          var accept = document.getElementById('cookie-accept');
+          var decline = document.getElementById('cookie-decline');
+          if (accept) accept.addEventListener('click', function () {
+            setConsent('accepted'); loadAnalytics(); banner.style.display = 'none';
+          });
+          if (decline) decline.addEventListener('click', function () {
+            setConsent('declined'); banner.style.display = 'none';
+          });
+        });
+      }
+    })();
     </script>
 </body>
 </html>

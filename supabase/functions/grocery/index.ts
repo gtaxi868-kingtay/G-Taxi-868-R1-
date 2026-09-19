@@ -4,17 +4,7 @@ import { requireAuth } from '../_shared/auth.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
 import { checkVerticalAccess } from '../_shared/verticalGate.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
-}
+import { getCorsHeaders } from '../_shared/cors.ts'
 
 function requireEnv(key: string): string {
   const value = Deno.env.get(key)
@@ -28,6 +18,14 @@ const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -248,6 +246,13 @@ Deno.serve(async (req) => {
           return json({ error: 'Product not found, unavailable, or not from this merchant' }, 404)
         }
 
+        // cart_items' real unique constraint is (user_id, product_id) —
+        // NOT the primary key (id) that upsert() targets by default.
+        // Without an explicit onConflict matching that constraint,
+        // supabase-js issues a plain INSERT (conflict target = PK), which
+        // throws "duplicate key value violates unique constraint
+        // cart_items_user_id_product_id_key" on any repeat add/update of
+        // the same product instead of updating the existing row.
         const { error: upsertError } = await supabase
           .from('cart_items')
           .upsert({
@@ -255,7 +260,7 @@ Deno.serve(async (req) => {
             unit_price_cents: product.price_cents,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          })
+          }, { onConflict: 'user_id,product_id' })
 
         if (upsertError) throw upsertError
       } else if (cartAction === 'remove') {
