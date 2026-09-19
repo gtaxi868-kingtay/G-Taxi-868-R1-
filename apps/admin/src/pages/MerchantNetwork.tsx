@@ -16,6 +16,7 @@ interface MerchantRow {
     activation_status: string | null;
     activation_note: string | null;
     activated_at: string | null;
+    created_by: string | null;
     subscription: {
         id: string;
         status: 'trial' | 'active' | 'overdue' | 'suspended' | 'cancelled';
@@ -129,7 +130,7 @@ export function MerchantNetwork() {
                 .from('merchants')
                 .select(`
                     id, name, category, address, lat, lng, is_active, is_pinned, commission_rate, created_at,
-                    activation_status, activation_note, activated_at,
+                    activation_status, activation_note, activated_at, created_by,
                     merchant_subscriptions (
                         id, status, trial_start_at, trial_end_at,
                         monthly_fee_cents, pin_fee_cents, billing_enabled, next_billing_at, last_billed_at, overdue_since
@@ -241,6 +242,21 @@ export function MerchantNetwork() {
         });
         if (err) alert(err.message);
         else await load();
+        setActionLoading(null);
+    };
+
+    const linkOwner = async (merchantId: string, merchantName: string) => {
+        const email = prompt(`Owner email for "${merchantName}":`);
+        if (!email) return;
+        const fullName = prompt('Owner full name:', merchantName) || merchantName;
+        const password = prompt('Temporary password for this owner (they can change it after signing in):');
+        if (!password || password.length < 6) { alert('Password must be at least 6 characters.'); return; }
+        setActionLoading(merchantId + 'link');
+        const { data, error: err } = await supabase.functions.invoke('admin', {
+            body: { action: 'link_merchant_owner', merchant_id: merchantId, email, password, full_name: fullName },
+        });
+        if (err || data?.success === false) alert(data?.error || err?.message || 'Could not link owner');
+        else { alert(`Owner linked. They can sign in with ${email} and the password you set.`); await load(); }
         setActionLoading(null);
     };
 
@@ -538,6 +554,23 @@ export function MerchantNetwork() {
                                             >
                                                 <XCircle size={11} />
                                                 Reject
+                                            </button>
+                                        </div>
+                                    )}
+                                    {/* No owner account linked -- every screen in the merchant app is gated
+                                        on created_by, so this store's app is completely empty until someone
+                                        clicks this. Shown regardless of activation status: a merchant can be
+                                        seeded/approved by a commander long before anyone signs up to run it. */}
+                                    {!m.created_by && (
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            <button
+                                                onClick={() => linkOwner(m.id, m.name)}
+                                                disabled={actionLoading === m.id + 'link'}
+                                                title="This store has no owner account -- its app screens will show empty until one is linked."
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/15 border border-purple-500/30 rounded-lg text-purple-400 text-[10px] font-black uppercase tracking-widest hover:bg-purple-500/25 transition-all disabled:opacity-40"
+                                            >
+                                                <AlertTriangle size={11} />
+                                                {actionLoading === m.id + 'link' ? 'Linking…' : 'No Owner — Link One'}
                                             </button>
                                         </div>
                                     )}
