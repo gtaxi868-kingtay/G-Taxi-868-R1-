@@ -189,13 +189,67 @@ Deno.serve(async (req) => {
       }
 
       case 'get_pending_merchants': {
+        // Was `profiles!inner(...)` -- an inner join on created_by, which
+        // silently excluded every merchant with no owner linked yet (created_by
+        // IS NULL). Those are exactly the merchants an admin most needs to see
+        // here -- they're pending AND ownerless. Left join so they show up
+        // with null owner fields instead of vanishing from the queue.
         const { data: pending, error } = await supabaseAdmin
           .from('merchants')
-          .select('id, name, category, address, lat, lng, activation_status, activated_at, activation_note, created_at, is_active, created_by, profiles!inner(full_name, email)')
+          .select('id, name, category, address, lat, lng, activation_status, activated_at, activation_note, created_at, is_active, created_by, profiles(full_name, email)')
           .eq('activation_status', 'pending')
           .order('created_at', { ascending: false })
         if (error) throw error
         return json({ success: true, pending: pending ?? [] })
+      }
+
+      // Links a real owner account to an EXISTING merchant row that has none
+      // (created_by IS NULL) -- distinct from create_merchant_user, which
+      // always makes a brand-new merchant. This covers merchants that were
+      // seeded or onboarded by a commander before any owner ever signed up:
+      // until this exists, that merchant's app screens (all gated on
+      // merchants.created_by = auth.uid()) show completely empty to anyone,
+      // forever, with no way to fix it. Reuses the exact same
+      // createUser + profiles.upsert pattern as create_merchant_user, just
+      // targeting an existing merchant id instead of inserting a new one.
+      case 'link_merchant_owner': {
+        const { merchant_id, email, password, full_name } = body
+        if (!merchant_id || !email || !password || !full_name) {
+          return json({ success: false, error: 'merchant_id, email, password, full_name required' }, 400)
+        }
+        const { data: existingMerchant, error: findErr } = await supabaseAdmin
+          .from('merchants').select('id, name, created_by').eq('id', merchant_id).maybeSingle()
+        if (findErr) throw findErr
+        if (!existingMerchant) return json({ success: false, error: 'Merchant not found' }, 404)
+        if (existingMerchant.created_by) {
+          return json({ success: false, error: 'This merchant already has an owner linked' }, 409)
+        }
+
+        const { data: authUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email, password, email_confirm: true,
+          user_metadata: { full_name, role: 'merchant' },
+        })
+        if (createError) throw createError
+
+        const { error: mErr } = await supabaseAdmin
+          .from('merchants')
+          .update({ created_by: authUser.user.id })
+          .eq('id', merchant_id)
+        if (mErr) {
+          await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
+          throw mErr
+        }
+
+        const { error: pErr } = await supabaseAdmin
+          .from('profiles')
+          .upsert({ id: authUser.user.id, full_name, email, merchant_id, role: 'merchant' }, { onConflict: 'id' })
+        if (pErr) {
+          await supabaseAdmin.from('merchants').update({ created_by: null }).eq('id', merchant_id)
+          await supabaseAdmin.auth.admin.deleteUser(authUser.user.id)
+          throw pErr
+        }
+
+        return json({ success: true, user_id: authUser.user.id, merchant_id, email })
       }
 
       case 'activate_merchant': {

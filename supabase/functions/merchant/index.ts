@@ -4,19 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
 import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   pending: ["confirmed", "cancelled"],
@@ -62,6 +54,13 @@ function generatePin(): string {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -79,17 +78,18 @@ serve(async (req) => {
     switch (action) {
 
       // ── update_order_status ─────────────────────────────────────────────
+      // merchants.created_by is NULL on every live row today (no merchant
+      // has an owner account linked yet), so the owner-only check below
+      // can never succeed for a real merchant. Falls back to letting an
+      // ACTIVE commander update order status for merchants in their own
+      // territory -- the same "trust the caller only when there's a
+      // stronger authority to check against" pattern already used by
+      // generate_referral_code/apply_referral_code. This is deliberately
+      // narrower than removing the check: it never grants access without
+      // a real active commander row whose territory matches the merchant.
       case "update_order_status": {
         const { order_id, new_status } = body;
         if (!order_id || !new_status) return json({ success: false, error: "order_id and new_status required" }, 400);
-
-        const { data: merchant, error: merchantError } = await supabase
-          .from("merchants")
-          .select("id")
-          .eq("created_by", user.id)
-          .maybeSingle();
-
-        if (merchantError || !merchant) return json({ success: false, error: "Not a registered merchant" }, 403);
 
         const { data: order, error: orderError } = await supabase
           .from("orders")
@@ -98,7 +98,31 @@ serve(async (req) => {
           .single();
 
         if (orderError || !order) return json({ success: false, error: "Order not found" }, 404);
-        if (order.merchant_id !== merchant.id) return json({ success: false, error: "This order does not belong to your merchant" }, 403);
+
+        const { data: merchant, error: merchantError } = await supabase
+          .from("merchants")
+          .select("id, created_by, territory_id")
+          .eq("id", order.merchant_id)
+          .maybeSingle();
+
+        if (merchantError || !merchant) return json({ success: false, error: "Merchant not found" }, 404);
+
+        let authorized = merchant.created_by === user.id;
+
+        if (!authorized) {
+          const { data: commander } = await supabase
+            .from("pod_commanders")
+            .select("id, territory_id, status")
+            .eq("user_id", user.id)
+            .eq("status", "active")
+            .maybeSingle();
+
+          if (commander && merchant.territory_id && commander.territory_id === merchant.territory_id) {
+            authorized = true;
+          }
+        }
+
+        if (!authorized) return json({ success: false, error: "Not authorized to manage this merchant's orders" }, 403);
 
         const allowed = ALLOWED_TRANSITIONS[order.status];
         if (!allowed || !allowed.includes(new_status)) {
@@ -126,7 +150,7 @@ serve(async (req) => {
 
         const { data: order, error: orderError } = await supabase
           .from("orders")
-          .select("id, rider_id, merchant_id, total_cents, delivery_fee_cents, status, merchants(business_name, address)")
+          .select("id, rider_id, merchant_id, total_cents, delivery_fee_cents, status, merchants(name, address)")
           .eq("id", order_id)
           .single();
 
@@ -182,7 +206,7 @@ serve(async (req) => {
 
         if (offerErr) return json({ error: `delivery_offer insert failed: ${offerErr.message}` }, 500);
 
-        const merchantName = (order.merchants as any)?.business_name ?? "Merchant";
+        const merchantName = (order.merchants as any)?.name ?? "Merchant";
         const deliveryFeeTTD = ((order.delivery_fee_cents ?? 0) / 100).toFixed(2);
 
         if (selectedDriver.push_token) {
@@ -627,6 +651,170 @@ serve(async (req) => {
         return json({ success: true, result: data });
       }
 
+      // ── initiate_cash_deposit: merchant creates a pending cash deposit, no money moves ──
+      // See supabase/migrations/20260901030000_merchant_cash_deposits_phase2.sql.
+      // Two-phase: this step only creates a row. Nothing moves until the
+      // driver confirms with confirm_cash_deposit on their own device.
+      case "initiate_cash_deposit": {
+        const { data: vertical } = await supabase
+          .from("vertical_settings")
+          .select("is_enabled, emergency_disabled")
+          .eq("vertical_name", "cash_deposits")
+          .maybeSingle();
+        // Fail closed: a brand-new money-movement feature defaults to OFF
+        // if its row is missing or unreadable — new capital-risk surface,
+        // not an already-earned entitlement.
+        if (!vertical || !vertical.is_enabled || vertical.emergency_disabled) {
+          return json({ success: false, error: "Cash deposits are not enabled yet" }, 403);
+        }
+
+        const { data: owned } = await supabase
+          .from("merchants")
+          .select("id, created_by, is_active, credit_limit_cents, name")
+          .eq("created_by", user.id)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        let merchantActor = owned;
+        if (!merchantActor) {
+          const { data: staffRow } = await supabase
+            .from("merchant_staff")
+            .select("merchant_id, is_active, merchants!inner(id, created_by, is_active, credit_limit_cents, name)")
+            .eq("user_id", user.id)
+            .eq("is_active", true)
+            .maybeSingle();
+          if ((staffRow?.merchants as any)?.is_active) {
+            merchantActor = staffRow!.merchants as any;
+          }
+        }
+        if (!merchantActor) return json({ success: false, error: "Not a registered merchant" }, 403);
+
+        const { driver_phone, amount_cents, reference_note, idempotency_key } = body;
+        if (!driver_phone || !amount_cents || !idempotency_key) {
+          return json({ success: false, error: "driver_phone, amount_cents, and idempotency_key are required" }, 400);
+        }
+        if (!Number.isInteger(amount_cents) || amount_cents <= 0) {
+          return json({ success: false, error: "amount_cents must be a positive integer (TTD cents)" }, 400);
+        }
+
+        // Driver identity lives on drivers.phone_number directly — drivers
+        // never get a profiles row in this system, so looking this up via
+        // profiles.phone would silently match nothing.
+        const { data: driver } = await supabase
+          .from("drivers")
+          .select("id, user_id, name")
+          .eq("phone_number", String(driver_phone).trim())
+          .maybeSingle();
+
+        if (!driver || !driver.user_id) {
+          return json({ success: false, error: "Driver not found for that phone number" }, 404);
+        }
+
+        const { data: result, error: rpcError } = await supabase.rpc("merchant_initiate_cash_deposit", {
+          p_merchant_id: merchantActor.id,
+          p_initiated_by: user.id,
+          p_driver_user_id: driver.user_id,
+          p_amount_cents: amount_cents,
+          p_reference_note: reference_note ?? null,
+          p_idempotency_key: idempotency_key,
+          p_expires_minutes: 15,
+        });
+
+        if (rpcError) {
+          console.error("[merchant:initiate_cash_deposit] RPC failed:", rpcError);
+          return json({ success: false, error: "Deposit could not be created" }, 500);
+        }
+        if (!result.success) return json(result);
+
+        // Best-effort push — a failed notification never fails the
+        // deposit itself. The driver can still see it by opening the app.
+        await supabase.functions.invoke("send_push_notification", {
+          body: {
+            user_id: driver.user_id,
+            title: "Cash deposit waiting — tap to confirm",
+            body: `${merchantActor.name} wants to deposit $${(amount_cents / 100).toFixed(2)} TTD to your wallet.`,
+            data: { type: "cash_deposit_pending", deposit_id: result.deposit_id, expires_at: result.expires_at },
+          },
+        }).then(null, () => {});
+
+        return json({
+          success: true,
+          deposit_id: result.deposit_id,
+          expires_at: result.expires_at,
+          driver_name: driver.name,
+          replayed: result.replayed,
+        });
+      }
+
+      // ── confirm_cash_deposit: driver taps to accept — the only step that moves money ──
+      case "confirm_cash_deposit": {
+        const { data: driver } = await supabase
+          .from("drivers")
+          .select("id, user_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!driver) return json({ success: false, error: "Not a registered driver" }, 403);
+
+        const { deposit_id } = body;
+        if (!deposit_id) return json({ success: false, error: "deposit_id is required" }, 400);
+
+        const { data: result, error: rpcError } = await supabase.rpc("driver_confirm_cash_deposit", {
+          p_deposit_id: deposit_id,
+          p_driver_user_id: user.id,
+        });
+        if (rpcError) {
+          console.error("[merchant:confirm_cash_deposit] RPC failed:", rpcError);
+          return json({ success: false, error: "Confirmation failed" }, 500);
+        }
+
+        if (result.success) {
+          // Notify the merchant their float moved — best-effort. Two
+          // plain lookups instead of an embedded join to avoid the
+          // array-vs-object ambiguity supabase-js has for to-one embeds
+          // without generated schema types.
+          const { data: deposit } = await supabase
+            .from("merchant_cash_deposits")
+            .select("merchant_id")
+            .eq("id", deposit_id)
+            .maybeSingle();
+          const { data: merchantRow } = deposit
+            ? await supabase.from("merchants").select("created_by").eq("id", deposit.merchant_id).maybeSingle()
+            : { data: null };
+          if (merchantRow?.created_by) {
+            await supabase.functions.invoke("send_push_notification", {
+              body: {
+                user_id: merchantRow.created_by,
+                title: "Deposit confirmed",
+                body: `Driver confirmed $${(result.amount_cents / 100).toFixed(2)} TTD.`,
+                data: { type: "cash_deposit_confirmed", deposit_id },
+              },
+            }).then(null, () => {});
+          }
+        }
+
+        return json(result);
+      }
+
+      // ── cancel_cash_deposit: either the driver or the merchant backs out while pending ──
+      case "cancel_cash_deposit": {
+        const { deposit_id } = body;
+        if (!deposit_id) return json({ success: false, error: "deposit_id is required" }, 400);
+
+        // Authorization is enforced again inside cancel_cash_deposit
+        // itself (checks the actor is either the deposit's driver or a
+        // valid actor for its merchant) — this passes through the
+        // authenticated caller's own id, never a client-supplied one.
+        const { data: result, error: rpcError } = await supabase.rpc("cancel_cash_deposit", {
+          p_deposit_id: deposit_id,
+          p_actor_user_id: user.id,
+        });
+        if (rpcError) {
+          console.error("[merchant:cancel_cash_deposit] RPC failed:", rpcError);
+          return json({ success: false, error: "Cancel failed" }, 500);
+        }
+        return json(result);
+      }
+
       default:
         return json({ error: `Unknown action: ${action}` }, 400);
     }
@@ -636,3 +824,4 @@ serve(async (req) => {
     return json({ success: false, error: err.message || "Internal server error" }, 500);
   }
 });
+
