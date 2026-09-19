@@ -64,7 +64,9 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
         }
     };
 
-    // P0: Zero Unverified Addresses — load verified pins near current location
+    // Verified pins near current location, shown before any search — real
+    // street-address search (via the geocode function's Mapbox integration)
+    // only kicks in once the rider actually types something.
     const loadNearbyPins = async () => {
         try {
             const mod = await import('expo-location');
@@ -146,24 +148,34 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
         });
     };
 
-    const renderResult = ({ item }: { item: any }) => (
-        <TouchableOpacity
-            style={s.row}
-            onPress={() => choose(item.latitude, item.longitude, item.name || item.address)}
-            accessibilityLabel={`Select ${item.name || item.address}`}
-            accessibilityRole="button"
-        >
-            <View style={s.rowIconNeutral}>
-                <Ionicons name="location-sharp" size={18} color="rgba(242,245,248,0.6)" />
-            </View>
-            <View style={s.rowInfo}>
-                <Text style={s.rowName}>{item.name || item.address?.split(',')[0]}</Text>
-                <Text style={s.rowAddress} numberOfLines={1}>{item.address}</Text>
-            </View>
-        </TouchableOpacity>
-    );
+    const renderResult = ({ item }: { item: any }) => {
+        const isVerified = item.source === 'verified_pins';
+        return (
+            <TouchableOpacity
+                style={s.row}
+                onPress={() => choose(item.latitude, item.longitude, item.name || item.address)}
+                accessibilityLabel={`Select ${item.name || item.address}${isVerified ? ', verified pin' : ''}`}
+                accessibilityRole="button"
+            >
+                <View style={isVerified ? s.rowIconBrand : s.rowIconNeutral}>
+                    <Ionicons
+                        name={isVerified ? 'business' : 'location-sharp'}
+                        size={18}
+                        color={isVerified ? VOICES.rider.accent : 'rgba(242,245,248,0.6)'}
+                    />
+                </View>
+                <View style={s.rowInfo}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={s.rowName}>{item.name || item.address?.split(',')[0]}</Text>
+                        {isVerified && <Text style={s.verifiedBadge}>VERIFIED</Text>}
+                    </View>
+                    <Text style={s.rowAddress} numberOfLines={1}>{item.address}</Text>
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
-    const placeholder = editPickupMode ? 'Select a verified pickup point' : 'Search verified locations';
+    const placeholder = editPickupMode ? 'Select your pickup point' : 'Search for an address or place';
 
     return (
         <View style={s.root}>
@@ -230,7 +242,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
                             ) : (
                                 <View style={s.empty}>
                                     <Text style={s.emptyText}>No match for "{query}"</Text>
-                                    <Text style={s.emptySub}>Only Verified Merchant Pins and landmarks are available. Try a different search.</Text>
+                                    <Text style={s.emptySub}>Try a street name, landmark, or nearby business.</Text>
                                 </View>
                             )
                         }
@@ -294,8 +306,8 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
                         ) : saved.length === 0 && nearbyPins.length === 0 ? (
                             <View style={s.empty}>
                                 <Ionicons name="navigate-outline" size={32} color="rgba(242,245,248,0.3)" />
-                                <Text style={s.emptyText}>Select a verified location</Text>
-                                <Text style={s.emptySub}>Only Verified Merchant Pins, landmarks, and your saved places are available for safety.</Text>
+                                <Text style={s.emptyText}>Where to?</Text>
+                                <Text style={s.emptySub}>Search any street, landmark, or business in Trinidad & Tobago.</Text>
                             </View>
                         ) : null}
 
@@ -375,6 +387,10 @@ const s = StyleSheet.create({
     rowIconNeutral: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
     rowInfo: { marginLeft: 14, flex: 1 },
     rowName: { fontSize: 15, fontWeight: '700', color: '#EAF3F6', marginBottom: 2 },
+    verifiedBadge: {
+        fontSize: 8, fontWeight: '800', letterSpacing: 0.5, color: VOICES.rider.accent,
+        backgroundColor: `${VOICES.rider.accent}22`, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4,
+    },
     rowAddress: { fontSize: 13, fontWeight: '500', color: 'rgba(242,245,248,0.5)' },
 
     empty: { marginTop: 48, alignItems: 'center', gap: 8 },
