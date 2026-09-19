@@ -301,6 +301,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                     data={filteredMerchants}
                     keyExtractor={item => item.id}
                     renderItem={renderMerchant}
+                    style={s.list}
                     contentContainerStyle={s.listContent}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
@@ -346,6 +347,7 @@ const s = StyleSheet.create({
     },
     catChipText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '300' },
     catChipTextActive: { color: '#EAF3F6', fontWeight: '700' },
+    list: { flex: 1 },
     listContent: { padding: 20, gap: 14 },
     merchantCard: {
         flexDirection: 'row', alignItems: 'center',

@@ -208,6 +208,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 data={cart}
                 keyExtractor={i => i.product.id}
                 renderItem={renderItem}
+                style={s.list}
                 contentContainerStyle={s.listContent}
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
@@ -306,6 +307,7 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
     },
     headerTitle: { fontSize: 20, fontWeight: '700', color: '#EAF3F6' },
+    list: { flex: 1 },
     listContent: { padding: 20, gap: 12, paddingBottom: 120 },
     itemRow: {
         flexDirection: 'row', alignItems: 'center',
