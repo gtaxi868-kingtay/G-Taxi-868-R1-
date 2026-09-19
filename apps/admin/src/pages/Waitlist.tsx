@@ -110,9 +110,9 @@ export function Waitlist({ onOpenDriverApproval }: { onOpenDriverApproval?: (pho
         setLoading(false);
 
         const claimedDriverPhones = [...new Set(
-            (data || [])
-                .filter(r => r.user_type === 'drive' && r.status === 'claimed' && r.phone)
-                .map(r => r.phone as string)
+            ((data || []) as WaitlistRow[])
+                .filter((r: WaitlistRow) => r.user_type === 'drive' && r.status === 'claimed' && r.phone)
+                .map((r: WaitlistRow) => r.phone as string)
         )];
         if (claimedDriverPhones.length > 0) {
             try {
