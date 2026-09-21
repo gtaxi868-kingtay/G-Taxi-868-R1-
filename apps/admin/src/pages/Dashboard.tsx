@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { DriverMap, type DriverLocation } from '../components/DriverMap';
+import { BriefingCard } from '../components/BriefingCard';
 import { Activity, Radio, Search, TrendingUp, TrendingDown, Zap, CheckCircle2 } from 'lucide-react';
 
 const ACTIVE_STATUSES = new Set(['searching', 'waiting_queue', 'scheduled', 'assigned', 'arrived', 'in_progress']);
@@ -114,6 +115,12 @@ export const Dashboard = ({ rides }: { rides: any[] }) => {
                         className="bg-transparent outline-none text-[11px] font-medium text-white placeholder:text-white/25 w-full"
                     />
                 </div>
+            </div>
+
+            {/* TODAY'S BRIEFING — same left column as the top bar, stops short
+                of the Live Ops sidebar so it never overlaps it. */}
+            <div className="absolute top-[68px] left-4 right-4 sm:right-[372px] z-20">
+                <BriefingCard />
             </div>
 
             {/* BOTTOM-LEFT: busiest zone */}

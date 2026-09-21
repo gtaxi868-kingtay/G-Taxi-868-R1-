@@ -25,7 +25,7 @@ import { fetchDriverDetails } from '../services/realtime';
 
 const WARNING = '#F59E0B';
 const ERROR = '#FF4D6D';
-const CYAN = '#00E5FF';
+const CYAN = '#34E6EC';
 
 const DARK_MAP_STYLE = [
     { elementType: 'geometry', stylers: [{ color: SURFACE.base }] },
@@ -33,7 +33,7 @@ const DARK_MAP_STYLE = [
     { elementType: 'labels.text.stroke', stylers: [{ color: SURFACE.base }] },
     { featureType: 'road', elementType: 'geometry', stylers: [{ color: SURFACE.containerLow }] },
     { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: VOICES.rider.accent, weight: 0.5 }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#00E5FF', lightness: -80 }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#34E6EC', lightness: -80 }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] }
 ];
 
