@@ -1,4 +1,5 @@
 import importPlugin from "eslint-plugin-import";
+import reactHooksPlugin from "eslint-plugin-react-hooks";
 import tsParser from "@typescript-eslint/parser";
 
 export default [
@@ -33,6 +34,7 @@ export default [
 
     plugins: {
       import: importPlugin,
+      "react-hooks": reactHooksPlugin,
     },
 
     settings: {
@@ -48,6 +50,15 @@ export default [
     },
 
     rules: {
+      // Registered as "warn", not the plugin's own recommended severity, so
+      // this doesn't retroactively fail every existing incomplete deps array
+      // across the codebase in one shot. Was previously not registered as a
+      // plugin at all, which made ESLint's flat config reject the existing
+      // `// eslint-disable-next-line react-hooks/exhaustive-deps` comments
+      // (e.g. DriverMap.tsx) as referencing an unknown rule — hard-failing
+      // `npm run lint` (and CI's "quality" check) on files that had done
+      // nothing wrong.
+      "react-hooks/exhaustive-deps": "warn",
       // Block deep cross-tree imports (app code reaching into other packages by path).
       // Single ../ is fine — that's how test files reference the module they test,
       // and how package index files re-export siblings.

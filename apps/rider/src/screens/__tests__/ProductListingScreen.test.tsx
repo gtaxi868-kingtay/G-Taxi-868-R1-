@@ -2,14 +2,14 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { ProductListingScreen } from '../ProductListingScreen';
 
-const productQuery = {
+const mockProductQuery = {
   select: jest.fn().mockReturnThis(),
   eq: jest.fn().mockReturnThis(),
   order: jest.fn().mockResolvedValue({ data: [{ id: 'p1', name: 'Bread', price_cents: 200, description: 'Fresh loaf', is_available: true, merchant_id: 'test-merchant' }], error: null })
 };
 
 jest.mock('@gtaxi/core', () => ({
-  supabase: { from: jest.fn(() => productQuery) },
+  supabase: { from: jest.fn(() => mockProductQuery) },
   channel: () => ({ on: () => ({ subscribe: jest.fn() }) }),
 }));
 jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'test' } }) }));
