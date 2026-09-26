@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<!--
+  DRAFT — GENERATED FROM THE G-TAXI CODEBASE AND LIVE DATABASE (2026-09-11).
+  This is not legal advice. It MUST be reviewed and approved by a lawyer
+  qualified in Trinidad and Tobago before launch.
+
+  Fees, cancellation rules, cash-code limits and payment splits below were
+  read from the code and the live pricing_config table. Where the code
+  defines no policy (for example refunds for disputed rides or G-Escape
+  cancellations, liability caps, minimum age, notice periods), the text is
+  deliberately neutral and the gap is listed in the drafting report.
+  Company details intentionally omitted: G-Taxi is not yet a registered
+  company, so no legal name, registered address or effective date is
+  claimed. Legal name, registered address and effective date must be added
+  on registration, before launch.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terms &amp; Conditions | G 868</title>
+<meta name="description" content="The terms for using G-Taxi (G 868): rides, fares, payments, cancellations, deliveries, G-Escape travel, and the rules for drivers, merchants and G-Leads.">
+<link rel="canonical" href="https://g-taxi-868-r1-admin.vercel.app/legal/terms">
+<meta name="theme-color" content="#07070F">
+<link rel="icon" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Manrope:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07070F;
+  --ink:#EAF3F6;
+  --ink-2:rgba(234,243,246,.82);
+  --muted:rgba(234,243,246,.64);
+  --line:rgba(255,255,255,.11);
+  --panel:rgba(255,255,255,.035);
+  --cyan:#34E6EC;
+  --violet:#7c3aed;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  background:var(--bg);
+  background-image:
+    radial-gradient(900px 520px at 12% -8%,rgba(124,58,237,.22),transparent 62%),
+    radial-gradient(760px 480px at 100% 0%,rgba(52,230,236,.07),transparent 60%);
+  background-repeat:no-repeat;
+  color:var(--ink-2);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:1.0625rem;line-height:1.72;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--cyan);text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{color:#fff}
+a:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:4px}
+.skip{position:absolute;left:-9999px;top:0;background:var(--cyan);color:#06131A;padding:.6rem 1rem;border-radius:0 0 10px 0;font-weight:600;z-index:10}
+.skip:focus{left:0}
+
+.site-header{border-bottom:1px solid var(--line)}
+.site-header .inner{max-width:1080px;margin:0 auto;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.brand{display:flex;align-items:center;gap:.6rem;color:var(--ink);text-decoration:none}
+.brand img{width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 4px 14px rgba(52,230,236,.25))}
+.brand span{font-family:'Outfit',sans-serif;font-weight:800;letter-spacing:.02em;font-size:1.1rem}
+.header-links{display:flex;gap:1.1rem;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem}
+.header-links a{color:var(--muted);text-decoration:none}
+.header-links a:hover,.header-links a[aria-current="page"]{color:var(--ink)}
+
+main{max-width:760px;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+.eyebrow{font-family:'Manrope',sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--cyan)}
+h1{font-family:'Outfit',sans-serif;font-weight:800;color:var(--ink);font-size:clamp(2.1rem,7vw,3.1rem);line-height:1.05;letter-spacing:-.02em;margin:.5rem 0 .9rem}
+.lit{width:120px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--violet),var(--cyan));margin:0 0 1.2rem}
+.meta{color:var(--muted);font-size:.92rem}
+.lede{font-size:1.12rem;color:var(--ink-2);margin:1.4rem 0 0}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:1.3rem 1.4rem;margin:2rem 0}
+.card h2{margin-top:0;font-size:1.15rem}
+.card ul{margin-bottom:0}
+.toc ol{margin:.6rem 0 0 1.2rem;columns:1}
+@media (min-width:640px){.toc ol{columns:2;column-gap:2.2rem}}
+.toc li{margin:.2rem 0;break-inside:avoid}
+.toc a{color:var(--ink-2);text-decoration:none}
+.toc a:hover{color:var(--cyan);text-decoration:underline}
+
+h2{font-family:'Outfit',sans-serif;font-weight:700;color:var(--ink);font-size:clamp(1.4rem,4.4vw,1.7rem);line-height:1.2;letter-spacing:-.01em;margin:3rem 0 .8rem;scroll-margin-top:1.5rem}
+h3{font-family:'Manrope',sans-serif;font-weight:700;color:var(--ink);font-size:1.08rem;margin:1.8rem 0 .5rem;scroll-margin-top:1.5rem}
+p{margin:0 0 1rem}
+ul,ol{margin:0 0 1rem 1.25rem}
+li{margin:.3rem 0}
+li::marker{color:rgba(52,230,236,.75)}
+strong{color:var(--ink);font-weight:600}
+
+.table-wrap{overflow-x:auto;margin:1rem 0 1.4rem;border:1px solid var(--line);border-radius:14px}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:.95rem;line-height:1.55}
+th,td{text-align:left;vertical-align:top;padding:.75rem .9rem;border-bottom:1px solid var(--line)}
+th{font-family:'Manrope',sans-serif;font-weight:700;color:var(--ink);background:rgba(255,255,255,.04);font-size:.85rem;letter-spacing:.02em}
+tr:last-child td{border-bottom:none}
+td:first-child{color:var(--ink);font-weight:500}
+
+.site-footer{border-top:1px solid var(--line)}
+.site-footer .inner{max-width:1080px;margin:0 auto;padding:1.6rem 1.25rem 2.2rem;display:flex;flex-wrap:wrap;gap:.8rem 1.6rem;align-items:center;justify-content:space-between;color:var(--muted);font-size:.9rem}
+.site-footer nav{display:flex;flex-wrap:wrap;gap:1.2rem}
+.site-footer a{color:var(--ink-2)}
+
+@media print{
+  body{background:#fff;color:#111;font-size:11pt}
+  h1,h2,h3,strong,td:first-child{color:#000}
+  a{color:#000}
+  .site-header,.site-footer,.skip,.lit{display:none}
+  .card,.table-wrap{border-color:#bbb}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="/" aria-label="G 868 home">
+      <img src="/logo.png" alt="" width="32" height="32">
+      <span>G 868</span>
+    </a>
+    <nav class="header-links" aria-label="Legal">
+      <a href="/legal/privacy">Privacy</a>
+      <a href="/legal/terms" aria-current="page">Terms</a>
+    </nav>
+  </div>
+</header>
+
+<main id="content">
+  <p class="eyebrow">Legal</p>
+  <h1>Terms &amp; Conditions</h1>
+  <div class="lit" aria-hidden="true"></div>
+  <p class="meta">Draft &mdash; not yet in effect (pre-launch)</p>
+
+  <p class="lede">These terms govern your use of G-Taxi (“G 868”, “we”, “us”). They apply when you use the gtaxi.tt website or the G-Taxi Rider, Driver or Merchant apps, whether as a rider, driver, merchant or G-Lead. By creating an account or using the service, you accept them. Please read them together with our <a href="/legal/privacy">Privacy Policy</a>.</p>
+
+  <nav class="card toc" aria-labelledby="toc-title">
+    <h2 id="toc-title">Contents</h2>
+    <ol>
+      <li><a href="#about">About G-Taxi</a></li>
+      <li><a href="#accounts">Accounts</a></li>
+      <li><a href="#rides">Rides</a></li>
+      <li><a href="#payments">Payments and wallet</a></li>
+      <li><a href="#delivery">Deliveries and merchant orders</a></li>
+      <li><a href="#escape">G-Escape travel packages</a></li>
+      <li><a href="#drivers">Drivers</a></li>
+      <li><a href="#merchants">Merchants</a></li>
+      <li><a href="#leads">G-Leads</a></li>
+      <li><a href="#nodes">G nodes, NFC tags and QR codes</a></li>
+      <li><a href="#ai">G, the AI assistant</a></li>
+      <li><a href="#safety">Safety and SOS</a></li>
+      <li><a href="#conduct">Acceptable use</a></li>
+      <li><a href="#suspension">Suspension and closing accounts</a></li>
+      <li><a href="#liability">Responsibility and liability</a></li>
+      <li><a href="#law">Governing law and disputes</a></li>
+      <li><a href="#changes">Changes to these terms</a></li>
+      <li><a href="#contact">Contact us</a></li>
+    </ol>
+  </nav>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="about">1. About G-Taxi</h2>
+  <p>G-Taxi is a technology platform in Trinidad and Tobago. It connects:</p>
+  <ul>
+    <li>riders with drivers who provide transport and delivery services;</li>
+    <li>customers with local merchants;</li>
+    <li>travellers with G-Escape group travel packages.</li>
+  </ul>
+  <p>G-Taxi also runs a network of partner locations (“G nodes”), set up and grown by area leads called G-Leads.</p>
+  <p>Drivers are independent operators, not G-Taxi employees (see <a href="#drivers">section 7</a>). Merchants are responsible for the goods and services they sell. Flights and accommodation in G-Escape packages are provided by airlines and accommodation providers.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="accounts">2. Accounts</h2>
+  <ul>
+    <li>You must be legally able to enter into a binding contract under the laws of Trinidad and Tobago.</li>
+    <li>Give accurate information and keep it up to date. That includes your phone number, and for drivers and merchants, your documents and payout details.</li>
+    <li>Keep your password private. You are responsible for activity on your account.</li>
+    <li>One person, one account per role. Do not create accounts for other people without their permission, or to get referral rewards more than once.</li>
+    <li>Some roles need our approval before you can use them. Drivers need document review, merchants and their locations need approval from G-Taxi HQ, and G-Lead applications are reviewed. We can decline an application.</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="rides">3. Rides</h2>
+
+  <h3 id="rides-booking">3.1 Booking</h3>
+  <p>You request a ride in the Rider app by choosing a pickup, a destination, any stops and a vehicle class. Before you confirm, the app shows an estimated fare. Rides can be requested now or scheduled for later. Heavier vehicle classes, such as trucks, are available only when we switch them on.</p>
+
+  <h3 id="rides-fares">3.2 How fares are calculated</h3>
+  <p>A fare is made up of:</p>
+  <ul>
+    <li>a <strong>base fare</strong>;</li>
+    <li>a <strong>per-kilometre</strong> charge for the route distance;</li>
+    <li>a <strong>per-minute</strong> charge for trip time;</li>
+    <li><strong>stop fees</strong> for any stops you add, which differ by type of stop (for example grocery or pharmacy).</li>
+  </ul>
+  <p>That total is multiplied by the <strong>vehicle class</strong> rate (for example Standard, XL or Premium) and by any <strong>surge</strong> multiplier in effect. A <strong>minimum fare</strong> applies, and some vehicle classes have their own higher minimum. Current rates are shown in the app before you book, and we may change them.</p>
+
+  <h3 id="rides-waiting">3.3 Waiting charges</h3>
+  <ul>
+    <li><strong>At pickup:</strong> the driver waits free for 3 minutes after arriving. After that, a per-minute waiting charge is added.</li>
+    <li><strong>At merchant stops:</strong> a per-minute waiting charge applies while the driver waits at a partner merchant stop, with no free period.</li>
+  </ul>
+  <p>Because waiting charges and changes to your route or stops are only known during the trip, your final fare can differ from the estimate.</p>
+
+  <h3 id="rides-surge">3.4 Surge pricing</h3>
+  <p>When demand is high in an area, prices there can rise, either because we set a surge area or automatically based on demand. Any surge in effect is included in the estimate shown before you book.</p>
+
+  <h3 id="rides-cancel">3.5 Cancellations</h3>
+  <ul>
+    <li><strong>Riders</strong> can cancel free of charge while we are still looking for a driver.</li>
+    <li>Once a driver is assigned, a <strong>cancellation fee</strong> (currently TT$5) is charged if the driver has already arrived, or is less than 1 km from your pickup, when you cancel. The fee is taken from your wallet and paid to the driver.</li>
+    <li>A ride cannot be cancelled in the app once it has started.</li>
+    <li><strong>Drivers</strong> who cancel a ride they have accepted see their acceptance rate go down. If a driver cancels after arriving, we check what happened next.</li>
+    <li>If your driver cancels, we do not automatically find you another driver. Please request a new ride.</li>
+  </ul>
+
+  <h3 id="rides-tips">3.6 Tips</h3>
+  <p>After a ride you can tip your driver from your wallet balance. The whole tip goes to the driver. Tips are optional.</p>
+
+  <h3 id="rides-conduct">3.7 During the ride</h3>
+  <p>You may be asked to confirm a ride PIN, or to take a verification selfie, before a ride starts. Treat your driver and their vehicle with respect. You are responsible for any damage you cause beyond normal use.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="payments">4. Payments and wallet</h2>
+
+  <h3 id="payments-methods">4.1 Ways to pay</h3>
+  <ul>
+    <li><strong>Cash</strong>, paid to the driver, who confirms it in the Driver app.</li>
+    <li><strong>Card</strong>, processed by Stripe or WiPay. Card payments are also subject to their terms. When you pay by card through Stripe, your card is saved with Stripe for later rides.</li>
+    <li><strong>G-Taxi wallet</strong>, topped up in the app.</li>
+    <li><strong>Split payment</strong>, where you share a fare with other people.</li>
+    <li><strong>Tap to pay</strong> at supported G nodes.</li>
+  </ul>
+  <p>You authorise us to charge the payment method you choose for fares, waiting charges, stop fees, cancellation fees and orders.</p>
+
+  <h3 id="payments-wallet">4.2 Wallet</h3>
+  <p>Your wallet balance is the total of all your wallet transactions: top-ups, payments, refunds, tips, rewards and withdrawals. The balance can be spent only on G-Taxi and does not earn interest.</p>
+  <p>If you ask us to delete your account, withdraw your balance before the deletion is completed. A balance left in the wallet cannot be returned afterwards.</p>
+
+  <h3 id="payments-cash">4.3 Cash withdrawal codes</h3>
+  <p>Riders can turn wallet balance into cash by generating a withdrawal code and collecting the cash from a participating driver. Current rules:</p>
+  <div class="table-wrap" role="region" aria-label="Cash withdrawal code rules" tabindex="0">
+    <table>
+      <thead><tr><th scope="col">Rule</th><th scope="col">Current setting</th></tr></thead>
+      <tbody>
+        <tr><td>Amount per code</td><td>TT$50 minimum, TT$2,000 maximum</td></tr>
+        <tr><td>Fee</td><td>TT$2 per code</td></tr>
+        <tr><td>When your wallet is charged</td><td>Immediately, when the code is created (amount plus fee)</td></tr>
+        <tr><td>Expiry</td><td>2 hours. An unredeemed code is refunded to your wallet in full, automatically.</td></tr>
+        <tr><td>Drivers</td><td>Must be active and have no unpaid platform fees</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Never share a code with anyone except the driver giving you the cash. Anyone who has the code can redeem it.</p>
+
+  <h3 id="payments-disputes">4.4 Problems with a charge</h3>
+  <p>If you think a fare or charge is wrong, report it through support in the app. We review each report and may issue a refund or credit.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="delivery">5. Deliveries and merchant orders</h2>
+  <p>You can order from partner merchants for delivery, or add a merchant stop to a ride. The merchant is responsible for the items it sells: their quality, safety, description and price. A driver collects or shops for your order and delivers it. Delivery fees and any minimum order amount are shown before you order.</p>
+  <p>Merchants can also book a ride for their customers. If a merchant books one for you, you will get a WhatsApp message with trip details.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="escape">6. G-Escape travel packages</h2>
+  <ul>
+    <li><strong>Seat holds.</strong> Reserving a package puts a hold on seats for a limited time. If a hold is not paid before it expires, the seats are released.</li>
+    <li><strong>Group pricing.</strong> Some packages are priced by group size, and the price can drop as more people join before it is locked.</li>
+    <li><strong>Payment and confirmation.</strong> You can pay with your wallet, by card or through WiPay. A booking is confirmed only when payment is taken and our team confirms it.</li>
+    <li><strong>Travel documents.</strong> You must submit accurate passport and traveller details that match your travel documents. You are responsible for having a valid passport and any visas or entry documents you need.</li>
+    <li><strong>Third-party providers.</strong> Flights and accommodation are provided by airlines and accommodation providers under their own terms. Airport transfer rides are provided through G-Taxi.</li>
+    <li><strong>Changes and cancellations.</strong> If you need to change or cancel a G-Escape booking, contact us at gtaxi868@gmail.com and we will review your request.</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="drivers">7. Drivers</h2>
+
+  <h3 id="drivers-status">7.1 Independent operator</h3>
+  <p>You provide services as an independent contractor, not as an employee, worker, partner or agent of G-Taxi. You decide when you go online, which requests you accept and how you run your service. You are responsible for your own taxes, insurance, licences and vehicle costs.</p>
+
+  <h3 id="drivers-requirements">7.2 Requirements</h3>
+  <ul>
+    <li>A valid driving licence, vehicle registration, insurance, and where required a PSV badge. Upload them in the app and keep them current.</li>
+    <li>A vehicle that matches the class you registered and is registered for the type of service you provide.</li>
+    <li>We review documents before approving you, and may ask you to update them.</li>
+  </ul>
+
+  <h3 id="drivers-location">7.3 Location while online</h3>
+  <p>While you are online, the Driver app collects your precise location, including in the background, for dispatch, fares and safety. Go offline when you are not available.</p>
+
+  <h3 id="drivers-earnings">7.4 Earnings and fees</h3>
+  <p>Each fare is split between you, the platform and a capital reserve. Current split:</p>
+  <ul>
+    <li><strong>Driver share:</strong> 80% of the fare.</li>
+    <li><strong>G-Lead share:</strong> if your territory has an active G-Lead, 2% of the fare comes out of the driver share, so you receive 78%.</li>
+    <li><strong>Capital reserve:</strong> 1.5% of the fare.</li>
+    <li><strong>Platform:</strong> keeps the rest. Where a ride genuinely starts at a partner G node, a share of the platform’s portion (not yours) goes to that merchant.</li>
+  </ul>
+  <p>Card and wallet earnings are credited to your G-Taxi wallet, and you can request a payout to your bank account. When you collect cash, the platform’s share becomes an amount you owe. Some features, such as redeeming cash codes, are unavailable until it is paid. We may change the split.</p>
+
+  <h3 id="drivers-integrity">7.5 Acceptance, cancellations and location integrity</h3>
+  <p>Cancelling rides you have accepted lowers your acceptance rate. Using apps or devices to fake your location is prohibited. If our systems detect falsified location readings, your account is suspended pending review.</p>
+
+  <h3 id="drivers-lease">7.6 Vehicle leasing and Earn-to-Deposit</h3>
+  <p>If you apply for a vehicle lease, you sign a separate Earnings Assignment Addendum in the Driver app. It authorises deductions from your earnings and forms part of your agreement with us.</p>
+  <p>If you save toward a vehicle deposit through Earn-to-Deposit and leave the plan early, you get back a share of your savings based on how long you have been saving:</p>
+  <ul>
+    <li>100% within 30 days;</li>
+    <li>75% within 90 days;</li>
+    <li>50% within 180 days;</li>
+    <li>25% after that.</li>
+  </ul>
+  <p>The rest is kept by the platform.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="merchants">8. Merchants</h2>
+  <ul>
+    <li><strong>Joining.</strong> Merchants register by invitation or through the app. Your business and location are reviewed by G-Taxi HQ before they go live.</li>
+    <li><strong>Your listing.</strong> You are responsible for accurate details, prices, opening hours and product information, and for fulfilling orders you accept.</li>
+    <li><strong>Fees.</strong> We charge a commission on orders, which varies by category, and a monthly listing fee. We may also charge fees for pinned placement you choose. Current fees are shown to you by G-Taxi.</li>
+    <li><strong>Payouts.</strong> Add accurate payout bank details so we can pay you.</li>
+    <li><strong>Rider discounts.</strong> You can choose to offer G-Taxi riders a discount, and switch it off at any time.</li>
+    <li><strong>Hosting a G node.</strong> If your location hosts a G node, you may earn a share of the platform’s portion of rides that genuinely start there. Attribution is verified by a real tap or by location, not by a code alone.</li>
+    <li><strong>Suspension.</strong> We can suspend a merchant account or listing, for example for serious complaints, unpaid amounts or misuse.</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="leads">9. G-Leads</h2>
+  <ul>
+    <li>G-Leads apply for an area and pay an application fee through WiPay. Applications are reviewed by our team, and paying the fee does not guarantee approval.</li>
+    <li>Approved G-Leads recruit and support drivers and merchants in their territory, and set up G nodes.</li>
+    <li>G-Leads earn a revenue share from rides by drivers in their territory, taken from the driver share as described in <a href="#drivers-earnings">section 7.4</a>, and can request payouts.</li>
+    <li>We can change or reassign territories, and can suspend a G-Lead who misuses recruitment codes or referral rewards, or whose account is no longer active.</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="nodes">10. G nodes, NFC tags and QR codes</h2>
+  <p>Tapping a G node or scanning a G-Taxi QR code can open the app or website, start a ride from that location, or link a tag or wristband to your account. Tapping to request a ride costs you nothing extra.</p>
+  <p>Do not copy, move, damage or tamper with G-Taxi tags or QR codes, or use them to claim commission for rides that did not start there.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="ai">11. G, the AI assistant</h2>
+  <p>G can answer questions, suggest destinations, stops and merchants, understand voice or typed commands, and set reminders. G’s answers are generated automatically and can be wrong. Check anything important, such as a destination, price or booking, before you rely on it.</p>
+  <p>On the operations side, G can propose actions to our team. Any action involving money must be approved by a human administrator before it takes effect.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="safety">12. Safety and SOS</h2>
+  <p>The SOS button in a ride logs an incident for our team and sends an alert with your location to your saved emergency contact by WhatsApp. <strong>SOS is not an emergency service.</strong> If you are in danger, contact the police on 999 or other emergency services directly.</p>
+  <p>Add an emergency contact in the app, and only add someone who has agreed to receive these alerts. Report unsafe behaviour through the app.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="conduct">13. Acceptable use</h2>
+  <p>You must not:</p>
+  <ul>
+    <li>break the law, or use G-Taxi to carry out or hide illegal activity;</li>
+    <li>harass, threaten, discriminate against or endanger anyone;</li>
+    <li>give false information, impersonate someone, or use someone else’s account, payment method or documents;</li>
+    <li>fake your location, create fake rides or orders, or abuse referral codes, rewards, cancellations or refunds;</li>
+    <li>arrange to take a ride or payment off the platform after being matched through G-Taxi, to avoid fees;</li>
+    <li>interfere with the apps, website or systems, try to get around security or rate limits, or collect other users’ data;</li>
+    <li>tamper with G nodes, tags or QR codes.</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="suspension">14. Suspension and closing accounts</h2>
+  <p>We may suspend, restrict or close an account if we reasonably believe it has broken these terms, poses a safety or fraud risk, has unpaid amounts, or where the law requires it. Some suspensions happen automatically, such as when falsified location readings are detected, and are then reviewed by a person. Contact support if you believe a suspension is a mistake.</p>
+  <p>You can close your account at any time by asking to delete it in the app. After you ask, there is a 30-day window in which you can change your mind. See our <a href="/legal/privacy#rights-delete">Privacy Policy</a> for what happens to your data. Amounts you owe remain payable after your account is closed.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="liability">15. Responsibility and liability</h2>
+  <p>G-Taxi provides a platform that connects you with drivers, merchants and travel providers. They are responsible for the services and goods they provide. We work to keep the service available and accurate, but we cannot promise it will always be available, error-free or uninterrupted.</p>
+  <p>To the extent permitted by the laws of Trinidad and Tobago, we are not liable for indirect or consequential losses. Nothing in these terms limits any liability that cannot legally be limited, or any rights you have under consumer protection law.</p>
+  <!-- LAWYER: liability limits, any cap, and indemnities are not defined anywhere in the product; draft these to suit the business and T&T law. -->
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="law">16. Governing law and disputes</h2>
+  <p>These terms are governed by the laws of the Republic of Trinidad and Tobago. If a problem comes up, contact us first so we can try to resolve it. Any dispute that cannot be resolved that way will be decided by the courts of Trinidad and Tobago.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="changes">17. Changes to these terms</h2>
+  <p>We may update these terms as the service changes. The new version will be posted on this page with a new effective date. Where a change is significant, we will also tell you in the app or by message. If you keep using G-Taxi after changes take effect, you accept the updated terms.</p>
+
+  <!-- ─────────────────────────────────────────────────────────── -->
+  <h2 id="contact">18. Contact us</h2>
+  <p>G-Taxi (G 868)<br>Trinidad and Tobago &mdash; pre-launch, not yet a registered company<br>Email: <a href="mailto:gtaxi868@gmail.com">gtaxi868@gmail.com</a></p>
+  <p>See also our <a href="/legal/privacy">Privacy Policy</a>.</p>
+</main>
+
+<footer class="site-footer">
+  <div class="inner">
+    <span>© G-Taxi (G 868)</span>
+    <nav aria-label="Footer">
+      <a href="/">Home</a>
+      <a href="/legal/privacy">Privacy Policy</a>
+      <a href="/legal/terms" aria-current="page">Terms &amp; Conditions</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

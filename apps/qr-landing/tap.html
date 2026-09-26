@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>G-Taxi — Your ride starts here</title>
+<meta name="description" content="Tap a G-Taxi touch point, get your ride on WhatsApp. No app needed.">
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-inner:#3b0f6e;--bg-mid:#14062c;--bg-outer:#04030a;
+    --wa:#25D366;--wa-dark:#1da851;--teal:#5eead4;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(circle at center,var(--bg-inner) 0%,var(--bg-mid) 50%,var(--bg-outer) 100%);
+    color:#fff;font-family:'Inter',sans-serif;
+    display:flex;align-items:center;justify-content:center;
+    padding:1.5rem;min-height:100vh;min-height:100dvh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .card{
+    width:100%;max-width:420px;text-align:center;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:24px;padding:2rem 1.5rem;
+    backdrop-filter:blur(8px);
+  }
+  .logo{width:72px;height:72px;border-radius:18px;margin:0 auto 1rem;display:block}
+  h1{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin-bottom:.35rem}
+  .pickup{
+    display:inline-flex;align-items:center;gap:.45rem;
+    background:rgba(94,234,212,.12);border:1px solid rgba(94,234,212,.35);
+    color:var(--teal);font-weight:600;font-size:.9rem;
+    padding:.5rem .9rem;border-radius:999px;margin:.8rem 0 .4rem;
+  }
+  .addr{color:rgba(255,255,255,.65);font-size:.85rem;margin-bottom:1.4rem}
+  .wa-btn{
+    display:flex;align-items:center;justify-content:center;gap:.6rem;
+    width:100%;padding:1rem;border:none;border-radius:16px;
+    background:var(--wa);color:#062b16;
+    font-size:1.05rem;font-weight:800;cursor:pointer;text-decoration:none;
+    transition:transform 160ms cubic-bezier(.23,1,.32,1),background 160ms;
+  }
+  .wa-btn:hover{background:var(--wa-dark)}
+  .wa-btn:active{transform:scale(.97)}
+  .wa-btn svg{width:26px;height:26px;flex:none}
+  .note{margin-top:1rem;font-size:.8rem;color:rgba(255,255,255,.55);line-height:1.5}
+  .note code{background:rgba(255,255,255,.08);padding:.15rem .45rem;border-radius:6px;font-size:.78rem}
+  .fallback-box{
+    margin-top:1rem;padding:.9rem;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.2);
+    font-size:.82rem;color:rgba(255,255,255,.75);line-height:1.6;display:none;
+  }
+  .fallback-box b{color:#fff}
+  .spinner{
+    width:44px;height:44px;margin:1.2rem auto;border-radius:50%;
+    border:4px solid rgba(255,255,255,.15);border-top-color:var(--teal);
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{color:#ffb4b4;font-size:.95rem;line-height:1.6;margin-top:1rem}
+  .hidden{display:none!important}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="logo.png" alt="G-Taxi">
+    <div id="loading">
+      <h1>Finding your pickup&hellip;</h1>
+      <div class="spinner"></div>
+    </div>
+
+    <div id="ready" class="hidden">
+      <h1>Your ride starts here</h1>
+      <div class="pickup">&#128205; <span id="pickup-name">Touch point</span></div>
+      <div class="addr" id="pickup-addr"></div>
+      <a class="wa-btn" id="wa-btn" href="#" target="_blank" rel="noopener">
+        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M16 3C9.4 3 4 8.4 4 15c0 2.4.7 4.6 2 6.5L4 29l7.7-2c1.8 1 3.9 1.6 6.1 1.6h.1c6.6 0 12-5.4 12-12S22.6 3 16 3zm0 21.8c-1.9 0-3.7-.5-5.3-1.5l-.4-.2-4.6 1.2 1.2-4.4-.3-.4c-1.1-1.7-1.6-3.6-1.6-5.6C5 9.6 9.6 5 16 5s11 4.6 11 10.8-4.6 9-10 9zm6.1-6.7c-.3-.2-2-1-2.3-1.1-.3-.1-.6-.2-.8.2-.2.3-.9 1.1-1.1 1.3-.2.2-.4.3-.8.1-.3-.2-1.4-.5-2.7-1.7-.9-.9-1.6-2-1.8-2.3-.2-.3 0-.5.1-.6l.5-.6c.2-.2.2-.4.3-.6.1-.2 0-.4 0-.6L13 9.5c-.3-.8-.7-.7-1-.7h-.8c-.3 0-.7.1-1.1.5-.4.4-1.4 1.4-1.4 3.4s1.4 4 1.7 4.2c.2.3 2.9 4.4 7 6.2.9.4 1.7.6 2.2.8.9.3 1.8.3 2.5.2.8-.1 2-1 2.3-1.8.3-.9.3-1.6.2-1.8-.1-.1-.4-.2-.7-.4z"/></svg>
+        Get ride via WhatsApp
+      </a>
+      <div class="note">No app needed. Tap the button, hit send in WhatsApp, and tell the bot where you're going. Cash rides only.</div>
+      <div class="fallback-box" id="fallback">
+        No WhatsApp on this device? Message <b id="fb-number"></b> directly with:<br>
+        <code id="fb-text"></code>
+      </div>
+    </div>
+
+    <div id="error" class="hidden">
+      <h1>Touch point not found</h1>
+      <p class="err" id="err-msg">This tap didn't match a live G-Taxi touch point.</p>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  var SUPABASE_URL = "https://ffbbuafgeypvkpcuvdnv.supabase.co";
+  var SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmYmJ1YWZnZXlwdmtwY3V2ZG52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5Mzc5ODAsImV4cCI6MjA4NjUxMzk4MH0.0bvE6YskOdVROtbto3RrJA9Vj--9M2hKg76oZkOxia8";
+  var HEAD = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY };
+
+  var QP = new URLSearchParams(location.search);
+  var RAW = QP.get("node") || QP.get("tag") || QP.get("stand") || "";
+  var IS_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(RAW);
+  var KEY = IS_UUID ? "node" : "tag";
+
+  function show(id){
+    ["loading","ready","error"].forEach(function(x){
+      document.getElementById(x).classList.toggle("hidden", x !== id);
+    });
+  }
+  function fail(msg){
+    document.getElementById("err-msg").textContent = msg;
+    show("error");
+  }
+
+  if(!RAW){ fail("This tap didn't carry a touch-point id. Try tapping again, or scan the QR on the puck."); return; }
+
+  // 1. Resolve the tap -> pickup (public, no-auth resolver).
+  fetch(SUPABASE_URL + "/functions/v1/site?resolve=1&" + KEY + "=" + encodeURIComponent(RAW), { headers: HEAD })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var p = d && d.pickup;
+      if(!d || d.found === false || !p){
+        var reason = (d && d.reason) || "unknown";
+        fail(reason === "touchpoint not active yet"
+          ? "That touch point isn't live yet — we're opening community by community. You're early, and that's good."
+          : "This tap didn't match a live G-Taxi touch point. Try tapping again.");
+        return;
+      }
+      // The prefill carries whatever token the tag URL used (node UUID or
+      // tag UID) — the webhook resolves both against kiosk_nodes.
+      var token = RAW;
+
+      document.getElementById("pickup-name").textContent = p.name || "Touch point";
+      var addr = p.address || "";
+      document.getElementById("pickup-addr").textContent = addr;
+      document.getElementById("pickup-addr").style.display = addr ? "" : "none";
+
+      // 2. Business number (env -> system_config -> default), never hardcoded here.
+      return fetch(SUPABASE_URL + "/functions/v1/public_config", { headers: HEAD })
+        .then(function(r){ return r.json(); })
+        .then(function(c){
+          var digits = ((c && c.whatsapp_number) || "").replace(/\D/g, "");
+          if(digits.length < 7) throw new Error("no number");
+          var prefill = "GTAXI TAP " + token;
+          var link = "https://wa.me/" + digits + "?text=" + encodeURIComponent(prefill);
+          var btn = document.getElementById("wa-btn");
+          btn.href = link;
+          // Fallback for devices without WhatsApp installed.
+          document.getElementById("fb-number").textContent = "+" + digits;
+          document.getElementById("fb-text").textContent = prefill;
+          document.getElementById("fallback").style.display = "block";
+          show("ready");
+        });
+    })
+    .catch(function(err){
+      console.error(err);
+      fail("Couldn't reach G-Taxi right now. Check your data connection and tap again.");
+    });
+})();
+</script>
+</body>
+</html>

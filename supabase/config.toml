@@ -103,3 +103,16 @@ verify_jwt = false
 
 [functions.wipay_payment]
 verify_jwt = false
+
+# WhatsApp tap-to-ride flow (2026-09-25). Meta's servers cannot mint Supabase
+# JWTs: the webhook authenticates via VERIFY_TOKEN (GET handshake) and
+# X-Hub-Signature-256 / WHATSAPP_APP_SECRET (POST). resolve_touchpoint was
+# already public by dashboard setting; pinning it here makes it explicit.
+[functions.whatsapp_webhook]
+verify_jwt = false
+
+[functions.public_config]
+verify_jwt = false
+
+[functions.resolve_touchpoint]
+verify_jwt = false

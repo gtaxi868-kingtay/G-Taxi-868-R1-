@@ -22,6 +22,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
 import { PRICING, calculateStopsFee, fetchVehicleClass, staticMultiplier } from "../_shared/pricing.ts";
+// REFERRAL-MILESTONE 2026-09-25
+import { couponDiscountCents, isCouponRedeemable } from "../_shared/referral_math.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -178,6 +180,8 @@ serve(async (req: Request) => {
         const livePerKm     = cfg["PER_KM_CENTS"]    ?? PRICING.PER_KM_CENTS;
         const livePerMin    = cfg["PER_MIN_CENTS"]    ?? PRICING.PER_MIN_CENTS;
         const liveMinFare   = cfg["MIN_FARE_CENTS"]   ?? PRICING.MIN_FARE_CENTS;
+        const liveLongDistanceThreshold = cfg["LONG_DISTANCE_KM_THRESHOLD"] ?? PRICING.LONG_DISTANCE_KM_THRESHOLD;
+        const liveLongDistancePerKm = cfg["LONG_DISTANCE_PER_KM_CENTS"] ?? PRICING.LONG_DISTANCE_PER_KM_CENTS;
 
         const totalStopsFeeCents = calculateStopsFee(Array.isArray(stops) ? stops : []);
 
@@ -185,11 +189,56 @@ serve(async (req: Request) => {
         const classMinFare = vehicleClass?.min_fare_cents ?? 0;
         const distanceKm = distanceMeters / 1000;
         const durationMin = durationSeconds / 60;
+        const normalDistanceKm = Math.min(distanceKm, liveLongDistanceThreshold);
+        const longDistanceKm = Math.max(distanceKm - liveLongDistanceThreshold, 0);
         let rawFare = liveBaseFare +
-            Math.round(distanceKm * livePerKm) +
+            Math.round(normalDistanceKm * livePerKm) +
+            Math.round(longDistanceKm * liveLongDistancePerKm) +
             Math.round(durationMin * livePerMin);
         rawFare = Math.round((rawFare + totalStopsFeeCents) * multiplier * surgeMultiplier);
         const fareCents = Math.max(rawFare, liveMinFare, classMinFare);
+
+        // REFERRAL-MILESTONE 2026-09-25: surface the rider's available
+        // referral coupon (25% off, max TT$25, 60-day expiry) WITHOUT
+        // consuming it — consumption happens exactly once in
+        // process_wallet_payment_hardened during complete_ride. The
+        // discounted charge may fall below the TT$22 minimum; the minimum
+        // applies to the pre-discount fare. Wallet rides only.
+        let referralCoupon: {
+            id: string;
+            percent_off: number;
+            max_discount_cents: number;
+            discount_cents: number;
+            discounted_fare_cents: number;
+            expires_at: string;
+        } | null = null;
+        const { data: couponRow } = await adminClient
+            .from("rider_referral_coupons")
+            .select("id, percent_off, max_discount_cents, expires_at")
+            .eq("rider_user_id", user.id)
+            .eq("status", "issued")
+            .gt("expires_at", new Date().toISOString())
+            .order("expires_at", { ascending: true })
+            .limit(1)
+            .maybeSingle()
+            .then((res) => res, () => ({ data: null }));
+        if (couponRow && isCouponRedeemable("issued", couponRow.expires_at)) {
+            const discount = couponDiscountCents(
+                fareCents,
+                couponRow.percent_off ?? 25,
+                couponRow.max_discount_cents ?? 2500,
+            );
+            if (discount > 0) {
+                referralCoupon = {
+                    id: couponRow.id,
+                    percent_off: couponRow.percent_off ?? 25,
+                    max_discount_cents: couponRow.max_discount_cents ?? 2500,
+                    discount_cents: discount,
+                    discounted_fare_cents: fareCents - discount,
+                    expires_at: couponRow.expires_at,
+                };
+            }
+        }
 
         return new Response(
             JSON.stringify({
@@ -197,6 +246,7 @@ serve(async (req: Request) => {
                 error: null,
                 data: {
                     estimated_fare_cents: fareCents,
+                    referral_coupon: referralCoupon,
                     distance_meters: distanceMeters,
                     duration_seconds: durationSeconds,
                     vehicle_type: vehicleClass?.key ?? vehicle_type,
@@ -208,6 +258,8 @@ serve(async (req: Request) => {
                         per_km_cents: livePerKm,
                         per_min_cents: livePerMin,
                         min_fare_cents: Math.max(liveMinFare, classMinFare),
+                        long_distance_km_threshold: liveLongDistanceThreshold,
+                        long_distance_per_km_cents: liveLongDistancePerKm,
                         stop_base_grocery_cents: PRICING.STOP_BASE_GROCERY_CENTS,
                         stop_base_pharmacy_cents: PRICING.STOP_BASE_PHARMACY_CENTS,
                         stop_base_other_cents: PRICING.STOP_BASE_OTHER_CENTS,

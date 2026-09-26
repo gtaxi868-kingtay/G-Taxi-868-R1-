@@ -29,7 +29,18 @@ export interface WhatsAppTemplateMessage {
   };
 }
 
-export type WhatsAppMessage = WhatsAppTextMessage | WhatsAppTemplateMessage;
+export type WhatsAppMessage = WhatsAppTextMessage | WhatsAppTemplateMessage | WhatsAppInteractiveMessage;
+
+export interface WhatsAppInteractiveMessage {
+  type: 'interactive';
+  interactive: {
+    type: 'button';
+    body: { text: string };
+    action: {
+      buttons: Array<{ type: 'reply'; reply: { id: string; title: string } }>;
+    };
+  };
+}
 
 const BUSINESS_PHONE = '18687031000';
 
@@ -134,4 +145,31 @@ export async function sendWhatsApp(
     return sendTemplate(to, options.templateName, options.templateParams);
   }
   return sendTextMessage(to, message, options?.previewUrl);
+}
+
+/**
+ * WhatsApp interactive reply-buttons (max 3). Used for in-conversation
+ * confirmations where the rider just tapped us inside the 24h window, so no
+ * template is required. Button taps arrive back as `button` type messages
+ * with the reply id in `button.payload`.
+ */
+export async function sendInteractiveButtons(
+  to: string,
+  bodyText: string,
+  buttons: Array<{ id: string; title: string }>,
+): Promise<SendMessageResult> {
+  const msg: WhatsAppInteractiveMessage = {
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: bodyText.slice(0, 1024) },
+      action: {
+        buttons: buttons.slice(0, 3).map((b) => ({
+          type: 'reply',
+          reply: { id: b.id.slice(0, 256), title: b.title.slice(0, 20) },
+        })),
+      },
+    },
+  };
+  return callWhatsAppAPI({ ...msg, to });
 }

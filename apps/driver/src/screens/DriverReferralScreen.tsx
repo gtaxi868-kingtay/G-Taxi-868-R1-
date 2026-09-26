@@ -92,7 +92,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
             <View style={styles.earningRow}>
                 <View style={[styles.earningDot, { backgroundColor: isPaid ? GREEN : '#E6B450' }]} />
                 <View style={{ flex: 1 }}>
-                    <Text style={styles.earningLabel}>Driver commission (1%)</Text>
+                    <Text style={styles.earningLabel}>Driver referral bonus</Text>
                     <Text style={styles.earningDate}>
                         {new Date(item.created_at).toLocaleDateString('en-TT', { day: 'numeric', month: 'short' })}
                     </Text>
@@ -132,10 +132,11 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                         <>
                             <View style={styles.hero}>
                                 <Ionicons name="car-sport-outline" size={48} color="#34E6EC" />
-                                <Text style={styles.heroTitle}>Earn on Every Ride They Take</Text>
+                                <Text style={styles.heroTitle}>Earn on Their First 25 Rides</Text>
+                                {/* REFERRAL-MILESTONE 2026-09-25 */}
                                 <Text style={styles.heroSub}>
-                                    Refer a driver and earn 1% of their platform fee for 90 days.
-                                    There's no cap — the more they drive, the more you earn.
+                                    Earn 25% of our cut on their first 25 rides — paid out when they finish ride 25.
+                                    There's no cap — the more drivers you refer, the more you earn.
                                 </Text>
                             </View>
 
@@ -173,10 +174,10 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                             </View>
 
                             <View style={styles.infoCard}>
-                                <Text style={styles.infoTitle}>How the 1% works</Text>
+                                <Text style={styles.infoTitle}>How the 25% works</Text>
                                 <Text style={styles.infoText}>
-                                    When your referred driver completes a ride, G-Taxi takes a platform fee. You receive 1% of that fee — deducted from platform revenue, not their payout.
-                                    This runs for 90 days from when they activate.
+                                    When your referred driver completes their first 25 rides, G-Taxi pays you 25% of the platform fee collected across those rides — one lump sum to your wallet when they finish ride 25.
+                                    It comes from platform revenue, never from their payout. Active G-Leads are excluded — the milestone never stacks with the commander override.
                                 </Text>
                             </View>
 
@@ -185,7 +186,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                                 { icon: 'share-social', step: '1', text: 'Share your driver code with another driver' },
                                 { icon: 'person-add', step: '2', text: 'They register and enter your code' },
                                 { icon: 'car', step: '3', text: 'They start completing rides' },
-                                { icon: 'wallet', step: '4', text: 'You earn 1% of their platform fee for 90 days' },
+                                { icon: 'wallet', step: '4', text: 'You earn 25% of our cut on their first 25 rides — paid out when they finish ride 25' },
                             ].map(s => (
                                 <View key={s.step} style={styles.stepRow}>
                                     <View style={styles.stepNum}>

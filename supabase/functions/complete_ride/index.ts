@@ -1,17 +1,24 @@
 // Supabase Edge Function: complete_ride
 // ============================================================
-// CAPITAL RESERVE LOCK — Settlement Engine (2026-06-14)
+// CAPITAL RESERVE LOCK — Settlement Engine
 // ============================================================
-// Settlement math (server-side only — app is purely display):
-//   Business-plan split 82/15/3:
-//   platform_fee  = round(gross * platform_rate)  → platform_revenue_logs
-//                   platform_rate = pricing_config['PLATFORM_RATE_CENTS']/10000
-//                   default 0.15 / loyalty = rate - 0.03 (min 0.01) = 0.12
-//   reserve       = round(gross * reserve_rate)   → capital_reserve_ledger
-//                   reserve_rate = pricing_config['RESERVE_RATE_CENTS']/10000 (0.03)
-//                   Growth Reserve — a THIRD bucket deducted from gross.
-//   driver_payout = gross - platform_fee - reserve → wallet / cash  (= 82%)
-//   Invariant: platform_fee + reserve + driver_payout = gross
+// Settlement math is owned entirely by compute_ride_split() (Postgres),
+// the documented single source of truth for the ride split — driver gets
+// the configured DRIVER_SHARE_CENTS share (80%), commander/vendor/loyalty
+// adjustments are layered on top of that, and platform absorbs whatever
+// remains. This file used to carry a SECOND, parallel formula
+// (computeSettlement) that computed platform's cut as a fixed rate and
+// gave the driver the remainder — the opposite direction from
+// compute_ride_split's model. With live pricing_config the two produced
+// genuinely different driver payouts on the same fare, and the shadow
+// numbers were feeding real money (credit_merchant_commission,
+// check_driver_referral_commission) and real financial records
+// (log_platform_revenue, the event_queue reserve-pool waterfall), not
+// just the API response. Removed 2026-08-15 — compute_ride_split is now
+// called once per completion and its result is what every downstream
+// consumer in this file uses, matching exactly what settle_cash_ride /
+// process_wallet_payment_hardened independently (and deterministically)
+// recompute for the actual money movement.
 //
 // ALL payment paths (wallet, cash, card) converge on this math.
 // No client-supplied value is trusted for payout calculation.
@@ -21,16 +28,18 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { captureException } from "../_shared/sentry.ts";
 import { sendPushNotification } from "../_shared/push.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
+// REFERRAL-MILESTONE 2026-09-25
+import {
+  REFERRAL_COUPON_MAX_DISCOUNT_CENTS,
+  REFERRAL_COUPON_PERCENT_OFF,
+} from "../_shared/referral_math.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 function getDistanceMeters(
   lat1: number,
@@ -70,31 +79,8 @@ async function resolveDriverAuthUserId(
 
 const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
 
-/**
- * Server-side settlement calculation — single source of truth.
- * No client-supplied values are used in this computation.
- *
- * Business-plan split 82/15/3:
- *   platformRate: 0.15 standard, 0.12 for loyalty drivers (rate − 0.03).
- *   reserveRate:  0.03 Growth Reserve — a THIRD bucket deducted from gross.
- *   driver_payout = gross − platform_fee − reserve  (= 82%, loyalty 85%).
- *   Invariant: platform_fee + reserve + driver_payout = gross.
- */
-function computeSettlement(grossCents: number, platformRate = 0.15, reserveRate = 0.03): {
-  reserveCents: number;
-  netFare: number;
-  platformFee: number;
-  driverPayoutCents: number;
-  platformRate: number;
-} {
-  const platformFee = Math.round(grossCents * platformRate);
-  const reserveCents = Math.round(grossCents * reserveRate);
-  const driverPayoutCents = grossCents - platformFee - reserveCents;
-  const netFare = driverPayoutCents;
-  return { reserveCents, netFare, platformFee, driverPayoutCents, platformRate };
-}
-
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -132,6 +118,14 @@ serve(async (req: Request) => {
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const rateCheck = await checkRateLimit(supabaseAdmin, userId, "complete_ride");
+    if (!rateCheck.allowed) {
+      return new Response(
+        JSON.stringify({ success: false, error: rateCheck.error, data: null }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const { data: ride, error: rideError } = await supabaseAdmin
       .from("rides")
@@ -367,7 +361,10 @@ serve(async (req: Request) => {
               .gte("completed_at", monthStart.toISOString())
               .then((res) => res, () => ({ count: 0 }));
             if ((count ?? 0) < 6) {
-              discountPct = 15;
+              // REFERRAL-MILESTONE 2026-09-25: G-Member monthly wallet-ride
+              // discount reduced 15% -> 12% (membership activation + monthly
+              // gating unchanged).
+              discountPct = 12;
             }
           }
         }
@@ -378,29 +375,14 @@ serve(async (req: Request) => {
       }
     }
 
-    // ── PLATFORM + RESERVE RATES FROM CONFIG ──────────────────────────────────
-    // Business-plan split 82/15/3. Admin can change without redeploy.
-    // Falls back to 0.15 platform / 0.03 reserve if table is empty/unreachable.
-    const { data: platRateRow } = await supabaseAdmin
-      .from("pricing_config")
-      .select("value_cents")
-      .eq("key", "PLATFORM_RATE_CENTS")
-      .maybeSingle()
-      .then((res) => res, () => ({ data: null }));
-    const defaultPlatformRate = platRateRow ? (platRateRow.value_cents ?? 1500) / 10000 : 0.15;
-
-    const { data: reserveRateRow } = await supabaseAdmin
-      .from("pricing_config")
-      .select("value_cents")
-      .eq("key", "RESERVE_RATE_CENTS")
-      .maybeSingle()
-      .then((res) => res, () => ({ data: null }));
-    const reserveRate = reserveRateRow ? (reserveRateRow.value_cents ?? 300) / 10000 : 0.03;
-
     // ── LOYALTY RATE TIER ───────────────────────────────────────────────────
-    // Drivers with wallet balance ≥ TTD $500 get 12% instead of 15%.
+    // Drivers with wallet balance >= TTD $500 get a reduced effective
+    // platform rate. compute_ride_split (below) owns turning this into an
+    // actual driver bonus — it reads the standard PLATFORM_RATE_CENTS
+    // itself and computes the gap; this block only resolves the driver's
+    // qualifying rate in bps.
     const driverUserIdForLoyalty = await resolveDriverAuthUserId(supabaseAdmin, driverRecord, ride.driver_id);
-    let platformRate = defaultPlatformRate;
+    let loyaltyRateBps: number | null = null;
     let loyaltyApplied = false;
 
     if (driverUserIdForLoyalty) {
@@ -409,17 +391,18 @@ serve(async (req: Request) => {
         .then((res) => res, () => ({ data: false }));
 
       if (qualifies === true) {
-        // Read loyalty rate from pricing_config (value_cents = percentage, e.g. 16 = 16%)
+        // Read loyalty rate from pricing_config. value_cents on this key is
+        // percentage POINTS (e.g. 12 = 12%), not cents — matches the
+        // pre-existing convention this key was already stored under.
         const { data: loyaltyRow } = await supabaseAdmin
             .from("pricing_config")
             .select("value_cents")
             .eq("key", "LOYALTY_FEE_PCT")
             .maybeSingle()
             .then((res) => res, () => ({ data: null }));
-        const loyaltyRate = loyaltyRow ? (loyaltyRow.value_cents ?? 12) / 100 : Math.max(0.01, defaultPlatformRate - 0.03);
-        platformRate = Math.max(0.01, Math.min(defaultPlatformRate, loyaltyRate));
+        loyaltyRateBps = loyaltyRow?.value_cents != null ? loyaltyRow.value_cents * 100 : 1200;
         loyaltyApplied = true;
-        console.log(`[LOYALTY_TIER] Driver ${driverUserIdForLoyalty} qualifies — 12% rate applied`);
+        console.log(`[LOYALTY_TIER] Driver ${driverUserIdForLoyalty} qualifies — ${loyaltyRateBps / 100}% rate applied`);
 
         // Notify driver on first qualification
         if (driverRecord && (driverRecord as any).push_token && !(driverRecord as any).loyalty_tier_notified) {
@@ -438,10 +421,60 @@ serve(async (req: Request) => {
       }
     }
 
-    // ── SETTLEMENT MATH (single source of truth — server only) ──────────────
-    const { reserveCents, platformFee, driverPayoutCents } = computeSettlement(effectiveFare, platformRate, reserveRate);
+    // ── SETTLEMENT MATH — compute_ride_split is the single source of truth ──
+    // Called once up front so log_platform_revenue, the reserve-pool event,
+    // merchant node commission, and driver referral commission all use the
+    // SAME real numbers that settle_cash_ride / process_wallet_payment_hardened
+    // independently (and deterministically — same ride_id/gross/discount/
+    // loyalty inputs) recompute for the actual money movement below.
+    const { data: splitResult, error: splitError } = await supabaseAdmin.rpc("compute_ride_split", {
+      p_ride_id: ride_id,
+      p_gross_cents: effectiveFare,
+      p_discount_cents: riderDiscountCents,
+      p_loyalty_rate_bps: loyaltyRateBps,
+    });
+    if (splitError || !splitResult) {
+      console.error("compute_ride_split failed:", splitError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to compute ride settlement", data: null }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const reserveCents: number = splitResult.reserve;
+    const platformFee: number = splitResult.platform_fee;
+    const driverPayoutCents: number = splitResult.driver_net;
 
     // ── PAYMENT PROCESSING ──────────────────────────────────────────────────
+    // REFERRAL-MILESTONE 2026-09-25: one-time 25%-off referral coupon
+    // (max TT$25). The coupon is LOOKED UP here from the rider's own
+    // server-side record — no client-supplied value is trusted — and is
+    // CONSUMED atomically inside process_wallet_payment_hardened, so a
+    // retry can never redeem it twice. Wallet rides only; cash has no
+    // discount channel in the settlement layer.
+    let couponId: string | null = null;
+    let couponDiscountForRide = 0;
+    let couponAppliedCents = 0;
+    if (ride.payment_method === "wallet" && ride.rider_id) {
+      const { data: coupon } = await supabaseAdmin
+        .from("rider_referral_coupons")
+        .select("id, percent_off, max_discount_cents, expires_at")
+        .eq("rider_user_id", ride.rider_id)
+        .eq("status", "issued")
+        .gt("expires_at", new Date().toISOString())
+        .order("expires_at", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+        .then((res) => res, () => ({ data: null }));
+      if (coupon?.id) {
+        couponId = coupon.id;
+        // Recompute server-side from the authoritative fare. The stored
+        // percent_off/max are the only coupon inputs used.
+        couponDiscountForRide = Math.min(
+          Math.floor((effectiveFare * (coupon.percent_off ?? REFERRAL_COUPON_PERCENT_OFF)) / 100),
+          coupon.max_discount_cents ?? REFERRAL_COUPON_MAX_DISCOUNT_CENTS,
+        );
+      }
+    }
     if (ride.payment_method === "wallet" && ride.payment_status !== "captured") {
       const { data: walletSuccess, error: payError } = await supabaseAdmin.rpc(
         "process_wallet_payment_hardened",
@@ -450,14 +483,42 @@ serve(async (req: Request) => {
           p_amount: effectiveFare,
           p_idempotency_key: `complete_ride_${ride_id}`,
           p_discount_cents: riderDiscountCents,
+          p_loyalty_rate_bps: loyaltyRateBps,
+          // REFERRAL-MILESTONE 2026-09-25: looked up server-side above;
+          // the SQL consumes the coupon atomically (issued->used).
+          p_coupon_id: couponId,
+          p_coupon_discount_cents: couponDiscountForRide,
         }
       );
 
-      if (payError || !walletSuccess) {
-        console.error("Wallet payment failed:", payError);
+      // process_wallet_payment_hardened RETURNS TABLE(...), so PostgREST
+      // hands back an ARRAY of rows. `!walletSuccess` was therefore false
+      // even for a declined payment — a non-empty array is truthy — which
+      // would have marked the ride paid while no money moved. The verdict
+      // lives in the row's `success` field and nowhere else.
+      const walletRow = Array.isArray(walletSuccess) ? walletSuccess[0] : walletSuccess;
+
+      if (payError || walletRow?.success !== true) {
+        // Report the REAL reason. Previously this always claimed
+        // "Insufficient wallet funds", which sent people debugging
+        // balances when the actual cause was a bad function signature.
+        const reason =
+          payError?.message ??
+          walletRow?.error_message ??
+          "Wallet payment could not be completed";
+
+        console.error("Wallet payment failed:", { ride_id, reason, payError, walletRow });
+
+        // 409 for "retry won't help / state conflict", 402 only when the
+        // rider genuinely has to top up.
+        const isFunds = typeof reason === "string" && reason.toLowerCase().includes("insufficient");
         return new Response(
-          JSON.stringify({ success: false, error: "Payment failed: Insufficient wallet funds", data: { required: effectiveFare } }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            success: false,
+            error: isFunds ? `Payment failed: ${reason}` : `Payment failed: ${reason}`,
+            data: { required: effectiveFare, retryable: !isFunds },
+          }),
+          { status: isFunds ? 402 : 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     } else if (ride.payment_method === "cash") {
@@ -467,7 +528,7 @@ serve(async (req: Request) => {
       // confirmed. (Was just setting cash_confirmed=true, which collected
       // nothing and no-op'd the driver's later confirm_cash_payment.)
       const { data: cashSettled, error: cashError } = await supabaseAdmin
-        .rpc("settle_cash_ride", { p_ride_id: ride_id });
+        .rpc("settle_cash_ride", { p_ride_id: ride_id, p_loyalty_rate_bps: loyaltyRateBps });
 
       if (cashError || !cashSettled) {
         console.error("Failed to settle cash payment:", cashError);
@@ -489,13 +550,13 @@ serve(async (req: Request) => {
 
       const totalPlatformCents = platformFee;
 
-      console.log("[SHADOW_LEDGER][completeRide]", {
+      console.log("[SETTLEMENT][completeRide]", {
         ride_id,
         gross_cents: effectiveFare,
         reserve_cents: reserveCents,
         platform_fee: platformFee,
         driver_payout: driverPayoutCents,
-        platform_rate: platformRate,
+        loyalty_rate_bps: loyaltyRateBps,
         loyalty_applied: loyaltyApplied,
         payment_method: "cash",
         driver_user_id: driverUserId,
@@ -530,9 +591,31 @@ serve(async (req: Request) => {
       }
     }
 
+    // REFERRAL-MILESTONE 2026-09-25: report the ACTUAL applied coupon.
+    // Runs after the payment chain (not inside the wallet branch) so it
+    // also reports correctly when payment was already captured by an
+    // earlier attempt. The SQL zeroes the coupon when it wasn't consumable
+    // (expired or lost a race), so the response never claims a discount
+    // that didn't move money.
+    if (couponId && couponDiscountForRide > 0) {
+      const { data: couponAfter } = await supabaseAdmin
+        .from("rider_referral_coupons")
+        .select("status, used_ride_id")
+        .eq("id", couponId)
+        .maybeSingle()
+        .then((res) => res, () => ({ data: null }));
+      if (couponAfter?.status === "used" && couponAfter?.used_ride_id === ride_id) {
+        couponAppliedCents = couponDiscountForRide;
+      }
+    }
+
     // ── UPDATE RIDE RECORD (atomic guard) ─────────────────────────────────
-    // total_fare_cents updated to effectiveFare (includes wait/gridlock)
-    // so trigger tr_ensure_fare_waterfall recalculates 82/15/3 splits.
+    // total_fare_cents updated to effectiveFare (includes wait/gridlock).
+    // tr_ensure_fare_waterfall only overwrites the split columns when
+    // payment_status is NOT already 'captured'/'confirmed' — settle_cash_ride
+    // and process_wallet_payment_hardened set that status in the same UPDATE
+    // that writes the real compute_ride_split numbers, so this trigger's own
+    // (unrelated, hardcoded) split math never clobbers them.
     const { error: updateError, count } = await supabaseAdmin
       .from("rides")
       .update({
@@ -558,6 +641,20 @@ serve(async (req: Request) => {
             status: "completed",
           })
           .then((res) => res, (err: unknown) => console.error("Compensating reversal also failed:", err));
+        // REFERRAL-MILESTONE 2026-09-25: the ride never completed, so the
+        // one-time coupon must not stay burned — release it back to
+        // 'issued' for this exact ride only. (The platform promo_cost row
+        // is left in place, matching the existing behavior where the
+        // commission_fee row is also not reversed here.)
+        if (couponId) {
+          await supabaseAdmin
+            .from("rider_referral_coupons")
+            .update({ status: "issued", used_ride_id: null, used_at: null })
+            .eq("id", couponId)
+            .eq("status", "used")
+            .eq("used_ride_id", ride_id)
+            .then((res) => res, (err: unknown) => console.error("Coupon release on reversal failed (non-fatal):", err));
+        }
       } else if (ride.payment_method === "cash") {
         // settle_cash_ride booked the obligation as commission_debt and set
         // cash_confirmed — undo both so a retried completion re-settles.
@@ -607,26 +704,11 @@ serve(async (req: Request) => {
       })
       .then((res) => res, (err: unknown) => console.error("Ledger logging failed:", err));
 
-    // ── ASYNC ECOSYSTEM COG ───────────────────────────────────────────────────
-    // Enqueue ride.completed off the hot path. The cron'd process_event_queue
-    // worker picks it up → record_pool_entry (17% waterfall) + seed_zone for any
-    // dropoff outside an active zone. Non-fatal: never blocks ride completion.
-    await supabaseAdmin
-      .from("event_queue")
-      .insert({
-        event_type: "ride.completed",
-        payload: {
-          ride_id: ride_id,
-          pickup_lat: ride.pickup_lat,
-          pickup_lng: ride.pickup_lng,
-          dropoff_lat: ride.dropoff_lat,
-          dropoff_lng: ride.dropoff_lng,
-          gross_cents: effectiveFare,
-          platform_cents: platformFee,
-          reserve_cents: reserveCents,
-        },
-      })
-      .then((res) => res, (err: unknown) => console.error("event_queue enqueue (ride.completed) failed:", err));
+    // ride.completed is enqueued once, later in this function (P3.2, via the
+    // enqueue_event RPC) — this file used to ALSO insert an identical
+    // ride.completed row directly into event_queue right here, which meant
+    // process_event_queue's cron worker ran record_pool_entry's 17% reserve
+    // waterfall twice per ride. Removed 2026-08-15; see the P3.2 call below.
 
     // ── NODE "RENT" (2% of the PLATFORM'S take when ride from a node) ──────────
     // Settlement v3 (2026-07-16): unified with the cash path's compute_ride_split
@@ -671,15 +753,15 @@ serve(async (req: Request) => {
             });
 
             // Credit merchant + staff wallets immediately
-            await supabaseAdmin
+            const { error: creditError } = await supabaseAdmin
               .rpc("credit_merchant_commission", {
                 p_merchant_id: kiosk.merchant_id,
                 p_ride_id: ride_id,
                 p_amount_cents: commissionCents,
                 p_staff_member_id: kiosk.staff_member_id || null,
                 p_staff_amount_cents: staffAmountCents,
-              })
-              .then((res) => res, (err: unknown) => console.error("Merchant/staff wallet credit failed (non-fatal):", err));
+              });
+            if (creditError) console.error("Merchant/staff wallet credit failed (non-fatal):", creditError);
           }
         }
       } catch (err) {
@@ -723,15 +805,35 @@ serve(async (req: Request) => {
       }
     }
 
-    // ── DRIVER REFERRAL COMMISSION (1% of platform fee to referrer for 90 days) ─
+    // ── DRIVER REFERRAL MILESTONE (25% of platform keep at 25 rides) ────────
+    // REFERRAL-MILESTONE 2026-09-25: replaces the 2026-09-04
+    // increment_driver_referral_reward mechanism (5% of cumulative platform
+    // fee, paid at ride 10, reserve-funded) per founder decision — production
+    // check on 2026-09-26 confirmed driver_referral_rewards had 0 rows, so no
+    // in-progress referral was disrupted by the swap. New rule: when a
+    // referred driver completes their 25th qualifying ride, the referrer gets
+    // a one-time lump sum = 25% of the platform's keep across those 25 rides,
+    // credited to wallet — unless the referrer is an active commander (no
+    // stacking with the 2% territory override). Idempotent: retries recount
+    // nothing, and the pending->paid flip pays exactly once. Math mirrored in
+    // _shared/referral_math.ts; the SQL RPC is the source of truth at payout.
     if (driverUserIdForLoyalty && platformFee > 0) {
       await supabaseAdmin
-        .rpc("check_driver_referral_commission", {
+        .rpc("award_driver_referral_milestone", {
           p_driver_user_id: driverUserIdForLoyalty,
           p_ride_id: ride_id,
           p_platform_fee_cents: platformFee,
         })
-        .then((res) => res, (err: unknown) => console.error("Driver referral commission failed (non-fatal):", err));
+        .then(
+          (res) => {
+            const bounty = Array.isArray(res.data) ? res.data[0] : res.data;
+            if ((bounty ?? 0) > 0) {
+              console.log(`[complete_ride] driver referral milestone paid: ${bounty} cents`);
+            }
+            return res;
+          },
+          (err: unknown) => console.error("Driver referral milestone failed (non-fatal):", err)
+        );
     }
 
     // ── DRIVER LOAN REPAYMENT ─────────────────────────────────────────────
@@ -915,6 +1017,7 @@ serve(async (req: Request) => {
           .rpc("increment_referral_reward_rides", {
             p_rider_id: ride.rider_id,
             p_driver_id: riderRef.referral_source_driver_id,
+            p_ride_id: ride.id,
           })
           .then((res) => res, (err: unknown) => console.error("increment_referral_reward_rides failed (non-fatal):", err));
       }
@@ -922,9 +1025,26 @@ serve(async (req: Request) => {
       // Rider onboarded this rider (friends/family share link) → 3%.
       if (riderRef?.referred_by_rider_id) {
         await supabaseAdmin
-          .rpc("increment_rider_referral_reward", { p_referee_rider_id: ride.rider_id })
+          .rpc("increment_rider_referral_reward", { p_referee_rider_id: ride.rider_id, p_ride_id: ride.id })
           .then((res) => res, (err: unknown) => console.error("increment_rider_referral_reward failed (non-fatal):", err));
       }
+    }
+
+    // ── RIDER REFERRAL MILESTONE (non-blocking) ─────────────────────────────
+    // REFERRAL-MILESTONE 2026-09-25: when a referred rider completes 10
+    // qualifying rides OR 5 qualifying orders, the referrer gets a one-time
+    // 25%-off-next-ride coupon (max TT$25, 60-day expiry). Idempotent:
+    // replays recount nothing and issue exactly one coupon per referee.
+    // (The 3% increment_rider_referral_reward above is untouched — the two
+    // now stack; founder call needed on whether to keep both.)
+    if (ride.rider_id) {
+      await supabaseAdmin
+        .rpc("award_rider_referral_milestone", {
+          p_referee_id: ride.rider_id,
+          p_kind: "ride",
+          p_entity_id: ride_id,
+        })
+        .then((res) => res, (err: unknown) => console.error("Rider referral milestone failed (non-fatal):", err));
     }
 
     // ── DRIVER LEASE ELIGIBILITY: refresh active-day count (non-blocking) ────
@@ -987,6 +1107,10 @@ serve(async (req: Request) => {
           ride_id,
           status: "completed",
           total_fare_cents: effectiveFare,
+          // REFERRAL-MILESTONE 2026-09-25: coupon actually consumed by the
+          // wallet settlement (0 when none was available/consumable).
+          coupon_discount_cents: couponAppliedCents,
+          coupon_id: couponAppliedCents > 0 ? couponId : null,
           settlement: {
             reserve_cents: reserveCents,
             platform_fee_cents: platformFee,
@@ -994,8 +1118,7 @@ serve(async (req: Request) => {
             driver_net_payout_cents: driverPayoutCents - leaseDeductionCents,
             lease_deduction_cents: leaseDeductionCents,
             lease_status: leaseDeductionStatus,
-            platform_rate: platformRate,
-            loyalty_rate_applied: loyaltyApplied,
+            loyalty_rate_bps_applied: loyaltyApplied ? loyaltyRateBps : null,
           },
         },
       }),
