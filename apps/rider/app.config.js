@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "G Taxi Rider",
+    name: "G-Taxi Rider",
     slug: "g-taxi-rider",
     version: "1.0.0",
     orientation: "default",

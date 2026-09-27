@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "GTaxi Driver",
+    name: "G-Taxi Driver",
     slug: "gtaxi-driver",
     version: "1.0.0",
     orientation: "default",
@@ -21,11 +21,11 @@ export default {
       infoPlist: {
         UIBackgroundModes: ["location", "fetch", "remote-notification"],
         NSLocationWhenInUseUsageDescription:
-          "GTaxi Driver needs your location to receive ride offers and navigate to riders.",
+          "G-Taxi Driver needs your location to receive ride offers and navigate to riders.",
         NSLocationAlwaysAndWhenInUseUsageDescription:
-          "GTaxi Driver tracks your location in the background to send you nearby ride offers even when the app is minimized.",
+          "G-Taxi Driver tracks your location in the background to send you nearby ride offers even when the app is minimized.",
         NSLocationAlwaysUsageDescription:
-          "GTaxi Driver tracks your location in the background to send you nearby ride offers even when the app is minimized.",
+          "G-Taxi Driver tracks your location in the background to send you nearby ride offers even when the app is minimized.",
       },
     },
     android: {
@@ -74,9 +74,9 @@ export default {
         "expo-location",
         {
           locationAlwaysAndWhenInUsePermission:
-            "Allow GTaxi Driver to track your location in the background to receive local ride offers.",
+            "Allow G-Taxi Driver to track your location in the background to receive local ride offers.",
           locationAlwaysPermission:
-            "Allow GTaxi Driver to track your location in the background to receive local ride offers.",
+            "Allow G-Taxi Driver to track your location in the background to receive local ride offers.",
           isAndroidBackgroundLocationEnabled: true,
           isAndroidForegroundServiceEnabled: true,
         },

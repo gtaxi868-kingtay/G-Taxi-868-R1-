@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "G-Taxi Merchant",
+    name: "G868 Merchant",
     slug: "gtaxi-merchant",
     version: "1.0.0",
     orientation: "default",
@@ -16,7 +16,7 @@ export default {
       bundleIdentifier: "com.gtaxi.merchant",
       infoPlist: {
         NFCReaderUsageDescription:
-          "G-Taxi Merchant uses NFC to accept customer check-ins and tag identification.",
+          "G868 Merchant uses NFC to accept customer check-ins and tag identification.",
       },
     },
     android: {

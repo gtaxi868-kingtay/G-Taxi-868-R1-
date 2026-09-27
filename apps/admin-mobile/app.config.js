@@ -1,6 +1,6 @@
 export default {
   expo: {
-    name: "G-Taxi Admin",
+    name: "G868 Admin",
     slug: "gtaxi-admin",
     version: "1.0.0",
     orientation: "default",
@@ -16,7 +16,7 @@ export default {
       bundleIdentifier: "com.gtaxi.admin",
       infoPlist: {
         NFCReaderUsageDescription:
-          "G-Taxi Admin uses NFC to scan and provision physical pucks at merchant locations and taxi stands.",
+          "G868 Admin uses NFC to scan and provision physical pucks at merchant locations and taxi stands.",
       },
     },
     android: {

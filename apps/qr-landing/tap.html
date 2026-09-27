@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>G-Taxi — Your ride starts here</title>
-<meta name="description" content="Tap a G-Taxi touch point, get your ride on WhatsApp. No app needed.">
+<meta name="description" content="Tap a G-Touch point, get your ride on WhatsApp. No app needed.">
 <link rel="icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
@@ -92,7 +92,7 @@
 
     <div id="error" class="hidden">
       <h1>Touch point not found</h1>
-      <p class="err" id="err-msg">This tap didn't match a live G-Taxi touch point.</p>
+      <p class="err" id="err-msg">This tap didn't match a live G-Touch point.</p>
     </div>
   </div>
 
@@ -129,7 +129,7 @@
         var reason = (d && d.reason) || "unknown";
         fail(reason === "touchpoint not active yet"
           ? "That touch point isn't live yet — we're opening community by community. You're early, and that's good."
-          : "This tap didn't match a live G-Taxi touch point. Try tapping again.");
+          : "This tap didn't match a live G-Touch point. Try tapping again.");
         return;
       }
       // The prefill carries whatever token the tag URL used (node UUID or
