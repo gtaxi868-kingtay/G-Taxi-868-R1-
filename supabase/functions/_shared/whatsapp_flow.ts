@@ -102,7 +102,7 @@ const COPY = {
     askDestination: (pickupName: string) =>
         `G-Taxi here \u{1F697}\nPickup set: ${pickupName}.\nWhere are you headed? Share your location pin \u{1F4CD} or type the address.`,
     unknownTap: () =>
-        `Hmm, I couldn't find that touch point. Make sure you tapped a live G-Taxi puck and try again.`,
+        `Hmm, I couldn't find that touch point. Make sure you tapped a live G-Touch puck and try again.`,
     inactiveTap: () =>
         `That touch point isn't live yet — we're opening community by community. You're early, and that's good. We'll be in touch.`,
     fareQuote: (dest: string, fare: string) =>
@@ -283,7 +283,7 @@ async function createGuestRide(
     const { data, error } = await db.rpc("create_ride_atomic", {
         p_rider_id: profileId,
         p_pickup_lat: pickup.lat, p_pickup_lng: pickup.lng,
-        p_pickup_address: convo.pickup_address || convo.pickup_name || "G-Taxi touch point",
+        p_pickup_address: convo.pickup_address || convo.pickup_name || "G-Touch touch point",
         p_dropoff_lat: dest.lat, p_dropoff_lng: dest.lng,
         p_dropoff_address: destText,
         p_status: "searching",
