@@ -215,58 +215,52 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileDesc}>Ownership milestones</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[s.tile, glassSurface(0.15), { width: tileWidth }]}
-            accessibilityLabel="Sign out of your account"
-            accessibilityRole="button"
-            onPress={() => {
-              Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Sign Out', style: 'destructive', onPress: signOut },
-              ]);
-            }}
-          >
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-              <Ionicons name="log-out-outline" size={28} color="#EF4444" />
-            </View>
-            <Text style={s.tileLabel}>Sign Out</Text>
-            <Text style={s.tileDesc}>End your session</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[s.tile, glassSurface(0.15), { width: tileWidth }]}
-            accessibilityLabel="Delete your account permanently"
-            accessibilityRole="button"
-            onPress={() => {
-              Alert.alert(
-                'Delete Account',
-                'This permanently deletes your business account and all associated data. This cannot be undone.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete Permanently',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        const { error } = await supabase.functions.invoke('delete_account');
-                        if (error) throw error;
-                        await signOut();
-                      } catch (err: any) {
-                        Alert.alert('Error', err?.message || 'Could not delete account. Contact support.');
-                      }
-                    },
-                  },
-                ]
-              );
-            }}
-          >
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(239,68,68,0.15)' }]}>
-              <Ionicons name="trash-outline" size={28} color="#EF4444" />
-            </View>
-            <Text style={s.tileLabel}>Delete Account</Text>
-            <Text style={s.tileDesc}>Permanently erase data</Text>
-          </TouchableOpacity>
         </View>
+
+        {/* Hick's/Von Restorff: Sign Out and Delete Account used to be two
+            more tiles in the same 11-item grid as Orders/Catalog/Staff --
+            same size, same glass-tile treatment, same visual weight as
+            routine daily actions. Sign Out was also a pure duplicate of the
+            header's own sign-out button just above. Removed the duplicate
+            entirely; pulled the one truly irreversible action in this app
+            out of the grid into its own clearly de-emphasized zone below,
+            so it reads as categorically different from "add a product" --
+            not visually promoted alongside it. Same confirmation Alert and
+            delete_account call, untouched. */}
+        <Text style={[s.sectionTitle, s.dangerSectionTitle]}>Danger zone</Text>
+        <TouchableOpacity
+          style={s.dangerRow}
+          accessibilityLabel="Delete your account permanently"
+          accessibilityRole="button"
+          onPress={() => {
+            Alert.alert(
+              'Delete Account',
+              'This permanently deletes your business account and all associated data. This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete Permanently',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      const { error } = await supabase.functions.invoke('delete_account');
+                      if (error) throw error;
+                      await signOut();
+                    } catch (err: any) {
+                      Alert.alert('Error', err?.message || 'Could not delete account. Contact support.');
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+        >
+          <Ionicons name="trash-outline" size={18} color="#EF4444" />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={s.dangerLabel}>Delete Account</Text>
+            <Text style={s.dangerDesc}>Permanently erase your business data. Cannot be undone.</Text>
+          </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -284,6 +278,10 @@ const s = StyleSheet.create({
   statNumber: { fontSize: 32, fontWeight: '800', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
   statLabel: { fontSize: 13, color: VOICES.merchant.textMuted, marginTop: 4, fontFamily: 'Manrope' },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', marginBottom: 16, fontFamily: 'SpaceGrotesk' },
+  dangerSectionTitle: { marginTop: 32, fontSize: 13, color: 'rgba(239,68,68,0.7)', textTransform: 'uppercase', letterSpacing: 1 },
+  dangerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: 'rgba(239,68,68,0.15)' },
+  dangerLabel: { fontSize: 14, fontWeight: '600', color: '#EF4444', fontFamily: 'Manrope' },
+  dangerDesc: { fontSize: 12, color: 'rgba(239,68,68,0.55)', marginTop: 2, fontFamily: 'Manrope' },
   insightCard: { borderRadius: 20, padding: 20, marginBottom: 32 },
   insightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   insightTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk' },
