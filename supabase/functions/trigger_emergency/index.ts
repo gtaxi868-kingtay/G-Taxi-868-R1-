@@ -40,16 +40,37 @@ serve(async (req) => {
             throw new Error(`Ride not found: ${rideError?.message}`);
         }
 
-        if (ride.rider_id !== user.id && ride.driver_id !== user.id) {
+        // rides.driver_id is drivers.id, NOT the driver's auth user id — comparing
+        // it directly to `user.id` (as this check used to) rejected every
+        // legitimate driver-raised SOS with 403 before it could reach
+        // handle_sos. Resolve the caller's own drivers.id via drivers.user_id
+        // first, matching the pattern _shared/auth.ts's requireDriver uses.
+        const isRider = ride.rider_id === user.id;
+        let isDriver = false;
+        if (!isRider && ride.driver_id) {
+            const { data: driverRow } = await supabase
+                .from("drivers")
+                .select("id")
+                .eq("user_id", user.id)
+                .maybeSingle();
+            isDriver = driverRow?.id === ride.driver_id;
+        }
+
+        if (!isRider && !isDriver) {
             return new Response(JSON.stringify({ error: "Forbidden" }), {
                 status: 403,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
 
+        // profiles/drivers have no `phone` column — only `phone_number`. The
+        // embedded selects below used to request `phone`, which PostgREST
+        // rejects, silently nulling out `fullRide` and, with it, every
+        // downstream name/phone/location field and the emergency-contact
+        // message this function exists to send.
         const { data: fullRide } = await supabase
             .from("rides")
-            .select("*, rider:rider_id(id, full_name, phone, emergency_contact_name, emergency_contact_phone), driver:driver_id(id, name, phone, lat, lng)")
+            .select("*, rider:rider_id(id, full_name, phone_number, emergency_contact_name, emergency_contact_phone), driver:driver_id(id, name, phone_number, lat, lng)")
             .eq("id", ride_id)
             .single();
 
@@ -62,7 +83,7 @@ serve(async (req) => {
                 timestamp: new Date().toISOString(),
                 rider_name: fullRide?.rider?.full_name,
                 driver_name: fullRide?.driver?.name,
-                driver_phone: fullRide?.driver?.phone,
+                driver_phone: fullRide?.driver?.phone_number,
                 location: { lat: fullRide?.driver?.lat, lng: fullRide?.driver?.lng },
             },
         });
@@ -73,9 +94,8 @@ serve(async (req) => {
         // Until now this function told the RIDER'S OWN emergency contact and
         // nobody at G-Taxi — while promising below that "a safety specialist
         // will review it shortly". handle_sos closes that: a CRITICAL
-        // system_alerts row (which is also what G reads through its
-        // get_open_alerts tool), a safety point on the map, and a warning to
-        // online drivers near the incident.
+        // system_alerts row (read by the admin SOS inbox), a safety point on
+        // the map, and a warning to online drivers near the incident.
         //
         // Identity is already verified above (the caller must be this ride's
         // rider or driver), which is why handle_sos is service_role only and
@@ -85,7 +105,7 @@ serve(async (req) => {
             const { data: sosResult, error: sosError } = await supabase.rpc("handle_sos", {
                 p_ride_id: ride_id,
                 p_raised_by: user.id,
-                p_raiser_role: ride.rider_id === user.id ? "rider" : "driver",
+                p_raiser_role: isRider ? "rider" : "driver",
             });
             if (sosError) {
                 console.error("handle_sos failed:", sosError.message);
@@ -102,8 +122,8 @@ serve(async (req) => {
 
         const riderName = fullRide?.rider?.full_name || "A rider";
         const driverName = fullRide?.driver?.name || "your driver";
-        const driverPhone = fullRide?.driver?.phone || "N/A";
-        const riderPhone = fullRide?.rider?.phone;
+        const driverPhone = fullRide?.driver?.phone_number || "N/A";
+        const riderPhone = fullRide?.rider?.phone_number;
         const emergencyName = fullRide?.rider?.emergency_contact_name;
         const emergencyPhone = fullRide?.rider?.emergency_contact_phone;
 
