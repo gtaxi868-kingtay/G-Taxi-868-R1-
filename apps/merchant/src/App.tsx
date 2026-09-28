@@ -340,13 +340,21 @@ function App() {
                           </div>
 
                           {selectedOrder.status === 'pending' && (
+                            // Fitts's/Jakob's: both buttons were flex-1 (equal
+                            // width) -- the driver app's own analogous
+                            // accept/decline pair (TripRequestScreen) weights
+                            // accept at flex:2 vs decline's flex:1, so the
+                            // more common, positive action gets more target
+                            // area. This screen had the same pattern with no
+                            // weighting at all. Matched to the established
+                            // ratio.
                             <div className="flex gap-4">
                               <button onClick={async () => {
                                 const { error } = await supabase.functions.invoke('merchant', {
                                   body: { action: 'update_order_status', order_id: selectedOrder.id, new_status: 'confirmed' },
                                 });
                                 if (!error) { setSelectedOrder(null); fetchData(merchant.id); }
-                              }} className="flex-1 h-16 sm:h-20 bg-[#007070] text-white rounded-[1.5rem] font-black text-base sm:text-lg shadow-2xl shadow-[#007070]/20 hover:scale-[1.02] active:scale-95 transition-all">ACCEPT ORDER</button>
+                              }} className="flex-[2] h-16 sm:h-20 bg-[#007070] text-white rounded-[1.5rem] font-black text-base sm:text-lg shadow-2xl shadow-[#007070]/20 hover:scale-[1.02] active:scale-95 transition-all">ACCEPT ORDER</button>
                               <button onClick={async () => {
                                 const { error } = await supabase.functions.invoke('merchant', {
                                   body: { action: 'update_order_status', order_id: selectedOrder.id, new_status: 'cancelled' },
