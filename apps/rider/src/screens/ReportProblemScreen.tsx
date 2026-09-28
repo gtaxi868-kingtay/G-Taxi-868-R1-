@@ -67,7 +67,7 @@ export function ReportProblemScreen({ navigation, route }: any) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             Alert.alert(
                 'Report Received',
-                'Our support team will review your report and follow up. Refunds are typically resolved within 48 hours.',
+                "Our support team will review your report and follow up with you.",
                 [{ text: 'OK', onPress: () => navigation.goBack() }]
             );
         }

@@ -163,7 +163,6 @@ export type AppStackParamList = {
       total_fare_cents?: number;
     } | null;
   } | undefined;
-  Promo: undefined;
   Chat: ChatParams;
   AISettings: undefined;
   GroceryStorefront: undefined;
