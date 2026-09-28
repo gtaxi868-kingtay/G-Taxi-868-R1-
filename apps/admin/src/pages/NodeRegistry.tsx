@@ -32,8 +32,6 @@ export function NodeRegistry() {
     const [showModal, setShowModal] = useState(false);
     const [editNode, setEditNode] = useState<Partial<KioskNode> | null>(null);
     const [saving, setSaving] = useState(false);
-    const [dispatchOverride, setDispatchOverride] = useState<string | null>(null);
-    const [overrideResult, setOverrideResult] = useState<any>(null);
 
     useEffect(() => {
         loadData();
@@ -134,33 +132,6 @@ export function NodeRegistry() {
             alert('Failed to review node: ' + (err.message || err));
         } finally {
             setReviewing(null);
-        }
-    };
-
-    const handleVirtualDispatch = async (node: KioskNode) => {
-        setDispatchOverride(node.id);
-        setOverrideResult(null);
-        try {
-            const result = await adminFetch('admin', {
-                action: 'assign_driver',
-                ride_id: null,
-                kiosk_node_id: node.id,
-                location_name: node.location_name,
-                lat: node.lat,
-                lng: node.lng,
-                virtual_override: true,
-            });
-            setOverrideResult(result);
-            setTimeout(() => {
-                setDispatchOverride(null);
-                setOverrideResult(null);
-            }, 3000);
-        } catch (err: any) {
-            setOverrideResult({ error: err.message });
-            setTimeout(() => {
-                setDispatchOverride(null);
-                setOverrideResult(null);
-            }, 3000);
         }
     };
 
@@ -300,7 +271,17 @@ export function NodeRegistry() {
                                 ))}
                             </div>
 
-                            {/* Edit + Virtual Dispatch */}
+                            {/* Edit node.
+                                A "Virtual Dispatch" button used to live here -- it called
+                                the admin `assign_driver` action with kiosk_node_id/
+                                virtual_override, but that action only ever accepts a real
+                                ride_id + driver_id and ignores both fields entirely, so
+                                every click failed with "ride_id and driver_id are
+                                required". Removed rather than rebuilt: admin-initiated
+                                ride creation from a touch-point with no app/rider request
+                                is a real feature (fare estimate, ride row, driver
+                                assignment) that doesn't exist yet anywhere server-side,
+                                not a one-line fix. */}
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => { setEditNode(node); setShowModal(true); }}
@@ -308,28 +289,7 @@ export function NodeRegistry() {
                                 >
                                     Edit Node
                                 </button>
-                                <button
-                                    onClick={() => handleVirtualDispatch(node)}
-                                    disabled={dispatchOverride === node.id}
-                                    className="flex-1 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 font-black text-[10px] uppercase tracking-widest hover:bg-amber-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                    {dispatchOverride === node.id ? (
-                                        <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                        <><AlertTriangle size={14} /> Virtual Dispatch</>
-                                    )}
-                                </button>
                             </div>
-
-                            {overrideResult && dispatchOverride === node.id && (
-                                <div className={`mt-3 p-3 rounded-xl text-xs font-bold ${overrideResult.error ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-green-500/10 text-green-400 border border-green-500/20'}`}>
-                                    {overrideResult.error ? (
-                                        `Override Failed: ${overrideResult.error}`
-                                    ) : (
-                                        <span className="flex items-center gap-1.5"><CheckCircle size={13} />Virtual dispatch signal sent.</span>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     ))}
                 </div>

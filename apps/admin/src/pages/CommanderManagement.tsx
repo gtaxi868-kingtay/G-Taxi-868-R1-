@@ -182,12 +182,22 @@ export function CommanderManagement() {
         if (action === 'rejected' && !window.confirm('Reject this payout request? The commander will be notified.')) return;
         setActionLoading(`payout-${payoutId}`);
         try {
+            // There is no 'process_payout' action_type inside manage_commanders --
+            // that switch only has list/update_status/assign_territory/
+            // list_applications/approve_application/reject_application/
+            // list_revshare, so this always 400'd with "Unknown action_type".
+            // The real payout-approval handler is the top-level 'process_payout'
+            // action (same one Support.tsx uses for driver payouts). Verified
+            // it works unmodified for rows this panel shows: payout_requests.
+            // driver_id is NOT NULL, so every commander-territory payout row
+            // still has a real driver_id -- process_payout_request already
+            // resolves it correctly (dry-run tested against a live row with
+            // both driver_id and commander_id set).
             const res = await supabase.functions.invoke('admin', {
                 body: {
-                    action: 'manage_commanders',
-                    action_type: 'process_payout',
-                    payout_request_id: payoutId,
-                    status: action,
+                    action: 'process_payout',
+                    request_id: payoutId,
+                    sub_action: action === 'approved' ? 'approve' : 'reject',
                 },
             });
             if (res.data?.success) {
