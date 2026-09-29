@@ -78,7 +78,7 @@ export function PromoScreen({ navigation }: any) {
             return;
         }
 
-        Alert.alert("Applied!", data.message || `${data.discount_percent}% off applied to your next ride.`);
+        Alert.alert("Applied!", data.message || `Up to ${data.discount_percent}% off your next ride.`);
         setCode('');
         fetchPromos();
     };

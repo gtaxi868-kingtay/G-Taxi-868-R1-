@@ -126,11 +126,16 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'message', 'You''ve already claimed this code');
     END;
 
+    -- "Up to X% off", not "X% off": compute_ride_split's platform-fee cap
+    -- (see redeem_promo_code below) means the ACTUAL discount absorbed can
+    -- land below the stated percent on fares where the platform's cut is
+    -- thin -- confirmed live: a 20% code capped to 18.5% ($7.40, not
+    -- $8.00) on a $40 test fare. A flat "X% off" claim overpromises.
     RETURN jsonb_build_object(
         'success', true,
         'code', v_promo.code,
         'discount_percent', v_promo.discount_percent,
-        'message', format('%s%% off applied to your next ride', v_promo.discount_percent)
+        'message', format('Up to %s%% off your next ride', v_promo.discount_percent)
     );
 END;
 $function$;
