@@ -32,6 +32,7 @@ import { PaymentScreen } from './src/screens/PaymentScreen';
 import { RatingScreen } from './src/screens/RatingScreen';
 import { TripsScreen } from './src/screens/TripsScreen';
 import { HelpScreen } from './src/screens/HelpScreen';
+import { PromoScreen } from './src/screens/PromoScreen';
 import { ReportProblemScreen } from './src/screens/ReportProblemScreen';
 import { ReceiptScreen } from './src/screens/ReceiptScreen';
 import { SavedPlacesScreen } from './src/screens/SavedPlacesScreen';
@@ -155,6 +156,7 @@ function AppNavigator() {
                 <AppStack.Screen name="Help" component={HelpScreen} />
                 <AppStack.Screen name="ReportProblem" component={ReportProblemScreen} />
                 <AppStack.Screen name="Receipt" component={ReceiptScreen} />
+                <AppStack.Screen name="Promo" component={PromoScreen} />
                 <AppStack.Screen name="Chat" component={ChatScreen} />
                 <AppStack.Screen name="AISettings" component={AISettingsScreen} />
                 <AppStack.Screen name="GroceryStorefront" component={GroceryStorefrontScreen} />

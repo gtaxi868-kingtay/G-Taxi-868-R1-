@@ -378,6 +378,31 @@ serve(async (req: Request) => {
 
         const newRideId = rpcResult.data.ride_id;
 
+        // Attach the rider's oldest still-unused claimed promo code (if any)
+        // to this ride, so complete_ride can redeem it into the real fare
+        // math at settlement. Claiming (PromoScreen) and redeeming
+        // (complete_ride) are deliberately separate steps — claiming a code
+        // doesn't burn it until a ride it's attached to actually settles,
+        // so an abandoned/cancelled ride never wastes the rider's claim.
+        // Non-fatal: a promo-attach failure must never block ride creation.
+        const { data: unusedClaim } = await adminClient
+            .from("user_promos")
+            .select("promo_code")
+            .eq("user_id", rider_id)
+            .eq("is_used", false)
+            .order("claimed_at", { ascending: true })
+            .limit(1)
+            .maybeSingle()
+            .then((res) => res, () => ({ data: null }));
+
+        if (unusedClaim?.promo_code) {
+            await adminClient
+                .from("rides")
+                .update({ applied_promo_code: unusedClaim.promo_code })
+                .eq("id", newRideId)
+                .then((res) => res, (err: unknown) => console.error("promo attach failed (non-fatal):", err));
+        }
+
         // Tag ride with vendor kiosk so complete_ride can record commission —
         // ONLY when the origin is actually verified (a real NFC tap in the
         // last 30 min, or the rider's pickup falls inside the kiosk's
