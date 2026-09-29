@@ -74,6 +74,20 @@ agent is Section 10.
    rule). Preview/staging only, test data clearly identifiable.
 4. **Do not touch the legacy dispatch-queue rows** (RIDE dispatched since 18 Sep;
    DELIVERY failed with no recorded error) until the report on them is delivered.
+5. **Fleetbase's own source stays outside the G-Taxi repo — external service only,
+   never forked, copied, or merged in.** Fleetbase is AGPL-3.0. That license has a
+   network-use clause: if Fleetbase's code is built into a product and that product
+   is served to users over a network — which G-Taxi is, every day — the combined
+   work's source can be required to be made public. Folding Fleetbase's code into
+   this monorepo risks exposing G-Taxi's own proprietary logic (settlement, splits,
+   dispatch scoring) to that same obligation. The integration in this spec avoids
+   that entirely: G-Taxi talks to an unmodified, separately-hosted Fleetbase over
+   its REST API and webhooks (Section 6), the same way it talks to Stripe or
+   Mapbox. No Fleetbase source file is ever copied into `apps/` or `packages/`.
+   If a future need requires modifying Fleetbase's own behavior, that change is
+   made and run as a fork of Fleetbase itself, on its own hosting, kept fully
+   separate from this repo — not merged in. This rule does not expire with the
+   pilot; it applies to any future Fleetbase work, self-hosted or not.
 5. **No unofficial WhatsApp clients** (Baileys-style phone-linked libraries = ban risk
    on the pilot number). Meta Cloud API or Twilio WhatsApp only — provider is
    Taylor's decision (Section 11).
@@ -174,8 +188,11 @@ state (keep the webhook's existing guard — forged calls change nothing).
 - All secrets (`VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, Fleetbase API keys) go to
   secret stores. Claude Code hard-refuses to type secret values — Taylor runs the
   set commands in his own terminal.
-- AGPL-3.0: if Fleetbase core is modified and run as a service, the changes must be
-  shared. Prefer extension/config over forking core.
+- AGPL-3.0: see the hard boundary in Section 2, item 5. Fleetbase's own code is
+  never merged into this repo — it runs as its own separate, unmodified service
+  that G-Taxi talks to over its API. If Fleetbase's own behavior ever needs to
+  change, that happens as a fork of Fleetbase itself, hosted separately, not as
+  changes inside this repo.
 
 ## 9. Load balancing (what it actually means at pilot scale)
 
