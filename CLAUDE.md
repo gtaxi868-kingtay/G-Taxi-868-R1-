@@ -23,6 +23,15 @@
 # status claim in this file without re-verifying against current code,
 # the same discipline that found those bugs in the first place.
 
+# STALE BRANCH — DO NOT READ: `claude/g-chief-of-staff` is checked out in
+# some working directories in this repo but is SUPERSEDED by origin/main
+# (the dispatch RIDE-branch fix, CI fixes, and the G-Member removal are
+# all live on main, not on that branch). Twice in one 2026-09 session an
+# agent read files off disk on that branch instead of origin/main and
+# reported false "doesn't exist" findings as a result. Any agent reading
+# files off disk in this repo must verify against origin/main before
+# trusting what it sees — do not assume the checked-out branch is current.
+
 ---
 
 ## WHAT THIS SYSTEM IS

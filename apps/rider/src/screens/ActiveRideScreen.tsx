@@ -1110,17 +1110,25 @@ const s = StyleSheet.create({
         fontFamily: 'SpaceGrotesk-Bold',
     },
 
+    // Von Restorff: this was identical in size (56x56) to the purely
+    // decorative driver avatar sitting right next to it in the same row --
+    // the one safety-critical control on this screen read as just another
+    // circle. Enlarged past every other control in the row and given its
+    // own border so it reads as categorically different, not incidentally
+    // bigger. Tap target/behavior (handleSOS) is untouched.
     sosBtn: { 
-        width: 56, 
-        height: 56, 
-        borderRadius: 16, 
+        width: 68, 
+        height: 68, 
+        borderRadius: 20, 
         backgroundColor: ERROR, 
         alignItems: 'center', 
         justifyContent: 'center',
-        ...elevationGlow(4),
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.35)',
+        ...elevationGlow(6),
     },
     sosLabel: { 
-        fontSize: 12, 
+        fontSize: 13, 
         fontWeight: '800', 
         color: '#EAF3F6',
         letterSpacing: 0.5,

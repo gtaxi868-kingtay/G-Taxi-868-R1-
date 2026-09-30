@@ -103,13 +103,14 @@ export function DealerBrokerage() {
         setUpdatingLead(leadId);
         setMsg('');
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await adminFetch('/functions/v1/dealer_brokerage?action=update_lead_status', {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lead_id: leadId, status: newStatus }),
+            // adminFetch(functionName, body) invokes via supabase.functions.invoke,
+            // which posts `body` as JSON and returns parsed data directly -- this
+            // used to pass a fetch-style options object (method/headers/body) as
+            // the body, and call .json() on the already-parsed return value.
+            // dealer_brokerage reads sale_id (not lead_id) from the JSON body.
+            const json = await adminFetch('dealer_brokerage?action=update_lead_status', {
+                sale_id: leadId, status: newStatus,
             });
-            const json = await res.json();
             if (!json.success) throw new Error(json.error);
             setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
             setMsg(`Lead moved to ${newStatus.replace(/_/g, ' ')}`);

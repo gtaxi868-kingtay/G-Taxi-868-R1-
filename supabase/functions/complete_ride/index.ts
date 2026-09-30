@@ -361,6 +361,31 @@ serve(async (req: Request) => {
       }
     }
 
+    // ── PROMO CODE (wallet only, same reason as the loyalty discount above:
+    //    cash/card need a client-side fare-display change first) ───────────
+    // redeem_promo_code is the only writer of user_promos.is_used /
+    // admin_promos.current_uses for this flow — validates the code is still
+    // active/unexpired, marks the claim used, and returns the computed
+    // discount, all atomically. Folded into the SAME riderDiscountCents
+    // compute_ride_split already absorbs entirely from the platform's own
+    // cut (see redeem_promo_code's own comment on the platform-fee cap this
+    // can hit). Redemption only happens once payment has actually
+    // succeeded (below) — never before — so a failed payment never burns
+    // the rider's claim.
+    let promoDiscountCents = 0;
+    if (ride.rider_id && ride.payment_method === "wallet" && ride.applied_promo_code) {
+      promoDiscountCents = Math.floor(
+        effectiveFare * ((await supabaseAdmin
+          .from("admin_promos")
+          .select("discount_percent")
+          .eq("code", ride.applied_promo_code)
+          .maybeSingle()
+          .then((res) => res, () => ({ data: null }))
+        ).data?.discount_percent || 0) / 100
+      );
+      riderDiscountCents += promoDiscountCents;
+    }
+
     // ── LOYALTY RATE TIER ───────────────────────────────────────────────────
     // Drivers with wallet balance >= TTD $500 get a reduced effective
     // platform rate. compute_ride_split (below) owns turning this into an
@@ -472,6 +497,20 @@ serve(async (req: Request) => {
           }),
           { status: isFunds ? 402 : 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Payment succeeded — now, and only now, actually burn the promo
+      // claim. redeem_promo_code is idempotent (WHERE is_used = false), so
+      // a retry of this same complete_ride call can't double-redeem.
+      if (ride.applied_promo_code && ride.rider_id) {
+        await supabaseAdmin
+          .rpc("redeem_promo_code", {
+            p_ride_id: ride_id,
+            p_rider_id: ride.rider_id,
+            p_code: ride.applied_promo_code,
+            p_fare_cents: effectiveFare,
+          })
+          .then((res) => res, (err: unknown) => console.error("promo redemption failed (non-fatal, discount already applied to fare):", err));
       }
     } else if (ride.payment_method === "cash") {
       // ── CASH PATH: driver-debt settlement via the single settlement source ──

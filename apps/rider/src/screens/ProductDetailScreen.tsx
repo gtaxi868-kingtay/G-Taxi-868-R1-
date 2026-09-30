@@ -34,13 +34,6 @@ function getProductIcon(name: string): string {
     return PRODUCT_ICONS.default;
 }
 
-const NUTRIENT_PILLS = [
-    { label: 'Water', value: '8oz', color: CYAN },
-    { label: 'Calories', value: '120', color: '#F59E0B' },
-    { label: 'Fat', value: '0g', color: '#EF4444' },
-    { label: 'Protein', value: '2g', color: '#10B981' },
-];
-
 export function ProductDetailScreen({ navigation, route }: any) {
     const { width } = useWindowDimensions();
     const { product, onAddToCart } = route.params as { product: Product; onAddToCart?: (p: Product) => void };
@@ -89,14 +82,6 @@ export function ProductDetailScreen({ navigation, route }: any) {
                     <View style={s.glowRing} />
                 </View>
 
-                <View style={s.pillRow}>
-                    {NUTRIENT_PILLS.map(pill => (
-                        <View key={pill.label} style={[s.pill, { borderColor: pill.color + '44' }]}>
-                            <Text style={[s.pillValue, { color: pill.color }]}>{pill.value}</Text>
-                            <Text style={s.pillLabel}>{pill.label}</Text>
-                        </View>
-                    ))}
-                </View>
 
                 <View style={s.infoCard}>
                     <Text style={s.productName}>{product.name}</Text>

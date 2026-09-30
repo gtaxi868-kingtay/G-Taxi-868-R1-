@@ -52,41 +52,35 @@ export function PromoScreen({ navigation }: any) {
         if (data) setPromos(data);
     };
 
+    // Real redemption: claim_promo_code validates server-side (exists,
+    // active, not expired, under max_uses, not already claimed by this
+    // rider) and records the claim -- the old version here inserted
+    // directly into user_promos and showed a success alert regardless of
+    // whether it actually worked (it never did: a broken trigger made
+    // every such insert fail). Claiming attaches to the rider's NEXT ride
+    // automatically (create_ride) and the discount lands in the real fare
+    // math at settlement (complete_ride) -- not applied here, on purpose.
     const handleApply = async () => {
         if (!code) return;
         setLoading(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        const { data, error } = await supabase
-            .from('admin_promos')
-            .select('*')
-            .eq('code', code.toUpperCase())
-            .eq('is_active', true)
-            .single();
+        const { data, error } = await supabase.rpc('claim_promo_code', { p_code: code });
 
-        if (error || !data) {
-            Alert.alert("Invalid Code", "This promo code doesn't exist or is inactive.");
-            setLoading(false);
-            return;
-        }
-
-        const { error: claimError } = await supabase
-            .from('user_promos')
-            .insert({ user_id: user?.id, promo_code: data.code });
-
-        if (claimError) {
-            if (claimError.message?.includes('duplicate') || claimError.code === '23505') {
-                Alert.alert("Already Claimed", "You've already used this promo code.");
-            } else {
-                Alert.alert("Error", claimError.message);
-            }
-            setLoading(false);
-            return;
-        }
-
-        Alert.alert("Success!", `Promo ${data.code} applied! Enjoy ${data.discount_percent}% off your next ride.`);
-        fetchPromos();
         setLoading(false);
+
+        if (error) {
+            Alert.alert("Error", error.message);
+            return;
+        }
+        if (!data?.success) {
+            Alert.alert("Couldn't Apply Code", data?.message || "Something went wrong.");
+            return;
+        }
+
+        Alert.alert("Applied!", data.message || `Up to ${data.discount_percent}% off your next ride.`);
+        setCode('');
+        fetchPromos();
     };
 
     return (
@@ -165,7 +159,9 @@ export function PromoScreen({ navigation }: any) {
                                 <View style={s.dashDivider} />
 
                                 <View style={s.promoFooter}>
-                                    <Txt variant="caption" color={R.muted}>Expires: {new Date(p.expires_at).toLocaleDateString()}</Txt>
+                                    <Txt variant="caption" color={R.muted}>
+                                        {p.expires_at ? `Expires: ${new Date(p.expires_at).toLocaleDateString()}` : 'No expiry'}
+                                    </Txt>
                                     <View style={[s.activeDot, { backgroundColor: CYAN }]} />
                                 </View>
                             </View>

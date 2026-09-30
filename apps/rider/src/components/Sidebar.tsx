@@ -106,8 +106,8 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                     <View style={s.menu}>
                         <MenuItem icon="car" label="Your Trips" onPress={() => navigateTo('Trips')} />
                         <MenuItem icon="wallet" label="Wallet" onPress={() => navigateTo('Wallet')} />
-                        <MenuItem icon="gift" label="Promotions" onPress={() => navigateTo('Promo')} />
                         <MenuItem icon="bookmark" label="Saved Places" onPress={() => navigateTo('SavedPlaces')} />
+                        <MenuItem icon="gift" label="Promotions" onPress={() => navigateTo('Promo')} />
                         <MenuItem icon="settings" label="Settings" onPress={() => navigateTo('Settings')} />
                         <MenuItem icon="help-circle" label="Help" onPress={() => navigateTo('Help')} />
                     </View>

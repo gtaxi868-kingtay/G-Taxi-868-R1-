@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  ActivityIndicator, RefreshControl, Alert,
+  ActivityIndicator, RefreshControl, Alert, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -199,7 +199,7 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
             <Text style={styles.headerTitle}>G-Touch Points</Text>
             <Text style={styles.headerMeta}>{nodes.length} deployed · {nodes.filter(n => n.is_active).length} active</Text>
           </View>
-          <View style={styles.headerActions}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.headerActionsScroll} contentContainerStyle={styles.headerActions}>
             <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -229,7 +229,10 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               style={styles.iconBtn}
               accessibilityLabel="Zone Rates"
             >
-              <Ionicons name="map-outline" size={18} color="rgba(255,255,255,0.5)" />
+              {/* Jakob's: was 'map-outline', identical to this row's own
+                  view-toggle button when it's showing "switch to map" --
+                  two different buttons could render the same glyph. */}
+              <Ionicons name="pricetag-outline" size={18} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('Intelligence'); }}
@@ -258,36 +261,52 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
             >
               <Ionicons name="key-outline" size={18} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
+            {/* Hick's/Von Restorff: this row was 10 fixed-width (34px) icon
+                buttons wide -- 412px minimum before the ScrollView above was
+                added, in a header with ~335px available on a 375px phone.
+                Delete Account (irreversible) carried the exact same muted,
+                unlabeled 34px treatment as "Register Puck" (routine). Folded
+                Delete Account and Sign Out into one labeled "More" menu, one
+                tap further away and one Alert step further from accidental
+                taps -- same confirmation dialog and delete_account call,
+                untouched. */}
             <TouchableOpacity
               onPress={() => {
-                Alert.alert(
-                  'Delete Account',
-                  'Permanently delete your account and all associated data? This cannot be undone.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Delete Permanently', style: 'destructive',
-                      onPress: async () => {
-                        try {
-                          const { error } = await supabase.functions.invoke('delete_account');
-                          if (error) throw error;
-                          await signOut();
-                        } catch (err: any) {
-                          Alert.alert('Error', err?.message || 'Could not delete account.');
-                        }
-                      },
+                Alert.alert('Account', undefined, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Sign Out', onPress: signOut },
+                  {
+                    text: 'Delete Account', style: 'destructive',
+                    onPress: () => {
+                      Alert.alert(
+                        'Delete Account',
+                        'Permanently delete your account and all associated data? This cannot be undone.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Delete Permanently', style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                const { error } = await supabase.functions.invoke('delete_account');
+                                if (error) throw error;
+                                await signOut();
+                              } catch (err: any) {
+                                Alert.alert('Error', err?.message || 'Could not delete account.');
+                              }
+                            },
+                          },
+                        ]
+                      );
                     },
-                  ]
-                );
+                  },
+                ]);
               }}
               style={styles.iconBtn}
+              accessibilityLabel="Account options"
             >
-              <Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="ellipsis-horizontal" size={18} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={signOut} style={styles.iconBtn}>
-              <Ionicons name="log-out-outline" size={18} color="rgba(255,255,255,0.5)" />
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </View>
 
@@ -354,7 +373,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#F1F5F9' },
   headerMeta: { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2, fontWeight: '500' },
-  headerActions: { flexDirection: 'row', gap: 8 },
+  headerActionsScroll: { flexGrow: 0 },
+  headerActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   iconBtn: {
     width: 34,
     height: 34,

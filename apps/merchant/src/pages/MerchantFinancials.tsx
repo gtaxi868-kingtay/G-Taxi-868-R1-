@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { DollarSign, Download, Calendar, ArrowUpRight, Sparkles } from 'lucide-react';
+import { DollarSign, Download, Calendar } from 'lucide-react';
 
 interface RevenueSummary {
     month: string;
@@ -187,19 +187,6 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
                     {summary.length === 0 && !loading && (
                         <div className="py-20 text-center text-[#5A5F66] italic">No Financial Records Found Yet</div>
                     )}
-                </div>
-            </div>
-
-            <div className="bg-[#007070] rounded-[3rem] p-12 text-white flex items-center justify-between overflow-hidden relative">
-                <div className="relative z-10 max-w-lg">
-                    <h3 className="text-2xl font-black mb-4 italic">B2B REFERRAL BONUS</h3>
-                    <p className="opacity-70 font-medium leading-relaxed">Earn a 3% kickback on every guest ride exceeding $50 TTD. Revenue reflected in next month's statement.</p>
-                </div>
-                <div className="relative z-10">
-                    <ArrowUpRight size={100} className="opacity-20" />
-                </div>
-                <div className="absolute top-0 right-0 p-12 opacity-5 scale-150 rotate-12">
-                    <Sparkles size={200} />
                 </div>
             </div>
         </div>

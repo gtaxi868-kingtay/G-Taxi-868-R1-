@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
-    ScrollView, Switch, ActivityIndicator, Alert
+    ScrollView, ActivityIndicator, Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +20,6 @@ export function StrategySettingsScreen({ navigation }: { navigation: any }) {
 
     const [strategy, setStrategy] = useState({
         strategy_mode: 'stable',
-        fatigue_alerts_enabled: true,
         max_distance_meters: 10000
     });
 
@@ -39,7 +38,6 @@ export function StrategySettingsScreen({ navigation }: { navigation: any }) {
             if (data) {
                 setStrategy({
                     strategy_mode: data.strategy_mode,
-                    fatigue_alerts_enabled: data.fatigue_alerts_enabled,
                     max_distance_meters: data.max_distance_meters
                 });
             }
@@ -120,20 +118,10 @@ export function StrategySettingsScreen({ navigation }: { navigation: any }) {
                     </View>
                 </View>
 
-                <View style={s.section}>
-                    <Text style={[s.sectionTitle, {fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)'}]}>HEALTH & SAFETY</Text>
-                    <View style={s.row}>
-                        <View style={{ flex: 1 }}>
-                            <Text style={{fontSize: 14, fontWeight: '600', color: '#EAF3F6'}}>Fatigue & Wellness Alerts</Text>
-                            <Text style={{fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.6)'}}>AI monitors driving patterns to suggest breaks.</Text>
-                        </View>
-                        <Switch
-                            value={strategy.fatigue_alerts_enabled}
-                            onValueChange={(val: boolean) => updateStrategy('fatigue_alerts_enabled', val)}
-                            trackColor={{ false: 'rgba(26, 21, 48, 1)', true: VOICES.driver.accent }}
-                        />
-                    </View>
-                </View>
+                {/* "Fatigue & Wellness Alerts" toggle removed -- UNBACKED PROMISE,
+                    confirmed by grep: fatigue_alerts_enabled was written here and
+                    nowhere read by any function. No driving-pattern monitoring or
+                    break-suggestion logic exists anywhere in the codebase. */}
 
                 {saving && (
                     <View style={s.savingIndicator}>

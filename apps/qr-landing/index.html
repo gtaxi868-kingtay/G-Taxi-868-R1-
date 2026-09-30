@@ -93,15 +93,22 @@ select option{background:#12082a;color:#fff}
   .hero-left,.hero-right{height:auto!important;max-width:100%!important;width:100%!important;padding:0!important;display:contents!important}
   /* hero-left/hero-right no longer generate their own box on mobile — their
      children become direct siblings under .hero-content and are reordered
-     here into one stack: headline, hero image, role tabs, then the CTAs. */
+     here into one stack: headline, description, CTA, hero image, role tabs.
+     Fitts's Law: on a real 375x812 phone the primary CTA used to sit at
+     order:5, ~1412px down (measured) -- nearly two scrolls below the fold,
+     with only the small header "Join the waitlist" button reachable at
+     first paint. Promoted to order:3, right after the headline, so the one
+     action this page exists for is visible without scrolling. The hero
+     pin/orb animation itself (markup, styling, motion) is untouched --
+     only its position in the mobile stack moved down one slot. */
   .main-title{font-size:clamp(3rem,15vw,4.4rem)!important;line-height:.9!important;order:1;position:relative;z-index:130}
   .description{font-size:1rem!important;max-width:none!important;order:2;position:relative;z-index:130}
-  .hero-center{order:3;position:relative!important;opacity:1!important;width:100%!important;height:min(calc(156vw + 30px),750px)!important;top:auto!important;left:auto!important;animation:none!important;z-index:50;margin:.25rem 0 0;overflow:visible}
+  .cta-group{order:3;position:relative;z-index:130}
+  #open-waitlist{width:100%!important;justify-content:space-between!important}
+  .hero-center{order:4;position:relative!important;opacity:1!important;width:100%!important;height:min(calc(156vw + 30px),750px)!important;top:auto!important;left:auto!important;animation:none!important;z-index:50;margin:.25rem 0 0;overflow:visible}
   .pin-stage{position:absolute!important;top:50%!important;left:50%!important;width:156vw!important;height:100%!important}
   #pin-3d{width:min(calc(156vw + 30px),710px)!important}
-  .role-carousel{order:4;position:relative;z-index:130;align-items:stretch!important;max-width:none!important;width:100%!important;text-align:left!important;margin-top:-1.9rem}
-  .cta-group{order:5;position:relative;z-index:130}
-  #open-waitlist{width:100%!important;justify-content:space-between!important}
+  .role-carousel{order:5;position:relative;z-index:130;align-items:stretch!important;max-width:none!important;width:100%!important;text-align:left!important;margin-top:-1.9rem}
   .award-badge{order:6;position:relative;z-index:130;margin-top:0!important}
   .side-title{font-size:clamp(2.4rem,12vw,3.6rem)!important;align-self:flex-start!important;text-align:left!important;order:7;position:relative;z-index:130}
   .carousel-cards{display:grid!important;grid-template-columns:1fr 1fr!important;gap:.6rem!important;max-width:none!important;width:100%!important}
@@ -611,7 +618,6 @@ const arrivalPanelHTML = () => {
           <span style="width:7px;height:7px;border-radius:50%;background:#22d3ee;box-shadow:0 0 12px #22d3ee;display:block"></span>
           Open in the app
         </button>
-        <a id="arr-app-ios" href="${APP.ios || '#'}" style="display:flex;align-items:center;gap:.6rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#fff;padding:.8rem 1.3rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem;text-decoration:none">Download for iPhone</a>
         <a id="arr-app-android" href="${APP.android}" style="display:flex;align-items:center;gap:.6rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#fff;padding:.8rem 1.3rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem;text-decoration:none">Download for Android</a>
       </div>
       <p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5">Already installed? <span style="color:rgba(255,255,255,.7)">Open in the app</span> carries this touchpoint straight into your ride.</p>
@@ -646,14 +652,14 @@ const ROLE_INFO = {
     lede: 'You already do the work. This is about how much of it you keep — and what you can build on top of it once you have been driving a while.',
     perks: [
       ['80% of the fare, plainly stated', 'No shifting commission, no surprise deductions. 78% in territories with an active G-Lead, and you will always be told which one you are in.'],
-      ['Earn from who you bring in', '1% on every driver you introduce, and TTD 500 for every hotel that comes on through you.'],
+      ['Earn from who you bring in', '1% on every driver you introduce, and TTD 15 for every business you bring on.'],
       ['A territory of your own', 'At 500 rides you qualify to run one: recruit your own drivers and shops, and earn on the area you built.']
     ],
     ladderTitle: 'How a driver moves up',
     ladder: [
       ['Day one', '80% of every fare, paid to your wallet'],
       ['First referral', '1% of what every driver you bring in earns'],
-      ['First hotel', 'TTD 500 for each hotel introduced'],
+      ['First business', 'TTD 15 for each business you bring on'],
       ['500 rides', 'You qualify to run a territory'],
       ['As G-Lead', '2% override on the whole area you build']
     ],
@@ -819,7 +825,6 @@ const PANELS = {
       <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid rgba(255,255,255,.14);font-size:.82rem">New Rider</span>
       <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid rgba(255,255,255,.14);font-size:.82rem">Regular · 5%</span>
       <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid rgba(255,255,255,.18);font-size:.82rem">Loyal · 8%</span>
-      <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid rgba(34,211,238,.4);font-size:.82rem">Elite · 10%</span>
       <span style="padding:.45rem .9rem;border-radius:100px;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;font-weight:700;font-size:.82rem">Elite · 10% + priority</span>
     </div>`,
 
