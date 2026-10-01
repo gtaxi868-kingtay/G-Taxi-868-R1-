@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://g868-waitlist.vercel.app/sitemap.xml

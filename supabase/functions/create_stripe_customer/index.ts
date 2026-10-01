@@ -7,8 +7,8 @@
 //
 // `verify_jwt = true` is NOT authentication here: the Supabase gateway accepts any
 // JWT signed with the project secret, and the anon key is exactly such a JWT — and
-// it is published in apps/qr-landing/index.html and apps/g868/app.js. Anyone could
-// therefore point a victim's profile at a Stripe customer they controlled.
+// it is published in apps/g868-waitlist/index.html. Anyone could therefore point a
+// victim's profile at a Stripe customer they controlled.
 //
 // Fix: require a shared secret that only the DB webhook knows, compared in constant
 // time. If DB_WEBHOOK_SECRET is not configured the function refuses every request

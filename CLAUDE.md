@@ -45,7 +45,9 @@ Components:
 - Merchant web app:      apps/merchant/       (Vite/React/TypeScript)
 - Admin dashboard:       apps/admin/          (Vite/React/TypeScript)
 - Admin mobile app:      apps/admin-mobile/   (Expo/React Native/TypeScript)
-- QR landing/front door: apps/qr-landing/     (static)
+- Waitlist/front door:   apps/g868-waitlist/  (static — formerly apps/qr-landing;
+                         merged with the now-deleted apps/g868 experiment 2026-10-01,
+                         deployed as the Vercel project "g868-waitlist")
 - Edge functions:        supabase/functions/  (Deno/TypeScript — 130+ functions)
 - Database:              Supabase Postgres with PostGIS, RLS enabled, 130+ migrations
 - Maps:                  Mapbox
