@@ -2,6 +2,7 @@ export default {
   expo: {
     name: "GTaxi Driver",
     slug: "gtaxi-driver",
+    scheme: "gtaxi-driver",
     version: "1.0.0",
     orientation: "default",
     icon: "./assets/icon.png",

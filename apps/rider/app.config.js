@@ -2,6 +2,7 @@ export default {
   expo: {
     name: "G Taxi Rider",
     slug: "g-taxi-rider",
+    scheme: "gtaxi",
     version: "1.0.0",
     orientation: "default",
     icon: "./assets/logo.png",
