@@ -376,6 +376,47 @@ async function alertHandlerDrift(supabase: Svc, actionType: string, detail: stri
     }).then(null, () => null);
 }
 
+// F5 — drift guard. alertHandlerDrift (above) only ever fires reactively,
+// per action_type, at the moment that specific type is actually proposed —
+// a drifted type that nobody proposes for weeks sits silently broken the
+// whole time. This runs a full reconciliation of ALL enabled
+// execution_mode='handler' rows in g_action_types (the repo's declared
+// truth, seeded by migration) against the actual deployed HANDLERS object
+// (this file's code truth) every sweep, catching drift in both directions
+// before anything is ever proposed against it:
+//   - repo says a type has a real handler, deployed code doesn't have it
+//     (this function needs redeploying)
+//   - deployed code has a handler, repo's registry doesn't list it enabled
+//     (the registry migration needs updating, or the handler is orphaned)
+// Same hazard class as code living only in production with no migration
+// behind it (grant_transition_bonus / Sep-4 referral-code precedent) --
+// here applied to g_execute_action's own handler registry instead of a DB
+// function body. Read-only against g_action_types; the only write is
+// alertHandlerDrift's own system_alerts insert, which already dedupes on
+// an existing unresolved alert for the same action_type so this adds no
+// new alert spam beyond what a genuine drift would produce once.
+async function sweepHandlerRegistryDrift(supabase: Svc): Promise<void> {
+    const { data: registryRows } = await supabase.from("g_action_types")
+        .select("action_type")
+        .eq("execution_mode", "handler")
+        .eq("is_enabled", true);
+    const registeredTypes = new Set<string>((registryRows ?? []).map((r: { action_type: string }) => r.action_type));
+    const handlerTypes = new Set<string>(Object.keys(HANDLERS));
+
+    for (const t of registeredTypes) {
+        if (!handlerTypes.has(t)) {
+            await alertHandlerDrift(supabase, t,
+                `g_action_types says '${t}' has a real handler, but g_execute_action's HANDLERS registry has no matching function. This function needs redeploying.`);
+        }
+    }
+    for (const t of handlerTypes) {
+        if (!registeredTypes.has(t)) {
+            await alertHandlerDrift(supabase, t,
+                `g_execute_action has a real handler for '${t}', but g_action_types has no matching enabled 'handler' row. The registry migration needs updating, or this handler is orphaned.`);
+        }
+    }
+}
+
 async function executeProposal(supabase: Svc, p: Proposal): Promise<ExecResult> {
     if (MANUAL_ACK_TYPES.has(p.action_type)) {
         return {
@@ -568,6 +609,11 @@ serve(async (req) => {
             executed.push({ id: p.id, ok: res.ok });
         }
         const remindersDelivered = await deliverDueReminders(supabase);
+
+        // F5: once per sweep (not once per proposal), not gated on anything
+        // being proposed. Never let a drift-check failure break the sweep.
+        await sweepHandlerRegistryDrift(supabase).catch((err) =>
+            console.error("[g_execute_action] sweepHandlerRegistryDrift failed:", err));
 
         return json({ success: true, proposals_executed: executed, reminders_delivered: remindersDelivered });
     } catch (err) {
