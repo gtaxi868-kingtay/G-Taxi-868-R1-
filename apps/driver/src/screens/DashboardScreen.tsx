@@ -31,6 +31,15 @@ import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/u
 const CAR_SIZE = 120;
 const LOCKOUT_THRESHOLD_CENTS = -60000;
 
+// Same status vocabulary as AreaSafetyCard's PRESENTATION map — deliberately
+// flat, not alarmist: an observation count is not a verdict on a neighbourhood.
+const SAFETY_AREA_COLORS: Record<string, { fill: string; stroke: string }> = {
+    routine: { fill: 'rgba(34,197,94,0.12)', stroke: 'rgba(34,197,94,0.35)' },
+    limited_data: { fill: 'rgba(148,163,184,0.10)', stroke: 'rgba(148,163,184,0.3)' },
+    check_in_missed: { fill: 'rgba(245,158,11,0.14)', stroke: 'rgba(245,158,11,0.4)' },
+    incident_reported: { fill: 'rgba(239,68,68,0.16)', stroke: 'rgba(239,68,68,0.45)' },
+};
+
 function getGreeting() {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning,';
@@ -77,6 +86,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
     const [systemStatus, setSystemStatus] = useState<Record<string, unknown>>({ stripe_ready: true, fcm_ready: true, config: {} });
     const [demandHint, setDemandHint] = useState<string | null>(null);
     const [demandHotspots, setDemandHotspots] = useState<any[]>([]);
+    const [safetyAreas, setSafetyAreas] = useState<any[]>([]);
     const [nfcVisible, setNfcVisible] = useState(false);
 
     const panelY = useSharedValue(panelHeightLocal);
@@ -202,7 +212,26 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         };
         fetchDemand();
         const demandTimer = setInterval(fetchDemand, 10 * 60 * 1000);
-        return () => clearInterval(demandTimer);
+
+        const fetchSafety = async () => {
+            try {
+                // The payoff for every "mark safe" tap: driver_heatmap's
+                // type=safety path aggregates zone_safety_events into the same
+                // ~550m grid as the demand heatmap, so drivers can literally see
+                // which areas their own check-ins have lit up. Aggregate-only —
+                // no rider/driver/ride ids ever leave the server for this.
+                const { data, error } = await supabase.functions.invoke('driver_heatmap?type=safety');
+                if (!error && Array.isArray(data?.areas)) {
+                    setSafetyAreas(data.areas);
+                } else {
+                    setSafetyAreas([]);
+                }
+            } catch { setSafetyAreas([]); }
+        };
+        fetchSafety();
+        const safetyTimer = setInterval(fetchSafety, 10 * 60 * 1000);
+
+        return () => { clearInterval(demandTimer); clearInterval(safetyTimer); };
     }, [driver?.id, user?.id]);
 
     useEffect(() => {
@@ -324,6 +353,23 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                                 radius={350}
                                 fillColor={`rgba(230,180,80,${0.08 + 0.22 * (h.demand_score || 0)})`}
                                 strokeColor={`rgba(230,180,80,${0.15 + 0.35 * (h.demand_score || 0)})`}
+                                strokeWidth={1}
+                            />
+                        ) : null
+                    ))}
+                    {/* Safety mesh — areas lit up by drivers' own "mark safe" check-ins
+                        and drop history. Green = routine, amber = limited data,
+                        orange = a check-in was missed nearby, red = an alert was
+                        raised nearby. A cell only appears once real events exist —
+                        an unlit area means no data, not "unsafe." */}
+                    {safetyAreas.map((a: any, i: number) => (
+                        a.lat != null && a.lng != null ? (
+                            <Circle
+                                key={`safety-${i}`}
+                                center={{ latitude: a.lat, longitude: a.lng }}
+                                radius={300}
+                                fillColor={SAFETY_AREA_COLORS[a.status]?.fill ?? SAFETY_AREA_COLORS.limited_data.fill}
+                                strokeColor={SAFETY_AREA_COLORS[a.status]?.stroke ?? SAFETY_AREA_COLORS.limited_data.stroke}
                                 strokeWidth={1}
                             />
                         ) : null
