@@ -1,8 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { requireAuth } from "../_shared/auth.ts"
-import { aiFetch } from "../_shared/networkUtility.ts"
-import { GROQ_CHAT_MODEL, isGptOss } from "../_shared/ai_model.ts";
+import { chat, BudgetExceededError, RateLimitedError } from "../_shared/llm.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,48 +35,44 @@ serve(async (req) => {
       })
     }
 
-    const groqPayload = {
-      model: GROQ_CHAT_MODEL,
-      messages: [
-        {
-          role: "system",
-          content: "You are the central geographical reasoning engine for TaxiG in Trinidad and Tobago. Analyze transit vectors and output hyper-local stop options bordering the transit line."
-        },
-        {
-          role: "user",
-          content: `Route traces from [${ride.origin_lat}, ${ride.origin_lng}] to [${ride.dest_lat}, ${ride.dest_lng}]. Generate exactly 2 local points of interest in Trinidad adjacent to this route. Return strictly a raw JSON array containing objects with keys: "name", "reason", and "estimated_delay_mins". No markdown tags.`
-        }
-      ],
-      temperature: 0.3
-    }
+    // F4: routed through _shared/llm.ts rather than fetching api.groq.com
+    // directly -- this call ran on every ride, uncapped and uncounted by
+    // g_config.daily_llm_budget_usd. Now it shares the same budget and
+    // provider fallback chain as every other AI feature, and a budget/rate
+    // limit is treated as the normal "no suggestions this time" case, same
+    // pattern as generate_ai_greeting.
+    let parsedSuggestions: any[] = []
+    try {
+      const aiData = await chat(supabaseAdmin, {
+        department: "ai_suggest_stops",
+        system: "You are the central geographical reasoning engine for TaxiG in Trinidad and Tobago. Analyze transit vectors and output hyper-local stop options bordering the transit line.",
+        messages: [
+          {
+            role: "user",
+            content: `Route traces from [${ride.origin_lat}, ${ride.origin_lng}] to [${ride.dest_lat}, ${ride.dest_lng}]. Generate exactly 2 local points of interest in Trinidad adjacent to this route. Return strictly a raw JSON array containing objects with keys: "name", "reason", and "estimated_delay_mins". No markdown tags.`
+          }
+        ],
+        temperature: 0.3
+      })
 
-    if (!Deno.env.get('GROQ_API_KEY')) {
+      const rawContent = aiData?.choices?.[0]?.message?.content?.trim()
+      if (rawContent) {
+        try {
+          parsedSuggestions = JSON.parse(rawContent.replace(/```(?:json)?\n?/g, ''))
+        } catch {
+          console.warn('[AISuggest] Failed to parse LLM response:', rawContent)
+        }
+      }
+    } catch (err) {
+      if (err instanceof BudgetExceededError || err instanceof RateLimitedError) {
+        console.log(`[ai_suggest_stops] falling back, no suggestions: ${err.name}`)
+      } else {
+        console.error('[ai_suggest_stops] LLM gateway failed:', err)
+      }
       return new Response(JSON.stringify({ suggestions: [], fallback: true, message: 'AI unavailable' }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-    }
-
-    const aiResponse = await aiFetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('GROQ_API_KEY')}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(groqPayload)
-    })
-
-    const aiData = await aiResponse.json()
-    if (!aiResponse.ok) throw new Error(aiData.error?.message || 'Groq API returned an error status.')
-
-    const rawContent = aiData?.choices?.[0]?.message?.content?.trim()
-    let parsedSuggestions: any[] = []
-    if (rawContent) {
-      try {
-        parsedSuggestions = JSON.parse(rawContent.replace(/```(?:json)?\n?/g, ''))
-      } catch {
-        console.warn('[AISuggest] Failed to parse Groq response:', rawContent)
-      }
     }
 
     if (parsedSuggestions.length === 0) {
