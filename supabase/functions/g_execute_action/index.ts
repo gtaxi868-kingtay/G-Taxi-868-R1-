@@ -7,10 +7,11 @@
 //  - Draft/advisory types (draft_post, support_reply_draft, content_calendar,
 //    recommendation): "executing" means acknowledging — the human posts/sends
 //    manually. Marked executed with manual:true.
-//  - 9 real handlers below actually do the thing: activate_merchant_promo,
+//  - 10 real handlers below actually do the thing: initiate_lime_fleet,
+//    unlock_territory_vertical, activate_merchant_promo,
 //    approve_garage_request, escape_confirm_group, escape_open_lane,
 //    grid_candidate, grant_transition_bonus, reactivate_cron_job,
-//    set_g_config_key, unlock_territory_vertical.
+//    set_g_config_key.
 //  - g_action_types (see 20260908000000_g_action_type_registry.sql) is the
 //    single source of truth for which action_type is which — this file's
 //    HANDLERS is cross-checked against it on every invocation
