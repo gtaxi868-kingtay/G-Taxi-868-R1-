@@ -48,7 +48,12 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
                     total_cents: priceCents,
                     status: 'pending',
                     payment_method: paymentMethod === 'cash' ? 'cash' : 'card',
-                    payment_status: paymentMethod === 'cash' ? 'cash_on_delivery' : 'unpaid',
+                    // orders_payment_status_check allows pending/authorized/captured/
+                    // failed/refunded/cash_on_delivery — 'unpaid' was never a legal
+                    // value, so this insert itself threw a constraint violation for
+                    // every card-payment laundry booking before create_order_payment_intent
+                    // was ever reached.
+                    payment_status: paymentMethod === 'cash' ? 'cash_on_delivery' : 'pending',
                     delivery_method: 'laundry_pickup',
                 })
                 .select('id')
