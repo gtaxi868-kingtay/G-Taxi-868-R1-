@@ -51,6 +51,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     merchant_gateway_auth: { maxRequests: 10, windowSeconds: 60 },
     // Was being called with a key that had no config, i.e. no limit at all.
     grocery_create_payment_intent: { maxRequests: 5, windowSeconds: 60 },
+    create_order_payment_intent: { maxRequests: 5, windowSeconds: 60 },
     handle_voice: { maxRequests: 20, windowSeconds: 60 },
     decline_ride: { maxRequests: 20, windowSeconds: 60 },
     generate_cash_code: { maxRequests: 5, windowSeconds: 60 },
