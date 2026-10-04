@@ -10,7 +10,11 @@ import { supabase } from '@gtaxi/core';
 import { useStripe } from '@stripe/stripe-react-native';
 import type { AppStackParamList } from '../navigation/types';
 
-const BRAND = '#34E6EC';
+const BRAND = '#22D3EE';
+// Cyan is reserved for things the rider can tap. Decorative text/icons
+// (package name, section labels, line-item icons, the pool progress fill)
+// use this neutral tone instead.
+const NEUTRAL = 'rgba(242,245,248,0.5)';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'EscapeCheckout'>;
 type RouteT = RouteProp<AppStackParamList, 'EscapeCheckout'>;
@@ -215,7 +219,7 @@ export default function EscapeCheckoutScreen() {
         </View>
 
         <View style={styles.noticeCard}>
-          <Ionicons name="lock-closed-outline" size={18} color={BRAND} />
+          <Ionicons name="lock-closed-outline" size={18} color={NEUTRAL} />
           <Text style={styles.noticeText}>
             Your card is reserved but not charged. Payment only completes once this flight
             reaches {breakdown.tipping_point_seats} seats. If the pool doesn't fill, your hold is automatically voided — no charge, ever.
@@ -230,7 +234,7 @@ export default function EscapeCheckoutScreen() {
         >
           {submitting
             ? <ActivityIndicator color="#07070F" />
-            : <Text style={styles.ctaText}>Lock My Escape · {fmt(breakdown.total_price_cents)}</Text>}
+            : <Text style={styles.ctaText}>Lock my escape · {fmt(breakdown.total_price_cents)}</Text>}
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -242,7 +246,7 @@ export default function EscapeCheckoutScreen() {
 const Row: React.FC<{ icon: string; label: string; value: string }> = ({ icon, label, value }) => (
   <View style={styles.row}>
     <View style={styles.rowLeft}>
-      <Ionicons name={icon as any} size={14} color={BRAND} />
+      <Ionicons name={icon as any} size={14} color={NEUTRAL} />
       <Text style={styles.rowLabel}>{label}</Text>
     </View>
     <Text style={styles.rowValue}>{value}</Text>
@@ -259,12 +263,12 @@ const styles = StyleSheet.create({
                    alignItems: 'center', justifyContent: 'center' },
   headerTitle:   { fontSize: 17, fontWeight: '700', color: '#EAF3F6' },
   destination:   { fontSize: 28, fontWeight: '800', color: '#EAF3F6', marginTop: 8, letterSpacing: -0.5 },
-  packageName:   { fontSize: 15, color: BRAND, fontWeight: '600', marginTop: 4 },
+  packageName:   { fontSize: 15, color: NEUTRAL, fontWeight: '600', marginTop: 4 },
   dateLabel:     { fontSize: 13, color: 'rgba(242,245,248,0.5)', marginTop: 4, marginBottom: 20 },
 
   card:          { backgroundColor: '#13171D', borderRadius: 16, padding: 18, marginBottom: 16,
                    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  sectionTitle:  { color: BRAND, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 14 },
+  sectionTitle:  { color: NEUTRAL, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 14 },
   row:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 7 },
   rowLeft:       { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   rowLabel:      { color: 'rgba(242,245,248,0.6)', fontSize: 14, flex: 1 },
@@ -281,11 +285,11 @@ const styles = StyleSheet.create({
   poolLabel:     { color: 'rgba(242,245,248,0.42)', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   poolCount:     { color: '#EAF3F6', fontSize: 12, fontWeight: '600' },
   progressTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' },
-  progressFill:  { height: 4, backgroundColor: BRAND, borderRadius: 2 },
+  progressFill:  { height: 4, backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 2 },
   poolSub:       { color: 'rgba(242,245,248,0.35)', fontSize: 11, marginTop: 8 },
 
-  noticeCard:    { flexDirection: 'row', backgroundColor: 'rgba(52,230,236,0.05)', borderRadius: 14, padding: 14,
-                   marginBottom: 24, borderWidth: 1, borderColor: 'rgba(52,230,236,0.12)', gap: 10 },
+  noticeCard:    { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14,
+                   marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', gap: 10 },
   noticeText:    { color: 'rgba(242,245,248,0.55)', fontSize: 12, lineHeight: 18, flex: 1 },
 
   cta:           { backgroundColor: BRAND, borderRadius: 16, paddingVertical: 18, alignItems: 'center' },

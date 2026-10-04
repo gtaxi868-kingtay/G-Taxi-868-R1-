@@ -11,7 +11,15 @@ import { supabase } from '@gtaxi/core';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
-const CYAN = '#06B6D4';
+const CYAN = '#22D3EE';
+
+function productIconFor(name: string): keyof typeof Ionicons.glyphMap {
+    const n = name.toLowerCase();
+    if (n.includes('drink')) return 'wine-outline';
+    if (n.includes('fruit')) return 'nutrition-outline';
+    if (n.includes('bread')) return 'cafe-outline';
+    return 'cube-outline';
+}
 
 interface Product {
     id: string;
@@ -91,12 +99,7 @@ export function ProductListingScreen({ navigation, route }: any) {
                 }}
             >
                 <View style={s.productImageBox}>
-                    <Text style={s.productEmoji}>
-                        {item.name.toLowerCase().includes('drink') ? '🥤'
-                            : item.name.toLowerCase().includes('fruit') ? '🍎'
-                            : item.name.toLowerCase().includes('bread') ? '🍞'
-                            : '📦'}
-                    </Text>
+                    <Ionicons name={productIconFor(item.name)} size={32} color={VOICES.rider.accent} />
                 </View>
                 <View style={s.productMeta}>
                     <Text style={s.productName} numberOfLines={2}>{item.name}</Text>
@@ -153,7 +156,7 @@ export function ProductListingScreen({ navigation, route }: any) {
                 </View>
             ) : products.length === 0 ? (
                 <View style={s.center}>
-                    <Text style={s.emptyEmoji}>📦</Text>
+                    <Ionicons name="cube-outline" size={48} color="rgba(255,255,255,0.5)" style={s.emptyIcon} />
                     <Text style={s.emptyText}>No products available.</Text>
                 </View>
             ) : (
@@ -177,7 +180,7 @@ export function ProductListingScreen({ navigation, route }: any) {
                     }}
                 >
                     <Text style={s.cartBarLeft}>{cartCount} item{cartCount !== 1 ? 's' : ''}</Text>
-                    <Text style={s.cartBarCenter}>View Cart</Text>
+                    <Text style={s.cartBarCenter}>View cart</Text>
                     <Text style={s.cartBarRight}>${(cartTotal / 100).toFixed(2)} TTD</Text>
                 </TouchableOpacity>
             )}
@@ -222,10 +225,10 @@ const s = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center',
         marginBottom: 10,
     },
-    productEmoji: { fontSize: 40 },
     productMeta: { gap: 4, marginBottom: 10 },
     productName: { fontSize: 14, fontWeight: '600', color: '#EAF3F6', lineHeight: 19 },
-    productPrice: { fontSize: 15, fontWeight: '800', color: VOICES.rider.accent },
+    // Prices stay off cyan -- cyan signals tappability, not money.
+    productPrice: { fontSize: 15, fontWeight: '800', color: '#EAF3F6' },
     addBtn: {
         alignSelf: 'flex-end', width: 32, height: 32, borderRadius: 16,
         backgroundColor: `${VOICES.rider.accent}4D`,
@@ -235,7 +238,7 @@ const s = StyleSheet.create({
     addBtnText: { fontSize: 18, color: '#EAF3F6', fontWeight: '700', lineHeight: 22 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
     loadingText: { color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 14 },
-    emptyEmoji: { fontSize: 48, marginBottom: 16 },
+    emptyIcon: { marginBottom: 16 },
     emptyText: { color: '#EAF3F6', fontSize: 18, fontWeight: '700' },
     cartBar: {
         position: 'absolute', bottom: 24, left: 20, right: 20,
