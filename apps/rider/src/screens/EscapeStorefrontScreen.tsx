@@ -12,7 +12,13 @@ import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip } from '../context/EscapeContext';
 import { usePlatformFlags } from '../hooks/usePlatformFlags';
 
-const BRAND = '#34E6EC';
+const BRAND = '#22D3EE';
+// Non-tappable text/decoration that used to borrow BRAND cyan purely for
+// "brand color" reasons -- cyan is reserved for things the rider can
+// actually tap (buttons, selected chips, active toggles). Everything else
+// -- names, taglines, status badges, progress fills, bullet points --
+// uses this neutral secondary tone instead.
+const NEUTRAL = 'rgba(242,245,248,0.5)';
 
 type Nav = NativeStackNavigationProp<AppStackParamList, 'EscapeStorefront'>;
 
@@ -294,7 +300,7 @@ export default function EscapeStorefrontScreen() {
 
   const handleJoinPool = (pkg: EscapePackageCard) => {
     if (joinedPkgIds.has(pkg.id)) {
-      Alert.alert('Already Joined', 'You\'re already in this group! Check your active passes.');
+      Alert.alert('Already joined', 'You\'re already in this group — check your active passes.');
       return;
     }
     setSelectedPackage(pkg);
@@ -366,12 +372,12 @@ export default function EscapeStorefrontScreen() {
         }
 
         <View style={[styles.statusBadge, isConfirmed ? styles.statusConfirmed : styles.statusPooling]}>
-          <Text style={styles.statusText}>{isConfirmed ? 'CONFIRMED' : 'Gathering the Crew'}</Text>
+          <Text style={[styles.statusText, isConfirmed && styles.statusTextConfirmed]}>{isConfirmed ? 'CONFIRMED' : 'Gathering the crew'}</Text>
         </View>
 
         {alreadyJoined && (
           <View style={styles.joinedBadge}>
-            <Ionicons name="checkmark-circle" size={14} color={BRAND} />
+            <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
             <Text style={styles.joinedText}>Joined</Text>
           </View>
         )}
@@ -445,7 +451,7 @@ export default function EscapeStorefrontScreen() {
                 <ActivityIndicator size="small" color="#07070F" />
               ) : (
                 <Text style={styles.joinBtnText}>
-                  {seatsAvailForGuest <= 0 ? 'Full' : alreadyJoined ? 'Joined ✓' : 'Join Pool'}
+                  {seatsAvailForGuest <= 0 ? 'Full' : alreadyJoined ? 'Joined' : 'Join pool'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -515,7 +521,7 @@ export default function EscapeStorefrontScreen() {
           <Text style={styles.laneRowLabel}>YOU'RE HOLDING SEATS FOR</Text>
           {myLanes.map(l => (
             <View key={l.id} style={styles.myLaneRow}>
-              <Ionicons name="airplane-outline" size={13} color={BRAND} />
+              <Ionicons name="airplane-outline" size={13} color={NEUTRAL} />
               <Text style={styles.myLaneText}>
                 {l.destination_name ?? l.destination_code} · {new Date(l.travel_month + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })} · {l.party_size} seat{l.party_size !== 1 ? 's' : ''}
               </Text>
@@ -554,10 +560,10 @@ export default function EscapeStorefrontScreen() {
       ) : loadError ? (
         <View style={styles.centered}>
           <Ionicons name="cloud-offline-outline" size={40} color="#F87171" />
-          <Text style={[styles.emptyTitle, { color: '#F87171', marginTop: 12 }]}>Connection Error</Text>
+          <Text style={[styles.emptyTitle, { color: '#F87171', marginTop: 12 }]}>Connection error</Text>
           <Text style={styles.emptySub}>{loadError}</Text>
           <TouchableOpacity onPress={loadPackages} style={styles.retryBtn}>
-            <Text style={styles.retryBtnText}>Try Again</Text>
+            <Text style={styles.retryBtnText}>Try again</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -616,7 +622,7 @@ export default function EscapeStorefrontScreen() {
               </Text>
             </View>
             <TouchableOpacity style={styles.sheetCta} onPress={handleConfirmGuests}>
-              <Text style={styles.sheetCtaText}>Join Group</Text>
+              <Text style={styles.sheetCtaText}>Join group</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -630,9 +636,9 @@ const styles = StyleSheet.create({
   header:           { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 12 },
   headerTitle:      { fontSize: 28, fontWeight: '800', color: '#EAF3F6', letterSpacing: -0.5 },
   headerSub:        { fontSize: 13, color: 'rgba(242,245,248,0.42)', marginTop: 2 },
-  activeTripBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(52,230,236,0.08)',
+  activeTripBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(34,211,238,0.08)',
                       marginHorizontal: 16, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14,
-                      marginBottom: 10, borderWidth: 1, borderColor: 'rgba(52,230,236,0.2)', gap: 8 },
+                      marginBottom: 10, borderWidth: 1, borderColor: 'rgba(34,211,238,0.2)', gap: 8 },
   activeDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
   activeTripText:   { flex: 1, color: BRAND, fontSize: 13, fontWeight: '500' },
   centered:         { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
@@ -642,23 +648,24 @@ const styles = StyleSheet.create({
   retryBtnText:     { color: '#07070F', fontWeight: '700', fontSize: 14 },
   list:             { paddingHorizontal: 16, paddingBottom: 40 },
   joinedBadge:      { position: 'absolute', top: 44, right: 12, flexDirection: 'row', alignItems: 'center',
-                      backgroundColor: 'rgba(52,230,236,0.12)', borderRadius: 8,
+                      backgroundColor: '#22C55E22', borderRadius: 8,
                       paddingHorizontal: 8, paddingVertical: 3, gap: 4,
-                      borderWidth: 1, borderColor: 'rgba(52,230,236,0.25)' },
-  joinedText:       { color: BRAND, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+                      borderWidth: 1, borderColor: '#22C55E44' },
+  joinedText:       { color: '#22C55E', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
 
   card:             { backgroundColor: '#13171D', borderRadius: 20, marginBottom: 16, overflow: 'hidden',
                       borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   coverImg:         { width: '100%', height: 160, resizeMode: 'cover' },
   coverPlaceholder: { backgroundColor: '#1A1F27', justifyContent: 'center', alignItems: 'center' },
-  coverPlaceholderText: { color: BRAND, fontSize: 32, fontWeight: '200', letterSpacing: 4 },
+  coverPlaceholderText: { color: NEUTRAL, fontSize: 32, fontWeight: '200', letterSpacing: 4 },
   statusBadge:      { position: 'absolute', top: 12, left: 12, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  statusPooling:    { backgroundColor: `${BRAND}1F`, borderWidth: 1, borderColor: `${BRAND}33` },
+  statusPooling:    { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
   statusConfirmed:  { backgroundColor: '#22C55E22', borderWidth: 1, borderColor: '#22C55E44' },
-  statusText:       { color: BRAND, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  statusText:       { color: NEUTRAL, fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  statusTextConfirmed: { color: '#22C55E' },
   cardBody:         { padding: 16 },
   destination:      { fontSize: 22, fontWeight: '800', color: '#EAF3F6', letterSpacing: -0.3 },
-  pkgName:          { fontSize: 13, color: BRAND, fontWeight: '600', marginTop: 2 },
+  pkgName:          { fontSize: 13, color: NEUTRAL, fontWeight: '600', marginTop: 2 },
   tagline:          { fontSize: 12, color: 'rgba(242,245,248,0.42)', marginTop: 3 },
   metaRow:          { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6, flexWrap: 'wrap' },
   meta:             { color: 'rgba(242,245,248,0.5)', fontSize: 12 },
@@ -668,7 +675,7 @@ const styles = StyleSheet.create({
   poolLabel:        { color: 'rgba(242,245,248,0.42)', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   poolCount:        { color: '#EAF3F6', fontSize: 11, fontWeight: '600' },
   progressTrack:    { height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' },
-  progressFill:     { height: 4, backgroundColor: BRAND, borderRadius: 2 },
+  progressFill:     { height: 4, backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 2 },
   poolSub:          { color: 'rgba(242,245,248,0.35)', fontSize: 10, marginTop: 6 },
   confirmedBanner:  { marginTop: 12, backgroundColor: '#22C55E11', borderRadius: 8, paddingVertical: 8,
                       paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -685,9 +692,9 @@ const styles = StyleSheet.create({
 
   experienceCard:     { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 12, marginTop: 10,
                         marginBottom: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  experienceTagline:  { color: BRAND, fontSize: 11, fontStyle: 'italic', marginBottom: 8, lineHeight: 15 },
+  experienceTagline:  { color: NEUTRAL, fontSize: 11, fontStyle: 'italic', marginBottom: 8, lineHeight: 15 },
   highlightRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 4 },
-  highlightDot:       { width: 4, height: 4, borderRadius: 2, backgroundColor: BRAND, marginTop: 5, flexShrink: 0 },
+  highlightDot:       { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.4)', marginTop: 5, flexShrink: 0 },
   highlightText:      { color: 'rgba(242,245,248,0.5)', fontSize: 11, lineHeight: 15, flex: 1 },
 
   sheetOverlay:     { position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)',
@@ -719,12 +726,12 @@ const styles = StyleSheet.create({
   laneRowLabel:     { color: 'rgba(242,245,248,0.4)', fontSize: 10, fontWeight: '700', letterSpacing: 1.5, marginBottom: 8 },
   chipRow:          { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   chip:             { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)' },
-  chipActive:       { backgroundColor: 'rgba(52,230,236,0.16)', borderColor: BRAND },
+  chipActive:       { backgroundColor: 'rgba(34,211,238,0.16)', borderColor: BRAND },
   chipText:         { color: 'rgba(242,245,248,0.65)', fontSize: 12, fontWeight: '600' },
   chipTextActive:   { color: BRAND },
   laneFooterRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   stepper:          { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stepBtn:          { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(52,230,236,0.12)', alignItems: 'center', justifyContent: 'center' },
+  stepBtn:          { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(34,211,238,0.12)', alignItems: 'center', justifyContent: 'center' },
   stepVal:          { color: '#F2F5F8', fontSize: 13, fontWeight: '700', minWidth: 56, textAlign: 'center' },
   laneJoinBtn:      { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 22 },
   laneJoinText:     { color: '#07070F', fontWeight: '800', fontSize: 14 },

@@ -14,7 +14,10 @@ import { LoadingOverlay } from '@gtaxi/design-system/native';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
-const CYAN = '#06B6D4';
+const CYAN = '#22D3EE';
+// Decorative labels/icons (section headers, empty states) use this
+// neutral tone -- cyan is reserved for things the rider can tap.
+const NEUTRAL = 'rgba(255,255,255,0.5)';
 
 interface Merchant {
     id: string;
@@ -33,13 +36,13 @@ interface RegularItem {
     merchant_name: string;
 }
 
-const CATEGORY_ICONS: Record<string, string> = {
-    grocery: '🛒',
-    laundry: '🧺',
-    pharmacy: '💊',
-    bakery: '🥐',
-    drinks: '🥤',
-    default: '🏪',
+const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+    grocery: 'cart-outline',
+    laundry: 'shirt-outline',
+    pharmacy: 'medkit-outline',
+    bakery: 'cafe-outline',
+    drinks: 'wine-outline',
+    default: 'storefront-outline',
 };
 
 export function GroceryStorefrontScreen({ navigation }: any) {
@@ -157,9 +160,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
             activeOpacity={0.85}
         >
             <View style={s.merchantIcon}>
-                <Text style={s.iconEmoji}>
-                    {CATEGORY_ICONS[item.category] || CATEGORY_ICONS.default}
-                </Text>
+                <Ionicons name={CATEGORY_ICONS[item.category] || CATEGORY_ICONS.default} size={24} color={VOICES.rider.accent} />
             </View>
             <View style={s.merchantInfo}>
                 <Text style={s.merchantName}>{item.name}</Text>
@@ -181,7 +182,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                 >
                     <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Text style={s.headerTitle}>Stores Near You</Text>
+                <Text style={s.headerTitle}>Stores near you</Text>
                 <View style={{ width: 38 }} />
             </View>
 
@@ -207,7 +208,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
             {usualStores.length > 0 && (
                 <View style={s.regularsContainer}>
                     <View style={s.sectionHeader}>
-                        <Ionicons name="sparkles" size={14} color={VOICES.rider.accent} />
+                        <Ionicons name="sparkles" size={14} color={NEUTRAL} />
                         <Text style={s.sectionTitle}>YOUR USUALS</Text>
                     </View>
                     <ScrollView
@@ -234,13 +235,11 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                                 }}
                             >
                                 <View style={s.itemIcon}>
-                                    <Text style={{ fontSize: 20 }}>
-                                        {CATEGORY_ICONS[store.category] || CATEGORY_ICONS.default}
-                                    </Text>
+                                    <Ionicons name={CATEGORY_ICONS[store.category] || CATEGORY_ICONS.default} size={20} color={VOICES.rider.accent} />
                                 </View>
                                 <Text style={s.itemName} numberOfLines={1}>{store.name}</Text>
                                 <Text style={s.itemMerchant} numberOfLines={1}>
-                                    {store.is_featured ? '★ Featured' : `Ordered ${store.visit_count}×`}
+                                    {store.is_featured ? 'Featured' : `Ordered ${store.visit_count}×`}
                                 </Text>
                             </TouchableOpacity>
                         ))}
@@ -251,7 +250,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
             {regularItems.length > 0 && (
                 <View style={s.regularsContainer}>
                     <View style={s.sectionHeader}>
-                        <Ionicons name="flash" size={14} color={CYAN} />
+                        <Ionicons name="flash" size={14} color={NEUTRAL} />
                         <Text style={s.sectionTitle}>THE REGULARS</Text>
                     </View>
                     <ScrollView 
@@ -272,7 +271,7 @@ export function GroceryStorefrontScreen({ navigation }: any) {
                                 }}
                             >
                                 <View style={s.itemIcon}>
-                                    <Text style={{ fontSize: 20 }}>📦</Text>
+                                    <Ionicons name="cube-outline" size={20} color={NEUTRAL} />
                                 </View>
                                 <Text style={s.itemName} numberOfLines={1}>{item.name}</Text>
                                 <Text style={s.itemMerchant} numberOfLines={1}>{item.merchant_name}</Text>
@@ -286,13 +285,13 @@ export function GroceryStorefrontScreen({ navigation }: any) {
 
             {!loading && fetchError ? (
                 <View style={s.center}>
-                    <Text style={s.emptyEmoji}>⚠️</Text>
+                    <Ionicons name="warning-outline" size={48} color="#EF4444" style={s.emptyIcon} />
                     <Text style={[s.emptyText, { color: '#EF4444' }]}>Failed to load stores</Text>
                     <Text style={s.emptySubtext}>{fetchError}</Text>
                 </View>
             ) : !loading && filteredMerchants.length === 0 ? (
                 <View style={s.center}>
-                    <Text style={s.emptyEmoji}>🏪</Text>
+                    <Ionicons name="storefront-outline" size={48} color={NEUTRAL} style={s.emptyIcon} />
                     <Text style={s.emptyText}>No stores available right now.</Text>
                     <Text style={s.emptySubtext}>Pull down to refresh.</Text>
                 </View>
@@ -361,19 +360,18 @@ const s = StyleSheet.create({
         backgroundColor: `${VOICES.rider.accent}33`,
         alignItems: 'center', justifyContent: 'center',
     },
-    iconEmoji: { fontSize: 26 },
     merchantInfo: { flex: 1 },
     merchantName: { fontSize: 16, fontWeight: '700', color: '#EAF3F6' },
     merchantMeta: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 3 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
     loadingText: { color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 14 },
-    emptyEmoji: { fontSize: 48, marginBottom: 16 },
+    emptyIcon: { marginBottom: 16 },
     emptyText: { color: '#EAF3F6', fontSize: 18, fontWeight: '700' },
     emptySubtext: { color: 'rgba(255,255,255,0.4)', fontSize: 14, marginTop: 6 },
 
     regularsContainer: { marginTop: 12, marginBottom: 24 },
     sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12, gap: 6 },
-    sectionTitle: { fontSize: 11, fontWeight: '900', color: CYAN, letterSpacing: 2 },
+    sectionTitle: { fontSize: 11, fontWeight: '900', color: NEUTRAL, letterSpacing: 2 },
     regularsScroll: { paddingHorizontal: 20, gap: 12 },
     regularCard: { width: 140, padding: 16, borderRadius: 20, overflow: 'hidden', ...ghostBorder(0.2), backgroundColor: 'rgba(255,255,255,0.03)' },
     itemIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(0,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },

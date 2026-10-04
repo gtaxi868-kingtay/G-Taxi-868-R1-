@@ -15,7 +15,7 @@ import { useRide } from '../context/RideContext';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 
-const CYAN = '#06B6D4';
+const CYAN = '#22D3EE';
 
 interface CartItem {
     product: { id: string; name: string; price_cents: number };
@@ -121,7 +121,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
                 const { error: presentErr } = await presentPaymentSheet();
                 if (presentErr) {
-                    Alert.alert('Payment Cancelled', presentErr.message);
+                    Alert.alert('Payment cancelled', presentErr.message);
                     setLoading(false);
                     return;
                 }
@@ -135,13 +135,13 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 });
                 if (matchErr) {
                     Alert.alert(
-                        'Order Created',
+                        'Order created',
                         `Your order from ${merchant.name} has been paid but dispatch failed. Support will follow up.\nAmount: $${(total / 100).toFixed(2)} TTD`,
                         [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
                 } else {
                     Alert.alert(
-                        'Order Placed!',
+                        'Order placed',
                         `Your order from ${merchant.name} has been paid.\nAmount: $${(total / 100).toFixed(2)} TTD`,
                         [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
@@ -156,20 +156,20 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
                 if (paymentMethod === 'cash') {
                     Alert.alert(
-                        'Cash on Delivery',
+                        'Cash on delivery',
                         `Pay $${(total / 100).toFixed(2)} TTD to the driver upon delivery.\nOrder ID: ${order.order_id.slice(0, 8).toUpperCase()}`,
                         [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
                 } else {
                     Alert.alert(
-                        'Order Placed!',
+                        'Order placed',
                         `Your order from ${merchant.name} has been paid from your wallet.\nAmount: $${(total / 100).toFixed(2)} TTD`,
                         [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
                 }
             }
         } catch (err: any) {
-            Alert.alert('Order Failed', err.message || 'Please try again.');
+            Alert.alert('Order failed', err.message || 'Please try again.');
         } finally {
             setLoading(false);
         }
@@ -200,7 +200,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
                     <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
                 </TouchableOpacity>
-                <Text style={s.headerTitle}>Your Cart</Text>
+                <Text style={s.headerTitle}>Your cart</Text>
                 <View style={{ width: 38 }} />
             </View>
 
@@ -213,7 +213,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View style={s.emptyBox}>
-                        <Text style={s.emptyEmoji}>🛒</Text>
+                        <Ionicons name="cart-outline" size={56} color="rgba(255,255,255,0.4)" style={s.emptyIcon} />
                         <Text style={s.emptyText}>Your cart is empty</Text>
                     </View>
                 }
@@ -223,7 +223,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                             <View style={s.deliveryCard}>
                                 <View style={s.deliveryRow}>
                                     <View style={s.deliveryInfo}>
-                                        <Text style={s.deliveryTitle}>Deliver to My Taxi</Text>
+                                        <Text style={s.deliveryTitle}>Deliver to my taxi</Text>
                                         <Text style={s.deliverySub}>Driver will receive the order</Text>
                                     </View>
                                     <Switch
@@ -265,7 +265,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                                 <Text style={s.priceVal}>${(subTotal / 100).toFixed(2)} TTD</Text>
                             </View>
                             <View style={s.priceRow}>
-                                <Text style={s.priceLabel}>Delivery Fee</Text>
+                                <Text style={s.priceLabel}>Delivery fee</Text>
                                 <Text style={s.priceVal}>${(deliveryFee / 100).toFixed(2)} TTD</Text>
                             </View>
                             <View style={[s.priceRow, s.totalRow]}>
@@ -279,15 +279,12 @@ export function GroceryCartScreen({ navigation, route }: any) {
 
             {cart.length > 0 && (
                 <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 16 }]}>
+                    {/* The full bar is the actionable element -- solid cyan,
+                        not a cyan-to-purple gradient. Purple is reserved for
+                        AI-originated surfaces; this is a plain checkout CTA. */}
                     <TouchableOpacity style={s.ctaButton} onPress={handleCheckout} disabled={loading} activeOpacity={0.88}>
-                        <LinearGradient
-                            colors={[VOICES.rider.accent, '#4C1D95']}
-                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                            style={s.ctaGradient}
-                        >
-                                <Ionicons name={paymentMethod === 'card' ? "card-outline" : "cash-outline"} size={22} color="#EAF3F6" style={{ marginRight: 8 }} />
-                            <Text style={s.ctaText}>{loading ? 'Placing Order...' : paymentMethod === 'card' ? `Pay with Card · $${(total / 100).toFixed(2)} TTD` : `Cash on Delivery · $${(total / 100).toFixed(2)} TTD`}</Text>
-                        </LinearGradient>
+                        <Ionicons name={paymentMethod === 'card' ? "card-outline" : "cash-outline"} size={22} color="#07070F" style={{ marginRight: 8 }} />
+                        <Text style={s.ctaText}>{loading ? 'Placing order...' : paymentMethod === 'card' ? `Pay with card · $${(total / 100).toFixed(2)} TTD` : `Cash on delivery · $${(total / 100).toFixed(2)} TTD`}</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -328,7 +325,8 @@ const s = StyleSheet.create({
     qtyBtnAdd: { backgroundColor: VOICES.rider.accent },
     qtyBtnText: { fontSize: 18, color: '#EAF3F6', fontWeight: '700', lineHeight: 22 },
     qtyVal: { fontSize: 16, fontWeight: '700', color: '#EAF3F6', minWidth: 20, textAlign: 'center' },
-    lineTotal: { fontSize: 14, fontWeight: '700', color: CYAN, minWidth: 60, textAlign: 'right' },
+    // Prices/totals stay off cyan -- cyan signals tappability, not money.
+    lineTotal: { fontSize: 14, fontWeight: '700', color: '#EAF3F6', minWidth: 60, textAlign: 'right' },
     footer: { gap: 12, marginTop: 8 },
     deliveryCard: {
         borderRadius: 20, overflow: 'hidden', padding: 16,
@@ -368,15 +366,16 @@ const s = StyleSheet.create({
         borderTopColor: 'rgba(255,255,255,0.1)', marginTop: 4,
     },
     totalLabel: { fontSize: 16, fontWeight: '700', color: '#EAF3F6' },
-    totalVal: { fontSize: 20, fontWeight: '900', color: CYAN },
+    totalVal: { fontSize: 20, fontWeight: '900', color: '#EAF3F6' },
     emptyBox: { alignItems: 'center', paddingTop: 80 },
-    emptyEmoji: { fontSize: 56, marginBottom: 16 },
+    emptyIcon: { marginBottom: 16 },
     emptyText: { fontSize: 18, color: 'rgba(255,255,255,0.4)', fontWeight: '600' },
     ctaContainer: { paddingHorizontal: 20, paddingTop: 12 },
-    ctaButton: { borderRadius: 20, overflow: 'hidden' },
-    ctaGradient: {
+    ctaButton: {
+        borderRadius: 20, overflow: 'hidden',
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
         paddingVertical: 18, paddingHorizontal: 24,
+        backgroundColor: CYAN,
     },
-    ctaText: { fontSize: 16, fontWeight: '800', color: '#EAF3F6' },
+    ctaText: { fontSize: 16, fontWeight: '800', color: '#07070F' },
 });
