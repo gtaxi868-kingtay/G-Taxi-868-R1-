@@ -51,21 +51,30 @@ type PackageView = {
     status: string;
     departure_time: string;
   } | null;
+  // Both computed from package_reservations (the live system) in loadPackages.
+  // live_headcount = currently holding a seat (ACTIVE_HOLD/CAPTURED, pre-release).
+  // live_confirmed_headcount = already released (status CONFIRMED).
   live_headcount?: number;
+  live_confirmed_headcount?: number;
 };
 
 type GroupDiscountTier = { min_group_size: number; discount_percent: number };
 type CarrierPolicy = { carrier_name: string; name_submission_deadline_days: number };
 
-type Participant = {
+// A real booking from the live system (package_reservations), not the
+// legacy escape_group_participants row this page used to show — real
+// riders never get a row in that table (confirmed live: 0 rows, ever).
+type LiveReservation = {
   id: string;
   rider_id: string;
   status: string;
-  party_size: number;
-  paid_cents: number;
-  joined_at: string;
-  charged_at: string | null;
+  guest_count: number;
+  total_price_cents: number;
+  created_at: string;
+  captured_at: string | null;
   confirmed_at: string | null;
+  rider_name: string | null;
+  rider_phone: string | null;
 };
 
 type Alert = {
@@ -138,7 +147,7 @@ export function EscapeManagement() {
   const [packages, setPackages] = useState<PackageView[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPkg, setSelectedPkg] = useState<PackageView | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<LiveReservation[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [actionMsg, setActionMsg] = useState('');
   const [acting, setActing] = useState(false);
@@ -185,21 +194,26 @@ export function EscapeManagement() {
     // Live headcount comes from package_reservations (the system riders
     // actually book through), not the legacy allocated_guests/confirmed_guests
     // fields above -- those track escape_group_participants, which real
-    // riders never touch.
+    // riders never touch. Split by status: still-holding (pre-release) vs
+    // already-released (post execute_escape_group_confirmation), matching
+    // what the Allocated/Confirmed tiles are meant to show.
     const flightBlockIds = rows.map((p) => p.flight_block_id).filter(Boolean);
     if (flightBlockIds.length) {
       const { data: reservations } = await supabase
         .from('package_reservations')
-        .select('flight_block_id, guest_count')
+        .select('flight_block_id, guest_count, status')
         .in('flight_block_id', flightBlockIds)
-        .in('status', ['CAPTURED', 'CONFIRMED']);
+        .in('status', ['ACTIVE_HOLD', 'CAPTURED', 'CONFIRMED']);
 
-      const headcountByBlock = new Map<string, number>();
+      const allocatedByBlock = new Map<string, number>();
+      const confirmedByBlock = new Map<string, number>();
       for (const r of reservations || []) {
-        headcountByBlock.set(r.flight_block_id, (headcountByBlock.get(r.flight_block_id) || 0) + (r.guest_count || 0));
+        const target = r.status === 'CONFIRMED' ? confirmedByBlock : allocatedByBlock;
+        target.set(r.flight_block_id, (target.get(r.flight_block_id) || 0) + (r.guest_count || 0));
       }
       for (const p of rows) {
-        p.live_headcount = headcountByBlock.get(p.flight_block_id) || 0;
+        p.live_headcount = allocatedByBlock.get(p.flight_block_id) || 0;
+        p.live_confirmed_headcount = confirmedByBlock.get(p.flight_block_id) || 0;
       }
     }
 
@@ -404,12 +418,33 @@ export function EscapeManagement() {
     setDelayMsg('');
     setBookingRef('');
 
-    const { data: pData } = await supabase
-      .from('escape_group_participants')
-      .select('*')
-      .eq('package_id', pkg.id)
-      .order('joined_at', { ascending: false });
-    setParticipants(pData || []);
+    // Live system: package_reservations is what real riders book through.
+    // rider_id FKs auth.users, not profiles, so names are enriched with a
+    // second query (same two-step pattern admin/index.ts's
+    // list_g_member_waitlist already uses) rather than an embedded select.
+    const { data: rData } = await supabase
+      .from('package_reservations')
+      .select('id, rider_id, status, guest_count, total_price_cents, created_at, captured_at, confirmed_at')
+      .eq('escape_package_id', pkg.id)
+      .order('created_at', { ascending: false });
+
+    const riderIds = [...new Set((rData || []).map((r) => r.rider_id))];
+    let riderMap: Record<string, { full_name: string | null; phone_number: string | null }> = {};
+    if (riderIds.length) {
+      const { data: riders } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone_number')
+        .in('id', riderIds);
+      for (const r of riders || []) riderMap[r.id] = { full_name: r.full_name, phone_number: r.phone_number };
+    }
+
+    setParticipants(
+      (rData || []).map((r) => ({
+        ...r,
+        rider_name: riderMap[r.rider_id]?.full_name ?? null,
+        rider_phone: riderMap[r.rider_id]?.phone_number ?? null,
+      }))
+    );
 
     const { data: aData } = await supabase
       .from('group_booking_alerts')
@@ -457,13 +492,27 @@ export function EscapeManagement() {
     return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
   };
 
+  // Prefers the live count; a package with no flight_block_id at all has
+  // never been wired to the live system, so it falls back to the legacy
+  // column rather than always showing 0.
+  const liveAllocated = (pkg: PackageView) => pkg.flight_block_id ? (pkg.live_headcount ?? 0) : pkg.allocated_guests;
+  const liveConfirmed = (pkg: PackageView) => pkg.flight_block_id ? (pkg.live_confirmed_headcount ?? 0) : pkg.confirmed_guests;
+
   const capacityPct = (pkg: PackageView) => {
     if (!pkg.max_total_guests) return 0;
-    return Math.round((pkg.allocated_guests / pkg.max_total_guests) * 100);
+    return Math.round((liveAllocated(pkg) / pkg.max_total_guests) * 100);
   };
 
   const statusColor = (status: string) => {
     const map: Record<string, string> = {
+      // Live system (package_reservations) — the real vocabulary.
+      ACTIVE_HOLD: 'text-yellow-400',
+      CAPTURED: 'text-orange-400',
+      CONFIRMED: 'text-green-400',
+      CANCELLED: 'text-red-400',
+      REFUNDED: 'text-gray-400',
+      // Legacy (escape_group_participants) — kept for any package that
+      // was never wired to a flight_block.
       intent_pending: 'text-yellow-400',
       payment_pending: 'text-orange-400',
       confirmed: 'text-green-400',
@@ -500,11 +549,11 @@ export function EscapeManagement() {
           <div className="grid grid-cols-4 gap-4 mt-6">
             <div className="bg-white/5 rounded-xl p-4 border border-white/5">
               <p className="text-[10px] font-black uppercase tracking-widest text-white/30">Allocated</p>
-              <p className="text-2xl font-black text-white mt-1">{selectedPkg.allocated_guests}</p>
+              <p className="text-2xl font-black text-white mt-1">{liveAllocated(selectedPkg)}</p>
             </div>
             <div className="bg-white/5 rounded-xl p-4 border border-white/5">
               <p className="text-[10px] font-black uppercase tracking-widest text-white/30">Confirmed</p>
-              <p className="text-2xl font-black text-green-400 mt-1">{selectedPkg.confirmed_guests}</p>
+              <p className="text-2xl font-black text-green-400 mt-1">{liveConfirmed(selectedPkg)}</p>
             </div>
             <div className="bg-white/5 rounded-xl p-4 border border-white/5">
               <p className="text-[10px] font-black uppercase tracking-widest text-white/30">Threshold</p>
@@ -610,14 +659,16 @@ export function EscapeManagement() {
                   <div className="flex items-center gap-3">
                     <Users size={14} className="text-white/30" />
                     <div>
-                      <p className="text-sm font-mono text-white/60">{p.rider_id.slice(0, 8)}...</p>
-                      <p className="text-[10px] text-white/30">Party: {p.party_size}</p>
+                      <p className="text-sm text-white/60">{p.rider_name || `${p.rider_id.slice(0, 8)}...`}</p>
+                      <p className="text-[10px] text-white/30">
+                        {p.rider_phone ? `${p.rider_phone} · ` : ''}Party: {p.guest_count}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className={`text-xs font-bold uppercase ${statusColor(p.status)}`}>{p.status.replace('_', ' ')}</span>
-                    {p.paid_cents > 0 && <span className="text-xs text-green-400">{fmtTTD(p.paid_cents)}</span>}
-                    <span className="text-[10px] text-white/20">{fmtDate(p.joined_at)}</span>
+                    <span className={`text-xs font-bold uppercase ${statusColor(p.status)}`}>{p.status.replace(/_/g, ' ')}</span>
+                    {p.total_price_cents > 0 && <span className="text-xs text-green-400">{fmtTTD(p.total_price_cents)}</span>}
+                    <span className="text-[10px] text-white/20">{fmtDate(p.created_at)}</span>
                   </div>
                 </div>
               ))}
@@ -659,7 +710,7 @@ export function EscapeManagement() {
             onClick={() => setTab('packages')}
             className={`flex items-center gap-2 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === 'packages' ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
           >
-            <Plane size={12} /> Packages (legacy pool)
+            <Plane size={12} /> Packages
           </button>
           <button
             onClick={() => setTab('transfers')}
@@ -1061,7 +1112,7 @@ export function EscapeManagement() {
         <div className="grid gap-4">
           {packages.map((pkg) => {
             const pct = capacityPct(pkg);
-            const ready = pkg.min_guests_threshold && pkg.allocated_guests >= pkg.min_guests_threshold;
+            const ready = pkg.min_guests_threshold && liveAllocated(pkg) >= pkg.min_guests_threshold;
             return (
               <button
                 key={pkg.id}
@@ -1081,7 +1132,7 @@ export function EscapeManagement() {
                       <span className="text-sm font-bold text-cyan-400">{fmtTTD(pkg.price_per_person_cents)}</span>
                       <span className="flex items-center gap-1 text-sm text-white/60">
                         <Users size={14} />
-                        {pkg.allocated_guests} / {pkg.max_total_guests || '∞'}
+                        {liveAllocated(pkg)} / {pkg.max_total_guests || '∞'}
                       </span>
                       {pkg.min_guests_threshold && (
                         <span className="flex items-center gap-1 text-sm text-yellow-400/60">
@@ -1091,7 +1142,7 @@ export function EscapeManagement() {
                       )}
                       <span className="flex items-center gap-1 text-sm text-green-400/60">
                         <CheckCircle size={14} />
-                        {pkg.confirmed_guests} confirmed
+                        {liveConfirmed(pkg)} confirmed
                       </span>
                     </div>
                     {pkg.max_total_guests && (
