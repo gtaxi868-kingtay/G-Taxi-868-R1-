@@ -3,10 +3,23 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { sendPushNotification } from "../_shared/push.ts";
 import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
+import { calculateFare, fetchVehicleClass } from "../_shared/pricing.ts";
+import { secureFetch } from "../_shared/networkUtility.ts";
 
 import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? Deno.env.get("MAPBOX_PUBLIC_TOKEN") ?? "";
+
+// T&T numbers arrive as 7-digit local, 868XXXXXXX, 1868XXXXXXX or +1 868 ...
+// and are stored inconsistently in profiles.phone_number — compare on the
+// 7-digit local part so every format matches.
+function ttLocalDigits(raw: string): string {
+  let d = (raw || "").replace(/\D/g, "");
+  if (d.length === 11 && d.startsWith("1")) d = d.slice(1);
+  if (d.length === 10 && d.startsWith("868")) d = d.slice(3);
+  return d;
+}
 
 
 
@@ -334,9 +347,19 @@ serve(async (req) => {
       }
 
       // ── dispatch_client ─────────────────────────────────────────────────
+      // A G-Partner sends a car for a client from their own counter. The
+      // client pays on the ride (cash to the driver) — the business is never
+      // billed. Deliberately does NOT set billed_to_merchant_id: complete_ride
+      // treats that column as "this merchant received a rider" and would log
+      // a pin fee AGAINST the business for sending its own client away.
+      // Attribution lives in metadata.dispatched_by_merchant_id instead.
       case "dispatch_client": {
-        const { client_phone, note, vehicle_type = "standard" } = body;
+        const { client_phone, dropoff_address, note, guest_name } = body;
+        const requestedVehicle = String(body.vehicle_type || "standard").trim().toLowerCase();
         if (!client_phone) return json({ success: false, error: "client_phone is required" }, 400);
+        if (!dropoff_address || !String(dropoff_address).trim()) {
+          return json({ success: false, error: "Where is the client going? A destination is needed to quote the fare." }, 400);
+        }
 
         const { data: merchant, error: merchantErr } = await supabase
           .from("merchants")
@@ -351,40 +374,97 @@ serve(async (req) => {
           return json({ success: false, error: "Merchant location not set. Update your merchant profile first." }, 422);
         }
 
-        const normalizedPhone = client_phone.trim().replace(/\s+/g, "");
-        const { data: clientProfile } = await supabase
-          .from("profiles")
-          .select("id, name, phone")
-          .eq("phone", normalizedPhone)
-          .maybeSingle();
+        const vehicleClass = await fetchVehicleClass(supabase, requestedVehicle);
+        if (!vehicleClass || !vehicleClass.is_active) {
+          return json({ success: false, error: `${vehicleClass?.label ?? requestedVehicle} is not available yet.` }, 400);
+        }
 
-        const clientName = clientProfile?.name || "Client";
+        // Geocode the destination, biased to T&T and to this counter.
+        if (!MAPBOX_TOKEN) return json({ success: false, error: "Address lookup is not configured." }, 503);
+        let dropoffLat: number, dropoffLng: number, dropoffLabel: string;
+        try {
+          const q = encodeURIComponent(String(dropoff_address).trim());
+          const geoRes = await secureFetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${q}.json?country=tt&proximity=${merchant.lng},${merchant.lat}&limit=1&access_token=${MAPBOX_TOKEN}`,
+          );
+          const geo = await geoRes.json();
+          const f = geo?.features?.[0];
+          if (!f) return json({ success: false, error: "Couldn't find that destination. Try a fuller address or landmark." }, 422);
+          [dropoffLng, dropoffLat] = f.center;
+          dropoffLabel = f.place_name || String(dropoff_address).trim();
+        } catch (e) {
+          console.error("dispatch_client geocode failed:", e);
+          return json({ success: false, error: "Address lookup failed. Try again." }, 502);
+        }
+
+        // Same routing + fare math create_ride uses, so a dispatched ride is
+        // priced exactly like one the client booked themselves.
+        let distanceMeters = Math.round(haversineMeters(merchant.lat, merchant.lng, dropoffLat, dropoffLng) * 1.3);
+        let durationSeconds = Math.round((distanceMeters / 1000 / 28) * 3600);
+        let routePolyline = "";
+        try {
+          const dirRes = await secureFetch(
+            `https://api.mapbox.com/directions/v5/mapbox/driving/${merchant.lng},${merchant.lat};${dropoffLng},${dropoffLat}?access_token=${MAPBOX_TOKEN}&geometries=polyline&overview=full`,
+          );
+          const dir = await dirRes.json();
+          const route = dir?.routes?.[0];
+          if (route) {
+            distanceMeters = Math.round(route.distance);
+            durationSeconds = Math.round(route.duration);
+            routePolyline = route.geometry || "";
+          }
+        } catch (e) {
+          console.error("dispatch_client directions failed, using estimate:", e);
+        }
+
+        let fareCents = calculateFare(distanceMeters, durationSeconds, vehicleClass.key, 1.0, 0, vehicleClass.multiplier_x100 / 100);
+        if (vehicleClass.min_fare_cents) fareCents = Math.max(fareCents, vehicleClass.min_fare_cents);
+
+        // Client lookup: profiles only has phone_number / full_name (the old
+        // phone / name columns never existed, so this lookup always missed
+        // and every dispatch was booked under the business's own account).
+        const local = ttLocalDigits(client_phone);
+        if (local.length !== 7) return json({ success: false, error: "Enter a valid T&T phone number." }, 400);
+        const { data: candidates } = await supabase
+          .from("profiles")
+          .select("id, full_name, phone_number, push_token")
+          .ilike("phone_number", `%${local}`)
+          .limit(5);
+        const clientProfile = (candidates || []).find((p: any) => ttLocalDigits(p.phone_number) === local) ?? null;
+
+        const clientName = clientProfile?.full_name || (guest_name ? String(guest_name).trim() : "") || "Client";
         const riderId = clientProfile?.id ?? user.id;
         const pin = generatePin();
-
-        const placeholderDropoffLat = merchant.lat + 0.001;
-        const placeholderDropoffLng = merchant.lng + 0.001;
+        const pickupAddress = `${merchant.name}${merchant.address ? ` — ${merchant.address}` : ""}`;
 
         const { data: ride, error: rideErr } = await supabase
           .from("rides")
           .insert({
             rider_id: riderId,
-            billed_to_merchant_id: merchant.id,
             pickup_lat: merchant.lat,
             pickup_lng: merchant.lng,
-            pickup_address: `${merchant.name} — ${merchant.address}`,
-            dropoff_lat: placeholderDropoffLat,
-            dropoff_lng: placeholderDropoffLng,
-            dropoff_address: "Destination pending — driver will confirm with client",
+            pickup_address: pickupAddress,
+            dropoff_lat: dropoffLat,
+            dropoff_lng: dropoffLng,
+            dropoff_address: dropoffLabel,
+            distance_meters: distanceMeters,
+            duration_seconds: durationSeconds,
+            route_polyline: routePolyline,
             status: "searching",
-            payment_method: "corporate_billing",
-            vehicle_type: vehicle_type,
+            payment_method: "cash",
+            vehicle_type: vehicleClass.key,
             ride_pin: pin,
-            total_fare_cents: 0,
+            total_fare_cents: fareCents,
+            is_merchant_ride: true,
             metadata: {
-              is_merchant_dispatch: true, is_merchant_ride: true,
-              merchant_name: merchant.name, client_phone: normalizedPhone,
-              client_name: clientName, note: note || null, dispatched_by: user.id,
+              is_merchant_dispatch: true,
+              dispatched_by_merchant_id: merchant.id,
+              merchant_name: merchant.name,
+              client_phone: local,
+              client_name: clientName,
+              client_has_account: !!clientProfile,
+              note: note || null,
+              dispatched_by: user.id,
             },
           })
           .select("id, ride_pin")
@@ -392,24 +472,84 @@ serve(async (req) => {
 
         if (rideErr) throw rideErr;
 
-        if (clientProfile?.id) {
-          await supabase.functions.invoke("send_push_notification", {
-            body: {
-              user_id: clientProfile.id,
-              title: `${merchant.name} sent you a ride!`,
-              body: `Your car is being arranged. PIN: ${pin}. Driver will confirm destination.`,
-              payload: { route: "SearchingDriver", rideId: ride.id },
-            },
-          }).catch(() => {});
+        // Without this the ride sat in 'searching' forever — dispatch never
+        // enqueued it, so no driver was ever offered a merchant-sent ride.
+        try {
+          await supabase.from("dispatch_queue").insert({
+            task_type: "RIDE",
+            ride_id: ride.id,
+            order_id: null,
+            pickup_lat: merchant.lat,
+            pickup_lng: merchant.lng,
+            priority: 0,
+            status: "pending",
+            attempts: 0,
+            expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+          });
+        } catch (e) {
+          console.error("dispatch_client enqueue failed (non-fatal):", e);
+        }
+
+        const fareText = `TT$${(fareCents / 100).toFixed(2)}`;
+        if (clientProfile?.push_token) {
+          sendPushNotification(
+            clientProfile.push_token,
+            `${merchant.name} sent you a ride`,
+            `${vehicleClass.label} to ${dropoffLabel}. About ${fareText}, paid to your driver. PIN ${pin}.`,
+            { type: "RIDE_CREATED", ride_id: ride.id },
+          ).catch(() => {});
+        } else {
+          sendWhatsApp(
+            local,
+            `${merchant.name} has sent you a G ride: ${vehicleClass.label} to ${dropoffLabel}, about ${fareText} paid to your driver. Your pickup PIN is ${pin}.`,
+          ).catch(() => {});
         }
 
         return json({
           success: true, ride_id: ride.id, ride_pin: ride.ride_pin,
           client_name: clientName,
-          pickup_address: `${merchant.name} — ${merchant.address}`,
+          pickup_address: pickupAddress,
+          dropoff_address: dropoffLabel,
+          vehicle_label: vehicleClass.label,
+          fare_cents: fareCents,
           message: clientProfile
-            ? `Car dispatched. ${clientName} will be notified.`
-            : `Car dispatched. Ask client to open the G-Taxi app with PIN ${pin}.`,
+            ? `${vehicleClass.label} on the way. ${clientName} has been notified — about ${fareText}, paid to the driver.`
+            : `${vehicleClass.label} on the way. About ${fareText}, paid to the driver. Give your client PIN ${pin}.`,
+        });
+      }
+
+      // Dispatch history for this business. rides RLS only lets a user read
+      // rides where they are the rider, so the app can't list these itself.
+      case "list_dispatches": {
+        const { data: merchant } = await supabase
+          .from("merchants")
+          .select("id")
+          .eq("created_by", user.id)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (!merchant) return json({ success: false, error: "No active merchant found for this account" }, 403);
+
+        const { data: rides, error } = await supabase
+          .from("rides")
+          .select("id, status, ride_pin, created_at, vehicle_type, total_fare_cents, dropoff_address, metadata")
+          .eq("is_merchant_ride", true)
+          .eq("metadata->>dispatched_by_merchant_id", merchant.id)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        if (error) throw error;
+
+        return json({
+          success: true,
+          dispatches: (rides || []).map((r: any) => ({
+            id: r.id,
+            status: r.status,
+            ride_pin: r.ride_pin,
+            created_at: r.created_at,
+            vehicle_type: r.vehicle_type,
+            fare_cents: r.total_fare_cents,
+            dropoff_address: r.dropoff_address,
+            client_name: r.metadata?.client_name || "Client",
+          })),
         });
       }
 

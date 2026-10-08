@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert,
+  View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Share,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,14 +51,59 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
   const [walletBalance, setWalletBalance] = useState(0);
   const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'history'>('overview');
 
+  // Driver network (vouching). Present only when this owner also holds an
+  // active pod_commanders row — the 2% on vouched drivers' fares lands in
+  // commander_revshare_ledger, written by settlement (record_ride_kickbacks).
+  const [network, setNetwork] = useState<{
+    code: string | null;
+    totalCents: number;
+    pendingCents: number;
+    rideCount: number;
+  } | null>(null);
+
   useEffect(() => {
     loadEarnings();
   }, [user]);
+
+  const loadNetwork = async (userId: string) => {
+    const { data: commander } = await supabase
+      .from('pod_commanders')
+      .select('id, onboarding_code, status')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (!commander) { setNetwork(null); return; }
+
+    const { data: rows } = await supabase
+      .from('commander_revshare_ledger')
+      .select('revshare_cents, status')
+      .eq('commander_id', commander.id);
+    const list = rows || [];
+    setNetwork({
+      code: commander.onboarding_code,
+      totalCents: list.reduce((sum: number, r: any) => sum + (r.revshare_cents || 0), 0),
+      pendingCents: list
+        .filter((r: any) => r.status === 'pending')
+        .reduce((sum: number, r: any) => sum + (r.revshare_cents || 0), 0),
+      rideCount: list.length,
+    });
+  };
+
+  const shareCode = async () => {
+    if (!network?.code) return;
+    try {
+      await Share.share({
+        message: `Drive with G and I'll vouch for you. Download the G driver app, choose "Join with a G-Lead code" and enter: ${network.code.toUpperCase()}`,
+      });
+    } catch { /* user dismissed */ }
+  };
 
   const loadEarnings = async () => {
     if (!user) return;
     setLoading(true);
     try {
+      loadNetwork(user.id).catch((e) => console.warn('Failed to load driver network:', e));
+
       // Fetch spendable wallet balance
       const { data: wallet } = await supabase
         .from('wallets')
@@ -218,9 +263,46 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
           <ScrollView contentContainerStyle={s.scrollContent}>
             {activeTab === 'overview' && (
               <View>
+                {network && (
+                  <View style={[s.networkCard, glassSurface(0.18)]}>
+                    <View style={s.networkHeader}>
+                      <Ionicons name="people-outline" size={20} color={VOICES.merchant.accent} />
+                      <Text style={s.networkTitle}>Your driver network</Text>
+                    </View>
+                    <Text style={s.networkSub}>
+                      You earn 2% of every fare completed by drivers who joined with your code, for as long as you both stay active.
+                    </Text>
+                    <View style={s.networkStats}>
+                      <View style={s.networkStat}>
+                        <Text style={s.networkStatValue}>{ttd(network.totalCents)}</Text>
+                        <Text style={s.networkStatLabel}>Earned</Text>
+                      </View>
+                      <View style={s.networkStat}>
+                        <Text style={s.networkStatValue}>{ttd(network.pendingCents)}</Text>
+                        <Text style={s.networkStatLabel}>Pending</Text>
+                      </View>
+                      <View style={s.networkStat}>
+                        <Text style={s.networkStatValue}>{network.rideCount}</Text>
+                        <Text style={s.networkStatLabel}>Rides</Text>
+                      </View>
+                    </View>
+                    {network.code ? (
+                      <TouchableOpacity style={s.codeRow} onPress={shareCode} accessibilityRole="button" accessibilityLabel="Share your driver code">
+                        <View style={{ flex: 1 }}>
+                          <Text style={s.codeLabel}>Your driver code</Text>
+                          <Text style={s.codeValue}>{network.code.toUpperCase()}</Text>
+                        </View>
+                        <View style={s.shareBtn}>
+                          <Ionicons name="share-social-outline" size={18} color="#000" />
+                          <Text style={s.shareBtnText}>Share</Text>
+                        </View>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                )}
                 <View style={[s.infoCard, glassSurface(0.12)]}>
                   <Ionicons name="information-circle-outline" size={20} color={VOICES.merchant.accent} style={{ marginRight: 10 }} />
-                  <Text style={s.infoText}>2% of G-Taxi's platform fee on every ride originating from your NFC kiosk tap.</Text>
+                  <Text style={s.infoText}>A share of the platform fee on every ride that starts with a tap at your counter.</Text>
                 </View>
                 <View style={[s.infoCard, glassSurface(0.12)]}>
                   <Ionicons name="time-outline" size={20} color={VOICES.merchant.textMuted} style={{ marginRight: 10 }} />
@@ -315,6 +397,19 @@ const s = StyleSheet.create({
   tabText: { fontSize: 13, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', fontWeight: '600' },
   tabTextActive: { color: VOICES.merchant.accent },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 60 },
+  networkCard: { borderRadius: 20, padding: 20, marginBottom: 14, borderWidth: 1, borderColor: VOICES.merchant.accent + '33' },
+  networkHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  networkTitle: { fontSize: 16, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
+  networkSub: { fontSize: 13, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', lineHeight: 18, marginBottom: 14 },
+  networkStats: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  networkStat: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+  networkStatValue: { fontSize: 17, fontWeight: '800', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', fontVariant: ['tabular-nums'] },
+  networkStatLabel: { fontSize: 11, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', marginTop: 2 },
+  codeRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14, backgroundColor: 'rgba(255,255,255,0.05)' },
+  codeLabel: { fontSize: 11, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', textTransform: 'uppercase', letterSpacing: 0.5 },
+  codeValue: { fontSize: 20, fontWeight: '800', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', letterSpacing: 2, marginTop: 2 },
+  shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: VOICES.merchant.accent, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
+  shareBtnText: { fontSize: 13, fontWeight: '700', color: '#000', fontFamily: 'Manrope' },
   infoCard: { flexDirection: 'row', borderRadius: 14, padding: 14, marginBottom: 10, alignItems: 'center' },
   infoText: { flex: 1, fontSize: 13, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', lineHeight: 18 },
   summaryBreakdown: { borderRadius: 20, padding: 20, marginTop: 8 },
