@@ -69,7 +69,9 @@ entrypoint = "./functions/generate_b2b_invoices/index.ts"
 
 [functions.process_dispatch_queue]
 enabled = true
-verify_jwt = true
+# Called by pg_cron with x-cron-secret, not a user JWT. Live is false;
+# true here would make a CLI deploy lock the scheduler out at the gateway.
+verify_jwt = false
 import_map = "./functions/process_dispatch_queue/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -80,7 +82,8 @@ entrypoint = "./functions/process_dispatch_queue/index.ts"
 
 [functions.send_b2b_tracking_sms]
 enabled = true
-verify_jwt = true
+# Live is false (called server-side without a user JWT); keep in sync.
+verify_jwt = false
 import_map = "./functions/send_b2b_tracking_sms/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
