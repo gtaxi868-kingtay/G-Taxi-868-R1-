@@ -220,7 +220,7 @@ export function PaymentScreen({ navigation, route }: any) {
             <StatusBar style="light" />
 
             <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
                     <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
                 </TouchableOpacity>
                 <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Payment</Txt>
@@ -244,6 +244,8 @@ export function PaymentScreen({ navigation, route }: any) {
                             key={opt.id}
                             style={[s.methodCard, isActive && s.methodCardActive]}
                             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelected(opt.id as any); }}
+                            accessibilityLabel={`Pay with ${opt.label}`}
+                            accessibilityRole="button"
                         >
                             <View style={[s.iconWrap, isActive && { backgroundColor: VOICES.rider.accent }]}>
                                 <Ionicons name={opt.icon as any} size={24} color={isActive ? "#EAF3F6" : R.muted} />
@@ -265,7 +267,17 @@ export function PaymentScreen({ navigation, route }: any) {
                 </View>
 
                 {rideId && (
-                    <TouchableOpacity style={s.payBtn} onPress={handleConfirm} disabled={loading}>
+                    <TouchableOpacity
+                        style={s.payBtn}
+                        onPress={handleConfirm}
+                        disabled={loading}
+                        accessibilityLabel={
+                            fareCents
+                                ? `Confirm payment of $${(fareCents / 100).toFixed(2)} with ${selected}`
+                                : `Confirm payment with ${selected}`
+                        }
+                        accessibilityRole="button"
+                    >
                         <LinearGradient 
                             colors={[VOICES.rider.accent, CYAN]} 
                             start={{x: 0, y: 0}} 

@@ -25,7 +25,7 @@ import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
 import { useRideSession } from '../hooks/useRideSession';
 
-const CYAN = '#00E5FF';
+const CYAN = '#34E6EC';
 const SUCCESS = '#00FF94';
 const ERROR = '#FF4D6D';
 const WARNING = '#F59E0B';
@@ -524,7 +524,27 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                             if (error) throw error;
 
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            Alert.alert("Emergency Triggered", "Security team notified. Help is on the way.");
+                            // trigger_emergency calls handle_sos server-side, which files a
+                            // CRITICAL row in system_alerts (read live by apps/admin's
+                            // SosAlerts.tsx via a realtime subscription) and pings nearby
+                            // drivers — this does reach people. Still surface 999/WhatsApp
+                            // as immediate one-tap options: internal notification is never a
+                            // substitute for real emergency services when in danger now.
+                            Alert.alert(
+                                "Alert Sent",
+                                "Your emergency alert has reached G-Taxi's safety team and nearby drivers. If you are in immediate danger, call emergency services now — don't wait for a response.",
+                                [
+                                    { text: "Dismiss", style: "cancel" },
+                                    {
+                                        text: "CALL 999", style: "destructive",
+                                        onPress: () => Linking.openURL('tel:999')
+                                    },
+                                    {
+                                        text: "WhatsApp Support", style: "default",
+                                        onPress: () => Linking.openURL('https://wa.me/18687031000?text=EMERGENCY')
+                                    }
+                                ]
+                            );
                         } else {
                             throw new Error("No active ride found");
                         }
