@@ -35,6 +35,7 @@ export type AppStackParamList = {
   Ratings: undefined;
   ScoutReferral: undefined;
   DriverReferral: undefined;
+  Networks: undefined;
   VehicleSales: undefined;
   Lease: undefined;
   LeaseConsent: undefined;

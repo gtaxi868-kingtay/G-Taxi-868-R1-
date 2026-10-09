@@ -61,9 +61,35 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
     rideCount: number;
   } | null>(null);
 
+  // Drivers asking to drive under this business's name (request → approve).
+  const [joinRequests, setJoinRequests] = useState<{
+    request_id: string;
+    driver_name: string | null;
+    vehicle_type: string | null;
+    vehicle_model: string | null;
+    rating: number | null;
+    rating_count: number;
+    verified: boolean;
+    completed_rides: number;
+    current_network: string | null;
+    message: string | null;
+  }[]>([]);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+
   useEffect(() => {
     loadEarnings();
   }, [user]);
+
+  const decideRequest = async (requestId: string, approve: boolean) => {
+    setDecidingId(requestId);
+    const { data, error } = await supabase.rpc('decide_network_join', { p_request_id: requestId, p_approve: approve });
+    setDecidingId(null);
+    if (error || !data?.success) {
+      Alert.alert('Could not update', data?.error || error?.message || 'Try again.');
+      return;
+    }
+    if (user) loadNetwork(user.id).catch(() => {});
+  };
 
   const loadNetwork = async (userId: string) => {
     const { data: commander } = await supabase
@@ -72,7 +98,10 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
       .eq('user_id', userId)
       .eq('status', 'active')
       .maybeSingle();
-    if (!commander) { setNetwork(null); return; }
+    if (!commander) { setNetwork(null); setJoinRequests([]); return; }
+
+    const { data: reqs } = await supabase.rpc('get_network_join_requests');
+    setJoinRequests((reqs as any[]) || []);
 
     const { data: rows } = await supabase
       .from('commander_revshare_ledger')
@@ -286,6 +315,37 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
                         <Text style={s.networkStatLabel}>Rides</Text>
                       </View>
                     </View>
+                    {joinRequests.length > 0 && (
+                      <View style={s.requestsBox}>
+                        <Text style={s.requestsTitle}>
+                          {joinRequests.length} driver{joinRequests.length === 1 ? '' : 's'} asking to join
+                        </Text>
+                        {joinRequests.map((r) => (
+                          <View key={r.request_id} style={s.requestRow}>
+                            <Text style={s.requestName}>{r.driver_name || 'Driver'}</Text>
+                            <Text style={s.requestMeta}>
+                              {[r.vehicle_model || r.vehicle_type, `${r.completed_rides} rides`,
+                                r.rating_count > 0 && r.rating != null ? `${Number(r.rating).toFixed(1)} rating` : null,
+                                r.verified ? 'verified' : 'not yet verified'].filter(Boolean).join(' · ')}
+                            </Text>
+                            {r.current_network ? <Text style={s.requestMeta}>Currently with {r.current_network}</Text> : null}
+                            {r.message ? <Text style={s.requestMsg}>"{r.message}"</Text> : null}
+                            <View style={s.requestActions}>
+                              <TouchableOpacity style={s.declineBtn} disabled={decidingId === r.request_id}
+                                onPress={() => decideRequest(r.request_id, false)} accessibilityRole="button">
+                                <Text style={s.declineText}>Decline</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity style={s.approveBtn} disabled={decidingId === r.request_id}
+                                onPress={() => decideRequest(r.request_id, true)} accessibilityRole="button">
+                                {decidingId === r.request_id
+                                  ? <ActivityIndicator color="#000" size="small" />
+                                  : <Text style={s.approveText}>Vouch for them</Text>}
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                     {network.code ? (
                       <TouchableOpacity style={s.codeRow} onPress={shareCode} accessibilityRole="button" accessibilityLabel="Share your driver code">
                         <View style={{ flex: 1 }}>
@@ -405,6 +465,17 @@ const s = StyleSheet.create({
   networkStat: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
   networkStatValue: { fontSize: 17, fontWeight: '800', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', fontVariant: ['tabular-nums'] },
   networkStatLabel: { fontSize: 11, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', marginTop: 2 },
+  requestsBox: { marginBottom: 14, gap: 10 },
+  requestsTitle: { fontSize: 13, fontWeight: '700', color: VOICES.merchant.accent, fontFamily: 'Manrope' },
+  requestRow: { borderRadius: 14, padding: 14, backgroundColor: 'rgba(255,255,255,0.05)', gap: 3 },
+  requestName: { fontSize: 15, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
+  requestMeta: { fontSize: 12, color: VOICES.merchant.textMuted, fontFamily: 'Manrope' },
+  requestMsg: { fontSize: 12.5, color: '#E9F5F3', fontFamily: 'Manrope', fontStyle: 'italic', marginTop: 2 },
+  requestActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  declineBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.07)' },
+  declineText: { fontSize: 13, fontWeight: '700', color: '#E9F5F3', fontFamily: 'Manrope' },
+  approveBtn: { flex: 1.4, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: VOICES.merchant.accent },
+  approveText: { fontSize: 13, fontWeight: '800', color: '#000', fontFamily: 'Manrope' },
   codeRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14, backgroundColor: 'rgba(255,255,255,0.05)' },
   codeLabel: { fontSize: 11, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', textTransform: 'uppercase', letterSpacing: 0.5 },
   codeValue: { fontSize: 20, fontWeight: '800', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', letterSpacing: 2, marginTop: 2 },

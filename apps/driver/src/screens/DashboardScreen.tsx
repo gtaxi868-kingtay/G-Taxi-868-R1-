@@ -50,6 +50,7 @@ const QUICK_NAV = [
     { icon: 'warning-outline', label: 'Report', screen: 'ReportIssue' },
     { icon: 'home-outline', label: 'Scout', screen: 'ScoutReferral' },
     { icon: 'people-outline', label: 'Refer', screen: 'DriverReferral' },
+    { icon: 'git-network-outline', label: 'Networks', screen: 'Networks' },
     { icon: 'car-sport-outline', label: 'Buy Car', screen: 'VehicleSales' },
     { icon: 'construct-outline', label: 'G Garage', screen: 'GGarage' },
 ] as const;

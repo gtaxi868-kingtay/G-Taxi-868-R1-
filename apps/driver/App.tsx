@@ -33,6 +33,7 @@ import ComplianceDocumentsScreen from './src/screens/ComplianceDocumentsScreen';
 import { RatingsScreen } from './src/screens/RatingsScreen';
 import { ScoutReferralScreen } from './src/screens/ScoutReferralScreen';
 import { DriverReferralScreen } from './src/screens/DriverReferralScreen';
+import { NetworksScreen } from './src/screens/NetworksScreen';
 import { VehicleSalesScreen } from './src/screens/VehicleSalesScreen';
 import LeaseScreen from './src/screens/LeaseScreen';
 import LeaseConsentScreen from './src/screens/LeaseConsentScreen';
@@ -190,6 +191,7 @@ function AppNavigator() {
             <AppStack.Screen name="Ratings" component={RatingsScreen} />
             <AppStack.Screen name="ScoutReferral" component={ScoutReferralScreen} />
             <AppStack.Screen name="DriverReferral" component={DriverReferralScreen} />
+            <AppStack.Screen name="Networks" component={NetworksScreen} />
             <AppStack.Screen name="VehicleSales" component={VehicleSalesScreen} />
             <AppStack.Screen name="Lease" component={LeaseScreen} />
             <AppStack.Screen name="LeaseConsent" component={LeaseConsentScreen} />
