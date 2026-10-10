@@ -449,7 +449,14 @@ export function EscapeManagement() {
       .eq('escape_package_id', pkg.id)
       .order('created_at', { ascending: false });
 
-    const riderIds = [...new Set((rData || []).map((r) => r.rider_id))];
+    // The admin client is untyped, so give the rows an explicit shape (this
+    // was an implicit-any error that failed `tsc -b`, and with it the
+    // admin `build` script).
+    const reservations = (rData ?? []) as Array<{
+      id: string; rider_id: string; status: string; guest_count: number; total_price_cents: number;
+      created_at: string; captured_at: string | null; confirmed_at: string | null;
+    }>;
+    const riderIds = [...new Set(reservations.map((r) => r.rider_id))];
     let riderMap: Record<string, { full_name: string | null; phone_number: string | null }> = {};
     if (riderIds.length) {
       const { data: riders } = await supabase
@@ -460,7 +467,7 @@ export function EscapeManagement() {
     }
 
     setParticipants(
-      (rData || []).map((r) => ({
+      reservations.map((r) => ({
         ...r,
         rider_name: riderMap[r.rider_id]?.full_name ?? null,
         rider_phone: riderMap[r.rider_id]?.phone_number ?? null,

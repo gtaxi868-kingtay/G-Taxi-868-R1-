@@ -18,6 +18,9 @@ export default defineConfig({
       // literal statically regardless, pulling in real react-native (Flow syntax) and
       // crashing the dev server. Alias it to a web-safe stub instead.
       'expo-secure-store': path.resolve(__dirname, '../../packages/shared/web-stubs/expo-secure-store.js'),
+      // @gtaxi/core re-exports CrashReporter/outbox, which import AsyncStorage at
+      // top level; without this Rollup can't resolve it and `vite build` fails.
+      '@react-native-async-storage/async-storage': path.resolve(__dirname, '../../packages/shared/web-stubs/async-storage.js'),
     },
   },
 })
