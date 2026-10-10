@@ -50,6 +50,32 @@ serve(async (req: Request) => {
             );
         }
 
+        // ── SELF-DEAL GUARD ───────────────────────────────────────
+        // A single person controlling both a rider account and a driver
+        // account could otherwise complete rides between the two accounts
+        // to farm referral bonuses, progression levels, or lease
+        // eligibility with no real transaction behind them. This is the
+        // one identity-distinctness check that matters — real riders and
+        // real drivers of any trip length or fare are never affected.
+        const { data: rideForSelfCheck, error: selfCheckError } = await supabaseAdmin
+            .from("rides")
+            .select("rider_id")
+            .eq("id", ride_id)
+            .single();
+
+        if (selfCheckError || !rideForSelfCheck) {
+            return new Response(
+                JSON.stringify({ success: false, error: "Ride not found" }),
+                { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+        if (rideForSelfCheck.rider_id === user.id) {
+            return new Response(
+                JSON.stringify({ success: false, error: "Cannot accept your own ride request" }),
+                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // ── DRIVER APPROVAL GUARD ─────────────────────────────────
         // Only admin-approved drivers may accept rides. is_verified is a
         // server-protected flag (DB trigger blocks driver self-edit) set by the
@@ -125,13 +151,18 @@ serve(async (req: Request) => {
         }
 
         // 1. ATOMIC OFFER LOCK
-        // Verify this driver actually holds a 'pending' offer for this ride.
+        // Verify this driver holds a 'pending' offer for this ride that has
+        // not expired. Nothing marks lapsed offers 'expired', so status alone
+        // let a driver who ignored an offer grab the ride minutes later --
+        // after process_dispatch_queue had already passed it to the next
+        // driver. A 5s grace covers a tap made just before the countdown ends.
         const { data: offer, error: offerError } = await supabaseAdmin
             .from("ride_offers")
             .update({ status: "accepted" })
             .eq("ride_id", ride_id)
             .eq("driver_id", driver.id)
             .eq("status", "pending")
+            .gt("expires_at", new Date(Date.now() - 5000).toISOString())
             .select()
             .single();
 
