@@ -11,7 +11,6 @@ import { NodeRegistry } from './pages/NodeRegistry';
 import { RescueScreen } from './pages/RescueScreen';
 import { WarChest } from './pages/WarChest';
 import { PlatformControl } from './pages/PlatformControl';
-import { TravelPackages } from './pages/TravelPackages';
 import { DealerBrokerage } from './pages/DealerBrokerage';
 import { Intelligence } from './pages/Intelligence';
 import { Approvals } from './pages/Approvals';
@@ -32,7 +31,7 @@ import { SystemHealth } from './pages/SystemHealth';
 import { Waitlist } from './pages/Waitlist';
 import { SosAlerts } from './pages/SosAlerts';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, AlertOctagon, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, Globe, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain, HeartPulse, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, AlertOctagon, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain, HeartPulse, ClipboardList } from 'lucide-react';
 
 function AdminSecurityGate({ children }: { children: React.ReactNode }) {
     const [gateState, setGateState] = useState<'loading' | 'unauthorized' | 'authorized'>('loading');
@@ -94,7 +93,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'travel' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist' | 'sosalerts';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist' | 'sosalerts';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
@@ -107,7 +106,6 @@ const TAB_LABELS: Record<AdminView, string> = {
     rescue: 'Rescue',
     warchest: 'War Chest',
     platformcontrol: 'Platform Control',
-    travel: 'Travel Packages',
     escape: 'Escape Management',
     dealer: 'Dealer Brokerage',
     intelligence: 'AI Intelligence',
@@ -227,8 +225,7 @@ function App() {
                         <NavItem active={activeTab === 'rescue'} onClick={() => handleNav('rescue')} icon={<AlertTriangle size={20}/>} label="Rescue" />
                         <NavItem active={activeTab === 'warchest'} onClick={() => handleNav('warchest')} icon={<Vault size={20}/>} label="War Chest" />
                         <NavItem active={activeTab === 'platformcontrol'} onClick={() => handleNav('platformcontrol')} icon={<SlidersHorizontal size={20}/>} label="Platform Control" />
-                        <NavItem active={activeTab === 'travel'} onClick={() => handleNav('travel')} icon={<Plane size={20}/>} label="Travel Packages" />
-                        <NavItem active={activeTab === 'escape'} onClick={() => handleNav('escape')} icon={<Globe size={20}/>} label="Escape Mgmt" />
+                        <NavItem active={activeTab === 'escape'} onClick={() => handleNav('escape')} icon={<Plane size={20}/>} label="Escape" />
                         <NavItem active={activeTab === 'dealer'} onClick={() => handleNav('dealer')} icon={<Car size={20}/>} label="Dealer Brokerage" />
                         <NavItem active={activeTab === 'intelligence'} onClick={() => handleNav('intelligence')} icon={<Bot size={20}/>} label="AI Intelligence" />
                         <NavItem active={activeTab === 'approvals'} onClick={() => handleNav('approvals')} icon={<Inbox size={20}/>} label="G Approvals" />
@@ -310,7 +307,6 @@ function App() {
                         {activeTab === 'rescue' && <RescueScreen />}
                         {activeTab === 'warchest' && <WarChest />}
                         {activeTab === 'platformcontrol' && <PlatformControl />}
-                        {activeTab === 'travel' && <TravelPackages />}
                         {activeTab === 'escape' && <EscapeManagement />}
                         {activeTab === 'dealer' && <DealerBrokerage />}
                         {activeTab === 'intelligence' && <Intelligence />}
