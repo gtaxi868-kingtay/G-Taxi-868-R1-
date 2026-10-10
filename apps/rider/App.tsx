@@ -57,11 +57,6 @@ import { TagMarkerScreen } from './src/screens/TagMarkerScreen';
 import RideReviewScreen from './src/screens/RideReviewScreen';
 import { ServiceBookingScreen } from './src/screens/ServiceBookingScreen';
 import { LegalScreen } from './src/screens/LegalScreen';
-import { TravelStorefrontScreen } from './src/screens/TravelStorefrontScreen';
-import { TravelPackageDetailScreen } from './src/screens/TravelPackageDetailScreen';
-import { TravelBookingConfirmationScreen } from './src/screens/TravelBookingConfirmationScreen';
-import { TravelMyBookingsScreen } from './src/screens/TravelMyBookingsScreen';
-import { TravelWaitlistScreen } from './src/screens/TravelWaitlistScreen';
 import { ReferralScreen } from './src/screens/ReferralScreen';
 import { FoodDeliveryScreen } from './src/screens/FoodDeliveryScreen';
 import EscapeStorefrontScreen from './src/screens/EscapeStorefrontScreen';
@@ -175,11 +170,6 @@ function AppNavigator() {
                 <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
                 <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
                 <AppStack.Screen name="Legal" component={LegalScreen} />
-                <AppStack.Screen name="TravelStorefront" component={TravelStorefrontScreen} />
-                <AppStack.Screen name="TravelPackageDetail" component={TravelPackageDetailScreen} />
-                <AppStack.Screen name="TravelBookingConfirmation" component={TravelBookingConfirmationScreen} />
-                <AppStack.Screen name="TravelMyBookings" component={TravelMyBookingsScreen} />
-                <AppStack.Screen name="TravelWaitlist" component={TravelWaitlistScreen} />
                 <AppStack.Screen name="Referral" component={ReferralScreen} />
                 <AppStack.Screen name="FoodDelivery" component={FoodDeliveryScreen} />
                 <AppStack.Screen name="EscapeStorefront" component={EscapeStorefrontScreen} />
@@ -213,7 +203,6 @@ const linking = {
                 }
             },
             EscapeStorefront: 'escape/:packageId?',
-            TravelPackageDetail: 'travel/:packageId',
         }
     }
 };

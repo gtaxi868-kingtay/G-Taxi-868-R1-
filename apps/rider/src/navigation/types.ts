@@ -191,11 +191,6 @@ export type AppStackParamList = {
     destination?: { latitude: number; longitude: number; address: string };
   };
   Legal: undefined;
-  TravelStorefront: undefined;
-  TravelPackageDetail: { packageId: string };
-  TravelBookingConfirmation: { bookingId: string; packageTitle: string; totalCents: number; travelerCount: number; departureAt: string; airportTransferRideId?: string };
-  TravelMyBookings: undefined;
-  TravelWaitlist: undefined;
   Subscription: undefined;
   GSpot: undefined;
   Referral: undefined;

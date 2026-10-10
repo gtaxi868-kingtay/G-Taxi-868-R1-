@@ -46,6 +46,39 @@ interface EscapePackageCard {
   } | null;
 }
 
+interface MyEscapeBooking {
+  id: string;
+  escape_package_id: string;
+  status: string;
+  guest_count: number;
+  total_price_cents: number;
+  booking_ref: string | null;
+  escape_packages: {
+    package_name: string;
+    flight_blocks: { destination_name: string; departure_time: string } | null;
+  } | null;
+}
+
+// package_reservations statuses (live CHECK constraint, verified 2026-10-09).
+// "Live" = the rider still holds or is using these seats; the rest are history.
+const LIVE_BOOKING_STATUSES = new Set([
+  'PENDING_HOLD', 'ACTIVE_HOLD', 'CAPTURED', 'CONFIRMED',
+  'EN_ROUTE_DEPART', 'ON_ISLAND', 'EN_ROUTE_RETURN',
+]);
+
+const BOOKING_STATUS_LABEL: Record<string, string> = {
+  PENDING_HOLD: 'Holding your seats',
+  ACTIVE_HOLD: 'Seats held — waiting on the crew',
+  CAPTURED: 'Paid — waiting on the crew',
+  CONFIRMED: 'Confirmed',
+  EN_ROUTE_DEPART: 'On the way out',
+  ON_ISLAND: 'On island',
+  EN_ROUTE_RETURN: 'Heading home',
+  COMPLETED: 'Completed',
+  RELEASED: 'Released',
+  CANCELLED: 'Cancelled',
+};
+
 const GUEST_OPTIONS = [1, 2, 3, 4];
 
 const DEST_EXPERIENCES: Record<string, { tagline: string; highlights: [string, string, string] }> = {
@@ -103,6 +136,7 @@ export default function EscapeStorefrontScreen() {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [joinedPkgIds, setJoinedPkgIds] = useState<Set<string>>(new Set());
   const [joiningPkgId, setJoiningPkgId] = useState<string | null>(null);
+  const [myBookings, setMyBookings] = useState<MyEscapeBooking[]>([]);
 
   // Lane interest ("open a route we don't fly yet")
   const [myLanes, setMyLanes] = useState<any[]>([]);
@@ -251,22 +285,42 @@ export default function EscapeStorefrontScreen() {
           return true;
         });
         setPackages(valid as EscapePackageCard[]);
+      }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const pkgIds = valid.map(p => p.id);
-          if (pkgIds.length > 0) {
-            const { data: participants } = await supabase
-              .from('escape_group_participants')
-              .select('package_id')
-              .eq('rider_id', session.user.id)
-              .in('package_id', pkgIds)
-              .in('status', ['intent_pending', 'confirmed']);
-            if (participants) {
-              setJoinedPkgIds(new Set(participants.map(p => p.package_id)));
-            }
-          }
-        }
+      // The rider's own bookings. This used to read escape_group_participants
+      // -- the older, disconnected G-Escape system that checkout no longer
+      // writes to -- so "Joined" could never light up for a real booking.
+      // Checkout (travel/book_escape) writes package_reservations, so that is
+      // the source here. It also feeds "Your escapes", which replaced the
+      // separate Travel "My Bookings" screen when Travel merged into Escape.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: reservations } = await supabase
+          .from('package_reservations')
+          .select(`
+            id,
+            escape_package_id,
+            status,
+            guest_count,
+            total_price_cents,
+            booking_ref,
+            escape_packages (
+              package_name,
+              flight_blocks ( destination_name, departure_time )
+            )
+          `)
+          .eq('rider_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .limit(20);
+        const rows = ((reservations ?? []) as any[]).map(r => {
+          const pkg = Array.isArray(r.escape_packages) ? r.escape_packages[0] : r.escape_packages;
+          const fb = pkg && (Array.isArray(pkg.flight_blocks) ? pkg.flight_blocks[0] : pkg.flight_blocks);
+          return { ...r, escape_packages: pkg ? { ...pkg, flight_blocks: fb ?? null } : null } as MyEscapeBooking;
+        });
+        setMyBookings(rows);
+        setJoinedPkgIds(new Set(
+          rows.filter(r => LIVE_BOOKING_STATUSES.has(r.status)).map(r => r.escape_package_id),
+        ));
       }
     } catch (err) {
       console.error('EscapeStorefront load error:', err);
@@ -461,6 +515,41 @@ export default function EscapeStorefrontScreen() {
     );
   };
 
+  const myBookingsSection = myBookings.length === 0 ? null : (
+    <View style={styles.myBookingsCard}>
+      <Text style={styles.laneRowLabel}>YOUR ESCAPES</Text>
+      {myBookings.map(b => {
+        const live = LIVE_BOOKING_STATUSES.has(b.status);
+        const fb = b.escape_packages?.flight_blocks;
+        const title = fb?.destination_name ?? b.escape_packages?.package_name ?? 'G Escape';
+        const row = (
+          <View style={styles.myBookingRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.myBookingTitle} numberOfLines={1}>{title}</Text>
+              <Text style={styles.myBookingMeta} numberOfLines={1}>
+                {fb?.departure_time ? fmtDate(fb.departure_time) + ' · ' : ''}
+                {b.guest_count} guest{b.guest_count !== 1 ? 's' : ''} · {fmt(b.total_price_cents)}
+                {b.booking_ref ? ` · ${b.booking_ref}` : ''}
+              </Text>
+            </View>
+            <Text style={[styles.myBookingStatus, live && styles.myBookingStatusLive]}>
+              {BOOKING_STATUS_LABEL[b.status] ?? b.status}
+            </Text>
+            {live && <Ionicons name="chevron-forward" size={16} color={BRAND} />}
+          </View>
+        );
+        // Only a live booking has a pass to open; history rows are read-only.
+        return live ? (
+          <TouchableOpacity key={b.id} onPress={() => navigation.navigate('ActivePass')} activeOpacity={0.8}>
+            {row}
+          </TouchableOpacity>
+        ) : (
+          <View key={b.id}>{row}</View>
+        );
+      })}
+    </View>
+  );
+
   const laneSection = (
     <View style={styles.laneCard}>
       <Text style={styles.laneTitle}>Don't see your island?</Text>
@@ -581,6 +670,7 @@ export default function EscapeStorefrontScreen() {
               <Text style={styles.emptySub}>Check back soon — or open a new route below.</Text>
             </View>
           }
+          ListHeaderComponent={myBookingsSection}
           ListFooterComponent={laneSection}
         />
       )}
@@ -738,4 +828,12 @@ const styles = StyleSheet.create({
   myLanesWrap:      { marginTop: 18 },
   myLaneRow:        { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
   myLaneText:       { color: 'rgba(242,245,248,0.8)', fontSize: 13, flex: 1 },
+
+  // Your escapes (merged in from the old Travel "My Bookings" screen)
+  myBookingsCard:   { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.12)' },
+  myBookingRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.06)' },
+  myBookingTitle:   { color: '#F2F5F8', fontSize: 15, fontWeight: '700' },
+  myBookingMeta:    { color: 'rgba(242,245,248,0.5)', fontSize: 12, marginTop: 2 },
+  myBookingStatus:  { color: NEUTRAL, fontSize: 11, fontWeight: '600', maxWidth: 130, textAlign: 'right' },
+  myBookingStatusLive: { color: '#22C55E' },
 });
