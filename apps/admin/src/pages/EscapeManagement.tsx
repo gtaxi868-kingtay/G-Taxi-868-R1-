@@ -138,6 +138,12 @@ type LodgingNode = {
   owner_phone: string | null;
   owner_whatsapp: string | null;
   owner_email: string | null;
+  // The owner's current quoted rate. sync_escape_package_real_costs refuses
+  // to price a package against a hotel without an unexpired one.
+  quoted_rate_per_night_cents?: number | null;
+  quoted_at?: string | null;
+  quote_expires_at?: string | null;
+  quote_contact_note?: string | null;
 };
 
 type MerchantOption = { id: string; name: string };
@@ -273,19 +279,34 @@ export function EscapeManagement() {
   };
 
   const saveLodging = async (node: Partial<LodgingNode>) => {
-    if (!node.name || !node.merchant_id || !node.destination_code || !node.location_zone
+    // Merchant is optional: lodging_nodes.merchant_id is nullable and most
+    // small Caribbean rentals have no merchant account (G Co-Host candidates
+    // are created with none). Requiring it forced an unrelated pick.
+    if (!node.name || !node.destination_code || !node.location_zone
         || !node.nights || !node.base_price_per_night_cents || !node.max_guests) {
-      alert('Name, merchant, destination code, zone, nights, nightly rate, and max guests are required');
+      alert('Name, destination code, zone, nights, nightly rate, and max guests are required');
       return;
     }
+    // Stamp who/when only when the quote itself changed, so editing a
+    // description doesn't silently "refresh" an old quote.
+    const prev = node.id ? lodgingNodes.find(l => l.id === node.id) : undefined;
+    const quoteChanged = (node.quoted_rate_per_night_cents ?? null) !== (prev?.quoted_rate_per_night_cents ?? null)
+      || (node.quote_expires_at ?? null) !== (prev?.quote_expires_at ?? null);
+    const { data: { user } } = await supabase.auth.getUser();
     const payload = {
-      name: node.name, merchant_id: node.merchant_id, destination_code: node.destination_code,
+      name: node.name, merchant_id: node.merchant_id || null, destination_code: node.destination_code,
       location_zone: node.location_zone, nights: node.nights,
       base_price_per_night_cents: node.base_price_per_night_cents, max_guests: node.max_guests,
       is_active: node.is_active ?? true, lat: node.lat ?? null, lng: node.lng ?? null,
       description: node.description ?? null, cover_image_url: node.cover_image_url ?? null,
       owner_name: node.owner_name ?? null, owner_phone: node.owner_phone ?? null,
       owner_whatsapp: node.owner_whatsapp ?? null, owner_email: node.owner_email ?? null,
+      quoted_rate_per_night_cents: node.quoted_rate_per_night_cents ?? null,
+      quote_expires_at: node.quote_expires_at ?? null,
+      quote_contact_note: node.quote_contact_note ?? null,
+      ...(quoteChanged && node.quoted_rate_per_night_cents
+        ? { quoted_at: new Date().toISOString(), quoted_by: user?.id ?? null }
+        : {}),
     };
     const { error } = node.id
       ? await supabase.from('lodging_nodes').update(payload).eq('id', node.id)
@@ -838,7 +859,7 @@ export function EscapeManagement() {
                 </LField>
                 <LField label="Merchant">
                   <select value={editingLodging.merchant_id ?? ''} onChange={(e) => setEditingLodging({ ...editingLodging, merchant_id: e.target.value })} className="admin-input">
-                    <option value="">Select merchant…</option>
+                    <option value="">None (independent owner)</option>
                     {merchants.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                 </LField>
@@ -860,6 +881,27 @@ export function EscapeManagement() {
                 <LField label="Max Guests">
                   <input type="number" value={editingLodging.max_guests ?? ''} onChange={(e) => setEditingLodging({ ...editingLodging, max_guests: Number(e.target.value) })} className="admin-input" />
                 </LField>
+              </div>
+
+              <div className="border-t border-white/5 pt-4">
+                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-1">Owner's Rate Quote</p>
+                <p className="text-xs text-white/40 mb-3">
+                  Packages are priced from this quote, not the listed rate. A package can't be created against
+                  this property until there's a quote that hasn't expired.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <LField label="Quoted Rate / Night (TTD)">
+                    <input type="number" step="0.01" value={editingLodging.quoted_rate_per_night_cents ? (editingLodging.quoted_rate_per_night_cents / 100).toFixed(2) : ''} onChange={(e) => setEditingLodging({ ...editingLodging, quoted_rate_per_night_cents: e.target.value ? Math.round(Number(e.target.value) * 100) : null })} className="admin-input" />
+                  </LField>
+                  <LField label="Quote Valid Until">
+                    <input type="date" value={editingLodging.quote_expires_at ? editingLodging.quote_expires_at.slice(0, 10) : ''} onChange={(e) => setEditingLodging({ ...editingLodging, quote_expires_at: e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : null })} className="admin-input" />
+                  </LField>
+                </div>
+                <div className="mt-4">
+                  <LField label="Quote Note">
+                    <input value={editingLodging.quote_contact_note ?? ''} onChange={(e) => setEditingLodging({ ...editingLodging, quote_contact_note: e.target.value })} placeholder="e.g. WhatsApp with owner, includes taxes" className="admin-input" />
+                  </LField>
+                </div>
               </div>
 
               <div className="border-t border-white/5 pt-4">
@@ -952,6 +994,13 @@ export function EscapeManagement() {
                         {n.destination_code} · {n.location_zone} · {n.nights} nights · up to {n.max_guests} guests
                         {n.owner_name ? ` · owner: ${n.owner_name}` : ''}
                       </p>
+                      {n.quoted_rate_per_night_cents && n.quote_expires_at && new Date(n.quote_expires_at) > new Date() ? (
+                        <p className="text-xs text-emerald-400/80 mt-1">
+                          Quote {fmtTTD(n.quoted_rate_per_night_cents)}/night · valid to {new Date(n.quote_expires_at).toLocaleDateString()}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-yellow-400/80 mt-1">No current quote — packages can't use this property yet</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
