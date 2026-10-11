@@ -866,6 +866,26 @@ Deno.serve(async (req) => {
           }
           case 'upsert': {
             if (!node) return json({ success: false, error: 'node payload required' }, 400)
+            // kiosk_nodes.tag_uid has an FK to identity_tags(tag_uid), so a
+            // fresh chip has to be registered there first -- without this,
+            // provisioning any new chip from the admin apps failed on the FK
+            // (0 of 11 live nodes had a tag). Same registration
+            // commander_register_node already does. A chip that is already
+            // bound to a person (a rider's keychain) is refused rather than
+            // silently turned into a counter tag.
+            if (node.tag_uid) {
+              const { data: existingTag, error: tagLookupError } = await supabaseAdmin
+                .from('identity_tags').select('profile_id').eq('tag_uid', node.tag_uid).maybeSingle()
+              if (tagLookupError) throw tagLookupError
+              if (existingTag?.profile_id) {
+                return json({ success: false, error: 'This chip is already someone\'s keychain. Use a blank chip for a touch point.' }, 409)
+              }
+              if (!existingTag) {
+                const { error: tagInsertError } = await supabaseAdmin.from('identity_tags')
+                  .insert({ tag_uid: node.tag_uid, is_active: true, metadata: { kind: 'kiosk_node' } })
+                if (tagInsertError) throw tagInsertError
+              }
+            }
             if (node.id) {
               const { data, error } = await supabaseAdmin.from('kiosk_nodes').update(node).eq('id', node.id).select().single()
               if (error) throw error
