@@ -33,14 +33,12 @@ export const ENV = {
         typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY
             ? process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY
             : '',
-    GEMINI_API_KEY:
-        typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_GEMINI_API_KEY
-            ? process.env.EXPO_PUBLIC_GEMINI_API_KEY
-            : '',
-    GROQ_API_KEY:
-        typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_GROQ_API_KEY
-            ? process.env.EXPO_PUBLIC_GROQ_API_KEY
-            : '',
+    // No AI provider keys here, ever. Anything read through EXPO_PUBLIC_*
+    // is baked into the app bundle and extractable by anyone who installs
+    // it. Groq/Gemini calls go through edge functions (_shared/llm.ts),
+    // which hold the keys server-side and enforce the daily spend cap.
+    // (GEMINI_API_KEY / GROQ_API_KEY were removed 2026-10-12: unread
+    // anywhere, but one EAS env var away from shipping a live key.)
     SENTRY_DSN:
         typeof process !== 'undefined' && process.env && process.env.EXPO_PUBLIC_SENTRY_DSN
             ? process.env.EXPO_PUBLIC_SENTRY_DSN
