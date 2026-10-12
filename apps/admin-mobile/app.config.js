@@ -62,7 +62,9 @@ export default {
     extra: {
       EXPO_USE_METRO_WORKSPACE_ROOT: "1",
       eas: {
-        projectId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        // Real EAS project @gtaxi/gtaxi-admin, created 2026-10-11 (the
+        // previous value was a made-up placeholder, so no build could run).
+        projectId: "80efd192-24ab-4158-8313-b2e4dcfd9fb9",
       },
     },
   },
