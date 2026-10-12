@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { LocationAccuracy } from 'expo-location';
-import NfcManager, { NfcTech } from 'react-native-nfc-manager';
+import NfcManager, { NfcTech, Ndef, NdefStatus } from 'react-native-nfc-manager';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { VOICES } from '@gtaxi/design-system';
@@ -28,6 +28,14 @@ type SpotType = 'business' | 'taxi_stand';
 const ACCENT = VOICES.admin.accent;
 const BG = VOICES.admin.bg;
 
+// Serial numbers come back from the NFC library as hex; compare them
+// without caring about case or separators.
+const sameChip = (a?: string | null, b?: string | null) =>
+  !!a && !!b && a.replace(/[^0-9a-f]/gi, '').toUpperCase() === b.replace(/[^0-9a-f]/gi, '').toUpperCase();
+
+type ProvisionedNode = { id: string; tagUid: string; label: string };
+type ChipStep = 'idle' | 'writing' | 'written' | 'locking' | 'locked';
+
 export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }) {
   const insets = useSafeAreaInsets();
   const [spotType, setSpotType] = useState<SpotType>('business');
@@ -41,10 +49,106 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'acquiring' | 'acquired' | 'failed'>('idle');
   const [submitting, setSubmitting] = useState(false);
   const [nfcScanning, setNfcScanning] = useState(false);
+  // After a node is saved, its chip still has to be given the tap link --
+  // until now nothing ever wrote to a chip, so taps only worked for people
+  // who already had the G app open on its scan screen.
+  const [provisioned, setProvisioned] = useState<ProvisionedNode | null>(null);
+  const [chipStep, setChipStep] = useState<ChipStep>('idle');
+  const [tapBaseUrl, setTapBaseUrl] = useState<string | null>(null);
 
   useEffect(() => {
     NfcManager.start();
+    supabase.from('system_config').select('value').eq('key', 'nfc_tap_base_url').maybeSingle()
+      .then(({ data }) => setTapBaseUrl(data?.value ?? null), () => setTapBaseUrl(null));
   }, []);
+
+  const tapUrlFor = (nodeId: string) => (tapBaseUrl ? `${tapBaseUrl}?node=${nodeId}` : null);
+
+  // Holds the chip, checks it is the one that was just provisioned, and
+  // hands the open NDEF session to `work`. Always releases the session.
+  const withProvisionedChip = async (alertMessage: string, work: () => Promise<void>) => {
+    if (!provisioned) return;
+    try {
+      await NfcManager.requestTechnology(NfcTech.Ndef, { alertMessage });
+      const tag = await NfcManager.getTag();
+      if (!sameChip(tag?.id, provisioned.tagUid)) {
+        throw new Error(`That's a different chip. Hold the chip for ${provisioned.label} (${provisioned.tagUid}).`);
+      }
+      await work();
+    } finally {
+      await NfcManager.cancelTechnologyRequest().catch(() => undefined);
+    }
+  };
+
+  const writeTapLink = async () => {
+    if (!provisioned) return;
+    const url = tapUrlFor(provisioned.id);
+    if (!url) {
+      Alert.alert('No tap address set', 'nfc_tap_base_url is missing from system settings, so there is no link to write yet.');
+      return;
+    }
+    setChipStep('writing');
+    try {
+      await withProvisionedChip('Hold the chip to write its tap link', async () => {
+        const { status, capacity } = await NfcManager.ndefHandler.getNdefStatus();
+        if (status === NdefStatus.ReadOnly) throw new Error('This chip is locked and can no longer be written.');
+        if (status === NdefStatus.NotSupported) throw new Error('This chip type does not support web links. Use an NTAG chip.');
+        const bytes = Ndef.encodeMessage([Ndef.uriRecord(url)]);
+        if (capacity && bytes.length > capacity) throw new Error(`The link needs ${bytes.length} bytes but this chip only holds ${capacity}.`);
+        await NfcManager.ndefHandler.writeNdefMessage(bytes);
+        // Read it straight back -- a write can report success on a chip
+        // that moved away mid-write.
+        const back = await NfcManager.ndefHandler.getNdefMessage();
+        const record = back?.ndefMessage?.[0];
+        const written = record ? Ndef.uri.decodePayload(new Uint8Array(record.payload as number[])) : null;
+        if (written !== url) throw new Error('The chip did not keep the link. Hold it still and try again.');
+      });
+      setChipStep('written');
+      NfcManager.setAlertMessage('Tap link written');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      setChipStep('idle');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Could not write the chip', err instanceof Error ? err.message : 'Hold the chip flat against the phone and try again.');
+    }
+  };
+
+  // Permanent. A chip on a public counter that isn't locked can be
+  // rewritten by anyone with a phone to point at a scam page -- but once
+  // locked, its link can never change, so only lock once the tap address
+  // is the real long-term domain.
+  const lockChip = () => {
+    if (!provisioned) return;
+    Alert.alert(
+      'Lock this chip for good?',
+      `Locking stops anyone rewriting it, but it can never be changed again -- not even by you.\n\nIt will always open:\n${tapUrlFor(provisioned.id)}\n\nOnly lock once that is your permanent web address.`,
+      [
+        { text: 'Not yet', style: 'cancel' },
+        {
+          text: 'Lock it',
+          style: 'destructive',
+          onPress: async () => {
+            setChipStep('locking');
+            try {
+              await withProvisionedChip('Hold the chip to lock it', async () => {
+                const back = await NfcManager.ndefHandler.getNdefMessage();
+                const record = back?.ndefMessage?.[0];
+                const onChip = record ? Ndef.uri.decodePayload(new Uint8Array(record.payload as number[])) : null;
+                if (onChip !== tapUrlFor(provisioned.id)) throw new Error('This chip does not have the right link on it. Write the link first.');
+                await NfcManager.ndefHandler.makeReadOnly();
+              });
+              setChipStep('locked');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch (err) {
+              setChipStep('written');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert('Could not lock the chip', err instanceof Error ? err.message : 'Try again.');
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const scanNfcTag = async () => {
     setNfcScanning(true);
@@ -188,10 +292,12 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
           throw new Error(nodeResult?.error || nodeError?.message || 'Failed to upsert node');
         }
 
+        setProvisioned({ id: nodeResult.node.id, tagUid: tagUid.trim(), label: locationName.trim() });
+        setChipStep('idle');
         Alert.alert(
           'Business Spot Provisioned',
-          `Merchant: ${merchantName.trim()}\nEmail: ${merchantEmail.trim()}\nPassword: ${merchantPassword}\nTag: ${tagUid.trim()}\n\nSave these credentials. Share them with the merchant owner.`,
-          [{ text: 'Done', onPress: () => navigation.goBack() }]
+          `Merchant: ${merchantName.trim()}\nEmail: ${merchantEmail.trim()}\nPassword: ${merchantPassword}\nTag: ${tagUid.trim()}\n\nSave these credentials. Share them with the merchant owner.\n\nNext: write the tap link onto the chip.`,
+          [{ text: 'OK' }]
         );
       } else {
         const { data: nodeResult, error: nodeError } = await supabase.functions.invoke(
@@ -215,10 +321,12 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
           throw new Error(nodeResult?.error || nodeError?.message || 'Failed to upsert node');
         }
 
+        setProvisioned({ id: nodeResult.node.id, tagUid: tagUid.trim(), label: locationName.trim() });
+        setChipStep('idle');
         Alert.alert(
           'Taxi Stand Provisioned',
-          `Location: ${locationName.trim()}\nGPS: ${lat?.toFixed(5)}, ${lng?.toFixed(5)}\nTag: ${tagUid.trim()}`,
-          [{ text: 'Done', onPress: () => navigation.goBack() }]
+          `Location: ${locationName.trim()}\nGPS: ${lat?.toFixed(5)}, ${lng?.toFixed(5)}\nTag: ${tagUid.trim()}\n\nNext: write the tap link onto the chip.`,
+          [{ text: 'OK' }]
         );
       }
 
@@ -393,6 +501,50 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
             </>
           )}
 
+          {provisioned ? (
+            <View style={styles.chipPanel}>
+              <Text style={styles.sectionLabel}>PROGRAM THE CHIP</Text>
+              <Text style={styles.chipStatus}>
+                {chipStep === 'locked' ? `Done. ${provisioned.label}'s chip is written and locked.`
+                  : chipStep === 'written' ? 'Link written and checked. Any phone that taps this chip now opens your page.'
+                  : `${provisioned.label} is saved. Write its tap link so phones without the app can use it.`}
+              </Text>
+              <Text style={styles.chipUrl} numberOfLines={2}>
+                {tapUrlFor(provisioned.id) ?? 'No tap address set (nfc_tap_base_url)'}
+              </Text>
+
+              {chipStep !== 'locked' && (
+                <TouchableOpacity
+                  style={[styles.submitBtn, (chipStep === 'writing' || chipStep === 'locking') && { opacity: 0.5 }]}
+                  onPress={writeTapLink}
+                  disabled={chipStep === 'writing' || chipStep === 'locking'}
+                  activeOpacity={0.85}
+                >
+                  {chipStep === 'writing' ? <ActivityIndicator color="#FFF" size="small" /> : (
+                    <>
+                      <Ionicons name="radio-outline" size={18} color="#FFF" />
+                      <Text style={styles.submitText}>{chipStep === 'written' ? 'Write link again' : 'Write tap link to chip'}</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {(chipStep === 'written' || chipStep === 'locking') && (
+                <TouchableOpacity style={styles.lockBtn} onPress={lockChip} disabled={chipStep === 'locking'} activeOpacity={0.85}>
+                  {chipStep === 'locking' ? <ActivityIndicator color="#F59E0B" size="small" /> : (
+                    <>
+                      <Ionicons name="lock-closed-outline" size={16} color="#F59E0B" />
+                      <Text style={styles.lockText}>Lock chip permanently</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity style={styles.doneLink} onPress={() => navigation.goBack()}>
+                <Text style={styles.doneText}>{chipStep === 'idle' ? 'Skip for now' : 'Done'}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <TouchableOpacity
             style={[styles.submitBtn, submitting && { opacity: 0.5 }]}
             onPress={handleSubmit}
@@ -410,6 +562,7 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
               </>
             )}
           </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </LinearGradient>
@@ -525,4 +678,18 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   submitText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+  chipPanel: { marginTop: 16, gap: 10 },
+  chipStatus: { color: '#F1F5F9', fontSize: 13, lineHeight: 19 },
+  chipUrl: {
+    color: 'rgba(255,255,255,0.45)', fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  lockBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    height: 44, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(245,158,11,0.4)',
+    backgroundColor: 'rgba(245,158,11,0.06)',
+  },
+  lockText: { color: '#F59E0B', fontSize: 13, fontWeight: '700' },
+  doneLink: { alignItems: 'center', paddingVertical: 10 },
+  doneText: { color: 'rgba(255,255,255,0.4)', fontSize: 13, fontWeight: '600' },
 });

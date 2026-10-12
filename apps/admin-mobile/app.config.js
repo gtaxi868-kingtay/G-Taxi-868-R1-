@@ -40,6 +40,16 @@ export default {
           },
         },
       ],
+      // iOS needs the NFC entitlement (NDEF + TAG) to read OR write chips;
+      // without this plugin the admin app couldn't use NFC on iPhone at all.
+      [
+        "react-native-nfc-manager",
+        {
+          nfcPermission:
+            "G-Taxi Admin uses NFC to scan and program touch-point chips and keychains.",
+          includeNdefEntitlement: true,
+        },
+      ],
       [
         "expo-location",
         {

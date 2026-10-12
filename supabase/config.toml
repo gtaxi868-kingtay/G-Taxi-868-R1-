@@ -114,3 +114,11 @@ enabled = true
 # deploy lock the sweep out at the gateway.
 verify_jwt = false
 entrypoint = "./functions/g_execute_action/index.ts"
+
+[functions.admin]
+enabled = true
+# Every action is gated by requireAdmin() inside the function. Live is
+# false; true here would make a CLI deploy start rejecting at the gateway
+# (including the admin web's CORS preflight, which carries no JWT).
+verify_jwt = false
+entrypoint = "./functions/admin/index.ts"
