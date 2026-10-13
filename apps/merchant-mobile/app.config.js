@@ -59,7 +59,9 @@ export default {
     extra: {
       EXPO_USE_METRO_WORKSPACE_ROOT: "1",
       eas: {
-        projectId: "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+        // Real EAS project @gtaxi/gtaxi-merchant, created 2026-10-13. The
+        // previous value (b2c3d4e5-...) was a placeholder Expo rejected.
+        projectId: "e4b52330-878c-4a23-be66-f7ce8d8b35cd",
       },
     },
   },
