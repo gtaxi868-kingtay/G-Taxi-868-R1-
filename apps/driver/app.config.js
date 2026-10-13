@@ -89,6 +89,19 @@ export default {
           project: "driver",
         },
       ],
+      // iOS: the driver app reads NFC tags (NfcIdentityHandler on the
+      // dashboard, CommanderRegisterNodeScreen) but had no NFC usage text
+      // and no NFC capability -- iOS refuses (or kills the app on) an NFC
+      // session without both. This plugin adds NFCReaderUsageDescription and
+      // the NDEF+TAG entitlement. Android: library manifest adds the permission.
+      [
+        "react-native-nfc-manager",
+        {
+          nfcPermission:
+            "GTaxi Driver uses NFC to identify you at G-Touch Points and to register new spots.",
+          includeNdefEntitlement: true,
+        },
+      ],
     ],
     owner: "gtaxis-organization",
     extra: {
