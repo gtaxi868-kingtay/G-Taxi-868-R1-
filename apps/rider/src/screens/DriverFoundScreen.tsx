@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    Animated, useWindowDimensions, ActivityIndicator,
+    Animated, useWindowDimensions, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -101,10 +101,38 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
         });
     };
 
+    const handleCancel = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Alert.alert(
+            "Cancel this ride?",
+            "Are you sure you want to cancel?",
+            [
+                { text: "No", style: "cancel" },
+                { text: "Yes, Cancel", style: "destructive", onPress: executeCancelRide }
+            ]
+        );
+    };
+
+    const executeCancelRide = async () => {
+        try {
+            const { data, error } = await supabase.functions.invoke('cancel_ride', {
+                body: { ride_id: rideId }
+            });
+
+            if (error) throw error;
+
+            Alert.alert("Ride Cancelled", "Your ride has been cancelled.");
+            navigation.navigate('Home', {});
+        } catch (err) {
+            console.error('Cancel failed:', err);
+            Alert.alert("Error", "Could not cancel ride. Please try again.");
+        }
+    };
+
     if (loading) {
         return (
             <LinearGradient colors={['#1A0533', '#0D1B4B']} style={[s.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color="#00E5FF" />
+                <ActivityIndicator size="large" color="#34E6EC" />
                 <Text style={{ color: 'rgba(255,255,255,0.6)', marginTop: 16, fontSize: 16 }}>Finding your driver...</Text>
             </LinearGradient>
         );
@@ -131,12 +159,12 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
                 <View style={s.infoCard}>
                     <View style={[glassSurface(30), StyleSheet.absoluteFillObject]} />
                     <View style={s.infoRow}>
-                        <Ionicons name="car-outline" size={18} color="#00E5FF" />
+                        <Ionicons name="car-outline" size={18} color="#34E6EC" />
                         <Text style={s.infoText}>{driver?.vehicle ?? 'Vehicle'}</Text>
                     </View>
                     <View style={s.divider} />
                     <View style={s.infoRow}>
-                        <Ionicons name="card-outline" size={18} color="#00E5FF" />
+                        <Ionicons name="card-outline" size={18} color="#34E6EC" />
                         <Text style={s.infoText}>{driver?.plate ?? 'PBA 1234'}</Text>
                     </View>
                     <View style={s.divider} />
@@ -152,7 +180,7 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
             <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 24 }]}>
                 <TouchableOpacity style={s.ctaButton} onPress={handleTrack} activeOpacity={0.88}>
                     <LinearGradient
-                        colors={[VOICES.rider.accent, '#00E5FF']}
+                        colors={[VOICES.rider.accent, '#34E6EC']}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                         style={s.ctaGradient}
                     >
@@ -163,10 +191,7 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
 
                 <TouchableOpacity
                     style={s.cancelBtn}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        (navigation.navigate as any)('Home');
-                    }}
+                    onPress={handleCancel}
                 >
                     <Text style={s.cancelText}>Cancel</Text>
                 </TouchableOpacity>
@@ -182,13 +207,13 @@ const s = StyleSheet.create({
     avatarGlow: {
         position: 'absolute', width: 160, height: 160, borderRadius: 80,
         backgroundColor: 'rgba(0,229,255,0.1)',
-        shadowColor: '#00E5FF', shadowOpacity: 0.5, shadowRadius: 30, elevation: 0,
+        shadowColor: '#34E6EC', shadowOpacity: 0.5, shadowRadius: 30, elevation: 0,
         top: -20, left: -20,
     },
     avatar: {
         width: 120, height: 120, borderRadius: 60,
         backgroundColor: 'rgba(123,92,240,0.2)',
-        borderColor: '#00E5FF',
+        borderColor: '#34E6EC',
         alignItems: 'center', justifyContent: 'center',
         ...elevationGlow(4),
     },
@@ -201,7 +226,7 @@ const s = StyleSheet.create({
     },
     ratingText: { fontSize: 12, fontWeight: '700', color: '#F59E0B' },
     matchedTitle: {
-        fontSize: 14, fontWeight: '800', color: '#00E5FF',
+        fontSize: 14, fontWeight: '800', color: '#34E6EC',
         letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8,
     },
     driverName: { fontSize: 38, color: '#EAF3F6', marginBottom: 28, fontFamily: 'CormorantGaramond_600SemiBold' },

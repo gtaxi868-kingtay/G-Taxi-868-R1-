@@ -48,7 +48,7 @@ function paymentPresentation(ride: RideData) {
         case 'captured':
         case 'confirmed':
         case 'receipt_sent':
-            return { label: 'PAID', tone: '#00E5FF', icon: 'checkmark' as const, note: null };
+            return { label: 'PAID', tone: '#34E6EC', icon: 'checkmark' as const, note: null };
         case 'failed':
             return {
                 label: 'PAYMENT FAILED',
@@ -145,7 +145,7 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
                     colors={['#1A0533', '#0D1B4B']}
                     style={StyleSheet.absoluteFillObject}
                 />
-                <ActivityIndicator size="large" color="#00E5FF" />
+                <ActivityIndicator size="large" color="#34E6EC" />
                 <Text style={{ marginTop: 16, color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>Loading receipt...</Text>
             </View>
         );
@@ -279,7 +279,7 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
                                     <Text style={s.addrText} numberOfLines={1}>{ride.pickup_address}</Text>
                                 </View>
                                 <View style={s.addrRow}>
-                                    <View style={[s.marker, { backgroundColor: '#00E5FF' }]} />
+                                    <View style={[s.marker, { backgroundColor: '#34E6EC' }]} />
                                     <Text style={s.addrText} numberOfLines={1}>{ride.dropoff_address}</Text>
                                 </View>
                             </View>
@@ -360,7 +360,7 @@ const s = StyleSheet.create({
         width: 72, 
         height: 72, 
         borderRadius: 36, 
-        backgroundColor: '#00E5FF',
+        backgroundColor: '#34E6EC',
         alignItems: 'center', 
         justifyContent: 'center', 
         ...elevationGlow(8),
@@ -368,7 +368,7 @@ const s = StyleSheet.create({
     paidText: {
         fontSize: 18,
         fontWeight: '800',
-        color: '#00E5FF',
+        color: '#34E6EC',
         marginTop: 20,
         letterSpacing: 3,
     },
@@ -462,12 +462,12 @@ const s = StyleSheet.create({
     splitLabel: {
         fontSize: 13,
         fontWeight: '500',
-        color: '#00E5FF',
+        color: '#34E6EC',
     },
     splitValue: {
         fontSize: 13,
         fontWeight: '700',
-        color: '#00E5FF',
+        color: '#34E6EC',
     },
     splitLabelWarning: {
         fontSize: 13,

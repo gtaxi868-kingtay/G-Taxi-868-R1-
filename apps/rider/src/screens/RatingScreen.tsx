@@ -111,6 +111,8 @@ export function RatingScreen({ navigation, route }: any) {
                         <TouchableOpacity
                             key={sVal}
                             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setRating(sVal); }}
+                            accessibilityLabel={`Rate ${sVal} star${sVal === 1 ? '' : 's'}`}
+                            accessibilityRole="button"
                         >
                             <Ionicons
                                 name={sVal <= rating ? "star" : "star-outline"}
@@ -142,6 +144,8 @@ export function RatingScreen({ navigation, route }: any) {
                                 key={amt}
                                 style={[s.tipBtn, selectedTip === amt && s.tipBtnActive]}
                                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedTip(selectedTip === amt ? 0 : amt); }}
+                                accessibilityLabel={selectedTip === amt ? `Remove $${amt} tip` : `Add $${amt} tip`}
+                                accessibilityRole="button"
                             >
                                 <Txt variant="bodyBold" color={selectedTip === amt ? "#EAF3F6" : R.white}>${amt}</Txt>
                             </TouchableOpacity>
@@ -151,7 +155,13 @@ export function RatingScreen({ navigation, route }: any) {
 
                 <View style={{ flex: 1 }} />
 
-                <TouchableOpacity style={s.submitBtn} onPress={handleSubmit} disabled={submitting}>
+                <TouchableOpacity
+                    style={s.submitBtn}
+                    onPress={handleSubmit}
+                    disabled={submitting}
+                    accessibilityLabel="Submit rating"
+                    accessibilityRole="button"
+                >
                     <LinearGradient 
                         colors={[VOICES.rider.accent, CYAN]} 
                         start={{x: 0, y: 0}} 
@@ -164,7 +174,12 @@ export function RatingScreen({ navigation, route }: any) {
                     </LinearGradient>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={s.receiptBtn} onPress={handleViewReceipt}>
+                <TouchableOpacity
+                    style={s.receiptBtn}
+                    onPress={handleViewReceipt}
+                    accessibilityLabel="View receipt"
+                    accessibilityRole="button"
+                >
                     <Txt variant="bodyBold" color={R.muted}>View Receipt</Txt>
                 </TouchableOpacity>
 
