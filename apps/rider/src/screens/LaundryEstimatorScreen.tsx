@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useStripe } from '@stripe/stripe-react-native';
+import * as Location from 'expo-location';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
@@ -41,25 +42,29 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
         setLoading(true);
 
         try {
-            const { data: order, error: orderErr } = await supabase
-                .from('orders')
-                .insert({
-                    rider_id: user.id,
-                    total_cents: priceCents,
-                    status: 'pending',
-                    payment_method: paymentMethod === 'cash' ? 'cash' : 'card',
-                    // orders_payment_status_check allows pending/authorized/captured/
-                    // failed/refunded/cash_on_delivery — 'unpaid' was never a legal
-                    // value, so this insert itself threw a constraint violation for
-                    // every card-payment laundry booking before create_order_payment_intent
-                    // was ever reached.
-                    payment_status: paymentMethod === 'cash' ? 'cash_on_delivery' : 'pending',
-                    delivery_method: 'laundry_pickup',
-                })
-                .select('id')
-                .single();
+            // A driver has to come to the rider, so we need where they are.
+            const perm = await Location.requestForegroundPermissionsAsync();
+            if (perm.status !== 'granted') {
+                Alert.alert('Location needed', 'Allow location so a driver knows where to collect your laundry.');
+                return;
+            }
+            const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
 
-            if (orderErr) throw orderErr;
+            // The server prices and creates the order (create_laundry_order).
+            // The phone used to insert it with its own total_cents, which the
+            // database refused, and which would have let a rider set any price.
+            const { data: booked, error: bookErr } = await supabase.rpc('create_laundry_order', {
+                p_service: service.id,
+                p_weight_lbs: weight,
+                p_payment_method: paymentMethod,
+                p_pickup_lat: pos.coords.latitude,
+                p_pickup_lng: pos.coords.longitude,
+                p_pickup_address: null,
+            });
+            if (bookErr) throw bookErr;
+            if (!booked?.success) throw new Error(booked?.error || 'Could not book laundry.');
+            const order = { id: booked.order_id as string };
+            const chargedCents: number = booked.total_cents;
 
             if (paymentMethod === 'card') {
                 const { data: piData, error: piErr } = await supabase.functions.invoke(
@@ -86,11 +91,11 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
 
                 Alert.alert(
                     '✅ Laundry Scheduled!',
-                    `${service.label} for ~${weight} lbs.\nPaid: $${(priceCents / 100).toFixed(2)} TTD\nOrder: ${order.id.slice(0, 8).toUpperCase()}`,
+                    `${service.label} for ~${weight} lbs.\nPaid: $${(chargedCents / 100).toFixed(2)} TTD\nOrder: ${order.id.slice(0, 8).toUpperCase()}`,
                     [
                         {
                             text: 'Track Order',
-                            onPress: () => navigation.navigate('LaundryOrderStatus', { orderId: order.id, service, weight, priceCents }),
+                            onPress: () => navigation.navigate('LaundryOrderStatus', { orderId: order.id, service, weight, priceCents: chargedCents }),
                         },
                         { text: 'Done', onPress: () => navigation.navigate('Home') },
                     ]
@@ -98,11 +103,11 @@ export function LaundryEstimatorScreen({ navigation, route }: any) {
             } else {
                 Alert.alert(
                     '✅ Laundry Scheduled! (Cash on Delivery)',
-                    `${service.label} for ~${weight} lbs.\nTotal: $${(priceCents / 100).toFixed(2)} TTD\nPay driver upon pickup.\nOrder: ${order.id.slice(0, 8).toUpperCase()}`,
+                    `${service.label} for ~${weight} lbs.\nTotal: $${(chargedCents / 100).toFixed(2)} TTD\nPay driver upon pickup.\nOrder: ${order.id.slice(0, 8).toUpperCase()}`,
                     [
                         {
                             text: 'Track Order',
-                            onPress: () => navigation.navigate('LaundryOrderStatus', { orderId: order.id, service, weight, priceCents }),
+                            onPress: () => navigation.navigate('LaundryOrderStatus', { orderId: order.id, service, weight, priceCents: chargedCents }),
                         },
                         { text: 'Done', onPress: () => navigation.navigate('Home') },
                     ]
