@@ -365,6 +365,13 @@ export function ActiveTripScreen({ route, navigation }: any) {
         const payoutCents = ride?.driver_payout_cents;
         const earnings = payoutCents != null ? (payoutCents / 100).toFixed(2) : '--';
         const isCash = ride?.payment_method === 'cash' || ride?.payment_method === null || ride?.payment_method === undefined;
+        // What the rider actually hands over: the full fare (NOT the driver's
+        // share -- this prompt used to show driver_payout_cents, so a driver
+        // following it collected ~20% too little and still owed the platform
+        // its cut), plus any earlier cancellation fee carried onto this ride.
+        const carriedFeeCents = Number(ride?.metadata?.carried_fee_cents) || 0;
+        const collectCents = (ride?.total_fare_cents || 0) + carriedFeeCents;
+        const collect = (collectCents / 100).toFixed(2);
 
         if (isCash && !cashConfirmed) {
             return (
@@ -377,8 +384,12 @@ export function ActiveTripScreen({ route, navigation }: any) {
                             </View>
                             <Text style={s.completedTitle}>Cash Collected?</Text>
                             <Text style={s.cashPromptText}>
-                                Did the rider pay you TTD ${earnings} in cash?{'\n'}
-                                Confirm to complete settlement.
+                                Collect TTD ${collect} in cash from the rider.{'\n'}
+                                {carriedFeeCents > 0
+                                    ? `That includes TTD ${(carriedFeeCents / 100).toFixed(2)} the rider owes from an earlier cancelled trip.\n`
+                                    : ''}
+                                Your earnings: TTD ${earnings}.{'\n'}
+                                Confirm once you have the cash.
                             </Text>
                             <View style={s.cashConfirmActions}>
                                 <TouchableOpacity

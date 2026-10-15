@@ -426,7 +426,18 @@ serve(async (req: Request) => {
 
         const currentBalance = balance || 0;
 
-        if (currentBalance < 0) {
+        // A cash rider who owes a small amount (in practice: a TT$5 late-cancel
+        // fee) can still book. The amount owed is carried onto this ride,
+        // collected in cash by the driver, and cleared by settle_cash_ride.
+        // Cash riders had no way to clear a debt (wallet top-up is card-only),
+        // so the old hard lock meant one late cancel = banned for good.
+        // Anything larger, or any non-cash ride, keeps the lock below.
+        const MAX_CARRIED_FEE_CENTS = 5000; // TT$50
+        let carriedFeeCents = 0;
+        if (currentBalance < 0 && paymentMethod === "cash" && -currentBalance <= MAX_CARRIED_FEE_CENTS) {
+            carriedFeeCents = -currentBalance;
+            log("INFO", "Carrying rider balance onto cash ride", { rider_id, carriedFeeCents });
+        } else if (currentBalance < 0) {
             log("INFO", "Rider Debt Lock Triggered", { currentBalance, rider_id });
             return new Response(
                 JSON.stringify({
@@ -534,6 +545,17 @@ serve(async (req: Request) => {
         }
 
         const newRideId = rpcResult.data.ride_id;
+
+        if (carriedFeeCents > 0) {
+            const { data: rideMeta } = await adminClient
+                .from("rides").select("metadata").eq("id", newRideId).maybeSingle()
+                .then((res) => res, () => ({ data: null }));
+            const { error: carryErr } = await adminClient
+                .from("rides")
+                .update({ metadata: { ...(rideMeta?.metadata ?? {}), carried_fee_cents: carriedFeeCents } })
+                .eq("id", newRideId);
+            if (carryErr) console.error("carried fee tag failed:", carryErr.message);
+        }
 
         // Attach the rider's oldest still-unused claimed promo code (if any)
         // to this ride, so complete_ride can redeem it into the real fare
@@ -711,6 +733,9 @@ serve(async (req: Request) => {
                     payment_method: paymentMethod,
                     route_polyline: routePolyline,
                     driver: null,
+                    // Owed from an earlier late cancellation, paid in cash with this fare.
+                    carried_fee_cents: carriedFeeCents,
+                    cash_to_pay_cents: paymentMethod === "cash" ? fareCents + carriedFeeCents : null,
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
