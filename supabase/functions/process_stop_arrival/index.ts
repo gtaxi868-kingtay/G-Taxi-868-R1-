@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    const { delivery_id, stop_id } = await req.json()
+    const { delivery_id, stop_id, photo_url } = await req.json()
 
     if (!delivery_id) {
       return new Response(JSON.stringify({ error: 'delivery_id is required' }), {
@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .select('id, delivery_driver_id, delivery_status, status, actual_delivery_at')
+      .select('id, delivery_driver_id, delivery_status, status, actual_delivery_at, payment_method, merchant_id')
       .eq('id', delivery_id)
       .single()
 
@@ -135,33 +135,46 @@ Deno.serve(async (req) => {
       })
     }
 
-    const updatePayload: Record<string, any> = {
-      delivery_status: nextStatus,
-      status: nextStatus === 'delivered' ? 'delivered' : 'in_delivery',
-    }
-
+    // Final step: settle FIRST, through the same paths as grocery
+    // confirm_delivery (cash vs card). This used to set status='delivered'
+    // and THEN call process_order_delivery_payment, which only pays orders
+    // still in 'confirmed'/'out_for_delivery' -- so a delivery finished here
+    // was never paid while the app said "earnings added" (verified
+    // 2026-10-15). The settlement functions set status='delivered' themselves.
+    let payoutResult: any = null
     if (nextStatus === 'delivered') {
-      updatePayload.actual_delivery_at = new Date().toISOString()
-    }
+      const { data: settled, error: settleErr } = order.payment_method === 'cash'
+        ? await supabaseAdmin.rpc('process_cash_delivery_settlement', {
+            p_order_id: delivery_id,
+            p_driver_user_id: user.id,
+            p_merchant_id: order.merchant_id,
+            p_photo_url: photo_url ?? null,
+          })
+        : await supabaseAdmin.rpc('process_order_delivery_payment', {
+            p_order_id: delivery_id,
+            p_photo_url: photo_url ?? null,
+          })
+      if (settleErr || settled?.success === false) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: settled?.error || settleErr?.message || 'Could not settle this delivery',
+        }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      payoutResult = settled
+      await supabaseAdmin.from('orders').update({ delivery_status: 'delivered' }).eq('id', delivery_id)
+    } else {
+      // In transit. 'out_for_delivery' is the status both settlement
+      // functions accept at the end (the old 'in_delivery' was accepted by
+      // nothing and blocked payment).
+      const { error: updateError } = await supabaseAdmin
+        .from('orders')
+        .update({ delivery_status: nextStatus, status: 'out_for_delivery' })
+        .eq('id', delivery_id)
 
-    const { error: updateError } = await supabaseAdmin
-      .from('orders')
-      .update(updatePayload)
-      .eq('id', delivery_id)
-
-    if (updateError) {
-      return new Response(JSON.stringify({ error: 'Failed to update delivery status' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    let payoutResult = null
-    if (nextStatus === 'delivered') {
-      const { data: payout, error: payoutError } = await supabaseAdmin
-        .rpc('process_order_delivery_payment', { p_order_id: delivery_id })
-
-      if (!payoutError && payout) {
-        payoutResult = payout
+      if (updateError) {
+        return new Response(JSON.stringify({ error: 'Failed to update delivery status' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
       }
     }
 
@@ -173,6 +186,8 @@ Deno.serve(async (req) => {
       current_status: nextStatus,
       is_delivered: nextStatus === 'delivered',
       payout: payoutResult,
+      held: payoutResult?.held === true,
+      driver_payout_cents: payoutResult?.driver_payout_cents ?? null,
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

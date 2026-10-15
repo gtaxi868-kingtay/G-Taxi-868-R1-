@@ -21,6 +21,9 @@ export interface DeliveryOffer {
     // Enriched from push payload / local fetch
     merchant_name?: string;
     delivery_fee_cents?: number;
+    // What the driver is actually paid (server fills it from
+    // calculate_delivery_driver_payout when the offer is created).
+    driver_payout_cents?: number | null;
     total_cents?: number;
     merchant_address?: string;
     rider_address?: string;
