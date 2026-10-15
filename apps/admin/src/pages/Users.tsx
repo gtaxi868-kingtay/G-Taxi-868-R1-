@@ -44,8 +44,9 @@ export function Users() {
     if (!window.confirm(`${verb} ${u.name || u.email}?`)) return;
     setBusyId(u.id);
     try {
-      await adminFetch('admin', { action: 'toggle_role', target_user_id: u.id, new_role: newRole });
-      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: newRole } : x)));
+      const res = await adminFetch('admin', { action: 'toggle_role', target_user_id: u.id, new_role: newRole });
+      const finalRole = res?.role || newRole;
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: finalRole } : x)));
     } catch (err: any) {
       alert(err.message || 'Failed to change role');
     } finally {

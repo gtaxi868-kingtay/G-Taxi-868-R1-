@@ -25,13 +25,15 @@ Deno.serve(async (req) => {
         // unbounded (full-table scan on every dashboard load).
         const { data: profiles, error: pErr } = await supabaseAdmin
           .from('profiles')
-          .select('id, full_name, email, role')
+          .select('id, full_name, email, role, suspended')
           .order('created_at', { ascending: false })
           .limit(500)
         if (pErr) throw pErr
 
-        const { data: drivers } = await supabaseAdmin.from('drivers').select('user_id')
+        const { data: drivers } = await supabaseAdmin.from('drivers').select('user_id, verified_status')
         const driverIds = new Set((drivers || []).map((d: any) => d.user_id))
+        const driverStatus: Record<string, string> = {}
+        for (const d of drivers || []) driverStatus[d.user_id] = d.verified_status
 
         // Balance is SUM(amount) computed in Postgres, scoped to only the
         // users being displayed — was pulling the ENTIRE wallet_transactions
@@ -53,6 +55,11 @@ Deno.serve(async (req) => {
           email: p.email || 'No Email',
           role: p.role || 'rider',
           is_driver: driverIds.has(p.id),
+          // Fleet page used to offer "revoke" to every driver (even pending
+          // ones) and "authorize" only to people with no driver row (which
+          // then 404'd); and reactivate was impossible without 'suspended'.
+          driver_verified_status: driverStatus[p.id] ?? null,
+          suspended: !!p.suspended,
           balance_cents: balances[p.id] || 0,
         }))
 
@@ -132,12 +139,24 @@ Deno.serve(async (req) => {
         if (target_user_id === user.id && new_role !== 'admin') {
           return json({ error: 'Cannot demote yourself' }, 400)
         }
+        // Revoking admin used to make everyone a 'rider', so a commander,
+        // merchant or driver who had been made admin lost their real role.
+        // Restore the role their other records show.
+        let finalRole = new_role
+        if (new_role === 'rider') {
+          const [{ data: cmd }, { data: drv }, { data: mer }] = await Promise.all([
+            supabaseAdmin.from('pod_commanders').select('id').eq('user_id', target_user_id).eq('status', 'active').maybeSingle(),
+            supabaseAdmin.from('drivers').select('id').eq('user_id', target_user_id).maybeSingle(),
+            supabaseAdmin.from('merchants').select('id').eq('created_by', target_user_id).limit(1).maybeSingle(),
+          ])
+          finalRole = cmd ? 'pod_commander' : drv ? 'driver' : mer ? 'merchant' : 'rider'
+        }
         const { error } = await supabaseAdmin
           .from('profiles')
-          .update({ role: new_role, is_admin: new_role === 'admin' })
+          .update({ role: finalRole, is_admin: finalRole === 'admin' })
           .eq('id', target_user_id)
         if (error) throw error
-        return json({ success: true, user_id: target_user_id, role: new_role })
+        return json({ success: true, user_id: target_user_id, role: finalRole })
       }
 
       case 'create_merchant_user': {
