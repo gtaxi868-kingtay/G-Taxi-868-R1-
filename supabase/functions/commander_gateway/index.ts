@@ -1,13 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+import { getCorsHeaders } from '../_shared/cors.ts'
 
 const VALID_LIFECYCLE_STATUSES = ['manufactured', 'assigned', 'activated', 'live', 'suspended', 'replaced'];
 const COMMANDER_ALLOWED_TRANSITIONS: Record<string, string[]> = {
@@ -32,6 +26,10 @@ function computePromotionScore(ridesCompleted: number, rating: number | null, ac
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const supabaseAdmin = createClient(
@@ -122,7 +120,8 @@ Deno.serve(async (req) => {
           .from('kiosk_nodes').select('id, lifecycle_status, territory_id').eq('id', node_id).single();
         if (fetchError || !existing) return json({ success: false, error: 'Node not found' }, 404);
 
-        if (commander.territory_id && existing.territory_id !== commander.territory_id) {
+        if (!commander.territory_id) return json({ success: false, error: 'No territory assigned' }, 400);
+        if (existing.territory_id !== commander.territory_id) {
           return json({ success: false, error: 'Node not in your territory' }, 403);
         }
 
@@ -178,7 +177,8 @@ Deno.serve(async (req) => {
           .from('drivers').select('id, user_id, territory_id, status, verified_status, name').eq('id', driver_id).single();
         if (driverError || !driver) return json({ success: false, error: 'Driver not found' }, 404);
 
-        if (commander.territory_id && driver.territory_id !== commander.territory_id) {
+        if (!commander.territory_id) return json({ success: false, error: 'No territory assigned' }, 400);
+        if (driver.territory_id !== commander.territory_id) {
           return json({ success: false, error: 'Driver not in your territory' }, 403);
         }
 
@@ -192,10 +192,39 @@ Deno.serve(async (req) => {
             .update({ metrics: { ...metrics, drivers_onboarded: (metrics.drivers_onboarded || 0) + 1 } })
             .eq('id', commander.id);
 
-          await supabaseAdmin.rpc('send_push_notification', {
-            p_user_id: driver.user_id, p_title: 'Welcome to G-Taxi!',
-            p_body: 'Your driver application has been approved by your territory commander.',
-          }).maybeSingle();
+          await supabaseAdmin.functions.invoke('send_push_notification', {
+            body: {
+              user_id: driver.user_id,
+              title: 'Welcome to G-Taxi!',
+              body: 'Your driver application has been approved by your territory commander.',
+            },
+          }).then(null, () => {});
+
+          // Soft, non-blocking velocity flag: real driver-document
+          // verification is not enforced here yet (driver_documents is
+          // effectively unused pre-launch — hard-blocking on it would brick
+          // the only working driver-approval path today). This at least
+          // surfaces a commander approving an unusual number of drivers in
+          // a short window for admin review, per the pre-launch red-team
+          // pass (2026-09-03).
+          const { count: recentApprovals } = await supabaseAdmin
+            .from('drivers')
+            .select('id', { count: 'exact', head: true })
+            .eq('territory_id', commander.territory_id)
+            .eq('is_verified', true)
+            .gte('updated_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+          if ((recentApprovals ?? 0) >= 10) {
+            await supabaseAdmin.from('system_alerts').insert({
+              type: 'COMMANDER_APPROVAL_VELOCITY',
+              title: 'Commander approved an unusually high number of drivers',
+              details: {
+                commander_id: commander.id,
+                territory_id: commander.territory_id,
+                approvals_last_24h: recentApprovals,
+              },
+              severity: 'MEDIUM',
+            }).then(null, () => {});
+          }
         }
 
         const { data: updatedDriver } = await supabaseAdmin.from('drivers').select('*').eq('id', driver_id).single();
@@ -214,7 +243,8 @@ Deno.serve(async (req) => {
           .from('merchants').select('id, name, territory_id, activation_status').eq('id', merchant_id).single();
         if (merchError || !merchant) return json({ success: false, error: 'Merchant not found' }, 404);
 
-        if (commander.territory_id && merchant.territory_id !== commander.territory_id) {
+        if (!commander.territory_id) return json({ success: false, error: 'No territory assigned' }, 400);
+        if (merchant.territory_id !== commander.territory_id) {
           return json({ success: false, error: 'Merchant not in your territory' }, 403);
         }
 
@@ -236,9 +266,11 @@ Deno.serve(async (req) => {
       case 'get_driver_queue': {
         let query = supabaseAdmin
           .from('drivers')
-          .select('*, profile:user_id(id, full_name, email, phone_number, created_at)')
-          .in('verified_status', ['unverified', 'pending'])
-          .in('status', ['offline', 'pending']);
+          // Drivers never get a profiles row, and drivers.user_id has no FK to
+          // profiles, so the old profile:user_id embed failed every call. Name
+          // and phone live on drivers itself.
+          .select('id, user_id, name, phone_number, vehicle_model, plate_number, vehicle_type, verified_status, status, territory_id, created_at')
+          .in('verified_status', ['unverified', 'pending']);
         if (commander.territory_id) query = query.eq('territory_id', commander.territory_id);
         const { data, error } = await query.order('created_at', { ascending: false });
         if (error) throw error;
@@ -378,7 +410,8 @@ Deno.serve(async (req) => {
           .eq('id', driver_id).single();
         if (driverError2 || !driver) return json({ success: false, error: 'Driver not found' }, 404);
 
-        if (commander.territory_id && driver.territory_id !== commander.territory_id) {
+        if (!commander.territory_id) return json({ success: false, error: 'No territory assigned' }, 400);
+        if (driver.territory_id !== commander.territory_id) {
           return json({ success: false, error: 'Driver not in your territory' }, 403);
         }
 
@@ -441,10 +474,13 @@ Deno.serve(async (req) => {
           .eq('id', commander.id).maybeSingle();
 
         if (driver.user_id) {
-          await supabaseAdmin.rpc('send_push_notification', {
-            p_user_id: driver.user_id, p_title: 'Promotion!',
-            p_body: `You've been promoted to ${target_rank.replace('_', ' ')}!`,
-          }).maybeSingle();
+          await supabaseAdmin.functions.invoke('send_push_notification', {
+            body: {
+              user_id: driver.user_id,
+              title: 'Promotion!',
+              body: `You've been promoted to ${target_rank.replace('_', ' ')}!`,
+            },
+          }).then(null, () => {});
         }
 
         const { data: updatedDriver } = await supabaseAdmin.from('drivers').select('*').eq('id', driver_id).single();
