@@ -16,6 +16,14 @@ import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 const CYAN = '#06B6D4';
 
 const STATUS_STEPS = ['pending', 'picked_up', 'processing', 'ready', 'delivered'];
+// Real order statuses mapped onto these steps: dispatch/driver steps use the
+// shared order vocabulary (process_stop_arrival -> out_for_delivery).
+const STEP_ALIAS: Record<string, string> = {
+    confirmed: 'pending',
+    out_for_delivery: 'picked_up',
+    preparing: 'processing',
+    ready_for_pickup: 'ready',
+};
 const STATUS_LABELS: Record<string, string> = {
     pending: 'Order Confirmed',
     picked_up: 'Picked Up',
@@ -102,7 +110,7 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
         return () => { channel.unsubscribe(); };
     }, [orderId, retryKey]);
 
-    const currentStep = STATUS_STEPS.indexOf(status);
+    const currentStep = STATUS_STEPS.indexOf(STEP_ALIAS[status] ?? status);
 
     return (
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
