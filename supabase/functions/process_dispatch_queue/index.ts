@@ -119,14 +119,21 @@ async function dispatchRideRound(supabaseAdmin: any, item: any, now: Date) {
 
   const driver = pool.find((d: any) => d.id === claimed.driver_id);
 
-  const { data: driverRow } = await supabaseAdmin
-    .from("drivers").select("commission_tier").eq("id", claimed.driver_id).maybeSingle();
-  const { data: platRateRow } = await supabaseAdmin
-    .from("pricing_config").select("value_cents").eq("key", "PLATFORM_RATE_CENTS").maybeSingle()
-    .then((__r: any) => __r, () => ({ data: null }));
-  const platRate = platRateRow ? (platRateRow.value_cents ?? 1500) / 10000 : 0.15;
-  const commissionRate = driverRow?.commission_tier === "pioneer" ? Math.max(0.01, platRate - 0.03) : platRate;
-  const driverPayout = Math.round((ride.total_fare_cents || 0) * (1 - commissionRate));
+  // What the driver will actually be paid: compute_ride_split's driver_net
+  // (80%, or 78% while their recruiter is an active commander), via
+  // estimate_offer_driver_payout. This used to be fare x (1 - PLATFORM_RATE)
+  // = 85% (88% for "pioneer"), which compute_ride_split never pays -- every
+  // offer promised more than the driver got. If the estimate fails, fall back
+  // to the LOWEST base share (78%): an offer may under-state, never over-state.
+  const fareCents = ride.total_fare_cents || 0;
+  const { data: payoutEstimate, error: payoutErr } = await supabaseAdmin.rpc("estimate_offer_driver_payout", {
+    p_gross_cents: fareCents,
+    p_driver_id: claimed.driver_id,
+  });
+  if (payoutErr) console.error("estimate_offer_driver_payout failed, using 78% floor:", payoutErr.message);
+  const driverPayout = typeof payoutEstimate === "number" && !payoutErr
+    ? payoutEstimate
+    : Math.round(fareCents * 0.78);
 
   const offerExpiresAt = new Date(Date.now() + RIDE_OFFER_SECONDS * 1000).toISOString();
   const { error: offerErr } = await supabaseAdmin.from("ride_offers").insert({
