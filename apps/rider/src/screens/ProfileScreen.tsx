@@ -119,29 +119,12 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
         { label: 'Legal & Privacy', icon: 'document-text-outline', nav: 'Legal' },
     ];
 
+    // Deletion is the 30-day request/cancel flow, which lives in Settings
+    // (confirmation step, status, and cancel). The old path here called a
+    // hard-delete and signed the rider out even if it failed.
     const handleDeleteAccount = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        import('react-native').then(({ Alert }) => {
-            Alert.alert(
-                'Delete Account & Data',
-                'This action is irreversible and will purge all your history, wallet, and profile data per GDPR compliance. Are you absolutely sure?',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { 
-                        text: 'Permanently Delete', 
-                        style: 'destructive',
-                        onPress: async () => {
-                            try {
-                                await supabase.functions.invoke('delete_account');
-                                await signOut();
-                            } catch (e) {
-                                Alert.alert('Error', 'Failed to delete account.');
-                            }
-                        }
-                    }
-                ]
-            );
-        }).catch(() => {});
+        navigation.navigate('Settings');
     };
 
     if (loading) {

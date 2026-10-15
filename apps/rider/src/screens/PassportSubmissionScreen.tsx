@@ -73,10 +73,18 @@ export default function PassportSubmissionScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSubmitting(true);
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setSubmitting(false);
+      Alert.alert('Signed out', 'Please sign in again.');
+      return;
+    }
+
     const { error } = await supabase
       .from('passenger_details')
       .upsert({
         participant_id: participantId,
+        rider_id: user.id,
         full_name: fullName.trim(),
         date_of_birth: dateOfBirth.trim(),
         gender,
