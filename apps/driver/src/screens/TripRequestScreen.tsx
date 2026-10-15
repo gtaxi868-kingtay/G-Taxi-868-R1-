@@ -24,7 +24,10 @@ const WARNING = '#E6B450';
 const ERROR = '#EF4444';
 const SUCCESS = '#00FF94';
 
-const DEFAULT_DRIVER_SHARE = 0.82;
+// Only used if an offer arrives without driver_payout_cents. The real share
+// is 80% (78% while the driver's recruiter is an active commander); use the
+// lowest so the screen can never promise more than the payout.
+const DEFAULT_DRIVER_SHARE = 0.78;
 const ARC_SIZE = 180;
 
 function paymentLabel(method: string | null): string {
