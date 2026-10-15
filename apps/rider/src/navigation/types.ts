@@ -109,6 +109,9 @@ export type AppStackParamList = {
     kioskId?: string;
     taxiStandId?: string;
     editPickupMode?: boolean;
+    // Opened from Saved Places "Add new place": picking a result saves it
+    // instead of booking a ride.
+    saveMode?: boolean;
   };
   RideConfirmation: RideConfirmationParams;
   RideReview: {

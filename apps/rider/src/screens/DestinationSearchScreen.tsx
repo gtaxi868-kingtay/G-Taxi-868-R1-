@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity,
     FlatList, ScrollView, ActivityIndicator, Keyboard,
-    KeyboardAvoidingView, Platform,
+    KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -12,7 +12,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import { supabase, SavedPlace, Location as RideLocation, DEFAULT_LOCATION } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
-import { getRecentRides, getSavedPlaces } from '../services/api';
+import { getRecentRides, getSavedPlaces, savePlace } from '../services/api';
 import { AppScreenProps } from '../navigation/types';
 
 interface RecentItem { id: string; name: string; address: string; latitude: number; longitude: number; }
@@ -20,7 +20,7 @@ interface RecentItem { id: string; name: string; address: string; latitude: numb
 export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'DestinationSearch'>) {
     const insets = useSafeAreaInsets();
     const netInfo = useNetInfo();
-    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode } = route.params || {};
+    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode, saveMode } = route.params || {};
 
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
@@ -129,6 +129,26 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
 
         // editPickupMode: the rider is correcting their PICKUP (from Home's GPS-accuracy
         // prompt). Set it as the new pickup, then drop back into a normal destination search.
+        if (saveMode) {
+            const store = async (label: string, icon: string) => {
+                const saved = await savePlace({ label, address, lat: latitude, lng: longitude, icon } as any);
+                if (!saved) {
+                    Alert.alert('Could not save', 'Please try again.');
+                    return;
+                }
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                navigation.goBack();
+            };
+            const short = (address || 'Saved place').split(',')[0].slice(0, 40);
+            Alert.alert('Save this place as', address, [
+                { text: 'Home', onPress: () => store('Home', '🏠') },
+                { text: 'Work', onPress: () => store('Work', '💼') },
+                { text: short, onPress: () => store(short, '📍') },
+                { text: 'Cancel', style: 'cancel' },
+            ]);
+            return;
+        }
+
         if (editPickupMode) {
             navigation.replace('DestinationSearch', {
                 currentLocation: { latitude, longitude, address },

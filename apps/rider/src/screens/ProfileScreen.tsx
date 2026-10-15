@@ -111,7 +111,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
         { label: 'AI Assistant & Safety', icon: 'sparkles-outline', nav: 'AISettings' },
         { label: 'AI Scanner', icon: 'scan-outline', nav: 'VisionScanner' },
         { label: 'Payment Methods', icon: 'card-outline', nav: 'Wallet' },
-        { label: 'Saved Places', icon: 'location-outline', nav: 'DestinationSearch', params: { mode: 'save' } },
+        { label: 'Saved Places', icon: 'location-outline', nav: 'SavedPlaces' },
         { label: 'G Spot', icon: 'wine-outline', nav: 'GSpot' },
         { label: 'Promos', icon: 'gift-outline', nav: 'Promo' },
 
