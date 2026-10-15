@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, TextInput,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -72,6 +72,8 @@ export function BecomeCommanderScreen({ navigation }: AppScreenProps<'BecomeComm
 
   const [checklist, setChecklist] = useState<boolean[]>(new Array(CHECKLIST_ITEMS.length).fill(false));
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [area, setArea] = useState('');
 
   const isUnlocked =
     driverStats !== null &&
@@ -86,28 +88,22 @@ export function BecomeCommanderScreen({ navigation }: AppScreenProps<'BecomeComm
     : 0;
 
   const allChecked = checklist.every(Boolean);
-  const canSubmit = isUnlocked && allChecked && agreedToTerms;
+  const canSubmit = isUnlocked && allChecked && agreedToTerms && phone.trim().length >= 7 && area.trim().length >= 2;
 
   const fetchPrerequisites = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setError('Not authenticated'); setLoading(false); return; }
-      const { data: driverRow, error: driverErr } = await supabase
-        .from('drivers')
-        .select('rides_count, rating')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (driverErr) throw driverErr;
-      if (driverRow) {
-        setDriverStats({
-          rides_count: driverRow.rides_count || 0,
-          rating: driverRow.rating || 0,
-        });
-      } else {
-        setDriverStats({ rides_count: 0, rating: 0 });
-      }
+      // Counted server-side from finished rides; the same numbers the
+      // application itself is checked against.
+      const { data: stats, error: statsErr } = await supabase.rpc('driver_commander_stats');
+      if (statsErr) throw statsErr;
+      setDriverStats({
+        rides_count: Number(stats?.rides_count) || 0,
+        rating: Number(stats?.rating) || 0,
+      });
+      if (stats?.phone) setPhone((p) => p || stats.phone);
+      if (stats?.application_status === 'pending') setSubmitted(true);
     } catch (err: any) {
       setError(err.message || 'Failed to load driver stats');
     } finally {
@@ -121,23 +117,14 @@ export function BecomeCommanderScreen({ navigation }: AppScreenProps<'BecomeComm
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { Alert.alert('Error', 'Not authenticated'); return; }
-
-      const { error: insertError } = await supabase.from('commander_applications').insert({
-        user_id: user.id,
-        full_name: '',
-        phone: '',
-        area: '',
-        reasoning: 'Commander application via G-Level unlock',
-        status: 'pending',
+      const { data, error: applyError } = await supabase.rpc('apply_to_be_commander', {
+        p_phone: phone.trim(),
+        p_area: area.trim(),
       });
-      if (insertError) {
-        if (insertError.code === '23505') {
-          Alert.alert('Already Applied', 'You already have a pending application.');
-          return;
-        }
-        throw insertError;
+      if (applyError) throw applyError;
+      if (!data?.success) {
+        Alert.alert('Could not apply', data?.error || 'Please try again.');
+        return;
       }
 
       setSubmitted(true);
@@ -324,6 +311,29 @@ export function BecomeCommanderScreen({ navigation }: AppScreenProps<'BecomeComm
         </TouchableOpacity>
       </LiquidGlassCard>
 
+      {/* CONTACT */}
+      <LiquidGlassCard accentColor="#60A5FA" style={{ marginBottom: 20 }}>
+        <Text style={[s.sectionTitle, { color: '#60A5FA', marginBottom: 12 }]}>HOW HQ REACHES YOU</Text>
+        <TextInput
+          style={s.input}
+          value={phone}
+          onChangeText={setPhone}
+          placeholder="WhatsApp / phone number"
+          placeholderTextColor="rgba(255,255,255,0.3)"
+          keyboardType="phone-pad"
+        />
+        <TextInput
+          style={s.input}
+          value={area}
+          onChangeText={setArea}
+          placeholder="Area you want to lead (e.g. Arima)"
+          placeholderTextColor="rgba(255,255,255,0.3)"
+        />
+        <Text style={s.progressHelp}>
+          Commander status has a TT$500 buy-in. HQ will contact you about payment before your application is approved.
+        </Text>
+      </LiquidGlassCard>
+
       {/* SUBMIT CTA */}
       <TouchableOpacity
         style={[s.submitBtn, !canSubmit && s.submitBtnDisabled]}
@@ -337,7 +347,8 @@ export function BecomeCommanderScreen({ navigation }: AppScreenProps<'BecomeComm
           <>
             <Ionicons name="shield-checkmark-sharp" size={20} color="#000" />
             <Text style={s.submitBtnText}>
-              {allChecked && agreedToTerms ? 'APPLY TO BECOME COMMANDER' : 'COMPLETE CHECKLIST TO APPLY'}
+              {!(allChecked && agreedToTerms) ? 'COMPLETE CHECKLIST TO APPLY'
+                : canSubmit ? 'APPLY TO BECOME COMMANDER' : 'ADD YOUR PHONE AND AREA'}
             </Text>
           </>
         )}
@@ -362,7 +373,7 @@ export function BecomeCommanderScreen({ navigation }: AppScreenProps<'BecomeComm
           </View>
           <Text style={s.successTitle}>Application Submitted</Text>
           <Text style={s.successBody}>
-            Your Commander application is under review. HQ will verify your stats and contact you within 48 hours. You will receive a push notification when approved.
+            Your Commander application is under review. HQ will contact you on the number you gave about the TT$500 buy-in and next steps.
           </Text>
           <TouchableOpacity style={s.doneCta} onPress={() => navigation.goBack()}>
             <Text style={s.doneCtaText}>BACK TO PROFILE</Text>
@@ -521,6 +532,19 @@ const s = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255,255,255,0.4)',
     fontFamily: 'Inter_400Regular',
+  },
+
+  input: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#FFF',
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    marginBottom: 10,
   },
 
   benefitsList: { width: '100%' },
