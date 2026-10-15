@@ -139,14 +139,14 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         const handleAppStateChange = async (nextAppState: string) => {
             if (nextAppState === 'background' || nextAppState === 'inactive') {
                 if (driver?.is_online) {
-                    await supabase.from('drivers').update({ last_heartbeat_at: new Date().toISOString() }).eq('id', driver.id);
+                    await supabase.from('drivers').update({ last_seen: new Date().toISOString() }).eq('id', driver.id);
                 }
             }
         };
         const subscription = AppState.addEventListener('change', handleAppStateChange);
         const heartbeatInterval = setInterval(async () => {
             if (driver?.is_online && AppState.currentState === 'active') {
-                await supabase.from('drivers').update({ last_heartbeat_at: new Date().toISOString() }).eq('id', driver.id);
+                await supabase.from('drivers').update({ last_seen: new Date().toISOString() }).eq('id', driver.id);
             }
         }, 30000);
         return () => {
@@ -303,11 +303,13 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             <NfcIdentityHandler
                 visible={nfcVisible}
                 onClose={() => setNfcVisible(false)}
-                onSuccess={(profile) => {
+                onSuccess={async (profile) => {
                     if (!profile) { Alert.alert('Key Error', 'Could not read profile data.'); return; }
-                    const name = profile.full_name || 'Unknown Driver';
-                    const balance = ((profile.balance_cents ?? 0) / 100).toFixed(2);
-                    Alert.alert('Key Recognized', `Linked to: ${name}\nBalance: $${balance}`);
+                    const name = profile.full_name || 'you';
+                    // profiles has no balance column; the wallet ledger is the truth.
+                    const { data: cents } = await supabase.rpc('get_wallet_balance', { p_user_id: profile.id });
+                    const balance = typeof cents === 'number' ? `TT$${(cents / 100).toFixed(2)}` : 'unavailable';
+                    Alert.alert('Key Recognized', `Linked to: ${name}\nWallet: ${balance}`);
                 }}
             />
 
