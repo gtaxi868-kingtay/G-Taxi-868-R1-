@@ -3,31 +3,6 @@ import { captureException } from '../_shared/sentry.ts'
 import { chat, llmConfigured } from '../_shared/llm.ts'
 import { getCorsHeaders } from '../_shared/cors.ts'
 
-async function computeSettlement(grossCents: number, supabaseAdmin: any): Promise<{
-  reserveCents: number; platformFeeCents: number; driverPayoutCents: number; platformRate: number
-}> {
-  const { data: platRateRow } = await supabaseAdmin
-    .from('pricing_config')
-    .select('value_cents')
-    .eq('key', 'PLATFORM_RATE_CENTS')
-    .maybeSingle()
-    .then((v: any) => v, () => ({ data: null }))
-  const platformRate = platRateRow ? (platRateRow.value_cents ?? 1500) / 10000 : 0.15
-
-  const { data: reserveRateRow } = await supabaseAdmin
-    .from('pricing_config')
-    .select('value_cents')
-    .eq('key', 'RESERVE_RATE_CENTS')
-    .maybeSingle()
-    .then((v: any) => v, () => ({ data: null }))
-  const reserveRate = reserveRateRow ? (reserveRateRow.value_cents ?? 300) / 10000 : 0.03
-
-  const platformFeeCents = Math.round(grossCents * platformRate)
-  const reserveCents = Math.round(grossCents * reserveRate)
-  const driverPayoutCents = grossCents - platformFeeCents - reserveCents
-  return { reserveCents, platformFeeCents, driverPayoutCents, platformRate }
-}
-
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req)
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -354,7 +329,10 @@ Deno.serve(async (req) => {
 
         const { data: ride, error: rideError } = await supabaseAdmin
           .from('rides')
-          .select('*, rider:profiles!rider_id(id, phone)')
+          // (was '*, rider:profiles!rider_id(id, phone)': rides.rider_id has no
+          // FK to profiles and profiles has no phone column, so this failed
+          // for every ride and force-complete always said "Ride not found")
+          .select('*')
           .eq('id', ride_id)
           .single()
         if (rideError || !ride) return json({ success: false, error: 'Ride not found' }, 404)
@@ -374,98 +352,97 @@ Deno.serve(async (req) => {
         }
 
         const grossCents = ride.total_fare_cents || 0
-        const settlement = await computeSettlement(grossCents, supabaseAdmin)
 
         let paymentMethod = ride.payment_method || 'cash'
-        let willProcess = false
-        let paymentWarning: string | null = null
-
         if (process_payment === true) {
           paymentMethod = payment_method_override || ride.payment_method || 'cash'
-          if (paymentMethod === 'wallet') {
-            if (ride.status !== 'in_progress') {
-              return json({ success: false, error: 'Wallet payment requires ride to be in_progress' }, 400)
-            }
-            willProcess = true
-            paymentWarning = 'Processing wallet payment — reserve will be locked by RPC'
-          } else if (paymentMethod === 'cash') {
-            willProcess = true
-            paymentWarning = 'Recording cash payment — reserve will be locked'
-          } else if (['waive', 'comp'].includes(paymentMethod)) {
-            paymentMethod = 'waived'
-            paymentWarning = 'Ride fare waived — no reserve collected'
-          } else {
+          if (['waive', 'comp'].includes(paymentMethod)) paymentMethod = 'waived'
+          if (!['wallet', 'cash', 'waived'].includes(paymentMethod)) {
             return json({ success: false, error: `Unknown payment method: ${paymentMethod}` }, 400)
           }
+          if (paymentMethod === 'wallet' && ride.status !== 'in_progress') {
+            return json({ success: false, error: 'Wallet payment requires ride to be in_progress' }, 400)
+          }
+        }
+
+        // The split comes from compute_ride_split, the single source of truth
+        // (this used to use its own 82/15/3 math). Settlement runs through the
+        // SAME functions complete_ride uses, BEFORE the status change, so a
+        // failed settlement never leaves a 'completed' ride with no money
+        // booked. Admin override: no promo/loyalty discount is applied.
+        const { data: split, error: splitErr } = await supabaseAdmin.rpc('compute_ride_split', {
+          p_ride_id: ride_id, p_gross_cents: grossCents, p_discount_cents: 0, p_loyalty_rate_bps: 0,
+        })
+        if (splitErr) return json({ success: false, error: `Could not compute split: ${splitErr.message}` }, 500)
+
+        let paymentResult: { success: boolean; error: string | null; transaction_id: string | null } =
+          { success: false, error: 'Not attempted', transaction_id: null }
+        if (process_payment === true && paymentMethod === 'wallet') {
+          const { data: walletResult, error: walletError } = await supabaseAdmin.rpc('process_wallet_payment_hardened', {
+            p_ride_id: ride_id, p_amount: grossCents, p_idempotency_key: `admin_complete_${ride_id}`,
+            p_discount_cents: 0, p_loyalty_rate_bps: 0,
+          })
+          const row = Array.isArray(walletResult) ? walletResult[0] : walletResult
+          if (walletError || !row?.success) {
+            return json({ success: false, error: `Wallet payment failed: ${walletError?.message || row?.error_message || 'declined'}` }, 400)
+          }
+          paymentResult = { success: true, error: null, transaction_id: row.transaction_id ?? null }
+        } else if (process_payment === true && paymentMethod === 'cash') {
+          const { data: cashSettled, error: cashError } = await supabaseAdmin.rpc('settle_cash_ride', {
+            p_ride_id: ride_id, p_loyalty_rate_bps: 0,
+          })
+          if (cashError || !cashSettled) {
+            return json({ success: false, error: `Cash settlement failed: ${cashError?.message || 'no result'}` }, 400)
+          }
+          paymentResult = { success: true, error: null, transaction_id: null }
+        } else if (paymentMethod === 'waived') {
+          paymentResult = { success: true, error: null, transaction_id: null }
         }
 
         const auditLog = {
           timestamp: new Date().toISOString(), admin_id: user.id, admin_email: user.email,
           action: 'admin_force_complete', ride_id, previous_status: ride.status, new_status: 'completed',
           safety_override: ride.status !== 'in_progress',
-          settlement: { gross_cents: grossCents, ...settlement },
-          payment_intent: { will_process: willProcess, method: paymentMethod, amount: grossCents, warning: paymentWarning },
+          settlement: { gross_cents: grossCents, split },
+          payment_intent: { processed: process_payment === true, method: paymentMethod, amount: grossCents },
           ip_address: req.headers.get('x-forwarded-for') || 'unknown',
           user_agent: req.headers.get('user-agent') || 'unknown',
         }
         supabaseAdmin.from('admin_audit_log').insert(auditLog).then(null, () => {})
 
-        const { error: updateError } = await supabaseAdmin
+        // Split numbers on the row were written by the settlement function
+        // (when one ran); only the status/override fields are set here.
+        const { error: updateError, count } = await supabaseAdmin
           .from('rides')
           .update({
             status: 'completed', admin_override: true, admin_id: user.id,
             completed_at: new Date().toISOString(), payment_method: paymentMethod,
-            driver_payout_cents: settlement.driverPayoutCents,
-            reserve_cents: settlement.reserveCents,
-            platform_fee_cents: settlement.platformFeeCents,
             updated_at: new Date().toISOString(),
-          })
+          }, { count: 'exact' })
           .eq('id', ride_id)
           .eq('status', ride.status)
-        if (updateError) throw new Error(`Failed to update ride: ${updateError.message}`)
-
-        let paymentResult = { success: false, error: 'Not attempted' as string | null, transaction_id: null as string | null }
-        if (willProcess && paymentMethod === 'wallet') {
-          const { data: walletResult, error: walletError } = await supabaseAdmin.rpc(
-            'process_wallet_payment_hardened',
-            { p_ride_id: ride_id, p_amount: grossCents, p_idempotency_key: `admin_complete_${ride_id}` }
-          )
-          if (walletError) {
-            paymentResult = { success: false, error: walletError.message, transaction_id: null }
-          } else if (walletResult?.[0]) {
-            paymentResult = { success: walletResult[0].success, error: walletResult[0].error_message, transaction_id: walletResult[0].transaction_id }
-          }
-        } else if (paymentMethod === 'cash' || paymentMethod === 'waived') {
-          paymentResult = { success: true, error: null, transaction_id: null }
-        }
-
-        if (paymentMethod !== 'wallet' && settlement.reserveCents > 0) {
-          await supabaseAdmin.from('capital_reserve_ledger').insert({
-            ride_id, amount_cents: settlement.reserveCents, status: 'locked',
-            notes: `Admin force-complete (${paymentMethod}) — reserve locked`,
-          }).then(null, () => {})
+        if (updateError || count === 0) {
+          // Settlement (if any) is already booked and idempotent; say so plainly.
+          return json({
+            success: false,
+            error: `Ride changed status while completing (${updateError?.message || 'no longer ' + ride.status}). Payment ${paymentResult.success ? 'WAS recorded' : 'was not recorded'}; refresh and check before retrying.`,
+          }, 409)
         }
 
         await supabaseAdmin.from('ride_events').insert({
           ride_id, event_type: 'admin_force_completed', actor_type: 'admin', actor_id: user.id,
           metadata: { previous_status: ride.status, payment_processed: paymentResult.success, payment_method: paymentMethod },
         })
-        await supabaseAdmin.rpc('log_platform_revenue', {
-          p_ride_id: ride_id, p_order_id: ride.order_id || null,
-          p_merchant_id: ride.billed_to_merchant_id || ride.merchant_id || null,
-          p_gross_cents: grossCents, p_payout_cents: settlement.driverPayoutCents,
-          p_merchant_earnings_cents: 0, p_reserve_cents: settlement.reserveCents,
-        }).then(null, () => {})
 
         return json({
           success: true, ride_id, previous_status: ride.status, new_status: 'completed',
-          settlement: { gross_cents: grossCents, ...settlement },
+          settlement: { gross_cents: grossCents, split },
           payment: paymentResult, audit_logged: true,
         })
       }
 
       case 'refund': {
-        const { ride_id, reason } = body
+        const { ride_id, reason, amount_cents, ticket_id } = body
         if (!ride_id) throw new Error('ride_id is required')
         const { data: ride } = await supabaseAdmin
           .from('rides')
@@ -475,8 +452,17 @@ Deno.serve(async (req) => {
         if (!ride || !ride.rider_id || !ride.total_fare_cents) throw new Error('Ride not found or fare invalid')
         if (ride.payment_status === 'refunded') throw new Error('Ride is already refunded')
 
+        // The admin's typed amount used to be ignored: every refund paid the
+        // full fare. Now: the amount given (whole fare if none), never more
+        // than the fare. One refund per ride (payment_status -> refunded).
+        const refundCents = amount_cents == null ? ride.total_fare_cents : Math.round(Number(amount_cents))
+        if (!Number.isFinite(refundCents) || refundCents <= 0 || refundCents > ride.total_fare_cents) {
+          return json({ success: false, error: `Refund must be between 1 and ${ride.total_fare_cents} cents` }, 400)
+        }
+        const refundShare = refundCents / ride.total_fare_cents
+
         const { error: rpcError } = await supabaseAdmin.rpc('admin_wallet_adjust', {
-          p_user_id: ride.rider_id, p_amount_cents: ride.total_fare_cents,
+          p_user_id: ride.rider_id, p_amount_cents: refundCents,
           p_reason: 'REFUND RIDE ' + ride_id + (reason ? ' - ' + reason : ''), p_admin_id: user.id,
         })
         if (rpcError) throw rpcError
@@ -491,7 +477,8 @@ Deno.serve(async (req) => {
               .eq('transaction_type', 'driver_payout')
               .limit(1)
             if (driverPayments?.[0]) {
-              const payoutAmount = Math.abs(driverPayments[0].amount)
+              // Claw back the same share of the driver's payout as was refunded.
+              const payoutAmount = Math.round(Math.abs(driverPayments[0].amount) * refundShare)
               await supabaseAdmin.rpc('admin_wallet_adjust', {
                 p_user_id: d.user_id, p_amount_cents: -payoutAmount,
                 p_reason: 'CLAWBACK: driver payout reversed for refund of ride ' + ride_id, p_admin_id: user.id,
@@ -509,7 +496,36 @@ Deno.serve(async (req) => {
           .update({ payment_status: 'refunded', updated_at: new Date().toISOString() })
           .eq('id', ride_id)
         if (updateError) throw updateError
-        return json({ success: true, ride_id, refunded_cents: ride.total_fare_cents })
+
+        if (ticket_id) {
+          await supabaseAdmin.from('support_tickets').update({
+            refund_amount_cents: refundCents, updated_at: new Date().toISOString(),
+          }).eq('id', ticket_id)
+        }
+        return json({ success: true, ride_id, refunded_cents: refundCents })
+      }
+
+      // Support tickets: the admin page used to update support_tickets
+      // straight from the browser, which the table's grants refuse, so a
+      // "resolved" ticket was never saved. Valid statuses: open, in_review,
+      // resolved, closed ('rejected' from the UI is recorded as closed).
+      case 'resolve_ticket': {
+        const { ticket_id, status, note } = body
+        if (!ticket_id || !note || !String(note).trim()) {
+          return json({ success: false, error: 'ticket_id and a resolution note are required' }, 400)
+        }
+        const finalStatus = status === 'resolved' ? 'resolved' : 'closed'
+        const { data: ticket, error: tErr } = await supabaseAdmin
+          .from('support_tickets')
+          .update({
+            status: finalStatus, resolution_note: String(note).trim(), resolved_by: user.id,
+            resolved_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+          })
+          .eq('id', ticket_id)
+          .select('id, status')
+          .single()
+        if (tErr || !ticket) return json({ success: false, error: tErr?.message || 'Ticket not found' }, 404)
+        return json({ success: true, ticket })
       }
 
       case 'get_revenue_logs': {
@@ -1348,7 +1364,7 @@ Deno.serve(async (req) => {
         if (!progression?.length) return json({ data: [] })
 
         const riderIds = progression.map((p: any) => p.rider_id)
-        const { data: profiles } = await supabaseAdmin.from('profiles').select('id, name, email').in('id', riderIds)
+        const { data: profiles } = await supabaseAdmin.from('profiles').select('id, name:full_name, email').in('id', riderIds)
         const { data: configs } = await supabaseAdmin.from('progression_config').select('level, threshold_type, threshold_value, unlock_verticals, push_title').order('level')
         const profileMap = Object.fromEntries((profiles || []).map((p: any) => [p.id, p]))
 
@@ -1442,7 +1458,7 @@ Deno.serve(async (req) => {
             insurance_provider, insurance_policy_number, insurance_annual_premium_cents,
             insurance_commission_bps, insurance_expires_at, insurance_commission_paid,
             broker_license_ref, broker_of_record,
-            drivers!inner(profiles(name)),
+            drivers!inner(name, phone_number),
             fleet_vehicles!inner(id, make, model, year, license_plate, ownership_type)
           `)
           .order('created_at', { ascending: false })
@@ -1467,7 +1483,9 @@ Deno.serve(async (req) => {
             const { data, error } = await supabaseAdmin.from('fleet_vehicles').insert({
               make: vehicle.make, model: vehicle.model, year: vehicle.year,
               license_plate: vehicle.license_plate, ownership_type: vehicle.ownership_type || 'g-taxi',
-              vehicle_class: vehicle.vehicle_class || null, status: vehicle.status || 'available',
+              // fleet_vehicles has no vehicle_class column (every create
+              // failed); the class is stored in vehicle_type.
+              vehicle_type: vehicle.vehicle_class || vehicle.vehicle_type || null, status: vehicle.status || 'available',
             }).select().single()
             if (error) throw error
             return json({ success: true, vehicle: data })
@@ -1476,9 +1494,10 @@ Deno.serve(async (req) => {
             const { vehicle } = body
             if (!vehicle?.id) return json({ success: false, error: 'vehicle.id required' }, 400)
             const updateData: Record<string, unknown> = {}
-            for (const k of ['make', 'model', 'year', 'license_plate', 'ownership_type', 'vehicle_class', 'status']) {
+            for (const k of ['make', 'model', 'year', 'license_plate', 'ownership_type', 'vehicle_type', 'status']) {
               if (vehicle[k] !== undefined) updateData[k] = vehicle[k]
             }
+            if (vehicle.vehicle_class !== undefined) updateData.vehicle_type = vehicle.vehicle_class
             const { data, error } = await supabaseAdmin.from('fleet_vehicles').update(updateData).eq('id', vehicle.id).select().single()
             if (error) throw error
             return json({ success: true, vehicle: data })
@@ -1528,7 +1547,7 @@ Deno.serve(async (req) => {
         let profileMap: Record<string, { name: string | null; email: string | null }> = {}
         if (userIds.length > 0) {
           const { data: profiles } = await supabaseAdmin
-            .from('profiles').select('id, name, email').in('id', userIds)
+            .from('profiles').select('id, name:full_name, email').in('id', userIds)
           for (const p of profiles ?? []) profileMap[p.id] = { name: p.name, email: p.email }
         }
 

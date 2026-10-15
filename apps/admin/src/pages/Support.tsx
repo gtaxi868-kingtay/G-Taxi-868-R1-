@@ -103,31 +103,22 @@ export const Support = () => {
         }
         setProcessing(true);
         try {
-            const { supabase } = await import('../lib/supabase');
-
-            if (action === 'resolved' && ticket.category === 'refund_request' && refundAmount) {
-                const cents = Math.round(parseFloat(refundAmount) * 100);
-                await adminFetch('admin', { action: 'refund', ride_id: ticket.ride_id, reason: resolutionNote });
-                await supabase.from('support_tickets').update({
-                    status: action,
-                    resolution_note: resolutionNote,
-                    refund_amount_cents: cents,
-                    resolved_at: new Date().toISOString(),
-                }).eq('id', ticket.id);
-            } else {
-                await supabase.from('support_tickets').update({
-                    status: action,
-                    resolution_note: resolutionNote,
-                    resolved_at: new Date().toISOString(),
-                }).eq('id', ticket.id);
+            // Both go through the admin function: the browser cannot write
+            // support_tickets, so the old direct update silently saved nothing,
+            // and the typed refund amount used to be ignored (full fare paid).
+            if (action === 'resolved' && ticket.category === 'refund_request' && ticket.ride_id) {
+                const body: Record<string, unknown> = { action: 'refund', ride_id: ticket.ride_id, reason: resolutionNote, ticket_id: ticket.id };
+                if (refundAmount.trim()) body.amount_cents = Math.round(parseFloat(refundAmount) * 100);
+                await adminFetch('admin', body);
             }
+            await adminFetch('admin', { action: 'resolve_ticket', ticket_id: ticket.id, status: action, note: resolutionNote });
 
             setSelectedTicket(null);
             setResolutionNote('');
             setRefundAmount('');
             load();
         } catch (err) {
-            alert('Action failed. Check console.');
+            alert('Action failed: ' + ((err as any)?.message || 'unknown error'));
             console.error(err);
         } finally {
             setProcessing(false);

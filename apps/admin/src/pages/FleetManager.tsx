@@ -836,7 +836,7 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
                                                 {leases.map((lease) => {
-                                                    const driver = (lease.drivers as any)?.profiles?.name ?? 'Unknown Driver';
+                                                    const driver = (lease.drivers as any)?.name ?? 'Unknown Driver';
                                                     const vehicle = lease.fleet_vehicles
                                                         ? `${lease.fleet_vehicles.year} ${lease.fleet_vehicles.make} ${lease.fleet_vehicles.model}`
                                                         : 'Unknown Vehicle';
@@ -954,7 +954,7 @@ const InsuranceBindModal = ({ lease, onClose, onSubmit }: {
     const vehicle = lease.fleet_vehicles
         ? `${lease.fleet_vehicles.year} ${lease.fleet_vehicles.make} ${lease.fleet_vehicles.model} (${lease.fleet_vehicles.license_plate})`
         : 'Unknown Vehicle';
-    const driver = (lease.drivers as any)?.profiles?.name ?? 'Unknown Driver';
+    const driver = (lease.drivers as any)?.name ?? 'Unknown Driver';
 
     const premiumCents = Math.round(parseFloat(annualPremium || '0') * 100);
     const commissionBps = Math.round(parseFloat(commissionPct || '0') * 100);
