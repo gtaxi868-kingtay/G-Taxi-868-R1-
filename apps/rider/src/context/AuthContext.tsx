@@ -4,7 +4,7 @@ import { flushPendingSignup } from '@g868/shared/pendingSignup';
 import { supabase } from '@gtaxi/core';
 import { Session, User } from '@supabase/supabase-js';
 import { setAuthToken } from '../services/api';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -24,6 +24,38 @@ interface AuthContextType {
     refreshProfile: () => Promise<void>;   // Allow manual refresh
     sendPhoneOTP: (phone: string) => Promise<void>;
     verifyPhoneOTP: (phone: string, token: string) => Promise<void>;
+    // True after the rider opened a password-reset email link; the app then
+    // shows "set a new password" before anything else.
+    passwordRecovery: boolean;
+    finishPasswordRecovery: () => void;
+}
+
+// Reset emails link to gtaxi://reset-password with either ?code=... (PKCE)
+// or #access_token=...&refresh_token=...&type=recovery (implicit). Native
+// clients don't read session links themselves (detectSessionInUrl is
+// web-only), so nothing in the app used to finish a reset.
+async function sessionFromRecoveryLink(url: string | null): Promise<boolean> {
+    if (!url || !url.includes('reset-password')) return false;
+    const params: Record<string, string> = {};
+    const parts = [url.split('?')[1]?.split('#')[0], url.split('#')[1]].filter(Boolean) as string[];
+    for (const part of parts) {
+        for (const kv of part.split('&')) {
+            const [k, v] = kv.split('=');
+            if (k) params[decodeURIComponent(k)] = decodeURIComponent(v ?? '');
+        }
+    }
+    if (params.code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(params.code);
+        return !error;
+    }
+    if (params.access_token && params.refresh_token) {
+        const { error } = await supabase.auth.setSession({
+            access_token: params.access_token,
+            refresh_token: params.refresh_token,
+        });
+        return !error;
+    }
+    return false;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -83,6 +115,18 @@ async function registerPushToken(userId: string): Promise<void> {
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
+    const [passwordRecovery, setPasswordRecovery] = useState(false);
+
+    useEffect(() => {
+        const handle = (url: string | null) => {
+            sessionFromRecoveryLink(url)
+                .then((ok) => { if (ok) setPasswordRecovery(true); })
+                .catch((e) => console.warn('reset link failed:', e));
+        };
+        Linking.getInitialURL().then(handle).catch(() => {});
+        const sub = Linking.addEventListener('url', ({ url }) => handle(url));
+        return () => sub.remove();
+    }, []);
     const [profile, setProfile] = useState<UserProfile | null>(null);         // NEW
     const [preferences, setPreferences] = useState<UserPreferences | null>(null); // NEW
     const [loading, setLoading] = useState(true);
@@ -140,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
+                if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
                 setSession(session);
                 setUser(session?.user ?? null);
 
@@ -252,7 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, session, profile, preferences, loading, signUp, signIn, signOut, refreshProfile, sendPhoneOTP, verifyPhoneOTP }}>
+        <AuthContext.Provider value={{ user, session, profile, preferences, loading, signUp, signIn, signOut, refreshProfile, sendPhoneOTP, verifyPhoneOTP, passwordRecovery, finishPasswordRecovery: () => setPasswordRecovery(false) }}>
             {children}
         </AuthContext.Provider>
     );
