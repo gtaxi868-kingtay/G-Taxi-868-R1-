@@ -11,17 +11,15 @@ import { sendPushNotification } from "../_shared/push.ts";
 import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
 import { captureException } from "../_shared/sentry.ts";
 import { redisCommand } from "../_shared/redis.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -210,21 +208,22 @@ serve(async (req: Request) => {
         // Append distance for the offer insertion below
         selectedDriver._distance = selectedDriverSummary.distance_km * 1000;
 
-        // Read platform rate from pricing_config; fallback to 0.15
-        const { data: platRateRow } = await supabaseAdmin
-            .from("pricing_config")
-            .select("value_cents")
-            .eq("key", "PLATFORM_RATE_CENTS")
-            .maybeSingle()
-            .then((__r) => __r, () => ({ data: null }));
-        const platRate = platRateRow ? (platRateRow.value_cents ?? 1500) / 10000 : 0.15;
-        // Pioneer tier gets 3% lower rate
-        const commissionRate = selectedDriver.commission_tier === 'pioneer'
-            ? Math.max(0.01, platRate - 0.03)
-            : platRate;
-
+        // What the driver will actually be paid: compute_ride_split's driver_net
+        // (80%, or 78% while their recruiter is an active commander), via
+        // estimate_offer_driver_payout -- the same source process_dispatch_queue
+        // uses. This used to be fare x (1 - PLATFORM_RATE) = 85% (88% for
+        // "pioneer"), which compute_ride_split never pays (live 2026-10-15: offer
+        // said TT$29.11, ride settled TT$27.40). If the estimate fails, fall back
+        // to the LOWEST base share (78%): an offer may under-state, never over-state.
         const totalFare = ride.total_fare_cents || 0;
-        const driverPayout = Math.round(totalFare * (1 - commissionRate));
+        const { data: payoutEstimate, error: payoutErr } = await supabaseAdmin.rpc("estimate_offer_driver_payout", {
+            p_gross_cents: totalFare,
+            p_driver_id: selectedDriver.id,
+        });
+        if (payoutErr) console.error("estimate_offer_driver_payout failed, using 78% floor:", payoutErr.message);
+        const driverPayout = typeof payoutEstimate === "number" && !payoutErr
+            ? payoutEstimate
+            : Math.round(totalFare * 0.78);
 
         // Create Time-Limited Ride Offer (15 seconds)
         const expiresAt = new Date(Date.now() + 15 * 1000).toISOString();
