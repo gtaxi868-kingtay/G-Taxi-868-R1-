@@ -12,11 +12,13 @@ import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { AppScreenProps } from '../navigation/types';
 
+// plate/rating can be genuinely missing. Never invent them: a rider looks
+// for this plate on the street, so a made-up one is a safety problem.
 interface DriverInfo {
     name: string;
     vehicle: string;
-    plate: string;
-    rating: number;
+    plate: string | null;
+    rating: number | null;
 }
 
 export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverFound'>) {
@@ -60,7 +62,11 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
 
                 const { data: driverData, error: driverError } = await supabase
                     .from('drivers')
-                    .select('id, first_name, last_name, vehicle_type, vehicle_plate, rating')
+                    // Real drivers columns. This used to select first_name /
+                    // last_name / vehicle_plate, which do not exist (verified
+                    // against the live table 2026-10-14), so the query always
+                    // failed and this screen silently skipped to ActiveRide.
+                    .select('id, name, vehicle_model, vehicle_type, plate_number, rating')
                     .eq('id', rideData.driver_id)
                     .single();
 
@@ -71,10 +77,10 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
                 }
 
                 setDriver({
-                    name: `${driverData.first_name || ''} ${driverData.last_name || ''}`.trim() || 'Your Driver',
-                    vehicle: driverData.vehicle_type || 'Vehicle',
-                    plate: driverData.vehicle_plate || 'PBA 1234',
-                    rating: driverData.rating || 4.8,
+                    name: driverData.name?.trim() || 'Your driver',
+                    vehicle: driverData.vehicle_model || driverData.vehicle_type || 'Vehicle',
+                    plate: driverData.plate_number || null,
+                    rating: typeof driverData.rating === 'number' && driverData.rating > 0 ? driverData.rating : null,
                 });
                 setLoading(false);
 
@@ -121,12 +127,12 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
                     </View>
                     <View style={s.ratingBadge}>
                         <Ionicons name="star" size={12} color="#F59E0B" />
-                        <Text style={s.ratingText}>{driver?.rating?.toFixed(1) ?? '4.8'}</Text>
+                        <Text style={s.ratingText}>{driver?.rating != null ? driver.rating.toFixed(1) : 'New'}</Text>
                     </View>
                 </View>
 
                 <Text style={s.matchedTitle}>Driver Found!</Text>
-                <Text style={s.driverName}>{driver?.name ?? 'Your Driver'}</Text>
+                <Text style={s.driverName}>{driver?.name ?? 'Your driver'}</Text>
 
                 <View style={s.infoCard}>
                     <View style={[glassSurface(30), StyleSheet.absoluteFillObject]} />
@@ -137,7 +143,7 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
                     <View style={s.divider} />
                     <View style={s.infoRow}>
                         <Ionicons name="card-outline" size={18} color="#00E5FF" />
-                        <Text style={s.infoText}>{driver?.plate ?? 'PBA 1234'}</Text>
+                        <Text style={s.infoText}>{driver?.plate ?? 'Plate not on file. Confirm with your driver'}</Text>
                     </View>
                     <View style={s.divider} />
                     <View style={s.infoRow}>
