@@ -115,20 +115,31 @@ export function CommanderManagement() {
                 setRevshareSummary(revRes.data.summary || null);
             }
 
+            // The table is pod_commanders (there is no 'commanders' table), and
+            // its user_id points at auth.users, which cannot be embedded -- the
+            // old query errored and the panel was always empty. Names come from
+            // admin_user_names().
             const { data: payoutRes } = await supabase
                 .from('payout_requests')
                 .select(`
                     *,
-                    commanders!commander_id(
+                    commanders:pod_commanders!commander_id(
                         id, user_id, status,
-                        user:user_id(id, email, full_name),
                         territory:territory_id(name, code)
                     )
                 `)
                 .not('commander_id', 'is', null)
                 .order('created_at', { ascending: false })
                 .limit(100);
-            setPayoutRequests((payoutRes as unknown as PayoutRequest[]) || []);
+            const rows = ((payoutRes || []) as any[]);
+            const userIds = Array.from(new Set(rows.map(r => r.commanders?.user_id).filter(Boolean)));
+            if (userIds.length) {
+                const { data: people } = await supabase.rpc('admin_user_names', { p_ids: userIds });
+                const byId: Record<string, any> = {};
+                for (const p of (people || []) as any[]) byId[p.id] = p;
+                for (const r of rows) if (r.commanders) r.commanders.user = byId[r.commanders.user_id] ?? null;
+            }
+            setPayoutRequests(rows as unknown as PayoutRequest[]);
             setPayoutLoading(false);
         } catch (err) {
             console.error('Failed to load commander data:', err);

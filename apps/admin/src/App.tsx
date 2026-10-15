@@ -141,7 +141,9 @@ function App() {
             setAllUsers(users || []);
             const { data: orderData } = await supabase
                 .from('orders')
-                .select('*, rider:rider_id(name)')
+                // orders.rider_id points at auth.users (not embeddable): the
+                // old rider:rider_id(name) embed failed and orders stayed empty.
+                .select('*')
                 .order('created_at', { ascending: false });
             setOrders(orderData || []);
         } catch (err) {

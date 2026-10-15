@@ -50,7 +50,6 @@ export const Financials = () => {
         totalNet: 0,
         payouts: 0,
         taxReserve: 0,
-        taxPaid: 0,
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -78,8 +77,7 @@ export const Financials = () => {
                 totalNet: acc.totalNet + curr.platform_fee_cents,
                 payouts: acc.payouts + curr.driver_payout_cents,
                 taxReserve: acc.taxReserve + Math.round(curr.gross_amount_cents * 0.125),
-                taxPaid: acc.taxPaid + (curr.bir_tax_paid_cents || 0),
-            }), { totalGross: 0, totalNet: 0, payouts: 0, taxReserve: 0, taxPaid: 0 });
+            }), { totalGross: 0, totalNet: 0, payouts: 0, taxReserve: 0 });
             
             setStats(totals);
         } catch (err) {
@@ -156,83 +154,31 @@ export const Financials = () => {
                     title="Total Gross Booking"
                     value={`$${(stats.totalGross / 100).toFixed(2)}`}
                     icon={<DollarSign className="text-cyan-400" />}
-                    trend="+12.5%"
                 />
                 <StatCard
                     title="Platform Net Profit"
                     value={`$${(stats.totalNet / 100).toFixed(2)}`}
                     icon={<Activity className="text-purple-400" />}
-                    trend="+19.2%"
                     isHighlight
                 />
                 <StatCard
                     title="Driver Disbursements"
                     value={`$${(stats.payouts / 100).toFixed(2)}`}
                     icon={<BarChart3 className="text-yellow-400" />}
-                    trend="+8.1%"
                 />
+                {/* Was presented as "VAT owed" with a "remitted" figure read
+                    from a column that does not exist. It is only 12.5% of
+                    gross, a rough reference -- not a tax liability. */}
                 <StatCard
-                    title="BIR 12.5% VAT Escrow"
+                    title="12.5% of gross (reference)"
                     value={`$${(stats.taxReserve / 100).toFixed(2)}`}
-                    valueSub={stats.taxPaid > 0 ? `$${(stats.taxPaid / 100).toFixed(2)} remitted` : undefined}
                     icon={<Scale className="text-emerald-400" />}
-                    trend={`$${((stats.taxReserve - stats.taxPaid) / 100).toFixed(2)} owed`}
+                    trend="Not a tax figure: confirm with your accountant"
                     trendIsNeutral
                     isTax
                 />
             </div>
 
-            {/* TAX ESCROW BREAKDOWN ROW */}
-            {stats.totalGross > 0 && (
-                <div className="bg-gradient-to-r from-emerald-500/5 via-emerald-500/3 to-transparent border border-emerald-500/15 rounded-[2rem] p-6">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8">
-                        <div className="flex items-center gap-3 shrink-0">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                                <Landmark size={18} className="text-emerald-400" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-emerald-400/80 uppercase tracking-widest">Tax Reserve</p>
-                                <p className="text-lg font-black text-white">BIR 12.5% VAT Escrow</p>
-                            </div>
-                        </div>
-                        <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                            <div>
-                                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-0.5">Gross Revenue</p>
-                                <p className="text-sm font-black text-white">${(stats.totalGross / 100).toFixed(2)}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-0.5">12.5% VAT Owed</p>
-                                <p className="text-sm font-black text-emerald-400">${(stats.taxReserve / 100).toFixed(2)}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-0.5">Remitted</p>
-                                <p className="text-sm font-black text-cyan-400">${(stats.taxPaid / 100).toFixed(2)}</p>
-                            </div>
-                            <div>
-                                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-0.5">Net Balance</p>
-                                <p className={`text-sm font-black ${stats.taxReserve - stats.taxPaid > 0 ? 'text-amber-400' : 'text-green-400'}`}>
-                                    ${((stats.taxReserve - stats.taxPaid) / 100).toFixed(2)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    {/* PROGRESS BAR */}
-                    <div className="mt-4">
-                        <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[8px] font-bold text-white/20 uppercase tracking-widest">Remittance Progress</span>
-                            <span className="text-[9px] font-bold text-white/40">
-                                {stats.taxReserve > 0 ? Math.round((stats.taxPaid / stats.taxReserve) * 100) : 0}%
-                            </span>
-                        </div>
-                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                            <div
-                                className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-700"
-                                style={{ width: `${stats.taxReserve > 0 ? Math.min(100, (stats.taxPaid / stats.taxReserve) * 100) : 0}%` }}
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* LIVE SETTLEMENT RATES — reads pricing_config directly, no cache, no
                 memory. Exists so any pro-forma or board projection gets built
@@ -332,7 +278,7 @@ export const Financials = () => {
                 <div className="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                     <div className="flex items-center gap-3">
                         <Scale size={14} className="text-emerald-400" />
-                        <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">Revenue Ledger — BIR 12.5% VAT Escrow Included</h2>
+                        <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest">Revenue Ledger</h2>
                     </div>
                     <button onClick={loadFinancials} className="text-[10px] font-black text-cyan-400 hover:text-cyan-300 transition-colors uppercase tracking-widest">Refresh Audit</button>
                 </div>
@@ -343,7 +289,7 @@ export const Financials = () => {
                                 <th className="px-8 py-5 text-[10px] font-black text-white/20 uppercase tracking-widest">Timestamp</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-white/20 uppercase tracking-widest">Gross</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-white/20 uppercase tracking-widest">Take (Split)</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-white/20 uppercase tracking-widest">BIR 12.5%</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-white/20 uppercase tracking-widest">12.5% of gross (ref.)</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-white/20 uppercase tracking-widest">Payout</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-white/20 uppercase tracking-widest text-right">Status</th>
                             </tr>
@@ -398,6 +344,7 @@ const StatCard = ({ title, value, icon, trend, valueSub, trendIsNeutral, isHighl
             <div className={`p-3 rounded-2xl border ${isTax ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/5 border-white/5'}`}>
                 {icon}
             </div>
+            {trend && (
             <div className={`flex items-center gap-1 text-[10px] font-black ${
                 trendIsNeutral ? 'text-amber-400' :
                 trend?.startsWith('+') ? 'text-green-400' : 'text-red-400'
@@ -405,6 +352,7 @@ const StatCard = ({ title, value, icon, trend, valueSub, trendIsNeutral, isHighl
                 {trendIsNeutral ? <Scale size={12} /> : trend?.startsWith('+') ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                 {trend}
             </div>
+            )}
         </div>
         <h3 className="text-xs font-black text-white/40 uppercase tracking-[0.2em] mb-2">{title}</h3>
         <p className="text-4xl font-black text-white tracking-tight">{value}</p>

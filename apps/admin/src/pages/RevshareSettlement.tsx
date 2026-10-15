@@ -78,11 +78,14 @@ export const RevshareSettlement = () => {
     if (!session) return;
 
     try {
-      const { data: banks } = await supabase.rpc('admin_get_organizer_banks', {
+      // (was .catch() on the query builder, which has no .catch -- it threw
+      // and the modal always opened with an empty bank list)
+      const { data: banks, error } = await supabase.rpc('admin_get_organizer_banks', {
         p_organizer_id: organizerId,
         p_ledger_type: ledgerType,
-      }).catch(() => ({ data: [] }));
-      setBankModal({ open: true, organizerId, ledgerType, organizerName, banks });
+      });
+      if (error) setStatusMsg({ type: 'error', text: 'Could not load bank accounts: ' + error.message });
+      setBankModal({ open: true, organizerId, ledgerType, organizerName, banks: banks || [] });
       setBankForm({ bank_name: '', account_holder_name: '', account_number: '', account_type: 'savings' });
     } catch {
       setBankModal({ open: true, organizerId, ledgerType, organizerName, banks: [] });
@@ -94,7 +97,7 @@ export const RevshareSettlement = () => {
     setSavingBank(true);
 
     try {
-      await supabase.rpc('admin_upsert_organizer_bank', {
+      const { error: saveErr } = await supabase.rpc('admin_upsert_organizer_bank', {
         p_organizer_id: bankModal.organizerId,
         p_ledger_type: bankModal.ledgerType,
         p_bank_name: bankForm.bank_name,
@@ -103,6 +106,7 @@ export const RevshareSettlement = () => {
         p_account_type: bankForm.account_type,
         p_is_default: bankModal.banks.length === 0,
       });
+      if (saveErr) throw saveErr;
       openBankModal(bankModal.ledgerType, bankModal.organizerId, bankModal.organizerName);
     } catch {
       setStatusMsg({ type: 'error', text: 'Failed to save bank account' });
