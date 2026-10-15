@@ -32,7 +32,10 @@ import { secureFetch } from "../_shared/networkUtility.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || Deno.env.get("MAPBOX_PUBLIC_TOKEN") || "";
-const TT_BBOX = "bbox=-61.9311,10.0280,-60.5423,10.8421";
+// Covers BOTH islands. The old box stopped at latitude 10.84, which is
+// north of Trinidad but south of Tobago (Scarborough is ~11.19), so every
+// Tobago address was silently dropped from search (verified 2026-10-15).
+const TT_BBOX = "bbox=-61.95,9.95,-60.45,11.40";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -110,8 +113,34 @@ serve(async (req: Request) => {
             );
         }
 
-        const { query, limit = 20, lat, lng } = body;
+        const { query, limit = 20, lat, lng, address } = body;
         const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        // Single-address lookup: HomeScreen's "Save Home/Work" sends
+        // { address } and reads latitude/longitude off the top of the
+        // response. This function never handled that shape -- it fell through
+        // to the "no query" branch and returned a pin list -- so saving a place
+        // ALWAYS showed "Could not find address" (verified 2026-10-15).
+        if (typeof address === "string" && address.trim() && !query) {
+            const [best] = await mapboxSearch(address.trim(), undefined, undefined, 1);
+            if (!best) {
+                return new Response(
+                    JSON.stringify({ success: false, error: "Address not found", data: [] }),
+                    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+            return new Response(
+                JSON.stringify({
+                    success: true,
+                    latitude: best.latitude,
+                    longitude: best.longitude,
+                    address: best.address,
+                    data: [best],
+                    source: "mapbox",
+                }),
+                { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
 
         // If lat/lng provided, return nearest verified pins sorted by distance
         if (lat && lng && typeof lat === 'number' && typeof lng === 'number') {
