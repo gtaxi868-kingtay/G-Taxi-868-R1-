@@ -63,7 +63,7 @@ async function mapboxSearch(query: string, lat?: number, lng?: number, limit = 6
             ? `&proximity=${lng},${lat}` : "";
         const url =
             `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?` +
-            `access_token=${MAPBOX_TOKEN}&country=TT&${TT_BBOX}${proximity}&types=address,poi,place,neighborhood&limit=${limit}`;
+            `access_token=${MAPBOX_TOKEN}&country=TT&${TT_BBOX}${proximity}&types=address,poi,place,locality,neighborhood,district&limit=${limit}`;
         const res = await secureFetch(url);
         if (!res.ok) return [];
         const json = await res.json();
