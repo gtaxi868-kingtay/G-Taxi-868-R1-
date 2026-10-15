@@ -114,7 +114,8 @@ export function WarChest() {
     };
 
     const deactivateSurge = async (zoneId: string) => {
-        await supabase.from('pricing_zones').update({ is_active: false }).eq('id', zoneId);
+        const { error } = await supabase.from('pricing_zones').update({ is_active: false }).eq('id', zoneId);
+        if (error) alert('Could not deactivate surge: ' + error.message);
         load();
     };
 

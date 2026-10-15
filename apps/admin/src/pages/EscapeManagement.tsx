@@ -459,11 +459,10 @@ export function EscapeManagement() {
     const riderIds = [...new Set(reservations.map((r) => r.rider_id))];
     let riderMap: Record<string, { full_name: string | null; phone_number: string | null }> = {};
     if (riderIds.length) {
-      const { data: riders } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone_number')
-        .in('id', riderIds);
-      for (const r of riders || []) riderMap[r.id] = { full_name: r.full_name, phone_number: r.phone_number };
+      // Admins can't read other people's profiles directly (RLS); this
+      // admin-only function returns just name/email/phone.
+      const { data: riders } = await supabase.rpc('admin_user_names', { p_ids: riderIds });
+      for (const r of (riders || []) as any[]) riderMap[r.id] = { full_name: r.full_name, phone_number: r.phone_number };
     }
 
     setParticipants(
