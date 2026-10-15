@@ -128,7 +128,8 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                     vehicle: driverData.vehicle_model,
                     id: driverData.id,
                     plate: driverData.plate_number,
-                    rating: driverData.rating || 4.8,
+                    // No invented rating: DriverFound shows "New" when this is null.
+                    rating: typeof driverData.rating === 'number' && driverData.rating > 0 ? driverData.rating : null,
                 };
 
                 // Navigate to DriverFound confirmation first
