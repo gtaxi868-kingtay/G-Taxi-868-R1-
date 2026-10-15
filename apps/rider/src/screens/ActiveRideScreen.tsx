@@ -523,8 +523,18 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
                             if (error) throw error;
 
+                            // Say only what the server confirms happened (it returns
+                            // 503 -> the fallback below when nobody was reached), and
+                            // always keep the emergency services one tap away.
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            Alert.alert("Emergency Triggered", "Security team notified. Help is on the way.");
+                            Alert.alert(
+                                "SOS recorded",
+                                data?.message || "Your SOS was logged. If you are in danger, call 999 (police) or 811 (ambulance) now.",
+                                [
+                                    { text: "CALL 999", style: "destructive", onPress: () => Linking.openURL('tel:999') },
+                                    { text: "OK", style: "cancel" },
+                                ]
+                            );
                         } else {
                             throw new Error("No active ride found");
                         }
