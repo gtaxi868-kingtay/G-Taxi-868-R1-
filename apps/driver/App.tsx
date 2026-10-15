@@ -98,7 +98,7 @@ function AppNavigator() {
         try {
             const { data: driverRecord } = await supabase
                 .from('drivers')
-                .select('id, status')
+                .select('id, status, verified_status')
                 .eq('user_id', user.id)
                 .maybeSingle();
 
@@ -107,7 +107,10 @@ function AppNavigator() {
                 return;
             }
 
-            if (driverRecord.status === 'pending') {
+            // Approval lives in verified_status. drivers.status is only
+            // online/offline/busy (CHECK), so the old status === 'pending'
+            // test never matched and new drivers landed on the dashboard.
+            if (driverRecord.verified_status === 'pending' || driverRecord.verified_status === 'unverified') {
                 setInitialRoute('PendingApproval');
                 return;
             }
