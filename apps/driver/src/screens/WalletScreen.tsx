@@ -7,7 +7,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import * as Location from 'expo-location';
 import Reanimated, {
     useSharedValue, withTiming, useDerivedValue,
 } from 'react-native-reanimated';
@@ -248,34 +247,37 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         }
     };
 
-    const handleManualDeposit = async () => {
+    // Both "Upload Bank Receipt" and "Smart ATM Deposit" land in
+    // manual_deposits: the queue admin Financials actually reviews. The
+    // receipt stays in the private receipts bucket under the driver's own
+    // folder; admin opens it with a signed link. A bank/ATM reference can
+    // only be claimed once (unique in the database).
+    const submitDepositReceipt = async (kind: 'bank' | 'atm') => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 quality: 0.7,
             });
-
             if (result.canceled || !result.assets[0]) return;
 
             setProcessing(true);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Please sign in again.');
+            const uid = session.user.id;
+
             const asset = result.assets[0];
             const fileExt = asset.uri.split('.').pop();
-            const fileName = `${driver?.id}/${Date.now()}.${fileExt}`;
-            
-            const response = await fetch(asset.uri);
-            const blob = await response.blob();
+            const receiptPath = `${uid}/${kind}-${Date.now()}.${fileExt}`;
 
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            const imgRes = await fetch(asset.uri);
+            const blob = await imgRes.blob();
+            const { error: uploadError } = await supabase.storage
                 .from('receipts')
-                .upload(fileName, blob);
-
+                .upload(receiptPath, blob);
             if (uploadError) throw uploadError;
 
-            const receiptPath = uploadData.path;
-            const receiptUrl = supabase.storage.from('receipts').getPublicUrl(receiptPath).data.publicUrl;
-
-            // Phase 4: OCR parse the receipt
+            // OCR is best-effort; admin checks the photo either way.
             let parsedAmount = 0;
             let referenceToken: string | null = null;
             try {
@@ -289,35 +291,30 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                     referenceToken = ocrData.data.reference_token;
                 }
             } catch {
-                // OCR is best-effort; fall back to manual admin review
+                // fall through to the owed balance below
             }
 
-            // Duplicate-transaction guard: never let the same bank/ATM reference
-            // be submitted (and later credited) twice.
-            if (referenceToken) {
-                const { data: dupe } = await supabase
-                    .from('manual_deposits')
-                    .select('id')
-                    .eq('reference_token', referenceToken)
-                    .maybeSingle();
-                if (dupe) {
-                    Alert.alert('Already Submitted', 'This receipt (transaction ' + referenceToken + ') has already been submitted. It cannot be credited twice.');
-                    return;
-                }
+            const owedCents = balance !== null && balance < 0 ? Math.round(Math.abs(balance) * 100) : 0;
+            const claimCents = parsedAmount > 0 ? parsedAmount : owedCents;
+            if (claimCents <= 0) {
+                Alert.alert(
+                    'Could not read the amount',
+                    'We could not read the amount on this receipt. Please contact support on WhatsApp and we will credit it by hand.'
+                );
+                return;
             }
 
             const { error: dbError } = await supabase
                 .from('manual_deposits')
                 .insert({
-                    user_id: driver?.id,
-                    amount_cents: parsedAmount,
+                    user_id: uid,
+                    amount_cents: claimCents,
                     receipt_url: receiptPath,
                     reference_token: referenceToken,
-                    status: 'pending'
                 });
 
             if (dbError) {
-                // 23505 = unique violation on reference_token (race with another upload)
+                // 23505 = this bank/ATM reference was already submitted
                 if ((dbError as any).code === '23505') {
                     Alert.alert('Already Submitted', 'This receipt has already been submitted. It cannot be credited twice.');
                     return;
@@ -325,10 +322,11 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                 throw dbError;
             }
 
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             const msg = parsedAmount > 0
-                ? `Receipt uploaded! Amount detected: TTD ${(parsedAmount / 100).toFixed(2)}. Admin will verify shortly.`
-                : 'Receipt uploaded! Admin will verify and credit your wallet shortly.';
-            Alert.alert('Success', msg);
+                ? `Receipt sent! Amount read: TTD ${(parsedAmount / 100).toFixed(2)}. Admin will verify and credit your wallet.`
+                : `Receipt sent for TTD ${(claimCents / 100).toFixed(2)} (your balance owed). Admin will verify and credit your wallet.`;
+            Alert.alert('Submitted', msg);
             fetchData();
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Upload failed';
@@ -338,87 +336,8 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         }
     };
 
-    const handleSmartAtmDeposit = async () => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                quality: 0.7,
-            });
-            if (result.canceled || !result.assets[0]) return;
-
-            setProcessing(true);
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error('No session');
-
-            const amountCents = Math.round(Math.abs(balance || 0) * 100);
-
-            const asset = result.assets[0];
-            const fileExt = asset.uri.split('.').pop();
-            const fileName = `settlements/${driver?.id}/${Date.now()}.${fileExt}`;
-
-            const imgRes = await fetch(asset.uri);
-            const blob = await imgRes.blob();
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('receipts')
-                .upload(fileName, blob);
-            if (uploadError) throw uploadError;
-
-            const receiptPath = fileName;
-            const receiptUrl = supabase.storage.from('receipts').getPublicUrl(receiptPath).data.publicUrl;
-
-            // Phase 4: OCR parse the receipt to auto-detect amount + transaction id
-            let parsedAmount = amountCents;
-            let referenceToken: string | null = null;
-            try {
-                const { data: ocrData } = await supabase.functions.invoke('parse_receipt', {
-                    body: { photo_url: receiptPath },
-                });
-                if (ocrData?.success && ocrData?.data?.amount_cents) {
-                    parsedAmount = ocrData.data.amount_cents;
-                }
-                if (ocrData?.success && ocrData?.data?.reference_token) {
-                    referenceToken = ocrData.data.reference_token;
-                }
-            } catch {
-                // OCR is best-effort; fall back to wallet-based amount
-            }
-
-            const position = await Location.getCurrentPositionAsync({});
-            const deposit_lat = position?.coords?.latitude;
-            const deposit_lng = position?.coords?.longitude;
-
-            const { data: settleData, error: settleErr } = await supabase.functions.invoke('submit_settlement', {
-                body: {
-                    amount_cents: parsedAmount,
-                    method: 'smart_atm',
-                    reference_token: referenceToken,
-                    receipt_photo_url: receiptUrl,
-                    deposit_lat,
-                    deposit_lng,
-                },
-            });
-
-            if (settleErr || !settleData?.success) {
-                const dupHit = /duplicate|already|23505|reference/i.test(settleData?.error || settleErr?.message || '');
-                throw new Error(dupHit
-                    ? 'This receipt has already been submitted. It cannot be credited twice.'
-                    : (settleData?.error || settleErr?.message || 'Settlement submission failed'));
-            }
-
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            const parsedMsg = parsedAmount !== amountCents
-                ? ` (OCR detected TTD ${(parsedAmount / 100).toFixed(2)})`
-                : '';
-            Alert.alert('Submitted', `ATM deposit submitted${parsedMsg}! Admin will verify and credit your wallet shortly.`);
-            fetchData();
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Submission failed';
-            Alert.alert('Error', message);
-        } finally {
-            setProcessing(false);
-        }
-    };
+    const handleManualDeposit = () => submitDepositReceipt('bank');
+    const handleSmartAtmDeposit = () => submitDepositReceipt('atm');
 
     const handleSettlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

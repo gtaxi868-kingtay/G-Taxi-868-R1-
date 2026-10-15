@@ -283,7 +283,12 @@ export const Financials = () => {
                                         <p className="text-xs font-bold text-white/60">{new Date(dep.created_at).toLocaleDateString()}</p>
                                     </div>
                                     <button 
-                                        onClick={() => window.open(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/receipts/${dep.receipt_url}`, '_blank')}
+                                        onClick={async () => {
+                                            // receipts is a private bucket: the public URL always 404s.
+                                            const { data, error } = await supabase.storage.from('receipts').createSignedUrl(dep.receipt_url, 300);
+                                            if (error || !data?.signedUrl) { alert('Could not open receipt: ' + (error?.message || 'not found')); return; }
+                                            window.open(data.signedUrl, '_blank');
+                                        }}
                                         className="p-2 bg-white/5 rounded-xl text-white/40 hover:text-cyan-400 transition-colors"
                                     >
                                         <Eye size={16} />

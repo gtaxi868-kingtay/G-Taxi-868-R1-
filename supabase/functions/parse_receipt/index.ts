@@ -6,14 +6,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GOOGLE_APPLICATION_CREDENTIALS_B64 = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON");
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface ReceiptResult {
   amount_cents: number | null;
@@ -23,13 +20,6 @@ interface ReceiptResult {
   ocr_text: string | null;
   ocr_available: boolean;
   confidence: number | null;
-}
-
-function res(status: number, body: Record<string, unknown>) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 }
 
 function extractAmountFromText(text: string): number | null {
@@ -88,6 +78,14 @@ function extractBankFromText(text: string): string | null {
 }
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
+  function res(status: number, body: Record<string, unknown>) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -104,9 +102,12 @@ serve(async (req: Request) => {
     const { photo_url } = await req.json();
     if (!photo_url) return res(400, { success: false, error: "photo_url required" });
 
-    let fullUrl = photo_url;
-    if (!photo_url.startsWith("http")) {
-      fullUrl = `${SUPABASE_URL}/storage/v1/object/public/receipts/${photo_url}`;
+    // Only the caller's own upload in the private receipts bucket. (The old
+    // public-URL fetch always 404'd on this private bucket, and accepting any
+    // http URL let a caller make this function fetch arbitrary addresses.)
+    const receiptPath = String(photo_url);
+    if (receiptPath.startsWith("http") || receiptPath.split("/")[0] !== user.id) {
+      return res(400, { success: false, error: "photo_url must be your own receipt upload" });
     }
 
     let ocrText: string | null = null;
@@ -126,8 +127,10 @@ serve(async (req: Request) => {
         });
         const { access_token } = await tokenRes.json();
 
-        const photoResp = await fetch(fullUrl);
-        const photoBuffer = await photoResp.arrayBuffer();
+        const { data: photoBlob, error: dlErr } = await supabaseAdmin.storage
+          .from("receipts").download(receiptPath);
+        if (dlErr || !photoBlob) throw new Error("receipt download failed");
+        const photoBuffer = await photoBlob.arrayBuffer();
         const base64Image = btoa(
           new Uint8Array(photoBuffer).reduce((d, b) => d + String.fromCharCode(b), "")
         );
