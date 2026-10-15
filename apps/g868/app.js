@@ -323,6 +323,12 @@
           </div>
 
           <div class="field">
+            <label for="f-phone">WhatsApp number</label>
+            <input id="f-phone" name="phone" type="tel" inputmode="tel" placeholder="e.g. 868 712 3456" autocomplete="tel" required>
+            <p class="err" data-err="f-phone"></p>
+          </div>
+
+          <div class="field">
             <label for="f-area">Your area</label>
             <select id="f-area" name="area" autocomplete="address-level2">
               <option value="" disabled selected>Choose your area</option>
@@ -528,18 +534,25 @@
 
       const name = form.querySelector('#f-name').value.trim();
       const email = form.querySelector('#f-email').value.trim().toLowerCase();
+      const phone = form.querySelector('#f-phone').value.trim();
       const area = form.querySelector('#f-area').value.trim();
       const roleLabel = form.querySelector('#f-role').value;
 
       let ok = true;
       if(name.length < 2){ setErr('f-name', 'Please add your name.'); ok = false; } else setErr('f-name', '');
       if(!isEmail(email)){ setErr('f-email', 'Enter a valid email address.'); ok = false; } else setErr('f-email', '');
+      if(phone.replace(/\D/g, '').length < 7){ setErr('f-phone', 'Enter your WhatsApp number.'); ok = false; } else setErr('f-phone', '');
       if(!roleLabel){ ok = false; }
 
       if(!ok){ form.querySelector('[aria-invalid=true]')?.focus(); return; }
 
-      const roleKey = ROLE_SELECT_TO_KEY[roleLabel];
-      const dbRole = ROLE_DB_CODE[roleKey] || 'rider';
+      // The live waitlist guard (waitlist_guard_public_insert) only accepts
+      // source 'g868:<role label>' with the matching type below, and a T&T
+      // WhatsApp number. This form used to send source 'g868', role codes
+      // rider/driver/merchant/commander and phone null, so EVERY sign-up was
+      // rejected (0 saved from this site, verified 2026-10-15).
+      const GUARD_TYPE = { 'Rider':'ride', 'Driver':'drive', 'G-Partner (merchant)':'sell', 'G-Lead (territory)':'drive' };
+      const dbRole = GUARD_TYPE[roleLabel] || 'ride';
 
       btn.disabled = true;
       const label = submitLabelEl.textContent;
@@ -557,10 +570,10 @@
           body: JSON.stringify({
             full_name: name,
             email,
-            phone: null,
+            phone,
             community: area || null,
-            user_type: dbRole, // rider | driver | merchant | commander
-            source: 'g868',
+            user_type: dbRole,
+            source: `g868:${roleLabel}`,
             referred_by: REF,
           }),
         });
@@ -569,6 +582,14 @@
           const body = await res.text();
           if(res.status === 409 || body.includes('23505')){
             setErr('f-email', "You're already on the list with that email.");
+            btn.disabled = false; submitLabelEl.textContent = label;
+            return;
+          }
+          // Show the guard's own plain-English hint (bad phone, rate limit...).
+          let hint = '';
+          try { hint = JSON.parse(body).hint || ''; } catch(_) {}
+          if(hint){
+            if(fErr) fErr.textContent = hint;
             btn.disabled = false; submitLabelEl.textContent = label;
             return;
           }
