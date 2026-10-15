@@ -133,13 +133,11 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
     try {
       loadNetwork(user.id).catch((e) => console.warn('Failed to load driver network:', e));
 
-      // Fetch spendable wallet balance
-      const { data: wallet } = await supabase
-        .from('wallets')
-        .select('balance_cents')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      setWalletBalance(wallet?.balance_cents ?? 0);
+      // Spendable balance = sum of the ledger (get_wallet_balance). The
+      // wallets.balance_cents cache is never updated by commission payments,
+      // so it always read TT$0.
+      const { data: balanceCents } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
+      setWalletBalance(typeof balanceCents === 'number' ? balanceCents : 0);
 
       // Resolve merchant (owner or staff)
       const { data: merchant } = await supabase
@@ -366,7 +364,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
                 </View>
                 <View style={[s.infoCard, glassSurface(0.12)]}>
                   <Ionicons name="time-outline" size={20} color={VOICES.merchant.textMuted} style={{ marginRight: 10 }} />
-                  <Text style={s.infoText}>Pending commissions are paid out on the 1st and 15th of each month.</Text>
+                  <Text style={s.infoText}>Pending commissions are paid out after G-Taxi reviews them. Contact support to request a payout.</Text>
                 </View>
                 <View style={[s.summaryBreakdown, glassSurface(0.15)]}>
                   <Text style={s.breakdownTitle}>Breakdown</Text>
