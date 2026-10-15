@@ -141,7 +141,9 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                     resolveDriverFromRide(payload.new.ride_id);
                 }
             })
-            .subscribe();
+            // Re-read once live: a status change in the channel's first
+            // seconds would otherwise not show until the next one.
+            .subscribe((st: string) => { if (st === 'SUBSCRIBED') fetchStatus(); });
 
         return () => { channel.unsubscribe(); };
     }, [orderId, retryKey]);

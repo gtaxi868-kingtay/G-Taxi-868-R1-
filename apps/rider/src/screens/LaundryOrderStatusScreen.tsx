@@ -105,7 +105,9 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }
             })
-            .subscribe();
+            // Re-read once live: a status change in the channel's first
+            // seconds would otherwise not show until the next one.
+            .subscribe((st: string) => { if (st === 'SUBSCRIBED') fetchStatus(); });
 
         return () => { channel.unsubscribe(); };
     }, [orderId, retryKey]);

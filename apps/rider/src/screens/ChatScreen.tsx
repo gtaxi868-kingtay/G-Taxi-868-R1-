@@ -78,9 +78,11 @@ export function ChatScreen({ route, navigation }: any) {
                 filter: `ride_id=eq.${rideId}`
             }, (payload) => {
                 const newMessage = payload.new as Message;
-                setMessages(prev => [...prev, newMessage]);
+                setMessages(prev => prev.some(m => m.id === newMessage.id) ? prev : [...prev, newMessage]);
             })
-            .subscribe();
+            // Re-load once connected: messages sent in the channel's first
+            // seconds (or while it was down) would otherwise never show.
+            .subscribe((status) => { if (status === 'SUBSCRIBED') fetchMessages(); });
     };
 
     const handleSend = async (text: string = inputText) => {

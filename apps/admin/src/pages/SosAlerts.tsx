@@ -56,11 +56,15 @@ export function SosAlerts() {
         // subscription is the only way a live SOS shows up without a manual
         // refresh — polling would mean an admin missing an emergency because
         // they hadn't clicked back to this tab yet.
+        // The live channel can miss an alert in its first seconds or drop
+        // silently, so also re-load once connected and every 30 s: an SOS
+        // must never wait for a manual refresh.
         const channel = supabase
             .channel('sos-alerts')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'system_alerts' }, load)
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
+            .subscribe((status) => { if (status === 'SUBSCRIBED') load(); });
+        const safetyPoll = setInterval(load, 30000);
+        return () => { clearInterval(safetyPoll); supabase.removeChannel(channel); };
     }, [load]);
 
     const handleResolve = async (id: string) => {
