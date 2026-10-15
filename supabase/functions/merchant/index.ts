@@ -66,6 +66,16 @@ function generatePin(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
+// True when userId owns or is active staff of merchantId.
+async function isMerchantMember(client: any, userId: string, merchantId: string | null): Promise<boolean> {
+  if (!merchantId) return false;
+  const { data: owned } = await client.from("merchants").select("id").eq("id", merchantId).eq("created_by", userId).maybeSingle();
+  if (owned) return true;
+  const { data: staff } = await client.from("merchant_staff").select("id")
+    .eq("merchant_id", merchantId).eq("user_id", userId).eq("is_active", true).maybeSingle();
+  return !!staff;
+}
+
 serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
   const json = (body: unknown, status = 200) =>
@@ -163,11 +173,15 @@ serve(async (req) => {
 
         const { data: order, error: orderError } = await supabase
           .from("orders")
-          .select("id, rider_id, merchant_id, total_cents, delivery_fee_cents, status, merchants(name, address)")
+          .select("id, rider_id, merchant_id, total_cents, delivery_fee_cents, status, merchants(name, address, lat, lng)")
           .eq("id", order_id)
           .single();
 
         if (orderError || !order) return json({ error: "Order not found" }, 404);
+        // Only the rider who placed the order (or the store) may dispatch it.
+        if (order.rider_id !== user.id && !(await isMerchantMember(supabase, user.id, order.merchant_id))) {
+          return json({ error: "Order not found" }, 404);
+        }
 
         const OFFER_TIMEOUT_SECONDS = 20;
         const expiresAt = new Date(Date.now() + OFFER_TIMEOUT_SECONDS * 1000).toISOString();
@@ -177,14 +191,15 @@ serve(async (req) => {
 
         const { data: preferred } = await supabase
           .from("user_preferred_drivers")
-          .select("driver_id, drivers!inner(id, push_token, is_online)")
+          .select("driver_id, drivers!inner(id, push_token, is_online, status, verified_status, active_ride_id)")
           .eq("user_id", order.rider_id)
           .order("rank", { ascending: true });
 
         if (preferred?.length) {
           for (const p of preferred) {
             const d = p.drivers as any;
-            if (d?.is_online) {
+            // Same bar as everyone else: approved, online, not on a job.
+            if (d?.is_online && d.status === "online" && d.verified_status === "approved" && !d.active_ride_id) {
               selectedDriver = { id: p.driver_id, push_token: d.push_token };
               matchType = "preferred";
               break;
@@ -192,15 +207,16 @@ serve(async (req) => {
           }
         }
 
-        if (!selectedDriver) {
-          const { data: nearest } = await supabase
-            .from("drivers")
-            .select("id, push_token")
-            .eq("is_online", true)
-            .limit(1)
-            .maybeSingle();
-          if (nearest) {
-            selectedDriver = nearest;
+        // Nearest approved, online driver within 6 km of the store. This used
+        // to take ANY row with is_online=true (no approval, distance or
+        // busy check), so an unapproved driver could get the job.
+        const store = order.merchants as any;
+        if (!selectedDriver && store?.lat != null && store?.lng != null) {
+          const { data: nearest } = await supabase.rpc("find_nearest_online_drivers", {
+            p_lat: store.lat, p_lng: store.lng, p_radius_meters: 6000, p_limit: 1,
+          });
+          if (nearest?.length) {
+            selectedDriver = { id: nearest[0].driver_id, push_token: nearest[0].push_token };
             matchType = "nearest";
           }
         }
