@@ -291,8 +291,10 @@ export function Pricing() {
             ? parseFloat(customMultiplier)
             : zoneMultiplier;
 
-        if (isNaN(multiplierVal) || multiplierVal < 1.0 || multiplierVal > 5.0) {
-            flash('Multiplier must be 1.0–5.0', false);
+        // The database caps surge at 2.0 (pricing_zones_multiplier_sane); this
+        // used to allow up to 5.0 and then fail with a raw database error.
+        if (isNaN(multiplierVal) || multiplierVal < 1.0 || multiplierVal > 2.0) {
+            flash('Multiplier must be 1.0–2.0', false);
             return;
         }
 
@@ -583,7 +585,7 @@ export function Pricing() {
                             <input
                                 type="number"
                                 min="1.0"
-                                max="5.0"
+                                max="2.0"
                                 step="0.1"
                                 value={previewSurge}
                                 onChange={e => setPreviewSurge(e.target.value)}
@@ -918,7 +920,7 @@ export function Pricing() {
                                 type="number"
                                 placeholder="Custom"
                                 min="1.0"
-                                max="5.0"
+                                max="2.0"
                                 step="0.05"
                                 value={customMultiplier}
                                 onChange={e => setCustomMultiplier(e.target.value)}
