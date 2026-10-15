@@ -18,12 +18,22 @@ const CYAN = '#06B6D4';
 const SUCCESS = '#10B981';
 const ERROR = '#FF4D4D';
 
-const STATUS_STEPS = ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'delivered'];
+// Real order vocabulary: merchant app moves pending -> confirmed ->
+// preparing -> ready_for_pickup; the driver's stops (process_stop_arrival)
+// move it to out_for_delivery, then delivered.
+const STATUS_STEPS = ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered'];
+// Older/side statuses shown at the nearest real step.
+const STEP_ALIAS: Record<string, string> = {
+    awaiting_approval: 'confirmed',
+    handed_off: 'out_for_delivery',
+    in_delivery: 'out_for_delivery',
+};
 const STATUS_LABELS: Record<string, string> = {
     pending: 'Order Placed',
     confirmed: 'Accepted',
     preparing: 'Being Prepared',
     ready_for_pickup: 'Ready for Pickup',
+    out_for_delivery: 'On the Way',
     delivered: 'Delivered ✅',
 };
 const STATUS_ICONS: Record<string, string> = {
@@ -31,6 +41,7 @@ const STATUS_ICONS: Record<string, string> = {
     confirmed: 'checkmark-circle-outline',
     preparing: 'refresh-circle-outline',
     ready_for_pickup: 'bag-handle-outline',
+    out_for_delivery: 'car-outline',
     delivered: 'home-outline',
 };
 
@@ -161,7 +172,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
         return () => { channel.unsubscribe(); };
     }, [driverId]);
 
-    const currentStep = STATUS_STEPS.indexOf(status);
+    const currentStep = STATUS_STEPS.indexOf(STEP_ALIAS[status] ?? status);
     const isPending = status === 'pending';
     const hasDriver = !!driverId;
 
@@ -305,6 +316,12 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                             </View>
                         );
                     })}
+                </View>
+            )}
+
+            {status === 'cancelled' && (
+                <View style={{ marginHorizontal: 24, marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: 'rgba(255,77,77,0.12)' }}>
+                    <Txt variant="bodyBold" color={ERROR} style={{ textAlign: 'center' }}>This order was cancelled.</Txt>
                 </View>
             )}
 
