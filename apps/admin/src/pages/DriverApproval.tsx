@@ -144,10 +144,6 @@ export const DriverApproval = ({ onRefresh, focusPhone, onClearFocus }: {
     }
   };
 
-  const getDocumentUrl = (path: string) => {
-    return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/driver-documents/${path}`;
-  };
-
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
@@ -358,23 +354,7 @@ export const DriverApproval = ({ onRefresh, focusPhone, onClearFocus }: {
                     </span>
                   </div>
                   
-                  {doc.storage_path.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                    <img 
-                      src={getDocumentUrl(doc.storage_path)} 
-                      alt={doc.document_type}
-                      className="w-full h-48 object-contain bg-black/50 rounded-lg"
-                    />
-                  ) : (
-                    <a 
-                      href={getDocumentUrl(doc.storage_path)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-cyan-400 hover:underline"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      View Document
-                    </a>
-                  )}
+                  <SignedDocument path={doc.storage_path} label={doc.document_type} />
                   
                   <p className="text-xs text-white/40 mt-2">
                     Uploaded {formatDate(doc.uploaded_at)}
@@ -418,3 +398,33 @@ const DocBadge = ({ has, label }: { has: boolean; label: string }) => (
     {label}
   </span>
 );
+
+// driver-documents is a private bucket, so a public URL always fails and the
+// admin would approve without seeing anything. Admins have a storage read
+// policy on it, so a short-lived signed link works.
+function SignedDocument({ path, label }: { path: string; label: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.storage.from('driver-documents').createSignedUrl(path, 600).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error || !data?.signedUrl) setFailed(true);
+      else setUrl(data.signedUrl);
+    });
+    return () => { cancelled = true; };
+  }, [path]);
+
+  if (failed) return <p className="text-xs text-red-400">Could not load this document.</p>;
+  if (!url) return <p className="text-xs text-white/40">Loading document…</p>;
+
+  return /\.(jpg|jpeg|png|gif|webp)$/i.test(path) ? (
+    <img src={url} alt={label} className="w-full h-48 object-contain bg-black/50 rounded-lg" />
+  ) : (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-cyan-400 hover:underline">
+      <ExternalLink className="w-4 h-4" />
+      View Document
+    </a>
+  );
+}

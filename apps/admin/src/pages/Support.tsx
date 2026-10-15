@@ -65,7 +65,10 @@ export const Support = () => {
             const [ticketRes, payoutRes] = await Promise.all([
                 supabase
                     .from('support_tickets')
-                    .select('*, profiles:user_id(full_name, email), rides:ride_id(pickup_address, dropoff_address, total_fare_cents)')
+                    // user_id points at auth.users, not profiles, so a
+                    // profiles embed made this whole query fail. Names are
+                    // looked up below via admin_user_names().
+                    .select('*, rides:ride_id(pickup_address, dropoff_address, total_fare_cents)')
                     .order('created_at', { ascending: false })
                     .limit(100),
                 supabase
@@ -74,7 +77,15 @@ export const Support = () => {
                     .order('created_at', { ascending: false })
                     .limit(100),
             ]);
-            setTickets(ticketRes.data || []);
+            if (ticketRes.error) throw ticketRes.error;
+            const rawTickets = ticketRes.data || [];
+            const ids = Array.from(new Set(rawTickets.map((t: any) => t.user_id).filter(Boolean)));
+            let names: Record<string, { full_name: string; email: string }> = {};
+            if (ids.length) {
+                const { data: people } = await supabase.rpc('admin_user_names', { p_ids: ids });
+                for (const p of (people || []) as any[]) names[p.id] = { full_name: p.full_name, email: p.email };
+            }
+            setTickets(rawTickets.map((t: any) => ({ ...t, profiles: names[t.user_id] })));
             setPayouts(payoutRes.data || []);
         } catch (err) {
             console.error('Support load error:', err);
