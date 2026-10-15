@@ -27,6 +27,8 @@ interface RateLimitConfig {
 // Rate limit configs per endpoint
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     create_ride: { maxRequests: 5, windowSeconds: 60 },
+    identify_product: { maxRequests: 20, windowSeconds: 3600 },
+    vision_pickup: { maxRequests: 20, windowSeconds: 3600 },
     estimate_fare: { maxRequests: 30, windowSeconds: 60 },
     match_driver: { maxRequests: 10, windowSeconds: 60 },
     accept_ride: { maxRequests: 10, windowSeconds: 60 },

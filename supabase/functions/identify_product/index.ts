@@ -6,21 +6,37 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { aiFetch } from "../_shared/networkUtility.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    // Sign-in required (this called the paid Gemini API for anyone on the
+    // internet, outside the AI budget), plus a per-user rate limit.
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const gate = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: { user: caller } } = await gate.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (!caller) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const limit = await checkRateLimit(gate, caller.id, "identify_product");
+    if (!limit.allowed) {
+      return new Response(JSON.stringify({ success: false, error: limit.error || "Too many photos, try again later." }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { image, merchant_id } = await req.json();
     if (!image) throw new Error("Image data (base64) required");
 

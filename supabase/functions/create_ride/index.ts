@@ -533,6 +533,43 @@ serve(async (req: Request) => {
         });
 
         if (!rpcResult.data || !rpcResult.data.success) {
+            // A booking that overlapped with another one (double tap, or the
+            // app's retry while the first request was still running) is
+            // refused by the database: same idempotency key, or the
+            // one-active-ride-per-rider index. Hand back the ride that won,
+            // exactly like an idempotent hit, instead of a raw 500.
+            const failText = String(rpcResult.data?.error ?? rpcResult.error?.message ?? rpcResult.error ?? "");
+            if (/idx_rides_idempotency|rides_one_active_per_rider|duplicate key/i.test(failText)) {
+                const { data: winner } = await adminClient
+                    .from("rides")
+                    .select("*")
+                    .eq("rider_id", rider_id)
+                    .in("status", ["requested", "searching", "waiting_queue", "assigned", "arrived", "in_progress"])
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle()
+                    .then((res) => res, () => ({ data: null }));
+                if (winner) {
+                    log("INFO", "Overlapping booking: returning the existing active ride", { requestId, ride_id: winner.id });
+                    return new Response(
+                        JSON.stringify({
+                            success: true,
+                            error: null,
+                            data: {
+                                ride_id: winner.id,
+                                status: winner.status,
+                                distance_km: (winner.distance_meters || 0) / 1000,
+                                duration_min: (winner.duration_seconds || 0) / 60,
+                                total_fare_cents: winner.total_fare_cents,
+                                vehicle_type: winner.vehicle_type,
+                                payment_method: winner.payment_method,
+                                existing_ride: true,
+                            },
+                        }),
+                        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
+                }
+            }
             console.error("Atomic ride creation failed:", rpcResult.error || rpcResult.data?.error);
             return new Response(
                 JSON.stringify({
