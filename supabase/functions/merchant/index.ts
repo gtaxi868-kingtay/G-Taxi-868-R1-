@@ -116,7 +116,7 @@ serve(async (req) => {
 
         const { data: order, error: orderError } = await supabase
           .from("orders")
-          .select("id, status, merchant_id")
+          .select("id, status, merchant_id, delivery_method")
           .eq("id", order_id)
           .single();
 
@@ -148,6 +148,12 @@ serve(async (req) => {
         if (!authorized) return json({ success: false, error: "Not authorized to manage this merchant's orders" }, 403);
 
         const allowed = ALLOWED_TRANSITIONS[order.status];
+        // A courier order is finished by the driver's last stop
+        // (process_stop_arrival), which also settles the money. Letting the
+        // store mark it 'delivered' skipped that, so the driver was never paid.
+        if (new_status === "delivered" && ["courier", "laundry_pickup"].includes(order.delivery_method)) {
+          return json({ success: false, error: "The driver marks courier orders delivered at drop-off." }, 400);
+        }
         if (!allowed || !allowed.includes(new_status)) {
           return json({
             success: false,
