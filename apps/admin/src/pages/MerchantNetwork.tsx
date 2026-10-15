@@ -166,7 +166,7 @@ export function MerchantNetwork() {
                 .limit(10),
             supabase
                 .from('kiosk_nodes')
-                .select('id, location_name, nfc_uid, is_active')
+                .select('id, location_name, nfc_uid:tag_uid, is_active')
                 .eq('merchant_id', merchantId)
                 .order('created_at', { ascending: false }),
         ]);
@@ -205,12 +205,11 @@ export function MerchantNetwork() {
         }
     };
 
-    const setStatus = async (subId: string, status: string, extra: Record<string, any> = {}) => {
+    // Subscription/merchant writes go through admin-only DB functions: the
+    // browser cannot write these tables directly (every button used to fail).
+    const setStatus = async (subId: string, status: string, _extra: Record<string, any> = {}) => {
         setActionLoading(subId + status);
-        const { error: err } = await supabase
-            .from('merchant_subscriptions')
-            .update({ status, ...extra })
-            .eq('id', subId);
+        const { error: err } = await supabase.rpc('admin_update_merchant_subscription', { p_sub_id: subId, p_status: status });
         if (err) alert(err.message);
         else await load();
         setActionLoading(null);
@@ -219,10 +218,9 @@ export function MerchantNetwork() {
     const extendTrial = async (subId: string) => {
         setActionLoading(subId + 'extend');
         const newEnd = new Date(Date.now() + 30 * 86400000).toISOString();
-        const { error: err } = await supabase
-            .from('merchant_subscriptions')
-            .update({ trial_end_at: newEnd, status: 'trial' })
-            .eq('id', subId);
+        const { error: err } = await supabase.rpc('admin_update_merchant_subscription', {
+            p_sub_id: subId, p_status: 'trial', p_trial_end_at: newEnd,
+        });
         if (err) alert(err.message);
         else await load();
         setActionLoading(null);
@@ -230,7 +228,8 @@ export function MerchantNetwork() {
 
     const toggleActive = async (merchantId: string, current: boolean) => {
         setActionLoading(merchantId + 'toggle');
-        await supabase.from('merchants').update({ is_active: !current }).eq('id', merchantId);
+        const { error: err } = await supabase.rpc('admin_set_merchant_active', { p_merchant_id: merchantId, p_active: !current });
+        if (err) alert(err.message);
         await load();
         setActionLoading(null);
     };
@@ -276,17 +275,14 @@ export function MerchantNetwork() {
         const input = prompt('Additional monthly pin fee in TTD (e.g. 50):');
         if (!input || isNaN(Number(input))) return;
         const cents = Math.round(Number(input) * 100);
-        const { error: err } = await supabase
-            .from('merchant_subscriptions')
-            .update({ pin_fee_cents: cents })
-            .eq('id', subId);
+        const { error: err } = await supabase.rpc('admin_update_merchant_subscription', { p_sub_id: subId, p_pin_fee_cents: cents });
         if (err) alert(err.message);
         else await load();
     };
 
     const runBilling = async () => {
         setActionLoading('billing');
-        const { data, error: err } = await supabase.rpc('process_merchant_billing');
+        const { data, error: err } = await supabase.rpc('admin_run_merchant_billing');
         if (err) alert(err.message);
         else if (data?.skipped) alert('Billing did not run — the master switch is OFF. Turn it on to charge merchants.');
         else alert(`Billing run complete.\nActivated: ${data.activated}\nCharged: ${data.charged}\nOverdue: ${data.overdue}`);
