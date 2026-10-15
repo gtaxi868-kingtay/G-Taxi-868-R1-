@@ -68,6 +68,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
     const [loading, setLoading] = useState(true);
     const [fare, setFare] = useState<any>(null);
+    const [fareError, setFareError] = useState(false);
     const [vehicles, setVehicles] = useState<VehicleOption[]>(FALLBACK_VEHICLES);
     const [selectedType, setSelectedType] = useState<string>('standard');
     const [confirming, setConfirming] = useState(false);
@@ -140,7 +141,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 estimated_wait_minutes: s.estimated_wait_minutes,
             })),
         });
-        if (res.success) setFare(res.data);
+        if (res.success) { setFare(res.data); setFareError(false); } else { setFareError(true); }
     };
 
     const fetchData = async () => {
@@ -168,7 +169,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 getWalletBalance()
             ]);
 
-            if (fareRes.success) setFare(fareRes.data);
+            if (fareRes.success) { setFare(fareRes.data); setFareError(false); } else { setFareError(true); }
             if (balanceRes.success) setWalletBalance(balanceRes.data || 0);
 
             const { data: stopsRes } = await supabase.functions.invoke("suggest_stops", {
@@ -566,7 +567,16 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
                         <View style={s.fareDisplay}>
                             <Text style={s.fareLabel}>TOTAL ESTIMATE</Text>
-                            <Text style={s.fareValue}>{formatTTDDollars(parseFloat(finalFare))}</Text>
+                            {fare ? (
+                                <Text style={s.fareValue}>{formatTTDDollars(parseFloat(finalFare))}</Text>
+                            ) : fareError ? (
+                                // Used to render "--" (or NaN) with no explanation.
+                                <TouchableOpacity onPress={() => fetchFare(selectedStops)} accessibilityRole="button">
+                                    <Text style={s.fareLabel}>Couldn't get a price. Tap to try again.</Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <ActivityIndicator />
+                            )}
                         </View>
 
                         <PaymentSelector

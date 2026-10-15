@@ -19,7 +19,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
     const { user, profile, signOut } = useAuth();
     const insets = useSafeAreaInsets();
 
-    const [stats, setStats] = useState({ totalTrips: 0, rating: '5.0', memberSince: '' });
+    const [stats, setStats] = useState({ totalTrips: 0, rating: '—', memberSince: '' });
     const [loading, setLoading] = useState(true);
     
     const [progression, setProgression] = useState({
@@ -51,7 +51,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
 
             const avg = rides && rides.length > 0
                 ? (rides.reduce((s, r: any) => s + r.rating, 0) / rides.length).toFixed(1)
-                : '5.0';
+                : '—'; // rides.rating is the stars this rider GAVE; never invent 5.0
 
             setStats({ totalTrips: count || 0, rating: avg, memberSince });
         } catch (err) {
@@ -211,7 +211,7 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                     <View style={s.gridDivider} />
                     <View style={s.gridItem}>
                         <Text style={[s.gridValue, { color: VOICES.rider.accent }]}>⭐ {stats.rating}</Text>
-                        <Text style={s.gridLabel}>Rating</Text>
+                        <Text style={s.gridLabel}>Avg. stars given</Text>
                     </View>
                     <View style={s.gridDivider} />
                     <View style={s.gridItem}>

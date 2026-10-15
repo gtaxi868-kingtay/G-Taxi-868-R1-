@@ -504,7 +504,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                 </BlurView>
             </Reanimated.View>
 
-            <Sidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} user={{ name: driver?.name || 'Driver', rating: 5.0 }} navigation={navigation} />
+            <Sidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} user={{ name: driver?.name || 'Driver', rating: (driver as any)?.rating ?? null }} navigation={navigation} />
         </View>
     );
 }

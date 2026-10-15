@@ -22,7 +22,7 @@ interface SidebarProps {
     onClose: () => void;
     user?: {
         name: string;
-        rating: number;
+        rating: number | null;
         photo_url?: string;
     };
     navigation: { navigate: (screen: string) => void };
@@ -129,7 +129,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                                 <View style={styles.userInfo}>
                                     <Text style={{fontSize: 16, fontWeight: '700', color: '#EAF3F6'}}>{user?.name || 'Driver'}</Text>
                                     <View style={styles.ratingBadge}>
-                                        <Text style={{fontSize: 11, fontWeight: '600', color: '#EAF3F6'}}>★ {user?.rating?.toFixed(2) || '5.00'}</Text>
+                                        <Text style={{fontSize: 11, fontWeight: '600', color: '#EAF3F6'}}>★ {user?.rating != null ? Number(user.rating).toFixed(2) : 'New'}</Text>
                                     </View>
                                 </View>
                             </View>

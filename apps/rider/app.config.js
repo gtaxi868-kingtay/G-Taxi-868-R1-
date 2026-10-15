@@ -99,7 +99,6 @@ export default {
         },
       ],
       "./plugins/withDeleteMapsInterfaces",
-      "./plugins/withNdefCompat",
       ["@stripe/stripe-react-native", {}],
       "expo-notifications",
     ],
