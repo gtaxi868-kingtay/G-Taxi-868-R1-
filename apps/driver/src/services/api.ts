@@ -105,8 +105,12 @@ async function _updateRideStatusInternal(
         body: payload
     });
 
-    // 2. If it fails, enqueue in Outbox for background persistence
-    if (error) {
+    // 2. If the request never reached the server (no signal), enqueue it in
+    //    the Outbox to retry later. A refusal from the server (wrong PIN,
+    //    trip already cancelled, wrong state) must NOT be replayed later -- it
+    //    used to be queued too, so old actions could fire again afterwards.
+    const reachedServer = (error as any)?.name === 'FunctionsHttpError';
+    if (error && !reachedServer) {
         console.warn(`[API] Immediate sync failed for ${status}. Enqueueing in Outbox...`);
         await OutboxService.getInstance().enqueue({
             type: 'FUNCTION_INVOKE',

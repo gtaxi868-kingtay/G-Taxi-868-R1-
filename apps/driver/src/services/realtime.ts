@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { supabase } from '@gtaxi/core';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -29,77 +30,85 @@ export interface DeliveryOffer {
     rider_address?: string;
 }
 
-export function useDeliveryOfferSubscription(driverId: string | undefined) {
-    const [offer, setOffer] = useState<DeliveryOffer | null>(null);
+// Offers reach the driver only through these channels (push is not set up),
+// so a silent drop or a slow start meant missed jobs. Each channel now:
+//  - reads any offer already pending once it is connected (an offer sent
+//    while the app was closed, or in the first seconds after connecting,
+//    used to be lost),
+//  - reconnects after an error or timeout,
+//  - re-reads when the app comes back to the foreground.
+function useOfferChannel<T extends { id: string; status: string; expires_at: string }>(
+    table: 'ride_offers' | 'delivery_offers',
+    driverId: string | undefined,
+) {
+    const [offer, setOffer] = useState<T | null>(null);
 
     useEffect(() => {
         if (!driverId) return;
+        let mounted = true;
+        let channel: RealtimeChannel | null = null;
+        let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-        const channel = supabase
-            .channel(`driver-delivery-offers:${driverId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'delivery_offers',
-                    filter: `driver_id=eq.${driverId}`,
-                },
-                (payload) => {
-                    const updatedOffer = payload.new as DeliveryOffer;
-                    if (updatedOffer.status === 'pending') {
-                        setOffer(updatedOffer);
-                    } else {
-                        setOffer(current => current?.id === updatedOffer.id ? null : current);
+        const readPending = async () => {
+            const { data } = await supabase
+                .from(table)
+                .select('*')
+                .eq('driver_id', driverId)
+                .eq('status', 'pending')
+                .gt('expires_at', new Date().toISOString())
+                .order('created_at', { ascending: false })
+                .limit(1);
+            if (!mounted) return;
+            const latest = (data?.[0] as T | undefined) ?? null;
+            setOffer(current => latest ?? (current && new Date(current.expires_at) > new Date() ? current : null));
+        };
+
+        const connect = () => {
+            if (!mounted) return;
+            channel = supabase
+                .channel(`driver-${table}:${driverId}:${Date.now()}`)
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table, filter: `driver_id=eq.${driverId}` },
+                    (payload) => {
+                        const updated = payload.new as T;
+                        if (updated.status === 'pending') setOffer(updated);
+                        else setOffer(current => (current?.id === updated.id ? null : current));
+                    },
+                )
+                .subscribe((status) => {
+                    if (!mounted) return;
+                    if (status === 'SUBSCRIBED') {
+                        readPending();
+                    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                        if (channel) supabase.removeChannel(channel);
+                        channel = null;
+                        clearTimeout(retryTimer);
+                        retryTimer = setTimeout(connect, 3000);
                     }
-                }
-            )
-            .subscribe();
+                });
+        };
+
+        connect();
+        const appSub = AppState.addEventListener('change', (next) => {
+            if (next === 'active') readPending();
+        });
 
         return () => {
-            supabase.removeChannel(channel);
+            mounted = false;
+            clearTimeout(retryTimer);
+            appSub.remove();
+            if (channel) supabase.removeChannel(channel);
         };
-    }, [driverId]);
+    }, [table, driverId]);
 
     return { offer, clearOffer: () => setOffer(null) };
 }
 
+export function useDeliveryOfferSubscription(driverId: string | undefined) {
+    return useOfferChannel<DeliveryOffer>('delivery_offers', driverId);
+}
+
 export function useRideOfferSubscription(driverId: string | undefined) {
-    const [offer, setOffer] = useState<RideOffer | null>(null);
-
-    useEffect(() => {
-        if (!driverId) return;
-
-        __DEV__ && console.log('Subscribing to direct ride offers for driver:', driverId);
-
-        const channel = supabase
-            .channel(`driver-offers:${driverId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*', // Listen for INSERT and UPDATE
-                    schema: 'public',
-                    table: 'ride_offers',
-                    filter: `driver_id=eq.${driverId}`,
-                },
-                (payload) => {
-                    __DEV__ && console.log('Ride offer update received:', payload);
-                    const updatedOffer = payload.new as RideOffer;
-
-                    if (updatedOffer.status === 'pending') {
-                        setOffer(updatedOffer);
-                    } else {
-                        // If status is changed to declined, expired, or accepted, clear it
-                        setOffer(current => current?.id === updatedOffer.id ? null : current);
-                    }
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [driverId]);
-
-    return { offer, clearOffer: () => setOffer(null) };
+    return useOfferChannel<RideOffer>('ride_offers', driverId);
 }
