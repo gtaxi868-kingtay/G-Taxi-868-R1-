@@ -414,7 +414,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                         Commission balance
                     </Text>
 
-                    <Reanimated.Text style={[s.balanceNum, { color: isOwed ? '#FF4D4D' : VOICES.driver.accent }]}>
+                    <Reanimated.Text style={[s.balanceNum, { color: isOwed ? '#FF4D4D' : VOICES.driver.accent }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
                         {isOwed ? '-' : ''}{balanceDisplay.value}
                     </Reanimated.Text>
 

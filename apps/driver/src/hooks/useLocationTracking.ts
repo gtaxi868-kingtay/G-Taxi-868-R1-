@@ -5,13 +5,14 @@ import * as TaskManager from 'expo-task-manager';
 import { Accelerometer } from 'expo-sensors';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { updateDriverLocation } from '../services/api';
+import { updateDriverLocation, getLocationTrackingMode, onLocationTrackingModeChange } from '../services/api';
 
 const LOCATION_TASK_NAME = 'G_TAXI_BACKGROUND_LOCATION_ENGINE';
 const MAX_JUMP_METERS = 150;
 const MIN_TIME_DIFF_MS = 3000;
 const SIGNAL_TIMEOUT_MS = 10000;
-const DISTANCE_FILTER_METERS = 3;
+// 10 m (was 3 m): fewer GPS wake-ups over a full shift on older phones.
+const DISTANCE_FILTER_METERS = 10;
 const TIME_INTERVAL_MS = 5000;
 
 export type SignalStatus = 'searching' | 'lock' | 'dead_reckoning' | 'denied';
@@ -57,7 +58,9 @@ export function useLocationTracking() {
   useEffect(() => {
     if (!driver?.is_online) return;
 
-    Accelerometer.setUpdateInterval(500);
+    // Motion is only used to estimate position when GPS drops out; once a
+    // second is plenty and halves the sensor load on older phones.
+    Accelerometer.setUpdateInterval(1000);
     const accelSub = Accelerometer.addListener(data => {
       accelRef.current = data;
     });
@@ -103,22 +106,31 @@ export function useLocationTracking() {
         console.warn('Background location task failed to start');
       }
 
-      const watchSub = await Location.watchPositionAsync(
+      await startForegroundWatch(getLocationTrackingMode());
+    };
+
+    // On a job: full GPS precision every 5 s (navigation, rider's map).
+    // Idle: the phone's balanced power mode every 20 s, which is also how
+    // often location is sent while idle -- much easier on old phones.
+    const startForegroundWatch = async (mode: 'idle' | 'trip') => {
+      if (fgWatchRef.current) { fgWatchRef.current.remove(); fgWatchRef.current = null; }
+      fgWatchRef.current = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
-          timeInterval: TIME_INTERVAL_MS,
+          accuracy: mode === 'trip' ? Location.Accuracy.High : Location.Accuracy.Balanced,
+          timeInterval: mode === 'trip' ? TIME_INTERVAL_MS : 20000,
           distanceInterval: DISTANCE_FILTER_METERS,
         },
         handleLocationUpdate
       );
-      fgWatchRef.current = watchSub;
     };
+    const offModeChange = onLocationTrackingModeChange((mode) => { startForegroundWatch(mode); });
 
     init();
 
     drIntervalRef.current = setInterval(performDeadReckoningStep, 2000);
 
     return () => {
+      offModeChange();
       accelSub.remove();
       if (fgWatchRef.current) fgWatchRef.current.remove();
       if (drIntervalRef.current) clearInterval(drIntervalRef.current);

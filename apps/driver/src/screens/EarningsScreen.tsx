@@ -80,7 +80,13 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
             .from('rides')
             .select('id, created_at, total_fare_cents, driver_payout_cents, payment_method, dropoff_address')
             .eq('driver_id', driver.id)
-            .eq('status', 'completed')
+            // finished rides move on to payment_confirmed / closed after
+            // settlement; counting only 'completed' dropped them.
+            .in('status', ['completed', 'payment_confirmed', 'closed'])
+            // Only what the today/week/month totals need (35 days covers a
+            // week that started last month) -- keeps the list bounded on
+            // older phones without undercounting the totals.
+            .gte('created_at', new Date(Date.now() - 35 * 86400000).toISOString())
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -183,7 +189,7 @@ export function EarningsScreen({ navigation }: { navigation: NavigationProp }) {
                         Today's earnings
                     </Text>
 
-                    <Reanimated.Text style={s.earningsNum}>
+                    <Reanimated.Text style={s.earningsNum} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
                         {earningsDisplay.value}
                     </Reanimated.Text>
                     <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', marginTop: 4}}>TTD total</Text>

@@ -19,7 +19,8 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "armeabi-v7a,arm64-v8a"
       },
       "android": {
         "buildType": "apk"

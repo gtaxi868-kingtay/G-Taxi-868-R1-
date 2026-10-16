@@ -16,6 +16,9 @@ interface TxtProps {
     style?: StyleProp<TextStyle>;
     children: React.ReactNode;
     numberOfLines?: number;
+    // Shrink long text (e.g. big money amounts) to fit narrow phones.
+    adjustsFontSizeToFit?: boolean;
+    minimumFontScale?: number;
 }
 
 export const Txt = ({
@@ -25,7 +28,9 @@ export const Txt = ({
     center,
     style,
     children,
-    numberOfLines
+    numberOfLines,
+    adjustsFontSizeToFit,
+    minimumFontScale,
 }: TxtProps) => {
     const size = tokens.typography.sizes[variant] || 15;
 
@@ -50,6 +55,8 @@ export const Txt = ({
                 style
             ]}
             numberOfLines={numberOfLines}
+            adjustsFontSizeToFit={adjustsFontSizeToFit}
+            minimumFontScale={minimumFontScale}
         >
             {children}
         </RNText>

@@ -250,7 +250,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
           <View style={[s.walletHero, glassSurface(0.18)]}>
             <View style={s.walletHeroLeft}>
               <Text style={s.walletHeroLabel}>Spendable Balance</Text>
-              <Text style={s.walletHeroValue}>{ttd(walletBalance)}</Text>
+              <Text style={s.walletHeroValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{ttd(walletBalance)}</Text>
               <Text style={s.walletHeroCurrency}>TTD</Text>
             </View>
             <View style={s.walletHeroIcon}>

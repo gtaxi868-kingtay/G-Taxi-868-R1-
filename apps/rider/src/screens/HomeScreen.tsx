@@ -1268,7 +1268,10 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             </Text>
 
                             <View style={s.miniMapContainer}>
+                                {/* Lite mode (Android): a still map image instead of a second
+                                    live map running under the main one -- lighter on old phones. */}
                                 <MapView
+                                    liteMode
                                     style={s.miniMap}
                                     region={{
                                         latitude: currentLat,

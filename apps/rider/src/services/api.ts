@@ -540,7 +540,8 @@ export async function getRideHistory() {
         .from('rides')
         .select('*')
         .eq('rider_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100);
 
     if (error) {
         console.error('Error fetching ride history:', error);

@@ -52,9 +52,22 @@ export async function getRide(rideId: string) {
 // the Supabase function-call allowance; the old edge-function call did.
 let trackingMode: 'idle' | 'trip' = 'idle';
 let lastSentAt = 0;
+const modeListeners = new Set<(mode: 'idle' | 'trip') => void>();
 
 export function setLocationTrackingMode(mode: 'idle' | 'trip') {
+    if (trackingMode === mode) return;
     trackingMode = mode;
+    modeListeners.forEach((fn) => fn(mode));
+}
+
+export function getLocationTrackingMode() {
+    return trackingMode;
+}
+
+// The location tracker re-tunes GPS when a job starts or ends.
+export function onLocationTrackingModeChange(fn: (mode: 'idle' | 'trip') => void) {
+    modeListeners.add(fn);
+    return () => { modeListeners.delete(fn); };
 }
 
 export async function updateDriverLocation(

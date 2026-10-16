@@ -35,7 +35,8 @@ export function TripsScreen({ navigation }: any) {
             .from('rides')
             .select('*')
             .eq('rider_id', user?.id)
-            .order('created_at', { ascending: false });
+            .order('created_at', { ascending: false })
+            .limit(100); // older phones: don't draw an ever-growing history
 
         if (error) {
             Alert.alert("Notice", "We couldn't sync your recent trips. Swipe down to retry.");
