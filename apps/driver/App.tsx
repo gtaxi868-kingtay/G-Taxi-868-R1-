@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { ActivityIndicator, View, Platform } from 'react-native';
+import { ActivityIndicator, View, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
@@ -139,24 +139,14 @@ function AppNavigator() {
     useEffect(() => {
         checkActiveRide();
 
+        // Re-check when the app comes back to the front. This used to listen to
+        // the driver's own row, which changes on every location update -- each
+        // ping came back as a live message and triggered two more reads.
         if (user) {
-            const channel = supabase
-                .channel(`driver-status-${user.id}`)
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'UPDATE',
-                        schema: 'public',
-                        table: 'drivers',
-                        filter: `user_id=eq.${user.id}`,
-                    },
-                    () => { checkActiveRide(); }
-                )
-                .subscribe();
-
-            return () => {
-                supabase.removeChannel(channel);
-            };
+            const sub = AppState.addEventListener('change', (next) => {
+                if (next === 'active') checkActiveRide();
+            });
+            return () => sub.remove();
         }
     }, [user, checkActiveRide]);
 

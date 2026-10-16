@@ -24,7 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { ENV } from '@g868/shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
-import { updateRideStatus } from '../services/api';
+import { updateRideStatus, setLocationTrackingMode } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { VOICES } from '@gtaxi/design-system';
 import { LiquidGlass } from '@gtaxi/design-system/native';
@@ -66,6 +66,12 @@ async function serverFailure(res: { data: any; error: any }): Promise<string | n
 }
 
 export function ActiveTripScreen({ route, navigation }: any) {
+    // Location every 5 s while on a job; every 20 s otherwise (Phase 4 cost control).
+    useEffect(() => {
+        setLocationTrackingMode('trip');
+        return () => setLocationTrackingMode('idle');
+    }, []);
+
     const { rideId } = route.params;
     const insets = useSafeAreaInsets();
     const { location, signalStatus } = useLocationTracking();

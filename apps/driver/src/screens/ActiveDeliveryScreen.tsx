@@ -3,6 +3,7 @@ import {
     View, Text, StyleSheet, TouchableOpacity,
     ScrollView, Alert, Linking,
 } from 'react-native';
+import { setLocationTrackingMode } from '../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -46,6 +47,12 @@ interface OrderDetail {
 }
 
 export function ActiveDeliveryScreen({ navigation, route }: any) {
+    // Location every 5 s while on a job; every 20 s otherwise (Phase 4 cost control).
+    useEffect(() => {
+        setLocationTrackingMode('trip');
+        return () => setLocationTrackingMode('idle');
+    }, []);
+
     const { orderId } = route.params || {};
     const insets = useSafeAreaInsets();
 
