@@ -640,7 +640,6 @@ const ROLE_INFO = {
       ['Day one', 'Ride — tap any stand or counter'],
       ['5 rides', 'Market — groceries brought to you'],
       ['2 Market orders', 'Laundry, and Tap to pay in shops'],
-      ['1 Laundry order', 'Wallet bonus — top up TTD 200, get 220'],
       ['Wallet funded', 'G-Escape — regional trips, when it opens']
     ],
     tiers: ['New Rider', 'Regular · 5%', 'Loyal · 8%', 'Elite · 10% + priority']
@@ -651,15 +650,14 @@ const ROLE_INFO = {
     head: 'Keep 80% of every fare.',
     lede: 'You already do the work. This is about how much of it you keep — and what you can build on top of it once you have been driving a while.',
     perks: [
-      ['80% of the fare, plainly stated', 'No shifting commission, no surprise deductions. 78% in territories with an active G-Lead, and you will always be told which one you are in.'],
-      ['Earn from who you bring in', '1% on every driver you introduce, and TTD 15 for every business you bring on.'],
+      ['80% of the fare, plainly stated', 'No shifting commission, no surprise deductions. 78% if a G-Lead or a G-Partner shop brought you in (their 2% comes from your share, only while they are active), and you will always be told which one applies.'],
+      ['Earn from who you bring in', "A one-time reward for every driver you bring in: 5% of the platform's share of their first 10 rides."],
       ['A territory of your own', 'At 500 rides you qualify to run one: recruit your own drivers and shops, and earn on the area you built.']
     ],
     ladderTitle: 'How a driver moves up',
     ladder: [
       ['Day one', '80% of every fare, paid to your wallet'],
-      ['First referral', '1% of what every driver you bring in earns'],
-      ['First business', 'TTD 15 for each business you bring on'],
+      ['First referral', "5% of the platform's share of their first 10 rides, paid once"],
       ['500 rides', 'You qualify to run a territory'],
       ['As G-Lead', '2% override on the whole area you build']
     ],
@@ -673,17 +671,18 @@ const ROLE_INFO = {
     perks: [
       ['A share of every ride that starts with you', 'Customers tap at your counter to get a car. You earn on it, whether or not they buy a thing that day.'],
       ['Sell and take payment by tap', 'List what you stock and take wallet payments on the spot — no card machine to rent, no terminal fees, no percentage skimmed off your own sales.'],
-      ['You are the trusted face', 'People sign up because you vouch for it. That trust is the product — and it is credited to you.'],
-      ['90 days pinned on the map, free', 'Every G-Partner opens with their shop pinned for riders to find. Keep it after that for TTD 150 a month — and only if the traffic has earned it.']
+      ['You are the trusted face', 'Drivers you sign up with your shop code pay you 2% of their fares, for as long as your shop stays active. People sign up because you vouch for it — and that is credited to you.'],
+      ['90 days pinned on the map, free', 'Every G-Partner opens with their shop pinned for riders to find. Keep it after that for TTD 125–200 a month by shop type: offices and professional services 125; grocery, pharmacy, retail and other shops 150; restaurants 175; barbershops, salons and spas 200 — and only if the traffic has earned it.']
     ],
     ladderTitle: 'How a counter grows',
     ladder: [
       ['Day one', 'A G-Touch puck on your counter, free'],
       ['First taps', 'You earn on every ride that starts with you'],
+      ['First driver', '2% of the fares of every driver you sign up, while your shop is active'],
       ['Catalog live', 'Sell your stock and take wallet payments'],
       ['Steady traffic', 'Your shop is listed as a pickup point island-wide'],
       ['First 90 days', 'Pinned on the G map, free — no card, no catch'],
-      ['After 90 days', 'Stay pinned for TTD 150 a month, or step back to the free listing']
+      ['After 90 days', 'Stay pinned for TTD 125–200 a month by shop type, or step back to the free listing']
     ],
     tiers: ['Listed', 'Active counter', 'Pickup point', 'Anchor · higher share']
   },
@@ -817,7 +816,6 @@ const PANELS = {
       <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #22d3ee"><span style="color:rgba(255,255,255,.6)">Start</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Ride</span></div>
       <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #38bdf8"><span style="color:rgba(255,255,255,.6)">5 rides</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Market — groceries delivered</span></div>
       <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #818cf8"><span style="color:rgba(255,255,255,.6)">2 Market orders</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Laundry + Tap</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #a855f7"><span style="color:rgba(255,255,255,.6)">1 Laundry order</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Wallet bonus — top up TTD 200, get 220</span></div>
       <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:linear-gradient(100deg,rgba(124,58,237,.3),rgba(34,211,238,.12));border-left:2px solid #c084fc"><span style="color:rgba(255,255,255,.75)">Fund your wallet</span><span style="font-family:'Outfit',sans-serif;font-weight:800">G-Escape</span></div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
@@ -836,7 +834,7 @@ const PANELS = {
       <div>
         <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">Driver</span><span style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem">80%</span></div>
         <div style="height:8px;border-radius:100px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:.4rem"><div style="width:80%;height:100%;background:linear-gradient(90deg,#22d3ee,#7c3aed)"></div></div>
-        <span style="font-size:.75rem;color:rgba(255,255,255,.6)">78% where a territory has an active G-Lead</span>
+        <span style="font-size:.75rem;color:rgba(255,255,255,.6)">78% when a G-Lead or a G-Partner shop brought the driver in</span>
       </div>
       <div>
         <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">G-Lead override</span><span style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem">2%</span></div>

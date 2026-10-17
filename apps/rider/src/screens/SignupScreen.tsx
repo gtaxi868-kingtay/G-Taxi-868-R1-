@@ -143,7 +143,7 @@ export function SignupScreen({ navigation }: any) {
                 });
             }
 
-            // Step 3: Apply referral code if provided — TTD $15 credit for both parties
+            // Step 3: Apply referral code if provided — TTD $15 each, paid after this rider's first completed ride
             // apply_referral_code returns {success:false, error} on a bad/
             // expired/self-referral code rather than raising, so the
             // try/catch below never fired either way — a wrong code looked

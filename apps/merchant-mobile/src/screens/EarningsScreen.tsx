@@ -51,10 +51,13 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
   const [walletBalance, setWalletBalance] = useState(0);
   const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'history'>('overview');
 
-  // Driver network (vouching). Present only when this owner also holds an
-  // active pod_commanders row — the 2% on vouched drivers' fares lands in
-  // commander_revshare_ledger, written by settlement (record_ride_kickbacks).
+  // Driver network. Either this owner also holds an active pod_commanders
+  // row (G-Lead network: 2% lands in commander_revshare_ledger), or it is the
+  // shop's own network (drivers who signed up with the shop's code: 2% lands
+  // in shop_recruiter_revshare_ledger). Both are written by settlement
+  // (record_ride_kickbacks).
   const [network, setNetwork] = useState<{
+    kind: 'lead' | 'shop';
     code: string | null;
     totalCents: number;
     pendingCents: number;
@@ -98,7 +101,19 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
       .eq('user_id', userId)
       .eq('status', 'active')
       .maybeSingle();
-    if (!commander) { setNetwork(null); setJoinRequests([]); return; }
+    if (!commander) {
+      setJoinRequests([]);
+      const { data: shopNet } = await supabase.rpc('merchant_driver_network');
+      if (!shopNet?.success || !shopNet.active) { setNetwork(null); return; }
+      setNetwork({
+        kind: 'shop',
+        code: shopNet.code,
+        totalCents: Number(shopNet.total_cents) || 0,
+        pendingCents: Number(shopNet.pending_cents) || 0,
+        rideCount: Number(shopNet.ride_count) || 0,
+      });
+      return;
+    }
 
     const { data: reqs } = await supabase.rpc('get_network_join_requests');
     setJoinRequests((reqs as any[]) || []);
@@ -109,6 +124,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
       .eq('commander_id', commander.id);
     const list = rows || [];
     setNetwork({
+      kind: 'lead',
       code: commander.onboarding_code,
       totalCents: list.reduce((sum: number, r: any) => sum + (r.revshare_cents || 0), 0),
       pendingCents: list
@@ -122,7 +138,9 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
     if (!network?.code) return;
     try {
       await Share.share({
-        message: `Drive with G and I'll vouch for you. Download the G driver app, choose "Join with a G-Lead code" and enter: ${network.code.toUpperCase()}`,
+        message: network.kind === 'shop'
+          ? `Drive with G. Download the G driver app, sign up, and enter my shop code: ${network.code.toUpperCase()}`
+          : `Drive with G and I'll vouch for you. Download the G driver app, choose "Join with a G-Lead code" and enter: ${network.code.toUpperCase()}`,
       });
     } catch { /* user dismissed */ }
   };
@@ -297,7 +315,9 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
                       <Text style={s.networkTitle}>Your driver network</Text>
                     </View>
                     <Text style={s.networkSub}>
-                      You earn 2% of every fare completed by drivers who joined with your code, for as long as you both stay active.
+                      {network.kind === 'shop'
+                        ? 'You earn 2% of every fare completed by drivers who signed up with your shop code, while your shop stays active. It comes out of their 80%.'
+                        : 'You earn 2% of every fare completed by drivers who joined with your code, for as long as you both stay active.'}
                     </Text>
                     <View style={s.networkStats}>
                       <View style={s.networkStat}>

@@ -3,6 +3,7 @@ import Stripe from 'https://esm.sh/stripe@14.0.0'
 import { requireAuth } from '../_shared/auth.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
 import { checkVerticalAccess } from '../_shared/verticalGate.ts'
+import { quoteDeliveryFee } from '../_shared/deliveryFee.ts'
 
 import { getCorsHeaders } from '../_shared/cors.ts'
 
@@ -285,6 +286,32 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Distance-based delivery fee, priced like a regular ride from the
+    // store to the delivery point. The cart shows this before ordering;
+    // place_order recomputes it server-side (the client value is never used).
+    if (action === 'quote_delivery') {
+      const { merchant_id, delivery_lat, delivery_lng } = body
+      if (!merchant_id || delivery_lat == null || delivery_lng == null) {
+        return json({ error: 'merchant_id, delivery_lat and delivery_lng are required' }, 400)
+      }
+
+      const { data: merchant } = await supabase
+        .from('merchants')
+        .select('lat, lng')
+        .eq('id', merchant_id)
+        .eq('is_active', true)
+        .eq('activation_status', 'active')
+        .single()
+
+      if (!merchant) return json({ error: 'Merchant not found or inactive' }, 404)
+      if (merchant.lat == null || merchant.lng == null) {
+        return json({ error: 'This store has no location set yet, so delivery cannot be priced.' }, 409)
+      }
+
+      const quote = await quoteDeliveryFee(supabase, { lat: merchant.lat, lng: merchant.lng }, { lat: delivery_lat, lng: delivery_lng })
+      return json({ success: true, quote })
+    }
+
     if (action === 'place_order') {
       const {
         merchant_id, delivery_address, delivery_lat, delivery_lng,
@@ -313,16 +340,23 @@ Deno.serve(async (req) => {
 
       const { data: merchant } = await supabase
         .from('merchants')
-        .select('delivery_fee_cents, minimum_order_cents')
+        .select('lat, lng, minimum_order_cents')
         .eq('id', merchant_id)
         .eq('is_active', true)
         .eq('activation_status', 'active')
         .single()
 
       if (!merchant) return json({ error: 'Merchant not found or inactive' }, 404)
+      if (merchant.lat == null || merchant.lng == null) {
+        return json({ error: 'This store has no location set yet, so delivery cannot be priced.' }, 409)
+      }
 
       const subtotal = cartItems.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
-      const deliveryFee = merchant.delivery_fee_cents
+      // Distance-based, priced like a regular ride (was a flat
+      // merchants.delivery_fee_cents, which lost the platform money on
+      // cash orders once the driver's distance pay was counted).
+      const quote = await quoteDeliveryFee(supabase, { lat: merchant.lat, lng: merchant.lng }, { lat: delivery_lat, lng: delivery_lng })
+      const deliveryFee = quote.fee_cents
       const total = subtotal + deliveryFee
 
       if (subtotal < merchant.minimum_order_cents) {

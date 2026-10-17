@@ -20,6 +20,8 @@ export interface PendingSignup {
    *  recording; kept as an array so a signup flow can queue its whole set. */
   consents?: { document: string; version: string; userAgent?: string }[];
   commanderCode?: string;
+  /** Code of the G-Partner shop that onboarded this driver (driver_join_shop). */
+  shopCode?: string;
   /** Guards against replaying someone else's parked intent if a different
    *  account signs in on the same device. */
   forUserId?: string;
@@ -63,8 +65,8 @@ export async function flushPendingSignup(
   supabase: { rpc: (fn: string, args?: Record<string, unknown>) => PromiseLike<{ error: unknown }> },
   store: KeyValueStore,
   currentUserId: string,
-): Promise<{ consentRecorded: boolean; commanderApplied: boolean }> {
-  const result = { consentRecorded: false, commanderApplied: false };
+): Promise<{ consentRecorded: boolean; commanderApplied: boolean; shopJoined: boolean }> {
+  const result = { consentRecorded: false, commanderApplied: false, shopJoined: false };
 
   let parked: PendingSignup | null = null;
   try {
@@ -106,6 +108,13 @@ export async function flushPendingSignup(
     });
     // A bad or expired code should not be retried on every app open.
     if (!error) result.commanderApplied = true;
+  }
+
+  if (parked.shopCode) {
+    // driver_join_shop answers {success:false} for a bad code rather than
+    // raising; either way it is not retried on every app open.
+    const { error } = await supabase.rpc('driver_join_shop', { p_code: parked.shopCode });
+    if (!error) result.shopJoined = true;
   }
 
   // Clear only when every consent (the part that matters legally) landed, or

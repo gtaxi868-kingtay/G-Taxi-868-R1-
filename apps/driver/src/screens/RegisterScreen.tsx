@@ -35,6 +35,9 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
     // Vehicle Info
     const [vehicleModel, setVehicleModel] = useState('');
     const [licensePlate, setLicensePlate] = useState('');
+    // Optional: the G-Partner shop that signed this driver up. The shop then
+    // earns 2% of this driver's fares (from the driver's 80%) while active.
+    const [shopCode, setShopCode] = useState('');
     // Canonical lowercase keys — must match vehicle_classes.key (matching is
     // done on this value; a case mismatch here once broke dispatch entirely).
     const [vehicleType, setVehicleType] = useState('standard');
@@ -201,6 +204,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             } else {
                 await savePendingSignup(AsyncStorage, {
                     forUserId: authData.user.id,
+                    shopCode: shopCode.trim() ? shopCode.trim().toUpperCase() : undefined,
                     consents: DRIVER_CONSENT_DOCUMENTS.map(doc => ({
                         document: doc.document,
                         version: doc.version,
@@ -250,6 +254,18 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
 
             if (driverError) throw driverError;
 
+            // Link to the shop that signed this driver up (needs a session;
+            // without one it is parked above and applied at first sign-in).
+            let shopWarning = '';
+            if (shopCode.trim() && authData.session) {
+                const { data: joinRes, error: joinErr } = await supabase.rpc('driver_join_shop', {
+                    p_code: shopCode.trim().toUpperCase(),
+                });
+                if (joinErr || !joinRes?.success) {
+                    shopWarning = `\n\nShop code not applied: ${joinRes?.error || joinErr?.message || 'please check it with the shop.'}`;
+                }
+            }
+
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             if (requiresEmailConfirmation) {
                 Alert.alert(
@@ -263,7 +279,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             } else {
                 Alert.alert(
                     'Application Submitted',
-                    'Your application is under review. You will be notified once approved.',
+                    'Your application is under review. You will be notified once approved.' + shopWarning,
                     [{ text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }]
                 );
             }
@@ -366,6 +382,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                             <Text style={[s.title, {fontSize: 22, fontWeight: '800', color: '#EAF3F6'}]}>Vehicle Info</Text>
                             {renderInput('Vehicle Model (e.g. 2022 Toyota Aqua)', vehicleModel, setVehicleModel)}
                             {renderInput('Plate Number', licensePlate, setLicensePlate, { autoCapitalize: 'characters' })}
+                            {renderInput('Shop code (optional, if a shop signed you up)', shopCode, setShopCode, { autoCapitalize: 'characters' })}
 
                             {/* Vehicle class pills — live from vehicle_classes (admin-controlled) */}
                             <Text style={[s.label, {fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)'}]}>VEHICLE CLASS</Text>

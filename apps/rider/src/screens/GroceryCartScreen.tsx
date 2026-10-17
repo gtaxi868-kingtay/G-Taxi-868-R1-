@@ -34,10 +34,12 @@ export function GroceryCartScreen({ navigation, route }: any) {
     const [deliverToRide, setDeliverToRide] = useState(false);
     const [loading, setLoading] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('card');
+    // Delivery is priced by distance from the store to the drop-off, so it
+    // is only known once the delivery location is (quoted at checkout).
+    const [quotedFee, setQuotedFee] = useState<number | null>(null);
 
     const subTotal = cart.reduce((sum, i) => sum + i.product.price_cents * i.quantity, 0);
-    const deliveryFee = merchant?.delivery_fee_cents ?? 500;
-    const total = subTotal + deliveryFee;
+    const total = subTotal + (quotedFee ?? 0);
 
     const updateQty = (productId: string, delta: number) => {
         Haptics.selectionAsync();
@@ -86,6 +88,33 @@ export function GroceryCartScreen({ navigation, route }: any) {
             const location = await resolveDeliveryLocation();
             if (!location) { setLoading(false); return; }
 
+            const { data: quoteResult, error: quoteErr } = await supabase.functions.invoke('grocery', {
+                body: {
+                    action: 'quote_delivery',
+                    merchant_id: merchant.id,
+                    delivery_lat: location.lat,
+                    delivery_lng: location.lng,
+                },
+            });
+            if (quoteErr || !quoteResult?.success) {
+                throw new Error(quoteResult?.error || quoteErr?.message || 'Could not price delivery');
+            }
+            const fee: number = quoteResult.quote.fee_cents;
+            const km = (quoteResult.quote.distance_meters / 1000).toFixed(1);
+            setQuotedFee(fee);
+
+            const goAhead = await new Promise<boolean>((resolve) => {
+                Alert.alert(
+                    'Delivery fee',
+                    `Delivery is $${(fee / 100).toFixed(2)} TTD for about ${km} km from the store.\nTotal: $${((subTotal + fee) / 100).toFixed(2)} TTD`,
+                    [
+                        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                        { text: 'Place order', onPress: () => resolve(true) },
+                    ],
+                );
+            });
+            if (!goAhead) { setLoading(false); return; }
+
             const { data: placeResult, error: placeErr } = await supabase.functions.invoke('grocery', {
                 body: {
                     action: 'place_order',
@@ -101,6 +130,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
             if (placeResult?.success === false) throw new Error(placeResult.error || 'Failed to place order');
 
             const order = placeResult.order;
+            const orderTotal: number = order.total_cents ?? subTotal + fee;
 
             if (paymentMethod === 'card') {
                 const { data: piData, error: piErr } = await supabase.functions.invoke('grocery', {
@@ -136,13 +166,13 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 if (matchErr) {
                     Alert.alert(
                         'Order created',
-                        `Your order from ${merchant.name} has been paid but dispatch failed. Support will follow up.\nAmount: $${(total / 100).toFixed(2)} TTD`,
+                        `Your order from ${merchant.name} has been paid but dispatch failed. Support will follow up.\nAmount: $${(orderTotal / 100).toFixed(2)} TTD`,
                         [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
                 } else {
                     Alert.alert(
                         'Order placed',
-                        `Your order from ${merchant.name} has been paid.\nAmount: $${(total / 100).toFixed(2)} TTD`,
+                        `Your order from ${merchant.name} has been paid.\nAmount: $${(orderTotal / 100).toFixed(2)} TTD`,
                         [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
                 }
@@ -157,13 +187,13 @@ export function GroceryCartScreen({ navigation, route }: any) {
                 if (paymentMethod === 'cash') {
                     Alert.alert(
                         'Cash on delivery',
-                        `Pay $${(total / 100).toFixed(2)} TTD to the driver upon delivery.\nOrder ID: ${order.order_id.slice(0, 8).toUpperCase()}`,
+                        `Pay $${(orderTotal / 100).toFixed(2)} TTD to the driver upon delivery.\nOrder ID: ${order.order_id.slice(0, 8).toUpperCase()}`,
                         [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
                 } else {
                     Alert.alert(
                         'Order placed',
-                        `Your order from ${merchant.name} has been paid from your wallet.\nAmount: $${(total / 100).toFixed(2)} TTD`,
+                        `Your order from ${merchant.name} has been paid from your wallet.\nAmount: $${(orderTotal / 100).toFixed(2)} TTD`,
                         [{ text: 'OK', onPress: () => navigation.navigate('GroceryOrderStatus', { orderId: order.order_id }) }]
                     );
                 }
@@ -266,11 +296,11 @@ export function GroceryCartScreen({ navigation, route }: any) {
                             </View>
                             <View style={s.priceRow}>
                                 <Text style={s.priceLabel}>Delivery fee</Text>
-                                <Text style={s.priceVal}>${(deliveryFee / 100).toFixed(2)} TTD</Text>
+                                <Text style={s.priceVal}>{quotedFee != null ? `$${(quotedFee / 100).toFixed(2)} TTD` : 'By distance, shown at checkout'}</Text>
                             </View>
                             <View style={[s.priceRow, s.totalRow]}>
                                 <Text style={s.totalLabel}>Total</Text>
-                                <Text style={s.totalVal}>${(total / 100).toFixed(2)} TTD</Text>
+                                <Text style={s.totalVal}>{quotedFee != null ? `$${(total / 100).toFixed(2)} TTD` : `$${(subTotal / 100).toFixed(2)} TTD + delivery`}</Text>
                             </View>
                         </View>
                     </View>
@@ -284,7 +314,7 @@ export function GroceryCartScreen({ navigation, route }: any) {
                         AI-originated surfaces; this is a plain checkout CTA. */}
                     <TouchableOpacity style={s.ctaButton} onPress={handleCheckout} disabled={loading} activeOpacity={0.88}>
                         <Ionicons name={paymentMethod === 'card' ? "card-outline" : "cash-outline"} size={22} color="#07070F" style={{ marginRight: 8 }} />
-                        <Text style={s.ctaText}>{loading ? 'Placing order...' : paymentMethod === 'card' ? `Pay with card · $${(total / 100).toFixed(2)} TTD` : `Cash on delivery · $${(total / 100).toFixed(2)} TTD`}</Text>
+                        <Text style={s.ctaText}>{loading ? 'Placing order...' : paymentMethod === 'card' ? (quotedFee != null ? `Pay with card · $${(total / 100).toFixed(2)} TTD` : 'Pay with card') : (quotedFee != null ? `Cash on delivery · $${(total / 100).toFixed(2)} TTD` : 'Cash on delivery')}</Text>
                     </TouchableOpacity>
                 </View>
             )}

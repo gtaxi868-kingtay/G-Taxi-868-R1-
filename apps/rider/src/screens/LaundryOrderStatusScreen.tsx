@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ActivityIndicator,
+    ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +43,25 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
     const { orderId, service, weight, priceCents } = route.params;
     const insets = useSafeAreaInsets();
     const [status, setStatus] = useState<string>('pending');
+
+    // APPROVE / REJECT on "Verify your items". Goes through
+    // rider_answer_item_check: the rider may not write orders directly
+    // (a direct update here used to be refused silently).
+    const answerItemCheck = async (approve: boolean) => {
+        const { data, error } = await supabase.rpc('rider_answer_item_check', {
+            p_order_id: orderId,
+            p_approve: approve,
+        });
+        if (error || !data?.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert('Could not send your answer', data?.error || error?.message || 'Please try again.');
+            return;
+        }
+        setStatus(data.status);
+        Haptics.notificationAsync(approve
+            ? Haptics.NotificationFeedbackType.Success
+            : Haptics.NotificationFeedbackType.Warning);
+    };
     const [pins, setPins] = useState<any>(null);
     const [intakeLog, setIntakeLog] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -223,16 +242,10 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                             </View>
 
                             <View style={s.btnRow}>
-                                <TouchableOpacity style={s.rejectBtn} onPress={async () => {
-                                    await supabase.from('orders').update({ status: 'rejected' }).eq('id', orderId);
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                                }}>
+                                <TouchableOpacity style={s.rejectBtn} onPress={() => answerItemCheck(false)}>
                                     <Txt variant="bodyBold" color="#FF4D4D">REJECT</Txt>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={s.approveBtn} onPress={async () => {
-                                    await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                }}>
+                                <TouchableOpacity style={s.approveBtn} onPress={() => answerItemCheck(true)}>
                                     <Txt variant="bodyBold" color={SURFACE.base}>APPROVE</Txt>
                                 </TouchableOpacity>
                             </View>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ActivityIndicator,
+    ActivityIndicator, Alert,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,6 +25,7 @@ const STATUS_STEPS = ['pending', 'confirmed', 'preparing', 'ready_for_pickup', '
 // Older/side statuses shown at the nearest real step.
 const STEP_ALIAS: Record<string, string> = {
     awaiting_approval: 'confirmed',
+    processing: 'preparing',
     handed_off: 'out_for_delivery',
     in_delivery: 'out_for_delivery',
 };
@@ -56,6 +57,25 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
     const { orderId, service, weight, priceCents } = route.params;
     const insets = useSafeAreaInsets();
     const [status, setStatus] = useState<string>('pending');
+
+    // APPROVE / REJECT on "Verify your items". Goes through
+    // rider_answer_item_check: the rider may not write orders directly
+    // (a direct update here used to be refused silently).
+    const answerItemCheck = async (approve: boolean) => {
+        const { data, error } = await supabase.rpc('rider_answer_item_check', {
+            p_order_id: orderId,
+            p_approve: approve,
+        });
+        if (error || !data?.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert('Could not send your answer', data?.error || error?.message || 'Please try again.');
+            return;
+        }
+        setStatus(data.status);
+        Haptics.notificationAsync(approve
+            ? Haptics.NotificationFeedbackType.Success
+            : Haptics.NotificationFeedbackType.Warning);
+    };
     const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
     const [paymentStatus, setPaymentStatus] = useState<string>('unpaid');
     const [pins, setPins] = useState<any>(null);
@@ -362,16 +382,10 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                             </View>
 
                             <View style={s.btnRow}>
-                                <TouchableOpacity style={s.rejectBtn} onPress={async () => {
-                                    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                                }}>
+                                <TouchableOpacity style={s.rejectBtn} onPress={() => answerItemCheck(false)}>
                                     <Txt variant="bodyBold" color={ERROR}>REJECT</Txt>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={s.approveBtn} onPress={async () => {
-                                    await supabase.from('orders').update({ status: 'confirmed' }).eq('id', orderId);
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                }}>
+                                <TouchableOpacity style={s.approveBtn} onPress={() => answerItemCheck(true)}>
                                     <Txt variant="bodyBold" color={SURFACE.base}>APPROVE</Txt>
                                 </TouchableOpacity>
                             </View>
