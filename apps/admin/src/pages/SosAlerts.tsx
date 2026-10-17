@@ -62,7 +62,7 @@ export function SosAlerts() {
         const channel = supabase
             .channel('sos-alerts')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'system_alerts' }, load)
-            .subscribe((status) => { if (status === 'SUBSCRIBED') load(); });
+            .subscribe((status: string) => { if (status === 'SUBSCRIBED') load(); });
         const safetyPoll = setInterval(load, 30000);
         return () => { clearInterval(safetyPoll); supabase.removeChannel(channel); };
     }, [load]);

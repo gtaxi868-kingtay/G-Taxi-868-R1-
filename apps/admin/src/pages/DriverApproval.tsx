@@ -408,7 +408,7 @@ function SignedDocument({ path, label }: { path: string; label: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    supabase.storage.from('driver-documents').createSignedUrl(path, 600).then(({ data, error }) => {
+    supabase.storage.from('driver-documents').createSignedUrl(path, 600).then(({ data, error }: { data: { signedUrl: string } | null; error: unknown }) => {
       if (cancelled) return;
       if (error || !data?.signedUrl) setFailed(true);
       else setUrl(data.signedUrl);
