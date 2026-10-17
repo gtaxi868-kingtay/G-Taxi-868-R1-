@@ -99,6 +99,18 @@ export default {
         },
       ],
       "./plugins/withDeleteMapsInterfaces",
+      // iOS: adds the NFC capability (com.apple.developer.nfc.readersession.formats
+      // NDEF+TAG) that NfcScan/NfcHandshake need for NfcTech.NfcA. Without it,
+      // requestTechnology fails on every iPhone. Android needs nothing here:
+      // the library's own manifest already merges in android.permission.NFC.
+      [
+        "react-native-nfc-manager",
+        {
+          nfcPermission:
+            "G-Taxi uses NFC to instantly book rides at taxi stands and partner locations.",
+          includeNdefEntitlement: true,
+        },
+      ],
       ["@stripe/stripe-react-native", {}],
       "expo-notifications",
     ],
