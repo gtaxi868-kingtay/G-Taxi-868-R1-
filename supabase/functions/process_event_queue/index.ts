@@ -5,35 +5,27 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// `SB` with no type arguments instantiates the
-// generics at their CONSTRAINTS (unknown / never), not their DEFAULTS, so it
-// rejects the very client created at runtime
-// (SupabaseClient<any, "public", ...>). Supplying them explicitly fixes it.
-type SB = ReturnType<typeof createClient<any, "public", any>>;
-
-
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   const cronHeader = req.headers.get("x-cron-secret");
-  if (cronHeader !== CRON_SECRET) {
+  if (!CRON_SECRET || cronHeader !== CRON_SECRET) {
     return json({ error: "Unauthorized" }, 401);
   }
 
@@ -100,7 +92,7 @@ serve(async (req: Request) => {
 async function handleEvent(
   eventType: string,
   payload: any,
-  supabaseAdmin: SB
+  supabaseAdmin: ReturnType<typeof createClient>
 ): Promise<void> {
   switch (eventType) {
     case "ride.completed":
@@ -114,7 +106,7 @@ async function handleEvent(
   }
 }
 
-async function handleRideCompleted(payload: any, supabaseAdmin: SB): Promise<void> {
+async function handleRideCompleted(payload: any, supabaseAdmin: ReturnType<typeof createClient>): Promise<void> {
   const { ride_id, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, gross_cents, platform_cents, reserve_cents } = payload;
 
   // ── Pool Entry (hot-path cleared, this runs async) ──────────────────────
@@ -162,6 +154,6 @@ async function handleRideCompleted(payload: any, supabaseAdmin: SB): Promise<voi
   }
 }
 
-async function handlePaymentConfirmed(payload: any, _supabaseAdmin: SB): Promise<void> {
+async function handlePaymentConfirmed(payload: any, _supabaseAdmin: ReturnType<typeof createClient>): Promise<void> {
   console.log(`[Cog] payment.confirmed: ${JSON.stringify(payload)}`);
 }

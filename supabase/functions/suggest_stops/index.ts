@@ -1,15 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_PUBLIC_TOKEN") ?? "";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 const STOP_CATEGORIES = [
     { category: "pharmacy",   emoji: "\u{1F48A}", stop_type: "pharmacy",  wait_minutes: 10 },
@@ -28,6 +25,7 @@ function coordsToZone(lat: number, lng: number): string {
 }
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }

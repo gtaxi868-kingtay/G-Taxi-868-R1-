@@ -1,19 +1,11 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+import { getCorsHeaders } from '../_shared/cors.ts'
 // One-call endpoint for the HomeScreen: progression level, unlock status,
 // next-level carrot, and contextual suggestion.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
 
 const LEVEL_LABELS: Record<number, string> = {
   1: 'New Rider',
@@ -74,7 +66,30 @@ interface VerticalSetting {
   vertical_name: string;
   is_enabled: boolean;
   rollout_percentage: number | null;
-  emergency_disabled: boolean;
+  enabled_regions: string[] | null;
+}
+
+// GATE 3: has the rider's own territory unlocked this vertical yet.
+// enabled_regions holds territories.code values; an EMPTY array means
+// "not region-restricted" (today's behavior, unchanged) — a vertical only
+// gets gated once check_territory_vertical_unlocks()/admin actually
+// populates the list for it. When we can't tell which territory the rider
+// is in (no rides yet), we don't gate — same fail-safe-not-open philosophy
+// as the rest of this function: an unknown territory should never be the
+// reason a vertical silently disappears.
+function isAllowedInTerritory(
+  progressionName: string,
+  settings: Map<string, VerticalSetting>,
+  riderTerritoryCode: string | null,
+): boolean {
+  const key = VERTICAL_ALIASES[progressionName];
+  if (!key) return true;
+  const row = settings.get(key);
+  if (!row) return true;
+  const regions = row.enabled_regions ?? [];
+  if (regions.length === 0) return true;
+  if (!riderTerritoryCode) return true;
+  return regions.includes(riderTerritoryCode);
 }
 
 function isAllowedByAdmin(
@@ -86,13 +101,6 @@ function isAllowedByAdmin(
   if (!key) return true;               // not governed by vertical_settings
   const row = settings.get(key);
   if (!row) return true;               // no row = not governed yet
-
-  // Emergency kill-switch is checked FIRST, ahead of is_enabled/rollout.
-  // It is a distinct control from the gradual-rollout dial on purpose: an
-  // admin reaching for "stop this right now" under pressure should not have
-  // to also remember to zero out a percentage — this flag always wins.
-  if (row.emergency_disabled) return false;
-
   if (!row.is_enabled) return false;   // admin switched it off
 
   const pct = row.rollout_percentage ?? 100;
@@ -102,6 +110,13 @@ function isAllowedByAdmin(
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const authHeader = req.headers.get('Authorization');
@@ -134,11 +149,31 @@ serve(async (req) => {
   // ── Gate 2: what the admin currently allows ────────────────────────
   const { data: verticalRows } = await supabaseAdmin
     .from('vertical_settings')
-    .select('vertical_name, is_enabled, rollout_percentage, emergency_disabled');
+    .select('vertical_name, is_enabled, rollout_percentage, enabled_regions');
 
   const settings = new Map<string, VerticalSetting>(
     (verticalRows ?? []).map((v: VerticalSetting) => [v.vertical_name, v]),
   );
+
+  // ── Gate 3: has the rider's own territory unlocked this vertical ──
+  // Riders don't carry a fixed territory column — derive it from their
+  // most recent ride (any status), the same source of truth
+  // check_territory_vertical_unlocks() counts against.
+  const { data: recentRide } = await supabaseAdmin
+    .from('rides')
+    .select('territory_id')
+    .eq('rider_id', user.id)
+    .not('territory_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let riderTerritoryCode: string | null = null;
+  if (recentRide?.territory_id) {
+    const { data: territoryRow } = await supabaseAdmin
+      .from('territories').select('code').eq('id', recentRide.territory_id).maybeSingle();
+    riderTerritoryCode = territoryRow?.code ?? null;
+  }
 
   // Fail SAFE, not open: if vertical_settings can't be read we keep the
   // rider's earned list rather than blanking their home screen. An admin
@@ -146,22 +181,26 @@ serve(async (req) => {
   // vanishing because one query hiccuped.
   const settingsAvailable = Array.isArray(verticalRows) && verticalRows.length > 0;
 
+  const passesGate = (v: string) =>
+    isAllowedByAdmin(v, settings, user.id) && isAllowedInTerritory(v, settings, riderTerritoryCode);
+
   const unlockedVerticals = settingsAvailable
-    ? earnedVerticals.filter((v) => isAllowedByAdmin(v, settings, user.id))
+    ? earnedVerticals.filter(passesGate)
     : earnedVerticals;
 
-  // Earned but currently switched off by the admin. Surfaced so the UI
-  // can say "temporarily unavailable" instead of silently losing a
-  // vertical the rider knows they unlocked.
+  // Earned but currently switched off by the admin, OR not yet unlocked in
+  // the rider's own territory. Surfaced together so the UI can say
+  // "temporarily unavailable" instead of silently losing a vertical the
+  // rider knows they unlocked.
   const withheldByAdmin = settingsAvailable
-    ? earnedVerticals.filter((v) => !isAllowedByAdmin(v, settings, user.id))
+    ? earnedVerticals.filter((v) => !passesGate(v))
     : [];
 
   // Whole-platform view, so clients can gate things that are not part of
   // the progression list at all (carnival, events, b2b).
   const platformEnabled: Record<string, boolean> = {};
   for (const [name, row] of settings) {
-    platformEnabled[name] = row.is_enabled === true && row.emergency_disabled !== true;
+    platformEnabled[name] = row.is_enabled === true;
   }
 
   // Next level config for the carrot
@@ -175,10 +214,10 @@ serve(async (req) => {
 
   let nextUnlockProgress = 0;
   let nextUnlockRequired = 0;
-  let nextUnlockVerticals: string[] = [];
+  let nextUnlockLabel: string | null = null;
 
   if (nextCfg) {
-    nextUnlockVerticals = nextCfg.unlock_verticals ?? [];
+    nextUnlockLabel = nextCfg.unlock_vertical;
     nextUnlockRequired = nextCfg.threshold_value;
     if (nextCfg.threshold_type === 'rides')          nextUnlockProgress = prog?.total_rides ?? 0;
     else if (nextCfg.threshold_type === 'grocery_orders') nextUnlockProgress = prog?.total_grocery_orders ?? 0;
@@ -229,12 +268,12 @@ serve(async (req) => {
       next_unlock: nextCfg
         ? {
             level: nextCfg.level,
-            verticals: nextUnlockVerticals,
+            vertical: nextCfg.unlock_vertical,
             progress: nextUnlockProgress,
             required: nextUnlockRequired,
-            label: nextUnlockVerticals.join(', '),
+            label: nextUnlockLabel,
             available_on_platform: settingsAvailable
-              ? nextUnlockVerticals.every((v) => isAllowedByAdmin(v, settings, user.id))
+              ? passesGate(nextCfg.unlock_vertical)
               : true,
           }
         : null,

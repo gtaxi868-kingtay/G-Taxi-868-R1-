@@ -1,24 +1,63 @@
-import { requireAuth } from '../_shared/auth.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { checkRateLimit } from '../_shared/rateLimit.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
 
+import { getCorsHeaders } from '../_shared/cors.ts'
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const user = await requireAuth(req)
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!
+    )
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
+
+    const rateCheck = await checkRateLimit(supabaseAdmin, user.id, 'register_driver_with_code')
+    if (!rateCheck.allowed) {
+      return new Response(
+        JSON.stringify({ success: false, error: rateCheck.error }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const { data: blockCheck } = await supabaseAdmin
+      .from('profiles')
+      .select('platform_blocked, platform_blocked_reason')
+      .eq('id', user.id)
+      .maybeSingle()
+    if (blockCheck?.platform_blocked) {
+      return new Response(
+        JSON.stringify({ success: false, error: blockCheck.platform_blocked_reason || 'Account blocked. Contact support.' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const { commander_code, name, phone_number, vehicle_model, plate_number, vehicle_type } = await req.json()
 
@@ -29,10 +68,15 @@ Deno.serve(async (req) => {
       )
     }
 
+    // onboarding_code is always generated as lowercase hex
+    // (auto_generate_onboarding_code() trigger), but the driver app
+    // uppercases whatever the user types before sending it here — a
+    // case-sensitive match meant no real driver could ever register
+    // with a freshly-generated code through the app's own normal flow.
     const { data: commander, error: commanderError } = await supabaseAdmin
       .from('pod_commanders')
       .select('id, user_id, territory_id, status')
-      .eq('onboarding_code', commander_code)
+      .eq('onboarding_code', String(commander_code).trim().toLowerCase())
       .single()
 
     if (commanderError || !commander) {
@@ -65,6 +109,14 @@ Deno.serve(async (req) => {
     const { data: driver, error: driverError } = await supabaseAdmin
       .from('drivers')
       .insert({
+        // drivers.id has no default and is NOT NULL — every other write path
+        // in this codebase (e.g. admin/index.ts's toggle_driver authorize
+        // upsert) treats drivers.id as equal to the driver's own auth user
+        // id, never a separately-generated uuid. This insert never set it,
+        // so it crashed on the not-null constraint on the very first real
+        // attempt (never caught before now because the case-sensitivity bug
+        // above meant no real registration ever reached this line).
+        id: user.id,
         user_id: user.id,
         name,
         phone_number: phone_number || null,
@@ -75,6 +127,18 @@ Deno.serve(async (req) => {
         verified_status: 'pending',
         is_verified: false,
         territory_id: commander.territory_id,
+        // PAY ATTRIBUTION. This is the "signed them up" record the 2%
+        // commander revshare follows. compute_ride_split pays this user, and
+        // ONLY while they still hold an active pod_commanders row — a
+        // handoff, suspension or exit stops the 2% and the driver keeps the
+        // full 80%. Stored as the commander's auth user_id, NOT
+        // pod_commanders.id, because a handoff DELETEs that row.
+        //
+        // territory_id above is a SEPARATE, deliberately independent lookup:
+        // it routes zone notifications to whoever currently runs the zone.
+        // Do not collapse the two.
+        recruited_by_commander_user_id: commander.user_id,
+        recruited_at: new Date().toISOString(),
       })
       .select()
       .single()

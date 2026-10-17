@@ -12,22 +12,25 @@
 // directly, which is drivers.id not an auth user id, violating the
 // wallet_transactions FK on every single "nearby cancellation" -- the fee
 // never actually charged, and the error was swallowed).
+//
+// Rate limit added 2026-09-02 (pre-launch red-team pass): a RATE_LIMITS
+// entry for cancel_ride existed in _shared/rateLimit.ts but was never
+// wired in here, so cancellation spam/griefing was unthrottled.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
 import { captureException } from "../_shared/sentry.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -57,6 +60,16 @@ serve(async (req: Request) => {
 
         const userId = user.id;
 
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        const rateCheck = await checkRateLimit(supabaseAdmin, userId, "cancel_ride");
+        if (!rateCheck.allowed) {
+            return new Response(
+                JSON.stringify({ success: false, error: rateCheck.error, data: null }),
+                { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         // 2. PARSE INPUT
         const { ride_id, reason } = await req.json();
         if (!ride_id) {
@@ -65,8 +78,6 @@ serve(async (req: Request) => {
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
-
-        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         // 3. GET RIDE AND VERIFY OWNERSHIP
         const { data: ride, error: rideError } = await supabaseAdmin

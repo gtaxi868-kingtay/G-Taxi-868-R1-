@@ -3,122 +3,307 @@
 
 project_id = "ffbbuafgeypvkpcuvdnv"
 
-[functions.create_ride]
-verify_jwt = true
-
-[functions.get_active_ride]
-verify_jwt = true
-
-[functions.geocode]
-verify_jwt = true
-
-[functions.estimate_fare]
-verify_jwt = true
-
-[functions.match_driver]
-verify_jwt = true
-
-[functions.cancel_ride]
-verify_jwt = true
-
-[functions.complete_ride]
-verify_jwt = true
+# Edge function gateway JWT settings — mirrored from the LIVE project
+# (supabase functions list, 2026-10-17). Webhooks and cron/secret-called
+# functions must stay verify_jwt = false or their callers are rejected
+# before reaching our code. Keep this in sync with every deploy.
 
 [functions.accept_ride]
 verify_jwt = true
 
-[functions.update_driver_location]
+[functions.add_merchant_stop]
 verify_jwt = true
 
-[functions.nfc_event_handler]
-verify_jwt = true
-
-[functions.merchant_gateway]
-verify_jwt = false
-
-[functions.mirror_ride]
-verify_jwt = true
-
-[functions.parse_natural_language]
-verify_jwt = true
-
-[functions.update_ride_status]
-enabled = true
-verify_jwt = true
-import_map = "./functions/update_ride_status/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/update_ride_status/index.ts"
-
-[functions.stripe_webhook]
+[functions.admin]
 verify_jwt = false
 
 [functions.ai_concierge_proactive]
 verify_jwt = true
 
-[functions.generate_b2b_invoices]
-enabled = true
+[functions.ai_suggest_stops]
 verify_jwt = true
-import_map = "./functions/generate_b2b_invoices/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/generate_b2b_invoices/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/generate_b2b_invoices/*.html" ]
 
-[functions.process_dispatch_queue]
-enabled = true
-# Called by pg_cron with x-cron-secret, not a user JWT. Live is false;
-# true here would make a CLI deploy lock the scheduler out at the gateway.
-verify_jwt = false
-import_map = "./functions/process_dispatch_queue/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/process_dispatch_queue/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/process_dispatch_queue/*.html" ]
+[functions.apply_for_lease]
+verify_jwt = true
 
-[functions.send_b2b_tracking_sms]
-enabled = true
-# Live is false (called server-side without a user JWT); keep in sync.
-verify_jwt = false
-import_map = "./functions/send_b2b_tracking_sms/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/send_b2b_tracking_sms/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/send_b2b_tracking_sms/*.html" ]
-
-# ── Perimeter fixes (entry-point audit) ───────────────────────────────────
-# Cron-invoked queue worker: the pg_cron job calls it without a JWT, so it
-# must skip platform JWT. It only drains idempotent pending events (no body
-# injection), so an open endpoint is low-risk.
-[functions.process_event_queue]
+[functions.auto_charge_escape_group]
 verify_jwt = false
 
-# External WiPay callbacks carry no Supabase JWT — they authenticate via the
-# WIPAY_WEBHOOK_SECRET checked inside the function (same pattern as stripe_webhook).
-[functions.wipay_webhook]
+[functions.calculate_ride_trust_score]
+verify_jwt = true
+
+[functions.cancel_ride]
+verify_jwt = true
+
+[functions.charge_merchant_pin_fees]
 verify_jwt = false
 
-[functions.wipay_payment]
+[functions.commander_gateway]
+verify_jwt = true
+
+[functions.complete_ride]
+verify_jwt = true
+
+[functions.confirm_cash_collection]
+verify_jwt = true
+
+[functions.create_payment_intent]
+verify_jwt = true
+
+[functions.create_ride]
+verify_jwt = true
+
+[functions.create_stripe_customer]
+verify_jwt = true
+
+[functions.create_wallet_topup]
+verify_jwt = true
+
+[functions.create_wipay_payment]
+verify_jwt = true
+
+[functions.daily_push_notifications]
+verify_jwt = false
+
+[functions.dealer_brokerage]
+verify_jwt = true
+
+[functions.decline_ride]
+verify_jwt = true
+
+[functions.delete_account]
+verify_jwt = true
+
+[functions.driver_heatmap]
+verify_jwt = true
+
+[functions.driver_lease_status]
+verify_jwt = true
+
+[functions.estimate_fare]
+verify_jwt = true
+
+[functions.expire_offer]
+verify_jwt = true
+
+[functions.g_agent_runner]
+verify_jwt = false
+
+[functions.g_briefing]
+verify_jwt = false
+
+[functions.g_chat]
 verify_jwt = false
 
 [functions.g_execute_action]
-enabled = true
-# Called every 5 min by pg_cron with x-cron-secret, and by admin JWTs that
-# the function verifies itself. Live is false; true here would make a CLI
-# deploy lock the sweep out at the gateway.
 verify_jwt = false
-entrypoint = "./functions/g_execute_action/index.ts"
 
-[functions.admin]
-enabled = true
-# Every action is gated by requireAdmin() inside the function. Live is
-# false; true here would make a CLI deploy start rejecting at the gateway
-# (including the admin web's CORS preflight, which carries no JWT).
+[functions.g_garage]
+verify_jwt = true
+
+[functions.g_rider_concierge]
+verify_jwt = true
+
+[functions.g_spot]
+verify_jwt = true
+
+[functions.generate_ai_greeting]
+verify_jwt = true
+
+[functions.generate_b2b_invoices]
+verify_jwt = true
+
+[functions.generate_cash_code]
+verify_jwt = true
+
+[functions.geocode]
+verify_jwt = true
+
+[functions.get_active_ride]
+verify_jwt = true
+
+[functions.get_nearby_drivers]
+verify_jwt = true
+
+[functions.get_nearby_merchants]
+verify_jwt = true
+
+[functions.get_rider_progress]
+verify_jwt = true
+
+[functions.get_system_status]
+verify_jwt = true
+
+[functions.get_territory_health]
+verify_jwt = true
+
+[functions.grocery]
+verify_jwt = true
+
+[functions.handle_voice]
+verify_jwt = true
+
+[functions.identify_product]
 verify_jwt = false
-entrypoint = "./functions/admin/index.ts"
+
+[functions.manage_travel_waitlist]
+verify_jwt = true
+
+[functions.match_driver]
+verify_jwt = true
+
+[functions.merchant]
+verify_jwt = true
+
+[functions.merchant_gateway]
+verify_jwt = false
+
+[functions.merchant_invite_preview]
+verify_jwt = false
+
+[functions.merchant_nfc_charge]
+verify_jwt = true
+
+[functions.merchant_register_with_code]
+verify_jwt = false
+
+[functions.merchant_signup]
+verify_jwt = true
+
+[functions.mirror_ride]
+verify_jwt = true
+
+[functions.nfc_event_handler]
+verify_jwt = true
+
+[functions.nfc_restore_session]
+verify_jwt = true
+
+[functions.notify_admins]
+verify_jwt = false
+
+[functions.parse_natural_language]
+verify_jwt = true
+
+[functions.parse_receipt]
+verify_jwt = true
+
+[functions.platform_intelligence]
+verify_jwt = false
+
+[functions.process_commander_payout]
+verify_jwt = false
+
+[functions.process_dispatch_queue]
+verify_jwt = false
+
+[functions.process_event_queue]
+verify_jwt = false
+
+[functions.process_expired_codes]
+verify_jwt = false
+
+[functions.process_lease_defaults]
+verify_jwt = false
+
+[functions.process_nfc_settlement]
+verify_jwt = true
+
+[functions.process_pending_wipay_settlements]
+verify_jwt = false
+
+[functions.process_revshare_payouts]
+verify_jwt = false
+
+[functions.process_settlement_grace]
+verify_jwt = false
+
+[functions.process_stop_arrival]
+verify_jwt = true
+
+[functions.process_storage_deletions]
+verify_jwt = false
+
+[functions.puck_heartbeat]
+verify_jwt = false
+
+[functions.redeem_cash_code]
+verify_jwt = true
+
+[functions.refresh_territory_forecasts]
+verify_jwt = false
+
+[functions.register_driver_with_code]
+verify_jwt = true
+
+[functions.request_cash_withdrawal]
+verify_jwt = true
+
+[functions.request_commander_payout]
+verify_jwt = true
+
+[functions.request_payout]
+verify_jwt = true
+
+[functions.rider_nfc_pay]
+verify_jwt = true
+
+[functions.send_b2b_tracking_sms]
+verify_jwt = false
+
+[functions.send_push_notification]
+verify_jwt = true
+
+[functions.site]
+verify_jwt = false
+
+[functions.skip_ride_stop]
+verify_jwt = true
+
+[functions.split_payment_gateway]
+verify_jwt = true
+
+[functions.stripe_webhook]
+verify_jwt = false
+
+[functions.submit_compliance_document]
+verify_jwt = true
+
+[functions.submit_settlement]
+verify_jwt = true
+
+[functions.suggest_stops]
+verify_jwt = true
+
+[functions.sync_flight_availability]
+verify_jwt = false
+
+[functions.sync_lodging_availability]
+verify_jwt = false
+
+[functions.travel]
+verify_jwt = true
+
+[functions.trigger_emergency]
+verify_jwt = true
+
+[functions.update_driver_location]
+verify_jwt = true
+
+[functions.update_ride_status]
+verify_jwt = true
+
+[functions.update_user_memory]
+verify_jwt = true
+
+[functions.verify_settlement]
+verify_jwt = true
+
+[functions.vision_pickup]
+verify_jwt = false
+
+[functions.wipay_disburse]
+verify_jwt = true
+
+[functions.wipay_webhook]
+verify_jwt = false

@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+import { getCorsHeaders } from '../_shared/cors.ts'
 // Public, unauthenticated preview of a commander's merchant invite — the
 // merchant taps the link before they have any G-Taxi account, so this can't
 // require a JWT. Returns only non-sensitive display fields (location name,
@@ -8,11 +9,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 // other merchants' data, or anything beyond what's needed to reassure the
 // merchant they're registering the right spot.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
 
 const ipAttempts = new Map<string, { count: number; resetAt: number }>()
 
@@ -29,6 +25,7 @@ function checkIpRateLimit(ip: string): boolean {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS')
     return new Response('ok', { headers: corsHeaders })
 

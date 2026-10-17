@@ -1,11 +1,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
+import { getCorsHeaders } from '../_shared/cors.ts'
 const CRON_SECRET = Deno.env.get('PLATFORM_CRON_SECRET') ?? ''
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 const LOCATIONS = [
   { id: 'TAB', name: 'Tobago', country: 'TT' },
@@ -15,9 +12,10 @@ const LOCATIONS = [
 ]
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  if (req.headers.get('x-cron-secret') !== CRON_SECRET) {
+  if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

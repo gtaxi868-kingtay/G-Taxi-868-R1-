@@ -16,22 +16,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chat, llmConfigured, BudgetExceededError, RateLimitedError } from "../_shared/llm.ts";
+import { getPlatformIdentity } from "../_shared/identity.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const PLATFORM_CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
 
-function json(payload: unknown, status = 200): Response {
-    return new Response(JSON.stringify(payload), {
-        status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-}
 
 async function isAuthorized(req: Request): Promise<boolean> {
     const cronHeader = req.headers.get("x-cron-secret");
@@ -47,22 +39,29 @@ async function isAuthorized(req: Request): Promise<boolean> {
 }
 
 // The council G thinks with — the same lenses the ad-hoc economics audits used.
-const SYSTEM_PROMPT = `You are G, chief of staff for G-Taxi — a multi-vertical platform in Trinidad & Tobago (rides, grocery/merchant delivery, G-Escape group travel, a commander-run franchise grid).
+// The platform description used to be hardcoded verbatim here, duplicated
+// (and drifting slightly) across five different edge functions. It's now read
+// from g_config.platform_identity via getPlatformIdentity() so there's one
+// fact to update, not five prompts to keep in sync by hand.
+function buildSystemPrompt(platformDescription: string): string {
+    return `You are G, chief of staff for ${platformDescription}.
 
 You are talking to the owner. Speak plain English — short sentences, no jargon, no corporate filler. Be direct and honest, including about bad news. Amounts in the data are TTD cents; always convert to TT$ dollars when speaking.
 
 Before answering anything with business consequences, silently run it through your council of lenses and let the best ones shape the reply (name a lens only when the tension between lenses IS the answer):
 - Economist: unit economics, take rates, where the margin actually comes from
-- Operator: dispatch, driver supply, cancellations, what breaks at 2am
+- Operator: dispatch, driver supply, cancellations — using only what the brief actually shows, never a generic assumption about time-of-day patterns
 - CFO: cash, float, debt outstanding, budget discipline
 - Growth: rider/driver acquisition loops, the grid, what compounds
 - Risk: fraud vectors, single points of failure, regulatory exposure
 
 Ground rules:
-1. NEVER invent numbers. Only use figures present in the LIVE BRIEF below or given by the owner. If you don't have the number, say so and name where it lives.
+1. NEVER invent numbers, percentages, trends, or patterns — not even ones you label as typical, usual, estimated, illustrative, or "not in the brief." If a figure isn't in the LIVE BRIEF below or given directly by the owner, you do not have it. Say plainly that you don't have that data and name where it would need to come from (e.g. "no ride history exists yet to see a time-of-day pattern"). This applies doubly when the brief shows zero activity — zero rides means there is no pattern to describe, so do not describe one.
 2. You cannot execute anything. When you have a concrete, worthwhile action, call file_proposal — it lands in the owner's approval inbox. File at most 2 per conversation turn, and only when genuinely useful. Never file duplicates of pending proposals already listed in the brief.
 3. If asked to do something outside your reach (deploy code, move money, change settings), say who/what actually does it.
-4. Suggestions should feel like a sharp chief of staff: rare, specific, tied to a number in the brief.`;
+4. Suggestions should feel like a sharp chief of staff: rare, specific, tied to a number in the brief.
+5. Before sending a reply, re-check every specific claim you're about to make against the LIVE BRIEF JSON. Delete any claim you can't point to a field for.`;
+}
 
 const FILE_PROPOSAL_TOOL = {
     type: "function" as const,
@@ -74,8 +73,18 @@ const FILE_PROPOSAL_TOOL = {
             properties: {
                 title: { type: "string", description: "Short imperative title, e.g. 'Waive pin fee for first 10 SLU bookings'" },
                 reasoning: { type: "string", description: "2-4 plain-English sentences: the number that triggered this, the action, the expected effect" },
-                category: { type: "string", enum: ["money", "ops", "growth", "other"] },
-                department: { type: "string", enum: ["ops", "finance", "growth", "escape", "grid", "support"] },
+                // These two enums MUST match reality, not aspiration:
+                //   category → the live g_proposed_actions_category_check
+                //     constraint, which permits exactly money|people|public|
+                //     config|other. This previously offered "ops" and "growth",
+                //     so any proposal G filed in those categories hit a CHECK
+                //     violation and never inserted at all.
+                //   department → the real DEPARTMENTS keys in g_agent_runner.
+                //     "growth", "escape" and "grid" are not departments; filing
+                //     under them pollutes the column used for per-department
+                //     proposal caps and analytics.
+                category: { type: "string", enum: ["money", "people", "public", "config", "other"] },
+                department: { type: "string", enum: ["ops", "finance", "support", "content_creator", "fleet"] },
                 amount_cents: { type: "integer", description: "TTD cents at stake if quantifiable, else 0" },
             },
             required: ["title", "reasoning", "category", "department"],
@@ -84,10 +93,25 @@ const FILE_PROPOSAL_TOOL = {
 };
 
 // deno-lint-ignore no-explicit-any
-async function fetchBrief(): Promise<any> {
+async function fetchBrief(callerAuthHeader: string | null): Promise<any> {
+    // Forward whichever credential actually got THIS request past isAuthorized
+    // above, instead of only ever sending the cron secret. g_briefing accepts
+    // an admin JWT just as validly as the cron secret (same isAuthorized
+    // shape in both functions) — but the previous version only ever sent
+    // x-cron-secret here, so if PLATFORM_CRON_SECRET was unset or the two
+    // functions' copies of it didn't match, G's chat was completely dead for
+    // every admin, regardless of them having a perfectly valid session and a
+    // working GROQ_API_KEY. Confirmed live: g_briefing returns 200 with a
+    // real brief when called with an admin JWT directly.
+    const headers: Record<string, string> = {};
+    if (callerAuthHeader) {
+        headers["Authorization"] = callerAuthHeader;
+    } else if (PLATFORM_CRON_SECRET) {
+        headers["x-cron-secret"] = PLATFORM_CRON_SECRET;
+    }
     const res = await fetch(`${SUPABASE_URL}/functions/v1/g_briefing`, {
         method: "GET",
-        headers: { "x-cron-secret": PLATFORM_CRON_SECRET },
+        headers,
     });
     if (!res.ok) throw new Error(`g_briefing ${res.status}`);
     const body = await res.json();
@@ -95,6 +119,14 @@ async function fetchBrief(): Promise<any> {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  function json(payload: unknown, status = 200): Response {
+      return new Response(JSON.stringify(payload), {
+          status,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+  }
+
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
     if (!(await isAuthorized(req))) return json({ error: "Unauthorized" }, 401);
     if (!llmConfigured()) return json({ error: "LLM not configured (GROQ_API_KEY missing)" }, 503);
@@ -116,8 +148,11 @@ serve(async (req) => {
     }
 
     try {
-        const brief = await fetchBrief();
-        const system = `${SYSTEM_PROMPT}\n\nLIVE BRIEF (generated ${brief.generated_at ?? "now"}):\n${JSON.stringify(brief)}`;
+        const [brief, identity] = await Promise.all([
+            fetchBrief(req.headers.get("Authorization")),
+            getPlatformIdentity(supabase),
+        ]);
+        const system = `${buildSystemPrompt(identity.description)}\n\nLIVE BRIEF (generated ${brief.generated_at ?? "now"}):\n${JSON.stringify(brief)}`;
 
         const first = await chat(supabase, {
             department: "chat",
@@ -126,7 +161,7 @@ serve(async (req) => {
             tools: [FILE_PROPOSAL_TOOL],
             toolChoice: "auto",
             maxTokens: 700,
-            temperature: 0.4,
+            temperature: 0.2,
         });
 
         const msg = first.choices?.[0]?.message ?? {};
@@ -142,11 +177,21 @@ serve(async (req) => {
                     const args = JSON.parse(tc.function?.arguments ?? "{}");
                     if (!args.title || !args.reasoning) throw new Error("title/reasoning required");
                     const { data, error } = await supabase.from("g_proposed_actions").insert({
-                        department: args.department ?? "ops",
+                        // Constrained to the real DEPARTMENTS keys so the
+                        // per-department proposal caps and analytics stay honest.
+                        department: ["ops", "finance", "support", "content_creator", "fleet"]
+                            .includes(args.department) ? args.department : "ops",
                         action_type: "recommendation", // manual-ack only — never an automated handler
                         title: String(args.title).slice(0, 200),
                         reasoning: String(args.reasoning).slice(0, 2000),
-                        category: ["money", "ops", "growth", "other"].includes(args.category) ? args.category : "other",
+                        // Whitelist mirrors the live CHECK constraint exactly.
+                        // It previously admitted "ops"/"growth", which the
+                        // constraint rejects — so instead of degrading to
+                        // "other", the whole insert threw and the owner's
+                        // proposal silently vanished.
+                        category: ["money", "people", "public", "config", "other"].includes(args.category)
+                            ? args.category
+                            : "other",
                         amount_cents: Number.isFinite(Number(args.amount_cents)) ? Math.trunc(Number(args.amount_cents)) : 0,
                         payload: { source: "g_chat" },
                     }).select("id, title").single();

@@ -35,7 +35,6 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const { action } = body
 
-    // ─── GET NEARBY STORES ─────────────────────────────────────
     if (action === 'get_nearby_stores') {
       const { lat, lng, radius_km = 10, store_type = 'grocery' } = body
       if (typeof lat !== 'number' || typeof lng !== 'number') {
@@ -72,7 +71,6 @@ Deno.serve(async (req) => {
       return json({ success: true, stores: stores || [], count: stores?.length || 0 })
     }
 
-    // ─── GET CATALOGUE ─────────────────────────────────────────
     if (action === 'get_catalogue') {
       const { merchant_id } = body
       if (!merchant_id) return json({ error: 'merchant_id is required' }, 400)
@@ -129,7 +127,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── GET CART ──────────────────────────────────────────────
     if (action === 'get_cart') {
       const { merchant_id } = body
       if (!merchant_id) return json({ error: 'merchant_id is required' }, 400)
@@ -198,7 +195,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── MANAGE CART ───────────────────────────────────────────
     if (action === 'manage_cart') {
       const cartAction = body.cart_action
       const { merchant_id, product_id, quantity } = body
@@ -289,7 +285,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── PLACE ORDER ───────────────────────────────────────────
     if (action === 'place_order') {
       const {
         merchant_id, delivery_address, delivery_lat, delivery_lng,
@@ -396,12 +391,6 @@ Deno.serve(async (req) => {
           stripe_payment_intent_id: paymentIntent.id, payment_status: 'pending',
         }).eq('id', order.id)
 
-        // NOTE: card orders don't reach real payment success here — Stripe
-        // captures asynchronously via stripe_webhook, which is outside the
-        // four entry points this pass wires progression into. A card-paid
-        // grocery order will not currently increment total_grocery_orders.
-        // Flagging this rather than silently under-counting: the fix is a
-        // record_rider_activity call in stripe_webhook's order-capture path.
         return json({
           success: true,
           order: {
@@ -440,7 +429,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── GET ORDER STATUS ──────────────────────────────────────
     if (action === 'get_order_status') {
       const { order_id } = body
       if (!order_id) return json({ error: 'order_id is required' }, 400)
@@ -510,9 +498,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── CONFIRM DELIVERY (driver hands off order, gets paid) ──
-    // Identity resolved from JWT, never trusted from body — the caller must
-    // BE the order's assigned delivery_driver_id, verified server-side.
     if (action === 'confirm_delivery') {
       const { order_id, photo_url } = body
       if (!order_id) return json({ error: 'order_id is required' }, 400)
@@ -528,9 +513,6 @@ Deno.serve(async (req) => {
         return json({ error: 'You are not the assigned driver for this order' }, 403)
       }
 
-      // Cash orders settle through a different RPC (driver keeps the cash,
-      // owes the platform its + the merchant's share) — same driver-facing
-      // action, branch to the right settlement path server-side.
       if (order.payment_method === 'cash') {
         const { data: cashResult, error: cashErr } = await supabase.rpc('process_cash_delivery_settlement', {
           p_order_id: order_id,
@@ -553,7 +535,6 @@ Deno.serve(async (req) => {
       return json(result)
     }
 
-    // ─── CREATE PAYMENT INTENT ─────────────────────────────────
     if (action === 'create_payment_intent') {
       const rateCheck = await checkRateLimit(supabase, user.id, 'grocery_create_payment_intent')
       if (!rateCheck.allowed) {
@@ -639,7 +620,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── CONFIRM AUTHORIZATION ─────────────────────────────────
     if (action === 'confirm_authorization') {
       const { order_id } = body
       if (!order_id) return json({ error: 'order_id is required' }, 400)

@@ -42,11 +42,22 @@
 // re-send "your zone is live" to the same person on every run, forever. The
 // outbox row is claimed BEFORE the send, and a duplicate-key error is read as
 // "already told them" — so a crash mid-sweep re-sends nothing.
+//
+// ── ADDED 2026-09-19: retry_pending_sends ─────────────────────────────────
+// A failed send used to just die as status='failed' — a slow/down WhatsApp
+// call (confirmed happening live: one capacity_sweep run hung 41s and 500'd)
+// meant a real message could be silently lost forever, with nothing to
+// retry it. claimAndSend now gives a failed send up to max_attempts tries
+// with backoff (status='pending_retry' + next_retry_at) before giving up
+// for good. action: "retry_pending_sends" (cron only) sweeps due rows and
+// tries again — including rows that failed because WHATSAPP_ACCESS_TOKEN
+// was invalid, so once that's fixed the backlog drains on its own instead
+// of those messages being lost.
 
 // deno-lint-ignore-file no-explicit-any
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
+import { sendWhatsApp, getDeepLink, checkWhatsAppHealth } from "../_shared/sms.ts";
 
 import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -134,11 +145,11 @@ async function resolveRecipient(supabase: any, role: Role, id: string): Promise<
 
   if (role === "rider") {
     const { data } = await supabase.from("profiles")
-      .select("id, full_name, phone_number").eq("id", id).maybeSingle();
+      .select("id, full_name, phone_number, territory_id").eq("id", id).maybeSingle();
     if (!data) return null;
     return {
       role, id: data.id, name: data.full_name ?? "there",
-      phone: data.phone_number ?? null, territoryId: null,
+      phone: data.phone_number ?? null, territoryId: data.territory_id ?? null,
     };
   }
 
@@ -192,10 +203,23 @@ function waitlistApprovedText(name: string, userType: string, downloadUrl: strin
 }
 
 /**
+ * Backoff schedule for a failed send: 10 min, 20 min, 30 min, 40 min, capped
+ * at 120 min. attemptCount is the count AFTER the failed attempt (i.e. the
+ * number of tries so far, including this one).
+ */
+function backoffMinutes(attemptCount: number): number {
+  return Math.min(10 * attemptCount, 120);
+}
+
+/**
  * Claim the right to send, then send. The insert is the lock: if the unique
  * index rejects it, this person already has this message and we stop. Claiming
  * BEFORE sending means a crash costs at most one unsent message, never a
  * duplicate — the safer direction for something that messages real people.
+ *
+ * A failed send is not the end: it gets up to max_attempts tries (default 5,
+ * see retry_pending_sends) with growing backoff before it's marked 'failed'
+ * for good.
  */
 async function claimAndSend(
   supabase: any,
@@ -213,9 +237,10 @@ async function claimAndSend(
       template: args.template,
       territory_id: args.territoryId,
       payload: args.payload ?? {},
+      body: args.body,
       status: "pending",
     })
-    .select("id")
+    .select("id, attempt_count, max_attempts")
     .single();
 
   if (claimErr) {
@@ -226,14 +251,25 @@ async function claimAndSend(
 
   const result = await sendWhatsApp(args.phone, args.body, { previewUrl: true });
 
+  if (result.success) {
+    await supabase.from("outbound_messages").update({
+      status: "sent", channel: result.channel, error: null,
+      sent_at: new Date().toISOString(),
+    }).eq("id", claim.id);
+    return { sent: true, channel: result.channel };
+  }
+
+  const willRetry = claim.attempt_count < claim.max_attempts;
   await supabase.from("outbound_messages").update({
-    status: result.success ? "sent" : "failed",
+    status: willRetry ? "pending_retry" : "failed",
     channel: result.channel,
-    error: result.success ? null : (result.error ?? null),
-    sent_at: result.success ? new Date().toISOString() : null,
+    error: result.error ?? null,
+    next_retry_at: willRetry
+      ? new Date(Date.now() + backoffMinutes(claim.attempt_count) * 60_000).toISOString()
+      : null,
   }).eq("id", claim.id);
 
-  return { sent: result.success, reason: result.error, channel: result.channel };
+  return { sent: false, reason: result.error, channel: result.channel };
 }
 
 Deno.serve(async (req: Request) => {
@@ -264,11 +300,16 @@ Deno.serve(async (req: Request) => {
 
       const results: any[] = [];
       for (const zone of zones ?? []) {
-        // Riders have no territory column, so the people a zone can actually
-        // reach today are its drivers. Telling riders needs a rider-to-zone
-        // link that does not exist in the schema yet — flagged, not faked.
         const { data: drivers } = await supabase.from("drivers")
           .select("id, name, phone_number")
+          .eq("territory_id", zone.territory_id)
+          .not("phone_number", "is", null);
+
+        // profiles.territory_id (added by rider_territory_link_and_zone_seed)
+        // is the rider-to-zone link that was previously missing — riders now
+        // reach this fan-out the same way drivers do.
+        const { data: riders } = await supabase.from("profiles")
+          .select("id, full_name, phone_number")
           .eq("territory_id", zone.territory_id)
           .not("phone_number", "is", null);
 
@@ -285,6 +326,19 @@ Deno.serve(async (req: Request) => {
           else failed++;
         }
 
+        let ridersSent = 0, ridersSkipped = 0, ridersFailed = 0;
+        for (const r of riders ?? []) {
+          const result = await claimAndSend(supabase, {
+            role: "rider", recipientId: r.id, phone: r.phone_number,
+            template: "zone_live_download", territoryId: zone.territory_id,
+            body: zoneLiveText(r.full_name ?? "there", zone.territory_name, links.rider_download_url),
+            payload: { zone: zone.territory_name, capacity: zone.capacity },
+          });
+          if (result.sent) ridersSent++;
+          else if (result.reason === "already_sent") ridersSkipped++;
+          else ridersFailed++;
+        }
+
         // Stamp the zone ONLY after the fan-out. If this crashed earlier the
         // zone stays unstamped and the next run retries — and the outbox
         // unique index means the people already told are not told twice.
@@ -296,7 +350,8 @@ Deno.serve(async (req: Request) => {
           zone: zone.territory_name,
           verified_drivers: zone.verified_drivers,
           capacity: zone.capacity,
-          sent, skipped_already_sent: skipped, failed,
+          drivers: { sent, skipped_already_sent: skipped, failed },
+          riders: { sent: ridersSent, skipped_already_sent: ridersSkipped, failed: ridersFailed },
         });
       }
 
@@ -307,6 +362,181 @@ Deno.serve(async (req: Request) => {
         note: results.length === 0
           ? "No zone met its driver_capacity. Set territories.driver_capacity to arm a zone."
           : undefined,
+      });
+    }
+
+    // ---- retry_pending_sends : cron only ---------------------------------
+    // Picks up every outbound_messages row whose retry is due and tries it
+    // again. This is the actual "queue" behavior: a slow/down WhatsApp call
+    // no longer means a message is lost, it means it's tried again later.
+    if (action === "retry_pending_sends") {
+      if (!(await isCron(req))) return json({ success: false, error: "Unauthorized" }, 401);
+
+      const { data: due, error } = await supabase
+        .from("outbound_messages")
+        .select("id, phone, body, attempt_count, max_attempts")
+        .eq("status", "pending_retry")
+        .lte("next_retry_at", new Date().toISOString())
+        .order("next_retry_at", { ascending: true })
+        .limit(50);
+      if (error) return json({ success: false, error: error.message }, 500);
+
+      let retried = 0, sent = 0, stillFailing = 0, gaveUp = 0;
+      for (const row of due ?? []) {
+        if (!row.body) {
+          // Rows from before this column existed have nothing to resend —
+          // there are none live today (table was empty when this shipped),
+          // but fail closed rather than send an empty message.
+          await supabase.from("outbound_messages")
+            .update({ status: "failed", error: "no body stored to retry" })
+            .eq("id", row.id);
+          gaveUp++;
+          continue;
+        }
+
+        retried++;
+        const result = await sendWhatsApp(row.phone, row.body, { previewUrl: true });
+        const newAttemptCount = row.attempt_count + 1;
+
+        if (result.success) {
+          await supabase.from("outbound_messages").update({
+            status: "sent", channel: result.channel, error: null,
+            sent_at: new Date().toISOString(), attempt_count: newAttemptCount,
+            next_retry_at: null,
+          }).eq("id", row.id);
+          sent++;
+          continue;
+        }
+
+        const willRetryAgain = newAttemptCount < row.max_attempts;
+        await supabase.from("outbound_messages").update({
+          status: willRetryAgain ? "pending_retry" : "failed",
+          channel: result.channel,
+          error: result.error ?? null,
+          attempt_count: newAttemptCount,
+          next_retry_at: willRetryAgain
+            ? new Date(Date.now() + backoffMinutes(newAttemptCount) * 60_000).toISOString()
+            : null,
+        }).eq("id", row.id);
+        if (willRetryAgain) stillFailing++; else gaveUp++;
+      }
+
+      return json({ success: true, due: (due ?? []).length, retried, sent, still_failing: stillFailing, gave_up: gaveUp });
+    }
+
+    // ---- whatsapp_health : admin or cron --------------------------------
+    // Proves the WhatsApp credentials actually work, the same "probe, don't
+    // trust a config boolean" discipline g_briefing uses for LLM keys.
+    // Read-only against Meta's API -- sends nothing to any person.
+    if (action === "whatsapp_health") {
+      const health = await checkWhatsAppHealth();
+      console.log("[whatsapp_health]", JSON.stringify(health));
+      return json({ success: health.valid, ...health });
+    }
+
+    // ---- whatsapp_token_scopes : admin only, diagnostic -------------------
+    // Asks Meta directly what permissions/assets the current
+    // WHATSAPP_ACCESS_TOKEN actually has, via Meta's own debug_token
+    // endpoint. The token never leaves this function -- read from the env
+    // var, sent straight to Meta, never returned or logged. This exists to
+    // diagnose a real "Authorization Error" on send that persisted across
+    // two regenerated tokens, which pointed at a scope/asset-assignment
+    // problem rather than a bad token value.
+    if (action === "whatsapp_token_scopes") {
+      const adminId = await adminUserId(req);
+      if (!adminId) return json({ success: false, error: "Forbidden: admin role required" }, 403);
+
+      const token = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
+      if (!token) return json({ success: false, error: "WHATSAPP_ACCESS_TOKEN not set" });
+
+      try {
+        const resp = await fetch(
+          `https://graph.facebook.com/v21.0/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(token)}`,
+        );
+        const body = await resp.json();
+        // Strip anything that could echo the token back before it ever
+        // leaves this function -- Meta's error bodies have done this before.
+        const safe = JSON.parse(JSON.stringify(body).split(token).join("[REDACTED]"));
+        return json({ success: resp.ok, status: resp.status, result: safe });
+      } catch (err: any) {
+        return json({ success: false, error: err.message || "debug_token call failed" });
+      }
+    }
+
+    // ---- whatsapp_register_number : admin only ---------------------------
+    // Workaround for Meta's own dashboard registration flow being
+    // unreachable/slow to load. Calls Meta's /{phone_number_id}/register
+    // endpoint directly, the same action that dashboard "Register your
+    // WhatsApp phone number" button performs. Needed to clear a real
+    // "(#133010) Account not registered" error on send -- the number was
+    // "Connected" in Business Manager but never formally registered for
+    // Cloud API sending. The PIN is Meta's own 2-step-verification PIN for
+    // this phone number; it is never logged or echoed back.
+    if (action === "whatsapp_register_number") {
+      const adminId = await adminUserId(req);
+      if (!adminId) return json({ success: false, error: "Forbidden: admin role required" }, 403);
+
+      const pin = (payload?.pin as string ?? "").replace(/\D/g, "");
+      if (pin.length !== 6) {
+        return json({ success: false, error: "pin must be exactly 6 digits" }, 400);
+      }
+
+      const token = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
+      const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
+      if (!token || !phoneNumberId) {
+        return json({ success: false, error: "WHATSAPP_ACCESS_TOKEN / WHATSAPP_PHONE_NUMBER_ID not set" });
+      }
+
+      try {
+        const resp = await fetch(
+          `https://graph.facebook.com/v21.0/${phoneNumberId}/register`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ messaging_product: "whatsapp", pin }),
+          },
+        );
+        const body = await resp.json();
+        const safe = JSON.parse(JSON.stringify(body).split(token).join("[REDACTED]"));
+        return json({ success: resp.ok, status: resp.status, result: safe });
+      } catch (err: any) {
+        return json({ success: false, error: err.message || "register call failed" });
+      }
+    }
+
+    // ---- send_test_message : admin only ---------------------------------
+    // A real end-to-end send an admin can trigger on demand, to any phone
+    // number they type in -- including their own. Distinct from
+    // whatsapp_health (which never sends anything) and from send_welcome
+    // (which requires an existing rider/driver/merchant profile row).
+    // Doesn't go through claimAndSend/outbound_messages -- there is no
+    // recipient row to dedupe against, this is an ad-hoc test, meant to be
+    // sendable more than once.
+    if (action === "send_test_message") {
+      const adminId = await adminUserId(req);
+      if (!adminId) return json({ success: false, error: "Forbidden: admin role required" }, 403);
+
+      const phone = (payload?.phone as string ?? "").replace(/\D/g, "");
+      if (phone.length < 7) {
+        return json({ success: false, error: "Enter a valid phone number (digits, incl. country code)" }, 400);
+      }
+
+      const body = `G-Taxi test message \u{1F44B}\n\nIf you're reading this, WhatsApp sending is working. Sent from the admin dashboard at ${new Date().toLocaleString()}.`;
+      const result = await sendWhatsApp(phone, body, { previewUrl: false });
+
+      // The Cloud API is still blocked on real Meta-side account registration
+      // (verified: "(#133010) Account not registered", 2026-09-20). Rather
+      // than leave the admin with nothing, hand back a wa.me deep link they
+      // can click to send the exact same message themselves right now --
+      // same fallback pattern Waitlist.tsx/approve_waitlist already use.
+      return json({
+        success: result.success,
+        channel: result.channel,
+        error: result.success ? undefined : result.error,
+        deepLink: result.success ? undefined : getDeepLink(phone, body),
       });
     }
 

@@ -1,18 +1,10 @@
 // supabase/functions/wipay_disburse/index.ts
 // Initiate a WiPay bank disbursement for an approved driver payout.
 // Called by admin_process_payout after wallet debit succeeds.
-//
-// WiPay Payout API (inferred from v1/gateway patterns):
-//   POST https://wipayfinancial.com/v1/gateway/payout
-//   Headers: Content-Type: application/json, Api-Key, Account-Number
-//   Body: { account_holder, bank_name, account_number, amount, currency, order_id }
-//   Response: { transaction_id, status, message }
-//
-// Secrets required: WIPAY_ACCOUNT_NUMBER, WIPAY_API_KEY, WIPAY_ENV
-//   (shared with wipay_payment and create_wipay_payment)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireAdmin } from '../_shared/auth.ts'
+import { getCorsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -23,12 +15,6 @@ const WIPAY_ENV = Deno.env.get('WIPAY_ENV') || 'sandbox'
 const WIPAY_BASE_URL = WIPAY_ENV === 'sandbox'
   ? 'https://sandbox.wipayfinancial.com/v1/gateway'
   : 'https://wipayfinancial.com/v1/gateway'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
 
 interface DisburseInput {
   payout_request_id: string
@@ -41,6 +27,7 @@ interface DisburseInput {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -49,7 +36,6 @@ Deno.serve(async (req) => {
     const { supabaseAdmin, user } = await requireAdmin(req)
     const body: DisburseInput = await req.json()
 
-    // ── Validation ────────────────────────────────────────────
     if (!body.payout_request_id || !body.driver_id) {
       return new Response(
         JSON.stringify({ error: 'payout_request_id and driver_id are required' }),
@@ -79,7 +65,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── Verify payout request exists and is approved ──────────
     const { data: payout, error: payoutErr } = await supabaseAdmin
       .from('payout_requests')
       .select('id, status, driver_id, amount_cents')
@@ -99,7 +84,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── Check for existing disbursement (idempotency) ────────────────────
     const { data: existing } = await supabaseAdmin
       .from('wipay_payouts')
       .select('id, status, wipay_transaction_id')
@@ -113,11 +97,9 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── Build idempotency key ─────────────────────────────────
     const idempotencyKey = `wipay_disburse_${body.payout_request_id}_${body.driver_id}`
     const orderId = `payout_${body.payout_request_id.slice(0, 8)}_${Date.now()}`
 
-    // ── Create local record ───────────────────────────────────
     const { data: wipayRecord, error: insertErr } = await supabaseAdmin
       .from('wipay_payouts')
       .insert({
@@ -147,7 +129,6 @@ Deno.serve(async (req) => {
 
     const wipayPayoutId = wipayRecord.id
 
-    // ── Call WiPay Disbursement API ───────────────────────────
     const wipayPayload = {
       account_holder: body.account_holder,
       bank_name: body.bank_name,
@@ -203,7 +184,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // ── Success — mark submitted, record transaction ID ────────
     await supabaseAdmin
       .from('wipay_payouts')
       .update({

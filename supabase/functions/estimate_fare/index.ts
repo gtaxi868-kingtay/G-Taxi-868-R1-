@@ -23,12 +23,10 @@ const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || "";
 
 import { PRICING, calculateStopsFee, fetchVehicleClass, staticMultiplier } from "../_shared/pricing.ts";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -178,6 +176,8 @@ serve(async (req: Request) => {
         const livePerKm     = cfg["PER_KM_CENTS"]    ?? PRICING.PER_KM_CENTS;
         const livePerMin    = cfg["PER_MIN_CENTS"]    ?? PRICING.PER_MIN_CENTS;
         const liveMinFare   = cfg["MIN_FARE_CENTS"]   ?? PRICING.MIN_FARE_CENTS;
+        const liveLongDistanceThreshold = cfg["LONG_DISTANCE_KM_THRESHOLD"] ?? PRICING.LONG_DISTANCE_KM_THRESHOLD;
+        const liveLongDistancePerKm = cfg["LONG_DISTANCE_PER_KM_CENTS"] ?? PRICING.LONG_DISTANCE_PER_KM_CENTS;
 
         const totalStopsFeeCents = calculateStopsFee(Array.isArray(stops) ? stops : []);
 
@@ -185,8 +185,11 @@ serve(async (req: Request) => {
         const classMinFare = vehicleClass?.min_fare_cents ?? 0;
         const distanceKm = distanceMeters / 1000;
         const durationMin = durationSeconds / 60;
+        const normalDistanceKm = Math.min(distanceKm, liveLongDistanceThreshold);
+        const longDistanceKm = Math.max(distanceKm - liveLongDistanceThreshold, 0);
         let rawFare = liveBaseFare +
-            Math.round(distanceKm * livePerKm) +
+            Math.round(normalDistanceKm * livePerKm) +
+            Math.round(longDistanceKm * liveLongDistancePerKm) +
             Math.round(durationMin * livePerMin);
         rawFare = Math.round((rawFare + totalStopsFeeCents) * multiplier * surgeMultiplier);
         const fareCents = Math.max(rawFare, liveMinFare, classMinFare);

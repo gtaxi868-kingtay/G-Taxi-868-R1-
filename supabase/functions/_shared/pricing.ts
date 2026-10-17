@@ -1,6 +1,8 @@
 export const PRICING = {
     BASE_FARE_CENTS: 1600,
     PER_KM_CENTS: 175,
+    LONG_DISTANCE_KM_THRESHOLD: 20,
+    LONG_DISTANCE_PER_KM_CENTS: 260,
     PER_MIN_CENTS: 95,
     MIN_FARE_CENTS: 2200,
     STOP_BASE_GROCERY_CENTS: 3500,
@@ -57,13 +59,23 @@ export function staticMultiplier(vehicleType: string): number {
     return 1.0;
 }
 
+export const MAX_STOP_WAIT_MINUTES = 120;
+
 export function calculateStopsFee(stops: Array<{ stop_type?: string; estimated_wait_minutes?: number }> = []): number {
     return stops.reduce((total, stop) => {
         let stopBase = PRICING.STOP_BASE_OTHER_CENTS;
         if (stop.stop_type === "grocery") stopBase = PRICING.STOP_BASE_GROCERY_CENTS;
         if (stop.stop_type === "pharmacy") stopBase = PRICING.STOP_BASE_PHARMACY_CENTS;
 
-        const waitFee = Math.round((stop.estimated_wait_minutes || 0) * PRICING.PER_MIN_CENTS);
+        // Clamp: a negative or non-finite wait would subtract from the fare and
+        // drag it down to MIN_FARE_CENTS in calculateFare(), which is what the
+        // driver's payout is then computed from. Callers validate their own
+        // input, but this is the last line of defence for every caller.
+        const waitRaw = Number(stop.estimated_wait_minutes);
+        const waitMinutes = Number.isFinite(waitRaw)
+            ? Math.min(Math.max(waitRaw, 0), MAX_STOP_WAIT_MINUTES)
+            : 0;
+        const waitFee = Math.round(waitMinutes * PRICING.PER_MIN_CENTS);
         return total + stopBase + waitFee;
     }, 0);
 }
@@ -79,9 +91,13 @@ export function calculateFare(
     const distanceKm = distanceMeters / 1000;
     const durationMin = durationSeconds / 60;
     const multiplier = multiplierOverride ?? staticMultiplier(vehicleType);
+    const longDistanceThresholdKm = PRICING.LONG_DISTANCE_KM_THRESHOLD;
+    const normalDistanceKm = Math.min(distanceKm, longDistanceThresholdKm);
+    const longDistanceKm = Math.max(distanceKm - longDistanceThresholdKm, 0);
 
     let fareCents = PRICING.BASE_FARE_CENTS +
-        Math.round(distanceKm * PRICING.PER_KM_CENTS) +
+        Math.round(normalDistanceKm * PRICING.PER_KM_CENTS) +
+        Math.round(longDistanceKm * PRICING.LONG_DISTANCE_PER_KM_CENTS) +
         Math.round(durationMin * PRICING.PER_MIN_CENTS);
 
     fareCents = Math.round((fareCents + stopsFeeCents) * multiplier * surgeMultiplier);

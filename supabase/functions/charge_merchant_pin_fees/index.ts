@@ -48,7 +48,7 @@ serve(async (req: Request) => {
     // Step 1: Fetch pending arrival_events grouped by merchant
     const { data: pendingEvents, error: fetchError } = await admin
       .from("arrival_events")
-      .select("id, merchant_id, pin_fee_cents")
+      .select("id, merchant_id")
       .eq("status", "pending");
 
     if (fetchError) {
@@ -66,88 +66,39 @@ serve(async (req: Request) => {
       );
     }
 
-    // Step 2: Group by merchant
-    const merchantMap = new Map<string, { ids: string[]; totalFee: number }>();
+    // Step 2: Group event ids by merchant
+    const merchantMap = new Map<string, string[]>();
     for (const event of pendingEvents) {
-      const entry = merchantMap.get(event.merchant_id) || { ids: [], totalFee: 0 };
-      entry.ids.push(event.id);
-      entry.totalFee += event.pin_fee_cents;
-      merchantMap.set(event.merchant_id, entry);
+      const ids = merchantMap.get(event.merchant_id) || [];
+      ids.push(event.id);
+      merchantMap.set(event.merchant_id, ids);
     }
 
-    // Step 3: For each merchant, get created_by and deduct from wallet
+    // Step 3: Charge each merchant atomically via charge_merchant_pin_fee_batch.
+    // That RPC locks the arrival_events rows with FOR UPDATE and re-checks
+    // status = 'pending' after the lock, does the wallet debit and
+    // arrival_events status update in one transaction, and raises an admin
+    // alert (instead of failing silently) when the merchant has no linked
+    // owner account. A single RPC call per merchant is the whole unit of
+    // work — no separate read-then-write from this function.
     let chargedCount = 0;
     let failedCount = 0;
 
-    for (const [merchantId, { ids, totalFee }] of merchantMap) {
-      const { data: merchant, error: merchError } = await admin
-        .from("merchants")
-        .select("created_by")
-        .eq("id", merchantId)
-        .single();
+    for (const [merchantId, ids] of merchantMap) {
+      const { data, error: rpcError } = await admin.rpc("charge_merchant_pin_fee_batch", {
+        p_merchant_id: merchantId,
+        p_event_ids: ids,
+      });
 
-      if (merchError || !merchant?.created_by) {
-        console.error(`Merchant ${merchantId} has no created_by — skipping`);
+      if (rpcError) {
+        console.error(`charge_merchant_pin_fee_batch failed for merchant ${merchantId}:`, rpcError);
         failedCount += ids.length;
-        await admin
-          .from("arrival_events")
-          .update({ status: "failed" })
-          .in("id", ids);
         continue;
       }
 
-      const userId = merchant.created_by;
-      const now = new Date().toISOString();
-
-      // Insert wallet transaction record (negative amount = debit)
-      const { error: txnError } = await admin
-        .from("wallet_transactions")
-        .insert({
-          user_id: userId,
-          amount: -totalFee,
-          transaction_type: "merchant_subscription",
-          description: `Pin fee for ${ids.length} rider arrival(s) at your merchant location`,
-          reference_id: `pin_batch_${merchantId}_${Date.now()}`,
-          status: "completed",
-        });
-
-      if (txnError) {
-        console.error(`Wallet txn insert failed for merchant ${merchantId}:`, txnError);
-        failedCount += ids.length;
-        await admin
-          .from("arrival_events")
-          .update({ status: "failed" })
-          .in("id", ids);
-        continue;
-      }
-
-      // Update wallet balance atomically
-      const { error: walletError } = await admin.rpc("create_wallet_if_not_exists", {
-        p_user_id: userId,
-      }).then((__r) => __r, () => ({ error: null }));
-
-      // Deduct from wallet balance
-      const { data: wallet } = await admin
-        .from("wallets")
-        .select("balance_cents")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (wallet) {
-        const newBalance = Math.max(0, wallet.balance_cents - totalFee);
-        await admin
-          .from("wallets")
-          .update({ balance_cents: newBalance, updated_at: now })
-          .eq("user_id", userId);
-      }
-
-      // Mark arrival_events as charged
-      await admin
-        .from("arrival_events")
-        .update({ status: "charged", charged_at: now })
-        .in("id", ids);
-
-      chargedCount += ids.length;
+      const result = Array.isArray(data) ? data[0] : data;
+      chargedCount += result?.charged_count ?? 0;
+      failedCount += result?.failed_count ?? 0;
     }
 
     console.log(`Pin fee batch: ${chargedCount} charged, ${failedCount} failed`);

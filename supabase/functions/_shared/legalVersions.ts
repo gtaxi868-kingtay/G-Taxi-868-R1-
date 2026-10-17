@@ -31,15 +31,10 @@ export const MERCHANT_CONSENT_DOCUMENTS: ConsentDocumentRef[] = [
   { document: 'privacy_policy', version: PRIVACY_VERSION },
   { document: 'data_retention', version: DATA_RETENTION_VERSION },
   { document: 'safety_policy', version: SAFETY_VERSION },
-];
+]
 
 /**
  * Records consent for every document a merchant is asked to accept.
- * Called with the service-role client, so this bypasses record_consent()'s
- * auth.uid() requirement by inserting directly — safe here because the
- * caller (merchant_signup / merchant_register_with_code) has already
- * validated p_accepted_terms came from the real signup request before this
- * runs, and the user_id is the one it just created, never client-supplied.
  */
 export async function recordMerchantConsents(
   supabaseAdmin: { from: (table: string) => any },
@@ -51,12 +46,12 @@ export async function recordMerchantConsents(
     document: doc.document,
     version: doc.version,
     user_agent: userAgent,
-  }));
+  }))
   await supabaseAdmin
     .from('user_consents')
     .upsert(rows, { onConflict: 'user_id,document,version', ignoreDuplicates: true })
     .then(
       (r: unknown) => r,
       (err: unknown) => console.error('[recordMerchantConsents] insert failed:', err),
-    );
+    )
 }

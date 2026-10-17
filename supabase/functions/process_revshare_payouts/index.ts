@@ -7,6 +7,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireAdmin } from '../_shared/auth.ts'
+import { getCorsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -18,12 +19,6 @@ const WIPAY_ENV = Deno.env.get('WIPAY_ENV') || 'sandbox'
 const WIPAY_BASE_URL = WIPAY_ENV === 'sandbox'
   ? 'https://sandbox.wipayfinancial.com/v1/gateway'
   : 'https://wipayfinancial.com/v1/gateway'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-}
 
 const wipayConfigured = WIPAY_ACCOUNT_NUMBER && WIPAY_API_KEY
 
@@ -52,7 +47,7 @@ async function disburseToOrganizer(
     .eq('ledger_type', ledgerType)
     .eq('is_default', true)
     .maybeSingle()
-    .then((__r: unknown) => __r, () => ({ data: null }))
+    .then((__r) => __r, () => ({ data: null }))
 
   if (!bankAccount) {
     await supabaseAdmin.rpc('admin_update_revshare_wipay_status', {
@@ -147,12 +142,13 @@ async function processOrganizer(
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   const cronHeader = req.headers.get('x-cron-secret')
-  const isCron = cronHeader === CRON_SECRET
+  const isCron = !!CRON_SECRET && cronHeader === CRON_SECRET
 
   // ── GET: return pending revshare summaries + payout history ──
   if (req.method === 'GET') {
@@ -194,7 +190,7 @@ Deno.serve(async (req) => {
     let adminUser: { id: string } | null = null
     let supabaseAdmin: any
 
-    if (cronHeader === CRON_SECRET) {
+    if (isCron) {
       supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     } else {
       const ctx = await requireAdmin(req)
@@ -215,7 +211,7 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('id', retry_payout_id)
         .single()
-        .then((__r: unknown) => __r, () => ({ data: null }))
+        .then((__r) => __r, () => ({ data: null }))
 
       if (!payout) {
         return new Response(JSON.stringify({ error: 'Payout not found' }), {

@@ -4,6 +4,7 @@ import Stripe from "https://esm.sh/stripe@13";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { captureException } from "../_shared/sentry.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -14,12 +15,9 @@ const stripe = new Stripe(STRIPE_SECRET_KEY, {
     httpClient: Stripe.createFetchHttpClient(),
 });
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -81,8 +79,14 @@ Deno.serve(async (req: Request) => {
             payment_method_types: ["card"],
         };
 
+        // Bucketed to the minute so a client retry or accidental double-tap of
+        // the same top-up dedupes at Stripe's level, while a genuinely new
+        // top-up (even for the same amount) a minute or more later still gets
+        // its own PaymentIntent. Date.now() alone here defeated idempotency
+        // entirely — every call, retry included, got a unique key.
+        const idempotencyBucket = Math.floor(Date.now() / 60000);
         const stripeOptions: any = {
-            idempotencyKey: `topup_${user.id}_${amount_cents}_${Date.now()}`
+            idempotencyKey: `topup_${user.id}_${amount_cents}_${idempotencyBucket}`
         };
 
         const paymentIntent = await stripe.paymentIntents.create(createParams, stripeOptions);

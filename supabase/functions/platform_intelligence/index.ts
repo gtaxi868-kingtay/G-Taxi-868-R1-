@@ -21,7 +21,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 // explicit range check inside admin_set_surge_zone.
 import { chat, llmConfigured, BudgetExceededError } from "../_shared/llm.ts";
 import { secretMatches } from "../_shared/constantTime.ts";
+import { getPlatformIdentity } from "../_shared/identity.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 // Every helper below used to be typed `ReturnType<typeof createClient>` with
 // no type arguments. That instantiates createClient's generics at their
 // CONSTRAINTS (unknown / never) rather than their DEFAULTS, yielding
@@ -39,10 +41,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 const PLATFORM_CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 // ── Expo push helper (self-contained, no _shared/push.ts) ────────────────────
 async function sendExpoPush(token: string | null, title: string, body: string, data: Record<string, unknown> = {}) {
@@ -711,7 +709,7 @@ async function watchdogAudit(supabase: SB) {
     ];
 
     for (const canary of canaryChecks) {
-        let error = null; try { await supabase.rpc(canary.rpc as any, canary.params); } catch (e) { error = new Error("RPC unavailable"); console.error("[canary] failed:", canary.rpc, e); }
+        const { error } = await supabase.rpc(canary.rpc as any, canary.params).then((__r) => __r, () => ({ error: new Error("RPC unavailable") }));
         if (error) {
             await supabase.from("agent_decision_log").insert({
                 run_id: runId,
@@ -1019,6 +1017,7 @@ async function executeTool(
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -1099,7 +1098,10 @@ serve(async (req) => {
         }
 
         // ── GROQ AI LOOP ────────────────────────────────────────────────────────
-        const systemPrompt = `You are the G-Taxi Platform Intelligence Agent for Trinidad and Tobago.
+        // Platform description sourced from g_config.platform_identity, not
+        // hardcoded here — see _shared/identity.ts.
+        const platformIdentity = await getPlatformIdentity(supabase);
+        const systemPrompt = `You are ${platformIdentity.name}'s Platform Intelligence Agent for ${platformIdentity.market}.
 Your job: run every 15 minutes, check system state, make targeted interventions.
 
 Rules:
