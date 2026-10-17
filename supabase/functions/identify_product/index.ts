@@ -73,12 +73,25 @@ serve(async (req: Request) => {
     let aiResult: any = {};
     try { aiResult = JSON.parse(aiText); } catch { aiResult = {}; }
 
+    // Never invent a product: if the AI could not name it AND give a price,
+    // say so (the app shows "Not Recognized") instead of the old
+    // "Unknown Product, TT$10.00" placeholder. The price is an AI estimate,
+    // not a store price, and is labelled as such in the app.
+    const priceCents = Number(aiResult.price_cents);
+    if (!aiResult.name || !Number.isFinite(priceCents) || priceCents <= 0) {
+      return new Response(
+        JSON.stringify({ success: true, product: null }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         product: {
-          name: aiResult.name || "Unknown Product",
-          price_cents: aiResult.price_cents || 1000,
+          name: aiResult.name,
+          price_cents: Math.round(priceCents),
+          price_is_estimate: true,
           category: aiResult.category || "General",
           description: aiResult.description || "Identified via G-TAXI Vision AI",
           promo_msg: aiResult.promo_msg || "Fresh and fast with G-TAXI!",

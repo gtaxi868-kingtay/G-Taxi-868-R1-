@@ -159,7 +159,7 @@ export function VisionScannerScreen({ navigation }: any) {
                         <View style={[StyleSheet.absoluteFillObject, s.resultBg]} />
                     </View>
                     <Text style={s.resultName}>{result.name}</Text>
-                    <Text style={s.resultPrice}>${(result.price_cents / 100).toFixed(2)} TTD</Text>
+                    <Text style={s.resultPrice}>About ${(result.price_cents / 100).toFixed(2)} TTD (AI estimate)</Text>
                     <TouchableOpacity
                         style={s.resultBtn}
                         onPress={() => {

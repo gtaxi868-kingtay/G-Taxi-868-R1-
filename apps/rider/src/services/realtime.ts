@@ -301,7 +301,8 @@ export async function fetchDriverDetails(driverId: string) {
             phone: '',
             photo_url: undefined,
             plate: '---',
-            rating: 4.8,
+            // No made-up rating: the UI shows 'New' for null.
+            rating: null as number | null,
         };
     }
 
@@ -312,6 +313,6 @@ export async function fetchDriverDetails(driverId: string) {
         phone: data.phone_number,
         photo_url: data.photo_url,
         plate: data.plate_number,
-        rating: data.rating || 4.8,
+        rating: (data.rating ?? null) as number | null,
     };
 }
