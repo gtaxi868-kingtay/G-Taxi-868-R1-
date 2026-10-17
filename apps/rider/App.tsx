@@ -16,6 +16,7 @@ import { RideProvider } from './src/context/RideContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { SignupScreen } from './src/screens/SignupScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
+import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { GSpotScreen } from './src/screens/GSpotScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -185,8 +186,9 @@ function AppNavigator() {
 }
 
 function RootNavigator() {
-    const { user, loading } = useAuth();
+    const { user, loading, passwordRecovery } = useAuth();
     if (loading) return <AnimatedSplash onFinish={() => { }} />;
+    if (user && passwordRecovery) return <ResetPasswordScreen />;
     return user ? <RideProvider><EscapeTripProvider><AppNavigator /></EscapeTripProvider></RideProvider> : <AuthNavigator />;
 }
 

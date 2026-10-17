@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ActivityIndicator,
+    ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,14 @@ import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 const CYAN = '#06B6D4';
 
 const STATUS_STEPS = ['pending', 'picked_up', 'processing', 'ready', 'delivered'];
+// Real order statuses mapped onto these steps: dispatch/driver steps use the
+// shared order vocabulary (process_stop_arrival -> out_for_delivery).
+const STEP_ALIAS: Record<string, string> = {
+    confirmed: 'pending',
+    out_for_delivery: 'picked_up',
+    preparing: 'processing',
+    ready_for_pickup: 'ready',
+};
 const STATUS_LABELS: Record<string, string> = {
     pending: 'Order Confirmed',
     picked_up: 'Picked Up',
@@ -35,6 +43,25 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
     const { orderId, service, weight, priceCents } = route.params;
     const insets = useSafeAreaInsets();
     const [status, setStatus] = useState<string>('pending');
+
+    // APPROVE / REJECT on "Verify your items". Goes through
+    // rider_answer_item_check: the rider may not write orders directly
+    // (a direct update here used to be refused silently).
+    const answerItemCheck = async (approve: boolean) => {
+        const { data, error } = await supabase.rpc('rider_answer_item_check', {
+            p_order_id: orderId,
+            p_approve: approve,
+        });
+        if (error || !data?.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert('Could not send your answer', data?.error || error?.message || 'Please try again.');
+            return;
+        }
+        setStatus(data.status);
+        Haptics.notificationAsync(approve
+            ? Haptics.NotificationFeedbackType.Success
+            : Haptics.NotificationFeedbackType.Warning);
+    };
     const [pins, setPins] = useState<any>(null);
     const [intakeLog, setIntakeLog] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -97,12 +124,14 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }
             })
-            .subscribe();
+            // Re-read once live: a status change in the channel's first
+            // seconds would otherwise not show until the next one.
+            .subscribe((st: string) => { if (st === 'SUBSCRIBED') fetchStatus(); });
 
         return () => { channel.unsubscribe(); };
     }, [orderId, retryKey]);
 
-    const currentStep = STATUS_STEPS.indexOf(status);
+    const currentStep = STATUS_STEPS.indexOf(STEP_ALIAS[status] ?? status);
 
     return (
         <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
@@ -213,16 +242,10 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
                             </View>
 
                             <View style={s.btnRow}>
-                                <TouchableOpacity style={s.rejectBtn} onPress={async () => {
-                                    await supabase.from('orders').update({ status: 'rejected' }).eq('id', orderId);
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                                }}>
+                                <TouchableOpacity style={s.rejectBtn} onPress={() => answerItemCheck(false)}>
                                     <Txt variant="bodyBold" color="#FF4D4D">REJECT</Txt>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={s.approveBtn} onPress={async () => {
-                                    await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                }}>
+                                <TouchableOpacity style={s.approveBtn} onPress={() => answerItemCheck(true)}>
                                     <Txt variant="bodyBold" color={SURFACE.base}>APPROVE</Txt>
                                 </TouchableOpacity>
                             </View>

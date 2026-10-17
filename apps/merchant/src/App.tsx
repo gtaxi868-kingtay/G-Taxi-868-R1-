@@ -82,9 +82,11 @@ function App() {
   };
 
   const fetchData = async (mId: string) => {
-    const { data: ords } = await supabase.from('orders').select('*, rider:rider_id(full_name), order_items(*)').eq('merchant_id', mId).order('created_at', { ascending: false });
+    // (No rider-name embed: rider_id points at the login table, and merchants
+    // can't read customer profiles -- asking for it made both lists empty.)
+    const { data: ords } = await supabase.from('orders').select('*, order_items(*)').eq('merchant_id', mId).order('created_at', { ascending: false });
     setOrders(ords || []);
-    const { data: apps } = await supabase.from('merchant_appointments').select('*, rider:rider_id(full_name), service:service_id(name)').eq('merchant_id', mId).order('scheduled_at', { ascending: true });
+    const { data: apps } = await supabase.from('merchant_appointments').select('*, service:service_id(name)').eq('merchant_id', mId).order('scheduled_at', { ascending: true });
     setAppointments(apps || []);
   };
 
@@ -238,7 +240,7 @@ function App() {
                                     <div>
                                         <p className="text-[9px] font-black text-[#0D9488] uppercase tracking-widest">{order.status}</p>
                                         <h4 className="text-lg sm:text-xl font-black text-white">Order #{order.id.slice(0,6).toUpperCase()}</h4>
-                                        <p className="text-xs font-bold text-[#5A5F66]">{order.rider?.full_name} · {order.order_items?.length} items</p>
+                                        <p className="text-xs font-bold text-[#5A5F66]">Customer · {order.order_items?.length} items</p>
                                     </div>
                                 </div>
                                 <button onClick={() => setSelectedOrder(order)} className="h-12 px-6 bg-[#007070] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#004f4f] transition-all w-full sm:w-auto">MANIFEST DETAIL</button>
@@ -264,7 +266,7 @@ function App() {
                                   </div>
                                   <div>
                                       <p className="text-[9px] font-black text-[#0D9488] uppercase tracking-widest">{new Date(app.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {app.merchant_consent_status}</p>
-                                      <h4 className="text-lg sm:text-xl font-black text-white">{app.rider?.full_name}</h4>
+                                      <h4 className="text-lg sm:text-xl font-black text-white">Customer appointment</h4>
                                       <p className="text-xs font-bold text-[#5A5F66]">{app.service?.name}</p>
                                   </div>
                               </div>
@@ -379,7 +381,7 @@ function App() {
               <div className="fixed inset-0 bg-[#0B0E12]/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 sm:p-6">
                   <div className="bg-[#13171D] w-full max-w-md max-h-[80vh] overflow-y-auto rounded-[3rem] sm:rounded-[3.5rem] p-8 sm:p-12 text-center shadow-2xl relative animate-in zoom-in-95 border border-[#007070]/20">
                       <h3 className="text-2xl sm:text-3xl font-black mb-4 italic text-white">APPOINTMENT</h3>
-                      <p className="text-[#5A5F66] font-bold mb-10">{selectedAppointment.rider?.full_name} for {selectedAppointment.service?.name}</p>
+                      <p className="text-[#5A5F66] font-bold mb-10">Customer booking for {selectedAppointment.service?.name}</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <button onClick={() => updateAppointment(selectedAppointment.id, 'rejected')} className="h-16 border border-red-500/20 text-red-400 font-black rounded-2xl uppercase tracking-widest text-xs hover:bg-red-500/10 transition-all">Decline</button>
                           <button onClick={() => updateAppointment(selectedAppointment.id, 'approved')} className="h-16 bg-[#007070] text-white font-black rounded-2xl uppercase tracking-widest text-xs shadow-xl shadow-[#007070]/20">Approve</button>

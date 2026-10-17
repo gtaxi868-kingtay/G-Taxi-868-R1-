@@ -5,12 +5,31 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WIPAY_WEBHOOK_SECRET = Deno.env.get("WIPAY_WEBHOOK_SECRET");
 
+// WiPay has no HMAC/signature scheme — the shared secret header IS the whole
+// verification mechanism. `===` on that comparison leaks timing information
+// proportional to how many leading characters match, letting an attacker
+// recover the secret byte-by-byte. Compare every byte regardless of an early
+// mismatch so the comparison takes constant time.
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const aBytes = enc.encode(a);
+  const bBytes = enc.encode(b);
+  // Length differs → already not equal, but still run a fixed-size compare
+  // against a same-length buffer so this branch doesn't itself leak length.
+  const len = Math.max(aBytes.length, bBytes.length, 1);
+  let diff = aBytes.length ^ bBytes.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 Deno.serve(async (req: Request) => {
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const authHeader = req.headers.get("Authorization") || "";
   const webhookKey = req.headers.get("x-webhook-key") || "";
-  const isValidWebhook = WIPAY_WEBHOOK_SECRET && webhookKey === WIPAY_WEBHOOK_SECRET;
+  const isValidWebhook = !!WIPAY_WEBHOOK_SECRET && timingSafeStringEqual(webhookKey, WIPAY_WEBHOOK_SECRET);
   const isValidAdmin = authHeader.startsWith("Bearer ") && await (async () => {
     try {
       const { data: { user } } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));

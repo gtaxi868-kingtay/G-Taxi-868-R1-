@@ -24,7 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { ENV } from '@g868/shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
-import { updateRideStatus } from '../services/api';
+import { updateRideStatus, setLocationTrackingMode } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { VOICES } from '@gtaxi/design-system';
 import { LiquidGlass } from '@gtaxi/design-system/native';
@@ -48,7 +48,30 @@ function decodePolyline(encoded: string) {
     return poly;
 }
 
+// supabase.functions.invoke never throws on a 4xx/5xx; the refusal is in
+// `error` (reason in its response body) or in data.success === false.
+// Every safety/money action below must check this before telling the
+// driver it worked.
+async function serverFailure(res: { data: any; error: any }): Promise<string | null> {
+    if (res.error) {
+        try {
+            const body = await res.error.context?.json?.();
+            return body?.error || body?.message || res.error.message || 'Request failed';
+        } catch {
+            return res.error.message || 'Request failed';
+        }
+    }
+    if (res.data && res.data.success === false) return res.data.error || 'Request failed';
+    return null;
+}
+
 export function ActiveTripScreen({ route, navigation }: any) {
+    // Location every 5 s while on a job; every 20 s otherwise (Phase 4 cost control).
+    useEffect(() => {
+        setLocationTrackingMode('trip');
+        return () => setLocationTrackingMode('idle');
+    }, []);
+
     const { rideId } = route.params;
     const insets = useSafeAreaInsets();
     const { location, signalStatus } = useLocationTracking();
@@ -124,16 +147,30 @@ export function ActiveTripScreen({ route, navigation }: any) {
 
         fetchData();
 
+        let leftTrip = false;
+        const applyRideRow = async (row: any) => {
+            if (!row || leftTrip) return;
+            setRide((prev: any) => ({ ...prev, ...row }));
+            if (row.status === 'cancelled') {
+                leftTrip = true;
+                Alert.alert('Trip Cancelled', 'The rider cancelled the trip.');
+                await AsyncStorage.removeItem('active_ride_id');
+                navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+            }
+        };
+        // Live channels miss changes made in their first seconds and say
+        // nothing when they drop, so re-read the ride once connected and
+        // every 20 s as a safety net (a rider cancel can't go unnoticed).
+        const rereadRide = async () => {
+            const { data } = await supabase.from('rides').select('*').eq('id', rideId).maybeSingle();
+            applyRideRow(data);
+        };
         const sub = supabase.channel(`ride_${rideId}`)
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` }, async (payload) => {
-                setRide(payload.new);
-                if (payload.new.status === 'cancelled') {
-                    Alert.alert('Trip Cancelled', 'The rider cancelled the trip.');
-                    await AsyncStorage.removeItem('active_ride_id');
-                    navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
-                }
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${rideId}` }, (payload) => {
+                applyRideRow(payload.new);
             })
-            .subscribe();
+            .subscribe((status) => { if (status === 'SUBSCRIBED') rereadRide(); });
+        const ridePoll = setInterval(rereadRide, 20000);
 
         const fetchStops = async () => {
             const { data: stopData } = await supabase
@@ -173,6 +210,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
         });
 
         return () => {
+            clearInterval(ridePoll);
             sub.unsubscribe();
             subStops.unsubscribe();
             subEvents.unsubscribe();
@@ -315,8 +353,15 @@ export function ActiveTripScreen({ route, navigation }: any) {
         Alert.alert('Cancel Trip', 'Are you sure?', [
             { text: 'No', style: 'cancel' },
             { text: 'Yes', style: 'destructive', onPress: async () => {
+                // Leave the trip only once the server has cancelled it;
+                // otherwise the rider would be left on a trip we walked away from.
+                const res = await supabase.functions.invoke('cancel_ride', { body: { ride_id: rideId } });
+                const failure = await serverFailure(res);
+                if (failure) {
+                    Alert.alert('Could not cancel', failure);
+                    return;
+                }
                 await AsyncStorage.removeItem('active_ride_id');
-                await supabase.functions.invoke('cancel_ride', { body: { ride_id: rideId } });
                 navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
             }}
         ]);
@@ -328,9 +373,23 @@ export function ActiveTripScreen({ route, navigation }: any) {
             { text: 'TRIGGER SOS', style: 'destructive', onPress: async () => {
                 setIsSosLoading(true);
                 try {
-                    await supabase.functions.invoke('trigger_emergency', { body: { ride_id: rideId } });
-                    Alert.alert('SOS Triggered');
-                } catch { Alert.alert('Failed'); }
+                    // The server answers 503 when nobody could be reached;
+                    // never tell the driver help is coming in that case.
+                    const res = await supabase.functions.invoke('trigger_emergency', { body: { ride_id: rideId } });
+                    const failure = await serverFailure(res);
+                    if (failure) {
+                        Alert.alert(
+                            'Call 999 now',
+                            'Your SOS was logged, but we could not confirm anyone was reached. If you are in danger, call 999.',
+                            [{ text: 'Call 999', onPress: () => Linking.openURL('tel:999') }, { text: 'OK' }]
+                        );
+                    } else {
+                        Alert.alert('SOS sent', res.data?.message || 'Your SOS was sent. If you are in danger, call 999.');
+                    }
+                } catch {
+                    Alert.alert('Call 999 now', 'Your SOS could not be sent. If you are in danger, call 999.',
+                        [{ text: 'Call 999', onPress: () => Linking.openURL('tel:999') }, { text: 'OK' }]);
+                }
                 finally { setIsSosLoading(false); }
             }}
         ]);
@@ -365,6 +424,13 @@ export function ActiveTripScreen({ route, navigation }: any) {
         const payoutCents = ride?.driver_payout_cents;
         const earnings = payoutCents != null ? (payoutCents / 100).toFixed(2) : '--';
         const isCash = ride?.payment_method === 'cash' || ride?.payment_method === null || ride?.payment_method === undefined;
+        // What the rider actually hands over: the full fare (NOT the driver's
+        // share -- this prompt used to show driver_payout_cents, so a driver
+        // following it collected ~20% too little and still owed the platform
+        // its cut), plus any earlier cancellation fee carried onto this ride.
+        const carriedFeeCents = Number(ride?.metadata?.carried_fee_cents) || 0;
+        const collectCents = (ride?.total_fare_cents || 0) + carriedFeeCents;
+        const collect = (collectCents / 100).toFixed(2);
 
         if (isCash && !cashConfirmed) {
             return (
@@ -377,8 +443,12 @@ export function ActiveTripScreen({ route, navigation }: any) {
                             </View>
                             <Text style={s.completedTitle}>Cash Collected?</Text>
                             <Text style={s.cashPromptText}>
-                                Did the rider pay you TTD ${earnings} in cash?{'\n'}
-                                Confirm to complete settlement.
+                                Collect TTD ${collect} in cash from the rider.{'\n'}
+                                {carriedFeeCents > 0
+                                    ? `That includes TTD ${(carriedFeeCents / 100).toFixed(2)} the rider owes from an earlier cancelled trip.\n`
+                                    : ''}
+                                Your earnings: TTD ${earnings}.{'\n'}
+                                Confirm once you have the cash.
                             </Text>
                             <View style={s.cashConfirmActions}>
                                 <TouchableOpacity
@@ -392,11 +462,17 @@ export function ActiveTripScreen({ route, navigation }: any) {
                                                 .eq('ride_id', rideId)
                                                 .maybeSingle();
                                             if (orderData?.id) {
-                                                await supabase.functions.invoke('confirm_cash_collection', { body: { order_id: orderData.id } });
-                                            } else {
-                                                const { error } = await supabase.functions.invoke('update_ride_status', { body: { ride_id: rideId, cash_confirmed: true } });
-                                                if (error) console.error('cash confirm fallback failed:', error);
+                                                const res = await supabase.functions.invoke('confirm_cash_collection', { body: { order_id: orderData.id } });
+                                                const failure = await serverFailure(res);
+                                                if (failure) {
+                                                    Alert.alert('Cash not recorded', failure + '\nTry again.');
+                                                    return;
+                                                }
                                             }
+                                            // A plain cash ride is already booked when the trip
+                                            // completes (complete_ride -> settle_cash_ride); there
+                                            // is nothing more to send. (The old fallback sent a
+                                            // field update_ride_status ignores.)
                                             setCashConfirmed(true);
                                         } catch (err) {
                                             console.error('cash confirmation error:', err);

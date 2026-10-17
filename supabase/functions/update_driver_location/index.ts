@@ -10,6 +10,7 @@ import { requireDriver } from "../_shared/auth.ts";
 import { checkRateLimit } from "../_shared/rateLimit.ts";
 import { updateRedisLocation } from "../_shared/redis.ts";
 import { sendGpsToWarmBrain } from "../_shared/warm-brain.ts";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -36,10 +37,7 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
 }
 
 serve(async (req: Request) => {
-    const corsHeaders = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    };
+    const corsHeaders = getCorsHeaders(req);
 
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });

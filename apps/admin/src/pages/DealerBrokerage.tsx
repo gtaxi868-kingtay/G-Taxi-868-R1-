@@ -42,23 +42,25 @@ const C = {
     amberBg:     'rgba(245,158,11,0.15)',
 };
 
+// Statuses are the ones dealer_brokerage accepts (lead, test_drive_scheduled,
+// financing_pending, financing_approved, sale_completed, cancelled); the old
+// approved/funded/closed_won were refused with "Invalid status".
 // Semantic pipeline status colors — encode lead stage, not decoration
 const STATUS_COLORS: Record<string, string> = {
     lead:                 '#6B7280',
     test_drive_scheduled: '#3B82F6',
     financing_pending:    C.amber,
-    approved:             C.successText,
-    funded:               '#10B981',
-    closed_won:           C.successText,
-    closed_lost:          C.errorText,
+    financing_approved:   C.successText,
+    sale_completed:       '#10B981',
+    cancelled:            C.errorText,
 };
 
 const PIPELINE_STAGES = [
     { key: 'lead',                 label: 'Lead' },
     { key: 'test_drive_scheduled', label: 'Test drive' },
     { key: 'financing_pending',    label: 'Financing' },
-    { key: 'approved',             label: 'Approved' },
-    { key: 'funded',               label: 'Funded' },
+    { key: 'financing_approved',   label: 'Financing approved' },
+    { key: 'sale_completed',       label: 'Sold' },
 ];
 
 function SkeletonCard() {
@@ -88,7 +90,7 @@ export function DealerBrokerage() {
                 .select('*, dealer:dealer_partners(business_name, phone)')
                 .order('created_at', { ascending: false }),
             supabase.from('vehicle_sales')
-                .select(`*, vehicle:vehicle_inventory(make, model, year), driver:drivers(name, phone)`)
+                .select(`*, vehicle:vehicle_inventory(make, model, year), driver:drivers(name, phone:phone_number)`)
                 .order('created_at', { ascending: false })
                 .limit(100),
         ]);
@@ -215,13 +217,13 @@ export function DealerBrokerage() {
                                                     <ChevronRight size={14} /> {nextStage.label}
                                                 </button>
                                             )}
-                                            {lead.status !== 'closed_won' && lead.status !== 'closed_lost' && !nextStage && (
+                                            {lead.status !== 'sale_completed' && lead.status !== 'cancelled' && (
                                                 <button
-                                                    onClick={() => advanceLead(lead.id, 'closed_won')}
+                                                    onClick={() => advanceLead(lead.id, 'cancelled')}
                                                     disabled={updatingLead === lead.id}
-                                                    style={{ background: C.successText, border: 'none', color: '#FFF', borderRadius: 10, padding: '6px 14px', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}
+                                                    style={{ background: 'transparent', border: `1px solid ${C.errorText}`, color: C.errorText, borderRadius: 10, padding: '6px 14px', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}
                                                 >
-                                                    Close won
+                                                    Cancel
                                                 </button>
                                             )}
                                         </div>

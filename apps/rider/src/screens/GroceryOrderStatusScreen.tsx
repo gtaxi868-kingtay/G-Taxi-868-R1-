@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ActivityIndicator,
+    ActivityIndicator, Alert,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,12 +18,23 @@ const CYAN = '#06B6D4';
 const SUCCESS = '#10B981';
 const ERROR = '#FF4D4D';
 
-const STATUS_STEPS = ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'delivered'];
+// Real order vocabulary: merchant app moves pending -> confirmed ->
+// preparing -> ready_for_pickup; the driver's stops (process_stop_arrival)
+// move it to out_for_delivery, then delivered.
+const STATUS_STEPS = ['pending', 'confirmed', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered'];
+// Older/side statuses shown at the nearest real step.
+const STEP_ALIAS: Record<string, string> = {
+    awaiting_approval: 'confirmed',
+    processing: 'preparing',
+    handed_off: 'out_for_delivery',
+    in_delivery: 'out_for_delivery',
+};
 const STATUS_LABELS: Record<string, string> = {
     pending: 'Order Placed',
     confirmed: 'Accepted',
     preparing: 'Being Prepared',
     ready_for_pickup: 'Ready for Pickup',
+    out_for_delivery: 'On the Way',
     delivered: 'Delivered ✅',
 };
 const STATUS_ICONS: Record<string, string> = {
@@ -31,6 +42,7 @@ const STATUS_ICONS: Record<string, string> = {
     confirmed: 'checkmark-circle-outline',
     preparing: 'refresh-circle-outline',
     ready_for_pickup: 'bag-handle-outline',
+    out_for_delivery: 'car-outline',
     delivered: 'home-outline',
 };
 
@@ -45,6 +57,25 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
     const { orderId, service, weight, priceCents } = route.params;
     const insets = useSafeAreaInsets();
     const [status, setStatus] = useState<string>('pending');
+
+    // APPROVE / REJECT on "Verify your items". Goes through
+    // rider_answer_item_check: the rider may not write orders directly
+    // (a direct update here used to be refused silently).
+    const answerItemCheck = async (approve: boolean) => {
+        const { data, error } = await supabase.rpc('rider_answer_item_check', {
+            p_order_id: orderId,
+            p_approve: approve,
+        });
+        if (error || !data?.success) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert('Could not send your answer', data?.error || error?.message || 'Please try again.');
+            return;
+        }
+        setStatus(data.status);
+        Haptics.notificationAsync(approve
+            ? Haptics.NotificationFeedbackType.Success
+            : Haptics.NotificationFeedbackType.Warning);
+    };
     const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
     const [paymentStatus, setPaymentStatus] = useState<string>('unpaid');
     const [pins, setPins] = useState<any>(null);
@@ -130,7 +161,9 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                     resolveDriverFromRide(payload.new.ride_id);
                 }
             })
-            .subscribe();
+            // Re-read once live: a status change in the channel's first
+            // seconds would otherwise not show until the next one.
+            .subscribe((st: string) => { if (st === 'SUBSCRIBED') fetchStatus(); });
 
         return () => { channel.unsubscribe(); };
     }, [orderId, retryKey]);
@@ -161,7 +194,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
         return () => { channel.unsubscribe(); };
     }, [driverId]);
 
-    const currentStep = STATUS_STEPS.indexOf(status);
+    const currentStep = STATUS_STEPS.indexOf(STEP_ALIAS[status] ?? status);
     const isPending = status === 'pending';
     const hasDriver = !!driverId;
 
@@ -308,6 +341,12 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                 </View>
             )}
 
+            {status === 'cancelled' && (
+                <View style={{ marginHorizontal: 24, marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: 'rgba(255,77,77,0.12)' }}>
+                    <Txt variant="bodyBold" color={ERROR} style={{ textAlign: 'center' }}>This order was cancelled.</Txt>
+                </View>
+            )}
+
             {/* PIN HUD */}
             {(status === 'pending' || status === 'confirmed') && pins && (
                 <View style={s.pinSection}>
@@ -343,16 +382,10 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
                             </View>
 
                             <View style={s.btnRow}>
-                                <TouchableOpacity style={s.rejectBtn} onPress={async () => {
-                                    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                                }}>
+                                <TouchableOpacity style={s.rejectBtn} onPress={() => answerItemCheck(false)}>
                                     <Txt variant="bodyBold" color={ERROR}>REJECT</Txt>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={s.approveBtn} onPress={async () => {
-                                    await supabase.from('orders').update({ status: 'confirmed' }).eq('id', orderId);
-                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                }}>
+                                <TouchableOpacity style={s.approveBtn} onPress={() => answerItemCheck(true)}>
                                     <Txt variant="bodyBold" color={SURFACE.base}>APPROVE</Txt>
                                 </TouchableOpacity>
                             </View>

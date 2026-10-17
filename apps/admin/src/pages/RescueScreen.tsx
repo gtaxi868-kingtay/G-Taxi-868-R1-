@@ -16,6 +16,7 @@ interface RescueAlert {
 interface TripRescue {
     ride_id: string;
     rider_name: string;
+    rider_phone: string | null;
     status: string;
     created_at: string;
     pickup_address: string;
@@ -41,18 +42,32 @@ export function RescueScreen() {
     const loadData = async () => {
         setLoading(true);
         try {
+            // A ride needs rescuing when it is STUCK: still searching after
+            // 5 minutes, or assigned/arrived for over 45 minutes. (This list
+            // used to be the last 20 finished rides, each painted as an
+            // incident.)
             const result = await adminFetch('admin', { action: 'get_rides' });
-            const trips: TripRescue[] = (result?.data || []).filter((r: any) =>
-                r.status === 'completed' || r.status === 'cancelled'
-            ).slice(0, 20).map((r: any) => ({
+            const now = Date.now();
+            const ageMin = (r: any) => (now - new Date(r.updated_at || r.created_at).getTime()) / 60000;
+            const stuck = (result?.data || []).filter((r: any) =>
+                (r.status === 'searching' && ageMin(r) > 5) ||
+                (['assigned', 'arrived'].includes(r.status) && ageMin(r) > 45)
+            ).slice(0, 20);
+            const riderIds = Array.from(new Set(stuck.map((r: any) => r.rider_id).filter(Boolean)));
+            const people: Record<string, any> = {};
+            if (riderIds.length) {
+                const { data } = await supabase.rpc('admin_user_names', { p_ids: riderIds });
+                for (const p of (data || []) as any[]) people[p.id] = p;
+            }
+            setTripRescues(stuck.map((r: any) => ({
                 ride_id: r.id,
-                rider_name: r.rider_name || 'Unknown',
+                rider_name: people[r.rider_id]?.full_name || 'Unknown',
+                rider_phone: people[r.rider_id]?.phone_number || null,
                 status: r.status,
                 created_at: r.created_at,
                 pickup_address: r.pickup_address || '—',
                 dropoff_address: r.dropoff_address || '—',
-            }));
-            setTripRescues(trips);
+            })));
 
             const { data: eventLogs } = await supabase
                 .from('nfc_event_logs')
@@ -62,15 +77,14 @@ export function RescueScreen() {
                 .limit(50);
 
             if (eventLogs) {
-                const enriched = await Promise.all(eventLogs.map(async (log: any) => {
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('full_name')
-                        .eq('id', log.profile_id)
-                        .maybeSingle();
-                    return { ...log, reporter_name: profile?.full_name || 'Unknown' };
-                }));
-                setAlerts(enriched);
+                const open = eventLogs.filter((l: any) => !l.result_payload?.resolved);
+                const ids = Array.from(new Set(open.map((l: any) => l.profile_id).filter(Boolean)));
+                const names: Record<string, string> = {};
+                if (ids.length) {
+                    const { data } = await supabase.rpc('admin_user_names', { p_ids: ids });
+                    for (const p of (data || []) as any[]) names[p.id] = p.full_name;
+                }
+                setAlerts(open.map((log: any) => ({ ...log, reporter_name: names[log.profile_id] || 'Unknown' })));
             }
         } catch (err) {
             console.error('Rescue load error:', err);
@@ -166,9 +180,12 @@ export function RescueScreen() {
                                         )}
                                         <button
                                             onClick={async () => {
-                                                await supabase.functions.invoke('admin', {
-                                                    body: { action: 'manage_nodes', action_type: 'resolve_alert', alert_id: alert.id }
-                                                }).catch(() => {});
+                                                const { data: { user } } = await supabase.auth.getUser();
+                                                const { error } = await supabase.from('nfc_event_logs')
+                                                    .update({ result_payload: { ...(alert.result_payload || {}), resolved: true, resolved_by: user?.id, resolved_at: new Date().toISOString() } })
+                                                    .eq('id', alert.id);
+                                                if (error) { window.alert('Could not resolve: ' + error.message); return; }
+                                                setSelectedAlert(null);
                                                 loadData();
                                             }}
                                             className="h-12 px-6 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 font-black text-[10px] uppercase tracking-widest hover:bg-green-500/20 transition-all"
@@ -225,24 +242,9 @@ export function RescueScreen() {
 
                             <div className="flex gap-3">
                                 <button
-                                    onClick={async () => {
-                                        try {
-                                            const result = await adminFetch('admin', {
-                                                action: 'assign_driver',
-                                                ride_id: trip.ride_id,
-                                                re_dispatch: true,
-                                            });
-                                            alert('Re-dispatch signal sent to fleet.');
-                                        } catch (err: any) {
-                                            alert('Re-dispatch failed: ' + err.message);
-                                        }
-                                    }}
-                                    className="flex-1 h-11 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-black text-[10px] uppercase tracking-widest hover:bg-cyan-500/20 transition-all flex items-center justify-center gap-2"
-                                >
-                                    <RefreshCw size={14} /> Re-Dispatch
-                                </button>
-                                <button
-                                    onClick={() => window.open(`tel:18687031000`, '_blank')}
+                                    disabled={!trip.rider_phone}
+                                    title={trip.rider_phone ? `Call ${trip.rider_phone}` : 'No phone on file'}
+                                    onClick={() => trip.rider_phone && window.open(`tel:${trip.rider_phone.replace(/[^0-9+]/g, '')}`, '_blank')}
                                     className="h-11 px-4 rounded-xl bg-white/5 border border-white/10 text-white/50 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all"
                                 >
                                     <Phone size={14} />

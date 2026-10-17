@@ -135,3 +135,53 @@ export async function sendWhatsApp(
   }
   return sendTextMessage(to, message, options?.previewUrl);
 }
+
+export interface WhatsAppHealth {
+  configured: boolean;
+  valid: boolean;
+  display_phone_number?: string;
+  verified_name?: string;
+  error?: string;
+}
+
+/**
+ * Proves the WhatsApp credentials actually work, the same way g_briefing's
+ * ?probe=<provider> proves an LLM key works rather than trusting a
+ * "key is configured" boolean -- that pattern already caught a suspended
+ * Gemini key this way once. Does a read-only GET on the phone number's own
+ * metadata; sends nothing to any person, so it is safe to call as often as
+ * needed without spamming a real WhatsApp user.
+ */
+export async function checkWhatsAppHealth(): Promise<WhatsAppHealth> {
+  if (!WHATSAPP_PHONE_NUMBER_ID || !WHATSAPP_ACCESS_TOKEN) {
+    return { configured: false, valid: false, error: 'WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_ACCESS_TOKEN not set' };
+  }
+
+  const url = `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${WHATSAPP_PHONE_NUMBER_ID}` +
+    `?fields=verified_name,display_phone_number,quality_rating`;
+
+  try {
+    const response = await secureFetch(url, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${WHATSAPP_ACCESS_TOKEN}` },
+      timeoutMs: 10000,
+    });
+    const data = await response.json();
+
+    if (response.ok && data.display_phone_number) {
+      return {
+        configured: true, valid: true,
+        display_phone_number: data.display_phone_number,
+        verified_name: data.verified_name,
+      };
+    }
+
+    // Same class of gap g_briefing's probe caught for Gemini: a Meta error
+    // body can echo back the access token in plaintext, so only the
+    // message/type are surfaced, never the raw body.
+    const errorMsg = data.error?.message || data.error?.type || `HTTP ${response.status}`;
+    return { configured: true, valid: false, error: errorMsg };
+  } catch (err) {
+    return { configured: true, valid: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}

@@ -5,17 +5,15 @@ import { checkRateLimit } from "../_shared/rateLimit.ts";
 import { secureFetch } from "../_shared/networkUtility.ts";
 import { chat } from "../_shared/llm.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
 const TT_BBOX = "bbox=-61.9311,10.0280,-60.5423,10.8421";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

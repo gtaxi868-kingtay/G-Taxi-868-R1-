@@ -17,7 +17,7 @@ interface Order {
   id: string;
   status: string;
   created_at: string;
-  total: number;
+  total_cents: number;
 }
 
 type OrdersScreenNavigationProp = NativeStackNavigationProp<Record<string, undefined>>;
@@ -82,7 +82,7 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
 
       const { data, error } = await supabase
         .from('merchant_orders')
-        .select('id, status, created_at, total')
+        .select('id, status, created_at, total_cents')  // orders has no `total` column
         .eq('merchant_user_id', session.user.id)
         .order('created_at', { ascending: false });
 
@@ -156,7 +156,7 @@ export function OrdersScreen({ navigation }: { navigation: OrdersScreenNavigatio
             <Text style={s.orderId}>#{item.id.slice(0, 8)}</Text>
             <Text style={[s.orderStatus, { color: meta.color }]}>{meta.label}</Text>
           </View>
-          <Text style={s.orderTotal}>${(item.total || 0).toFixed(2)}</Text>
+          <Text style={s.orderTotal}>TT${((item.total_cents || 0) / 100).toFixed(2)}</Text>
           <Text style={s.orderDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
 
           {actions.length > 0 && (

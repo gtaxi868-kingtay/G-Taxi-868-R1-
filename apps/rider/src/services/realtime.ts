@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 // Realtime subscription hooks for ride updates
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@gtaxi/core';
@@ -108,6 +109,7 @@ export function useRideSubscription(rideId: string | null) {
                     if (status === 'SUBSCRIBED') {
                         setIsConnected(true);
                         stopPolling();
+                        doPoll(); // catch up on anything missed while down
                     } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
                         setIsConnected(false);
                         if (!pollInterval) startPolling();
@@ -141,6 +143,10 @@ export function useRideSubscription(rideId: string | null) {
                 .subscribe((status) => {
                     if (!mounted) return;
                     setIsConnected(status === 'SUBSCRIBED');
+                    // A new channel misses changes made in its first seconds
+                    // (PROVEN live: a driver cancel 1 s after connecting never
+                    // arrived) -- read the ride once it is live.
+                    if (status === 'SUBSCRIBED') doPoll();
                     if (status === 'CHANNEL_ERROR') {
                         setError('Failed to connect to realtime updates');
                         startPolling();
@@ -153,9 +159,15 @@ export function useRideSubscription(rideId: string | null) {
         };
 
         setupSubscription();
+        // Coming back to the app: the socket may have died silently while in
+        // the background, so read the ride again.
+        const appSub = AppState.addEventListener('change', (next) => {
+            if (next === 'active') doPoll();
+        });
 
         return () => {
             mounted = false;
+            appSub.remove();
             if (channel) supabase.removeChannel(channel);
             if (pollInterval) clearInterval(pollInterval);
             if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -289,7 +301,8 @@ export async function fetchDriverDetails(driverId: string) {
             phone: '',
             photo_url: undefined,
             plate: '---',
-            rating: 4.8,
+            // No made-up rating: the UI shows 'New' for null.
+            rating: null as number | null,
         };
     }
 
@@ -300,6 +313,6 @@ export async function fetchDriverDetails(driverId: string) {
         phone: data.phone_number,
         photo_url: data.photo_url,
         plate: data.plate_number,
-        rating: data.rating || 4.8,
+        rating: (data.rating ?? null) as number | null,
     };
 }

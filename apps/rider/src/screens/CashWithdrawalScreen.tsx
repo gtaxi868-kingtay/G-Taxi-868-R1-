@@ -62,9 +62,14 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: balanceCents } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
+      const { data: balanceCents, error } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
+      if (error) throw error;
       setBalance((balanceCents || 0) / 100);
-    } catch { } finally {
+    } catch {
+      // Don't show TT$0 and then "Insufficient balance" when the real
+      // problem is that the balance never loaded.
+      Alert.alert('Could not load your balance', 'Check your connection and try again.');
+    } finally {
       setLoading(false);
     }
   };

@@ -134,7 +134,7 @@ export const MerchantFinancials = ({ merchantId }: { merchantId: string }) => {
                 <p className="text-4xl sm:text-5xl font-black tracking-tight">
                     ${(nodeEarningsCents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs font-bold opacity-60 mt-2 uppercase tracking-widest">TTD · 5% Merchant Share · Synced</p>
+                <p className="text-xs font-bold opacity-60 mt-2 uppercase tracking-widest">TTD · Merchant earnings</p>
                 <div className="mt-4 h-1.5 bg-white/20 rounded-full overflow-hidden">
                     <div className="h-full w-3/4 bg-white/60 rounded-full" />
                 </div>

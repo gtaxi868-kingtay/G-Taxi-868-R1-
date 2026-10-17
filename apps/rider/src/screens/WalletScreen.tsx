@@ -199,7 +199,7 @@ export function WalletScreen({ navigation }: any) {
                                 </TouchableOpacity>
                             ) : (
                                 <View style={s.balanceRow}>
-                                    <Txt variant="headingL" weight="heavy" color="#EAF3F6" style={{ fontSize: 48, fontFamily: VOICES.rider.serifSemi, fontVariant: ['tabular-nums'] }}>${balance.toFixed(2)}</Txt>
+                                    <Txt variant="headingL" weight="heavy" color="#EAF3F6" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ fontSize: 48, fontFamily: VOICES.rider.serifSemi, fontVariant: ['tabular-nums'], flexShrink: 1 }}>${balance.toFixed(2)}</Txt>
                                     <Txt variant="bodyBold" color="rgba(255,255,255,0.7)" style={{ marginLeft: 8, marginTop: 12 }}>TTD</Txt>
                                 </View>
                             )}

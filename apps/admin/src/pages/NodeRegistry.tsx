@@ -72,20 +72,21 @@ export function NodeRegistry() {
         if (!editNode?.tag_uid || !editNode?.location_name) return;
         setSaving(true);
         try {
-            await supabase.functions.invoke('admin', {
-                body: {
-                    action: 'manage_nodes', action_type: 'upsert',
-                    node: {
-                        id: editNode.id || undefined,
-                        tag_uid: editNode.tag_uid,
-                        merchant_id: editNode.merchant_id || null,
-                        location_name: editNode.location_name,
-                        lat: editNode.lat || null,
-                        lng: editNode.lng || null,
-                        geofence_radius_m: editNode.geofence_radius_m ?? 150,
-                        default_services: editNode.default_services || ['ride'],
-                        is_active: editNode.is_active ?? true,
-                    },
+            // adminFetch throws with the function's real reason (e.g. "This
+            // chip is already someone's keychain"); invoke() returned errors
+            // silently, so a refused save used to close the modal as if it worked.
+            await adminFetch('admin', {
+                action: 'manage_nodes', action_type: 'upsert',
+                node: {
+                    id: editNode.id || undefined,
+                    tag_uid: editNode.tag_uid,
+                    merchant_id: editNode.merchant_id || null,
+                    location_name: editNode.location_name,
+                    lat: editNode.lat || null,
+                    lng: editNode.lng || null,
+                    geofence_radius_m: editNode.geofence_radius_m ?? 150,
+                    default_services: editNode.default_services || ['ride'],
+                    is_active: editNode.is_active ?? true,
                 },
             });
             setShowModal(false);
@@ -101,15 +102,14 @@ export function NodeRegistry() {
 
     const toggleActive = async (node: KioskNode) => {
         try {
-            await supabase.functions.invoke('admin', {
-                body: {
-                    action: 'manage_nodes', action_type: 'upsert',
-                    node: { id: node.id, is_active: !node.is_active },
-                },
+            await adminFetch('admin', {
+                action: 'manage_nodes', action_type: 'upsert',
+                node: { id: node.id, is_active: !node.is_active },
             });
             loadData();
         } catch (err: any) {
             console.error('Toggle failed:', err);
+            alert('Could not change node: ' + err.message);
         }
     };
 

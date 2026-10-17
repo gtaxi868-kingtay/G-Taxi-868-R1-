@@ -98,28 +98,26 @@
         {when:'Day one', what:'Ride (tap any stand or counter)'},
         {when:'5 rides', what:'Market (groceries brought to you)'},
         {when:'2 Market orders', what:'Laundry, and Tap to pay in shops'},
-        {when:'1 Laundry order', what:'Wallet bonus (top up TTD 200, get 220)'},
         {when:'Wallet funded', what:'G-Escape (regional trips, when it opens)'},
       ],
       tiers: ['New Rider','Regular · 5%','Loyal · 8%','Elite · 10%','G-Member · 12% + priority'],
     },
     driver: {
       label: 'Driver', accent: '#22d3ee',
-      heroLine: 'Every fare pays 80% straight to your wallet — 78% where a G-Lead runs the territory — and both are paid before anything else.',
+      heroLine: 'Every fare pays 80% straight to your wallet — 78% if a G-Lead or a G-Partner shop brought you in — and both are paid before anything else.',
       ctaLabel: 'See what a Driver gets',
       eyebrow: 'For drivers',
       heading: 'Keep 80% of every fare.',
       lede: 'You already do the work. This is about how much of it you keep — and what you can build on top of it once you have been driving a while.',
       perks: [
-        {title:'80% of the fare, plainly stated', body:'No shifting commission, no surprise deductions. 78% in territories with an active G-Lead, and you will always be told which one you are in.'},
-        {title:'Earn from who you bring in', body:'1% on every driver you introduce, and TTD 500 for every hotel that comes on through you.'},
+        {title:'80% of the fare, plainly stated', body:'No shifting commission, no surprise deductions. 78% if a G-Lead or a G-Partner shop brought you in (their 2% comes from your share, only while they are active), and you will always be told which one applies.'},
+        {title:'Earn from who you bring in', body:"A one-time reward for every driver you bring in: 5% of the platform's share of their first 10 rides."},
         {title:'A territory of your own', body:'At 500 rides you qualify to run one: recruit your own drivers and shops, and earn on the area you built.'},
       ],
       ladderTitle: 'How a driver moves up',
       steps: [
         {when:'Day one', what:'80% of every fare, paid to your wallet'},
-        {when:'First referral', what:'1% of what every driver you bring in earns'},
-        {when:'First hotel', what:'TTD 500 for each hotel introduced'},
+        {when:'First referral', what:"5% of the platform's share of their first 10 rides, paid once"},
         {when:'500 rides', what:'You qualify to run a territory'},
         {when:'As G-Lead', what:'2% override on the whole area you build'},
       ],
@@ -135,17 +133,18 @@
       perks: [
         {title:'A share of every ride that starts with you', body:'Customers tap at your counter to get a car. You earn on it, whether or not they buy a thing that day.'},
         {title:'Sell and take payment by tap', body:'List what you stock and take wallet payments on the spot — no card machine to rent, no terminal fees, no percentage skimmed off your own sales.'},
-        {title:'You are the trusted face', body:'People sign up because you vouch for it. That trust is the product — and it is credited to you.'},
-        {title:'90 days pinned on the map, free', body:'Every G-Partner opens with their shop pinned for riders to find. Keep it after that for TTD 150 a month — and only if the traffic has earned it.'},
+        {title:'You are the trusted face', body:'Drivers you sign up with your shop code pay you 2% of their fares, for as long as your shop stays active. People sign up because you vouch for it — and that is credited to you.'},
+        {title:'90 days pinned on the map, free', body:'Every G-Partner opens with their shop pinned for riders to find. Keep it after that for TTD 125–200 a month by shop type: offices and professional services 125; grocery, pharmacy, retail and other shops 150; restaurants 175; barbershops, salons and spas 200 — and only if the traffic has earned it.'},
       ],
       ladderTitle: 'How a counter grows',
       steps: [
         {when:'Day one', what:'A G-Touch puck on your counter, free'},
         {when:'First taps', what:'You earn on every ride that starts with you'},
+        {when:'First driver', what:'2% of the fares of every driver you sign up, while your shop is active'},
         {when:'Catalog live', what:'Sell your stock and take wallet payments'},
         {when:'Steady traffic', what:'Your shop is listed as a pickup point island-wide'},
         {when:'First 90 days', what:'Pinned on the G map, free — no card, no catch'},
-        {when:'After 90 days', what:'Stay pinned for TTD 150 a month, or step back to the free listing'},
+        {when:'After 90 days', what:'Stay pinned for TTD 125–200 a month by shop type, or step back to the free listing'},
       ],
       tiers: ['Listed','Active counter','Pickup point','Anchor · higher share'],
     },
@@ -227,7 +226,6 @@
             {when:'Start', what:'Ride'},
             {when:'5 rides', what:'Market — groceries delivered'},
             {when:'2 Market orders', what:'Laundry + Tap'},
-            {when:'1 Laundry order', what:'Wallet bonus — top up TTD 200, get 220'},
             {when:'Fund your wallet', what:'G-Escape'},
           ], true)}
         </div>
@@ -248,7 +246,7 @@
         <h2 class="p-heading" id="panelHeading">Where the money goes<br>is the whole point.</h2>
         <p class="p-body">Every G ride pays a Trinidadian driver, a Trinidadian shopkeeper and a Trinidadian territory operator — and sets a slice aside to help open the next community. Here’s exactly how it splits.</p>
         <div class="p-bars">
-          ${bar('Driver', '80%', '80%', '#22d3ee', '#7c3aed', '78% where a territory has an active G-Lead')}
+          ${bar('Driver', '80%', '80%', '#22d3ee', '#7c3aed', '78% when a G-Lead or a G-Partner shop brought the driver in')}
           ${bar('G-Lead override', '2%', '14%', '#f0abfc', '#c084fc', '')}
           ${bar('Capital reserve', '1.5%', '11%', '#5eead4', '#22d3ee', '')}
           <div class="p-plain-row">
@@ -320,6 +318,12 @@
             <label for="f-email">Email</label>
             <input id="f-email" name="email" type="email" placeholder="you@email.tt" autocomplete="email" required>
             <p class="err" data-err="f-email"></p>
+          </div>
+
+          <div class="field">
+            <label for="f-phone">WhatsApp number</label>
+            <input id="f-phone" name="phone" type="tel" inputmode="tel" placeholder="e.g. 868 712 3456" autocomplete="tel" required>
+            <p class="err" data-err="f-phone"></p>
           </div>
 
           <div class="field">
@@ -528,18 +532,25 @@
 
       const name = form.querySelector('#f-name').value.trim();
       const email = form.querySelector('#f-email').value.trim().toLowerCase();
+      const phone = form.querySelector('#f-phone').value.trim();
       const area = form.querySelector('#f-area').value.trim();
       const roleLabel = form.querySelector('#f-role').value;
 
       let ok = true;
       if(name.length < 2){ setErr('f-name', 'Please add your name.'); ok = false; } else setErr('f-name', '');
       if(!isEmail(email)){ setErr('f-email', 'Enter a valid email address.'); ok = false; } else setErr('f-email', '');
+      if(phone.replace(/\D/g, '').length < 7){ setErr('f-phone', 'Enter your WhatsApp number.'); ok = false; } else setErr('f-phone', '');
       if(!roleLabel){ ok = false; }
 
       if(!ok){ form.querySelector('[aria-invalid=true]')?.focus(); return; }
 
-      const roleKey = ROLE_SELECT_TO_KEY[roleLabel];
-      const dbRole = ROLE_DB_CODE[roleKey] || 'rider';
+      // The live waitlist guard (waitlist_guard_public_insert) only accepts
+      // source 'g868:<role label>' with the matching type below, and a T&T
+      // WhatsApp number. This form used to send source 'g868', role codes
+      // rider/driver/merchant/commander and phone null, so EVERY sign-up was
+      // rejected (0 saved from this site, verified 2026-10-15).
+      const GUARD_TYPE = { 'Rider':'ride', 'Driver':'drive', 'G-Partner (merchant)':'sell', 'G-Lead (territory)':'drive' };
+      const dbRole = GUARD_TYPE[roleLabel] || 'ride';
 
       btn.disabled = true;
       const label = submitLabelEl.textContent;
@@ -557,10 +568,10 @@
           body: JSON.stringify({
             full_name: name,
             email,
-            phone: null,
+            phone,
             community: area || null,
-            user_type: dbRole, // rider | driver | merchant | commander
-            source: 'g868',
+            user_type: dbRole,
+            source: `g868:${roleLabel}`,
             referred_by: REF,
           }),
         });
@@ -569,6 +580,14 @@
           const body = await res.text();
           if(res.status === 409 || body.includes('23505')){
             setErr('f-email', "You're already on the list with that email.");
+            btn.disabled = false; submitLabelEl.textContent = label;
+            return;
+          }
+          // Show the guard's own plain-English hint (bad phone, rate limit...).
+          let hint = '';
+          try { hint = JSON.parse(body).hint || ''; } catch(_) {}
+          if(hint){
+            if(fErr) fErr.textContent = hint;
             btn.disabled = false; submitLabelEl.textContent = label;
             return;
           }

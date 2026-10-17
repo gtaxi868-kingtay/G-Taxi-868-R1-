@@ -50,25 +50,26 @@ export const LEGAL_DOCUMENTS = {
 
 export type LegalDocument = typeof LEGAL_DOCUMENTS[keyof typeof LEGAL_DOCUMENTS];
 
-// Public URLs for "View Full Document" links. Each document is rendered
-// to a standalone HTML page and uploaded to the public `web` Supabase
-// Storage bucket at legal/<slug>.html — the bucket already serves other
-// public content unauthenticated at this exact path pattern, no RLS
-// policy needed (public=true on the bucket is what gates it).
+// Public URLs for "View Full Document" links. These are the real, published
+// pages from apps/qr-landing/legal (live on the public site). The old base
+// (the Supabase `web` storage bucket) was never populated, so every link
+// 404'd. Documents that are sections of the Terms/Privacy pages link to that
+// section. Switch SITE_BASE_URL to https://gtaxi.tt once that domain points
+// at the site.
 //
 // refund_policy has no entry in LEGAL_DOCUMENTS / no user_consents row
 // (incorporated by reference into Terms, not accepted separately) but
 // still gets a real linkable page here.
-const LEGAL_DOC_BASE_URL = 'https://ffbbuafgeypvkpcuvdnv.supabase.co/storage/v1/object/public/web/legal';
+const SITE_BASE_URL = 'https://g-taxi-868-r1-admin.vercel.app';
 
 export const LEGAL_DOC_URLS: Record<LegalDocument | 'refund_policy', string> = {
-  terms_of_service: `${LEGAL_DOC_BASE_URL}/terms_of_service.html`,
-  privacy_policy: `${LEGAL_DOC_BASE_URL}/privacy_policy.html`,
-  driver_agreement: `${LEGAL_DOC_BASE_URL}/driver_agreement.html`,
-  merchant_terms: `${LEGAL_DOC_BASE_URL}/merchant_terms.html`,
-  data_retention: `${LEGAL_DOC_BASE_URL}/data_retention.html`,
-  safety_policy: `${LEGAL_DOC_BASE_URL}/safety_policy.html`,
-  refund_policy: `${LEGAL_DOC_BASE_URL}/refund_policy.html`,
+  terms_of_service: `${SITE_BASE_URL}/legal/terms`,
+  privacy_policy: `${SITE_BASE_URL}/legal/privacy`,
+  driver_agreement: `${SITE_BASE_URL}/legal/terms#drivers`,
+  merchant_terms: `${SITE_BASE_URL}/legal/terms#merchants`,
+  data_retention: `${SITE_BASE_URL}/legal/privacy#retention`,
+  safety_policy: `${SITE_BASE_URL}/legal/terms#safety`,
+  refund_policy: `${SITE_BASE_URL}/legal/terms#payments-disputes`,
 };
 
 export interface ConsentDocumentRef {

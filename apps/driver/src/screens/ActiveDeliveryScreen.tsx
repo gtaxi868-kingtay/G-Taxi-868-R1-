@@ -3,6 +3,7 @@ import {
     View, Text, StyleSheet, TouchableOpacity,
     ScrollView, Alert, Linking,
 } from 'react-native';
+import { setLocationTrackingMode } from '../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -46,6 +47,12 @@ interface OrderDetail {
 }
 
 export function ActiveDeliveryScreen({ navigation, route }: any) {
+    // Location every 5 s while on a job; every 20 s otherwise (Phase 4 cost control).
+    useEffect(() => {
+        setLocationTrackingMode('trip');
+        return () => setLocationTrackingMode('idle');
+    }, []);
+
     const { orderId } = route.params || {};
     const insets = useSafeAreaInsets();
 
@@ -67,21 +74,22 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
                 .from('orders')
                 .select(`
                     id, total_cents, delivery_fee_cents, delivery_address, delivery_status,
-                    merchants(business_name, address, phone),
-                    profiles!orders_rider_id_fkey(full_name, phone)
+                    merchants(name, address)
                 `)
                 .eq('id', orderId)
                 .single();
             if (data) {
+                // merchants has no business_name/phone columns, and drivers
+                // cannot read customer profiles for orders -- asking for them
+                // made this whole load fail (verified live 2026-10-15).
                 const merchant = data.merchants as any;
-                const profile = data.profiles as any;
                 setOrder({
                     id: data.id,
-                    merchant_name: merchant?.business_name ?? null,
+                    merchant_name: merchant?.name ?? null,
                     merchant_address: merchant?.address ?? null,
-                    merchant_phone: merchant?.phone ?? null,
-                    rider_name: profile?.full_name ?? null,
-                    rider_phone: profile?.phone ?? null,
+                    merchant_phone: null,
+                    rider_name: null,
+                    rider_phone: null,
                     delivery_address: data.delivery_address ?? null,
                     total_cents: data.total_cents,
                     delivery_fee_cents: data.delivery_fee_cents,
@@ -138,19 +146,14 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
     const confirmDelivery = async (photoPath: string | null) => {
         setIsUpdating(true);
         try {
-            const { data: res, error } = await supabase.functions.invoke('grocery', {
-                body: { action: 'confirm_delivery', order_id: orderId, photo_url: photoPath },
+            // process_stop_arrival settles (cash or card) and records the
+            // final step server-side, with the proof photo.
+            const { data: res, error } = await supabase.functions.invoke('process_stop_arrival', {
+                body: { delivery_id: orderId, photo_url: photoPath },
             });
-            if (error || !res || res.error) {
+            if (error || !res || res.error || res.success === false) {
                 throw new Error(res?.error || error?.message || 'Delivery confirmation failed');
             }
-
-            // RPC owns orders.status; mirror the driver-facing delivery_status only.
-            await supabase
-                .from('orders')
-                .update({ delivery_status: STATUS_MAP.delivered })
-                .eq('id', orderId)
-                .then((r) => r, () => null);
 
             setStep('delivered');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -162,7 +165,7 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
                     [{ text: 'Done', onPress: () => navigation.replace('Dashboard') }]
                 );
             } else {
-                const paid = ((res.driver_payout_cents ?? DELIVERY_BASE_PAYOUT_CENTS) / 100).toFixed(2);
+                const paid = ((res.driver_payout_cents ?? res.payout?.driver_payout_cents ?? DELIVERY_BASE_PAYOUT_CENTS) / 100).toFixed(2);
                 Alert.alert(
                     'Delivery Complete!',
                     `TTD $${paid} has been added to your wallet.`,
@@ -214,6 +217,14 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
 
         const nextStep = STEPS[currentIdx + 1].key;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        // The last step needs the proof photo and settles payment; it used to
+        // skip the photo entirely (so pay was always held) because nothing
+        // ever called captureProofAndConfirm.
+        if (nextStep === 'delivered') {
+            await captureProofAndConfirm();
+            return;
+        }
 
         setIsUpdating(true);
 

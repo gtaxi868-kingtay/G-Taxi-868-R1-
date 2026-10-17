@@ -87,7 +87,7 @@ export function ReferralScreen({ navigation }: AppScreenProps<'Referral'>) {
         if (!code) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         await Share.share({
-            message: `Use my G-Taxi code ${code} when signing up — you get TTD $15 in ride credits, and so do I! Download: https://gtaxi.tt`,
+            message: `Use my G-Taxi code ${code} when signing up — after your first ride you get TTD $15 in ride credits, and so do I! Download: https://gtaxi.tt`,
             title: 'Get TTD $15 on G-Taxi',
         });
     };

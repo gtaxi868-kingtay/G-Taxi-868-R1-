@@ -38,7 +38,17 @@ export async function adminFetch(
 
     if (error) {
         console.error(`Edge Function Error [${functionName}]:`, error);
-        throw new Error(error.message || 'Request to edge function failed');
+        // On a 4xx/5xx supabase-js only says "Edge Function returned a non-2xx
+        // status code"; the function's own reason is in the response body.
+        let reason: string | null = null;
+        try {
+            const ctx = (error as any).context;
+            if (ctx && typeof ctx.json === 'function') {
+                const payload = await ctx.json();
+                reason = payload?.error || payload?.message || null;
+            }
+        } catch { /* body not JSON */ }
+        throw new Error(reason || error.message || 'Request to edge function failed');
     }
 
     return data;

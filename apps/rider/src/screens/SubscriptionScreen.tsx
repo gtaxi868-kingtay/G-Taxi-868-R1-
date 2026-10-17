@@ -162,10 +162,9 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                         text: 'Cancel Membership',
                         style: 'destructive',
                         onPress: async () => {
-                            const { error } = await supabase
-                                .from('profiles')
-                                .update({ subscription_tier: 'free' })
-                                .eq('id', user?.id);
+                            // Riders cannot write subscription_tier directly
+                            // (that would let anyone set a paid tier).
+                            const { error } = await supabase.rpc('rider_cancel_g_membership');
                             if (error) {
                                 Alert.alert('Error', error.message);
                             } else {

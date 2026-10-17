@@ -70,27 +70,11 @@ export function CommanderConsoleScreen() {
                 const { data } = await supabase.functions.invoke('commander_gateway', { body: { action: 'get_pucks' } });
                 if (data?.success) setPucks(data.nodes || []);
             } else if (which === 'merchants') {
-                // No dedicated list endpoint; read pending merchants for the territory.
-                if (territoryId) {
-                    const { data } = await supabase
-                        .from('merchants')
-                        .select('id, name, category, activation_status')
-                        .eq('territory_id', territoryId)
-                        .eq('activation_status', 'pending');
-                    setMerchants(data || []);
-                } else {
-                    const { data: terr } = await supabase.functions.invoke('commander_gateway', { body: { action: 'get_territory' } });
-                    const tid = terr?.commander?.territory_id || null;
-                    setTerritoryId(tid);
-                    if (tid) {
-                        const { data } = await supabase
-                            .from('merchants')
-                            .select('id, name, category, activation_status')
-                            .eq('territory_id', tid)
-                            .eq('activation_status', 'pending');
-                        setMerchants(data || []);
-                    }
-                }
+                // Pending merchants are not is_active, so RLS hid them from a
+                // direct read. This RPC lists the caller's own territory only.
+                const { data, error } = await supabase.rpc('commander_territory_merchants', { p_status: 'pending' });
+                if (error) throw error;
+                setMerchants(data || []);
             } else if (which === 'succession') {
                 const { data } = await supabase.functions.invoke('commander_gateway', { body: { action: 'successor_list' } });
                 if (data?.success) setSuccessors(data.successors || []);

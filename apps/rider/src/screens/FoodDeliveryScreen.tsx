@@ -106,7 +106,7 @@ export function FoodDeliveryScreen({ navigation }: any) {
                 const { data: orders } = await supabase
                     .from('orders')
                     .select('merchant_id, created_at, merchants(name)')
-                    .eq('user_id', user.id)
+                    .eq('rider_id', user.id)
                     .order('created_at', { ascending: false })
                     .limit(20);
 

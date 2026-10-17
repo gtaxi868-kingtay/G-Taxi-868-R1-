@@ -1,34 +1,19 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-// `SB` with no type arguments instantiates the
-// generics at their CONSTRAINTS (unknown / never), not their DEFAULTS, so it
-// rejects the very client created at runtime
-// (SupabaseClient<any, "public", ...>). Supplying them explicitly fixes it.
-type SB = ReturnType<typeof createClient<any, "public", any>>;
-
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
 import { checkVerticalAccess } from '../_shared/verticalGate.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
+import { getCorsHeaders } from '../_shared/cors.ts'
 const RESERVE_RATE = 0.015;
 const PIARCO_LAT = 10.5954;
 const PIARCO_LNG = -61.3372;
 const POS_CENTER_LAT = 10.6549;
 const POS_CENTER_LNG = -61.5019;
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
 
 async function notifyPoolMembers(
-  supabase: SB,
+  supabase: ReturnType<typeof createClient>,
   packageId: string,
   newRiderId: string,
   guestCount: number,
@@ -109,6 +94,13 @@ function dateRange(days: number): string[] {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const supabase = createClient(
@@ -342,7 +334,7 @@ serve(async (req) => {
         const bookingRef: string | null = resRow?.booking_ref ?? null;
 
         const releaseHold = async () => {
-          try { await supabase.rpc('release_single_reservation', { p_reservation_id: reservationId }); } catch (e) { console.error('[travel] release failed:', reservationId, e); }
+          await supabase.rpc('release_single_reservation', { p_reservation_id: reservationId }).then((__r) => __r, () => {});
         };
 
         if (payment_method === 'wallet') {
@@ -367,12 +359,6 @@ serve(async (req) => {
             requires_verification: requiresVerification, payment_method: 'wallet', status: 'CAPTURED',
           });
         }
-
-        // NOTE: wipay and stripe below only place a hold — real payment
-        // success arrives asynchronously (WiPay callback / Stripe capture),
-        // outside the four entry points this pass wires progression into.
-        // escape_ever_booked only gets set today for the synchronous wallet
-        // path above. Flagging rather than silently under-counting.
 
         // ── WiPay (primary) ────────────────────────────────────────────
         if (payment_method === 'wipay') {

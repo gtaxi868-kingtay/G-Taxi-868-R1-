@@ -2,7 +2,8 @@
 // Hook to fetch and subscribe to nearby driver locations in real-time
 
 import { useEffect, useState, useRef } from 'react';
-import { Animated, Easing } from 'react-native';
+import { Animated, Easing, AppState } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '@gtaxi/core';
 
 // Animated wrapper for driver positions
@@ -33,8 +34,6 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
     // Keep a map of driver IDs to their Animated values for smooth updates
     const animatedDriversRef = useRef<Map<string, AnimatedDriver>>(new Map());
 
-    // Track the last location that triggered a subscription to debounce
-    const lastSubscribedLocation = useRef<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
 
     // Helper to animate a driver to new position
     const animateDriverToPosition = (driver: AnimatedDriver, newLat: number, newLng: number, heading: number) => {
@@ -76,81 +75,71 @@ export function useNearbyDrivers(userLat: number, userLng: number, radiusKm: num
         };
     };
 
+    // Only refresh while the home screen is in front and the app is open.
+    const isFocused = useIsFocused();
+    const [appActive, setAppActive] = useState(AppState.currentState === 'active');
     useEffect(() => {
-        // Null/NaN guard: don't subscribe if location is invalid
-        if (!userLat || !userLng || isNaN(userLat) || isNaN(userLng)) {
-            return;
-        }
+        const sub = AppState.addEventListener('change', (next) => setAppActive(next === 'active'));
+        return () => sub.remove();
+    }, []);
 
-        // Debounce: only re-subscribe if location changed by more than ~200m
-        const latDiff = Math.abs(userLat - lastSubscribedLocation.current.lat);
-        const lngDiff = Math.abs(userLng - lastSubscribedLocation.current.lng);
+    // Re-query only when the rider has moved ~200 m (rounded position as the
+    // dependency). The old early-return here cleared the refresh timer on
+    // small moves without starting a new one, so the car map could freeze.
+    const roundedLat = Math.round(userLat / LOCATION_DEBOUNCE_THRESHOLD) * LOCATION_DEBOUNCE_THRESHOLD;
+    const roundedLng = Math.round(userLng / LOCATION_DEBOUNCE_THRESHOLD) * LOCATION_DEBOUNCE_THRESHOLD;
 
-        if (
-            lastSubscribedLocation.current.lat !== 0 &&
-            latDiff < LOCATION_DEBOUNCE_THRESHOLD &&
-            lngDiff < LOCATION_DEBOUNCE_THRESHOLD
-        ) {
-            // Location hasn't changed enough — skip re-subscription
-            return;
-        }
+    useEffect(() => {
+        if (!userLat || !userLng || isNaN(userLat) || isNaN(userLng)) return;
+        if (!isFocused || !appActive) return;
 
-        // Update tracked location
-        lastSubscribedLocation.current = { lat: userLat, lng: userLng };
+        let cancelled = false;
 
-        let pollTimer: any;
-
-        const fetchNearbyFromRedis = async () => {
+        const fetchNearby = async () => {
             try {
-                // Call the new Redis-backed Edge Function
-                const { data, error: fetchError } = await supabase.functions.invoke('get_nearby_drivers', {
-                    body: { lat: userLat, lng: userLng, radius: radiusKm }
+                // Database call (nearby_driver_dots): approved, online, recently
+                // seen drivers, positions rounded ~100 m. It replaces the
+                // get_nearby_drivers edge function, which cost one function
+                // call per rider every 10 s.
+                const { data, error: fetchError } = await supabase.rpc('nearby_driver_dots', {
+                    p_lat: userLat, p_lng: userLng, p_radius_km: radiusKm,
                 });
-
                 if (fetchError) throw fetchError;
+                if (cancelled) return;
 
-                const redisDrivers = data.drivers || [];
-
-                // Update animated drivers
-                const newDriverList: AnimatedDriver[] = redisDrivers.map((d: DriverFromDB) => {
+                const dots: DriverFromDB[] = (data || []).map((d: any) => ({ id: d.id, lat: d.lat, lng: d.lng, heading: 0 }));
+                const newDriverList: AnimatedDriver[] = dots.map((d) => {
                     const existing = animatedDriversRef.current.get(d.id);
                     if (existing) {
                         animateDriverToPosition(existing, d.lat, d.lng, d.heading || 0);
                         return existing;
-                    } else {
-                        const newAnimated = getOrCreateAnimatedDriver(d);
-                        animatedDriversRef.current.set(d.id, newAnimated);
-                        return newAnimated;
                     }
+                    const created = getOrCreateAnimatedDriver(d);
+                    animatedDriversRef.current.set(d.id, created);
+                    return created;
                 });
-
-                // Remove drivers that are no longer in the results (offline or too far)
-                const currentIds = new Set(redisDrivers.map((d: any) => d.id));
-                for (const [id, _] of animatedDriversRef.current) {
-                    if (!currentIds.has(id)) {
-                        animatedDriversRef.current.delete(id);
-                    }
+                const currentIds = new Set(dots.map((d) => d.id));
+                for (const [id] of animatedDriversRef.current) {
+                    if (!currentIds.has(id)) animatedDriversRef.current.delete(id);
                 }
-
                 setDrivers(newDriverList);
+                setError(null);
                 setLoading(false);
             } catch (err) {
-                console.error("Redis fetch failed:", err);
+                if (cancelled) return;
+                console.warn('nearby drivers fetch failed:', err);
                 setError(String(err));
                 setLoading(false);
             }
         };
 
-        // Initial fetch
-        fetchNearbyFromRedis();
-
-        // Poll every 10 seconds — Redis-backed edge function, cheap but 3s is excessive
-        pollTimer = setInterval(fetchNearbyFromRedis, 10_000);
-
+        fetchNearby();
+        const pollTimer = setInterval(fetchNearby, 30_000);
         return () => {
-            if (pollTimer) clearInterval(pollTimer);
+            cancelled = true;
+            clearInterval(pollTimer);
         };
-    }, [userLat, userLng]);
+    }, [roundedLat, roundedLng, radiusKm, isFocused, appActive]);
 
     return { drivers, loading, error };
 }

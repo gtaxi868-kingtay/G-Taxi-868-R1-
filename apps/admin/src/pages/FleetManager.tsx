@@ -272,7 +272,8 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
     };
 
     const handleToggleDriver = async (user: any) => {
-        const action = user.is_driver ? 'revoke' : 'authorize';
+        if (!user.is_driver) { alert('This person has not registered as a driver yet.'); return; }
+        const action = user.driver_verified_status === 'approved' ? 'revoke' : 'authorize';
         if (!window.confirm(`${action.toUpperCase()} driver access for ${user.name}?`)) return;
         try {
             await adminFetch('admin', { action: 'toggle_driver', user_id: user.id, sub_action: action, name: user.name });
@@ -461,9 +462,9 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
                             <div className="flex flex-col gap-2">
                                 <button
                                     onClick={() => handleToggleDriver(user)}
-                                    className={`text-[9px] font-black px-3 py-1.5 rounded-lg border uppercase tracking-tight transition-all ${user.is_driver ? 'text-red-400 bg-red-400/5 border-red-400/20 hover:bg-red-400/10' : 'text-cyan-400 bg-cyan-400/5 border-cyan-400/20 hover:bg-cyan-400/10'}`}
+                                    className={`text-[9px] font-black px-3 py-1.5 rounded-lg border uppercase tracking-tight transition-all ${user.driver_verified_status === 'approved' ? 'text-red-400 bg-red-400/5 border-red-400/20 hover:bg-red-400/10' : 'text-cyan-400 bg-cyan-400/5 border-cyan-400/20 hover:bg-cyan-400/10'}`}
                                 >
-                                    {user.is_driver ? 'Revoke Driver' : 'Authorize Driver'}
+                                    {user.driver_verified_status === 'approved' ? 'Revoke Driver' : 'Authorize Driver'}
                                 </button>
                                 <button
                                     onClick={() => handleSuspendRider(user)}
@@ -836,7 +837,7 @@ export const FleetManager = ({ allUsers, rides, orders, onRefresh }: any) => {
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
                                                 {leases.map((lease) => {
-                                                    const driver = (lease.drivers as any)?.profiles?.name ?? 'Unknown Driver';
+                                                    const driver = (lease.drivers as any)?.name ?? 'Unknown Driver';
                                                     const vehicle = lease.fleet_vehicles
                                                         ? `${lease.fleet_vehicles.year} ${lease.fleet_vehicles.make} ${lease.fleet_vehicles.model}`
                                                         : 'Unknown Vehicle';
@@ -954,7 +955,7 @@ const InsuranceBindModal = ({ lease, onClose, onSubmit }: {
     const vehicle = lease.fleet_vehicles
         ? `${lease.fleet_vehicles.year} ${lease.fleet_vehicles.make} ${lease.fleet_vehicles.model} (${lease.fleet_vehicles.license_plate})`
         : 'Unknown Vehicle';
-    const driver = (lease.drivers as any)?.profiles?.name ?? 'Unknown Driver';
+    const driver = (lease.drivers as any)?.name ?? 'Unknown Driver';
 
     const premiumCents = Math.round(parseFloat(annualPremium || '0') * 100);
     const commissionBps = Math.round(parseFloat(commissionPct || '0') * 100);

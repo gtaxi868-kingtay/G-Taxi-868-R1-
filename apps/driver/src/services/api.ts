@@ -43,21 +43,54 @@ export async function getRide(rideId: string) {
     return { data, error };
 }
 
+// Location cost control (Phase 4). The phone has two location sources (the
+// background task and the on-screen tracker); both call this, so this is
+// the single gate: at most one send every 5 s during a trip and every 20 s
+// otherwise. It writes through the driver_location_ping database function
+// (same checks the old edge function did: driver only, rate limit, GPS
+// spoof rejection, detour alarm) -- database requests don't count against
+// the Supabase function-call allowance; the old edge-function call did.
+let trackingMode: 'idle' | 'trip' = 'idle';
+let lastSentAt = 0;
+const modeListeners = new Set<(mode: 'idle' | 'trip') => void>();
+
+export function setLocationTrackingMode(mode: 'idle' | 'trip') {
+    if (trackingMode === mode) return;
+    trackingMode = mode;
+    modeListeners.forEach((fn) => fn(mode));
+}
+
+export function getLocationTrackingMode() {
+    return trackingMode;
+}
+
+// The location tracker re-tunes GPS when a job starts or ends.
+export function onLocationTrackingModeChange(fn: (mode: 'idle' | 'trip') => void) {
+    modeListeners.add(fn);
+    return () => { modeListeners.delete(fn); };
+}
+
 export async function updateDriverLocation(
-    driverId: string,
+    _driverId: string,
     lat: number,
     lng: number,
     heading: number,
     speed?: number,
-    sos?: boolean
 ) {
-    // Fire and forget — Edge Function validates auth + GPS spoof detection
-    const headers = await getAuthHeaders();
-    return fetch(`${FUNCTIONS_URL}/update_driver_location`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ lat, lng, heading, speed, sos })
+    const minGapMs = trackingMode === 'trip' ? 5000 : 20000;
+    const now = Date.now();
+    if (now - lastSentAt < minGapMs) return null;
+    lastSentAt = now;
+    const { data, error } = await supabase.rpc('driver_location_ping', {
+        p_lat: lat,
+        p_lng: lng,
+        p_heading: heading || 0,
+        p_speed: speed || 0,
     });
+    if (error || data?.success === false) {
+        console.warn('[location] ping not saved:', error?.message || data?.error);
+    }
+    return data;
 }
 
 interface UpdateRideStatusResponse {
@@ -105,8 +138,12 @@ async function _updateRideStatusInternal(
         body: payload
     });
 
-    // 2. If it fails, enqueue in Outbox for background persistence
-    if (error) {
+    // 2. If the request never reached the server (no signal), enqueue it in
+    //    the Outbox to retry later. A refusal from the server (wrong PIN,
+    //    trip already cancelled, wrong state) must NOT be replayed later -- it
+    //    used to be queued too, so old actions could fire again afterwards.
+    const reachedServer = (error as any)?.name === 'FunctionsHttpError';
+    if (error && !reachedServer) {
         console.warn(`[API] Immediate sync failed for ${status}. Enqueueing in Outbox...`);
         await OutboxService.getInstance().enqueue({
             type: 'FUNCTION_INVOKE',

@@ -314,15 +314,34 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     };
 
     const handleCancelRide = () => {
-        const feeApplies = ride?.status === 'assigned' || ride?.status === 'arrived';
+        // Same rule as the server (cancel_ride_atomic): the TT$5 fee applies
+        // only once the driver has arrived, or has been on the way for 10+
+        // minutes since accepting. Before that, cancelling is free.
+        const minutesOnTheWay = ride?.assigned_at
+            ? (Date.now() - new Date(ride.assigned_at).getTime()) / 60000
+            : 0;
+        const feeApplies = ride?.status === 'arrived'
+            || (ride?.status === 'assigned' && minutesOnTheWay >= 10);
 
         if (feeApplies) {
             Alert.alert(
                 "Cancel this ride?",
-                "Your driver has already accepted.\nA TTD 5.00 cancellation fee may apply if they're close to pickup or have arrived.",
+                ride?.status === 'arrived'
+                    ? "Your driver is already at your pickup.\nA TTD 5.00 cancellation fee will be charged and paid to the driver."
+                    : "Your driver has been on the way for over 10 minutes.\nA TTD 5.00 cancellation fee will be charged and paid to the driver.",
                 [
                     { text: "Keep My Ride", style: "cancel" },
                     { text: "Cancel Anyway", style: "destructive", onPress: executeCancelRide }
+                ]
+            );
+        } else if (ride?.status === 'assigned') {
+            const freeMins = Math.max(1, Math.ceil(10 - minutesOnTheWay));
+            Alert.alert(
+                "Cancel this ride?",
+                `Your driver is on the way. Cancelling is free for about ${freeMins} more minute${freeMins === 1 ? '' : 's'}, or until they arrive.`,
+                [
+                    { text: "Keep My Ride", style: "cancel" },
+                    { text: "Cancel for free", style: "destructive", onPress: executeCancelRide }
                 ]
             );
         } else {

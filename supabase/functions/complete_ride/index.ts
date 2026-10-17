@@ -28,16 +28,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { captureException } from "../_shared/sentry.ts";
 import { sendPushNotification } from "../_shared/push.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
 
 function getDistanceMeters(
   lat1: number,
@@ -78,6 +75,7 @@ async function resolveDriverAuthUserId(
 const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -115,6 +113,14 @@ serve(async (req: Request) => {
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const rateCheck = await checkRateLimit(supabaseAdmin, userId, "complete_ride");
+    if (!rateCheck.allowed) {
+      return new Response(
+        JSON.stringify({ success: false, error: rateCheck.error, data: null }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const { data: ride, error: rideError } = await supabaseAdmin
       .from("rides")
@@ -498,7 +504,6 @@ serve(async (req: Request) => {
           { status: isFunds ? 402 : 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
       // Payment succeeded — now, and only now, actually burn the promo
       // claim. redeem_promo_code is idempotent (WHERE is_used = false), so
       // a retry of this same complete_ride call can't double-redeem.
@@ -764,15 +769,22 @@ serve(async (req: Request) => {
       }
     }
 
-    // ── DRIVER REFERRAL COMMISSION (1% of platform fee to referrer for 90 days) ─
-    if (driverUserIdForLoyalty && platformFee > 0) {
+    // ── DRIVER-REFERS-DRIVER REWARD (non-blocking) — 2026-09-04 ──────────────
+    // One-time 5% of the referred driver's cumulative platform_fee_cents,
+    // paid once they complete DRIVER_REFERRAL_TARGET_RIDES (10) rides.
+    // Funded from capital_reserve_ledger via spend_from_reserve, never the
+    // driver/platform split. Replaces the previous ongoing "2% per ride for
+    // 90 days" mechanic (check_driver_referral_commission), which had been
+    // completely dead since it was written — referral_earnings.status='active'
+    // is not a legal value (CHECK only allows pending|paid|expired), so its
+    // lookup never matched a single row. That function has been dropped.
+    if (driverUserIdForLoyalty) {
       await supabaseAdmin
-        .rpc("check_driver_referral_commission", {
-          p_driver_user_id: driverUserIdForLoyalty,
+        .rpc("increment_driver_referral_reward", {
+          p_referee_driver_user_id: driverUserIdForLoyalty,
           p_ride_id: ride_id,
-          p_platform_fee_cents: platformFee,
         })
-        .then((res) => res, (err: unknown) => console.error("Driver referral commission failed (non-fatal):", err));
+        .then((res) => res, (err: unknown) => console.error("increment_driver_referral_reward failed (non-fatal):", err));
     }
 
     // ── DRIVER LOAN REPAYMENT ─────────────────────────────────────────────
@@ -956,14 +968,24 @@ serve(async (req: Request) => {
           .rpc("increment_referral_reward_rides", {
             p_rider_id: ride.rider_id,
             p_driver_id: riderRef.referral_source_driver_id,
+            p_ride_id: ride.id,
           })
           .then((res) => res, (err: unknown) => console.error("increment_referral_reward_rides failed (non-fatal):", err));
+      }
+
+      // Rider onboarded this rider (friends/family share link): the TT$15
+      // each is paid on the referred rider's first completed ride (no-op
+      // after that, or if no pending referral exists).
+      if (riderRef?.referred_by_rider_id) {
+        await supabaseAdmin
+          .rpc("pay_rider_referral_on_first_ride", { p_referee_id: ride.rider_id, p_ride_id: ride_id })
+          .then((res) => res, (err: unknown) => console.error("pay_rider_referral_on_first_ride failed (non-fatal):", err));
       }
 
       // Rider onboarded this rider (friends/family share link) → 3%.
       if (riderRef?.referred_by_rider_id) {
         await supabaseAdmin
-          .rpc("increment_rider_referral_reward", { p_referee_rider_id: ride.rider_id })
+          .rpc("increment_rider_referral_reward", { p_referee_rider_id: ride.rider_id, p_ride_id: ride.id })
           .then((res) => res, (err: unknown) => console.error("increment_rider_referral_reward failed (non-fatal):", err));
       }
     }

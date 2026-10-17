@@ -13,6 +13,7 @@ const OUTBOX = OutboxService.getInstance();
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { AppScreenProps } from '../navigation/types';
+import { describeNfcFailure, releaseNfc } from '../utils/nfcErrors';
 
 export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) {
     const { width } = useWindowDimensions();
@@ -94,25 +95,23 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
     }, [navigation, payMode]);
 
     const scanNfc = async () => {
+        const mod = require('react-native-nfc-manager');
+        const NfcManager = mod.default || mod;
         try {
-            const mod = require('react-native-nfc-manager');
-            const NfcManager = mod.default || mod;
-            NfcManager.start();
+            await NfcManager.start();
             await NfcManager.requestTechnology(NfcManager.Tech.NfcA);
             const tag = await NfcManager.getTag();
+            await releaseNfc(NfcManager);
             if (tag?.id) {
                 await handleRoute(tag.id);
             }
-            NfcManager.cancelTechnologyRequest();
         } catch {
-            Alert.alert(
-                'NFC Unavailable',
-                'NFC hardware is not available on this device. You can enter a tag code manually instead.',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Enter Code', onPress: () => setInputMode('manual') },
-                ]
-            );
+            await releaseNfc(NfcManager);
+            const { title, message } = await describeNfcFailure(NfcManager);
+            Alert.alert(title, message + ' You can also enter the tag code instead.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Enter Code', onPress: () => setInputMode('manual') },
+            ]);
         }
     };
 

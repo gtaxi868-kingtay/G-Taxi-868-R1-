@@ -51,10 +51,13 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
   const [walletBalance, setWalletBalance] = useState(0);
   const [activeTab, setActiveTab] = useState<'overview' | 'staff' | 'history'>('overview');
 
-  // Driver network (vouching). Present only when this owner also holds an
-  // active pod_commanders row — the 2% on vouched drivers' fares lands in
-  // commander_revshare_ledger, written by settlement (record_ride_kickbacks).
+  // Driver network. Either this owner also holds an active pod_commanders
+  // row (G-Lead network: 2% lands in commander_revshare_ledger), or it is the
+  // shop's own network (drivers who signed up with the shop's code: 2% lands
+  // in shop_recruiter_revshare_ledger). Both are written by settlement
+  // (record_ride_kickbacks).
   const [network, setNetwork] = useState<{
+    kind: 'lead' | 'shop';
     code: string | null;
     totalCents: number;
     pendingCents: number;
@@ -98,7 +101,19 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
       .eq('user_id', userId)
       .eq('status', 'active')
       .maybeSingle();
-    if (!commander) { setNetwork(null); setJoinRequests([]); return; }
+    if (!commander) {
+      setJoinRequests([]);
+      const { data: shopNet } = await supabase.rpc('merchant_driver_network');
+      if (!shopNet?.success || !shopNet.active) { setNetwork(null); return; }
+      setNetwork({
+        kind: 'shop',
+        code: shopNet.code,
+        totalCents: Number(shopNet.total_cents) || 0,
+        pendingCents: Number(shopNet.pending_cents) || 0,
+        rideCount: Number(shopNet.ride_count) || 0,
+      });
+      return;
+    }
 
     const { data: reqs } = await supabase.rpc('get_network_join_requests');
     setJoinRequests((reqs as any[]) || []);
@@ -109,6 +124,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
       .eq('commander_id', commander.id);
     const list = rows || [];
     setNetwork({
+      kind: 'lead',
       code: commander.onboarding_code,
       totalCents: list.reduce((sum: number, r: any) => sum + (r.revshare_cents || 0), 0),
       pendingCents: list
@@ -122,7 +138,9 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
     if (!network?.code) return;
     try {
       await Share.share({
-        message: `Drive with G and I'll vouch for you. Download the G driver app, choose "Join with a G-Lead code" and enter: ${network.code.toUpperCase()}`,
+        message: network.kind === 'shop'
+          ? `Drive with G. Download the G driver app, sign up, and enter my shop code: ${network.code.toUpperCase()}`
+          : `Drive with G and I'll vouch for you. Download the G driver app, choose "Join with a G-Lead code" and enter: ${network.code.toUpperCase()}`,
       });
     } catch { /* user dismissed */ }
   };
@@ -133,13 +151,11 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
     try {
       loadNetwork(user.id).catch((e) => console.warn('Failed to load driver network:', e));
 
-      // Fetch spendable wallet balance
-      const { data: wallet } = await supabase
-        .from('wallets')
-        .select('balance_cents')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      setWalletBalance(wallet?.balance_cents ?? 0);
+      // Spendable balance = sum of the ledger (get_wallet_balance). The
+      // wallets.balance_cents cache is never updated by commission payments,
+      // so it always read TT$0.
+      const { data: balanceCents } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
+      setWalletBalance(typeof balanceCents === 'number' ? balanceCents : 0);
 
       // Resolve merchant (owner or staff)
       const { data: merchant } = await supabase
@@ -252,7 +268,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
           <View style={[s.walletHero, glassSurface(0.18)]}>
             <View style={s.walletHeroLeft}>
               <Text style={s.walletHeroLabel}>Spendable Balance</Text>
-              <Text style={s.walletHeroValue}>{ttd(walletBalance)}</Text>
+              <Text style={s.walletHeroValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{ttd(walletBalance)}</Text>
               <Text style={s.walletHeroCurrency}>TTD</Text>
             </View>
             <View style={s.walletHeroIcon}>
@@ -299,7 +315,9 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
                       <Text style={s.networkTitle}>Your driver network</Text>
                     </View>
                     <Text style={s.networkSub}>
-                      You earn 2% of every fare completed by drivers who joined with your code, for as long as you both stay active.
+                      {network.kind === 'shop'
+                        ? 'You earn 2% of every fare completed by drivers who signed up with your shop code, while your shop stays active. It comes out of their 80%.'
+                        : 'You earn 2% of every fare completed by drivers who joined with your code, for as long as you both stay active.'}
                     </Text>
                     <View style={s.networkStats}>
                       <View style={s.networkStat}>
@@ -366,7 +384,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
                 </View>
                 <View style={[s.infoCard, glassSurface(0.12)]}>
                   <Ionicons name="time-outline" size={20} color={VOICES.merchant.textMuted} style={{ marginRight: 10 }} />
-                  <Text style={s.infoText}>Pending commissions are paid out on the 1st and 15th of each month.</Text>
+                  <Text style={s.infoText}>Pending commissions are paid out after G-Taxi reviews them. Contact support to request a payout.</Text>
                 </View>
                 <View style={[s.summaryBreakdown, glassSurface(0.15)]}>
                   <Text style={s.breakdownTitle}>Breakdown</Text>

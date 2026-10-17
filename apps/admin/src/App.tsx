@@ -28,6 +28,7 @@ import { GGarage } from './pages/GGarage';
 import { GSpotVenues } from './pages/GSpotVenues';
 import { GMemory } from './pages/GMemory';
 import { SystemHealth } from './pages/SystemHealth';
+import { CashWithdrawalSettings } from './pages/CashWithdrawalSettings';
 import { Waitlist } from './pages/Waitlist';
 import { SosAlerts } from './pages/SosAlerts';
 import { LOGO_B64 } from './logoUrl';
@@ -93,7 +94,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist' | 'sosalerts';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist' | 'sosalerts' | 'cashout';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
@@ -101,6 +102,7 @@ const TAB_LABELS: Record<AdminView, string> = {
     fleet: 'Fleet & Personnel',
     commander: 'Commanders',
     financials: 'Financials',
+    cashout: 'Cash Withdrawals',
     approval: 'Driver Approval',
     nodes: 'Node Registry',
     rescue: 'Rescue',
@@ -141,7 +143,9 @@ function App() {
             setAllUsers(users || []);
             const { data: orderData } = await supabase
                 .from('orders')
-                .select('*, rider:rider_id(name)')
+                // orders.rider_id points at auth.users (not embeddable): the
+                // old rider:rider_id(name) embed failed and orders stayed empty.
+                .select('*')
                 .order('created_at', { ascending: false });
             setOrders(orderData || []);
         } catch (err) {
@@ -221,6 +225,7 @@ function App() {
                         <NavItem active={activeTab === 'approval'} onClick={() => handleNav('approval')} icon={<UserCheck size={20}/>} label="Driver Approval" />
                         <NavItem active={activeTab === 'compliance'} onClick={() => handleNav('compliance')} icon={<FileCheck size={20}/>} label="Compliance Review" />
                         <NavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Index" />
+                        <NavItem active={activeTab === 'cashout'} onClick={() => handleNav('cashout')} icon={<DollarSign size={20}/>} label="Cash Withdrawals" />
                         <NavItem active={activeTab === 'nodes'} onClick={() => handleNav('nodes')} icon={<Radio size={20}/>} label="Node Registry" />
                         <NavItem active={activeTab === 'rescue'} onClick={() => handleNav('rescue')} icon={<AlertTriangle size={20}/>} label="Rescue" />
                         <NavItem active={activeTab === 'warchest'} onClick={() => handleNav('warchest')} icon={<Vault size={20}/>} label="War Chest" />
@@ -303,6 +308,7 @@ function App() {
                         {activeTab === 'approval' && <DriverApproval onRefresh={fetchData} focusPhone={approvalFocusPhone} onClearFocus={() => setApprovalFocusPhone(null)} />}
                         {activeTab === 'compliance' && <ComplianceReview />}
                         {activeTab === 'financials' && <Financials />}
+                        {activeTab === 'cashout' && <CashWithdrawalSettings />}
                         {activeTab === 'nodes' && <NodeRegistry />}
                         {activeTab === 'rescue' && <RescueScreen />}
                         {activeTab === 'warchest' && <WarChest />}

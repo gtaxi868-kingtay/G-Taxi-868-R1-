@@ -1,11 +1,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
+import { getCorsHeaders } from '../_shared/cors.ts'
 const CRON_SECRET = Deno.env.get('PLATFORM_CRON_SECRET') ?? ''
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 const ROUTES = [
   { origin: 'POS', dest: 'TAB', originName: 'Piarco', destName: 'Tobago' },
@@ -18,10 +15,20 @@ const ROUTES = [
   { origin: 'POS', dest: 'HAV', originName: 'Piarco', destName: 'Havana' },
 ]
 
+// Amadeus returns local datetimes like "2026-09-20T14:30:00" (no offset).
+// flight_cache.departure_time/arrival_time are `time`, not `timestamptz`,
+// so we only need the HH:MM:SS half.
+function extractTime(iso: string | undefined): string | null {
+  if (!iso) return null
+  const parts = iso.split('T')
+  return parts.length > 1 ? parts[1].slice(0, 8) : null
+}
+
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-  if (req.headers.get('x-cron-secret') !== CRON_SECRET) {
+  if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -41,10 +48,17 @@ serve(async (req) => {
     })
   }
 
+  // Amadeus's self-service sandbox host. A real production key requires a
+  // separate "Move to Production" step with Amadeus and a switch to
+  // api.amadeus.com — not done here, flagged separately to the user.
+  const AMADEUS_HOST = Deno.env.get('AMADEUS_ENV') === 'production'
+    ? 'https://api.amadeus.com'
+    : 'https://test.api.amadeus.com'
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
-  const authResp = await fetch('https://test.api.amadeus.com/v1/security/oauth2/token', {
+  const authResp = await fetch(`${AMADEUS_HOST}/v1/security/oauth2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -81,7 +95,7 @@ serve(async (req) => {
       await new Promise(r => setTimeout(r, 80))
 
       try {
-        const url = new URL('https://test.api.amadeus.com/v2/shopping/flight-offers')
+        const url = new URL(`${AMADEUS_HOST}/v2/shopping/flight-offers`)
         url.searchParams.set('originLocationCode', route.origin)
         url.searchParams.set('destinationLocationCode', route.dest)
         url.searchParams.set('departureDate', date)
@@ -104,43 +118,69 @@ serve(async (req) => {
         const body = await resp.json()
         const offers = body.data ?? []
 
-        const flightData = offers.map((offer: any) => ({
-          flight_number: offer.itineraries?.[0]?.segments?.[0]?.carrierCode
-            + offer.itineraries?.[0]?.segments?.[0]?.number,
-          departure: offer.itineraries?.[0]?.segments?.[0]?.departure?.at,
-          arrival: offer.itineraries?.[0]?.segments?.[0]?.arrival?.at,
-          available_seats: offer.numberOfBookableSeats ?? 0,
-          fare_cents: Math.round(parseFloat(offer.price?.total ?? '0') * 100),
-          currency: offer.price?.currency ?? 'TTD',
-        }))
+        // flight_cache stores one real row per offer (flight_number,
+        // airline_code, departure_time, arrival_time, fare_cents are all
+        // NOT NULL) — it is not a route/date aggregate table. The previous
+        // version posted an aggregate payload whose keys didn't even match
+        // the schema, so every insert failed silently (fetch response was
+        // never checked).
+        let insertedForRouteDate = 0
+        const skipped: string[] = []
 
-        await fetch(
-          `${supabaseUrl}/rest/v1/flight_cache`,
-          {
+        for (const offer of offers) {
+          const segment = offer.itineraries?.[0]?.segments?.[0]
+          const carrierCode = segment?.carrierCode
+          const number = segment?.number
+          const departureTime = extractTime(segment?.departure?.at)
+          const arrivalTime = extractTime(segment?.arrival?.at)
+          const fareCents = Math.round(parseFloat(offer.price?.total ?? '0') * 100)
+
+          if (!carrierCode || !number || !departureTime || !arrivalTime || !fareCents) {
+            skipped.push(offer.id ?? 'unknown')
+            continue
+          }
+
+          const insertResp = await fetch(`${supabaseUrl}/rest/v1/flight_cache`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${serviceKey}`,
-              'Prefer': 'resolution=merge-duplicates',
+              'apikey': serviceKey,
+              'Prefer': 'return=minimal',
             },
             body: JSON.stringify({
-              origin: route.origin,
-              destination: route.dest,
+              origin_code: route.origin,
+              destination_code: route.dest,
               departure_date: date,
-              raw_response: flightData,
-              synced_at: new Date().toISOString(),
-              source: 'amadeus',
-              available_seats: Math.max(...flightData.map((f: any) => f.available_seats), 0),
-              lowest_fare_cents: Math.min(...flightData.map((f: any) => f.fare_cents), 0),
+              flight_number: `${carrierCode}${number}`,
+              airline_code: carrierCode,
+              departure_time: departureTime,
+              arrival_time: arrivalTime,
+              available_seats: offer.numberOfBookableSeats ?? 0,
+              fare_cents: fareCents,
+              currency: offer.price?.currency ?? 'TTD',
+              raw_json: offer,
             }),
+          })
+
+          if (!insertResp.ok) {
+            const errBody = await insertResp.text()
+            console.error(`flight_cache insert failed for ${route.origin}->${route.dest} ${date}:`, insertResp.status, errBody)
+            skipped.push(offer.id ?? 'unknown')
+            continue
           }
-        )
+
+          insertedForRouteDate++
+        }
 
         results.push({
           route: `${route.origin}→${route.dest}`, date,
-          offers: flightData.length,
+          offers_found: offers.length,
+          offers_cached: insertedForRouteDate,
+          skipped: skipped.length,
         })
       } catch (err: any) {
+        console.error(`sync_flight_availability error for ${route.origin}->${route.dest} ${date}:`, err.message)
         results.push({
           route: `${route.origin}→${route.dest}`, date,
           error: err.message,

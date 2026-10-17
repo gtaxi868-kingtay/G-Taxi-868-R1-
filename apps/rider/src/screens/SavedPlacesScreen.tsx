@@ -46,7 +46,10 @@ export function SavedPlacesScreen({ navigation }: any) {
 
     useEffect(() => {
         if (user) fetchSavedPlaces();
-    }, [user]);
+        // Reload when coming back from "Add new place".
+        const unsub = navigation.addListener('focus', () => { if (user) fetchSavedPlaces(); });
+        return unsub;
+    }, [user, navigation]);
 
     const fetchSavedPlaces = async () => {
         try {
@@ -77,10 +80,12 @@ export function SavedPlacesScreen({ navigation }: any) {
                     style: 'destructive',
                     onPress: async () => {
                         const { error } = await supabase.from('saved_places').delete().eq('id', id);
-                        if (!error) {
-                            setPlaces(prev => prev.filter(p => p.id !== id));
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        if (error) {
+                            Alert.alert('Could not delete', 'Please try again.');
+                            return;
                         }
+                        setPlaces(prev => prev.filter(p => p.id !== id));
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     }
                 }
             ]
@@ -133,7 +138,7 @@ export function SavedPlacesScreen({ navigation }: any) {
             <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
                 <TouchableOpacity
                     style={s.addBtn}
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('DestinationSearch'); }}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('DestinationSearch', { saveMode: true }); }}
                 >
                     <LinearGradient
                         colors={[VOICES.rider.accent, CYAN]}

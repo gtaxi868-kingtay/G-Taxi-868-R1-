@@ -65,8 +65,7 @@ export function AppointmentsScreen({ navigation }: { navigation: NativeStackNavi
             .from('merchant_appointments')
             .select(`
                 id, scheduled_at, status, merchant_consent_status, ride_requested,
-                service:service_id(name),
-                rider:rider_id(full_name)
+                service:service_id(name)
             `)
             .eq('merchant_id', merchantId)
             .order('scheduled_at', { ascending: false });
@@ -85,7 +84,7 @@ export function AppointmentsScreen({ navigation }: { navigation: NativeStackNavi
             merchant_consent_status: a.merchant_consent_status,
             ride_requested: a.ride_requested,
             service_name: a.service?.name || 'Unknown Service',
-            rider_name: a.rider?.full_name || 'Unknown Rider',
+            rider_name: 'Customer', // customer profiles aren't readable by merchants
         }));
         setAppointments(rows);
         setLoading(false);

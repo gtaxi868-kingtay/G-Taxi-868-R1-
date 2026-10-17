@@ -32,12 +32,10 @@ export function RedeemCashCodeScreen({ navigation }: { navigation: { goBack: () 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setBusy(true);
     try {
-      const { data: r, error } = await supabase
-        .from('cash_withdrawal_codes')
-        .select('amount_cents, status, expires_at')
-        .eq('code', cleanCode)
-        .maybeSingle();
-      if (error || !r) { setErrorText('Code not found'); setCard('error'); return; }
+      // Codes are only readable by the rider who made them; this RPC shows
+      // a code to the driver it was issued to, and to nobody else.
+      const { data: r, error } = await supabase.rpc('lookup_cash_withdrawal_code', { p_code: cleanCode });
+      if (error || !r?.found) { setErrorText('Code not found'); setCard('error'); return; }
       if (r.status !== 'active') { setErrorText('Code is ' + r.status); setCard('error'); return; }
       if (new Date(r.expires_at) < new Date()) { setErrorText('Code has expired'); setCard('error'); return; }
       setAmountCents(r.amount_cents);

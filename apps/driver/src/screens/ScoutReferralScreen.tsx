@@ -57,7 +57,6 @@ export function ScoutReferralScreen({ navigation }: any) {
                 driver_id: driver.id,
                 property_name: propertyName.trim(),
                 contact_phone: contactPhone.trim() || null,
-                status: 'pending',
             });
 
         setSubmitting(false);

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { supabase } from '@gtaxi/core';
+import { supabase, escapeWhatsAppLink } from '@gtaxi/core';
 import type { AppStackParamList } from '../navigation/types';
 import { useEscapeTrip, ItineraryLeg } from '../context/EscapeContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -165,11 +165,15 @@ export default function ActivePassScreen() {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Book via WhatsApp',
-          onPress: () => {
+          onPress: async () => {
             const dest = fb?.destination_name ?? 'your destination';
-            Linking.openURL(
-              `whatsapp://send?phone=18683000000&text=${encodeURIComponent(`Hi, I'm on G Escape to ${dest} (ref: ${activeTrip?.booking_ref ?? ''}) and I'd like to book: ${label}`)}`
-            ).catch(() => Alert.alert('WhatsApp not found', 'Please contact your G-Taxi concierge directly.'));
+            // The G-Escape concierge number comes from system_config
+            // (escape_whatsapp_number), not a hard-coded placeholder.
+            const link = await escapeWhatsAppLink(
+              `Hi, I'm on G Escape to ${dest} (ref: ${activeTrip?.booking_ref ?? ''}) and I'd like to book: ${label}`
+            );
+            Linking.openURL(link)
+              .catch(() => Alert.alert('WhatsApp not found', 'Please contact your G-Taxi concierge directly.'));
           },
         },
       ]

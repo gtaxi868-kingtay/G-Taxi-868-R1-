@@ -43,7 +43,8 @@ export function RegisterScreen({ navigation }: { navigation: RegisterNavProp }) 
     setLoading(true);
     try {
       await signUp(email.trim(), password, name.trim(), acceptedTerms, phone.trim() || undefined);
-      Alert.alert('Check Email', 'Please check your email for a confirmation link.', [
+      // Accounts are confirmed instantly (no email is sent), so say so.
+      Alert.alert('Account created', 'You can sign in now.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (err: unknown) {

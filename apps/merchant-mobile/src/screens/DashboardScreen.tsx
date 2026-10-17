@@ -235,20 +235,25 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
           onPress={() => {
             Alert.alert(
               'Delete Account',
-              'This permanently deletes your business account and all associated data. This cannot be undone.',
+              'Your account and business data will be deleted in 30 days. Sign in again before then and you can cancel it from Settings.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                  text: 'Delete Permanently',
+                  text: 'Schedule deletion',
                   style: 'destructive',
                   onPress: async () => {
-                    try {
-                      const { error } = await supabase.functions.invoke('delete_account');
-                      if (error) throw error;
-                      await signOut();
-                    } catch (err: any) {
-                      Alert.alert('Error', err?.message || 'Could not delete account. Contact support.');
+                    // Same 30-day request flow as every other app
+                    // (request_account_deletion); the old delete_account
+                    // call hard-deleted immediately.
+                    const { data, error } = await supabase.rpc('request_account_deletion')
+                      .then((r: any) => r, (e: any) => ({ data: null, error: e }));
+                    if (error || !data?.success) {
+                      Alert.alert('Could not submit', 'Please try again, or email privacy@gtaxi.tt.');
+                      return;
                     }
+                    const when = data.scheduled_at ? new Date(data.scheduled_at).toLocaleDateString() : 'in 30 days';
+                    Alert.alert('Deletion scheduled', `Your account will be deleted on ${when}.`);
+                    await signOut();
                   },
                 },
               ]
@@ -258,7 +263,7 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
           <Ionicons name="trash-outline" size={18} color="#EF4444" />
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={s.dangerLabel}>Delete Account</Text>
-            <Text style={s.dangerDesc}>Permanently erase your business data. Cannot be undone.</Text>
+            <Text style={s.dangerDesc}>Erase your business data after a 30-day grace period.</Text>
           </View>
         </TouchableOpacity>
       </ScrollView>

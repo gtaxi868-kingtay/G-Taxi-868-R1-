@@ -62,7 +62,8 @@ export function NfcIdentityHandler({ visible, onClose, rideId, onSuccess }: Prop
 
             NfcManager.cancelTechnologyRequest();
 
-            if (error || !tagRecord) throw new Error('Universal Key not recognized.');
+            // Only your own keys are readable (others' keys are private).
+            if (error || !tagRecord) throw new Error("This key isn't linked to your account.");
 
             setStatus('success');
             setMsg('Identity Verified: ' + tagRecord.profiles.full_name);

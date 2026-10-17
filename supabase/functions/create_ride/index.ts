@@ -6,15 +6,12 @@ import { captureException } from "../_shared/sentry.ts";
 import { sendPushNotification } from "../_shared/push.ts";
 import { secureFetch } from "../_shared/networkUtility.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") ?? "";
 
-const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 function log(level: "INFO" | "ERROR", message: string, data: Record<string, any> = {}) {
     console.log(JSON.stringify({
@@ -27,6 +24,7 @@ function log(level: "INFO" | "ERROR", message: string, data: Record<string, any>
 }
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
     const requestId = crypto.randomUUID();
 
     if (req.method === "OPTIONS") {
@@ -70,8 +68,35 @@ serve(async (req: Request) => {
             );
         }
 
-        if (!body.identity_verified) {
-            log("ERROR", "Missing identity verification", { requestId, rider_id });
+        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+        // ── Identity check: decided here from real evidence, not the app's flag ──
+        // The rider app asks for a selfie only when a ride looks risky (first
+        // ride on the device, late night, cash fare >= TT$150) and otherwise
+        // sends identity_verified:false. This function used to refuse EVERY
+        // ride without the flag, so a rider's second daytime ride always
+        // failed with no selfie screen shown (and the AI-chat booking path,
+        // which always sends false, could never book). It also believed a
+        // bare `true` with no photo behind it.
+        // Now: the rider's own uploads in verification-photos/<uid>/ decide.
+        //   - a selfie in the last 30 min  -> verified for this ride
+        //   - an older selfie, daytime     -> trusted (the app's rule), except
+        //                                     cash >= TT$150, checked once the
+        //                                     fare is known, further down
+        //   - otherwise                    -> selfie required (same 403 as before)
+        const SELFIE_FRESH_MS = 30 * 60 * 1000;
+        const ttHour = (new Date().getUTCHours() + 24 - 4) % 24; // Trinidad & Tobago is UTC-4, no DST
+        const isLateNightTT = ttHour >= 22 || ttHour < 5;
+        const { data: selfies } = await adminClient.storage
+            .from("verification-photos")
+            .list(rider_id, { limit: 1, sortBy: { column: "created_at", order: "desc" } })
+            .then((res) => res, () => ({ data: null }));
+        const latestSelfieAt = selfies?.[0]?.created_at ? new Date(selfies[0].created_at).getTime() : null;
+        const hasFreshSelfie = latestSelfieAt !== null && Date.now() - latestSelfieAt <= SELFIE_FRESH_MS;
+        const hasPriorSelfie = latestSelfieAt !== null;
+
+        if (!hasFreshSelfie && (!hasPriorSelfie || isLateNightTT)) {
+            log("ERROR", "Missing identity verification", { requestId, rider_id, hasPriorSelfie, isLateNightTT });
             return new Response(
                 JSON.stringify({
                     success: false,
@@ -80,8 +105,6 @@ serve(async (req: Request) => {
                 { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
-
-        const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
         const rateCheck = await checkRateLimit(adminClient, rider_id, "create_ride");
         if (!rateCheck.allowed) {
             return new Response(
@@ -115,7 +138,109 @@ serve(async (req: Request) => {
             idempotency_key
         } = body;
 
-        log("INFO", "Request from verified user", { requestId, rider_id, vehicle_type, payment_method, idempotency_key });
+        // ── INPUT VALIDATION ─────────────────────────────────────────────
+        // Everything destructured above arrives from the client and is handed
+        // to money-moving code downstream. Validate it here, once, before use.
+
+        // 1. payment_method — complete_ride settles on an if/else-if chain with
+        //    NO fallback branch (complete_ride/index.ts:445,486,543), and
+        //    check_payment_completion_safety() likewise ends in a bare
+        //    RETURN NEW. An unrecognised method therefore completes the ride,
+        //    pays the driver and books platform revenue while charging the
+        //    rider nothing. Allowlist it; never pass the raw value through.
+        //    corporate_billing is deliberately NOT allowed here: it bills a
+        //    merchant instead of the rider, and this endpoint cannot prove the
+        //    caller is entitled to do that. B2B rides are created by
+        //    merchant_gateway / merchant, which can.
+        const ALLOWED_PAYMENT_METHODS = ["cash", "wallet", "card", "wipay"];
+        const paymentMethod = String(payment_method ?? "cash").trim().toLowerCase();
+        if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
+            log("ERROR", "Rejected unsupported payment method", { requestId, rider_id, payment_method });
+            return new Response(
+                JSON.stringify({
+                    success: false,
+                    error: `Unsupported payment method. Choose one of: ${ALLOWED_PAYMENT_METHODS.join(", ")}.`,
+                    data: null
+                }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        // 2. billed_to_merchant_id — same class of bug verify_kiosk_origin()
+        //    was written to close for kiosk_id. Accepting it from the body lets
+        //    any rider bill a ride to any merchant, harvest that merchant's
+        //    revenue share (log_platform_revenue), and trigger pin-fee debits
+        //    against a merchant wallet with no tap, geofence or consent.
+        //    The legitimate B2B paths set it from an AUTHENTICATED merchant and
+        //    enforce the credit limit first; this endpoint can do neither.
+        if (billed_to_merchant_id) {
+            log("ERROR", "Rejected client-supplied billed_to_merchant_id", { requestId, rider_id });
+            return new Response(
+                JSON.stringify({
+                    success: false,
+                    error: "Merchant billing is not available on this endpoint.",
+                    data: null
+                }),
+                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        // 3. stops — estimated_wait_minutes is multiplied by the per-minute rate
+        //    and folded into the fare BEFORE the minimum-fare floor is applied,
+        //    so a negative wait collapses any fare to the floor. That deflated
+        //    fare is what the driver is paid from, so it steals from the driver
+        //    as well as the platform. calculateStopsFee() now clamps the wait
+        //    (see _shared/pricing.ts); reject malformed input outright here.
+        //    stopList also replaces raw `stops` below: a non-array `stops`
+        //    passed .length but crashed .map() AFTER the ride was already
+        //    created and dispatched.
+        // 10, not 5: the unmodified rider app can legitimately send 6 —
+        // suggest_stops returns up to 6 suggestions and RideConfirmationScreen
+        // lets the rider select all of them. The cap exists to bound abuse,
+        // not to reject a normal booking from the current client.
+        const MAX_STOPS = 10;
+        const MAX_WAIT_MINUTES = 120;
+        if (stops !== undefined && !Array.isArray(stops)) {
+            log("ERROR", "Rejected non-array stops", { requestId, rider_id });
+            return new Response(
+                JSON.stringify({ success: false, error: "stops must be an array.", data: null }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+        const stopList: any[] = Array.isArray(stops) ? stops : [];
+        if (stopList.length > MAX_STOPS) {
+            log("ERROR", "Rejected too many stops", { requestId, rider_id, count: stopList.length });
+            return new Response(
+                JSON.stringify({ success: false, error: `A ride can have at most ${MAX_STOPS} stops.`, data: null }),
+                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+        for (const stop of stopList) {
+            if (stop === null || typeof stop !== "object" || Array.isArray(stop)) {
+                log("ERROR", "Rejected malformed stop", { requestId, rider_id });
+                return new Response(
+                    JSON.stringify({ success: false, error: "Each stop must be an object.", data: null }),
+                    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+            if (stop.estimated_wait_minutes !== undefined && stop.estimated_wait_minutes !== null) {
+                const wait = Number(stop.estimated_wait_minutes);
+                if (!Number.isFinite(wait) || wait < 0 || wait > MAX_WAIT_MINUTES) {
+                    log("ERROR", "Rejected out-of-range stop wait", { requestId, rider_id, wait: stop.estimated_wait_minutes });
+                    return new Response(
+                        JSON.stringify({
+                            success: false,
+                            error: `estimated_wait_minutes must be between 0 and ${MAX_WAIT_MINUTES}.`,
+                            data: null
+                        }),
+                        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
+                }
+            }
+        }
+        // ── END INPUT VALIDATION ─────────────────────────────────────────
+
+        log("INFO", "Request from verified user", { requestId, rider_id, vehicle_type, payment_method: paymentMethod, idempotency_key });
 
         if (idempotency_key) {
             const { data: existingByIdempotency } = await supabaseClient
@@ -218,6 +343,7 @@ serve(async (req: Request) => {
         let distanceMeters = 5000;
         let durationSeconds = 600;
         let routePolyline = "";
+        let routed = false;
 
         if (MAPBOX_TOKEN) {
             try {
@@ -230,15 +356,33 @@ serve(async (req: Request) => {
                     distanceMeters = Math.round(route.distance);
                     durationSeconds = Math.round(route.duration);
                     routePolyline = route.geometry || "";
+                    routed = true;
                 }
             } catch (e) {
                 console.error("Mapbox error:", e);
             }
         }
 
+        // No route from Mapbox: price the trip exactly the way estimate_fare
+        // does (straight-line distance x 1.3 road factor, ~30 km/h). The old
+        // fixed 5 km / 10 min guess meant the rider was quoted one price and
+        // booked at another (live 2026-10-15: quoted TT$24.70, booked TT$34.25
+        // for a 2.4 km trip).
+        if (!routed) {
+            const R = 6371000;
+            const dLat = (dropoff_lat - pickup_lat) * Math.PI / 180;
+            const dLng = (dropoff_lng - pickup_lng) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(pickup_lat * Math.PI / 180) * Math.cos(dropoff_lat * Math.PI / 180) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            distanceMeters = Math.round(R * c * 1.3);
+            durationSeconds = Math.round(distanceMeters / 8.33);
+        }
+
         const distanceKm = distanceMeters / 1000;
         const durationMin = durationSeconds / 60;
-        const stopsFeeCents = calculateStopsFee(Array.isArray(stops) ? stops : []);
+        const stopsFeeCents = calculateStopsFee(stopList);
 
         // Admin-controlled vehicle class: canonical key, multiplier, per-class
         // minimum fare. Inactive classes (heavy vehicles pre-launch) are not
@@ -259,6 +403,19 @@ serve(async (req: Request) => {
             fareCents = Math.max(fareCents, vehicleClass.min_fare_cents);
         }
 
+        // Large cash fare: a fresh selfie is required (the app's TT$150 rule).
+        const HIGH_VALUE_CASH_CENTS = 15000;
+        if (paymentMethod === "cash" && fareCents >= HIGH_VALUE_CASH_CENTS && !hasFreshSelfie) {
+            log("ERROR", "High-value cash ride without fresh selfie", { requestId, rider_id, fareCents });
+            return new Response(
+                JSON.stringify({
+                    success: false,
+                    error: "Identity verification required. Please complete the selfie check before requesting a ride."
+                }),
+                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
         const { data: balance, error: balanceError } = await supabaseClient
             .rpc("get_wallet_balance", { p_user_id: rider_id });
 
@@ -269,7 +426,18 @@ serve(async (req: Request) => {
 
         const currentBalance = balance || 0;
 
-        if (currentBalance < 0) {
+        // A cash rider who owes a small amount (in practice: a TT$5 late-cancel
+        // fee) can still book. The amount owed is carried onto this ride,
+        // collected in cash by the driver, and cleared by settle_cash_ride.
+        // Cash riders had no way to clear a debt (wallet top-up is card-only),
+        // so the old hard lock meant one late cancel = banned for good.
+        // Anything larger, or any non-cash ride, keeps the lock below.
+        const MAX_CARRIED_FEE_CENTS = 5000; // TT$50
+        let carriedFeeCents = 0;
+        if (currentBalance < 0 && paymentMethod === "cash" && -currentBalance <= MAX_CARRIED_FEE_CENTS) {
+            carriedFeeCents = -currentBalance;
+            log("INFO", "Carrying rider balance onto cash ride", { rider_id, carriedFeeCents });
+        } else if (currentBalance < 0) {
             log("INFO", "Rider Debt Lock Triggered", { currentBalance, rider_id });
             return new Response(
                 JSON.stringify({
@@ -281,7 +449,7 @@ serve(async (req: Request) => {
             );
         }
 
-        if (payment_method === "wallet" && currentBalance < fareCents) {
+        if (paymentMethod === "wallet" && currentBalance < fareCents) {
             log("INFO", "Insufficient wallet balance", { currentBalance, fareCents });
             return new Response(
                 JSON.stringify({
@@ -348,7 +516,7 @@ serve(async (req: Request) => {
             p_duration_seconds: durationSeconds,
             p_route_polyline: routePolyline,
             p_vehicle_type: vehicleKey,
-            p_payment_method: payment_method || "cash",
+            p_payment_method: paymentMethod,
             p_ride_pin: ridePin,
             p_idempotency_key: idempotency_key || null,
             p_metadata: {
@@ -357,7 +525,7 @@ serve(async (req: Request) => {
                 scheduled_for: body.scheduled_for || null,
             },
             p_taxi_stand_id: taxi_stand_id || null,
-            p_billed_to_merchant_id: billed_to_merchant_id || null,
+            p_billed_to_merchant_id: null,
             p_node_id: kiosk_id || null,
             p_driver_cut: driverShareCents,
             p_platform_cut: platformRevenueCents,
@@ -365,6 +533,43 @@ serve(async (req: Request) => {
         });
 
         if (!rpcResult.data || !rpcResult.data.success) {
+            // A booking that overlapped with another one (double tap, or the
+            // app's retry while the first request was still running) is
+            // refused by the database: same idempotency key, or the
+            // one-active-ride-per-rider index. Hand back the ride that won,
+            // exactly like an idempotent hit, instead of a raw 500.
+            const failText = String(rpcResult.data?.error ?? rpcResult.error?.message ?? rpcResult.error ?? "");
+            if (/idx_rides_idempotency|rides_one_active_per_rider|duplicate key/i.test(failText)) {
+                const { data: winner } = await adminClient
+                    .from("rides")
+                    .select("*")
+                    .eq("rider_id", rider_id)
+                    .in("status", ["requested", "searching", "waiting_queue", "assigned", "arrived", "in_progress"])
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle()
+                    .then((res) => res, () => ({ data: null }));
+                if (winner) {
+                    log("INFO", "Overlapping booking: returning the existing active ride", { requestId, ride_id: winner.id });
+                    return new Response(
+                        JSON.stringify({
+                            success: true,
+                            error: null,
+                            data: {
+                                ride_id: winner.id,
+                                status: winner.status,
+                                distance_km: (winner.distance_meters || 0) / 1000,
+                                duration_min: (winner.duration_seconds || 0) / 60,
+                                total_fare_cents: winner.total_fare_cents,
+                                vehicle_type: winner.vehicle_type,
+                                payment_method: winner.payment_method,
+                                existing_ride: true,
+                            },
+                        }),
+                        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                    );
+                }
+            }
             console.error("Atomic ride creation failed:", rpcResult.error || rpcResult.data?.error);
             return new Response(
                 JSON.stringify({
@@ -377,6 +582,17 @@ serve(async (req: Request) => {
         }
 
         const newRideId = rpcResult.data.ride_id;
+
+        if (carriedFeeCents > 0) {
+            const { data: rideMeta } = await adminClient
+                .from("rides").select("metadata").eq("id", newRideId).maybeSingle()
+                .then((res) => res, () => ({ data: null }));
+            const { error: carryErr } = await adminClient
+                .from("rides")
+                .update({ metadata: { ...(rideMeta?.metadata ?? {}), carried_fee_cents: carriedFeeCents } })
+                .eq("id", newRideId);
+            if (carryErr) console.error("carried fee tag failed:", carryErr.message);
+        }
 
         // Attach the rider's oldest still-unused claimed promo code (if any)
         // to this ride, so complete_ride can redeem it into the real fare
@@ -460,8 +676,8 @@ serve(async (req: Request) => {
             }
         }
 
-        if (stops && stops.length > 0) {
-            const stopsData = stops.map((s: any, i: number) => ({
+        if (stopList.length > 0) {
+            const stopsData = stopList.map((s: any, i: number) => ({
                 ride_id: newRideId,
                 stop_order: i + 1,
                 place_name: s.place_name,
@@ -484,7 +700,7 @@ serve(async (req: Request) => {
             await adminClient.from("user_events").insert({
                 user_id: rider_id,
                 event_type: "stops_added",
-                payload: { ride_id: newRideId, count: stops.length, stops: stops.map((s: any) => s.stop_type) }
+                payload: { ride_id: newRideId, count: stopList.length, stops: stopList.map((s: any) => s.stop_type) }
             });
         }
 
@@ -495,7 +711,7 @@ serve(async (req: Request) => {
                 ride_id: newRideId,
                 vehicle_type: vehicleKey,
                 fare_cents: fareCents,
-                has_stops: stops.length > 0
+                has_stops: stopList.length > 0
             }
         });
 
@@ -551,9 +767,12 @@ serve(async (req: Request) => {
                     total_fare_cents: fareCents,
                     vehicle_type: vehicleKey,
                     vehicle_label: vehicleLabel,
-                    payment_method,
+                    payment_method: paymentMethod,
                     route_polyline: routePolyline,
                     driver: null,
+                    // Owed from an earlier late cancellation, paid in cash with this fare.
+                    carried_fee_cents: carriedFeeCents,
+                    cash_to_pay_cents: paymentMethod === "cash" ? fareCents + carriedFeeCents : null,
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

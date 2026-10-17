@@ -9,18 +9,16 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const WIPAY_API_KEY = Deno.env.get("WIPAY_API_KEY");
 const WIPAY_API_URL = Deno.env.get("WIPAY_API_URL") ?? "https://api.wipay.com/v1";
 const PLATFORM_CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -40,11 +38,7 @@ Deno.serve(async (req: Request) => {
   // ── PENDING RESOLUTION SWEEP ─────────────────────────────────
   const { data: pendingSessions, error: fetchError } = await supabase
     .from("wipay_sessions")
-    // amount_cents does NOT exist on wipay_sessions — the amount lives inside
-    // form_fields (jsonb). Selecting it made every run 500 at the fetch, so
-    // this sweep has never resolved a single pending WiPay settlement. It was
-    // also never read anywhere below, so dropping it is the whole fix.
-    .select("id, order_id, ride_id, transaction_id, created_at, pending_since")
+    .select("id, order_id, ride_id, transaction_id, amount_cents, created_at, pending_since")
     .eq("status", "pending_resolution")
     .lte("pending_since", fiveMinutesAgo);
 

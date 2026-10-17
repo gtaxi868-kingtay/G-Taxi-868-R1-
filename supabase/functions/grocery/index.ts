@@ -3,6 +3,7 @@ import Stripe from 'https://esm.sh/stripe@14.0.0'
 import { requireAuth } from '../_shared/auth.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
 import { checkVerticalAccess } from '../_shared/verticalGate.ts'
+import { quoteDeliveryFee } from '../_shared/deliveryFee.ts'
 
 import { getCorsHeaders } from '../_shared/cors.ts'
 
@@ -35,7 +36,6 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const { action } = body
 
-    // ─── GET NEARBY STORES ─────────────────────────────────────
     if (action === 'get_nearby_stores') {
       const { lat, lng, radius_km = 10, store_type = 'grocery' } = body
       if (typeof lat !== 'number' || typeof lng !== 'number') {
@@ -72,7 +72,6 @@ Deno.serve(async (req) => {
       return json({ success: true, stores: stores || [], count: stores?.length || 0 })
     }
 
-    // ─── GET CATALOGUE ─────────────────────────────────────────
     if (action === 'get_catalogue') {
       const { merchant_id } = body
       if (!merchant_id) return json({ error: 'merchant_id is required' }, 400)
@@ -129,7 +128,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── GET CART ──────────────────────────────────────────────
     if (action === 'get_cart') {
       const { merchant_id } = body
       if (!merchant_id) return json({ error: 'merchant_id is required' }, 400)
@@ -198,7 +196,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── MANAGE CART ───────────────────────────────────────────
     if (action === 'manage_cart') {
       const cartAction = body.cart_action
       const { merchant_id, product_id, quantity } = body
@@ -289,7 +286,32 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── PLACE ORDER ───────────────────────────────────────────
+    // Distance-based delivery fee, priced like a regular ride from the
+    // store to the delivery point. The cart shows this before ordering;
+    // place_order recomputes it server-side (the client value is never used).
+    if (action === 'quote_delivery') {
+      const { merchant_id, delivery_lat, delivery_lng } = body
+      if (!merchant_id || delivery_lat == null || delivery_lng == null) {
+        return json({ error: 'merchant_id, delivery_lat and delivery_lng are required' }, 400)
+      }
+
+      const { data: merchant } = await supabase
+        .from('merchants')
+        .select('lat, lng')
+        .eq('id', merchant_id)
+        .eq('is_active', true)
+        .eq('activation_status', 'active')
+        .single()
+
+      if (!merchant) return json({ error: 'Merchant not found or inactive' }, 404)
+      if (merchant.lat == null || merchant.lng == null) {
+        return json({ error: 'This store has no location set yet, so delivery cannot be priced.' }, 409)
+      }
+
+      const quote = await quoteDeliveryFee(supabase, { lat: merchant.lat, lng: merchant.lng }, { lat: delivery_lat, lng: delivery_lng })
+      return json({ success: true, quote })
+    }
+
     if (action === 'place_order') {
       const {
         merchant_id, delivery_address, delivery_lat, delivery_lng,
@@ -318,16 +340,23 @@ Deno.serve(async (req) => {
 
       const { data: merchant } = await supabase
         .from('merchants')
-        .select('delivery_fee_cents, minimum_order_cents')
+        .select('lat, lng, minimum_order_cents')
         .eq('id', merchant_id)
         .eq('is_active', true)
         .eq('activation_status', 'active')
         .single()
 
       if (!merchant) return json({ error: 'Merchant not found or inactive' }, 404)
+      if (merchant.lat == null || merchant.lng == null) {
+        return json({ error: 'This store has no location set yet, so delivery cannot be priced.' }, 409)
+      }
 
       const subtotal = cartItems.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
-      const deliveryFee = merchant.delivery_fee_cents
+      // Distance-based, priced like a regular ride (was a flat
+      // merchants.delivery_fee_cents, which lost the platform money on
+      // cash orders once the driver's distance pay was counted).
+      const quote = await quoteDeliveryFee(supabase, { lat: merchant.lat, lng: merchant.lng }, { lat: delivery_lat, lng: delivery_lng })
+      const deliveryFee = quote.fee_cents
       const total = subtotal + deliveryFee
 
       if (subtotal < merchant.minimum_order_cents) {
@@ -396,12 +425,6 @@ Deno.serve(async (req) => {
           stripe_payment_intent_id: paymentIntent.id, payment_status: 'pending',
         }).eq('id', order.id)
 
-        // NOTE: card orders don't reach real payment success here — Stripe
-        // captures asynchronously via stripe_webhook, which is outside the
-        // four entry points this pass wires progression into. A card-paid
-        // grocery order will not currently increment total_grocery_orders.
-        // Flagging this rather than silently under-counting: the fix is a
-        // record_rider_activity call in stripe_webhook's order-capture path.
         return json({
           success: true,
           order: {
@@ -440,7 +463,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── GET ORDER STATUS ──────────────────────────────────────
     if (action === 'get_order_status') {
       const { order_id } = body
       if (!order_id) return json({ error: 'order_id is required' }, 400)
@@ -510,9 +532,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── CONFIRM DELIVERY (driver hands off order, gets paid) ──
-    // Identity resolved from JWT, never trusted from body — the caller must
-    // BE the order's assigned delivery_driver_id, verified server-side.
     if (action === 'confirm_delivery') {
       const { order_id, photo_url } = body
       if (!order_id) return json({ error: 'order_id is required' }, 400)
@@ -528,9 +547,6 @@ Deno.serve(async (req) => {
         return json({ error: 'You are not the assigned driver for this order' }, 403)
       }
 
-      // Cash orders settle through a different RPC (driver keeps the cash,
-      // owes the platform its + the merchant's share) — same driver-facing
-      // action, branch to the right settlement path server-side.
       if (order.payment_method === 'cash') {
         const { data: cashResult, error: cashErr } = await supabase.rpc('process_cash_delivery_settlement', {
           p_order_id: order_id,
@@ -553,7 +569,6 @@ Deno.serve(async (req) => {
       return json(result)
     }
 
-    // ─── CREATE PAYMENT INTENT ─────────────────────────────────
     if (action === 'create_payment_intent') {
       const rateCheck = await checkRateLimit(supabase, user.id, 'grocery_create_payment_intent')
       if (!rateCheck.allowed) {
@@ -639,7 +654,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ─── CONFIRM AUTHORIZATION ─────────────────────────────────
     if (action === 'confirm_authorization') {
       const { order_id } = body
       if (!order_id) return json({ error: 'order_id is required' }, 400)

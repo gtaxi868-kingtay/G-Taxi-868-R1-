@@ -69,7 +69,7 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
         const fetchDetails = async () => {
             const { data } = await supabase
                 .from('orders')
-                .select('total_cents, delivery_fee_cents, delivery_address, merchants(business_name, address)')
+                .select('total_cents, delivery_fee_cents, delivery_address, merchants(name, address)')
                 .eq('id', offer.order_id)
                 .single();
             if (data) {
@@ -78,7 +78,7 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
                     .select('id', { count: 'exact', head: true })
                     .eq('order_id', offer.order_id);
                 setOrderDetail({
-                    merchant_name: (data.merchants as any)?.business_name ?? null,
+                    merchant_name: (data.merchants as any)?.name ?? null,
                     merchant_address: (data.merchants as any)?.address ?? null,
                     rider_address: data.delivery_address ?? null,
                     total_cents: data.total_cents,
@@ -106,23 +106,15 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
         setIsHandling(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-        const { error } = await supabase
-            .from('delivery_offers')
-            .update({ status: 'accepted' })
-            .eq('id', offer.id)
-            .eq('status', 'pending');
-
-        if (error) {
-            Alert.alert('Offer Expired', 'This delivery is no longer available.');
+        // One checked server step: offer is ours, still open, order not taken.
+        // (Drivers have no direct write access to orders; the old direct
+        // updates matched 0 rows silently, so no delivery was ever assigned.)
+        const { data: res, error } = await supabase.rpc('accept_delivery_offer', { p_offer_id: offer.id });
+        if (error || !res?.success) {
+            Alert.alert('Offer Expired', res?.error || 'This delivery is no longer available.');
             navigation.goBack();
             return;
         }
-
-        // Update the order with the assigned driver
-        await supabase
-            .from('orders')
-            .update({ delivery_driver_id: driver.id, status: 'driver_assigned' })
-            .eq('id', offer.order_id);
 
         navigation.replace('ActiveDelivery', { orderId: offer.order_id });
     };
@@ -142,11 +134,11 @@ export function DeliveryRequestScreen({ navigation, route }: any) {
         navigation.goBack();
     };
 
-    const deliveryEarnings = offer?.delivery_fee_cents
-        ? (offer.delivery_fee_cents * 0.82 / 100).toFixed(2)
-        : orderDetail?.delivery_fee_cents
-            ? (orderDetail.delivery_fee_cents * 0.82 / 100).toFixed(2)
-            : '?';
+    // The server fills driver_payout_cents from the same calculation that
+    // pays the delivery (base + per-km). Never invent a percentage here.
+    const deliveryEarnings = offer?.driver_payout_cents != null
+        ? (offer.driver_payout_cents / 100).toFixed(2)
+        : '—';
 
     const arcColor = timeLeft > 5 ? FOOD_ORANGE : timeLeft > 2 ? WARNING : ERROR;
 

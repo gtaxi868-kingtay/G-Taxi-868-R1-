@@ -5,14 +5,11 @@ import { checkRateLimit } from "../_shared/rateLimit.ts";
 import { aiFetch } from "../_shared/networkUtility.ts";
 import { chat, BudgetExceededError, RateLimitedError } from "../_shared/llm.ts";
 
+import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY") ?? "";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 const MAX_AUDIO_BYTES = 15 * 1024 * 1024; // a 30s voice command is a few hundred KB at most
 
@@ -43,6 +40,7 @@ async function transcribeAudio(audioFile: File): Promise<string> {
 }
 
 serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

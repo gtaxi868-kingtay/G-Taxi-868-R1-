@@ -81,14 +81,18 @@ export function GMemory() {
     const { error } = await supabase.from('g_knowledge_documents')
       .update({ is_active: !doc.is_active, updated_at: new Date().toISOString() })
       .eq('id', doc.id);
-    if (!error) load();
+    if (error) alert('Could not update: ' + error.message);
+    else load();
   };
 
   const remove = async (doc: KnowledgeDoc) => {
     if (!window.confirm(`Delete "${doc.title}"? This removes it from G's context permanently.`)) return;
-    await supabase.storage.from('g-knowledge-docs').remove([doc.storage_path]);
+    // Row first: if that fails, the file must still be there (it used to
+    // delete the file first, then fail on the row and leave a broken entry).
     const { error } = await supabase.from('g_knowledge_documents').delete().eq('id', doc.id);
-    if (!error) load();
+    if (error) { alert('Could not delete: ' + error.message); return; }
+    await supabase.storage.from('g-knowledge-docs').remove([doc.storage_path]);
+    load();
   };
 
   const openDoc = async (doc: KnowledgeDoc) => {

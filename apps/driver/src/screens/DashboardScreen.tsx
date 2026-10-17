@@ -119,13 +119,16 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             todayStart.setHours(0, 0, 0, 0);
             const { data: rides } = await supabase
                 .from('rides')
-                .select('total_fare')
+                // (was select('total_fare') -- no such column, so the query failed
+                // and today's trips/earnings always showed 0; and it summed the
+                // whole fare instead of the driver's share)
+                .select('driver_payout_cents')
                 .eq('driver_id', driver.id)
-                .eq('status', 'completed')
+                .in('status', ['completed', 'payment_confirmed', 'closed'])
                 .gte('completed_at', todayStart.toISOString());
             if (rides) {
                 setTodayTrips(rides.length);
-                setTodayEarnings(rides.reduce((sum, r: any) => sum + (r.total_fare ?? 0), 0));
+                setTodayEarnings(rides.reduce((sum, r: any) => sum + (r.driver_payout_cents ?? 0), 0) / 100);
             }
         } catch (e) { /* stats unavailable */ }
     }, [driver?.id]);
@@ -139,14 +142,14 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         const handleAppStateChange = async (nextAppState: string) => {
             if (nextAppState === 'background' || nextAppState === 'inactive') {
                 if (driver?.is_online) {
-                    await supabase.from('drivers').update({ last_heartbeat_at: new Date().toISOString() }).eq('id', driver.id);
+                    await supabase.from('drivers').update({ last_seen: new Date().toISOString() }).eq('id', driver.id);
                 }
             }
         };
         const subscription = AppState.addEventListener('change', handleAppStateChange);
         const heartbeatInterval = setInterval(async () => {
             if (driver?.is_online && AppState.currentState === 'active') {
-                await supabase.from('drivers').update({ last_heartbeat_at: new Date().toISOString() }).eq('id', driver.id);
+                await supabase.from('drivers').update({ last_seen: new Date().toISOString() }).eq('id', driver.id);
             }
         }, 30000);
         return () => {
@@ -303,11 +306,13 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
             <NfcIdentityHandler
                 visible={nfcVisible}
                 onClose={() => setNfcVisible(false)}
-                onSuccess={(profile) => {
+                onSuccess={async (profile) => {
                     if (!profile) { Alert.alert('Key Error', 'Could not read profile data.'); return; }
-                    const name = profile.full_name || 'Unknown Driver';
-                    const balance = ((profile.balance_cents ?? 0) / 100).toFixed(2);
-                    Alert.alert('Key Recognized', `Linked to: ${name}\nBalance: $${balance}`);
+                    const name = profile.full_name || 'you';
+                    // profiles has no balance column; the wallet ledger is the truth.
+                    const { data: cents } = await supabase.rpc('get_wallet_balance', { p_user_id: profile.id });
+                    const balance = typeof cents === 'number' ? `TT$${(cents / 100).toFixed(2)}` : 'unavailable';
+                    Alert.alert('Key Recognized', `Linked to: ${name}\nWallet: ${balance}`);
                 }}
             />
 
@@ -410,7 +415,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                                     <View style={s.heroBlockInner}>
                                         <View style={{ flex: 1 }}>
                                             <Text style={s.heroLabel}>Today's earnings</Text>
-                                            <Text style={s.heroAmount}>${todayEarnings.toFixed(2)}</Text>
+                                            <Text style={s.heroAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>TT${todayEarnings.toFixed(2)}</Text>
                                             <Text style={s.heroDetail}>{todayTrips} {todayTrips === 1 ? 'trip' : 'trips'} completed</Text>
                                         </View>
                                         <View style={s.heroRight}>
@@ -504,7 +509,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                 </BlurView>
             </Reanimated.View>
 
-            <Sidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} user={{ name: driver?.name || 'Driver', rating: 5.0 }} navigation={navigation} />
+            <Sidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} user={{ name: driver?.name || 'Driver', rating: (driver as any)?.rating ?? null }} navigation={navigation} />
         </View>
     );
 }

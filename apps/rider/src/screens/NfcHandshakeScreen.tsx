@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, OutboxService } from '@gtaxi/core';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
+import { describeNfcFailure, releaseNfc } from '../utils/nfcErrors';
 
 const OUTBOX = OutboxService.getInstance();
 
@@ -27,26 +28,24 @@ export function NfcHandshakeScreen({ route, navigation }: any) {
   }, [tagUid]);
 
   const scanNfcTag = async () => {
+    const mod = require('react-native-nfc-manager');
+    const NfcManager = mod.default || mod;
     try {
-      const mod = require('react-native-nfc-manager');
-      const NfcManager = mod.default || mod;
-      NfcManager.start();
+      await NfcManager.start();
       await NfcManager.requestTechnology(NfcManager.Tech.NfcA);
       const tag = await NfcManager.getTag();
+      await releaseNfc(NfcManager);
       if (tag?.id) {
         await handleHandshake(tag.id);
       } else {
         setLoading(false);
         Alert.alert('Scan Failed', 'Could not read tag. Hold the phone closer and try again.');
       }
-      NfcManager.cancelTechnologyRequest();
     } catch {
+      await releaseNfc(NfcManager);
       setLoading(false);
-      Alert.alert(
-        'NFC Unavailable',
-        'NFC hardware is not available on this device.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      const { title, message } = await describeNfcFailure(NfcManager);
+      Alert.alert(title, message);
     }
   };
 

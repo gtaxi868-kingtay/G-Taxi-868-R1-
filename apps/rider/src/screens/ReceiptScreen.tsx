@@ -234,13 +234,13 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
                             <View style={s.breakdown}>
                                 <View style={s.row}>
                                     <Text style={s.rowLabel}>Base Fare</Text>
-                                    <Text style={s.rowValue}>${totalFare}</Text>
+                                    <Text style={s.rowValue}>TT${totalFare}</Text>
                                 </View>
                                 
                                 {(ride.wait_fare_cents ?? 0) > 0 && (
                                     <View style={s.row}>
                                         <Text style={s.rowLabelWarning}>Wait Time Surcharge</Text>
-                                        <Text style={s.rowValueWarning}>+${((ride.wait_fare_cents ?? 0) / 100).toFixed(2)}</Text>
+                                        <Text style={s.rowValueWarning}>+TT${((ride.wait_fare_cents ?? 0) / 100).toFixed(2)}</Text>
                                     </View>
                                 )}
                                 
@@ -256,18 +256,18 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
                                     <View style={s.splitItem}>
                                         <View style={s.row}>
                                             <Text style={s.splitLabelWarning}>Cash Paid</Text>
-                                            <Text style={s.splitValueWarning}>${((ride.cash_payment_cents ?? 0) / 100).toFixed(2)}</Text>
+                                            <Text style={s.splitValueWarning}>TT${((ride.cash_payment_cents ?? 0) / 100).toFixed(2)}</Text>
                                         </View>
                                     </View>
                                 )}
 
                                 <View style={s.row}>
                                     <Text style={s.rowLabel}>Tip</Text>
-                                    <Text style={s.rowValue}>$0.00</Text>
+                                    <Text style={s.rowValue}>TT$0.00</Text>
                                 </View>
                                 <View style={s.totalRow}>
                                     <Text style={s.totalLabel}>Total</Text>
-                                    <Text style={s.totalValue}>${(( (ride.total_fare_cents || 0) + (ride.wait_fare_cents || 0) ) / 100).toFixed(2)}</Text>
+                                    <Text style={s.totalValue}>TT${(( (ride.total_fare_cents || 0) + (ride.wait_fare_cents || 0) ) / 100).toFixed(2)}</Text>
                                 </View>
                             </View>
 

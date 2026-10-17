@@ -1,26 +1,23 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+import { getCorsHeaders } from '../_shared/cors.ts'
 const CRON_SECRET = Deno.env.get('PLATFORM_CRON_SECRET') ?? ''
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   const cronHeader = req.headers.get('x-cron-secret')
-  if (cronHeader !== CRON_SECRET) {
+  if (!CRON_SECRET || cronHeader !== CRON_SECRET) {
     return json({ error: 'Unauthorized' }, 401)
   }
 
@@ -138,7 +135,7 @@ Deno.serve(async (req) => {
         .not('driver_id', 'is', null)
 
       const activeOnRide = new Set((activeRideDrivers || []).map(r => r.driver_id)).size
-      const driverUtil = (activeDrivers ?? 0) > 0 ? activeOnRide / (activeDrivers as number) : null
+      const driverUtil = activeDrivers > 0 ? activeOnRide / activeDrivers : null
 
       const { count: newDrivers7d } = await supabaseAdmin
         .from('drivers').select('*', { count: 'exact', head: true })
