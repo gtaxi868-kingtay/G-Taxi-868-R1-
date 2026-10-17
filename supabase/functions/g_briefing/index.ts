@@ -107,10 +107,13 @@ serve(async (req) => {
     const dayIso = todayStart.toISOString();
     const weekIso = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
     const dayAgoIso = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const in24hIso = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
 
     try {
         const [
             pendingProposals,
+            pendingProposalsCount,
+            proposalsExpiringSoonCount,
             cronHealth,
             openTickets,
             pendingDrivers,
@@ -128,6 +131,12 @@ serve(async (req) => {
             supabase.from("g_proposed_actions")
                 .select("id, department, action_type, title, category, amount_cents, created_at")
                 .eq("status", "pending").order("created_at", { ascending: false }).limit(20),
+            // F2: exact counts, not derived from the capped 20-row list above
+            // (which could silently undercount once pending crosses 20).
+            supabase.from("g_proposed_actions").select("id", { count: "exact", head: true })
+                .eq("status", "pending"),
+            supabase.from("g_proposed_actions").select("id", { count: "exact", head: true })
+                .eq("status", "pending").lte("expires_at", in24hIso),
             supabase.rpc("g_cron_health"),
             supabase.from("support_tickets").select("id", { count: "exact", head: true })
                 .in("status", ["open", "pending"]),
@@ -176,6 +185,12 @@ serve(async (req) => {
             generated_at: new Date().toISOString(),
             attention: {
                 pending_proposals: pendingProposals.data ?? [],
+                // F2: exact counts so "3 proposals need you, 1 expires within
+                // 24h" is answerable without opening Approvals.tsx. Pure SQL,
+                // same as every other number in this brief -- the LLM only
+                // narrates these counts in ?prose=true mode, never computes them.
+                proposals_pending_count: pendingProposalsCount.count ?? 0,
+                proposals_expiring_within_24h_count: proposalsExpiringSoonCount.count ?? 0,
                 failing_cron_jobs: failingJobs,
                 open_alerts: alerts24h.data ?? [],
                 open_support_tickets: openTickets.count ?? 0,

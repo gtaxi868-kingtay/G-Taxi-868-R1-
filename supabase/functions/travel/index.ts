@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=deno';
+import { checkVerticalAccess } from '../_shared/verticalGate.ts';
 
 
 import { getCorsHeaders } from '../_shared/cors.ts'
@@ -262,6 +263,11 @@ serve(async (req) => {
           return json({ error: 'payment_method must be wipay, stripe, or wallet' }, 400);
         }
 
+        const access = await checkVerticalAccess(supabase, user.id, 'g_escape');
+        if (!access.allowed) {
+          return json({ error: access.reason }, 403);
+        }
+
         const { data: existing } = await supabase
           .from('package_reservations')
           .select('id, stripe_payment_intent_id, total_price_cents, hold_expires_at, booking_ref')
@@ -342,6 +348,11 @@ serve(async (req) => {
             return json({ error: capture?.message || captureError?.message || 'Insufficient wallet balance' }, 402);
           }
           notifyPoolMembers(supabase, escape_package_id, user.id, guest_count).catch(() => {});
+          await supabase.rpc('record_rider_activity', {
+            p_rider_id: user.id, p_event_type: 'escape_booking',
+            p_amount_cents: totalCents, p_ride_id: null,
+            p_metadata: { reservation_id: reservationId, escape_package_id, payment_method: 'wallet' },
+          }).then(null, () => {});
           return json({
             reservation_id: reservationId, booking_ref: bookingRef, total_price_cents: totalCents,
             hold_expires_at: holdExpiresAt, seats_remaining: seatsRemaining,

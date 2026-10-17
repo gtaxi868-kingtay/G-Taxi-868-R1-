@@ -42,10 +42,41 @@ function json(body: unknown, status = 200) {
   });
 }
 
-/** Cron secret, or an admin's own JWT. Nothing else. */
+/** Timing-safe string compare — a secret check that leaks its own answer
+ *  through response time is not a check. */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Cron secret, or an admin's own JWT. Nothing else.
+ *
+ *  The expected secret is read from the DATABASE (Vault, via
+ *  public.platform_cron_secret()) rather than only from an env var. That is
+ *  the whole reason the nightly drain works: setting the Vault secret is a
+ *  thing SQL can do, whereas setting a function's env var needs the
+ *  dashboard. The env var is still honoured first so this function stays
+ *  consistent with the other cron-called functions in this project, which
+ *  compare against PLATFORM_CRON_SECRET directly.
+ */
 async function isAuthorized(req: Request): Promise<boolean> {
   const cronHeader = req.headers.get("x-cron-secret");
-  if (CRON_SECRET && cronHeader === CRON_SECRET) return true;
+
+  if (cronHeader) {
+    if (CRON_SECRET && safeEqual(cronHeader, CRON_SECRET)) return true;
+
+    try {
+      const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+      const { data: expected } = await admin.rpc("platform_cron_secret");
+      if (typeof expected === "string" && expected.length > 0 && safeEqual(cronHeader, expected)) {
+        return true;
+      }
+    } catch (_) {
+      // Fall through to JWT auth rather than failing open.
+    }
+  }
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return false;

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
+import { checkVerticalAccess } from "../_shared/verticalGate.ts";
 
 import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -70,6 +71,22 @@ serve(async (req: Request) => {
       return json({ success: false, error: "Merchant ID mismatch" }, 403);
     }
 
+    // Resolve the RIDER being charged (not the merchant caller) before the
+    // transaction, so progression is gated on the actual party spending.
+    const { data: identityTag } = await admin
+      .from("identity_tags")
+      .select("profile_id, profiles!inner(push_token, full_name)")
+      .eq("tag_uid", tagUid)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (identityTag) {
+      const access = await checkVerticalAccess(admin, identityTag.profile_id, "tap");
+      if (!access.allowed) {
+        return json({ success: false, error: access.reason }, 403);
+      }
+    }
+
     const { data: rpcResult, error: rpcError } = await admin.rpc(
       "merchant_wallet_charge",
       {
@@ -94,13 +111,6 @@ serve(async (req: Request) => {
       }, 402);
     }
 
-    const { data: identityTag } = await admin
-      .from("identity_tags")
-      .select("profile_id, profiles!inner(push_token, full_name)")
-      .eq("tag_uid", tagUid)
-      .eq("is_active", true)
-      .maybeSingle();
-
     if (identityTag) {
       const riderProfile = (identityTag as any).profiles as { push_token?: string; full_name?: string } | null;
       if (riderProfile?.push_token) {
@@ -111,6 +121,12 @@ serve(async (req: Request) => {
           { type: "merchant_purchase", merchant_name: merchantName, amount_cents: String(amount_cents) },
         ).catch((err) => console.error("push notification failed:", err));
       }
+
+      await admin.rpc("record_rider_activity", {
+        p_rider_id: identityTag.profile_id, p_event_type: "nfc_tap",
+        p_amount_cents: amount_cents, p_ride_id: null,
+        p_metadata: { merchant_id: merchantId, transaction_id: result.transaction_id },
+      }).then(null, () => {});
     }
 
     return json({

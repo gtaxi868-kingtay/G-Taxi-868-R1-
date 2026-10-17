@@ -66,6 +66,7 @@ interface VerticalSetting {
   vertical_name: string;
   is_enabled: boolean;
   rollout_percentage: number | null;
+  emergency_disabled: boolean;
   enabled_regions: string[] | null;
 }
 
@@ -101,6 +102,13 @@ function isAllowedByAdmin(
   if (!key) return true;               // not governed by vertical_settings
   const row = settings.get(key);
   if (!row) return true;               // no row = not governed yet
+
+  // Emergency kill-switch is checked FIRST, ahead of is_enabled/rollout.
+  // It is a distinct control from the gradual-rollout dial on purpose: an
+  // admin reaching for "stop this right now" under pressure should not have
+  // to also remember to zero out a percentage — this flag always wins.
+  if (row.emergency_disabled) return false;
+
   if (!row.is_enabled) return false;   // admin switched it off
 
   const pct = row.rollout_percentage ?? 100;
@@ -149,7 +157,7 @@ serve(async (req) => {
   // ── Gate 2: what the admin currently allows ────────────────────────
   const { data: verticalRows } = await supabaseAdmin
     .from('vertical_settings')
-    .select('vertical_name, is_enabled, rollout_percentage, enabled_regions');
+    .select('vertical_name, is_enabled, rollout_percentage, emergency_disabled, enabled_regions');
 
   const settings = new Map<string, VerticalSetting>(
     (verticalRows ?? []).map((v: VerticalSetting) => [v.vertical_name, v]),
@@ -200,7 +208,7 @@ serve(async (req) => {
   // the progression list at all (carnival, events, b2b).
   const platformEnabled: Record<string, boolean> = {};
   for (const [name, row] of settings) {
-    platformEnabled[name] = row.is_enabled === true;
+    platformEnabled[name] = row.is_enabled === true && row.emergency_disabled !== true;
   }
 
   // Next level config for the carrot
@@ -214,10 +222,13 @@ serve(async (req) => {
 
   let nextUnlockProgress = 0;
   let nextUnlockRequired = 0;
-  let nextUnlockLabel: string | null = null;
+  // progression_config.unlock_verticals (text[]) — a level can unlock more
+  // than one vertical. The old singular unlock_vertical column no longer
+  // exists, so reading it left the next-unlock label empty.
+  let nextUnlockVerticals: string[] = [];
 
   if (nextCfg) {
-    nextUnlockLabel = nextCfg.unlock_vertical;
+    nextUnlockVerticals = nextCfg.unlock_verticals ?? [];
     nextUnlockRequired = nextCfg.threshold_value;
     if (nextCfg.threshold_type === 'rides')          nextUnlockProgress = prog?.total_rides ?? 0;
     else if (nextCfg.threshold_type === 'grocery_orders') nextUnlockProgress = prog?.total_grocery_orders ?? 0;
@@ -268,12 +279,13 @@ serve(async (req) => {
       next_unlock: nextCfg
         ? {
             level: nextCfg.level,
-            vertical: nextCfg.unlock_vertical,
+            vertical: nextUnlockVerticals[0] ?? null,
+            verticals: nextUnlockVerticals,
             progress: nextUnlockProgress,
             required: nextUnlockRequired,
-            label: nextUnlockLabel,
+            label: nextUnlockVerticals.length ? nextUnlockVerticals.join(', ') : null,
             available_on_platform: settingsAvailable
-              ? passesGate(nextCfg.unlock_vertical)
+              ? nextUnlockVerticals.every((v) => passesGate(v))
               : true,
           }
         : null,
