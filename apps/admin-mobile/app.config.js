@@ -28,6 +28,8 @@ export default {
       permissions: ["android.permission.NFC", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
     },
     plugins: [
+      // G Guardian: SOS alerts are pushed to this phone.
+      "expo-notifications",
       [
         "expo-build-properties",
         {

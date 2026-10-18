@@ -46,6 +46,21 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
   const [refreshing, setRefreshing] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  // Open SOS count for the red banner (G Guardian). Polled so the banner is
+  // right even if a push notification was missed.
+  const [sosOpen, setSosOpen] = useState<{ unanswered: number; total: number }>({ unanswered: 0, total: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      const { data } = await supabase.rpc('guardian_open_sos').then((r: any) => r, () => ({ data: null }));
+      if (cancelled || !Array.isArray(data)) return;
+      setSosOpen({ unanswered: data.filter((d: any) => d.status === 'triggered').length, total: data.length });
+    };
+    poll();
+    const t = setInterval(poll, 15000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
 
   const fetchNodes = useCallback(async () => {
     try {
@@ -194,6 +209,20 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
   return (
     <LinearGradient colors={[BG, '#0B1120']} style={styles.container}>
       <View style={[styles.headerPad, { paddingTop: insets.top + 8 }]}>
+        {sosOpen.total > 0 && (
+          <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); navigation.navigate('Sos'); }}
+            style={{ backgroundColor: sosOpen.unanswered > 0 ? '#FF4D4D' : 'rgba(52,211,153,0.2)', borderRadius: 14, padding: 14, marginBottom: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Open SOS alerts"
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 15 }}>
+              {sosOpen.unanswered > 0
+                ? `SOS: ${sosOpen.unanswered} UNANSWERED - TAP NOW`
+                : `SOS: ${sosOpen.total} being handled`}
+            </Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.header}>
           <View>
             <Text style={styles.headerTitle}>G-Touch Points</Text>
