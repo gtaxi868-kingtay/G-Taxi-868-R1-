@@ -149,14 +149,15 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileDesc}>Manage incoming orders</Text>
           </TouchableOpacity>
 
-          {/* Tap to Pay was registered in the navigator but no tile opened it —
-              a merchant had no way to reach card acceptance at all. */}
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('NfcAcceptPayment')} accessibilityLabel="Accept a card payment by tap" accessibilityRole="button">
+          {/* Tap to Pay: the rider pays the shop from their G-Coin wallet
+              (keychain tap, QR or code) via merchant_nfc_charge. It is not a
+              card payment, so the tile must not say "card". */}
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('NfcAcceptPayment')} accessibilityLabel="Take a G-Coin wallet payment from a rider" accessibilityRole="button">
             <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
               <Ionicons name="wifi" size={28} color={VOICES.merchant.accent} />
             </View>
             <Text style={s.tileLabel}>Tap to Pay</Text>
-            <Text style={s.tileDesc}>Take a card payment</Text>
+            <Text style={s.tileDesc}>Rider pays from G-Coin wallet</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Dispatch')} accessibilityLabel="Dispatch a car for a client" accessibilityRole="button">
