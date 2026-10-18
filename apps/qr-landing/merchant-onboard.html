@@ -28,7 +28,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://ffbbuafgeypvkpcuvdnv.supabase.co">
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --base: #07070F;
@@ -42,9 +42,10 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { height: 100%; }
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--base);
             min-height: 100vh;
+            min-height: 100dvh;
             color: var(--ice);
             -webkit-font-smoothing: antialiased;
             overflow-x: hidden;
@@ -98,9 +99,9 @@
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
         }
-        .invite-banner .label { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan); }
-        .invite-banner .name { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; font-weight: 600; margin-top: 6px; }
-        .invite-banner .addr { font-size: 12px; color: rgba(234,243,246,0.45); margin-top: 3px; }
+        .invite-banner .label { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan); }
+        .invite-banner .name { font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin-top: 6px; }
+        .invite-banner .addr { font-size: 12.5px; color: rgba(234,243,246,0.7); margin-top: 3px; }
         .invite-error {
             background: rgba(239,68,68,0.06); border: 0.5px solid rgba(239,68,68,0.28);
             border-radius: 16px; padding: 18px; text-align: center; font-size: 14px; color: #FCA5A5;
@@ -110,36 +111,36 @@
         .progress { display: flex; gap: 6px; margin-bottom: 26px; }
         .progress .seg { flex: 1; height: 2px; border-radius: 2px; background: rgba(255,255,255,0.08); transition: background 300ms var(--ease-out); }
         .progress .seg.done { background: linear-gradient(90deg, var(--violet), var(--cyan)); }
-        .step-label { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(234,243,246,0.35); margin-bottom: 8px; }
+        .step-label { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: rgba(234,243,246,0.72); margin-bottom: 8px; }
 
         h1 {
-            font-family: 'Cormorant Garamond', Georgia, serif;
-            font-weight: 600; font-size: 28px; line-height: 1.1;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em;
             margin-bottom: 8px; text-wrap: balance;
         }
-        .sub { font-size: 13px; color: rgba(234,243,246,0.5); margin-bottom: 26px; line-height: 1.55; }
+        .sub { font-size: 14px; color: rgba(234,243,246,0.72); margin-bottom: 26px; line-height: 1.55; }
 
         .field-group { margin-bottom: 16px; }
-        .field-group label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(234,243,246,0.4); margin-bottom: 7px; }
+        .field-group label { display: block; font-size: 13px; font-weight: 700; letter-spacing: 0.01em; color: rgba(234,243,246,0.82); margin-bottom: 7px; }
         .field-group input, .field-group select {
             width: 100%; padding: 14px 15px; border-radius: 12px;
             background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.12);
             color: var(--ice); font-size: 15px; font-family: inherit;
             transition: border-color 140ms var(--ease-out);
         }
-        .field-group input::placeholder { color: rgba(234,243,246,0.22); }
+        .field-group input::placeholder { color: rgba(234,243,246,0.5); }
         .field-group input:focus, .field-group select:focus { outline: none; border-color: var(--cyan); }
 
         .btn {
             width: 100%; padding: 16px 22px; border-radius: 14px; border: none;
-            font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 600;
+            font-family: 'Manrope', sans-serif; font-size: 14.5px; font-weight: 600;
             letter-spacing: 0.01em; cursor: pointer; margin-top: 6px;
             transition: transform 140ms var(--ease-out), border-color 140ms var(--ease-out);
         }
         .btn:active { transform: scale(0.97); }
         .btn-primary { background: var(--cyan); color: var(--ink-on-cyan); box-shadow: 0 12px 32px rgba(52,230,236,0.24), inset 0 1px 0 rgba(255,255,255,0.5); }
         .btn-secondary { background: rgba(255,255,255,0.04); color: rgba(234,243,246,0.75); border: 0.5px solid rgba(255,255,255,0.11); }
-        .btn-skip { background: none; border: none; color: rgba(234,243,246,0.38); font-weight: 600; font-size: 12.5px; text-decoration: underline; margin-top: 14px; cursor: pointer; }
+        .btn-skip { background: none; border: none; color: rgba(234,243,246,0.7); font-weight: 600; font-size: 12.5px; text-decoration: underline; margin-top: 14px; cursor: pointer; }
         .btn-row { display: flex; gap: 10px; margin-top: 6px; }
         .btn-row .btn { margin-top: 0; }
 
@@ -149,7 +150,7 @@
         }
         .summary-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 0.5px solid rgba(255,255,255,0.07); font-size: 13px; }
         .summary-row:last-child { border-bottom: none; }
-        .summary-row .k { color: rgba(234,243,246,0.4); }
+        .summary-row .k { color: rgba(234,243,246,0.68); }
         .summary-row .v { font-weight: 600; color: var(--platinum); font-variant-numeric: tabular-nums; }
 
         .error-text { color: #FCA5A5; font-size: 13px; margin-top: 12px; text-align: center; }
@@ -169,15 +170,19 @@
         }
         .success-note {
             background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.09);
-            border-radius: 14px; padding: 18px; font-size: 13px; color: rgba(234,243,246,0.55);
+            border-radius: 14px; padding: 18px; font-size: 13px; color: rgba(234,243,246,0.75);
             line-height: 1.6; margin-top: 20px; text-align: left;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+            @starting-style { .rise { opacity: 1; transform: none; } }
         }
     </style>
 </head>
 <body>
     <div class="field"></div>
     <div class="wrap">
-        <img class="logo-mark" src="logo.png" alt="G-Taxi" width="44" height="44">
+        <img class="logo-mark" src="logo.png" alt="G 868" width="44" height="44">
 
         <div id="loadingState">
             <p style="text-align:center; color:rgba(234,243,246,0.35); font-size:13px; letter-spacing:0.05em;">Loading your invite…</p>
@@ -190,8 +195,8 @@
         <div id="formState" class="hidden">
             <div class="invite-banner rise">
                 <div class="label" id="inviteLabel">Registering</div>
-                <div class="name" id="inviteLocationName">—</div>
-                <div class="addr" id="inviteAddress">—</div>
+                <div class="name" id="inviteLocationName"></div>
+                <div class="addr" id="inviteAddress"></div>
             </div>
 
             <div class="progress rise">
@@ -204,7 +209,7 @@
             <div id="step1" class="rise">
                 <div class="step-label">Step 1 of 3</div>
                 <h1>Create Your Account</h1>
-                <p class="sub">This becomes your G-Taxi merchant login.</p>
+                <p class="sub">This becomes your G 868 shop login.</p>
 
                 <div class="field-group">
                     <label>Business Name</label>
@@ -232,7 +237,7 @@
             <div id="step2" class="hidden">
                 <div class="step-label">Step 2 of 3</div>
                 <h1>Payout Details</h1>
-                <p class="sub">So G-Taxi can pay you out. You can add this later if you'd rather skip it now.</p>
+                <p class="sub">So G 868 can pay you out. You can add this later if you'd rather skip it now.</p>
 
                 <div class="field-group">
                     <label>Bank Name</label>
@@ -266,7 +271,7 @@
             <div id="step3" class="hidden">
                 <div class="step-label">Step 3 of 3</div>
                 <h1>Confirm &amp; Submit</h1>
-                <p class="sub">Double-check, then send this to G-Taxi HQ for review.</p>
+                <p class="sub">Double-check, then send this to G 868 HQ for review.</p>
 
                 <div class="summary-block" id="summaryBlock"></div>
 
@@ -279,7 +284,7 @@
         <div id="successState" class="hidden success-wrap rise">
             <div class="success-icon">✓</div>
             <h1>Submitted for Review</h1>
-            <p class="sub">Your business and spot have been sent to G-Taxi HQ.</p>
+            <p class="sub">Your business and spot have been sent to G 868 HQ.</p>
             <div class="lit-edge" aria-hidden="true"></div>
             <div class="success-note" id="successNote">
                 HQ reviews new spots before they go live. You'll be notified once your store is active on the grid.
@@ -331,7 +336,7 @@
                 }
                 const phoneDigits = document.getElementById('fPhone').value.replace(/\D/g, '');
                 if (!inviteToken && phoneDigits.length < 7) {
-                    err.textContent = 'Add a WhatsApp number so G-Taxi HQ can reach you about your store.';
+                    err.textContent = 'Add a WhatsApp number so G 868 HQ can reach you about your store.';
                     err.classList.remove('hidden');
                     return;
                 }
@@ -413,10 +418,10 @@
                 // the store to the counter tag a G-Lead registered.
                 document.getElementById('inviteLabel').textContent = 'New G-Partner';
                 document.getElementById('inviteLocationName').textContent = 'Register your store';
-                document.getElementById('inviteAddress').textContent = 'G-Taxi HQ reviews every store before it goes live.';
+                document.getElementById('inviteAddress').textContent = 'G 868 HQ reviews every store before it goes live.';
                 document.getElementById('fPhoneLabel').textContent = 'WhatsApp Number';
                 document.getElementById('successNote').textContent =
-                    'G-Taxi HQ reviews new stores before they go live. We will contact you on WhatsApp to set up your counter tag.';
+                    'G 868 HQ reviews new stores before they go live. We will contact you on WhatsApp to set up your counter tag.';
                 document.getElementById('loadingState').classList.add('hidden');
                 document.getElementById('formState').classList.remove('hidden');
                 setStepUI(1);
@@ -443,7 +448,7 @@
                 document.getElementById('formState').classList.remove('hidden');
                 setStepUI(1);
             } catch (e) {
-                showInviteError('Could not reach G-Taxi. Check your connection and reload.');
+                showInviteError('Could not reach G 868. Check your connection and reload.');
             }
         }
 
@@ -460,8 +465,8 @@
       <div style="max-width:520px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;justify-content:space-between;background:rgba(8,6,20,.94);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:.9rem 1rem;backdrop-filter:blur(14px)">
         <p style="font-size:.78rem;color:rgba(234,243,246,.7);line-height:1.5;flex:1;min-width:180px;margin:0">We use analytics to see how this page performs. No tracking until you accept.</p>
         <div style="display:flex;gap:.5rem;flex-shrink:0">
-          <button id="cookie-decline" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#EAF3F6;padding:.55rem 1rem;border-radius:100px;font-family:'Inter',sans-serif;font-weight:600;font-size:.78rem;cursor:pointer;min-height:40px">Decline</button>
-          <button id="cookie-accept" style="background:var(--cyan);color:var(--ink-on-cyan);border:none;padding:.55rem 1.1rem;border-radius:100px;font-family:'Inter',sans-serif;font-weight:800;font-size:.78rem;cursor:pointer;min-height:40px">Accept</button>
+          <button id="cookie-decline" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#EAF3F6;padding:.55rem 1rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.78rem;cursor:pointer;min-height:40px">Decline</button>
+          <button id="cookie-accept" style="background:var(--cyan);color:var(--ink-on-cyan);border:none;padding:.55rem 1.1rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:800;font-size:.78rem;cursor:pointer;min-height:40px">Accept</button>
         </div>
       </div>
     </div>
