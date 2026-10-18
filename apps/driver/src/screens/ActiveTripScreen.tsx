@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
+import { GuardianSosPanel } from '../components/GuardianSosPanel';
 import { ENV } from '@g868/shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { updateRideStatus, setLocationTrackingMode } from '../services/api';
@@ -80,6 +81,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const [rider, setRider] = useState<any>(null);
     const [routeCoords, setRouteCoords] = useState<any[]>([]);
     const [isSosLoading, setIsSosLoading] = useState(false);
+    const [sosPanel, setSosPanel] = useState<{ guardianPhone: string | null } | null>(null);
     const [pinInput, setPinInput] = useState('');
     const [showPinModal, setShowPinModal] = useState(false);
     const [pinType, setPinType] = useState<'Rider' | 'Merchant' | 'Delivery'>('Rider');
@@ -368,27 +370,18 @@ export function ActiveTripScreen({ route, navigation }: any) {
     };
 
     const handleSOS = async () => {
-        Alert.alert('EMERGENCY', 'Trigger SOS?', [
+        Alert.alert('EMERGENCY', 'Send an SOS to G Guardian?', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'TRIGGER SOS', style: 'destructive', onPress: async () => {
+            { text: 'SEND SOS', style: 'destructive', onPress: async () => {
+                // Call buttons first: a person is one tap away whatever
+                // happens to the request below.
+                setSosPanel({ guardianPhone: null });
                 setIsSosLoading(true);
                 try {
-                    // The server answers 503 when nobody could be reached;
-                    // never tell the driver help is coming in that case.
                     const res = await supabase.functions.invoke('trigger_emergency', { body: { ride_id: rideId } });
-                    const failure = await serverFailure(res);
-                    if (failure) {
-                        Alert.alert(
-                            'Call 999 now',
-                            'Your SOS was logged, but we could not confirm anyone was reached. If you are in danger, call 999.',
-                            [{ text: 'Call 999', onPress: () => Linking.openURL('tel:999') }, { text: 'OK' }]
-                        );
-                    } else {
-                        Alert.alert('SOS sent', res.data?.message || 'Your SOS was sent. If you are in danger, call 999.');
-                    }
-                } catch {
-                    Alert.alert('Call 999 now', 'Your SOS could not be sent. If you are in danger, call 999.',
-                        [{ text: 'Call 999', onPress: () => Linking.openURL('tel:999') }, { text: 'OK' }]);
+                    if (res.data?.guardian_phone) setSosPanel({ guardianPhone: res.data.guardian_phone });
+                } catch (err) {
+                    console.error('SOS request failed (panel still shown):', err);
                 }
                 finally { setIsSosLoading(false); }
             }}
@@ -611,6 +604,19 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 onEntertainmentAccept={handleEntertainmentAccept}
                 onEntertainmentReject={handleEntertainmentReject}
             />
+
+            {sosPanel && rideId && (
+                <View style={{ position: 'absolute', left: 16, right: 16, top: 60 }}>
+                    <GuardianSosPanel
+                        rideId={rideId}
+                        guardianPhone={sosPanel.guardianPhone}
+                        lat={(location as any)?.coords?.latitude ?? null}
+                        lng={(location as any)?.coords?.longitude ?? null}
+                        showContactHint={false}
+                        onClose={() => setSosPanel(null)}
+                    />
+                </View>
+            )}
 
             <Modal visible={showPinModal} transparent animationType="fade">
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>

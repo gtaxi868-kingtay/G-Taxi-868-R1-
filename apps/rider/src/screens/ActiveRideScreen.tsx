@@ -24,6 +24,7 @@ import { supabase, supportWhatsAppLink } from '@gtaxi/core';
 import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
 import { useRideSession } from '../hooks/useRideSession';
+import { GuardianSosPanel } from '../components/GuardianSosPanel';
 
 const CYAN = '#00E5FF';
 const SUCCESS = '#00FF94';
@@ -119,6 +120,9 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     const [driver, setDriver] = useState<any>(null);
     const [driverLocation, setDriverLocation] = useState<any>(null);
     const [isSosLoading, setIsSosLoading] = useState(false);
+    // G Guardian panel: set the moment SOS is confirmed, so 'Call G Guardian'
+    // is on screen before the server even answers.
+    const [sosPanel, setSosPanel] = useState<{ guardianPhone: string | null } | null>(null);
     const [aiInsight, setAiInsight] = useState<string | null>("I'm monitoring your ride security and wait-time.");
     const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
     const [musicModalVisible, setMusicModalVisible] = useState(false);
@@ -527,55 +531,25 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
     const handleSOS = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        Alert.alert("SOS EMERGENCY", "Trigger emergency assistance?", [
+        Alert.alert("SOS EMERGENCY", "Send an SOS to G Guardian?", [
             { text: "Cancel", style: "cancel" },
             {
-                text: "TRIGGER", style: "destructive", onPress: async () => {
+                text: "SEND SOS", style: "destructive", onPress: async () => {
+                    // Show the call buttons first: a person is one tap away
+                    // whatever happens to the network request below.
+                    setSosPanel({ guardianPhone: null });
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    if (!rideId) return;
                     setIsSosLoading(true);
-
                     try {
-                        // FIX F9: Try G-Taxi emergency system first
-                        if (rideId) {
-                            const { data, error } = await supabase.functions.invoke('trigger_emergency', {
-                                body: { ride_id: rideId }
-                            });
-
-                            if (error) throw error;
-
-                            // Say only what the server confirms happened (it returns
-                            // 503 -> the fallback below when nobody was reached), and
-                            // always keep the emergency services one tap away.
-                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                            Alert.alert(
-                                "SOS recorded",
-                                data?.message || "Your SOS was logged. If you are in danger, call 999 (police) or 811 (ambulance) now.",
-                                [
-                                    { text: "CALL 999", style: "destructive", onPress: () => Linking.openURL('tel:999') },
-                                    { text: "OK", style: "cancel" },
-                                ]
-                            );
-                        } else {
-                            throw new Error("No active ride found");
-                        }
+                        // 503 (nobody reached by message yet) still returns the
+                        // guardian number in the body; the panel works either way.
+                        const { data } = await supabase.functions.invoke('trigger_emergency', {
+                            body: { ride_id: rideId }
+                        });
+                        if (data?.guardian_phone) setSosPanel({ guardianPhone: data.guardian_phone });
                     } catch (err) {
-                        console.error("SOS failed:", err);
-
-                        // FIX F9: FALLBACK to direct emergency dial
-                        Alert.alert(
-                            "Emergency Services",
-                            "G-Taxi emergency system unavailable. Call emergency services directly?",
-                            [
-                                { text: "Cancel", style: "cancel" },
-                                {
-                                    text: "CALL 999", style: "destructive",
-                                    onPress: () => Linking.openURL('tel:999')
-                                },
-                                {
-                                    text: "WhatsApp Support", style: "default",
-                                    onPress: () => Linking.openURL('https://wa.me/18687031000?text=EMERGENCY')
-                                }
-                            ]
-                        );
+                        console.error("SOS request failed (panel still shown):", err);
                     } finally {
                         setIsSosLoading(false);
                     }
@@ -795,6 +769,18 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                             <Text style={s.sosLabel}>SOS</Text>
                         </TouchableOpacity>
                     </View>
+
+                    {sosPanel && rideId && (
+                        <GuardianSosPanel
+                            rideId={rideId}
+                            guardianPhone={sosPanel.guardianPhone}
+                            lat={location?.coords.latitude ?? null}
+                            lng={location?.coords.longitude ?? null}
+                            driverName={driver?.name ?? null}
+                            plate={driver?.plate_number ?? null}
+                            onClose={() => setSosPanel(null)}
+                        />
+                    )}
 
                     {/* Wait Clock */}
                     {ride?.status === 'arrived' && ride?.arrived_at && (

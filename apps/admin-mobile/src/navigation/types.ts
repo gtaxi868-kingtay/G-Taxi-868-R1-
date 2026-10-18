@@ -7,6 +7,7 @@ export type AuthStackParamList = {
 
 export type AppStackParamList = {
   Dashboard: undefined;
+  Sos: undefined;
   TagMarker: undefined;
   RegisterPuck: undefined;
   RevshareSettlement: undefined;

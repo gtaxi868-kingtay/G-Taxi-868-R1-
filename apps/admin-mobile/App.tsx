@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StatusBar, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
@@ -20,10 +21,13 @@ import { GroundTransitScreen } from './src/screens/GroundTransitScreen';
 import { ZoneRatesScreen } from './src/screens/ZoneRatesScreen';
 import { PlatformControlScreen } from './src/screens/PlatformControlScreen';
 import { IssueKeychainScreen } from './src/screens/IssueKeychainScreen';
+import { SosScreen } from './src/screens/SosScreen';
+import { registerGuardianPush } from './src/lib/guardianPush';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
+const navigationRef = createNavigationContainerRef<AppStackParamList>();
 const ACCENT = VOICES.admin.accent;
 const BG = VOICES.admin.bg;
 
@@ -40,6 +44,7 @@ function AppNavigator() {
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Dashboard" component={DashboardScreen} />
+      <AppStack.Screen name="Sos" component={SosScreen} />
       <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
       <AppStack.Screen name="RegisterPuck" component={RegisterPuckScreen} />
       <AppStack.Screen name="RevshareSettlement" component={RevshareSettlementScreen} />
@@ -68,8 +73,22 @@ function UnauthorizedScreen() {
   );
 }
 
+// Tapping an SOS push opens the SOS desk.
+function useOpenSosOnNotificationTap() {
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data: any = response.notification.request.content.data || {};
+      if (data.ride_id || data.log_id || String(response.notification.request.content.title || '').includes('SOS')) {
+        if (navigationRef.isReady()) navigationRef.navigate('Sos');
+      }
+    });
+    return () => sub.remove();
+  }, []);
+}
+
 function RootNavigator() {
   const { user, loading } = useAuth();
+  useOpenSosOnNotificationTap();
   const [adminState, setAdminState] = useState<'checking' | 'authorized' | 'unauthorized'>('checking');
 
   useEffect(() => {
@@ -85,6 +104,8 @@ function RootNavigator() {
       .then(({ error }: { error: unknown }) => {
         if (error) throw error;
         setAdminState('authorized');
+        // This phone is now a G Guardian: SOS alerts are pushed to it.
+        registerGuardianPush(user.id).catch(() => {});
       })
       .catch(() => setAdminState('unauthorized'));
   }, [user]);
@@ -111,7 +132,7 @@ export default function App() {
         <AuthProvider>
           <View style={{ flex: 1, backgroundColor: BG }}>
             <StatusBar barStyle="light-content" backgroundColor={BG} />
-            <NavigationContainer>
+            <NavigationContainer ref={navigationRef}>
               <RootNavigator />
             </NavigationContainer>
           </View>

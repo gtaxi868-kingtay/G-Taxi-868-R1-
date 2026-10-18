@@ -91,19 +91,29 @@ serve(async (req) => {
             .eq("id", ride_id)
             .single();
 
-        await supabase.from("emergency_logs").insert({
+        const { data: logRow } = await supabase.from("emergency_logs").insert({
             ride_id,
             rider_id: ride.rider_id,
             driver_id: ride.driver_id,
             status: "triggered",
             metadata: {
                 timestamp: new Date().toISOString(),
+                raised_by_role: isRider ? "rider" : "driver",
                 rider_name: fullRide?.rider?.full_name,
                 driver_name: fullRide?.driver?.name,
                 driver_phone: fullRide?.driver?.phone_number,
                 location: { lat: fullRide?.driver?.lat, lng: fullRide?.driver?.lng },
             },
-        });
+        }).select("id").single();
+
+        // G Guardian on-call line: the app calls it directly, so a person is
+        // one tap away even when no message can be delivered.
+        const { data: guardianRow } = await supabase
+            .from("system_config")
+            .select("value")
+            .eq("key", "guardian_on_call_phone")
+            .maybeSingle();
+        const guardianPhone = guardianRow?.value || "18687031000";
 
         console.log(`🚨 EMERGENCY TRIGGERED for Ride ${ride_id}`);
 
@@ -187,6 +197,8 @@ serve(async (req) => {
             admins_paged: adminsPaged ?? 0,
             humans_reached: humansReached,
             message: riderUpdate,
+            log_id: logRow?.id ?? null,
+            guardian_phone: guardianPhone,
         };
 
         // Nobody reached => fail loudly so every app version shows its
