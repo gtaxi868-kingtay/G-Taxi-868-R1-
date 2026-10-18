@@ -86,6 +86,8 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $function$;
 REVOKE ALL ON FUNCTION public.log_analytics_event_internal(uuid, text, text, uuid, uuid, text) FROM PUBLIC, anon, authenticated;
+-- Server functions (cancel_ride, merchant) call it with the service role.
+GRANT EXECUTE ON FUNCTION public.log_analytics_event_internal(uuid, text, text, uuid, uuid, text) TO service_role;
 
 -- ── Phone-only events (rider app) ────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.log_app_event(p_event text)

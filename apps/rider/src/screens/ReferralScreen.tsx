@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
+import { logAppEvent } from '../services/analytics';
 import { useAuth } from '../context/AuthContext';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
@@ -86,10 +87,11 @@ export function ReferralScreen({ navigation }: AppScreenProps<'Referral'>) {
     const shareCode = async () => {
         if (!code) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        await Share.share({
+        const result = await Share.share({
             message: `Use my G-Taxi code ${code} when signing up — after your first ride you get TTD $15 in ride credits, and so do I! Download: https://gtaxi.tt`,
             title: 'Get TTD $15 on G-Taxi',
         });
+        if (result.action === Share.sharedAction) logAppEvent('rider_referral_shared');
     };
 
     const renderEarning = ({ item }: { item: any }) => {

@@ -29,6 +29,13 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 
+// Must match analytics_events.cancel_reason CHECK.
+const CANCEL_REASON_CODES = [
+    "driver_too_far", "waited_too_long", "driver_asked_me_to_cancel",
+    "booked_by_mistake", "changed_plans", "price_too_high",
+    "found_another_ride", "felt_unsafe", "other",
+];
+
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
     if (req.method === "OPTIONS") {
@@ -71,7 +78,7 @@ serve(async (req: Request) => {
         }
 
         // 2. PARSE INPUT
-        const { ride_id, reason } = await req.json();
+        const { ride_id, reason, reason_code } = await req.json();
         if (!ride_id) {
             return new Response(
                 JSON.stringify({ success: false, error: "ride_id required", data: null }),
@@ -133,6 +140,19 @@ serve(async (req: Request) => {
                 JSON.stringify({ success: false, error: message, data: null }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
+        }
+
+        // ── Analytics (Phase 1, logging only): rider cancels, with a reason ──
+        // reason_code comes from the app's fixed reason picker; anything else
+        // (older builds send none) is recorded as 'not_given'. Never blocks.
+        if (isRider) {
+            const code = CANCEL_REASON_CODES.includes(reason_code) ? reason_code : "not_given";
+            await supabaseAdmin
+                .rpc("log_analytics_event_internal", {
+                    p_user_id: userId, p_app: "rider", p_event: "rider_ride_cancelled",
+                    p_ride_id: ride_id, p_order_id: null, p_cancel_reason: code,
+                })
+                .then((r) => r, () => null);
         }
 
         // ── Push Notification on Cancellation ───────────────────────────────

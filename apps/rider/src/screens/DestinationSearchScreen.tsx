@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { supabase, SavedPlace, Location as RideLocation, DEFAULT_LOCATION } from '@gtaxi/core';
+import { logAppEvent } from '../services/analytics';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 import { getRecentRides, getSavedPlaces, savePlace } from '../services/api';
@@ -156,6 +157,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
             return;
         }
 
+        logAppEvent('rider_destination_searched');
         navigation.navigate('RideConfirmation', {
             destination: { latitude, longitude, address },
             pickup: currentLocation || { latitude: DEFAULT_LOCATION.latitude, longitude: DEFAULT_LOCATION.longitude, address: 'Current Location' },
