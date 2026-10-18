@@ -25,6 +25,7 @@ import { useRideSubscription } from '../services/realtime';
 import { fetchDriverDetails } from '../services/realtime';
 import { useRideSession } from '../hooks/useRideSession';
 import { GuardianSosPanel } from '../components/GuardianSosPanel';
+import { CancelReasonSheet } from '../components/CancelReasonSheet';
 
 const CYAN = '#00E5FF';
 const SUCCESS = '#00FF94';
@@ -123,6 +124,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     // G Guardian panel: set the moment SOS is confirmed, so 'Call G Guardian'
     // is on screen before the server even answers.
     const [sosPanel, setSosPanel] = useState<{ guardianPhone: string | null } | null>(null);
+    const [reasonOpen, setReasonOpen] = useState(false);
     const [aiInsight, setAiInsight] = useState<string | null>("I'm monitoring your ride security and wait-time.");
     const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
     const [musicModalVisible, setMusicModalVisible] = useState(false);
@@ -335,7 +337,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                     : "Your driver has been on the way for over 10 minutes.\nA TTD 5.00 cancellation fee will be charged and paid to the driver.",
                 [
                     { text: "Keep My Ride", style: "cancel" },
-                    { text: "Cancel Anyway", style: "destructive", onPress: executeCancelRide }
+                    { text: "Cancel Anyway", style: "destructive", onPress: () => setReasonOpen(true) }
                 ]
             );
         } else if (ride?.status === 'assigned') {
@@ -345,7 +347,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                 `Your driver is on the way. Cancelling is free for about ${freeMins} more minute${freeMins === 1 ? '' : 's'}, or until they arrive.`,
                 [
                     { text: "Keep My Ride", style: "cancel" },
-                    { text: "Cancel for free", style: "destructive", onPress: executeCancelRide }
+                    { text: "Cancel for free", style: "destructive", onPress: () => setReasonOpen(true) }
                 ]
             );
         } else {
@@ -354,16 +356,17 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                 "Are you sure you want to cancel?",
                 [
                     { text: "No", style: "cancel" },
-                    { text: "Yes, Cancel", style: "destructive", onPress: executeCancelRide }
+                    { text: "Yes, Cancel", style: "destructive", onPress: () => setReasonOpen(true) }
                 ]
             );
         }
     };
 
-    const executeCancelRide = async () => {
+    const executeCancelRide = async (reasonCode: string | null) => {
+        setReasonOpen(false);
         try {
             const { data, error } = await supabase.functions.invoke('cancel_ride', {
-                body: { ride_id: rideId }
+                body: { ride_id: rideId, reason_code: reasonCode ?? undefined }
             });
 
             if (error) throw error;
@@ -769,6 +772,8 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                             <Text style={s.sosLabel}>SOS</Text>
                         </TouchableOpacity>
                     </View>
+
+                    <CancelReasonSheet visible={reasonOpen} onPick={executeCancelRide} onClose={() => setReasonOpen(false)} />
 
                     {sosPanel && rideId && (
                         <GuardianSosPanel

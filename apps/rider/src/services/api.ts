@@ -344,11 +344,12 @@ export async function completeRide(
  * Cancel a ride (requires auth)
  */
 export async function cancelRide(
-    rideId: string
+    rideId: string,
+    reasonCode?: string | null
 ): Promise<ApiResponse<{ ride_id: string; status: string }>> {
     try {
         const { data, error } = await supabase.functions.invoke('cancel_ride', {
-            body: { ride_id: rideId },
+            body: { ride_id: rideId, reason_code: reasonCode ?? undefined },
         });
 
         if (error) {

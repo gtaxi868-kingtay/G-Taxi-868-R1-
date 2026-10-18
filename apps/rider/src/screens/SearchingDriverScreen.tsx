@@ -22,6 +22,7 @@ import { ENV } from '@g868/shared/env';
 import { supabase } from '@gtaxi/core';
 import { cancelRide, matchDriver } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
+import { CancelReasonSheet } from '../components/CancelReasonSheet';
 
 const WARNING = '#F59E0B';
 const ERROR = '#FF4D6D';
@@ -43,6 +44,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
     const insets = useSafeAreaInsets();
 
     const [dots, setDots] = useState('');
+    const [reasonOpen, setReasonOpen] = useState(false);
     const [isCanceling, setIsCanceling] = useState(false);
     const [preferredDriver, setPreferredDriver] = useState<any>(null);
     const [isPriorityContact, setIsPriorityContact] = useState(false);
@@ -282,10 +284,11 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         });
     };
 
-    const handleCancel = async (silent = false) => {
+    const handleCancel = async (silent = false, reasonCode: string | null = null) => {
         if (isCanceling) return;
         setIsCanceling(true);
-        await cancelRide(rideId);
+        setReasonOpen(false);
+        await cancelRide(rideId, reasonCode);
         if (!silent) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             navigation.navigate('Home');
@@ -374,11 +377,12 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                 <Reanimated.View style={[s.cancelWrap, { opacity: cancelOpacity }]}>
                     <TouchableOpacity 
                         style={s.cancelBtn} 
-                        onPress={() => handleCancel()}
+                        onPress={() => setReasonOpen(true)}
                         disabled={isCanceling}
                     >
                         <Text style={s.cancelText}>Cancel Request</Text>
                     </TouchableOpacity>
+                    <CancelReasonSheet visible={reasonOpen} onPick={(code) => handleCancel(false, code)} onClose={() => setReasonOpen(false)} />
                 </Reanimated.View>
             </View>
 

@@ -169,6 +169,20 @@ serve(async (req) => {
           .single();
 
         if (updateError) return json({ success: false, error: updateError.message }, 500);
+
+        // Analytics (Phase 1, logging only): the shop's accept/reject decision.
+        // Only the pending -> confirmed / cancelled step is a decision; cash
+        // orders that start confirmed never pass through here. Never blocks.
+        if (order.status === "pending" && (new_status === "confirmed" || new_status === "cancelled") && merchant.created_by) {
+          await supabase
+            .rpc("log_analytics_event_internal", {
+              p_user_id: merchant.created_by, p_app: "merchant",
+              p_event: new_status === "confirmed" ? "merchant_order_accepted" : "merchant_order_rejected",
+              p_ride_id: null, p_order_id: order_id, p_cancel_reason: null,
+            })
+            .then((r: unknown) => r, () => null);
+        }
+
         return json({ success: true, order: updated });
       }
 
