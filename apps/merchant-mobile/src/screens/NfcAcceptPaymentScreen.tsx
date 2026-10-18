@@ -219,7 +219,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
         <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBack}>
           <Ionicons name="close" size={24} color="#E9F5F3" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Accept Payment</Text>
+        <Text style={s.headerTitle}>G-Coin Payment</Text>
         <View style={{ width: 44 }} />
       </View>
 
