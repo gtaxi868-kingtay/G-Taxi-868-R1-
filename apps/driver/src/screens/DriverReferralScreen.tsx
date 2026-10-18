@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Share,
-    ActivityIndicator, FlatList, Clipboard, Alert,
+    ActivityIndicator, FlatList, Alert,
 } from 'react-native';
+// Clipboard was removed from react-native core in 0.73 (this app is on
+// 0.76), so the old import was undefined and both Copy buttons crashed.
+import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -90,7 +93,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
         if (!code) return;
         setCopying(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Clipboard.setString(code);
+        await Clipboard.setStringAsync(code);
         setTimeout(() => setCopying(false), 1500);
     };
 
@@ -98,7 +101,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
         if (!code) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         await Share.share({
-            message: `Drive with G-Taxi! Use my driver referral code ${code} when you register — we both earn when you complete rides. Sign up: https://gtaxi.tt/driver`,
+            message: `Drive with G-Taxi! Use my driver referral code ${code} when you register. Sign up: https://gtaxi.tt/driver`,
             title: 'Drive with G-Taxi',
         });
     };
@@ -107,7 +110,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
         if (!merchantCode) return;
         setCopyingMerchant(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Clipboard.setString(merchantCode);
+        await Clipboard.setStringAsync(merchantCode);
         setTimeout(() => setCopyingMerchant(false), 1500);
     };
 
@@ -126,7 +129,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
             <View style={styles.earningRow}>
                 <View style={[styles.earningDot, { backgroundColor: isPaid ? GREEN : '#E6B450' }]} />
                 <View style={{ flex: 1 }}>
-                    <Text style={styles.earningLabel}>Driver commission (1%)</Text>
+                    <Text style={styles.earningLabel}>Driver referral</Text>
                     <Text style={styles.earningDate}>
                         {new Date(item.created_at).toLocaleDateString('en-TT', { day: 'numeric', month: 'short' })}
                     </Text>
@@ -166,10 +169,10 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                         <>
                             <View style={styles.hero}>
                                 <Ionicons name="car-sport-outline" size={48} color="#34E6EC" />
-                                <Text style={styles.heroTitle}>Earn on Every Ride They Take</Text>
+                                <Text style={styles.heroTitle}>Get Rewarded for Bringing a Driver</Text>
                                 <Text style={styles.heroSub}>
-                                    Refer a driver and earn 1% of their platform fee for 90 days.
-                                    There's no cap — the more they drive, the more you earn.
+                                    When a driver you refer finishes their first 10 rides, you get a one-time
+                                    reward: 5% of what G-Taxi earned on those 10 rides.
                                 </Text>
                             </View>
 
@@ -230,10 +233,11 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                             </View>
 
                             <View style={styles.infoCard}>
-                                <Text style={styles.infoTitle}>How the 1% works</Text>
+                                <Text style={styles.infoTitle}>How the reward works</Text>
                                 <Text style={styles.infoText}>
-                                    When your referred driver completes a ride, G-Taxi takes a platform fee. You receive 1% of that fee — deducted from platform revenue, not their payout.
-                                    This runs for 90 days from when they activate.
+                                    We add up what G-Taxi earned on your driver's first 10 completed rides and pay you 5% of it, once.
+                                    It comes from the G-Taxi reserve, never from your driver's earnings. If the reserve is empty at
+                                    that moment, your reward waits and is paid after one of their later rides.
                                 </Text>
                             </View>
 
@@ -242,7 +246,7 @@ export function DriverReferralScreen({ navigation }: AppScreenProps<'DriverRefer
                                 { icon: 'share-social', step: '1', text: 'Share your driver code with another driver' },
                                 { icon: 'person-add', step: '2', text: 'They register and enter your code' },
                                 { icon: 'car', step: '3', text: 'They start completing rides' },
-                                { icon: 'wallet', step: '4', text: 'You earn 1% of their platform fee for 90 days' },
+                                { icon: 'wallet', step: '4', text: 'After their 10th ride, you get a one-time reward of 5% of what G-Taxi earned on those rides' },
                             ].map(s => (
                                 <View key={s.step} style={styles.stepRow}>
                                     <View style={styles.stepNum}>

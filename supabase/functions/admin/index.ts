@@ -716,15 +716,43 @@ Deno.serve(async (req) => {
         return json({ success: true, data })
       }
 
+      // Closing an alert (above all a CRITICAL SOS) records WHO closed it,
+      // WHEN, and their note, in details.resolution. It used to write only
+      // resolved_at, so nobody could tell who had decided an SOS was over.
+      // An alert that is already closed is not overwritten.
       case 'resolve_alert': {
-        const { id } = body
+        const { id, note } = body
         if (!id) throw new Error('id required')
-        const { error } = await supabaseAdmin
+        const { data: existing, error: readError } = await supabaseAdmin
           .from('system_alerts')
-          .update({ resolved_at: new Date().toISOString() })
+          .select('id, details, resolved_at')
           .eq('id', id)
+          .maybeSingle()
+        if (readError) throw readError
+        if (!existing) return json({ success: false, error: 'Alert not found' }, 404)
+        if (existing.resolved_at) {
+          return json({ success: false, error: 'This alert was already resolved', details: existing.details }, 409)
+        }
+        const { data: resolver } = await supabaseAdmin
+          .from('profiles').select('full_name, email').eq('id', user.id).maybeSingle()
+        const resolvedAt = new Date().toISOString()
+        const resolution = {
+          resolved_by: user.id,
+          resolved_by_name: resolver?.full_name || resolver?.email || user.email || null,
+          resolved_at: resolvedAt,
+          note: typeof note === 'string' && note.trim() ? note.trim().slice(0, 500) : null,
+        }
+        const { data: updated, error } = await supabaseAdmin
+          .from('system_alerts')
+          .update({ resolved_at: resolvedAt, details: { ...(existing.details || {}), resolution } })
+          .eq('id', id)
+          .is('resolved_at', null)
+          .select('id')
         if (error) throw error
-        return json({ success: true, id })
+        if (!updated || updated.length === 0) {
+          return json({ success: false, error: 'This alert was already resolved' }, 409)
+        }
+        return json({ success: true, id, resolution })
       }
 
       case 'get_flags': {

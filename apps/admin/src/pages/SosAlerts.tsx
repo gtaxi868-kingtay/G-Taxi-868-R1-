@@ -67,14 +67,17 @@ export function SosAlerts() {
         return () => { clearInterval(safetyPoll); supabase.removeChannel(channel); };
     }, [load]);
 
-    const handleResolve = async (id: string) => {
+    // Called only after the admin confirms on the card. The server records
+    // who resolved it, when, and the note (details.resolution).
+    const handleResolve = async (id: string, note: string): Promise<string | null> => {
         setResolvingId(id);
         try {
-            const { error: resolveError } = await adminFetch('admin', { action: 'resolve_alert', id });
-            if (resolveError) throw resolveError;
+            await adminFetch('admin', { action: 'resolve_alert', id, note });
             await load();
+            return null;
         } catch (err) {
-            alert('Could not resolve alert: ' + (err instanceof Error ? err.message : 'unknown error'));
+            await load();
+            return err instanceof Error ? err.message : 'Could not resolve this alert.';
         } finally {
             setResolvingId(null);
         }
@@ -161,10 +164,28 @@ function AlertList({
     alerts, onResolve, resolvingId, emptyLabel,
 }: {
     alerts: SystemAlert[];
-    onResolve: (id: string) => void;
+    onResolve: (id: string, note: string) => Promise<string | null>;
     resolvingId: string | null;
     emptyLabel: string;
 }) {
+    // One alert at a time can be in "are you sure?" mode.
+    const [confirmingId, setConfirmingId] = useState<string | null>(null);
+    const [note, setNote] = useState('');
+    const [confirmError, setConfirmError] = useState<string | null>(null);
+
+    const startConfirm = (id: string) => { setConfirmingId(id); setNote(''); setConfirmError(null); };
+    const cancelConfirm = () => { setConfirmingId(null); setNote(''); setConfirmError(null); };
+    const submitResolve = async (alert: SystemAlert) => {
+        const isSos = alert.type === 'EMERGENCY_SOS' || alert.severity === 'CRITICAL';
+        if (isSos && !note.trim()) {
+            setConfirmError('Write what happened before closing an SOS, for example "Called rider, she is home safe".');
+            return;
+        }
+        const failure = await onResolve(alert.id, note);
+        if (failure) setConfirmError(failure);
+        else cancelConfirm();
+    };
+
     if (alerts.length === 0) {
         return (
             <div className="glass-card p-6 text-center text-xs font-bold" style={{ color: 'var(--ink-dim)' }}>
@@ -180,6 +201,9 @@ function AlertList({
                 const body = typeof details.body === 'string' ? details.body : null;
                 const lat = details.lat;
                 const lng = details.lng;
+                const resolution = details.resolution as
+                    { resolved_by_name?: string | null; resolved_at?: string; note?: string | null } | undefined;
+                const isSos = alert.type === 'EMERGENCY_SOS' || alert.severity === 'CRITICAL';
                 return (
                     <div key={alert.id} className="glass-card p-5 rounded-xl flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
@@ -219,14 +243,54 @@ function AlertList({
                                     </span>
                                 )}
                             </div>
+                            {alert.resolved_at && (
+                                <p className="text-[11px] mt-3" style={{ color: 'var(--ink-muted)' }}>
+                                    {resolution?.resolved_by_name
+                                        ? `Resolved by ${resolution.resolved_by_name} on ${new Date(resolution.resolved_at || alert.resolved_at).toLocaleString()}`
+                                        : `Resolved on ${new Date(alert.resolved_at).toLocaleString()} (who resolved it was not recorded)`}
+                                    {resolution?.note ? `: "${resolution.note}"` : ''}
+                                </p>
+                            )}
+                            {confirmingId === alert.id && (
+                                <div className="mt-4 flex flex-col gap-2" role="group" aria-label="Confirm resolving this alert">
+                                    <label htmlFor={`resolve-note-${alert.id}`} className="text-xs font-bold">
+                                        {isSos
+                                            ? 'Close this SOS? Only do this once someone has reached the person and they are safe.'
+                                            : 'Close this alert?'}
+                                    </label>
+                                    <textarea
+                                        id={`resolve-note-${alert.id}`}
+                                        value={note}
+                                        onChange={(e) => setNote(e.target.value)}
+                                        maxLength={500}
+                                        rows={2}
+                                        placeholder={isSos ? 'What happened? (required)' : 'Note (optional)'}
+                                        className="w-full rounded-lg p-2 text-xs bg-black/30 border border-white/15"
+                                    />
+                                    {confirmError && (
+                                        <p className="text-xs" role="alert" style={{ color: '#F87171' }}>{confirmError}</p>
+                                    )}
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => submitResolve(alert)}
+                                            disabled={resolvingId === alert.id}
+                                            className="glass-btn h-9 px-4 text-xs"
+                                        >
+                                            {resolvingId === alert.id ? 'Resolving…' : 'Yes, mark resolved'}
+                                        </button>
+                                        <button onClick={cancelConfirm} className="glass-btn glass-btn-ghost h-9 px-4 text-xs">
+                                            Keep open
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        {!alert.resolved_at && (
+                        {!alert.resolved_at && confirmingId !== alert.id && (
                             <button
-                                onClick={() => onResolve(alert.id)}
-                                disabled={resolvingId === alert.id}
+                                onClick={() => startConfirm(alert.id)}
                                 className="glass-btn h-9 px-4 text-xs shrink-0"
                             >
-                                {resolvingId === alert.id ? 'Resolving…' : 'Mark resolved'}
+                                Mark resolved
                             </button>
                         )}
                     </div>

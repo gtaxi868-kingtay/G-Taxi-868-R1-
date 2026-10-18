@@ -293,7 +293,7 @@ export function WarChest() {
                     <Users size={20} className="text-purple-400" />
                     <div>
                         <h3 className="font-black text-white uppercase tracking-wider text-sm">Referral Engine</h3>
-                        <p className="text-[10px] text-white/30 uppercase tracking-widest">TTD $15 signup credit · Driver earns 1% platform fee for 90 days</p>
+                        <p className="text-[10px] text-white/30 uppercase tracking-widest">Rider referral: TTD $15 after their first ride · Driver referral: one-time 5% of the platform share of their first 10 rides</p>
                     </div>
                 </div>
                 {referralStats.length === 0 ? (

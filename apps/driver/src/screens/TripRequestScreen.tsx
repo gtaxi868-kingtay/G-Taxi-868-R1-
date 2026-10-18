@@ -117,7 +117,9 @@ export function TripRequestScreen({ navigation, route }: any) {
                 const meta = data.metadata || {};
                 const hasNodeId = !!(meta.kiosk_id || meta.node_id || meta.revenue_split?.node_present);
                 setHasNode(hasNodeId);
-                setIdentityVerified(!!meta.identity_verified);
+                // Set by create_ride from the rider's stored photos (not the
+                // rider app's own flag). A photo on file, not a face/ID check.
+                setIdentityVerified(meta.selfie_photo_on_file === true);
                 const { data: stps } = await supabase.from('ride_stops').select('stop_type').eq('ride_id', offer.ride_id);
                 if (stps) setStops(stps);
                 if (data.rider_id && driver?.id) {
@@ -216,7 +218,7 @@ export function TripRequestScreen({ navigation, route }: any) {
                                 {identityVerified && (
                                     <View style={s.verifiedBadge}>
                                         <Ionicons name="shield-checkmark" size={12} color={SUCCESS} />
-                                        <Text style={s.verifiedBadgeText}>VERIFIED</Text>
+                                        <Text style={s.verifiedBadgeText}>PHOTO ON FILE</Text>
                                     </View>
                                 )}
                                 {trustBadge === 'VERIFIED_SAFE' && (

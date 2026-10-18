@@ -120,9 +120,16 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 },
                 () => {}
             );
-        // A device that has verified once is trusted for low-risk rides thereafter.
-        AsyncStorage.getItem('gtaxi_device_verified')
-            .then(v => { if (v === 'true') setDeviceVerified(true); })
+        // Once this account has taken a safety photo on this phone, low-risk
+        // daytime rides skip the photo step. This only decides when the app
+        // ASKS for a photo; create_ride checks the stored photos itself and
+        // refuses the ride when one is needed. The flag is per account: it
+        // used to be per phone, so a second account on the same phone was
+        // never asked, was refused by the server, and saw "trouble connecting".
+        supabase.auth.getUser()
+            .then(({ data }: { data: { user: { id: string } | null } }) =>
+                data.user ? AsyncStorage.getItem(`gtaxi_device_verified_${data.user.id}`) : null)
+            .then((v: string | null) => { if (v === 'true') setDeviceVerified(true); })
             .catch(() => {});
         return () => {
             if (fitMapTimeout.current) clearTimeout(fitMapTimeout.current);
@@ -267,8 +274,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             setSelfieVerified(true);
             setSelfieUploading(false);
             setSelfieMode(false);
-            // Trust this device for future low-risk rides.
-            AsyncStorage.setItem('gtaxi_device_verified', 'true').catch(() => {});
+            // This account has a photo on file from this phone; skip the prompt
+            // on future low-risk rides (the server still checks).
+            AsyncStorage.setItem(`gtaxi_device_verified_${userId}`, 'true').catch(() => {});
             setDeviceVerified(true);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (err: any) {
@@ -287,7 +295,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
         if (requiresVerification && (!selfieVerified || !selfieUri)) {
             setSelfieError(verificationReason);
-            Alert.alert('Quick verification needed', verificationReason);
+            Alert.alert('Safety photo needed', verificationReason);
             return;
         }
 
@@ -358,6 +366,18 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             }
         } catch (err: any) {
             console.error('Ride request failed:', err);
+            // The server wants a safety photo for this ride. That is not a
+            // connection problem: stop retrying and ask for the photo.
+            if (/identity verification required/i.test(String(err?.message || ''))) {
+                if (requestTimeoutRef.current) clearTimeout(requestTimeoutRef.current);
+                if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+                setRequestStatus('idle');
+                setConfirming(false);
+                setDeviceVerified(false);
+                setSelfieVerified(false);
+                setSelfieError('Take a quick safety photo first, then confirm again.');
+                return;
+            }
             if (retryCount >= 1) {
                 setRequestStatus('failed');
                 setConfirming(false);
@@ -418,10 +438,10 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const isNewDevice = !deviceVerified;
     const requiresVerification = isNewDevice || isLateNight || isHighValueCash;
     const verificationReason = isNewDevice
-        ? 'First ride on this device — a one-time identity check'
+        ? 'First ride on this phone: take a quick safety photo'
         : isLateNight
-            ? 'Late-night ride — a quick check keeps everyone safe'
-            : 'Large cash fare — verify your identity to continue';
+            ? 'Late-night ride: take a quick safety photo'
+            : 'Large cash fare: take a quick safety photo';
 
     return (
         <View style={s.root} pointerEvents="box-none">
@@ -607,7 +627,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                         if (!cameraPermission?.granted) {
                                             const perm = await requestCameraPermission();
                                             if (!perm.granted) {
-                                                Alert.alert('Camera Required', 'Camera access is required for identity verification.');
+                                                Alert.alert('Camera needed', 'Allow camera access to take the safety photo.');
                                                 return;
                                             }
                                         }
@@ -624,14 +644,14 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                         />
                                     )}
                                     <Text style={[s.selfieBtnText, selfieVerified && { color: SUCCESS }]}>
-                                        {selfieUploading ? 'Uploading…' : selfieVerified ? 'Verified' : 'Verify identity'}
+                                        {selfieUploading ? 'Saving photo…' : selfieVerified ? 'Photo saved' : 'Take safety photo'}
                                     </Text>
                                 </TouchableOpacity>
                             </>
                         ) : (
                             <View style={s.identityShield}>
                                 <Ionicons name="shield-checkmark" size={20} color={CYAN} />
-                                <Text style={s.identityText}>Identity shield active</Text>
+                                <Text style={s.identityText}>Safety photo on file</Text>
                             </View>
                         )}
 
@@ -669,7 +689,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                                 Identity Verification
                                             </Text>
                                             <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>
-                                                Take a selfie to verify your identity before confirming the ride.
+                                                We keep a private photo of who booked this ride, in case anything goes wrong. It is not a face or ID check.
                                             </Text>
                                             <View style={{ flexDirection: 'row', gap: 12 }}>
                                                 <TouchableOpacity
@@ -688,7 +708,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                                     ) : (
                                                         <>
                                                             <Ionicons name="camera" size={18} color={SURFACE.base} />
-                                                            <Text style={{ color: SURFACE.base, fontWeight: '900', fontSize: 13 }}>CAPTURE & VERIFY</Text>
+                                                            <Text style={{ color: SURFACE.base, fontWeight: '900', fontSize: 13 }}>TAKE PHOTO</Text>
                                                         </>
                                                     )}
                                                 </TouchableOpacity>

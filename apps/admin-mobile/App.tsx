@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StatusBar, StyleSheet } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, ActivityIndicator, StatusBar, StyleSheet, TouchableOpacity, Linking, Alert } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -22,7 +22,7 @@ import { ZoneRatesScreen } from './src/screens/ZoneRatesScreen';
 import { PlatformControlScreen } from './src/screens/PlatformControlScreen';
 import { IssueKeychainScreen } from './src/screens/IssueKeychainScreen';
 import { SosScreen } from './src/screens/SosScreen';
-import { registerGuardianPush } from './src/lib/guardianPush';
+import { registerGuardianPush, GUARDIAN_PUSH_MESSAGES, type GuardianPushResult } from './src/lib/guardianPush';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -86,10 +86,55 @@ function useOpenSosOnNotificationTap() {
   }, []);
 }
 
+// Shown on every screen while this phone is NOT registered for SOS alerts.
+// A guardian must never believe they are covered when they are not.
+function GuardianPushWarning({ result, retrying, onRetry }: {
+  result: Extract<GuardianPushResult, { ok: false }>;
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const needsSettings = result.reason === 'permission_denied';
+  const canRetry = result.reason !== 'not_a_device';
+  return (
+    <View style={[styles.pushWarning, { paddingTop: insets.top + 10 }]} accessibilityRole="alert">
+      <Text style={styles.pushWarningTitle}>This phone will NOT receive SOS alerts</Text>
+      <Text style={styles.pushWarningBody}>{GUARDIAN_PUSH_MESSAGES[result.reason]}</Text>
+      {canRetry && (
+        <View style={styles.pushWarningActions}>
+          {needsSettings && (
+            <TouchableOpacity style={styles.pushWarningButton} onPress={() => Linking.openSettings()} accessibilityRole="button">
+              <Text style={styles.pushWarningButtonText}>Open Settings</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.pushWarningButton} onPress={onRetry} disabled={retrying} accessibilityRole="button">
+            <Text style={styles.pushWarningButtonText}>{retrying ? 'Trying...' : 'Try again'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
 function RootNavigator() {
   const { user, loading } = useAuth();
   useOpenSosOnNotificationTap();
   const [adminState, setAdminState] = useState<'checking' | 'authorized' | 'unauthorized'>('checking');
+  const [pushResult, setPushResult] = useState<GuardianPushResult | null>(null);
+  const [pushRetrying, setPushRetrying] = useState(false);
+
+  // This phone is a G Guardian: SOS alerts are pushed to it. Registration
+  // retries itself; if it still fails, the admin is told plainly, once with
+  // an alert and then with a banner that stays until it works.
+  const registerPush = useCallback(async (userId: string, announce: boolean) => {
+    setPushRetrying(true);
+    const result = await registerGuardianPush(userId);
+    setPushRetrying(false);
+    setPushResult(result);
+    if (!result.ok && announce) {
+      Alert.alert('SOS alerts are not reaching this phone', GUARDIAN_PUSH_MESSAGES[result.reason]);
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -104,8 +149,7 @@ function RootNavigator() {
       .then(({ error }: { error: unknown }) => {
         if (error) throw error;
         setAdminState('authorized');
-        // This phone is now a G Guardian: SOS alerts are pushed to it.
-        registerGuardianPush(user.id).catch(() => {});
+        registerPush(user.id, true);
       })
       .catch(() => setAdminState('unauthorized'));
   }, [user]);
@@ -122,7 +166,14 @@ function RootNavigator() {
   }
   if (!user) return <AuthNavigator />;
   if (adminState !== 'authorized') return <UnauthorizedScreen />;
-  return <AppNavigator />;
+  return (
+    <View style={{ flex: 1 }}>
+      {pushResult && !pushResult.ok && (
+        <GuardianPushWarning result={pushResult} retrying={pushRetrying} onRetry={() => registerPush(user.id, false)} />
+      )}
+      <AppNavigator />
+    </View>
+  );
 }
 
 export default function App() {
@@ -143,6 +194,40 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  pushWarning: {
+    backgroundColor: '#7F1D1D',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 4,
+  },
+  pushWarningTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  pushWarningBody: {
+    color: '#FEE2E2',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  pushWarningActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  pushWarningButton: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  pushWarningButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   loadingContainer: {
     flex: 1,
     backgroundColor: BG,
