@@ -36,14 +36,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://ffbbuafgeypvkpcuvdnv.supabase.co">
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
 body{
   --bg-inner:#3b0f6e;--bg-mid:#14062c;--bg-outer:#04030a;
   background:radial-gradient(circle at center,var(--bg-inner) 0%,var(--bg-mid) 50%,var(--bg-outer) 100%);
-  color:#fff;font-family:'Inter',sans-serif;overflow:hidden;height:100vh;height:100dvh;
+  color:#fff;font-family:'Manrope',sans-serif;overflow:hidden;height:100vh;height:100dvh;
   transition:background 1.2s cubic-bezier(0.4,0,0.2,1);
   -webkit-font-smoothing:antialiased;
 }
@@ -55,6 +55,9 @@ input::placeholder{color:rgba(255,255,255,0.3)}
 select option{background:#12082a;color:#fff}
 #open-waitlist-top,#open-waitlist,.nav-item,#panel-close,#wl-submit,.nav-arrow{transition:transform 160ms cubic-bezier(0.23,1,0.32,1)}
 #open-waitlist-top:active,#open-waitlist:active,.nav-item:active,#panel-close:active,#wl-submit:active,.nav-arrow:active{transform:scale(.97)}
+.header{transition:background .3s ease,padding .3s ease}
+.header.scrolled{background:rgba(4,3,10,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 1px 0 rgba(255,255,255,.08)}
+.split-card{background:rgba(14,8,30,.92)!important}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
@@ -113,8 +116,9 @@ select option{background:#12082a;color:#fff}
   .side-title{font-size:clamp(2.4rem,12vw,3.6rem)!important;align-self:flex-start!important;text-align:left!important;order:7;position:relative;z-index:130}
   .carousel-cards{display:grid!important;grid-template-columns:1fr 1fr!important;gap:.6rem!important;max-width:none!important;width:100%!important}
   #role-line{max-width:none!important}
-  .role-carousel .card{flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;text-align:left!important;gap:.65rem!important;padding:.8rem .75rem!important;min-height:56px;border-radius:16px!important;background:rgba(255,255,255,.04)!important}
-  .role-carousel .card.active{background:rgba(255,255,255,.08)!important}
+  .role-carousel .card{flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;text-align:left!important;gap:.65rem!important;padding:.8rem .75rem!important;min-height:56px;border-radius:16px!important;background:rgba(14,8,30,.9)!important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .role-carousel .card.active{background:rgba(32,18,60,.94)!important}
+  .header.scrolled{padding-top:.75rem!important;padding-bottom:.75rem!important}
   .role-carousel .card>div{align-items:flex-start!important}
   .role-carousel .card img{width:38px!important;flex-grow:0!important;flex-shrink:0!important}
   .scrim{display:none!important}
@@ -129,6 +133,7 @@ select option{background:#12082a;color:#fff}
 </head>
 <body>
 
+<div id="top-sentinel" aria-hidden="true" style="position:absolute;top:0;left:0;width:1px;height:1px"></div>
 <div id="bubbles-container" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden"></div>
 
 <header class="header" style="display:flex;justify-content:space-between;align-items:center;padding:1.75rem 4%;position:fixed;top:0;width:100%;z-index:150">
@@ -154,7 +159,7 @@ select option{background:#12082a;color:#fff}
   <a href="#" class="nav-item" data-panel="escape" style="font-family:'Manrope',sans-serif;color:#fff;font-size:1.05rem;font-weight:600;padding:1rem 1.25rem;border-radius:14px;background:rgba(255,255,255,0.06)">G Escape</a>
 </div>
 
-<main class="hero" style="height:100vh;display:flex;align-items:center;justify-content:center;padding:5rem 4% 0">
+<main class="hero" style="height:100vh;height:100dvh;display:flex;align-items:center;justify-content:center;padding:5rem 4% 0">
   <div class="hero-content" style="display:flex;justify-content:space-between;align-items:stretch;width:100%;height:100%;position:relative">
 
     <div class="pins-container-bg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;transition:transform .1s ease-out">
@@ -271,14 +276,14 @@ select option{background:#12082a;color:#fff}
           <div class="card active" data-role="rider" data-theme="violet" data-accent="#c084fc" style="display:flex;align-items:center;justify-content:flex-end;gap:.9rem;padding:.5rem .1rem .5rem 1rem;cursor:pointer;transition:transform .45s cubic-bezier(0.34,1.4,0.64,1);opacity:1;background:none;border:none">
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.05rem">
               
-              <span class="role-name" style="font-family: 'Outfit',sans-serif; font-weight: 800; font-size: 1rem; letter-spacing: -.01em; color: #c084fc; transition: color .4s ease; height: 21px; width: 100%; text-align: center">Rider</span><span class="role-sub" style="font-size: .8rem; color: rgba(255,255,255,0.92); transition: color .4s ease; font-family: Helvetica; text-align: center; width: 96px; height: 47px">Rides Groceries Laundry &amp; Escape</span>
+              <span class="role-name" style="font-family: 'Outfit',sans-serif; font-weight: 800; font-size: 1rem; letter-spacing: -.01em; color: #c084fc; transition: color .4s ease">Rider</span><span class="role-sub" style="font-size:.8rem;color:rgba(255,255,255,0.92);transition:color .4s ease">Rides, groceries, laundry, Escape</span>
             </div>
             <img src="logo.png" alt="" width="52" height="52" style="width: 52px; height: auto; display: block; pointer-events: none; filter: drop-shadow(0 0 16px rgba(192,132,252,.55)); transition: filter .45s ease,transform .5s cubic-bezier(0.34,1.56,0.64,1); flex-grow: 6; position: static; object-fit: cover">
           </div>
           <div class="card" data-role="driver" data-theme="cyan" data-accent="#22d3ee" style="display:flex;align-items:center;justify-content:flex-end;gap:.9rem;padding:.5rem .1rem .5rem 1rem;cursor:pointer;transition:transform .45s cubic-bezier(0.34,1.4,0.64,1);opacity:1;background:none;border:none">
             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.05rem">
               <span class="role-name" style="font-family:'Outfit',sans-serif;font-weight:800;font-size:1rem;letter-spacing:-.01em;color:#fff;transition:color .4s ease">Driver</span>
-              <span class="role-sub" style="font-size:.8rem;color:rgba(255,255,255,0.78);transition:color .4s ease">Keep 80% of every fare</span>
+              <span class="role-sub" style="font-size:.8rem;color:rgba(255,255,255,0.78);transition:color .4s ease">Keep up to 80% of every fare</span>
             </div>
             <img src="logo.png" alt="" width="52" height="52" style="width:52px;height:auto;display:block;pointer-events:none;opacity:.55;filter:hue-rotate(-38deg) saturate(1.05) drop-shadow(0 0 14px rgba(34,211,238,.4));transition:opacity .45s ease,filter .45s ease,transform .5s cubic-bezier(0.34,1.56,0.64,1)">
           </div>
@@ -297,7 +302,7 @@ select option{background:#12082a;color:#fff}
             <img src="logo.png" alt="" width="52" height="52" style="width:52px;height:auto;display:block;pointer-events:none;opacity:.55;filter:hue-rotate(-88deg) saturate(1.05) drop-shadow(0 0 14px rgba(94,234,212,.4));transition:opacity .45s ease,filter .45s ease,transform .5s cubic-bezier(0.34,1.56,0.64,1)">
           </div>
         </div>
-        <div id="role-line" style="font-size:.82rem;color:rgba(255,255,255,0.78);max-width:280px;line-height:1.55;text-wrap:pretty">Tap a stand or a shop counter and the car comes to you. No address to spell out — and more of G opens up the more you ride.</div>
+        <div id="role-line" style="font-size:.82rem;color:rgba(255,255,255,0.78);max-width:280px;line-height:1.55;text-wrap:pretty">Tap a stand or a shop counter and the car comes to you. No address to spell out, and more of G opens up the more you ride.</div>
         <button id="role-cta" style="display:flex;align-items:center;gap:.7rem;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);color:#fff;padding:.55rem .6rem .55rem 1.1rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.8rem;cursor:pointer;transition:background .3s ease,border-color .3s ease" style-hover="background:rgba(255,255,255,0.16)">
           <span id="role-cta-label">See what a Rider gets</span>
           <span id="role-cta-dot" style="width:26px;height:26px;border-radius:50%;background:#c084fc;color:#04030a;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:900;line-height:1;transition:background .4s ease">→</span>
@@ -321,28 +326,28 @@ select option{background:#12082a;color:#fff}
     <h2 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.6rem,4vw,2.4rem);color:#fff;margin:0 0 .75rem;letter-spacing:-.01em">Where every dollar goes</h2>
     <p style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,.65);font-size:.95rem;max-width:46ch;margin:0 auto 2.5rem">No hidden cut. Every ride splits the same way, every time.</p>
     <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:1rem">
-      <div style="flex:1 1 190px;max-width:220px;padding:1.5rem 1.25rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
+      <div class="split-card" style="flex:1 1 190px;max-width:220px;padding:1.5rem 1.25rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
         <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:2.2rem;color:#c084fc;letter-spacing:-.02em">80%</div>
         <div style="font-family:'Manrope',sans-serif;font-weight:700;color:#fff;font-size:.85rem;margin-top:.35rem">Driver</div>
-        <div style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,.5);font-size:.75rem;margin-top:.15rem">of every fare, direct</div>
+        <div style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,.62);font-size:.75rem;margin-top:.15rem">78% if a G-Lead or shop brought them in</div>
       </div>
-      <div style="flex:1 1 190px;max-width:220px;padding:1.5rem 1.25rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
+      <div class="split-card" style="flex:1 1 190px;max-width:220px;padding:1.5rem 1.25rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
         <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:2.2rem;color:#5eead4;letter-spacing:-.02em">2%</div>
-        <div style="font-family:'Manrope',sans-serif;font-weight:700;color:#fff;font-size:.85rem;margin-top:.35rem">Commander</div>
-        <div style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,.5);font-size:.75rem;margin-top:.15rem">only while they're active</div>
+        <div style="font-family:'Manrope',sans-serif;font-weight:700;color:#fff;font-size:.85rem;margin-top:.35rem">Recruiter</div>
+        <div style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,.62);font-size:.75rem;margin-top:.15rem">from the driver's 80%, only while active</div>
       </div>
-      <div style="flex:1 1 190px;max-width:220px;padding:1.5rem 1.25rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
+      <div class="split-card" style="flex:1 1 190px;max-width:220px;padding:1.5rem 1.25rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
         <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:2.2rem;color:#22d3ee;letter-spacing:-.02em">1.5%</div>
         <div style="font-family:'Manrope',sans-serif;font-weight:700;color:#fff;font-size:.85rem;margin-top:.35rem">Reserve</div>
         <div style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,.5);font-size:.75rem;margin-top:.15rem">backs drivers when a delivery goes wrong</div>
       </div>
-      <div style="flex:1 1 190px;max-width:220px;padding:1.5rem 1.25rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
+      <div class="split-card" style="flex:1 1 190px;max-width:220px;padding:1.5rem 1.25rem;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
         <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:2.2rem;color:#f0abfc;letter-spacing:-.02em">1%</div>
         <div style="font-family:'Manrope',sans-serif;font-weight:700;color:#fff;font-size:.85rem;margin-top:.35rem">G-Touch Point</div>
         <div style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,.5);font-size:.75rem;margin-top:.15rem">of the platform's take, to the counter you tapped at</div>
       </div>
     </div>
-    <p style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,.4);font-size:.75rem;margin:2rem auto 0;max-width:50ch">The rest keeps G-Taxi running — there's no flat platform cut, it's whatever's left after the people who earned it are paid.</p>
+    <p style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,.4);font-size:.75rem;margin:2rem auto 0;max-width:50ch">The rest keeps G 868 running. There's no flat platform cut: it's whatever is left after the people who earned it are paid.</p>
   </div>
 </section>
 
@@ -350,7 +355,7 @@ select option{background:#12082a;color:#fff}
 <div id="wa-handoff" style="position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;background:rgba(4,3,10,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);opacity:0;transition:opacity .35s ease">
   <div style="display:flex;flex-direction:column;align-items:center;gap:1.1rem;text-align:center">
     <div style="width:52px;height:52px;border-radius:50%;border:3px solid rgba(255,255,255,.16);border-top-color:#25D366;animation:waSpin .8s linear infinite"></div>
-    <p style="font-family:'Outfit',sans-serif;font-weight:800;font-size:1.15rem;color:#fff;margin:0">One moment&nbsp;— opening WhatsApp</p>
+    <p style="font-family:'Outfit',sans-serif;font-weight:800;font-size:1.15rem;color:#fff;margin:0">One moment, opening WhatsApp</p>
     <p style="font-family:'Manrope',sans-serif;font-size:.85rem;color:rgba(255,255,255,.55);margin:0;max-width:280px">Your message is ready. We're handing you off now.</p>
   </div>
 </div>
@@ -544,11 +549,11 @@ function handleArrivalCta() {
     const coords = (PICKUP && PICKUP.lat && PICKUP.lng)
       ? `\nPickup pin: https://maps.google.com/?q=${PICKUP.lat},${PICKUP.lng}`
       : (GEO ? `\nMy location: https://maps.google.com/?q=${GEO.lat},${GEO.lng}` : '');
-    wa(`Hi G-Taxi! I tapped in at ${place} and would like to request a ride.${coords}`);
+    wa(`Hi G 868! I tapped in at ${place} and would like to request a ride.${coords}`);
   } else if (QR_TYPE === 'merchant') {
-    wa(`Hi! I scanned a G-Taxi QR at a store (${QR_DATA || ''}) and would like to order.`);
+    wa(`Hi! I scanned a G 868 QR at a store (${QR_DATA || ''}) and would like to order.`);
   } else if (QR_TYPE === 'driver') {
-    wa(`Hi! I'd like to become a G-Taxi driver partner. Ref: ${QR_DATA || '—'}`);
+    wa(`Hi! I'd like to become a G 868 driver partner. Ref: ${QR_DATA || 'none'}`);
   } else {
     const c = GEO ? `\nMy location: https://maps.google.com/?q=${GEO.lat},${GEO.lng}` : '';
     wa(`Hi! I'd like to request a G ride.${c}`);
@@ -589,7 +594,7 @@ function openInApp() {
 const ARRIVALS = {
   nfc: { eyebrow: 'Touchpoint', accent: '#22d3ee', head: 'You tapped in.', sub: 'This counter is now your pickup. Say where you\'re going and a car comes to you.', cta: 'Request the ride' },
   merchant: { eyebrow: 'G-Partner counter', accent: '#f0abfc', head: 'Shop from here.', sub: 'Order what this counter stocks and a G driver brings it to you.', cta: 'Order on WhatsApp' },
-  driver: { eyebrow: 'Driver referral', accent: '#5eead4', head: 'Keep 80% of every fare.', sub: 'You were sent here by someone already driving with G. Same deal for you.', cta: 'Apply on WhatsApp' },
+  driver: { eyebrow: 'Driver referral', accent: '#5eead4', head: 'Keep up to 80% of every fare.', sub: 'You were sent here by someone already driving with G. Same deal for you.', cta: 'Apply on WhatsApp' },
   ride: { eyebrow: 'Ride', accent: '#c084fc', head: 'Get moving.', sub: 'One tap and the nearest G driver is on the way.', cta: 'Request the ride' }
 };
 
@@ -610,7 +615,7 @@ const arrivalPanelHTML = () => {
       </button>
       <button id="arr-join" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);color:#fff;padding:.85rem 1.4rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem;cursor:pointer">Join the waitlist instead</button>
     </div>
-    <p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5;margin:1.1rem 0 1.4rem">WhatsApp is the fastest path — nothing to install.</p>
+    <p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5;margin:1.1rem 0 1.4rem">WhatsApp is the fastest path. Nothing to install.</p>
     <div style="display:flex;flex-direction:column;gap:.9rem;padding-top:1.3rem;border-top:1px solid rgba(255,255,255,.12)">
       <div style="display:flex;align-items:center;gap:.6rem;font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.5)">Or use the G app</div>
       <div style="display:flex;flex-wrap:wrap;gap:.6rem">
@@ -631,24 +636,24 @@ const ROLE_INFO = {
     head: 'One tap gets you moving.',
     lede: "Tap the puck at a stand or a shop counter and a car comes to where you're standing. No address to spell out, no explaining the corner you're on. Then the rest of G opens up as you go.",
     perks: [
-      ['Rides that know where you are', "Tap a G point and the pickup is set. It's the easiest booking on the island — and it works even before you download anything."],
-      ['More unlocks as you ride', 'Five rides brings Market. Two Market orders bring Laundry. Nothing is dumped on you at once — you grow into it.'],
-      ['Better rates the longer you stay', 'Regular, Loyal, Elite — up to 10% back on what you spend, plus priority when the island is busy.']
+      ['Rides that know where you are', "Tap a G point and the pickup is set. It's the easiest booking on the island, and it works even before you download anything."],
+      ['More unlocks as you ride', 'Five rides brings Market. Two Market orders bring Laundry. Nothing is dumped on you at once. You grow into it.'],
+      ['Better rates the longer you stay', 'Regular, Loyal, Elite: up to 10% back on what you spend, plus priority when the island is busy.']
     ],
     ladderTitle: 'What opens up, and when',
     ladder: [
-      ['Day one', 'Ride — tap any stand or counter'],
-      ['5 rides', 'Market — groceries brought to you'],
+      ['Day one', 'Ride: tap any stand or counter'],
+      ['5 rides', 'Market: groceries brought to you'],
       ['2 Market orders', 'Laundry, and Tap to pay in shops'],
-      ['Wallet funded', 'G-Escape — regional trips, when it opens']
+      ['Wallet funded', 'G-Escape: regional trips, when it opens']
     ],
     tiers: ['New Rider', 'Regular · 5%', 'Loyal · 8%', 'Elite · 10% + priority']
   },
   driver: {
     label: 'Driver', value: 'Driver', accent: '#22d3ee', tint: 'rgba(34,211,238,',
     eyebrow: 'For drivers',
-    head: 'Keep 80% of every fare.',
-    lede: 'You already do the work. This is about how much of it you keep — and what you can build on top of it once you have been driving a while.',
+    head: 'Keep up to 80% of every fare.',
+    lede: 'You already do the work. This is about how much of it you keep, and what you can build on top of it once you have been driving a while.',
     perks: [
       ['80% of the fare, plainly stated', 'No shifting commission, no surprise deductions. 78% if a G-Lead or a G-Partner shop brought you in (their 2% comes from your share, only while they are active), and you will always be told which one applies.'],
       ['Earn from who you bring in', "A one-time reward for every driver you bring in: 5% of the platform's share of their first 10 rides."],
@@ -656,7 +661,7 @@ const ROLE_INFO = {
     ],
     ladderTitle: 'How a driver moves up',
     ladder: [
-      ['Day one', '80% of every fare, paid to your wallet'],
+      ['Day one', 'Up to 80% of every fare, paid to your wallet'],
       ['First referral', "5% of the platform's share of their first 10 rides, paid once"],
       ['500 rides', 'You qualify to run a territory'],
       ['As G-Lead', '2% override on the whole area you build']
@@ -668,12 +673,12 @@ const ROLE_INFO = {
     signupHref: '/merchant-onboard', signupLabel: 'Register your store now',
     eyebrow: 'For shops & counters',
     head: 'Your counter starts earning.',
-    lede: 'A puck on your counter turns your shop into a taxi stand and a storefront at the same time — and you get paid for the traffic you already have.',
+    lede: 'A puck on your counter turns your shop into a taxi stand and a storefront at the same time, and you get paid for the traffic you already have.',
     perks: [
       ['A share of every ride that starts with you', 'Customers tap at your counter to get a car. You earn on it, whether or not they buy a thing that day.'],
-      ['Sell and take payment by tap', 'List what you stock and take wallet payments on the spot — no card machine to rent, no terminal fees, no percentage skimmed off your own sales.'],
-      ['You are the trusted face', 'Drivers you sign up with your shop code pay you 2% of their fares, for as long as your shop stays active. People sign up because you vouch for it — and that is credited to you.'],
-      ['90 days pinned on the map, free', 'Every G-Partner opens with their shop pinned for riders to find. Keep it after that for TTD 125–200 a month by shop type: offices and professional services 125; grocery, pharmacy, retail and other shops 150; restaurants 175; barbershops, salons and spas 200 — and only if the traffic has earned it.']
+      ['Sell and take payment by tap', 'List what you stock and take wallet payments on the spot: no card machine to rent, no terminal fees, no percentage skimmed off your own sales.'],
+      ['You are the trusted face', 'Drivers you sign up with your shop code pay you 2% of their fares, for as long as your shop stays active. People sign up because you vouch for it, and that is credited to you.'],
+      ['90 days pinned on the map, free', 'Every G-Partner opens with their shop pinned for riders to find. Keep it after that for TTD 125-200 a month by shop type: offices and professional services 125; grocery, pharmacy, retail and other shops 150; restaurants 175; barbershops, salons and spas 200, and only if the traffic has earned it.']
     ],
     ladderTitle: 'How a counter grows',
     ladder: [
@@ -682,8 +687,8 @@ const ROLE_INFO = {
       ['First driver', '2% of the fares of every driver you sign up, while your shop is active'],
       ['Catalog live', 'Sell your stock and take wallet payments'],
       ['Steady traffic', 'Your shop is listed as a pickup point island-wide'],
-      ['First 90 days', 'Pinned on the G map, free — no card, no catch'],
-      ['After 90 days', 'Stay pinned for TTD 125–200 a month by shop type, or step back to the free listing']
+      ['First 90 days', 'Pinned on the G map, free. No card, no catch'],
+      ['After 90 days', 'Stay pinned for TTD 125-200 a month by shop type, or step back to the free listing']
     ],
     tiers: ['Listed', 'Active counter', 'Pickup point', 'Anchor · higher share']
   },
@@ -693,7 +698,7 @@ const ROLE_INFO = {
     head: 'Build your area. Earn on it.',
     lede: 'A G-Lead opens a community: signing up the drivers, the shops and the stands that make it work, then earning from it for as long as it runs.',
     perks: [
-      ['2% override on your territory', "Every ride in the area you built pays you — not once, but for as long as you're running it."],
+      ['2% override on your territory', "Every ride in the area you built pays you, not once, but for as long as you're running it."],
       ['Recruit your own network', 'Your drivers, your merchants, your stands. You decide who represents the area.'],
       ['Name your successor', 'What you build stays with someone you choose. The territory is yours to hand on.']
     ],
@@ -730,13 +735,14 @@ const roleFormHTML = (r) => `
         Join as ${r.label}
         <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:#22d3ee;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
       </button>
-      <p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5">Nothing to pay and nothing to install — we're simply counting who's ready, area by area.</p>
+      <p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5">Nothing to pay and nothing to install. We're simply counting who's ready, area by area.</p>
     </form>`;
 
 const rolePanelHTML = (r) => `
     <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:${r.accent}">${r.eyebrow}</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">${r.head}</h3>
     <p style="color:rgba(255,255,255,.7);line-height:1.65;max-width:640px;margin-bottom:1.6rem">${r.lede}</p>
+    ${r.signupHref ? `<a href="${r.signupHref}" style="display:inline-flex;align-items:center;gap:.5rem;margin:-.4rem 0 1.6rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;text-decoration:none;padding:.8rem 1.3rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:800;font-size:.88rem">${r.signupLabel} &rarr;</a>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem">
       ${r.perks.map((p, i) => `
       <div style="padding:1.6rem;border-radius:22px;${i > 2 ? 'grid-column:1 / -1;' : ''}background:${i === 0 || i > 2 ? `linear-gradient(150deg,${r.tint}.20),rgba(4,3,10,.35))` : 'rgba(255,255,255,.05)'};border:1px solid ${i === 0 || i > 2 ? `${r.tint}.32)` : 'rgba(255,255,255,.12)'}">
@@ -745,7 +751,7 @@ const rolePanelHTML = (r) => `
       </div>`).join('')}
     </div>
     <div style="margin-top:1.6rem;padding:1.5rem 1.6rem;border-radius:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
-      <span style="font-family:'Manrope',sans-serif;font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.5)">Progression</span>
+      <span style="font-family:'Manrope',sans-serif;font-size:.85rem;font-weight:600;color:rgba(255,255,255,.7)">Progression</span>
       <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.35rem;letter-spacing:-.01em;margin:.35rem 0 1rem">${r.ladderTitle}</div>
       <div style="display:grid;gap:.4rem">
         ${r.ladder.map((s, i) => `
@@ -755,7 +761,7 @@ const rolePanelHTML = (r) => `
         </div>`).join('')}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin-top:1.1rem">
-        <span style="font-family:'Manrope',sans-serif;font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.6)">Your standing</span>
+        <span style="font-family:'Manrope',sans-serif;font-size:.85rem;font-weight:600;color:rgba(255,255,255,.7)">Your standing</span>
         ${r.tiers.map((t, i) => `<span style="padding:.4rem .85rem;border-radius:100px;font-size:.8rem;${i === r.tiers.length - 1 ? `background:${r.accent};color:#04030a;font-weight:700` : 'border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.8)'}">${t}</span>`).join('')}
       </div>
     </div>
@@ -766,7 +772,7 @@ const PANELS = {
   waitlist: `
     <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">Put your hand up</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">Help us open<br>your area first.</h3>
-    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:560px;margin-bottom:1.6rem">A community comes alive when there are enough drivers to answer and enough shops worth opening. Tell us where you are and how you'd like to join — every hand counts toward switching your area on.</p>
+    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:560px;margin-bottom:1.6rem">A community comes alive when there are enough drivers to answer and enough shops worth opening. Tell us where you are and how you'd like to join. Every hand counts toward switching your area on.</p>
     <form id="wl-form" style="display:grid;gap:.75rem;max-width:620px">
       <input id="wl-hp" name="wl_hp_website" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
       <input id="wl-name" type="text" required placeholder="Your name" autocomplete="name" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
@@ -788,21 +794,21 @@ const PANELS = {
         Count me in
         <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:#22d3ee;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
       </button>
-      <p id="wl-note" style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5">Nothing to pay and nothing to install yet — we're simply counting who's ready, area by area. Your details stay with us.</p>
+      <p id="wl-note" style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5">Nothing to pay and nothing to install yet. We're simply counting who's ready, area by area. Your details stay with us.</p>
     </form>`,
 
   tap: `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">01 — The Tap</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">The Tap</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">No app needed<br>to get moving.</h3>
-    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:640px;margin-bottom:1.6rem">G-Touch Points are small NFC pucks sitting on shop counters and taxi stands across the island. Anyone can build an app in a weekend — but trust is built one counter at a time, and that's what these are.</p>
+    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:640px;margin-bottom:1.6rem">G-Touch Points are small NFC pucks sitting on shop counters and taxi stands across the island. Anyone can build an app in a weekend, but trust is built one counter at a time, and that's what these are.</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem">
       <div style="padding:1.6rem;border-radius:22px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)">
         <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;color:#22d3ee;margin-bottom:.5rem">Tap at a stand</div>
-        <p style="color:rgba(255,255,255,.66);line-height:1.55;font-size:.92rem">Books a ride from exactly where you're standing — no address to type, nothing to explain.</p>
+        <p style="color:rgba(255,255,255,.66);line-height:1.55;font-size:.92rem">Books a ride from exactly where you're standing. No address to type, nothing to explain.</p>
       </div>
       <div style="padding:1.6rem;border-radius:22px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)">
         <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;color:#c084fc;margin-bottom:.5rem">Tap at a shop</div>
-        <p style="color:rgba(255,255,255,.66);line-height:1.55;font-size:.92rem">Opens that shop's services, or pays straight from your wallet. People trust their shopkeeper — so the shopkeeper is the welcome.</p>
+        <p style="color:rgba(255,255,255,.66);line-height:1.55;font-size:.92rem">Opens that shop's services, or pays straight from your wallet. People trust their shopkeeper, so the shopkeeper is the welcome.</p>
       </div>
       <div style="padding:1.6rem;border-radius:22px;background:linear-gradient(150deg,rgba(124,58,237,.3),rgba(34,211,238,.12));border:1px solid rgba(34,211,238,.3)">
         <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;margin-bottom:.5rem">The counter earns</div>
@@ -811,12 +817,12 @@ const PANELS = {
     </div>`,
 
   ladder: `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">02 — Progression</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">Progression</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">You earn the island.</h3>
-    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:640px;margin-bottom:1.5rem">Most apps hand you eleven services on day one and you end up using one. G starts with a ride, and opens up as you go — so it grows at your pace, and every step is one you've already earned.</p>
+    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:640px;margin-bottom:1.5rem">Most apps hand you eleven services on day one and you end up using one. G starts with a ride, and opens up as you go, so it grows at your pace, and every step is one you've already earned.</p>
     <div style="display:grid;gap:.5rem;margin-bottom:1.4rem">
       <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #22d3ee"><span style="color:rgba(255,255,255,.6)">Start</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Ride</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #38bdf8"><span style="color:rgba(255,255,255,.6)">5 rides</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Market — groceries delivered</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #38bdf8"><span style="color:rgba(255,255,255,.6)">5 rides</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Market: groceries delivered</span></div>
       <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #818cf8"><span style="color:rgba(255,255,255,.6)">2 Market orders</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Laundry + Tap</span></div>
       <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:linear-gradient(100deg,rgba(124,58,237,.3),rgba(34,211,238,.12));border-left:2px solid #c084fc"><span style="color:rgba(255,255,255,.75)">Fund your wallet</span><span style="font-family:'Outfit',sans-serif;font-weight:800">G-Escape</span></div>
     </div>
@@ -829,9 +835,9 @@ const PANELS = {
     </div>`,
 
   split: `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">03 — The Split</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">The Split</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">Where the money goes<br>is the whole point.</h3>
-    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:640px;margin-bottom:1.5rem">Every G ride pays a Trinidadian driver, a Trinidadian shopkeeper and a Trinidadian territory operator — and sets a slice aside to help open the next community. Here's exactly how it splits.</p>
+    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:640px;margin-bottom:1.5rem">Every G ride pays a Trinidadian driver, a Trinidadian shopkeeper and a Trinidadian territory operator, and sets a slice aside to help open the next community. Here's exactly how it splits.</p>
     <div style="display:grid;gap:1rem;max-width:620px">
       <div>
         <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">Driver</span><span style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem">80%</span></div>
@@ -847,13 +853,13 @@ const PANELS = {
         <div style="height:8px;border-radius:100px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:.4rem"><div style="width:11%;height:100%;background:linear-gradient(90deg,#5eead4,#22d3ee)"></div></div>
       </div>
       <div style="display:flex;justify-content:space-between;gap:1rem;padding-top:.6rem;border-top:1px solid rgba(255,255,255,.1)"><span style="font-weight:600">G-Partner counter share</span><span style="font-size:.85rem;color:rgba(255,255,255,.6);text-align:right">a share of the platform's own take</span></div>
-      <p style="font-size:.9rem;line-height:1.6;color:rgba(255,255,255,.5);border-left:2px solid rgba(34,211,238,.5);padding-left:1rem">The reserve is what pays for referrals — so growth never comes quietly out of a driver's earnings. If the reserve is empty, the payout waits. We'd rather be honest about the limit than invent money we don't have.</p>
+      <p style="font-size:.9rem;line-height:1.6;color:rgba(255,255,255,.5);border-left:2px solid rgba(34,211,238,.5);padding-left:1rem">The reserve is what pays for referrals, so growth never comes quietly out of a driver's earnings. If the reserve is empty, the payout waits. We'd rather be honest about the limit than invent money we don't have.</p>
     </div>`,
 
   escape: `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">05 — G-Escape</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">G-Escape</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">The Caribbean deserves<br>better ways home.</h3>
-    <p style="color:rgba(255,255,255,.7);line-height:1.65;max-width:700px;margin-bottom:1.2rem">Routes get cut because no airline can see enough demand to justify them — then nobody flies them, which proves the airline right. G-Escape aggregates the demand instead: groups pool into flight-plus-lodging packages with a tipping point, and riders can <strong style="color:#fff">open a lane</strong> — pick a destination and a month, and if enough hands go up it becomes a real demand case with real names attached.</p>
+    <p style="color:rgba(255,255,255,.7);line-height:1.65;max-width:700px;margin-bottom:1.2rem">Routes get cut because no airline can see enough demand to justify them, then nobody flies them, which proves the airline right. G-Escape aggregates the demand instead: groups pool into flight-plus-lodging packages with a tipping point, and riders can <strong style="color:#fff">open a lane</strong>: pick a destination and a month, and if enough hands go up it becomes a real demand case with real names attached.</p>
     <p style="font-family:'Outfit',sans-serif;font-weight:800;font-size:clamp(1.1rem,2.2vw,1.6rem);line-height:1.35;max-width:760px">Not "we think people want to fly Port of Spain to St. Vincent." <span style="color:#22d3ee">Here are 180 people who put their hands up for March.</span></p>
     <p style="font-size:.9rem;color:rgba(255,255,255,.6);margin-top:1rem">Rides fund the network. Escape is what makes it regional. Currently switched off.</p>`,
 
@@ -863,9 +869,9 @@ const PANELS = {
 Object.keys(ROLE_INFO).forEach(k => { PANELS['role-' + k] = rolePanelHTML(ROLE_INFO[k]); });
 
 const ROLE_LINES = {
-  rider: "Tap a stand or a shop counter and the car comes to you. No address to spell out — and more of G opens up the more you ride.",
-  driver: "Keep 80% of every fare, earn on the drivers you bring in, and after 500 rides you can run an area of your own.",
-  partner: "Your counter becomes a taxi stand and a storefront — you earn on every ride that starts with you, and take payment by tap.",
+  rider: "Tap a stand or a shop counter and the car comes to you. No address to spell out, and more of G opens up the more you ride.",
+  driver: "Keep up to 80% of every fare, earn on the drivers you bring in, and after 500 rides you can run an area of your own.",
+  partner: "Your counter becomes a taxi stand and a storefront. You earn on every ride that starts with you, and take payment by tap.",
   lead: "Open your community: sign up the drivers and shops, earn 2% on everything the area does, and hand it on to someone you choose."
 };
 
@@ -958,7 +964,7 @@ class Component extends DCLogic {
           return;
         }
         if (!isValidTTPhone(phone)) {
-          msg.textContent = 'That doesn’t look like a Trinidad & Tobago WhatsApp number — try 868 followed by 7 digits.';
+          msg.textContent = 'That doesn’t look like a Trinidad & Tobago WhatsApp number. Try 868 followed by 7 digits.';
           return;
         }
         if (!area) {
@@ -1003,14 +1009,14 @@ class Component extends DCLogic {
           if (!res.ok) {
             let hint = null;
             try { const errBody = await res.json(); hint = errBody && (errBody.hint || errBody.message); } catch (_) {}
-            throw new Error(hint || 'Could not save — check your connection and try again.');
+            throw new Error(hint || 'Could not save. Check your connection and try again.');
           }
           f.innerHTML = `<div style="padding:1.6rem;border-radius:22px;background:linear-gradient(140deg,rgba(124,58,237,.35),rgba(34,211,238,.16));border:1px solid rgba(34,211,238,.35)">
             <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;margin-bottom:.5rem">You're in. Thank you.</div>
             <p style="color:rgba(255,255,255,.78);line-height:1.6">${role || 'Your hand is up'}${area ? ' · ' + area : ''}. We'll reach you on WhatsApp the moment your area has enough drivers to answer and enough counters worth opening.</p>
           </div>`;
         } catch (err) {
-          msg.textContent = err.message || 'Could not save — check your connection and try again.';
+          msg.textContent = err.message || 'Could not save. Check your connection and try again.';
           if (btn) { btn.disabled = false; btn.textContent = label; }
         }
       });
@@ -1400,6 +1406,19 @@ class Component extends DCLogic {
 
 
 new Component({ tiltStrength: 26, idleSpin: 24, repelRadius: 400, bubbleInterval: 420 }).componentDidMount();
+</script>
+<script>
+// The fixed header has no background of its own, so section headings used to
+// slide underneath it and collide with the logo. Give it a solid backdrop as
+// soon as the top of the page leaves the screen.
+(function () {
+  var header = document.querySelector('.header');
+  var sentinel = document.getElementById('top-sentinel');
+  if (!header || !sentinel || !('IntersectionObserver' in window)) return;
+  new IntersectionObserver(function (entries) {
+    header.classList.toggle('scrolled', !entries[0].isIntersecting);
+  }).observe(sentinel);
+})();
 </script>
 </body>
 </html>
