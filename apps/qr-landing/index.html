@@ -665,6 +665,7 @@ const ROLE_INFO = {
   },
   partner: {
     label: 'G-Partner', value: 'G-Partner (merchant)', accent: '#f0abfc', tint: 'rgba(240,171,252,',
+    signupHref: '/merchant-onboard', signupLabel: 'Register your store now',
     eyebrow: 'For shops & counters',
     head: 'Your counter starts earning.',
     lede: 'A puck on your counter turns your shop into a taxi stand and a storefront at the same time — and you get paid for the traffic you already have.',
@@ -758,6 +759,7 @@ const rolePanelHTML = (r) => `
         ${r.tiers.map((t, i) => `<span style="padding:.4rem .85rem;border-radius:100px;font-size:.8rem;${i === r.tiers.length - 1 ? `background:${r.accent};color:#04030a;font-weight:700` : 'border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.8)'}">${t}</span>`).join('')}
       </div>
     </div>
+    ${r.signupHref ? `<a href="${r.signupHref}" style="display:inline-flex;align-items:center;gap:.6rem;margin-top:1.6rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;text-decoration:none;padding:1rem 1.6rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:800;font-size:.95rem">${r.signupLabel || 'Sign up'}</a>` : ''}
     ${roleFormHTML(r)}`;
 
 const PANELS = {
