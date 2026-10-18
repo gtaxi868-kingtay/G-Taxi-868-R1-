@@ -24,7 +24,7 @@ type DashboardNavProp = NativeStackNavigationProp<AppStackParamList, 'Dashboard'
 
 interface KioskNode {
   id: string;
-  tag_uid: string;
+  tag_uid: string | null; // NULL until a physical tag is provisioned
   merchant_id: string | null;
   location_name: string;
   lat: number | null;
@@ -174,7 +174,9 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.meta}>{item.tag_uid.slice(0, 12)}...</Text>
+          {/* No live node has a physical tag yet (tag_uid is NULL), and
+              .slice on null crashed the whole dashboard on first open. */}
+          <Text style={styles.meta}>{item.tag_uid ? `${item.tag_uid.slice(0, 12)}...` : 'No tag yet'}</Text>
           {item.lat && item.lng ? (
             <Text style={styles.meta}>{item.lat.toFixed(4)}, {item.lng.toFixed(4)}</Text>
           ) : null}

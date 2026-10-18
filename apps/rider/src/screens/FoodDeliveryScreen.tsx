@@ -145,9 +145,11 @@ export function FoodDeliveryScreen({ navigation }: any) {
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase();
             list = list.filter(r =>
-                r.name.toLowerCase().includes(q) ||
-                r.address.toLowerCase().includes(q) ||
-                r.category.toLowerCase().includes(q)
+                // address (and possibly others) can be NULL on live shops;
+                // calling toLowerCase on null crashed the search box.
+                (r.name || '').toLowerCase().includes(q) ||
+                (r.address || '').toLowerCase().includes(q) ||
+                (r.category || '').toLowerCase().includes(q)
             );
         }
         return list;
