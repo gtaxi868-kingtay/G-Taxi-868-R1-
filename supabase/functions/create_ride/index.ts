@@ -485,14 +485,12 @@ serve(async (req: Request) => {
             event_id: event_id || null,
         };
 
-        const { data: identityPayload, error: identityError } = body.identity_verified
-            ? { data: { identity_verified: true, verification_url: body.verification_url }, error: null }
-            : { data: null, error: null };
-
-        if (identityPayload) {
-            metadataWithIdentity.identity_verified = identityPayload.identity_verified;
-            metadataWithIdentity.verification_url = identityPayload.verification_url;
-        }
+        // What the driver is told comes from this function's own evidence
+        // (the rider's stored photos, checked above), never from the app's
+        // identity_verified flag. It means "a photo of the booker is on file",
+        // not a face or ID match, and is labelled that way in the driver app.
+        metadataWithIdentity.selfie_photo_on_file = hasPriorSelfie;
+        metadataWithIdentity.selfie_fresh = hasFreshSelfie;
 
         const flags: Record<string, unknown> = {};
         if (body.flagged_location_drift) {

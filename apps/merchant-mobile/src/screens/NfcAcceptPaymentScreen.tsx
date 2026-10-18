@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  useWindowDimensions, ScrollView, ActivityIndicator, Alert, Platform,
+  useWindowDimensions, ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +17,21 @@ import type { AppScreenProps } from '../navigation/types';
 const { supabase } = initializeSupabaseClient('native');
 
 type ScanMode = 'nfc' | 'qr' | 'manual';
-type Phase = 'scan' | 'confirm' | 'processing' | 'success';
+type Phase = 'scan' | 'confirm' | 'review' | 'processing' | 'success';
+
+// The amount box is labelled in TT dollars, so read it as dollars and cents:
+// "10" is TT$10.00 and "10.5" is TT$10.50. It used to read every digit as
+// cents, so typing "10" charged TT$0.10 (code review 2026-10-18).
+// Returns null when the text is not a valid amount.
+export function parseTtdToCents(text: string): number | null {
+  const t = text.replace(/[,\s]/g, '');
+  if (!/^\d+(\.\d{0,2})?$/.test(t) && !/^\.\d{1,2}$/.test(t)) return null;
+  const [whole, frac = ''] = t.split('.');
+  const cents = parseInt(whole || '0', 10) * 100 + parseInt((frac + '00').slice(0, 2), 10);
+  return Number.isSafeInteger(cents) ? cents : null;
+}
+
+const ttd = (cents: number) => `TT$${(cents / 100).toFixed(2)}`;
 
 export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAcceptPayment'>) {
   const insets = useSafeAreaInsets();
@@ -110,22 +124,39 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
   }, [manualTag, resolveTag]);
 
   const handleAmountChange = useCallback((text: string) => {
-    setAmountText(text);
-    const cleaned = text.replace(/[^0-9]/g, '');
-    if (cleaned) {
-      setAmountCents(parseInt(cleaned, 10));
-    } else {
-      setAmountCents(0);
+    // Keep only digits and one decimal point, at most 2 digits after it.
+    let cleaned = text.replace(/[^0-9.]/g, '');
+    const firstDot = cleaned.indexOf('.');
+    if (firstDot !== -1) {
+      cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '').slice(0, 2);
     }
+    setAmountText(cleaned);
+    setAmountCents(parseTtdToCents(cleaned) ?? 0);
   }, []);
 
-  const handleCharge = useCallback(async () => {
+  // Step 1: check the amount, then show a review screen. No money moves here.
+  const handleReview = useCallback(() => {
+    setError(null);
+    if (parseTtdToCents(amountText) === null || amountCents <= 0) {
+      setError('Enter an amount in TT dollars, for example 25 or 25.50.');
+      return;
+    }
     if (amountCents < 100) {
-      Alert.alert('Minimum Amount', 'Minimum charge is TTD $1.00');
+      setError('The smallest charge is TT$1.00.');
       return;
     }
     if (amountCents > riderBalanceCents) {
-      Alert.alert('Insufficient Balance', `${riderName} only has TTD $${(riderBalanceCents / 100).toFixed(2)} available.`);
+      setError(`${riderName} only has ${ttd(riderBalanceCents)} in their wallet.`);
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPhase('review');
+  }, [amountText, amountCents, riderBalanceCents, riderName]);
+
+  // Step 2: the merchant confirmed the exact amount on the review screen.
+  const handleCharge = useCallback(async () => {
+    if (amountCents < 100 || amountCents > riderBalanceCents) {
+      setPhase('confirm');
       return;
     }
     setPhase('processing');
@@ -177,7 +208,32 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
         <View style={s.centerContent}>
           <ActivityIndicator size="large" color={VOICES.merchant.accent} />
           <Text style={s.processingText}>Processing payment...</Text>
-          <Text style={s.processingSubtext}>TTD ${(amountCents / 100).toFixed(2)} to {riderName}</Text>
+          <Text style={s.processingSubtext}>{ttd(amountCents)} from {riderName}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (phase === 'review') {
+    return (
+      <View style={[s.container, { paddingTop: insets.top }]}>
+        <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+        <View style={s.centerContent}>
+          <Text style={s.inputLabel}>CHECK BEFORE YOU CHARGE</Text>
+          <Text style={s.successAmount}>{ttd(amountCents)}</Text>
+          <Text style={s.successRider}>from {riderName}'s G-Coin wallet</Text>
+          <View style={s.balanceRow}>
+            <Text style={s.balanceLabel}>Their balance after:</Text>
+            <Text style={s.balanceValue}>{ttd(riderBalanceCents - amountCents)}</Text>
+          </View>
+          <TouchableOpacity style={s.doneBtn} onPress={handleCharge} activeOpacity={0.85}
+            accessibilityRole="button" accessibilityLabel={`Yes, charge ${ttd(amountCents)}`}>
+            <Text style={s.doneBtnText}>YES, CHARGE {ttd(amountCents)}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.backBtn} onPress={() => setPhase('confirm')} activeOpacity={0.85}
+            accessibilityRole="button">
+            <Text style={s.backBtnText}>CHANGE AMOUNT</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -366,7 +422,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
                 <Text style={s.riderLabel}>RIDER</Text>
                 <Text style={s.riderNameValue}>{riderName}</Text>
                 <Text style={s.riderBalance}>
-                  Wallet: TTD ${(riderBalanceCents / 100).toFixed(2)}
+                  Wallet: {ttd(riderBalanceCents)}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => { setPhase('scan'); resetQrScan(); }} style={s.changeTagBtn}>
@@ -384,18 +440,20 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
                   placeholderTextColor="rgba(255,255,255,0.2)"
                   value={amountText}
                   onChangeText={handleAmountChange}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   autoFocus
                 />
               </View>
               {amountCents > 0 && (
                 <Text style={[
                   s.balanceHint,
-                  amountCents > riderBalanceCents && s.balanceHintError,
+                  (amountCents > riderBalanceCents || amountCents < 100) && s.balanceHintError,
                 ]}>
                   {amountCents > riderBalanceCents
-                    ? 'Exceeds rider balance'
-                    : `Rider will have TTD $${((riderBalanceCents - amountCents) / 100).toFixed(2)} remaining`
+                    ? 'More than the rider has in their wallet'
+                    : amountCents < 100
+                      ? 'The smallest charge is TT$1.00'
+                      : `Rider will have ${ttd(riderBalanceCents - amountCents)} left`
                   }
                 </Text>
               )}
@@ -404,17 +462,13 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
 
               <TouchableOpacity
                 style={[s.chargeBtn, (amountCents < 100 || amountCents > riderBalanceCents) && s.btnDisabled]}
-                onPress={handleCharge}
+                onPress={handleReview}
                 disabled={amountCents < 100 || amountCents > riderBalanceCents || loading}
                 activeOpacity={0.85}
               >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#0A0F0E" />
-                ) : (
-                  <Text style={s.chargeBtnText}>
-                    CHARGE TTD ${(amountCents / 100).toFixed(2)}
-                  </Text>
-                )}
+                <Text style={s.chargeBtnText}>
+                  REVIEW CHARGE {ttd(amountCents)}
+                </Text>
               </TouchableOpacity>
             </View>
           </>
