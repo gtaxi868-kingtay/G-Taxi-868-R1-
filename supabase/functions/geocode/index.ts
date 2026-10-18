@@ -28,6 +28,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { secureFetch } from "../_shared/networkUtility.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -89,8 +90,45 @@ async function mapboxSearch(query: string, lat?: number, lng?: number, limit = 6
     }
 }
 
-// Google Places Text Search, biased to the rider's position and limited to
-// Trinidad and Tobago. Returns [] on any failure so it can never break search.
+// Every Google call is billed, so it sits behind three limits (code review
+// 2026-10-18): the shared per-user geocode limit on every text search, a
+// per-user daily Google allowance, and a whole-project daily Google cap
+// (GOOGLE_PLACES_DAILY_CAP, default 300). Past either Google limit, search
+// quietly falls back to Mapbox. Repeat searches are answered from a short
+// in-memory cache and never reach Google.
+const GOOGLE_DAILY_CAP = Number(Deno.env.get("GOOGLE_PLACES_DAILY_CAP") || "300");
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_MAX = 500;
+const placesCache = new Map<string, { at: number; results: PinnedResult[] }>();
+
+// Only .rpc() is used; typed structurally so any supabase-js version fits
+// (same approach as _shared/rateLimit.ts).
+type RpcClient = {
+    rpc(fn: string, params?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>;
+};
+
+const inTT = (la: number, ln: number) => la >= 9.95 && la <= 11.40 && ln >= -61.95 && ln <= -60.45;
+
+async function googleAllowed(admin: RpcClient, userId: string): Promise<boolean> {
+    try {
+        const user = await checkRateLimit(admin, `google_places_user_${userId}`, "geocode_google_user");
+        if (!user.allowed) return false;
+        const project = await admin.rpc("check_rate_limit", {
+            p_user_id: "00000000-0000-4000-8000-000000000868",
+            p_endpoint: "geocode_google_project",
+            p_max_requests: GOOGLE_DAILY_CAP,
+            p_window_seconds: 86400,
+        });
+        return !project.error && project.data === true;
+    } catch {
+        return false;
+    }
+}
+
+// Google Places Text Search for Trinidad and Tobago. With the rider's
+// position it ranks nearby places first (locationBias; the API allows bias
+// OR restriction, not both), and results outside T&T are dropped in code.
+// Returns [] on any failure so it can never break search.
 async function googleSearch(query: string, lat?: number, lng?: number, limit = 6): Promise<PinnedResult[]> {
     if (!GOOGLE_PLACES_KEY || !query) return [];
     try {
@@ -98,9 +136,12 @@ async function googleSearch(query: string, lat?: number, lng?: number, limit = 6
             textQuery: query,
             regionCode: "TT",
             maxResultCount: Math.min(Math.max(limit, 1), 20),
-            locationRestriction: { rectangle: { low: { latitude: 9.95, longitude: -61.95 }, high: { latitude: 11.40, longitude: -60.45 } } },
         };
-        if (typeof lat === "number" && typeof lng === "number") body.rankPreference = "RELEVANCE";
+        if (typeof lat === "number" && typeof lng === "number" && inTT(lat, lng)) {
+            body.locationBias = { circle: { center: { latitude: lat, longitude: lng }, radius: 50000 } };
+        } else {
+            body.locationRestriction = { rectangle: { low: { latitude: 9.95, longitude: -61.95 }, high: { latitude: 11.40, longitude: -60.45 } } };
+        }
         const res = await secureFetch("https://places.googleapis.com/v1/places:searchText", {
             method: "POST",
             headers: {
@@ -117,7 +158,7 @@ async function googleSearch(query: string, lat?: number, lng?: number, limit = 6
         const json = await res.json();
         const places = Array.isArray(json?.places) ? json.places : [];
         return places
-            .filter((p: any) => typeof p?.location?.latitude === "number")
+            .filter((p: any) => typeof p?.location?.latitude === "number" && inTT(p.location.latitude, p.location.longitude))
             .map((p: any) => ({
                 id: "google_" + p.id,
                 name: (p.displayName?.text as string) || query,
@@ -133,12 +174,29 @@ async function googleSearch(query: string, lat?: number, lng?: number, limit = 6
     }
 }
 
-// Best available provider first: Google when configured, Mapbox otherwise or
-// when Google returns nothing.
-async function placesSearch(query: string, lat?: number, lng?: number, limit = 6): Promise<PinnedResult[]> {
-    const google = await googleSearch(query, lat, lng, limit);
-    if (google.length > 0) return google;
-    return mapboxSearch(query, lat, lng, limit);
+// Best available provider first: Google when configured and within its
+// limits, Mapbox otherwise or when Google returns nothing. Results are cached
+// per query and rough area (~1 km) for 10 minutes.
+async function placesSearch(
+    admin: RpcClient, userId: string,
+    query: string, lat?: number, lng?: number, limit = 6,
+): Promise<PinnedResult[]> {
+    const hasPos = typeof lat === "number" && typeof lng === "number";
+    const key = `${query.toLowerCase().replace(/\s+/g, " ").trim()}|${limit}|${hasPos ? `${lat!.toFixed(2)},${lng!.toFixed(2)}` : "-"}`;
+    const hit = placesCache.get(key);
+    if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.results;
+
+    let results: PinnedResult[] = [];
+    if (GOOGLE_PLACES_KEY && await googleAllowed(admin, userId)) {
+        results = await googleSearch(query, lat, lng, limit);
+    }
+    if (results.length === 0) results = await mapboxSearch(query, lat, lng, limit);
+
+    if (results.length > 0) {
+        if (placesCache.size >= CACHE_MAX) placesCache.delete(placesCache.keys().next().value!);
+        placesCache.set(key, { at: Date.now(), results });
+    }
+    return results;
 }
 
 serve(async (req: Request) => {
@@ -171,6 +229,19 @@ serve(async (req: Request) => {
 
         const { query, limit = 20, lat, lng, address } = body;
         const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const hasQuery = typeof query === "string" && query.trim().length > 0;
+
+        // Text searches and address lookups reach paid map providers, so they
+        // count against the shared geocode limit (20 a minute per user).
+        if (hasQuery || (typeof address === "string" && address.trim())) {
+            const limited = await checkRateLimit(adminClient, user.id, "geocode");
+            if (!limited.allowed) {
+                return new Response(
+                    JSON.stringify({ success: false, error: "Too many searches. Wait a moment and try again.", data: [] }),
+                    { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+        }
 
         // Single-address lookup: HomeScreen's "Save Home/Work" sends
         // { address } and reads latitude/longitude off the top of the
@@ -178,7 +249,7 @@ serve(async (req: Request) => {
         // to the "no query" branch and returned a pin list -- so saving a place
         // ALWAYS showed "Could not find address" (verified 2026-10-15).
         if (typeof address === "string" && address.trim() && !query) {
-            const [best] = await placesSearch(address.trim(), undefined, undefined, 1);
+            const [best] = await placesSearch(adminClient, user.id, address.trim(), undefined, undefined, 1);
             if (!best) {
                 return new Response(
                     JSON.stringify({ success: false, error: "Address not found", data: [] }),
@@ -198,8 +269,9 @@ serve(async (req: Request) => {
             );
         }
 
-        // If lat/lng provided, return nearest verified pins sorted by distance
-        if (lat && lng && typeof lat === 'number' && typeof lng === 'number') {
+        // Position only (no text): return nearest verified pins sorted by
+        // distance. With text, the position is used to rank results instead.
+        if (!hasQuery && lat && lng && typeof lat === 'number' && typeof lng === 'number') {
             const { data: nearbyPins } = await adminClient
                 .rpc('nearest_verified_pin', {
                     p_lat: lat,
@@ -316,7 +388,8 @@ serve(async (req: Request) => {
         // now since verified pins and Mapbox results are visually labeled
         // (`source`) and a rider can tell them apart in the list.
         const verifiedCombined = [...formattedMerchants, ...formattedLocations];
-        const mapboxResults = await placesSearch(sanitizedQuery, lat, lng, limit);
+        const mapboxResults = await placesSearch(adminClient, user.id, sanitizedQuery,
+            typeof lat === 'number' ? lat : undefined, typeof lng === 'number' ? lng : undefined, limit);
         const combined = [...verifiedCombined, ...mapboxResults];
 
         return new Response(

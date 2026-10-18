@@ -125,6 +125,11 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     // is on screen before the server even answers.
     const [sosPanel, setSosPanel] = useState<{ guardianPhone: string | null } | null>(null);
     const [reasonOpen, setReasonOpen] = useState(false);
+    // iOS will not present a Modal while an Alert is still animating closed,
+    // and will drop an Alert shown while a Modal is closing. Each waits for
+    // the other to finish (code review 2026-10-18).
+    const UI_SETTLE_MS = 400;
+    const openReasonSheet = () => setTimeout(() => setReasonOpen(true), UI_SETTLE_MS);
     const [aiInsight, setAiInsight] = useState<string | null>("I'm monitoring your ride security and wait-time.");
     const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true);
     const [musicModalVisible, setMusicModalVisible] = useState(false);
@@ -337,7 +342,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                     : "Your driver has been on the way for over 10 minutes.\nA TTD 5.00 cancellation fee will be charged and paid to the driver.",
                 [
                     { text: "Keep My Ride", style: "cancel" },
-                    { text: "Cancel Anyway", style: "destructive", onPress: () => setReasonOpen(true) }
+                    { text: "Cancel Anyway", style: "destructive", onPress: openReasonSheet }
                 ]
             );
         } else if (ride?.status === 'assigned') {
@@ -347,7 +352,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                 `Your driver is on the way. Cancelling is free for about ${freeMins} more minute${freeMins === 1 ? '' : 's'}, or until they arrive.`,
                 [
                     { text: "Keep My Ride", style: "cancel" },
-                    { text: "Cancel for free", style: "destructive", onPress: () => setReasonOpen(true) }
+                    { text: "Cancel for free", style: "destructive", onPress: openReasonSheet }
                 ]
             );
         } else {
@@ -356,7 +361,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                 "Are you sure you want to cancel?",
                 [
                     { text: "No", style: "cancel" },
-                    { text: "Yes, Cancel", style: "destructive", onPress: () => setReasonOpen(true) }
+                    { text: "Yes, Cancel", style: "destructive", onPress: openReasonSheet }
                 ]
             );
         }
@@ -371,11 +376,11 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
             if (error) throw error;
 
-            Alert.alert("Ride Cancelled", "Your ride has been cancelled.");
             navigation.replace('Home');
+            setTimeout(() => Alert.alert("Ride Cancelled", "Your ride has been cancelled."), UI_SETTLE_MS);
         } catch (err) {
             console.error('Cancel failed:', err);
-            Alert.alert("Error", "Could not cancel ride. Please try again.");
+            setTimeout(() => Alert.alert("Error", "Could not cancel ride. Please try again."), UI_SETTLE_MS);
         }
     };
 

@@ -102,8 +102,11 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
     const runSearch = async (val: string) => {
         const reqId = ++reqIdRef.current;
         try {
+            // Send the rider's position so nearby matches come first.
+            const near = currentLocation && typeof currentLocation.latitude === 'number' && typeof currentLocation.longitude === 'number'
+                ? { lat: currentLocation.latitude, lng: currentLocation.longitude } : {};
             const { data, error: gErr } = await supabase.functions.invoke('geocode', {
-                body: { query: val, limit: 10 },
+                body: { query: val, limit: 10, ...near },
             });
             if (reqId !== reqIdRef.current) return; // a newer keystroke superseded this one
             if (gErr) throw gErr;
