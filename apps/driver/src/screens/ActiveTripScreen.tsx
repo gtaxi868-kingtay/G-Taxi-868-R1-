@@ -396,7 +396,9 @@ export function ActiveTripScreen({ route, navigation }: any) {
         const dest = ride?.status === 'assigned' ? `${ride?.pickup_lat},${ride?.pickup_lng}` : `${ride?.dropoff_lat},${ride?.dropoff_lng}`;
         Alert.alert('Navigation', 'Choose your navigation app', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Waze', onPress: () => { Linking.openURL(`waze://?ll=${dest}&navigate=yes`).catch(() => { Alert.alert('Error', 'Waze is not installed.'); }); }},
+            // Waze's universal link opens the Waze app when installed and Waze in
+            // the browser otherwise (the old waze:// link failed without the app).
+            { text: 'Waze', onPress: () => { Linking.openURL(`https://waze.com/ul?ll=${dest}&navigate=yes`).catch(() => { Alert.alert('Error', 'Could not open Waze.'); }); }},
             { text: 'Google / Apple Maps', onPress: () => { const url = Platform.select({ ios: `maps://app?daddr=${dest}`, android: `google.navigation:q=${dest}` }); if (url) Linking.openURL(url); }}
         ]);
     };

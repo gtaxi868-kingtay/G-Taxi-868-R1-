@@ -189,7 +189,7 @@
 
         <div id="formState" class="hidden">
             <div class="invite-banner rise">
-                <div class="label">Registering</div>
+                <div class="label" id="inviteLabel">Registering</div>
                 <div class="name" id="inviteLocationName">—</div>
                 <div class="addr" id="inviteAddress">—</div>
             </div>
@@ -217,6 +217,10 @@
                 <div class="field-group">
                     <label>Password</label>
                     <input id="fPassword" type="password" placeholder="At least 8 characters">
+                </div>
+                <div class="field-group">
+                    <label id="fPhoneLabel">WhatsApp Number (optional)</label>
+                    <input id="fPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. 868 712 3456">
                 </div>
                 <input id="fWebsite" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
 
@@ -325,6 +329,12 @@
                     err.classList.remove('hidden');
                     return;
                 }
+                const phoneDigits = document.getElementById('fPhone').value.replace(/\D/g, '');
+                if (!inviteToken && phoneDigits.length < 7) {
+                    err.textContent = 'Add a WhatsApp number so G-Taxi HQ can reach you about your store.';
+                    err.classList.remove('hidden');
+                    return;
+                }
                 err.classList.add('hidden');
             }
             if (step === 3) buildSummary();
@@ -343,6 +353,7 @@
             const rows = [
                 ['Business', document.getElementById('fBusinessName').value.trim()],
                 ['Email', document.getElementById('fEmail').value.trim()],
+                ['WhatsApp', document.getElementById('fPhone').value.trim() || 'Not provided'],
                 ['Bank', document.getElementById('fBankName').value.trim() || 'Not provided'],
             ];
             document.getElementById('summaryBlock').innerHTML = rows.map(([k, v]) =>
@@ -368,7 +379,8 @@
                         email: document.getElementById('fEmail').value.trim(),
                         password: document.getElementById('fPassword').value,
                         full_name: document.getElementById('fBusinessName').value.trim(),
-                        invite_token: inviteToken,
+                        phone: document.getElementById('fPhone').value.trim() || undefined,
+                        invite_token: inviteToken || undefined,
                         bank_name: document.getElementById('fBankName').value.trim() || undefined,
                         account_holder: document.getElementById('fAccountHolder').value.trim() || undefined,
                         account_number: document.getElementById('fAccountNumber').value.trim() || undefined,
@@ -395,7 +407,19 @@
 
         async function loadInvite() {
             if (!inviteToken) {
-                showInviteError('This link is missing an invite code.');
+                // Open sign-up: a shop that found us on the site registers
+                // directly. Same review as an invite: the store stays inactive
+                // until G-Taxi HQ approves it. An invite link additionally ties
+                // the store to the counter tag a G-Lead registered.
+                document.getElementById('inviteLabel').textContent = 'New G-Partner';
+                document.getElementById('inviteLocationName').textContent = 'Register your store';
+                document.getElementById('inviteAddress').textContent = 'G-Taxi HQ reviews every store before it goes live.';
+                document.getElementById('fPhoneLabel').textContent = 'WhatsApp Number';
+                document.getElementById('successNote').textContent =
+                    'G-Taxi HQ reviews new stores before they go live. We will contact you on WhatsApp to set up your counter tag.';
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('formState').classList.remove('hidden');
+                setStepUI(1);
                 return;
             }
             try {

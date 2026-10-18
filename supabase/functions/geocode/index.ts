@@ -32,6 +32,10 @@ import { secureFetch } from "../_shared/networkUtility.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MAPBOX_TOKEN = Deno.env.get("MAPBOX_ACCESS_TOKEN") || Deno.env.get("MAPBOX_PUBLIC_TOKEN") || "";
+// Google Places (New), server key. Optional: without it search uses Mapbox
+// only. Tested 2026-10-18: Mapbox found 3 of 8 common T&T places (towns
+// only; missed Maraval, Trincity Mall, Piarco Airport, UWI).
+const GOOGLE_PLACES_KEY = Deno.env.get("GOOGLE_PLACES_API_KEY") || "";
 // Covers BOTH islands. The old box stopped at latitude 10.84, which is
 // north of Trinidad but south of Tobago (Scarborough is ~11.19), so every
 // Tobago address was silently dropped from search (verified 2026-10-15).
@@ -49,7 +53,7 @@ interface PinnedResult {
     latitude: number;
     longitude: number;
     category: string;
-    source?: "verified_pins" | "mapbox";
+    source?: "verified_pins" | "mapbox" | "google";
 }
 
 // Real street/address/POI matches from Mapbox, bounded to T&T. Graceful
@@ -83,6 +87,58 @@ async function mapboxSearch(query: string, lat?: number, lng?: number, limit = 6
         console.error("[geocode] Mapbox search failed (non-fatal):", err);
         return [];
     }
+}
+
+// Google Places Text Search, biased to the rider's position and limited to
+// Trinidad and Tobago. Returns [] on any failure so it can never break search.
+async function googleSearch(query: string, lat?: number, lng?: number, limit = 6): Promise<PinnedResult[]> {
+    if (!GOOGLE_PLACES_KEY || !query) return [];
+    try {
+        const body: Record<string, unknown> = {
+            textQuery: query,
+            regionCode: "TT",
+            maxResultCount: Math.min(Math.max(limit, 1), 20),
+            locationRestriction: { rectangle: { low: { latitude: 9.95, longitude: -61.95 }, high: { latitude: 11.40, longitude: -60.45 } } },
+        };
+        if (typeof lat === "number" && typeof lng === "number") body.rankPreference = "RELEVANCE";
+        const res = await secureFetch("https://places.googleapis.com/v1/places:searchText", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": GOOGLE_PLACES_KEY,
+                "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.primaryType",
+            },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            console.error("[geocode] Google Places HTTP", res.status);
+            return [];
+        }
+        const json = await res.json();
+        const places = Array.isArray(json?.places) ? json.places : [];
+        return places
+            .filter((p: any) => typeof p?.location?.latitude === "number")
+            .map((p: any) => ({
+                id: "google_" + p.id,
+                name: (p.displayName?.text as string) || query,
+                address: (p.formattedAddress as string) || (p.displayName?.text as string) || query,
+                latitude: p.location.latitude,
+                longitude: p.location.longitude,
+                category: (p.primaryType as string) || "place",
+                source: "google" as const,
+            }));
+    } catch (err) {
+        console.error("[geocode] Google Places search failed (non-fatal):", err);
+        return [];
+    }
+}
+
+// Best available provider first: Google when configured, Mapbox otherwise or
+// when Google returns nothing.
+async function placesSearch(query: string, lat?: number, lng?: number, limit = 6): Promise<PinnedResult[]> {
+    const google = await googleSearch(query, lat, lng, limit);
+    if (google.length > 0) return google;
+    return mapboxSearch(query, lat, lng, limit);
 }
 
 serve(async (req: Request) => {
@@ -122,7 +178,7 @@ serve(async (req: Request) => {
         // to the "no query" branch and returned a pin list -- so saving a place
         // ALWAYS showed "Could not find address" (verified 2026-10-15).
         if (typeof address === "string" && address.trim() && !query) {
-            const [best] = await mapboxSearch(address.trim(), undefined, undefined, 1);
+            const [best] = await placesSearch(address.trim(), undefined, undefined, 1);
             if (!best) {
                 return new Response(
                     JSON.stringify({ success: false, error: "Address not found", data: [] }),
@@ -136,7 +192,7 @@ serve(async (req: Request) => {
                     longitude: best.longitude,
                     address: best.address,
                     data: [best],
-                    source: "mapbox",
+                    source: best.source ?? "mapbox",
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
@@ -260,14 +316,14 @@ serve(async (req: Request) => {
         // now since verified pins and Mapbox results are visually labeled
         // (`source`) and a rider can tell them apart in the list.
         const verifiedCombined = [...formattedMerchants, ...formattedLocations];
-        const mapboxResults = await mapboxSearch(sanitizedQuery, lat, lng, limit);
+        const mapboxResults = await placesSearch(sanitizedQuery, lat, lng, limit);
         const combined = [...verifiedCombined, ...mapboxResults];
 
         return new Response(
             JSON.stringify({
                 success: true,
                 data: combined.slice(0, limit),
-                source: mapboxResults.length ? "verified_pins+mapbox" : "verified_pins",
+                source: mapboxResults.length ? `verified_pins+${mapboxResults[0].source ?? "mapbox"}` : "verified_pins",
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
