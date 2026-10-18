@@ -34,6 +34,15 @@
 
 ---
 
+## LAUNCH FREEZE (founder decision, 2026-10-18)
+
+Scope is frozen until every row in `docs/launch-checklist.md` has a PASS
+from a real person on a real phone. Before building anything, check that
+page: if the work does not fix a checklist failure, add it to "Later" there
+and ask the founder before starting it.
+
+---
+
 ## WHAT THIS SYSTEM IS
 
 A multi-vertical platform for Trinidad and Tobago, ride-hailing at its core.
