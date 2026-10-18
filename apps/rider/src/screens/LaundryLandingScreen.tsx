@@ -108,7 +108,8 @@ export function LaundryLandingScreen({ navigation }: any) {
         >
             <View style={[StyleSheet.absoluteFillObject, glassSurface(20, 0.2)]} />
             <Text style={s.mName}>{item.name}</Text>
-            <Text style={s.mSub}>{item.address.split(',')[0]}</Text>
+            {/* merchants.address is NULL on most live shops; .split on null crashed this list. */}
+            <Text style={s.mSub}>{item.address ? item.address.split(',')[0] : 'Address coming soon'}</Text>
             {selectedMerchant?.id === item.id && <Ionicons name="checkmark-circle" size={16} color={CYAN} style={s.mCheck} />}
         </TouchableOpacity>
     );

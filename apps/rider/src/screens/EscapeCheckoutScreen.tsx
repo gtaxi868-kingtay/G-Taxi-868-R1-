@@ -195,7 +195,7 @@ export default function EscapeCheckoutScreen() {
           <Text style={styles.sectionTitle}>WHAT YOU GET</Text>
 
           <Row icon="car-outline" label="Transfer to Piarco (Trinidad)" value={fmt(breakdown.driver_origin_cost_cents)} />
-          <Row icon="airplane-outline" label={`Flight POS ⇄ ${breakdown.destination_name.split(' ')[0]}`} value={fmt(breakdown.flight_cost_per_person_cents)} />
+          <Row icon="airplane-outline" label={`Flight POS ⇄ ${(breakdown.destination_name || 'destination').split(' ')[0]}`} value={fmt(breakdown.flight_cost_per_person_cents)} />
           <Row icon="car-outline" label={`${breakdown.destination_name} villa transfer`} value={fmt(breakdown.driver_destination_cost_cents)} />
           <Row icon="home-outline" label={`${breakdown.nights}-night villa stay`} value={fmt(breakdown.lodging_cost_per_person_cents)} />
 
