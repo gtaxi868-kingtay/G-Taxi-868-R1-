@@ -7,9 +7,85 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:981047346046:android:562e43d58e163bd39e692f",
+        "mobilesdk_app_id": "1:981047346046:android:e657aabbf41fa7bd9e692f",
+        "android_client_info": {
+          "package_name": "com.gtaxi.admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9g2wY_wRM19Ojw75kiceqLANXkHM6FtI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981047346046:android:4c43b6c51c3925459e692f",
+        "android_client_info": {
+          "package_name": "com.gtaxi.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9g2wY_wRM19Ojw75kiceqLANXkHM6FtI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981047346046:android:62452485e658aece9e692f",
+        "android_client_info": {
+          "package_name": "com.gtaxi.merchant"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9g2wY_wRM19Ojw75kiceqLANXkHM6FtI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981047346046:android:a6aaabdeb12672859e692f",
         "android_client_info": {
           "package_name": "com.gtaxi.rider"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9g2wY_wRM19Ojw75kiceqLANXkHM6FtI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:981047346046:android:562e43d58e163bd39e692f",
+        "android_client_info": {
+          "package_name": "g_taxi_868.gtaxi.com"
         }
       },
       "oauth_client": [],

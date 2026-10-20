@@ -36,6 +36,9 @@ export default {
         backgroundColor: "#05050A",
       },
       package: "com.gtaxi.driver",
+      // Android push (Expo push tokens go through FCM). Without this the app
+      // could never get a push token, so no notification or SOS reached it.
+      googleServicesFile: "./google-services.json",
       permissions: [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
