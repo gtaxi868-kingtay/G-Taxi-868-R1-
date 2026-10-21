@@ -997,11 +997,22 @@ Deno.serve(async (req) => {
       case 'issue_identity_tag': {
         const { tag_uid, profile_id, replace_existing } = body
         if (!tag_uid || !profile_id) return json({ success: false, error: 'tag_uid and profile_id required' }, 400)
+        // RIDER (pays, identifies) or DRIVER (a driver's own fob; founder
+        // 2026-10-21). MERCHANT is allowed by the table but not issued here.
+        const tagType = body.tag_type === 'DRIVER' ? 'DRIVER' : 'RIDER'
 
         const { data: profile, error: profileErr } = await supabaseAdmin
           .from('profiles').select('id, full_name').eq('id', profile_id).maybeSingle()
         if (profileErr) throw profileErr
         if (!profile) return json({ success: false, error: 'No profile found for that user' }, 404)
+        if (tagType === 'DRIVER') {
+          const { data: driverRow, error: driverErr } = await supabaseAdmin
+            .from('drivers').select('id').eq('user_id', profile_id).maybeSingle()
+          if (driverErr) throw driverErr
+          if (!driverRow) {
+            return json({ success: false, error: `${profile.full_name || 'This person'} is not a registered driver. Choose "Rider" or pick a driver.` }, 409)
+          }
+        }
 
         // A physical tag already bound to someone else must be explicitly
         // deactivated first, never silently reassigned -- that would let a
@@ -1031,10 +1042,10 @@ Deno.serve(async (req) => {
 
         const { data, error } = existingTag
           ? await supabaseAdmin.from('identity_tags')
-              .update({ profile_id, is_active: true, tag_type: 'RIDER' })
+              .update({ profile_id, is_active: true, tag_type: tagType })
               .eq('id', existingTag.id).select().single()
           : await supabaseAdmin.from('identity_tags')
-              .insert({ tag_uid, profile_id, tag_type: 'RIDER', is_active: true })
+              .insert({ tag_uid, profile_id, tag_type: tagType, is_active: true })
               .select().single()
         if (error) throw error
         return json({ success: true, tag: data, rider_name: profile.full_name })
@@ -1044,7 +1055,7 @@ Deno.serve(async (req) => {
         const q = String(body.q || '').trim()
         if (q.length < 2) return json({ success: true, riders: [] })
         const { data, error } = await supabaseAdmin
-          .from('profiles').select('id, full_name, email, phone_number')
+          .from('profiles').select('id, full_name, email, phone_number, role')
           .or(`full_name.ilike.%${q}%,phone_number.ilike.%${q}%,email.ilike.%${q}%`)
           .limit(10)
         if (error) throw error

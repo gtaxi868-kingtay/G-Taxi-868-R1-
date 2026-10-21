@@ -26,7 +26,14 @@ interface Rider {
   full_name: string | null;
   email: string | null;
   phone_number: string | null;
+  role?: string | null;
 }
+
+// Whose keychain is this? A rider's fob pays and identifies them; a driver's
+// fob is theirs to tap so a rider can pick up their code (founder,
+// 2026-10-21). Stored as identity_tags.tag_type RIDER | DRIVER.
+type KeychainType = 'RIDER' | 'DRIVER';
+const TYPE_LABEL: Record<KeychainType, string> = { RIDER: 'Rider', DRIVER: 'Driver' };
 
 // Writes the other half of what merchant_nfc_charge / rider_nfc_pay have
 // been able to read all along: an identity_tags row binding one physical
@@ -47,6 +54,8 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
   const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [keychainType, setKeychainType] = useState<KeychainType>('RIDER');
+  const who = TYPE_LABEL[keychainType].toLowerCase();
 
   useEffect(() => {
     NfcManager.start();
@@ -108,6 +117,7 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
         action: 'issue_identity_tag',
         tag_uid: tagUid.trim(),
         profile_id: selectedRider.id,
+        tag_type: keychainType,
         replace_existing: replaceExisting,
       });
 
@@ -115,8 +125,8 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
         // Rider already has a live tag -- ask before deactivating it.
         if (data?.error?.includes('already has an active tag') && !replaceExisting) {
           Alert.alert(
-            'Rider Already Has a Tag',
-            `${selectedRider.full_name || 'This rider'} already has an active keychain. Issuing a new one will deactivate the old one.`,
+            'Already Has a Keychain',
+            `${selectedRider.full_name || 'This person'} already has an active keychain. Issuing a new one will deactivate the old one.`,
             [
               { text: 'Cancel', style: 'cancel' },
               { text: 'Replace It', onPress: () => issue(true) },
@@ -177,14 +187,35 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.sectionLabel}>2. FIND THE RIDER</Text>
+        <Text style={styles.sectionLabel}>2. WHOSE KEYCHAIN IS THIS?</Text>
+        <View style={styles.typeRow} accessibilityRole="radiogroup">
+          {(['RIDER', 'DRIVER'] as KeychainType[]).map((t) => (
+            <TouchableOpacity
+              key={t}
+              style={[styles.typeChip, keychainType === t && styles.typeChipActive]}
+              onPress={() => { setKeychainType(t); setSelectedRider(null); setQuery(''); Haptics.selectionAsync(); }}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: keychainType === t }}
+            >
+              <Ionicons name={t === 'RIDER' ? 'person' : 'car'} size={16} color={keychainType === t ? '#FFF' : 'rgba(255,255,255,0.75)'} />
+              <Text style={[styles.typeChipText, keychainType === t && styles.typeChipTextActive]}>{TYPE_LABEL[t]}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={styles.typeHint}>
+          {keychainType === 'RIDER'
+            ? 'A rider taps it to pay at shops and to be recognised at touch points.'
+            : 'A driver keeps it and lets riders tap it to get their driver code.'}
+        </Text>
+
+        <Text style={styles.sectionLabel}>3. FIND THE {TYPE_LABEL[keychainType].toUpperCase()}</Text>
         {selectedRider ? (
           <View style={styles.selectedRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.selectedName}>{selectedRider.full_name || 'Unnamed'}</Text>
               <Text style={styles.selectedMeta}>{selectedRider.phone_number || selectedRider.email || selectedRider.id}</Text>
             </View>
-            <TouchableOpacity onPress={() => { setSelectedRider(null); setQuery(''); }} style={styles.clearBtn} accessibilityLabel="Choose a different rider">
+            <TouchableOpacity onPress={() => { setSelectedRider(null); setQuery(''); }} style={styles.clearBtn} accessibilityLabel={`Choose a different ${who}`}>
               <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.75)" />
             </TouchableOpacity>
           </View>
@@ -209,7 +240,7 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
                     style={styles.resultRow}
                     onPress={() => { setSelectedRider(r); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
                   >
-                    <Text style={styles.resultName}>{r.full_name || 'Unnamed'}</Text>
+                    <Text style={styles.resultName}>{r.full_name || 'Unnamed'}{r.role ? `  ·  ${r.role}` : ''}</Text>
                     <Text style={styles.resultMeta}>{r.phone_number || r.email}</Text>
                   </TouchableOpacity>
                 ))}
@@ -235,8 +266,9 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
         </TouchableOpacity>
 
         <Text style={styles.hint}>
-          Once issued, this rider pays by tapping their fob on a merchant's phone,
-          or by tapping their own phone at any G-Taxi touchpoint.
+          {keychainType === 'RIDER'
+            ? "Once issued, this rider pays by tapping their fob on a shop's phone, or by tapping their own phone at any G-Taxi touch point."
+            : 'Once issued, this keychain is tied to the driver. They can show it to riders they bring in.'}
         </Text>
       </ScrollView>
     </LinearGradient>
@@ -245,6 +277,16 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  typeRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  typeChip: {
+    flex: 1, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
+    minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  typeChipActive: { backgroundColor: `${ACCENT}55`, borderColor: ACCENT },
+  typeChipText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '700' },
+  typeChipTextActive: { color: '#FFF' },
+  typeHint: { color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 8, marginBottom: 6, lineHeight: 17 },
   headerPad: { paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', paddingBottom: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
