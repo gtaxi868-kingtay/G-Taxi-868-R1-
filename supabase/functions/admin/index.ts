@@ -160,10 +160,13 @@ Deno.serve(async (req) => {
       }
 
       case 'create_merchant_user': {
-        const { email, password, full_name } = body
+        const { email, password, full_name, category } = body
         if (!email || !password || !full_name) {
           return json({ success: false, error: 'email, password, full_name required' }, 400)
         }
+        // merchants.category is NOT NULL; this insert sent none, so every
+        // "Business" touch point from the admin app failed (field test
+        // 2026-10-21). 'local' is the existing catch-all category.
         const { data: authUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
           email, password, email_confirm: true,
           user_metadata: { full_name, role: 'merchant' },
@@ -171,7 +174,7 @@ Deno.serve(async (req) => {
         if (createError) throw createError
         const { data: merchant, error: mErr } = await supabaseAdmin
           .from('merchants')
-          .insert({ name: full_name, created_by: authUser.user.id })
+          .insert({ name: full_name, created_by: authUser.user.id, category: typeof category === 'string' && category.trim() ? category.trim() : 'local' })
           .select('id')
           .single()
         if (mErr) throw mErr
@@ -988,6 +991,9 @@ Deno.serve(async (req) => {
       // was any way to actually CREATE the row -- confirmed live: 0 rows in
       // identity_tags, and no RLS policy grants any role but admin (via
       // service role here) the ability to insert one.
+      // identity_tags.tag_type only allows RIDER | DRIVER | MERCHANT (CHECK
+      // identity_tags_tag_type_check); this wrote 'keychain', so issuing any
+      // keychain failed (field test 2026-10-21). A keychain is a rider's tag.
       case 'issue_identity_tag': {
         const { tag_uid, profile_id, replace_existing } = body
         if (!tag_uid || !profile_id) return json({ success: false, error: 'tag_uid and profile_id required' }, 400)
@@ -1025,10 +1031,10 @@ Deno.serve(async (req) => {
 
         const { data, error } = existingTag
           ? await supabaseAdmin.from('identity_tags')
-              .update({ profile_id, is_active: true, tag_type: 'keychain' })
+              .update({ profile_id, is_active: true, tag_type: 'RIDER' })
               .eq('id', existingTag.id).select().single()
           : await supabaseAdmin.from('identity_tags')
-              .insert({ tag_uid, profile_id, tag_type: 'keychain', is_active: true })
+              .insert({ tag_uid, profile_id, tag_type: 'RIDER', is_active: true })
               .select().single()
         if (error) throw error
         return json({ success: true, tag: data, rider_name: profile.full_name })

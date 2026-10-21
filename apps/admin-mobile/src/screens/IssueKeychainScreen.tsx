@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
+import { invokeAdmin } from '../lib/invokeAdmin';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../navigation/types';
 import { initializeSupabaseClient } from '@gtaxi/core';
@@ -101,15 +102,14 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     try {
-      const { data, error } = await supabase.functions.invoke('admin', {
-        body: {
-          action: 'issue_identity_tag',
-          tag_uid: tagUid.trim(),
-          profile_id: selectedRider.id,
-          replace_existing: replaceExisting,
-        },
+      // invokeAdmin returns the server's answer even on a 409, so the
+      // "already has a tag -> replace it?" step below can actually run.
+      const data = await invokeAdmin({
+        action: 'issue_identity_tag',
+        tag_uid: tagUid.trim(),
+        profile_id: selectedRider.id,
+        replace_existing: replaceExisting,
       });
-      if (error) throw error;
 
       if (!data?.success) {
         // Rider already has a live tag -- ask before deactivating it.

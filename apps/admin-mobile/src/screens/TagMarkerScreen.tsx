@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { LocationAccuracy } from 'expo-location';
 import NfcManager, { NfcTech, Ndef, NdefStatus } from 'react-native-nfc-manager';
+import { invokeAdmin } from '../lib/invokeAdmin';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { VOICES } from '@gtaxi/design-system';
@@ -262,34 +263,26 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
 
     try {
       if (spotType === 'business') {
-        const { data: merchantResult, error: merchantError } = await supabase.functions.invoke(
-          'admin',
-          { body: { action: 'create_merchant_user', email: merchantEmail.trim(), password: merchantPassword, full_name: merchantName.trim() } }
-        );
-
-        if (merchantError || !merchantResult?.success) {
-          throw new Error(merchantResult?.error || merchantError?.message || 'Failed to create merchant user');
+        const merchantResult = await invokeAdmin({
+          action: 'create_merchant_user', email: merchantEmail.trim(), password: merchantPassword, full_name: merchantName.trim(),
+        });
+        if (!merchantResult?.success) {
+          throw new Error(merchantResult?.error || 'Could not create the shop account.');
         }
 
-        const { data: nodeResult, error: nodeError } = await supabase.functions.invoke(
-          'admin',
-          {
-            body: {
-              action: 'manage_nodes', action_type: 'upsert',
-              node: {
-                tag_uid: tagUid.trim(),
-                merchant_id: merchantResult.merchant_id,
-                location_name: locationName.trim(),
-                lat: lat,
-                lng: lng,
-                default_services: ['ride', 'grocery'],
-              },
-            },
-          }
-        );
-
-        if (nodeError || !nodeResult?.success) {
-          throw new Error(nodeResult?.error || nodeError?.message || 'Failed to upsert node');
+        const nodeResult = await invokeAdmin({
+          action: 'manage_nodes', action_type: 'upsert',
+          node: {
+            tag_uid: tagUid.trim(),
+            merchant_id: merchantResult.merchant_id,
+            location_name: locationName.trim(),
+            lat: lat,
+            lng: lng,
+            default_services: ['ride', 'grocery'],
+          },
+        });
+        if (!nodeResult?.success) {
+          throw new Error(nodeResult?.error || 'Could not save the touch point.');
         }
 
         setProvisioned({ id: nodeResult.node.id, tagUid: tagUid.trim(), label: locationName.trim() });
@@ -300,25 +293,19 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
           [{ text: 'OK' }]
         );
       } else {
-        const { data: nodeResult, error: nodeError } = await supabase.functions.invoke(
-          'admin',
-          {
-            body: {
-              action: 'manage_nodes', action_type: 'upsert',
-              node: {
-                tag_uid: tagUid.trim(),
-                merchant_id: null,
-                location_name: locationName.trim(),
-                lat: lat,
-                lng: lng,
-                default_services: ['ride'],
-              },
-            },
-          }
-        );
-
-        if (nodeError || !nodeResult?.success) {
-          throw new Error(nodeResult?.error || nodeError?.message || 'Failed to upsert node');
+        const nodeResult = await invokeAdmin({
+          action: 'manage_nodes', action_type: 'upsert',
+          node: {
+            tag_uid: tagUid.trim(),
+            merchant_id: null,
+            location_name: locationName.trim(),
+            lat: lat,
+            lng: lng,
+            default_services: ['ride'],
+          },
+        });
+        if (!nodeResult?.success) {
+          throw new Error(nodeResult?.error || 'Could not save the taxi stand.');
         }
 
         setProvisioned({ id: nodeResult.node.id, tagUid: tagUid.trim(), label: locationName.trim() });
