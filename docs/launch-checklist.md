@@ -38,4 +38,26 @@ Launch area: ______________________ (one community)
 
 ## Later (found while launching, not blocking)
 
--
+Found 2026-10-21 by scanning every server/app write against the live
+database rules. Each one fails when it runs; none is on a checklist flow.
+
+- complete_ride: the wallet "compensating reversal" writes transaction_type
+  'reversal' (not allowed). Only runs if a wallet ride's status update fails
+  after the debit, but then the rider's refund silently fails. Fix: 'refund'.
+  Money path: dry-run before deploying.
+- wipay_webhook: sets wipay_sessions.status 'pending_resolution' (allowed:
+  pending, completed, failed). Fix before WiPay is switched on.
+- verify_settlement: sets settlement_requests.status 'grace_period' (not
+  allowed) after already crediting the wallet cache. Needs a founder
+  decision on the cash-deposit flow before fixing.
+- commander_gateway / commander_handoff: system_alerts with lowercase type
+  and severity, and 'COMMANDER_APPROVAL_VELOCITY' (not an allowed type).
+- G-Escape (admin, admin_confirm_escape_seats): itinerary_legs service_type
+  'flight' / status 'confirmed' (allowed: AVIATION..., scheduled...);
+  EscapeManagement inserts miss required cost columns.
+- Fleet: driver_leases status 'rejected', fleet_vehicles ownership 'g-taxi'.
+- platform_intelligence: dispatch_queue status 'expired' / 'assigned'.
+- merchant support tickets miss the required subject; commander payout
+  requests miss driver_id; travel/wipay_payment inserts miss required fields.
+- update_driver_location: legacy SOS ride_events insert misses ride_id
+  (SOS itself goes through trigger_emergency and works).
