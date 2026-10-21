@@ -88,11 +88,11 @@ export function ZoneRatesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
   center: { alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
+  loadingText: { color: 'rgba(255,255,255,0.65)', fontSize: 12 },
   headerText: { color: '#F1F5F9', fontSize: 17, fontWeight: '800' },
-  headerSub: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2, marginBottom: 16 },
+  headerSub: { color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 2, marginBottom: 16 },
   emptyCard: { alignItems: 'center', paddingVertical: 24 },
-  emptyDesc: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
+  emptyDesc: { color: 'rgba(255,255,255,0.65)', fontSize: 12 },
   card: { marginBottom: 12 },
   cardInactive: { opacity: 0.5 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -100,6 +100,6 @@ const styles = StyleSheet.create({
   payout: { color: ACCENT, fontSize: 14, fontWeight: '800' },
   description: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 6 },
   footer: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  meta: { color: 'rgba(255,255,255,0.35)', fontSize: 10 },
+  meta: { color: 'rgba(255,255,255,0.65)', fontSize: 10 },
   inactiveTag: { color: '#EF4444', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
 });

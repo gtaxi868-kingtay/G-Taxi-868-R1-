@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
                      backgroundColor: 'rgba(37,211,102,0.08)', borderRadius: 12, paddingVertical: 12,
                      borderWidth: 1, borderColor: 'rgba(37,211,102,0.2)' },
   waBtnText:       { color: '#25D366', fontWeight: '600', fontSize: 13 },
-  deadlineNote:    { color: 'rgba(242,245,248,0.25)', fontSize: 11, marginTop: 10, textAlign: 'center' },
+  deadlineNote:    { color: 'rgba(242,245,248,0.55)', fontSize: 11, marginTop: 10, textAlign: 'center' },
 
   passportCta:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(52,230,236,0.06)',
                      borderRadius: 14, padding: 16, marginBottom: 16, gap: 12,
@@ -439,13 +439,13 @@ const styles = StyleSheet.create({
   bpLine:          { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', borderStyle: 'dashed', flex: 1 },
   bpBody:          { padding: 20, flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
   bpField:         { minWidth: 90 },
-  bpFieldLabel:    { color: 'rgba(242,245,248,0.3)', fontSize: 9, fontWeight: '700', letterSpacing: 1,
+  bpFieldLabel:    { color: 'rgba(242,245,248,0.55)', fontSize: 9, fontWeight: '700', letterSpacing: 1,
                      textTransform: 'uppercase', marginBottom: 4 },
   bpFieldValue:    { color: 'rgba(242,245,248,0.7)', fontSize: 14, fontWeight: '600' },
   qrPlaceholder:   { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 16, alignItems: 'center',
                      borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   qrToken:         { color: BRAND, fontSize: 18, fontWeight: '700', letterSpacing: 4, fontFamily: 'monospace' },
-  qrSub:           { color: 'rgba(242,245,248,0.25)', fontSize: 10, marginTop: 4 },
+  qrSub:           { color: 'rgba(242,245,248,0.55)', fontSize: 10, marginTop: 4 },
 
   legRow:          { flexDirection: 'row', marginBottom: 4 },
   legLeft:         { width: 20, alignItems: 'center' },
@@ -465,6 +465,6 @@ const styles = StyleSheet.create({
   addOnLabel:      { color: 'rgba(242,245,248,0.6)', fontSize: 14 },
 
   footer:          { alignItems: 'center', paddingVertical: 20 },
-  footerRef:       { color: 'rgba(242,245,248,0.2)', fontSize: 12, fontFamily: 'monospace', letterSpacing: 2 },
-  footerSub:       { color: 'rgba(242,245,248,0.15)', fontSize: 11, marginTop: 2 },
+  footerRef:       { color: 'rgba(242,245,248,0.55)', fontSize: 12, fontFamily: 'monospace', letterSpacing: 2 },
+  footerSub:       { color: 'rgba(242,245,248,0.55)', fontSize: 11, marginTop: 2 },
 });

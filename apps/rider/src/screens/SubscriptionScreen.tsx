@@ -364,7 +364,7 @@ export function SubscriptionScreen({ navigation }: AppScreenProps<'Subscription'
                                     <Ionicons name="lock-closed" size={24} color="rgba(255,255,255,0.3)" />
                                     <View style={{ flex: 1, marginLeft: 14 }}>
                                         <Text style={[s.gMemberTitle, { color: 'rgba(255,255,255,0.4)' }]}>G-Member</Text>
-                                        <Text style={[s.gMemberPrice, { color: 'rgba(255,255,255,0.3)' }]}>
+                                        <Text style={[s.gMemberPrice, { color: 'rgba(255,255,255,0.55)' }]}>
                                             Unlocks at Level 5
                                         </Text>
                                     </View>
@@ -456,7 +456,7 @@ const s = StyleSheet.create({
         fontFamily: 'Manrope-Medium', marginTop: 2,
     },
     stepLockedText: {
-        fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.3)',
+        fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.55)',
         fontFamily: 'Manrope-Medium', marginTop: 2,
     },
     currentDot: {

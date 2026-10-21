@@ -316,5 +316,5 @@ const styles = StyleSheet.create({
     earningAmount: { fontSize: 15, fontWeight: '700' },
     earningStatus: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize', marginTop: 2 },
     emptyHistory: { paddingTop: 8 },
-    emptyHistoryText: { color: 'rgba(255,255,255,0.3)', fontSize: 13, textAlign: 'center' },
+    emptyHistoryText: { color: 'rgba(255,255,255,0.55)', fontSize: 13, textAlign: 'center' },
 });

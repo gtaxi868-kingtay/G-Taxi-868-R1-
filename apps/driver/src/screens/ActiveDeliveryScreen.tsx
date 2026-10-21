@@ -393,7 +393,7 @@ const s = StyleSheet.create({
     progressRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 20 },
     progressItem: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     progressDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-    progressNum: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.3)', fontFamily: 'SpaceGrotesk-Bold' },
+    progressNum: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.55)', fontFamily: 'SpaceGrotesk-Bold' },
     progressLine: { flex: 1, height: 2, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 4 },
     content: { paddingHorizontal: 16, paddingBottom: 20, gap: 12 },
     stepCard: { borderRadius: 20, padding: 28, alignItems: 'center', gap: 12, backgroundColor: SURFACE.containerLow, overflow: 'hidden' },

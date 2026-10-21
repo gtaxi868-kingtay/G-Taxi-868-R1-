@@ -433,7 +433,7 @@ export function BecomeCommanderScreen({ navigation }: AppScreenProps<'BecomeComm
         </TouchableOpacity>
         <View style={{ marginLeft: 8 }}>
           <Text style={s.headerTitle}>BECOME A G</Text>
-          <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase' }}>
+          <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 9, letterSpacing: 2, textTransform: 'uppercase' }}>
             Commander Program
           </Text>
         </View>
@@ -525,7 +525,7 @@ const s = StyleSheet.create({
   },
   progressGoal: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.55)',
     fontFamily: 'Inter_700Bold',
   },
   progressHelp: {

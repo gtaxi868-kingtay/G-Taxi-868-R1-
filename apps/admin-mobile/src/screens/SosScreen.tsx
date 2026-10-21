@@ -188,5 +188,5 @@ const st = StyleSheet.create({
     secondaryText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
     row: { flexDirection: 'row', gap: 10 },
     half: { flex: 1 },
-    closeText: { color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginTop: 12 },
+    closeText: { color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginTop: 12 },
 });

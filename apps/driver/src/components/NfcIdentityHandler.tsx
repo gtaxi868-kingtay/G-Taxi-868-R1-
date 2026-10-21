@@ -144,5 +144,5 @@ const s = StyleSheet.create({
     },
     btnText: { fontSize: 16, fontWeight: '800', color: '#EAF3F6' },
     close: { marginTop: 20 },
-    closeText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.3)', letterSpacing: 1 },
+    closeText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.55)', letterSpacing: 1 },
 });

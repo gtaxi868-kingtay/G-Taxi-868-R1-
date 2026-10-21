@@ -507,7 +507,7 @@ const s = StyleSheet.create({
     earningsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, gap: 8 },
     earningsLabel: { fontSize: 11, color: driver.textMuted, flex: 1, lineHeight: 16 },
     earningsValue: { fontSize: 13, fontWeight: '800', textAlign: 'right' },
-    earningsNote: { fontSize: 10, color: 'rgba(234,243,246,0.25)', marginTop: 8, lineHeight: 14 },
+    earningsNote: { fontSize: 10, color: 'rgba(234,243,246,0.55)', marginTop: 8, lineHeight: 14 },
 
     sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
 });

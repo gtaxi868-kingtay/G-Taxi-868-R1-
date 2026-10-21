@@ -133,7 +133,7 @@ export function RedeemCashCodeScreen({ navigation }: { navigation: { goBack: () 
                   maxLength={6}
                   autoFocus
                 />
-                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 8 }}>
+                <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginTop: 8 }}>
                   6 characters, numbers and letters
                 </Text>
                 <TouchableOpacity

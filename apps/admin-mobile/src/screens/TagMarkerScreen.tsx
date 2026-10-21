@@ -344,7 +344,7 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
     <LinearGradient colors={[BG, '#0B1120']} style={styles.container}>
       <View style={[styles.headerPad, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityLabel="Back">
             <Ionicons name="arrow-back" size={20} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Provision G-Touch Point</Text>
@@ -400,7 +400,10 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
               {nfcScanning ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Ionicons name="scan" size={18} color="#FFF" />
+                <>
+                  <Ionicons name="scan" size={16} color="#FFF" />
+                  <Text style={styles.scanText}>Scan</Text>
+                </>
               )}
             </TouchableOpacity>
           </View>
@@ -450,8 +453,8 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
                     autoCapitalize="none"
                   />
                 </View>
-                <TouchableOpacity style={styles.refreshBtn} onPress={generatePassword}>
-                  <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.4)" />
+                <TouchableOpacity style={styles.refreshBtn} onPress={generatePassword} accessibilityLabel="Make a new password">
+                  <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.75)" />
                 </TouchableOpacity>
               </View>
               <Text style={styles.hint}>
@@ -604,11 +607,11 @@ const styles = StyleSheet.create({
   typeTileInnerActive: {
     backgroundColor: `${ACCENT}08`,
   },
-  typeTileLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.35)' },
+  typeTileLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.65)' },
   typeTileLabelActive: { color: '#F1F5F9' },
-  typeTileDesc: { fontSize: 9, color: 'rgba(255,255,255,0.25)' },
+  typeTileDesc: { fontSize: 9, color: 'rgba(255,255,255,0.65)' },
   form: { flex: 1, paddingHorizontal: 20, gap: 10 },
-  sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.25)', letterSpacing: 1.2, marginTop: 6 },
+  sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.65)', letterSpacing: 1.2, marginTop: 6 },
   tagRow: { flexDirection: 'row', gap: 8 },
   inputGroup: {
     flexDirection: 'row',
@@ -621,8 +624,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
   },
   input: { flex: 1, color: '#F1F5F9', fontSize: 14 },
+  scanText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
   scanBtn: {
-    width: 44,
+    minWidth: 72,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    gap: 5,
     height: 44,
     borderRadius: 10,
     backgroundColor: `${ACCENT}50`,
@@ -642,7 +649,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hint: { fontSize: 10, color: 'rgba(255,255,255,0.2)', lineHeight: 14, paddingHorizontal: 2, marginTop: -2 },
+  hint: { fontSize: 10, color: 'rgba(255,255,255,0.65)', lineHeight: 14, paddingHorizontal: 2, marginTop: -2 },
   gpsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -658,7 +665,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(16,185,129,0.3)',
     backgroundColor: 'rgba(16,185,129,0.04)',
   },
-  gpsBtnText: { color: 'rgba(255,255,255,0.4)', fontSize: 12, flex: 1 },
+  gpsBtnText: { color: 'rgba(255,255,255,0.65)', fontSize: 12, flex: 1 },
   mapPickerLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -681,7 +688,7 @@ const styles = StyleSheet.create({
   chipPanel: { marginTop: 16, gap: 10 },
   chipStatus: { color: '#F1F5F9', fontSize: 13, lineHeight: 19 },
   chipUrl: {
-    color: 'rgba(255,255,255,0.45)', fontSize: 11,
+    color: 'rgba(255,255,255,0.65)', fontSize: 11,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   lockBtn: {
@@ -691,5 +698,5 @@ const styles = StyleSheet.create({
   },
   lockText: { color: '#F59E0B', fontSize: 13, fontWeight: '700' },
   doneLink: { alignItems: 'center', paddingVertical: 10 },
-  doneText: { color: 'rgba(255,255,255,0.4)', fontSize: 13, fontWeight: '600' },
+  doneText: { color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: '600' },
 });

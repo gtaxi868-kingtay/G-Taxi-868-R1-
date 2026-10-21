@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   loadingText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.65)',
     fontSize: 13,
     fontWeight: '500',
   },
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   deniedDesc: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.65)',
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,

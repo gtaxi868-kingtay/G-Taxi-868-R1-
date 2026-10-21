@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B0E12', borderRadius: 16, minHeight: 240,
   },
   offlineTitle: { color: '#f87171', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 2 },
-  offlineDesc: { color: 'rgba(255,255,255,0.3)', fontSize: 9, fontWeight: '700' },
+  offlineDesc: { color: 'rgba(255,255,255,0.65)', fontSize: 9, fontWeight: '700' },
   driverMarker: {
     width: 14, height: 14, borderRadius: 7,
     backgroundColor: '#A78BFA', borderWidth: 2, borderColor: '#fff',

@@ -108,5 +108,5 @@ const s = StyleSheet.create({
   errorText: { color: '#FF6B6B', fontSize: 12, flex: 1 },
   doneBox: { gap: 12, alignItems: 'center' },
   doneText: { color: 'rgba(234,243,246,0.7)', fontSize: 13, textAlign: 'center', lineHeight: 19 },
-  link: { color: 'rgba(234,243,246,0.4)', fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: 4 },
+  link: { color: 'rgba(234,243,246,0.65)', fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: 4 },
 });

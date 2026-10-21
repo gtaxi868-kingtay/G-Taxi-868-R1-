@@ -245,7 +245,7 @@ const s = StyleSheet.create({
     },
     priceBreakdown: { fontSize: 14, color: 'rgba(255,255,255,0.5)' },
     priceTotal: { fontSize: 36, fontWeight: '900', color: CYAN },
-    priceNote: { fontSize: 12, color: 'rgba(255,255,255,0.3)', marginTop: 4 },
+    priceNote: { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 4 },
     features: { gap: 12, paddingVertical: 8 },
     featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     featureText: { fontSize: 14, color: 'rgba(255,255,255,0.7)' },

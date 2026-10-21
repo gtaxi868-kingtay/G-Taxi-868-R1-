@@ -95,7 +95,7 @@ export const RegisterPuckScreen: React.FC<{ navigation: any }> = ({ navigation }
     <LinearGradient colors={[BG, '#0B1120']} style={styles.container}>
       <View style={[styles.headerPad, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backBtn} accessibilityLabel="Back">
             <Ionicons name="arrow-back" size={20} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Field Node Registration</Text>
@@ -219,8 +219,8 @@ const styles = StyleSheet.create({
   },
   infoTextBlock: { flex: 1 },
   infoTitle: { fontSize: 13, fontWeight: '700', color: '#F1F5F9' },
-  infoDesc: { fontSize: 11, color: 'rgba(255,255,255,0.45)', lineHeight: 16, marginTop: 2 },
-  sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.25)', letterSpacing: 1.2 },
+  infoDesc: { fontSize: 11, color: 'rgba(255,255,255,0.65)', lineHeight: 16, marginTop: 2 },
+  sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.65)', letterSpacing: 1.2 },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -241,11 +241,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   telemetryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  telemetryTitle: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
+  telemetryTitle: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
   telemetryLoading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  telemetryStatus: { fontSize: 11, color: 'rgba(255,255,255,0.35)' },
+  telemetryStatus: { fontSize: 11, color: 'rgba(255,255,255,0.65)' },
   telemetryData: { fontSize: 12, color: '#10B981', fontFamily: 'monospace', marginTop: 2 },
-  telemetryWarn: { fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 2 },
+  telemetryWarn: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
   submitBtn: {
     flexDirection: 'row',
     alignItems: 'center',

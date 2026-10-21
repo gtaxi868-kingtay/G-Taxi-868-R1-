@@ -92,6 +92,6 @@ const s = StyleSheet.create({
     borderColor: 'rgba(255,77,77,0.15)',
   },
   errorText: { color: '#FF6B6B', fontSize: 12, flex: 1 },
-  version: { fontSize: 10, color: 'rgba(234,243,246,0.25)', letterSpacing: 1, marginTop: 8 },
-  link: { color: 'rgba(234,243,246,0.4)', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  version: { fontSize: 10, color: 'rgba(234,243,246,0.65)', letterSpacing: 1, marginTop: 8 },
+  link: { color: 'rgba(234,243,246,0.65)', fontSize: 12, fontWeight: '600', textAlign: 'center' },
 });
