@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 12 },
   title: { fontSize: 24, fontWeight: '800', color: '#fff' },
-  subtitle: { fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 },
+  subtitle: { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
 
   thread: { flex: 1 },
   threadContent: { padding: 16, gap: 10, paddingBottom: 24 },
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
   userText: { color: '#fff', fontSize: 15, lineHeight: 21, fontWeight: '500' },
 
   thinking: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  thinkingText: { color: 'rgba(255,255,255,0.5)', fontSize: 13 },
+  thinkingText: { color: 'rgba(255,255,255,0.65)', fontSize: 13 },
 
   errorBox: {
     flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   },
   filedTitle: { color: ACCENT, fontSize: 13, fontWeight: '700', marginBottom: 6 },
   filedItem: { color: '#E7E1FB', fontSize: 13, lineHeight: 19 },
-  filedHint: { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 6 },
+  filedHint: { color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 6 },
   filedLink: { textDecorationLine: 'underline' },
 
   inputRow: {

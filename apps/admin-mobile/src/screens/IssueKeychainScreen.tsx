@@ -147,7 +147,7 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
     <LinearGradient colors={[BG, '#0B1120']} style={styles.container}>
       <View style={[styles.headerPad, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityLabel="Back">
             <Ionicons name="arrow-back" size={20} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Issue Keychain</Text>
@@ -173,7 +173,7 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
             onPress={scanTag}
             disabled={scanning}
           >
-            {scanning ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="scan" size={18} color="#FFF" />}
+            {scanning ? <ActivityIndicator size="small" color="#FFF" /> : (<><Ionicons name="scan" size={16} color="#FFF" /><Text style={styles.scanText}>Scan</Text></>)}
           </TouchableOpacity>
         </View>
 
@@ -184,8 +184,8 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
               <Text style={styles.selectedName}>{selectedRider.full_name || 'Unnamed'}</Text>
               <Text style={styles.selectedMeta}>{selectedRider.phone_number || selectedRider.email || selectedRider.id}</Text>
             </View>
-            <TouchableOpacity onPress={() => { setSelectedRider(null); setQuery(''); }} style={styles.clearBtn}>
-              <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
+            <TouchableOpacity onPress={() => { setSelectedRider(null); setQuery(''); }} style={styles.clearBtn} accessibilityLabel="Choose a different rider">
+              <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.75)" />
             </TouchableOpacity>
           </View>
         ) : (
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   backBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#F1F5F9' },
   body: { flex: 1, paddingHorizontal: 20 },
-  sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.25)', letterSpacing: 1.2, marginTop: 20, marginBottom: 8 },
+  sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.65)', letterSpacing: 1.2, marginTop: 20, marginBottom: 8 },
   tagRow: { flexDirection: 'row', gap: 8 },
   inputGroup: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)',
@@ -258,24 +258,25 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, color: '#F1F5F9', fontSize: 14 },
   scanBtn: {
-    width: 44, height: 44, borderRadius: 10, backgroundColor: `${ACCENT}50`,
+    minWidth: 72, height: 44, paddingHorizontal: 10, flexDirection: 'row', gap: 5, borderRadius: 10, backgroundColor: `${ACCENT}50`,
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: `${ACCENT}30`,
   },
+  scanText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
   resultsBox: { marginTop: 8, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   resultRow: { padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   resultName: { color: '#F1F5F9', fontSize: 14, fontWeight: '600' },
-  resultMeta: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 },
+  resultMeta: { color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 2 },
   selectedRow: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(16,185,129,0.08)',
     borderWidth: 1, borderColor: 'rgba(16,185,129,0.25)', borderRadius: 12, padding: 14,
   },
   selectedName: { color: '#F1F5F9', fontSize: 15, fontWeight: '700' },
-  selectedMeta: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 },
+  selectedMeta: { color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 2 },
   clearBtn: { padding: 4 },
   submitBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     height: 48, borderRadius: 12, backgroundColor: ACCENT, marginTop: 24,
   },
   submitText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
-  hint: { fontSize: 11, color: 'rgba(255,255,255,0.25)', lineHeight: 16, marginTop: 12, textAlign: 'center' },
+  hint: { fontSize: 11, color: 'rgba(255,255,255,0.65)', lineHeight: 16, marginTop: 12, textAlign: 'center' },
 });

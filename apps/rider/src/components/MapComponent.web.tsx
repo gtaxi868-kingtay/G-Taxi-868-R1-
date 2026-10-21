@@ -99,7 +99,7 @@ export function MapComponent({ currentLat, currentLng, drivers = [] }: MapCompon
             />
             {/* Overlay hint for interactivity if needed */}
             <View style={{ position: 'absolute', bottom: 10, right: 10, pointerEvents: 'none' }}>
-                <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>G-TAXI WEB MAP</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 10 }}>G-TAXI WEB MAP</Text>
             </View>
         </View>
     );

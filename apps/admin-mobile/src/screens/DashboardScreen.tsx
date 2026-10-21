@@ -152,17 +152,31 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               {isBusiness ? 'BUSINESS' : 'TAXI STAND'}
             </Text>
           </View>
-          <TouchableOpacity
-            style={[styles.powerBtn, item.is_active ? styles.powerActive : styles.powerInactive]}
-            onPress={() => toggleActive(item.id)}
-            disabled={togglingId === item.id}
-          >
-            {togglingId === item.id ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <Ionicons name={item.is_active ? 'power' : 'power-outline'} size={14} color="#FFF" />
-            )}
-          </TouchableOpacity>
+          <View style={styles.cardActions}>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => deleteNode(item.id)}
+              accessibilityLabel={`Delete ${item.location_name || 'this point'}`}
+            >
+              <Ionicons name="trash-outline" size={14} color="#FF8A8A" />
+              <Text style={styles.deleteText}>Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.powerBtn, item.is_active ? styles.powerActive : styles.powerInactive]}
+              onPress={() => toggleActive(item.id)}
+              disabled={togglingId === item.id}
+              accessibilityLabel={item.is_active ? 'Turn this point off' : 'Turn this point on'}
+            >
+              {togglingId === item.id ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name={item.is_active ? 'power' : 'power-outline'} size={14} color="#FFF" />
+                  <Text style={styles.powerText}>{item.is_active ? 'On' : 'Off'}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Text style={styles.locationName}>{item.location_name || 'Unnamed Location'}</Text>
@@ -190,9 +204,6 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
           ))}
         </View>
 
-        <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteNode(item.id)}>
-          <Ionicons name="trash-outline" size={15} color="#FF4D4D" />
-        </TouchableOpacity>
       </View>
     );
   };
@@ -240,6 +251,7 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               accessibilityLabel={viewMode === 'list' ? 'Show map' : 'Show list'}
             >
               <Ionicons name={viewMode === 'list' ? 'map-outline' : 'list-outline'} size={18} color={ACCENT} />
+              <Text style={styles.iconCaption}>{viewMode === 'list' ? 'Map' : 'List'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('Approvals'); }}
@@ -247,13 +259,15 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               accessibilityLabel="Approvals"
             >
               <Ionicons name="file-tray-full-outline" size={18} color={ACCENT} />
+              <Text style={styles.iconCaption}>Approvals</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('GroundTransit'); }}
               style={styles.iconBtn}
               accessibilityLabel="Ground Transit"
             >
-              <Ionicons name="airplane-outline" size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="airplane-outline" size={18} color="rgba(255,255,255,0.75)" />
+              <Text style={styles.iconCaption}>Airport</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('ZoneRates'); }}
@@ -263,7 +277,8 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               {/* Jakob's: was 'map-outline', identical to this row's own
                   view-toggle button when it's showing "switch to map" --
                   two different buttons could render the same glyph. */}
-              <Ionicons name="pricetag-outline" size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="pricetag-outline" size={18} color="rgba(255,255,255,0.75)" />
+              <Text style={styles.iconCaption}>Zone rates</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('Intelligence'); }}
@@ -271,26 +286,31 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               accessibilityLabel="Talk to G"
             >
               <Ionicons name="chatbubbles-outline" size={18} color={ACCENT} />
+              <Text style={styles.iconCaption}>Talk to G</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('PlatformControl'); }}
               style={styles.iconBtn}
               accessibilityLabel="Platform Control"
             >
-              <Ionicons name="toggle-outline" size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="toggle-outline" size={18} color="rgba(255,255,255,0.75)" />
+              <Text style={styles.iconCaption}>Switches</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('RegisterPuck'); }}
               style={styles.iconBtn}
+              accessibilityLabel="Register a puck"
             >
-              <Ionicons name="keypad-outline" size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="keypad-outline" size={18} color="rgba(255,255,255,0.75)" />
+              <Text style={styles.iconCaption}>Add puck</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('IssueKeychain'); }}
               style={styles.iconBtn}
               accessibilityLabel="Issue Keychain"
             >
-              <Ionicons name="key-outline" size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="key-outline" size={18} color="rgba(255,255,255,0.75)" />
+              <Text style={styles.iconCaption}>Keychain</Text>
             </TouchableOpacity>
             {/* Hick's/Von Restorff: this row was 10 fixed-width (34px) icon
                 buttons wide -- 412px minimum before the ScrollView above was
@@ -335,7 +355,8 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               style={styles.iconBtn}
               accessibilityLabel="Account options"
             >
-              <Ionicons name="ellipsis-horizontal" size={18} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="ellipsis-horizontal" size={18} color="rgba(255,255,255,0.75)" />
+              <Text style={styles.iconCaption}>Account</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -361,9 +382,9 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="radio-outline" size={44} color="rgba(255,255,255,0.12)" />
+              <Ionicons name="radio-outline" size={44} color="rgba(255,255,255,0.75)" />
               <Text style={styles.emptyTitle}>No nodes deployed</Text>
-              <Text style={styles.emptyDesc}>Tap + to provision a G-Touch Point</Text>
+              <Text style={styles.emptyDesc}>Tap "Add point" to set up a G-Touch Point</Text>
             </View>
           }
         />
@@ -373,9 +394,11 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
         style={[styles.fab, { bottom: insets.bottom + 24 }]}
         onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('TagMarker'); }}
         activeOpacity={0.85}
+        accessibilityLabel="Add a G-Touch Point"
       >
         <LinearGradient colors={[ACCENT, ACCENT]} style={styles.fabInner}>
-          <Ionicons name="add" size={26} color="#FFF" />
+          <Ionicons name="add" size={22} color="#FFF" />
+          <Text style={styles.fabText}>Add point</Text>
         </LinearGradient>
       </TouchableOpacity>
     </LinearGradient>
@@ -386,7 +409,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: {
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(255,255,255,0.65)',
     fontSize: 12,
     marginTop: 12,
     fontWeight: '500',
@@ -398,22 +421,27 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
   },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#F1F5F9' },
-  headerMeta: { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2, fontWeight: '500' },
+  headerMeta: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2, fontWeight: '500' },
   headerActionsScroll: { flexGrow: 0 },
   headerActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    minWidth: 68,
+    minHeight: 56,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
   },
+  iconCaption: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  cardActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   list: { padding: 16, gap: 10 },
   mapWrap: { flex: 1, padding: 16 },
   nodeCard: {
@@ -440,18 +468,22 @@ const styles = StyleSheet.create({
   },
   typeLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
   powerBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    flexDirection: 'row',
+    gap: 5,
+    minHeight: 36,
+    minWidth: 64,
+    paddingHorizontal: 12,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  powerText: { fontSize: 12, fontWeight: '700', color: '#FFF' },
   powerActive: { backgroundColor: `${ACCENT}40` },
   powerInactive: { backgroundColor: 'rgba(255,255,255,0.06)' },
   locationName: { fontSize: 15, fontWeight: '700', color: '#F1F5F9' },
-  merchantName: { fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2 },
+  merchantName: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
   footer: { flexDirection: 'row', gap: 14, marginTop: 6 },
-  meta: { fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: 'monospace' },
+  meta: { fontSize: 11, color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace' },
   services: { flexDirection: 'row', gap: 5, marginTop: 8, flexWrap: 'wrap' },
   serviceTag: {
     paddingHorizontal: 7,
@@ -460,35 +492,38 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
   serviceText: {
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.35)',
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.7)',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     fontWeight: '600',
   },
   deleteBtn: {
-    position: 'absolute',
-    top: 14,
-    right: 50,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,77,77,0.08)',
+    flexDirection: 'row',
+    gap: 5,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,77,77,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  deleteText: { fontSize: 12, fontWeight: '700', color: '#FF8A8A' },
   empty: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 80,
     gap: 6,
   },
-  emptyTitle: { fontSize: 15, color: 'rgba(255,255,255,0.25)', fontWeight: '600' },
-  emptyDesc: { fontSize: 12, color: 'rgba(255,255,255,0.18)' },
-  fab: { position: 'absolute', right: 24, width: 52, height: 52, borderRadius: 26 },
+  emptyTitle: { fontSize: 15, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+  emptyDesc: { fontSize: 13, color: 'rgba(255,255,255,0.6)' },
+  fab: { position: 'absolute', right: 24, height: 52, borderRadius: 26 },
+  fabText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
   fabInner: {
-    width: 52,
     height: 52,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    gap: 6,
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',

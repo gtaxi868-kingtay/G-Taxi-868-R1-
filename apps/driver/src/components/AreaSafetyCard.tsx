@@ -120,5 +120,5 @@ const s = StyleSheet.create({
     icon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     title: { fontSize: 14, fontWeight: '800' },
     note: { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 2, lineHeight: 16 },
-    counts: { fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 6 },
+    counts: { fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 6 },
 });

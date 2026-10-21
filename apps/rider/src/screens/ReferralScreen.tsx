@@ -281,5 +281,5 @@ const st = StyleSheet.create({
         overflow: 'hidden', ...ghostBorder(0.1),
         backgroundColor: 'rgba(255,255,255,0.03)',
     },
-    emptyText: { color: 'rgba(255,255,255,0.3)', fontSize: 13, flex: 1 },
+    emptyText: { color: 'rgba(255,255,255,0.55)', fontSize: 13, flex: 1 },
 });

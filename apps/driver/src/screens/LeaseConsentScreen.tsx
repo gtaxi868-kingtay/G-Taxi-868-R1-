@@ -320,7 +320,7 @@ const s = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255,255,255,0.05)',
     },
-    clauseNumber: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.2)', marginTop: 2, minWidth: 22 },
+    clauseNumber: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.55)', marginTop: 2, minWidth: 22 },
     clauseBody: { flex: 1 },
     clauseHeading: { fontSize: 14, fontWeight: '700', color: '#EAF3F6', marginBottom: 6 },
     clauseText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 20 },
@@ -359,7 +359,7 @@ const s = StyleSheet.create({
 
     legalNote: {
         fontSize: 11,
-        color: 'rgba(255,255,255,0.25)',
+        color: 'rgba(255,255,255,0.55)',
         textAlign: 'center',
         lineHeight: 17,
         marginBottom: 20,
@@ -391,5 +391,5 @@ const s = StyleSheet.create({
     earningsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
     earningsLabel: { fontSize: 13, color: 'rgba(255,255,255,0.6)' },
     earningsValue: { fontSize: 14, fontWeight: '800', color: '#4ADE80' },
-    refText: { fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 12, fontFamily: 'monospace' },
+    refText: { fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 12, fontFamily: 'monospace' },
 });

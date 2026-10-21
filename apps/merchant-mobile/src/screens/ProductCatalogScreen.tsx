@@ -703,7 +703,7 @@ const s = StyleSheet.create({
     availRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 24 },
     availHint: {
         fontSize: 11,
-        color: 'rgba(255,255,255,0.2)',
+        color: 'rgba(255,255,255,0.55)',
         marginTop: 2,
         maxWidth: '80%',
         fontFamily: 'Manrope',

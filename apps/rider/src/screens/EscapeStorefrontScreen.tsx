@@ -759,7 +759,7 @@ const styles = StyleSheet.create({
   tagline:          { fontSize: 12, color: 'rgba(242,245,248,0.42)', marginTop: 3 },
   metaRow:          { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6, flexWrap: 'wrap' },
   meta:             { color: 'rgba(242,245,248,0.5)', fontSize: 12 },
-  metaSep:          { color: 'rgba(242,245,248,0.2)', fontSize: 12 },
+  metaSep:          { color: 'rgba(242,245,248,0.55)', fontSize: 12 },
   poolSection:      { marginTop: 14 },
   poolHeader:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   poolLabel:        { color: 'rgba(242,245,248,0.42)', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },

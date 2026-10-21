@@ -169,7 +169,7 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
           <View style={s.inputCard}>
             <Text style={{ fontSize: 13, fontWeight: '700', color: '#EAF3F6', marginBottom: 8 }}>Amount</Text>
             <View style={s.amountRow}>
-              <Text style={{ fontSize: 24, fontWeight: '700', color: 'rgba(255,255,255,0.3)' }}>$</Text>
+              <Text style={{ fontSize: 24, fontWeight: '700', color: 'rgba(255,255,255,0.55)' }}>$</Text>
               <TextInput
                 style={s.amountInput}
                 value={amount}
@@ -190,7 +190,7 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
           <View style={s.inputCard}>
             <Text style={{ fontSize: 13, fontWeight: '700', color: '#EAF3F6', marginBottom: 8 }}>Phone Number (SMS delivery)</Text>
             <View style={s.phoneRow}>
-              <Text style={{ fontSize: 16, color: 'rgba(255,255,255,0.3)' }}>+1</Text>
+              <Text style={{ fontSize: 16, color: 'rgba(255,255,255,0.55)' }}>+1</Text>
               <TextInput
                 style={s.phoneInput}
                 value={phone}
@@ -200,7 +200,7 @@ export function CashWithdrawalScreen({ navigation }: { navigation: { goBack: () 
                 placeholderTextColor="rgba(255,255,255,0.2)"
               />
             </View>
-            <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+            <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 4 }}>
               Republic Bank will send your withdrawal code via SMS to this number
             </Text>
           </View>

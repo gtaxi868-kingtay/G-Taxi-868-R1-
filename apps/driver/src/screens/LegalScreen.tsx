@@ -117,7 +117,7 @@ export function LegalScreen({ navigation }: { navigation: any }) {
                     </Text>
                 </View>
 
-                <Text style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.2)', marginTop: 32 }}>
+                <Text style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 32 }}>
                     Governed by the laws of Trinidad and Tobago. Caribbean-region scalable. Last updated 2026-06-18.
                 </Text>
             </ScrollView>
