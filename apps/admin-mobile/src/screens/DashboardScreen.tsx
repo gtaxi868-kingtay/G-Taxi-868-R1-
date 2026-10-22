@@ -13,6 +13,7 @@ import { initializeSupabaseClient } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { LiveOpsMap } from '../components/LiveOpsMap';
+import { invokeAdmin } from '../lib/invokeAdmin';
 
 const { supabase } = initializeSupabaseClient('native');
 
@@ -64,14 +65,15 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
 
   const fetchNodes = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('admin', {
-        body: { action: 'manage_nodes', action_type: 'list' },
-      });
-      if (error) throw error;
+      const data = await invokeAdmin({ action: 'manage_nodes', action_type: 'list' });
       if (data?.success) {
         setNodes(data.nodes || []);
+      } else {
+        // Used to fail silently and show "No nodes deployed" instead.
+        Alert.alert('Could not load touch points', data?.error || 'Pull down to try again.');
       }
     } catch (err) {
+      Alert.alert('Could not load touch points', err instanceof Error ? err.message : 'Pull down to try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,14 +93,10 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setTogglingId(nodeId);
     try {
-      const { data, error } = await supabase.functions.invoke('admin', {
-        body: { action: 'manage_nodes', action_type: 'toggle_active', node_id: nodeId },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, is_active: data.node.is_active } : n));
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      const data = await invokeAdmin({ action: 'manage_nodes', action_type: 'toggle_active', node_id: nodeId });
+      if (!data?.success) throw new Error(data?.error || 'Could not switch this point on or off.');
+      setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, is_active: data.node.is_active } : n));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to toggle node';
       Alert.alert('Error', message);
@@ -118,14 +116,10 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
           text: 'Delete', style: 'destructive',
           onPress: async () => {
             try {
-              const { data, error } = await supabase.functions.invoke('admin', {
-                body: { action: 'manage_nodes', action_type: 'delete', node_id: nodeId },
-              });
-              if (error) throw error;
-              if (data?.success) {
-                setNodes(prev => prev.filter(n => n.id !== nodeId));
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }
+              const data = await invokeAdmin({ action: 'manage_nodes', action_type: 'delete', node_id: nodeId });
+              if (!data?.success) throw new Error(data?.error || 'Could not delete this point.');
+              setNodes(prev => prev.filter(n => n.id !== nodeId));
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             } catch (err) {
               const message = err instanceof Error ? err.message : 'Failed to delete node';
               Alert.alert('Error', message);

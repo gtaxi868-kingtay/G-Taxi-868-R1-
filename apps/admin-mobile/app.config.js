@@ -14,6 +14,9 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.gtaxi.admin",
+      config: {
+        googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+      },
       infoPlist: {
         NFCReaderUsageDescription:
           "G-Taxi Admin uses NFC to scan and provision physical pucks at merchant locations and taxi stands.",
@@ -29,6 +32,14 @@ export default {
       // could never get a push token, so no notification or SOS reached it.
       googleServicesFile: "./google-services.json",
       permissions: ["android.permission.NFC", "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      // react-native-maps on Android IS Google Maps: without a key the Live
+      // Ops map crashed the app the moment it opened (field test 2026-10-21).
+      // Same EAS env var the rider and driver apps use.
+      config: {
+        googleMaps: {
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+        },
+      },
     },
     plugins: [
       // G Guardian: SOS alerts are pushed to this phone.

@@ -160,10 +160,13 @@ Deno.serve(async (req) => {
       }
 
       case 'create_merchant_user': {
-        const { email, password, full_name } = body
+        const { email, password, full_name, category } = body
         if (!email || !password || !full_name) {
           return json({ success: false, error: 'email, password, full_name required' }, 400)
         }
+        // merchants.category is NOT NULL; this insert sent none, so every
+        // "Business" touch point from the admin app failed (field test
+        // 2026-10-21). 'local' is the existing catch-all category.
         const { data: authUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
           email, password, email_confirm: true,
           user_metadata: { full_name, role: 'merchant' },
@@ -171,7 +174,7 @@ Deno.serve(async (req) => {
         if (createError) throw createError
         const { data: merchant, error: mErr } = await supabaseAdmin
           .from('merchants')
-          .insert({ name: full_name, created_by: authUser.user.id })
+          .insert({ name: full_name, created_by: authUser.user.id, category: typeof category === 'string' && category.trim() ? category.trim() : 'local' })
           .select('id')
           .single()
         if (mErr) throw mErr
@@ -988,14 +991,28 @@ Deno.serve(async (req) => {
       // was any way to actually CREATE the row -- confirmed live: 0 rows in
       // identity_tags, and no RLS policy grants any role but admin (via
       // service role here) the ability to insert one.
+      // identity_tags.tag_type only allows RIDER | DRIVER | MERCHANT (CHECK
+      // identity_tags_tag_type_check); this wrote 'keychain', so issuing any
+      // keychain failed (field test 2026-10-21). A keychain is a rider's tag.
       case 'issue_identity_tag': {
         const { tag_uid, profile_id, replace_existing } = body
         if (!tag_uid || !profile_id) return json({ success: false, error: 'tag_uid and profile_id required' }, 400)
+        // RIDER (pays, identifies) or DRIVER (a driver's own fob; founder
+        // 2026-10-21). MERCHANT is allowed by the table but not issued here.
+        const tagType = body.tag_type === 'DRIVER' ? 'DRIVER' : 'RIDER'
 
         const { data: profile, error: profileErr } = await supabaseAdmin
           .from('profiles').select('id, full_name').eq('id', profile_id).maybeSingle()
         if (profileErr) throw profileErr
         if (!profile) return json({ success: false, error: 'No profile found for that user' }, 404)
+        if (tagType === 'DRIVER') {
+          const { data: driverRow, error: driverErr } = await supabaseAdmin
+            .from('drivers').select('id').eq('user_id', profile_id).maybeSingle()
+          if (driverErr) throw driverErr
+          if (!driverRow) {
+            return json({ success: false, error: `${profile.full_name || 'This person'} is not a registered driver. Choose "Rider" or pick a driver.` }, 409)
+          }
+        }
 
         // A physical tag already bound to someone else must be explicitly
         // deactivated first, never silently reassigned -- that would let a
@@ -1025,20 +1042,30 @@ Deno.serve(async (req) => {
 
         const { data, error } = existingTag
           ? await supabaseAdmin.from('identity_tags')
-              .update({ profile_id, is_active: true, tag_type: 'keychain' })
+              .update({ profile_id, is_active: true, tag_type: tagType })
               .eq('id', existingTag.id).select().single()
           : await supabaseAdmin.from('identity_tags')
-              .insert({ tag_uid, profile_id, tag_type: 'keychain', is_active: true })
+              .insert({ tag_uid, profile_id, tag_type: tagType, is_active: true })
               .select().single()
         if (error) throw error
-        return json({ success: true, tag: data, rider_name: profile.full_name })
+        // A driver's keychain carries their code: the admin app writes
+        // <nfc_tap_base_url>?ride_with=<code> onto it, so a rider who taps it
+        // can join linked to this driver (link_rider_to_driver_code).
+        let referralCode: string | null = null
+        if (tagType === 'DRIVER') {
+          const { data: code, error: codeErr } = await supabaseAdmin
+            .rpc('generate_referral_code', { p_user_id: profile_id, p_type: 'driver' })
+          if (codeErr) console.error('generate_referral_code failed:', codeErr.message)
+          referralCode = typeof code === 'string' ? code : null
+        }
+        return json({ success: true, tag: data, rider_name: profile.full_name, tag_type: tagType, referral_code: referralCode })
       }
 
       case 'search_riders': {
         const q = String(body.q || '').trim()
         if (q.length < 2) return json({ success: true, riders: [] })
         const { data, error } = await supabaseAdmin
-          .from('profiles').select('id, full_name, email, phone_number')
+          .from('profiles').select('id, full_name, email, phone_number, role')
           .or(`full_name.ilike.%${q}%,phone_number.ilike.%${q}%,email.ilike.%${q}%`)
           .limit(10)
         if (error) throw error

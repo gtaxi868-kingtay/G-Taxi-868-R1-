@@ -18,6 +18,8 @@ import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { VOICES } from '@gtaxi/design-system';
+import NfcManager, { NfcTech } from 'react-native-nfc-manager';
+import { invokeAdmin } from '../lib/invokeAdmin';
 
 const { supabase } = initializeSupabaseClient('native');
 const ACCENT = VOICES.admin.accent;
@@ -55,6 +57,31 @@ export const RegisterPuckScreen: React.FC<{ navigation: any }> = ({ navigation }
     acquireTelemetry();
   }, []);
 
+  // Read the puck's chip ID by tapping it on the phone, instead of typing
+  // it (the screen had no way to scan; field test 2026-10-21). Same reader
+  // setup as the Issue Keychain screen.
+  const [scanning, setScanning] = useState(false);
+  useEffect(() => {
+    NfcManager.start().catch(() => {});
+  }, []);
+  const scanPuck = async () => {
+    setScanning(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await NfcManager.requestTechnology(NfcTech.NfcA);
+      const tag = await NfcManager.getTag();
+      if (!tag?.id) throw new Error('Could not read the chip. Hold it steady against the back of the phone.');
+      setPuckId(tag.id.toUpperCase());
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Scan failed', err?.message || 'Could not read the chip. Is NFC turned on?');
+    } finally {
+      NfcManager.cancelTechnologyRequest().catch(() => {});
+      setScanning(false);
+    }
+  };
+
   const handleRegisterNode = async () => {
     if (!puckId.trim() || !merchantName.trim()) {
       Alert.alert('Validation Error', 'Hardware UID and partner name cannot be empty.');
@@ -64,20 +91,17 @@ export const RegisterPuckScreen: React.FC<{ navigation: any }> = ({ navigation }
     setIsSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     try {
-      const { data, error } = await supabase.functions.invoke('admin', {
-        body: {
-          action: 'manage_nodes', action_type: 'upsert',
-          node: {
-            tag_uid: puckId.trim().toUpperCase(),
-            location_name: merchantName.trim(),
-            lat: latitude,
-            lng: longitude,
-            is_active: true,
-          },
+      const data = await invokeAdmin({
+        action: 'manage_nodes', action_type: 'upsert',
+        node: {
+          tag_uid: puckId.trim().toUpperCase(),
+          location_name: merchantName.trim(),
+          lat: latitude,
+          lng: longitude,
+          is_active: true,
         },
       });
-
-      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Could not save the puck.');
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Node Provisioned', `G-Touch Point ${puckId.toUpperCase()} is active at ${merchantName}.`);
@@ -85,7 +109,7 @@ export const RegisterPuckScreen: React.FC<{ navigation: any }> = ({ navigation }
       setMerchantName('');
     } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Provisioning Failed', err.message || 'Edge function rejected the request.');
+      Alert.alert('Could not save', err?.message || 'The server refused the request.');
     } finally {
       setIsSubmitting(false);
     }
@@ -128,6 +152,15 @@ export const RegisterPuckScreen: React.FC<{ navigation: any }> = ({ navigation }
               autoCorrect={false}
             />
           </View>
+          <TouchableOpacity
+            style={[styles.scanBtn, scanning && { opacity: 0.6 }]}
+            onPress={scanPuck}
+            disabled={scanning}
+            accessibilityLabel="Scan the puck with NFC"
+          >
+            {scanning ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="scan" size={16} color="#FFF" />}
+            <Text style={styles.scanText}>{scanning ? 'Hold the puck to the phone…' : 'Scan puck'}</Text>
+          </TouchableOpacity>
 
           <Text style={styles.sectionLabel}>PARTNER / LOCATION NAME</Text>
           <View style={styles.inputGroup}>
@@ -221,6 +254,12 @@ const styles = StyleSheet.create({
   infoTitle: { fontSize: 13, fontWeight: '700', color: '#F1F5F9' },
   infoDesc: { fontSize: 11, color: 'rgba(255,255,255,0.65)', lineHeight: 16, marginTop: 2 },
   sectionLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.65)', letterSpacing: 1.2 },
+  scanBtn: {
+    flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
+    minHeight: 46, borderRadius: 12, marginTop: 4,
+    backgroundColor: `${ACCENT}50`, borderWidth: 1, borderColor: `${ACCENT}30`,
+  },
+  scanText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'center',
