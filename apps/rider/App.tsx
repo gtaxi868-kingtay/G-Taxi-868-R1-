@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ENV } from '@g868/shared/env';
 import { useAppOpenedLogger } from './src/services/analytics';
+import { usePendingDriverCode } from './src/services/driverCode';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { OutboxService } from '@g868/shared/OutboxService';
@@ -189,6 +190,7 @@ function AppNavigator() {
 function RootNavigator() {
     const { user, loading, passwordRecovery } = useAuth();
     useAppOpenedLogger(!!user);
+    usePendingDriverCode(!!user);
     if (loading) return <AnimatedSplash onFinish={() => { }} />;
     if (user && passwordRecovery) return <ResetPasswordScreen />;
     return user ? <RideProvider><EscapeTripProvider><AppNavigator /></EscapeTripProvider></RideProvider> : <AuthNavigator />;

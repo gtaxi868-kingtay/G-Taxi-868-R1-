@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import NfcManager, { NfcTech } from 'react-native-nfc-manager';
+import NfcManager, { NfcTech, Ndef, NdefStatus } from 'react-native-nfc-manager';
 import { invokeAdmin } from '../lib/invokeAdmin';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../navigation/types';
@@ -56,6 +56,52 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
   const [submitting, setSubmitting] = useState(false);
   const [keychainType, setKeychainType] = useState<KeychainType>('RIDER');
   const who = TYPE_LABEL[keychainType].toLowerCase();
+
+  // Base address written onto chips (system_config.nfc_tap_base_url), same
+  // one the touch-point screen uses.
+  const [tapBaseUrl, setTapBaseUrl] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.from('system_config').select('value').eq('key', 'nfc_tap_base_url').maybeSingle()
+      .then(({ data }: { data: { value: string } | null }) => setTapBaseUrl(data?.value ?? null), () => setTapBaseUrl(null));
+  }, []);
+
+  // Writes <base>?ride_with=<code> onto the driver's fob so any phone that
+  // taps it opens the site showing the driver's code. Checks it is the same
+  // fob, then reads the link back to confirm it stuck.
+  const writeDriverLink = async (fobUid: string, code: string, driverName: string) => {
+    const url = tapBaseUrl ? `${tapBaseUrl}?ride_with=${encodeURIComponent(code)}` : null;
+    if (!url) {
+      Alert.alert('No tap address set', 'nfc_tap_base_url is missing from system settings, so there is no link to write yet.');
+      return;
+    }
+    try {
+      await NfcManager.requestTechnology(NfcTech.Ndef, { alertMessage: `Hold ${driverName}'s keychain to the phone` });
+      const tag = await NfcManager.getTag();
+      const clean = (v?: string | null) => (v || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
+      if (clean(tag?.id) !== clean(fobUid)) throw new Error("That's a different keychain. Hold the one you just issued.");
+      const { status, capacity } = await NfcManager.ndefHandler.getNdefStatus();
+      if (status === NdefStatus.ReadOnly) throw new Error('This keychain is locked and cannot be written.');
+      if (status === NdefStatus.NotSupported) throw new Error('This keychain type cannot hold a web link. Use an NTAG chip.');
+      const bytes = Ndef.encodeMessage([Ndef.uriRecord(url)]);
+      if (capacity && bytes.length > capacity) throw new Error(`The link needs ${bytes.length} bytes but this chip only holds ${capacity}.`);
+      await NfcManager.ndefHandler.writeNdefMessage(bytes);
+      const back = await NfcManager.ndefHandler.getNdefMessage();
+      const record = back?.ndefMessage?.[0];
+      const written = record ? Ndef.uri.decodePayload(new Uint8Array(record.payload as number[])) : null;
+      if (written !== url) throw new Error('The keychain did not keep the link. Hold it still and try again.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Link written', `Riders who tap ${driverName}'s keychain will see code ${code}.`,
+        [{ text: 'Done', onPress: () => navigation.goBack() }]);
+    } catch (err: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Could not write the keychain', err?.message || 'Hold it flat against the phone and try again.', [
+        { text: 'Later', style: 'cancel', onPress: () => navigation.goBack() },
+        { text: 'Try again', onPress: () => writeDriverLink(fobUid, code, driverName) },
+      ]);
+    } finally {
+      await NfcManager.cancelTechnologyRequest().catch(() => undefined);
+    }
+  };
 
   useEffect(() => {
     NfcManager.start();
@@ -138,11 +184,26 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
       }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        'Keychain Issued',
-        `Tag ${tagUid.trim()} is now bound to ${data.rider_name || selectedRider.full_name}.`,
-        [{ text: 'Done', onPress: () => navigation.goBack() }],
-      );
+      const name = data.rider_name || selectedRider.full_name || 'the driver';
+      if (keychainType === 'DRIVER' && data.referral_code) {
+        // Last step for a driver fob: put their code link on it.
+        const fob = tagUid.trim();
+        const code = data.referral_code as string;
+        Alert.alert(
+          'Keychain issued',
+          `${name}'s code is ${code}. Now write it onto the keychain so riders can tap it.`,
+          [
+            { text: 'Later', style: 'cancel', onPress: () => navigation.goBack() },
+            { text: 'Write it now', onPress: () => writeDriverLink(fob, code, name) },
+          ],
+        );
+      } else {
+        Alert.alert(
+          'Keychain Issued',
+          `Tag ${tagUid.trim()} is now bound to ${name}.`,
+          [{ text: 'Done', onPress: () => navigation.goBack() }],
+        );
+      }
     } catch (err: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Failed to Issue Tag', err?.message || 'Something went wrong.');

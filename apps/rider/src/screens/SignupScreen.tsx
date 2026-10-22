@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import Reanimated, { FadeIn } from 'react-native-reanimated';
 import { RIDER_CONSENT_DOCUMENTS, LEGAL_DOC_URLS } from '@g868/shared/legal';
 import { savePendingSignup } from '@g868/shared/pendingSignup';
+import { linkDriverCode, savePendingDriverCode } from '../services/driverCode';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -159,6 +160,23 @@ export function SignupScreen({ navigation }: any) {
                     });
                     if (referralResult && referralResult.success === false) {
                         referralWarning = referralResult.error || 'That referral code could not be applied.';
+                        // Not a rider's code: it may be a DRIVER's code (from
+                        // their keychain). Link this rider to that driver.
+                        if (/invalid referral code/i.test(referralWarning || '')) {
+                            const code = formData.referralCode.trim().toUpperCase();
+                            if (authData.session) {
+                                const driverResult = await linkDriverCode(code);
+                                referralWarning = driverResult.success
+                                    ? null
+                                    : (driverResult.error === 'Invalid referral code'
+                                        ? 'That code was not found. Check it and add it later from Refer & Earn.'
+                                        : driverResult.error || 'That code could not be applied.');
+                            } else {
+                                // No session until the email is confirmed: apply it at first sign-in.
+                                await savePendingDriverCode(code);
+                                referralWarning = null;
+                            }
+                        }
                     }
                 } catch { /* non-fatal — bonus is a perk, not a requirement */ }
             }

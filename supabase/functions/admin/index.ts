@@ -1048,7 +1048,17 @@ Deno.serve(async (req) => {
               .insert({ tag_uid, profile_id, tag_type: tagType, is_active: true })
               .select().single()
         if (error) throw error
-        return json({ success: true, tag: data, rider_name: profile.full_name })
+        // A driver's keychain carries their code: the admin app writes
+        // <nfc_tap_base_url>?ride_with=<code> onto it, so a rider who taps it
+        // can join linked to this driver (link_rider_to_driver_code).
+        let referralCode: string | null = null
+        if (tagType === 'DRIVER') {
+          const { data: code, error: codeErr } = await supabaseAdmin
+            .rpc('generate_referral_code', { p_user_id: profile_id, p_type: 'driver' })
+          if (codeErr) console.error('generate_referral_code failed:', codeErr.message)
+          referralCode = typeof code === 'string' ? code : null
+        }
+        return json({ success: true, tag: data, rider_name: profile.full_name, tag_type: tagType, referral_code: referralCode })
       }
 
       case 'search_riders': {

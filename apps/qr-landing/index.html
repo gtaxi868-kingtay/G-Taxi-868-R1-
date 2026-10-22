@@ -496,11 +496,14 @@ function isValidTTPhone(raw) {
 }
 
 const QP = new URLSearchParams(location.search);
-const IS_ARRIVAL = ['tag', 'node', 'merchant', 'store', 'driver', 'ref', 'ride', 'r', 'stand'].some(k => QP.has(k));
+const IS_ARRIVAL = ['tag', 'node', 'merchant', 'store', 'driver', 'ref', 'ride', 'r', 'stand', 'ride_with'].some(k => QP.has(k));
 let QR_TYPE = 'ride', QR_DATA = null, PICKUP = null, GEO = null, SUPPORT = '18687031000';
 
 function detectQrType() {
-  if (QP.has('tag') || QP.has('node')) { QR_TYPE = 'nfc'; QR_DATA = QP.get('tag') || QP.get('node'); }
+  // ?ride_with=CODE: a rider tapped a G driver's keychain. Show the driver's
+  // code to use at rider sign-up (links the rider to that driver).
+  if (QP.has('ride_with')) { QR_TYPE = 'ride_with'; QR_DATA = (QP.get('ride_with') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12); }
+  else if (QP.has('tag') || QP.has('node')) { QR_TYPE = 'nfc'; QR_DATA = QP.get('tag') || QP.get('node'); }
   else if (QP.has('merchant') || QP.has('store')) { QR_TYPE = 'merchant'; QR_DATA = QP.get('merchant') || QP.get('store'); }
   else if (QP.has('driver') || QP.has('ref')) { QR_TYPE = 'driver'; QR_DATA = QP.get('driver') || QP.get('ref'); }
   else if (QP.has('ride') || QP.has('r')) { QR_TYPE = 'ride'; QR_DATA = QP.get('ride') || QP.get('r'); }
@@ -544,6 +547,13 @@ const wa = (text) => {
 };
 
 function handleArrivalCta() {
+  if (QR_TYPE === 'ride_with') {
+    const btn = document.getElementById('arr-cta');
+    const done = () => { if (btn) btn.firstChild.textContent = 'Copied. Paste it at sign-up '; };
+    if (navigator.clipboard && QR_DATA) navigator.clipboard.writeText(QR_DATA).then(done, () => window.prompt('Your driver code:', QR_DATA));
+    else window.prompt('Your driver code:', QR_DATA || '');
+    return;
+  }
   if (QR_TYPE === 'nfc') {
     const place = PICKUP && PICKUP.name ? `“${PICKUP.name}”` : `touchpoint ${QR_DATA || 'unknown'}`;
     const coords = (PICKUP && PICKUP.lat && PICKUP.lng)
@@ -595,7 +605,8 @@ const ARRIVALS = {
   nfc: { eyebrow: 'Touchpoint', accent: '#22d3ee', head: 'You tapped in.', sub: 'This counter is now your pickup. Say where you\'re going and a car comes to you.', cta: 'Request the ride' },
   merchant: { eyebrow: 'G-Partner counter', accent: '#f0abfc', head: 'Shop from here.', sub: 'Order what this counter stocks and a G driver brings it to you.', cta: 'Order on WhatsApp' },
   driver: { eyebrow: 'Driver referral', accent: '#5eead4', head: 'Keep up to 80% of every fare.', sub: 'You were sent here by someone already driving with G. Same deal for you.', cta: 'Apply on WhatsApp' },
-  ride: { eyebrow: 'Ride', accent: '#c084fc', head: 'Get moving.', sub: 'One tap and the nearest G driver is on the way.', cta: 'Request the ride' }
+  ride: { eyebrow: 'Ride', accent: '#c084fc', head: 'Get moving.', sub: 'One tap and the nearest G driver is on the way.', cta: 'Request the ride' },
+  ride_with: { eyebrow: 'Driver invite', accent: '#c084fc', head: 'Ride with your G driver.', sub: 'Enter this code when you sign up in the G 868 rider app. It links you to the driver who invited you.', cta: 'Copy the code' }
 };
 
 const arrivalPanelHTML = () => {
@@ -608,6 +619,7 @@ const arrivalPanelHTML = () => {
     </div>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(2rem,4vw,3.2rem);line-height:.95;letter-spacing:-.03em;margin:.7rem 0 .8rem">${a.head}</h3>
     <p id="arr-sub" style="color:rgba(255,255,255,.72);line-height:1.65;max-width:560px;margin-bottom:1.8rem">${a.sub}</p>
+    ${QR_TYPE === 'ride_with' && QR_DATA ? `<div style="display:inline-block;margin:-.6rem 0 1.6rem;padding:.9rem 1.4rem;border-radius:16px;border:1px solid rgba(192,132,252,.5);background:rgba(192,132,252,.12)"><div style="font-size:.75rem;color:rgba(255,255,255,.7);margin-bottom:.3rem">Your driver's code</div><div id="arr-code" style="font-family:'Outfit',sans-serif;font-weight:900;font-size:2rem;letter-spacing:.18em;color:#fff">${QR_DATA}</div></div>` : ''}
     <div style="display:flex;flex-wrap:wrap;gap:.75rem">
       <button id="arr-cta" style="display:flex;align-items:center;gap:1rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;border:none;padding:.55rem .55rem .55rem 1.4rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:800;font-size:.95rem;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,.42)">
         ${a.cta}
@@ -615,7 +627,7 @@ const arrivalPanelHTML = () => {
       </button>
       <button id="arr-join" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);color:#fff;padding:.85rem 1.4rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem;cursor:pointer">Join the waitlist instead</button>
     </div>
-    <p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5;margin:1.1rem 0 1.4rem">WhatsApp is the fastest path. Nothing to install.</p>
+    ${QR_TYPE === 'ride_with' ? '<div style="height:1.4rem"></div>' : `<p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5;margin:1.1rem 0 1.4rem">WhatsApp is the fastest path. Nothing to install.</p>`}
     <div style="display:flex;flex-direction:column;gap:.9rem;padding-top:1.3rem;border-top:1px solid rgba(255,255,255,.12)">
       <div style="display:flex;align-items:center;gap:.6rem;font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.5)">Or use the G app</div>
       <div style="display:flex;flex-wrap:wrap;gap:.6rem">
