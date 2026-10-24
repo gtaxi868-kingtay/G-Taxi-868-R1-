@@ -1,23 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity, TextInput,
-    useWindowDimensions, ActivityIndicator, Alert,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { routeNfcTag, RoutedNode, OutboxService, supabase } from '@gtaxi/core';
 
 const OUTBOX = OutboxService.getInstance();
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { toast } from '../components/Toast';
+import { BrandBadge, Button, Field, Loading, Screen, SPACE, Txt, useTheme } from '../ui/kit';
 import { AppScreenProps } from '../navigation/types';
 import { describeNfcFailure, releaseNfc } from '../utils/nfcErrors';
 
 export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) {
-    const { width } = useWindowDimensions();
-    const insets = useSafeAreaInsets();
     const payMode = route?.params?.mode === 'pay';
     const [inputMode, setInputMode] = useState<'scan' | 'manual'>('scan');
     const [manualToken, setManualToken] = useState('');
@@ -84,7 +76,7 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
                     tagUid: node.tag_uid,
                 });
             } else {
-                Alert.alert('Personal Tag', 'This tag is linked to a personal profile.');
+                toast('This is a personal G tag, not a pickup point or shop.');
                 navigation.goBack();
             }
         } catch (err: any) {
@@ -135,100 +127,33 @@ export function NfcScanScreen({ navigation, route }: AppScreenProps<'NfcScan'>) 
         handleQrDeepLink();
     }, [route?.params?.token]);
 
+    const m = useTheme();
     return (
-        <View style={[s.container, { paddingTop: insets.top }]}>
-            <LinearGradient colors={['#1A0533', '#0D1B4B']} style={StyleSheet.absoluteFillObject} />
-
-            <TouchableOpacity style={[s.backBtn, { top: insets.top + 8 }]} onPress={() => navigation.goBack()}>
-                <Ionicons name="close" size={28} color="#EAF3F6" />
-            </TouchableOpacity>
-
-            <View style={s.content}>
-                {loading ? (
-                    <View style={s.centerContent}>
-                        <ActivityIndicator size="large" color={VOICES.rider.accent} />
-                        <Text style={s.loadingText}>Reading tag...</Text>
-                    </View>
-                ) : inputMode === 'scan' ? (
-                    <View style={s.centerContent}>
-                        <View style={[glassSurface(40), s.scanCard]}>
-                            <View style={s.scanIconContainer}>
-                                <Ionicons name="radio-outline" size={64} color={VOICES.rider.accent} />
-                            </View>
-                            <Text style={s.scanTitle}>
-                                {payMode ? 'Pay at Store' : 'Tap or Scan'}
-                            </Text>
-                            <Text style={s.scanSubtitle}>
-                                {payMode
-                                    ? "Tap your phone to the merchant's NFC tag\nto pay with your G-Wallet"
-                                    : 'Hold your phone near a G-Taxi NFC tag\nor scan a QR code'
-                                }
-                            </Text>
-
-                            <TouchableOpacity style={s.scanBtn} onPress={scanNfc}>
-                                <Ionicons name="scan" size={22} color="#EAF3F6" />
-                                <Text style={s.scanBtnText}>Scan NFC Tag</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={s.manualBtn} onPress={() => setInputMode('manual')}>
-                                <Text style={s.manualBtnText}>Enter code manually</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ) : (
-                    <View style={s.centerContent}>
-                        <View style={[glassSurface(40), s.scanCard]}>
-                            <Text style={s.scanTitle}>Enter Tag Code</Text>
-                            <Text style={s.scanSubtitle}>
-                                {payMode
-                                    ? "Enter the merchant's tag code"
-                                    : 'Type the code printed on the NFC tag'
-                                }
-                            </Text>
-
-                            <TextInput
-                                style={s.input}
-                                value={manualToken}
-                                onChangeText={setManualToken}
-                                placeholder="e.g. GTX-A7F3"
-                                placeholderTextColor="rgba(255,255,255,0.3)"
-                                autoCapitalize="characters"
-                                autoCorrect={false}
-                            />
-
-                            {error && <Text style={s.errorText}>{error}</Text>}
-
-                            <TouchableOpacity style={s.scanBtn} onPress={submitManual}>
-                                <Ionicons name="arrow-forward" size={22} color="#EAF3F6" />
-                                <Text style={s.scanBtnText}>Look Up</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={s.manualBtn} onPress={() => setInputMode('scan')}>
-                                <Ionicons name="radio-outline" size={18} color={VOICES.rider.accent} />
-                                <Text style={s.manualBtnText}>Scan instead</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                )}
-            </View>
-        </View>
+        <Screen onBack={() => navigation.goBack()} title={payMode ? 'Pay at a shop' : 'Tap a G point'}>
+            {loading ? (
+                <View style={{ paddingTop: SPACE.xxl }}><Loading /><Txt variant="body" tone="dim" style={{ textAlign: 'center' }}>Reading the tag…</Txt></View>
+            ) : inputMode === 'scan' ? (
+                <View style={{ alignItems: 'center', paddingTop: SPACE.xxl }}>
+                    <BrandBadge icon="radio-outline" size={96} round />
+                    <Txt variant="hero" style={{ textAlign: 'center', marginTop: SPACE.xl }}>{payMode ? 'Tap to pay' : 'Tap or scan'}</Txt>
+                    <Txt variant="body" tone="dim" style={{ textAlign: 'center', marginTop: SPACE.sm }}>
+                        {payMode ? "Hold your phone to the shop's G tag to pay with G-Coin." : 'Hold your phone near a G tag to book from where you are.'}
+                    </Txt>
+                    <Button title="Start scanning" icon="scan" style={{ alignSelf: 'stretch', marginTop: SPACE.xxl }} onPress={scanNfc} />
+                    <Button title="Type the code instead" variant="ghost" style={{ alignSelf: 'stretch', marginTop: SPACE.md }} onPress={() => setInputMode('manual')} />
+                </View>
+            ) : (
+                <View style={{ paddingTop: SPACE.lg }}>
+                    <Txt variant="title">Enter the tag code</Txt>
+                    <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs, marginBottom: SPACE.lg }}>
+                        {payMode ? "It's printed on the shop's G tag." : "It's printed on the G tag."}
+                    </Txt>
+                    <Field placeholder="e.g. GTX-A7F3" value={manualToken} onChangeText={setManualToken} autoCapitalize="characters" autoCorrect={false} error={error} onSubmitEditing={submitManual} />
+                    <Button title="Continue" onPress={submitManual} />
+                    <Button title="Scan instead" variant="ghost" style={{ marginTop: SPACE.md }} onPress={() => { setError(null); setInputMode('scan'); }} />
+                </View>
+            )}
+            {error && inputMode === 'scan' ? <Txt variant="bodyStrong" tone="danger" style={{ textAlign: 'center', marginTop: SPACE.lg }}>{error}</Txt> : null}
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    container: { flex: 1, backgroundColor: SURFACE.base },
-    backBtn: { position: 'absolute', left: 16, zIndex: 10, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
-    content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-    centerContent: { width: '100%', alignItems: 'center' },
-    loadingText: { color: 'rgba(255,255,255,0.6)', marginTop: 16, fontSize: 16 },
-    scanCard: { width: '100%', borderRadius: 32, padding: 32, alignItems: 'center', ...ghostBorder() },
-    scanIconContainer: { width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(255,255,255,0.03)', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
-    scanTitle: { fontSize: 24, fontWeight: '800', color: '#EAF3F6', marginBottom: 8 },
-    scanSubtitle: { fontSize: 15, color: 'rgba(255,255,255,0.6)', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
-    scanBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: VOICES.rider.accent, paddingHorizontal: 28, paddingVertical: 16, borderRadius: 16, gap: 8, marginBottom: 16 },
-    scanBtnText: { color: '#EAF3F6', fontSize: 16, fontWeight: '700' },
-    manualBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 12 },
-    manualBtnText: { color: VOICES.rider.accent, fontSize: 14, fontWeight: '600' },
-    input: { width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 16, fontSize: 20, color: '#EAF3F6', textAlign: 'center', fontWeight: '700', letterSpacing: 4, marginBottom: 24, ...ghostBorder() },
-    errorText: { color: '#FF4D4D', fontSize: 14, marginBottom: 16 },
-});
