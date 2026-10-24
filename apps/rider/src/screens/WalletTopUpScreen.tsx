@@ -1,40 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, StyleSheet, TouchableOpacity, TextInput,
-    ActivityIndicator, Alert, useWindowDimensions, ScrollView, Platform,
-    KeyboardAvoidingView
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Pressable } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '@/design-system/primitives';
 import { ENV } from '@g868/shared/env';
-import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
-
-const CYAN = '#06B6D4';
-
-const R = {
-    bg: SURFACE.base,
-    surface: 'rgba(255,255,255,0.08)',
-    border: 'rgba(191,64,255,0.2)',
-    purple: VOICES.rider.accent,
-    purpleLight: CYAN,
-    gold: '#F59E0B',
-    white: '#EAF3F6',
-    muted: '#AEA9B5',
-};
+import { toast } from '../components/Toast';
+import { Button, Card, Field, RADIUS, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
 
 export function WalletTopUpScreen({ navigation }: any) {
-    const { width } = useWindowDimensions();
     const { user } = useAuth();
-    const insets = useSafeAreaInsets();
     const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
     const stripe = isExpoGo ? null : useStripe();
 
@@ -65,7 +42,7 @@ export function WalletTopUpScreen({ navigation }: any) {
     const handleAddFunds = async () => {
         const amt = customAmount ? parseFloat(customAmount) : selectedAmount;
         if (isNaN(amt) || amt < 20) {
-            Alert.alert('Invalid Amount', 'Minimum top-up is $20 TTD.');
+            toast('The minimum top-up is $20 TTD.', 'error');
             return;
         }
 
@@ -73,7 +50,7 @@ export function WalletTopUpScreen({ navigation }: any) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         if (isExpoGo || !stripe) {
-            Alert.alert('Expo Go Limitation', 'Native Stripe is not available in Expo Go. Please use a development build for card payments.');
+            toast('Card top-ups need the full G 868 app, not Expo Go.', 'error');
             setLoading(false);
             return;
         }
@@ -93,8 +70,10 @@ export function WalletTopUpScreen({ navigation }: any) {
             if (!response.ok) {
                 if (response.status === 429) throw new Error('Traffic is high right now. Please wait a moment and try again.');
                 if (response.status === 401) throw new Error('Your session has expired. Please log in again.');
+                // A 5xx here means card top-ups are not switched on server-side yet.
+                if (response.status >= 500) throw new Error('Adding money by card is not available yet. You can still pay for rides in cash.');
                 const errorBody = await response.text().catch(() => '');
-                throw new Error(errorBody || `Server error (${response.status}). Please try again.`);
+                throw new Error(errorBody || `Something went wrong (${response.status}). Please try again.`);
             }
 
             const { clientSecret } = await response.json();
@@ -106,12 +85,12 @@ export function WalletTopUpScreen({ navigation }: any) {
                 style: 'alwaysDark',
                 appearance: {
                     colors: {
-                        primary: R.purple,
-                        background: R.bg,
-                        componentBackground: R.surface,
-                        componentText: '#EAF3F6',
-                        primaryText: '#EAF3F6',
-                        secondaryText: R.muted,
+                        primary: '#8B7CFF',
+                        background: '#0B0814',
+                        componentBackground: '#1C1626',
+                        componentText: '#F6F0E8',
+                        primaryText: '#F6F0E8',
+                        secondaryText: '#B8B0C4',
                         placeholderText: 'rgba(255,255,255,0.2)',
                         icon: '#EAF3F6',
                         error: '#EF4444',
@@ -124,122 +103,61 @@ export function WalletTopUpScreen({ navigation }: any) {
             const { error: presentError } = await stripe.presentPaymentSheet();
             if (!presentError) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert('Success', `$${amt} TTD added to your wallet!`);
+                toast(`$${amt} TTD added to your wallet`, 'success');
                 navigation.goBack();
             }
         } catch (error: any) {
-            Alert.alert('Error', error.message);
+            toast(error.message || 'Could not add money. Please try again.', 'error');
         } finally {
             setLoading(false);
         }
     };
 
+    const m = useTheme();
     const amounts = [50, 100, 200, 500];
     const displayAmount = customAmount ? parseFloat(customAmount) || 0 : selectedAmount;
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
+        <Screen
+            title="Add money"
+            onBack={() => navigation.goBack()}
+            footer={<Button title={`Add $${displayAmount || 0} TTD`} onPress={handleAddFunds} loading={loading} disabled={displayAmount <= 0} />}
+        >
+            <Card style={{ alignItems: 'center', paddingVertical: SPACE.xl, marginTop: SPACE.sm }}>
+                <Txt variant="label" tone="dim">Current balance</Txt>
+                <Txt variant="hero" style={{ marginTop: SPACE.xs }}>${balance !== null ? balance.toFixed(2) : '—'}</Txt>
+            </Card>
 
-            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Financial Support</Txt>
-            </View>
-
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-            >
-            <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
-                <View style={s.balanceCard}>
-                    <LinearGradient 
-                        colors={[`${VOICES.rider.accent}1A`, 'transparent']} 
-                        style={StyleSheet.absoluteFillObject} 
-                    />
-                    <Txt variant="caption" weight="heavy" color={CYAN} style={{ letterSpacing: 2 }}>ESTABLISHED BALANCE</Txt>
-                    <Txt variant="displayXL" weight="heavy" color="#EAF3F6">
-                        ${balance !== null ? balance.toFixed(2) : '0.00'}
-                    </Txt>
-                </View>
-
-                <Txt variant="bodyBold" color="#EAF3F6" style={{ marginBottom: 20 }}>Select Amount</Txt>
-                <View style={s.grid}>
+            <Section title="Choose an amount">
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -SPACE.xs }}>
                     {amounts.map(amt => {
-                        const isActive = selectedAmount === amt && !customAmount;
+                        const on = selectedAmount === amt && !customAmount;
                         return (
-                            <TouchableOpacity
-                                key={amt}
-                                style={[s.amountCard, { width: (width - 40 - 12) / 2 }, isActive && s.amountCardActive]}
-                                onPress={() => handleAmountSelect(amt)}
-                            >
-                                <Txt variant="headingM" weight="heavy" color={isActive ? "#EAF3F6" : R.muted}>${amt}</Txt>
-                                <Txt variant="caption" weight="heavy" color={isActive ? CYAN : R.muted}>TTD</Txt>
-                                {isActive && (
-                                    <LinearGradient 
-                                        colors={[`${VOICES.rider.accent}33`, 'transparent']} 
-                                        style={StyleSheet.absoluteFillObject} 
-                                    />
-                                )}
-                            </TouchableOpacity>
+                            <View key={amt} style={{ width: '50%', padding: SPACE.xs }}>
+                                <Pressable accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`$${amt} TTD`}
+                                    onPress={() => handleAmountSelect(amt)}
+                                    style={({ pressed }) => ({
+                                        height: 72, borderRadius: RADIUS.field, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
+                                        borderColor: on ? m.accent : m.chipBorder, backgroundColor: on ? (m.key === 'day' ? 'rgba(122,92,255,0.08)' : 'rgba(185,174,255,0.12)') : m.chip,
+                                        opacity: pressed ? 0.85 : 1,
+                                    })}>
+                                    <Txt variant="title">${amt}</Txt>
+                                    <Txt variant="caption" tone="dim">TTD</Txt>
+                                </Pressable>
+                            </View>
                         );
                     })}
                 </View>
+            </Section>
 
-                <View style={s.customWrap}>
-                    <Txt variant="caption" weight="heavy" color={R.muted} style={s.label}>CUSTOM AMOUNT</Txt>
-                    <TextInput
-                        style={s.input}
-                        placeholder="Enter amount"
-                        placeholderTextColor="rgba(255,255,255,0.2)"
-                        keyboardType="numeric"
-                        value={customAmount}
-                        onChangeText={setCustomAmount}
-                    />
-                </View>
+            <Section title="Or enter an amount">
+                <Field placeholder="Minimum $20" keyboardType="numeric" value={customAmount} onChangeText={setCustomAmount} />
+            </Section>
 
-                <View style={s.securityNotice}>
-                    <Ionicons name="lock-closed-outline" size={16} color={R.muted} />
-                    <Txt variant="small" weight="heavy" color={R.muted} style={{ marginLeft: 8 }}>Secured by Stripe</Txt>
-                </View>
-
-                <TouchableOpacity style={s.payBtn} onPress={handleAddFunds} disabled={loading || displayAmount <= 0}>
-                    <LinearGradient 
-                        colors={[VOICES.rider.accent, CYAN]} 
-                        start={{x: 0, y: 0}} 
-                        end={{x: 1, y: 0}}
-                        style={s.btnGradient}
-                    >
-                        {loading ? <ActivityIndicator color="#EAF3F6" /> : (
-                            <Txt variant="bodyBold" color="#EAF3F6">INJECT ${displayAmount} TTD</Txt>
-                        )}
-                    </LinearGradient>
-                </TouchableOpacity>
-
-            </ScrollView>
-            </KeyboardAvoidingView>
-        </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="lock-closed-outline" size={14} color={m.faint} />
+                <Txt variant="caption" tone="faint" style={{ marginLeft: 6 }}>Card payments are processed securely by Stripe</Txt>
+            </View>
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-    headerBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-
-    scroll: { paddingHorizontal: 20 },
-    balanceCard: { backgroundColor: 'rgba(255,255,255,0.03)', padding: 40, borderRadius: 40, alignItems: 'center', marginBottom: 40, ...ghostBorder(0.05), overflow: 'hidden' },
-
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
-    amountCard: { height: 120, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.05), overflow: 'hidden' },
-    amountCardActive: { borderColor: VOICES.rider.accent, backgroundColor: 'rgba(124,58,237,0.05)' },
-
-    customWrap: { gap: 12, marginTop: 12 },
-    label: { marginLeft: 16, letterSpacing: 1 },
-    input: { height: 64, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, paddingHorizontal: 24, color: '#EAF3F6', fontSize: 18, ...ghostBorder(0.05) },
-
-    securityNotice: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 32 },
-    payBtn: { height: 64, borderRadius: 24, overflow: 'hidden' },
-    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});
