@@ -202,7 +202,7 @@ export function SettingsScreen({ navigation }: any) {
 
             <Section title="Emergency contact">
                 <Card>
-                    <Txt variant="caption" tone="dim" style={{ marginBottom: SPACE.md }}>We tell this person where you are if you press SOS during a ride.</Txt>
+                    <Txt variant="caption" tone="dim" style={{ marginBottom: SPACE.md }}>Who we should contact for you in an emergency during a ride.</Txt>
                     <Field label="Name" placeholder="Contact name" value={contactName} onChangeText={setContactName} autoCapitalize="words" />
                     <Field label="Phone" placeholder="+1 868 000 0000" value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" />
                     <Button title="Save contact" size="md" variant="secondary" loading={savingContact} onPress={saveEmergencyContact} />
