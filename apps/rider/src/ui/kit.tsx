@@ -376,11 +376,12 @@ export function BrandBadge({ icon, size = 56, round }: { icon: IconName; size?: 
 
 // ---- Toggle / Checkbox --------------------------------------------------------
 
-export function Toggle({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label?: string }) {
+export function Toggle({ value, onChange, label, color }: { value: boolean; onChange: (v: boolean) => void; label?: string; color?: string }) {
     const m = useTheme();
+    const on = color || m.accent;
     return (
         <Pressable accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: value }} onPress={() => onChange(!value)} hitSlop={8}>
-            <View style={{ width: 50, height: 30, borderRadius: 15, padding: 3, backgroundColor: value ? m.accent : m.field, justifyContent: 'center' }}>
+            <View style={{ width: 50, height: 30, borderRadius: 15, padding: 3, backgroundColor: value ? on : m.field, justifyContent: 'center' }}>
                 <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF', alignSelf: value ? 'flex-end' : 'flex-start',
                     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, shadowOffset: { width: 0, height: 1 } }} />
             </View>
@@ -388,13 +389,14 @@ export function Toggle({ value, onChange, label }: { value: boolean; onChange: (
     );
 }
 
-export function Checkbox({ checked, onChange, children }: { checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }) {
+export function Checkbox({ checked, onChange, children, color }: { checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode; color?: string }) {
     const m = useTheme();
+    const on = color || m.accent;
     return (
         <Pressable accessibilityRole="checkbox" accessibilityState={{ checked }} onPress={() => onChange(!checked)}
             style={{ flexDirection: 'row', alignItems: 'flex-start', paddingVertical: SPACE.sm }}>
             <View style={{ width: 22, height: 22, borderRadius: 7, marginRight: SPACE.md, marginTop: 1, alignItems: 'center', justifyContent: 'center',
-                borderWidth: 1.5, borderColor: checked ? m.accent : m.chipBorder, backgroundColor: checked ? m.accent : 'transparent' }}>
+                borderWidth: 1.5, borderColor: checked ? on : m.chipBorder, backgroundColor: checked ? on : 'transparent' }}>
                 {checked ? <Ionicons name="checkmark" size={15} color="#FFFFFF" /> : null}
             </View>
             <View style={{ flex: 1 }}>{children}</View>

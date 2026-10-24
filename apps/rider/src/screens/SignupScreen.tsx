@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Image, Linking, Platform, View } from 'react-native';
+import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { RainLogin, CrystalInput, CrystalButton } from '@gtaxi/design-system/native';
+import { VOICES } from '@gtaxi/design-system';
 import * as Haptics from 'expo-haptics';
 import { RIDER_CONSENT_DOCUMENTS, LEGAL_DOC_URLS } from '@g868/shared/legal';
 import { savePendingSignup } from '@g868/shared/pendingSignup';
@@ -7,7 +10,7 @@ import { linkDriverCode, savePendingDriverCode } from '../services/driverCode';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@gtaxi/core';
 import { toast } from '../components/Toast';
-import { Button, Card, Checkbox, EmptyState, Field, LinkText, Screen, SPACE, Toggle, Txt } from '../ui/kit';
+import { Checkbox, MoodProvider, Toggle } from '../ui/kit';
 
 export function SignupScreen({ navigation }: any) {
 
@@ -199,83 +202,80 @@ export function SignupScreen({ navigation }: any) {
     };
 
     const set = (k: keyof typeof formData) => (v: any) => setFormData({ ...formData, [k]: v });
+    const link = (text: string, accent: string, onPress: () => void) => (
+        <Pressable accessibilityRole="button" onPress={() => { Haptics.selectionAsync(); onPress(); }} style={{ alignItems: 'center', paddingVertical: 8 }}>
+            <Text style={st.linkText}>{text} <Text style={st.linkAccent}>{accent}</Text></Text>
+        </Pressable>
+    );
 
+    // Same crystal "rain" scaffold as the sign-in screen, so signing in,
+    // signing up and resetting a password feel like one place.
     if (checkEmail) {
         return (
-            <Screen onBack={() => navigation.navigate('Login')}>
-                <EmptyState
-                    icon="mail-unread-outline"
-                    title="Check your email"
-                    body={`We sent a link to ${formData.email.trim()}. Tap it to confirm your account, then sign in.`}
-                    action={
-                        <View style={{ gap: SPACE.md }}>
-                            <Button title="Sign in" onPress={() => navigation.navigate('Login')} />
-                            <Button
-                                title="Verify on WhatsApp instead" variant="secondary" icon="logo-whatsapp"
-                                onPress={() => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(formData.email))}
-                            />
-                        </View>
-                    }
-                />
-            </Screen>
+            <View style={{ flex: 1 }}>
+                <StatusBar style="light" />
+                <RainLogin voice="rider" logoSource={require('../../assets/logo.png')}
+                    footer={link('Prefer WhatsApp?', 'Verify there', () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(formData.email)))}>
+                    <Text style={st.title}>Check your email</Text>
+                    <Text style={st.body}>We sent a link to {formData.email.trim()}. Tap it to confirm your account, then sign in.</Text>
+                    <CrystalButton title="Back to sign in" voice="rider" onPress={() => navigation.navigate('Login')} />
+                </RainLogin>
+            </View>
         );
     }
 
     return (
-        <Screen
-            onBack={() => navigation.goBack()}
-            hero={
-                <View>
-                    <Image source={require('../../assets/logo.png')} style={{ width: 56, height: 56, marginBottom: SPACE.lg }} resizeMode="contain" />
-                    <Txt variant="hero">Create your account</Txt>
-                    <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs }}>It takes less than a minute.</Txt>
-                </View>
-            }
-            footer={
-                <View>
-                    <Button title="Create account" onPress={handleSignup} loading={loading} />
-                    <LinkText onPress={() => navigation.navigate('Login')} accent="Sign in">Already have an account?</LinkText>
-                </View>
-            }
-        >
-            {error ? (
-                <Card style={{ marginBottom: SPACE.lg, borderColor: '#E5484D' }}>
-                    <Txt variant="bodyStrong" tone="danger">{error}</Txt>
-                </Card>
-            ) : null}
+        <View style={{ flex: 1 }}>
+            <StatusBar style="light" />
+            <RainLogin
+                voice="rider"
+                logoSource={require('../../assets/logo.png')}
+                footer={link('Already have an account?', 'Sign in', () => navigation.navigate('Login'))}
+            >
+                {error ? <Text style={st.error}>{error}</Text> : null}
 
-            <Field label="Full name" placeholder="Your name" value={formData.name} onChangeText={set('name')} autoCapitalize="words" textContentType="name" />
-            <Field label="Email" placeholder="you@email.com" value={formData.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" textContentType="emailAddress" />
-            <Field label="Phone (optional)" placeholder="+1 868 000 0000" value={formData.phone} onChangeText={set('phone')} keyboardType="phone-pad" textContentType="telephoneNumber" />
-            <Field label="Password" placeholder="At least 6 characters" value={formData.password} onChangeText={set('password')} secureTextEntry textContentType="newPassword" />
+                <CrystalInput label="Full name" voice="rider" placeholder="Your name" value={formData.name} onChangeText={set('name')} autoCapitalize="words" />
+                <CrystalInput label="Email" voice="rider" placeholder="you@email.com" value={formData.email} onChangeText={set('email')} keyboardType="email-address" />
+                <CrystalInput label="Phone (optional)" voice="rider" placeholder="+1 868 000 0000" value={formData.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
+                <CrystalInput label="Password" voice="rider" placeholder="At least 6 characters" value={formData.password} onChangeText={set('password')} secureTextEntry />
 
-            {showMore ? (
-                <>
-                    <Field label="Referral or driver code (optional)" placeholder="e.g. ABC123" value={formData.referralCode} onChangeText={set('referralCode')} autoCapitalize="characters" />
-                    <Field label="G-Lead code (optional)" placeholder="Code from your G-Lead" value={formData.commanderCode} onChangeText={set('commanderCode')} autoCapitalize="characters" />
-                </>
-            ) : (
-                <LinkText onPress={() => setShowMore(true)} accent="Add it">Have a referral or driver code?</LinkText>
-            )}
+                {showMore ? (
+                    <>
+                        <CrystalInput label="Referral or driver code" voice="rider" placeholder="e.g. ABC123" value={formData.referralCode} onChangeText={set('referralCode')} autoCapitalize="characters" />
+                        <CrystalInput label="G-Lead code" voice="rider" placeholder="Code from your G-Lead" value={formData.commanderCode} onChangeText={set('commanderCode')} autoCapitalize="characters" />
+                    </>
+                ) : link('Have a referral or driver code?', 'Add it', () => setShowMore(true))}
 
-            <Card style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.sm }}>
-                <View style={{ flex: 1, marginRight: SPACE.md }}>
-                    <Txt variant="bodyStrong">G assistant</Txt>
-                    <Txt variant="caption" tone="dim" style={{ marginTop: 2 }}>Helpful safety and comfort tips during rides</Txt>
-                </View>
-                <Toggle label="G assistant" value={formData.aiEnabled} onChange={(v) => { set('aiEnabled')(v); Haptics.selectionAsync(); }} />
-            </Card>
+                <MoodProvider force="night">
+                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
+                        <View style={{ flex: 1, marginRight: 12 }}>
+                            <Text style={st.rowTitle}>G assistant</Text>
+                            <Text style={st.rowSub}>Helpful safety and comfort tips during rides</Text>
+                        </View>
+                        <Toggle color={VOICES.rider.accent} label="G assistant" value={formData.aiEnabled} onChange={(v) => { set('aiEnabled')(v); Haptics.selectionAsync(); }} />
+                    </View>
+                    <Checkbox color={VOICES.rider.accent} checked={formData.termsAccepted} onChange={(v) => { set('termsAccepted')(v); Haptics.selectionAsync(); }}>
+                        <Text style={st.rowSub}>
+                            I accept the{' '}
+                            <Text style={st.linkAccent} onPress={() => Linking.openURL(LEGAL_DOC_URLS.terms_of_service)}>Terms of Service</Text>
+                            {' '}and{' '}
+                            <Text style={st.linkAccent} onPress={() => Linking.openURL(LEGAL_DOC_URLS.privacy_policy)}>Privacy Policy</Text>
+                        </Text>
+                    </Checkbox>
+                </MoodProvider>
 
-            <View style={{ marginTop: SPACE.lg }}>
-                <Checkbox checked={formData.termsAccepted} onChange={(v) => { set('termsAccepted')(v); Haptics.selectionAsync(); }}>
-                    <Txt variant="body" tone="dim">
-                        I accept the{' '}
-                        <Txt variant="bodyStrong" tone="accent" onPress={() => Linking.openURL(LEGAL_DOC_URLS.terms_of_service)}>Terms of Service</Txt>
-                        {' '}and{' '}
-                        <Txt variant="bodyStrong" tone="accent" onPress={() => Linking.openURL(LEGAL_DOC_URLS.privacy_policy)}>Privacy Policy</Txt>
-                    </Txt>
-                </Checkbox>
-            </View>
-        </Screen>
+                <CrystalButton title="Create account" voice="rider" onPress={handleSignup} loading={loading} />
+            </RainLogin>
+        </View>
     );
 }
+
+const st = StyleSheet.create({
+    title: { color: '#EAF3F6', fontSize: 22, fontWeight: '800', textAlign: 'center' },
+    body: { color: 'rgba(234,243,246,0.7)', fontSize: 15, lineHeight: 21, textAlign: 'center', marginBottom: 8 },
+    error: { color: '#FF6B6B', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+    linkText: { color: 'rgba(234,243,246,0.55)', fontSize: 14, fontWeight: '500' },
+    linkAccent: { color: VOICES.rider.accent, fontWeight: '700' },
+    rowTitle: { color: '#EAF3F6', fontSize: 15, fontWeight: '700' },
+    rowSub: { color: 'rgba(234,243,246,0.6)', fontSize: 13, lineHeight: 18 },
+});
