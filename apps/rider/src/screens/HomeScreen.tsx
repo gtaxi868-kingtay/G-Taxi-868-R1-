@@ -26,8 +26,9 @@ import type { Layer } from '../components/home/LayerDeck';
 import { greetingFor } from '../theme/mood';
 import {
     BRAND_GRADIENT, BrandBadge, Button, Card, Chip, EmptyState, Field, GUTTER, IconButton,
-    RADIUS, Section, SPACE, Txt, useTheme,
+    Pop, Progress, RADIUS, Section, shade, SPACE, Txt, useTheme,
 } from '../ui/kit';
+import { toast } from '../components/Toast';
 
 const { supabase } = initializeSupabaseClient('native');
 
@@ -780,7 +781,24 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
     const m = useTheme();
     const g = greetingFor();
-    const firstName = profile?.name?.split(' ')[0];
+    const firstName = ((profile as any)?.full_name || profile?.name || '').split(' ')[0] || undefined;
+
+    // Mascot gently bobs; the search key drops on press.
+    const bob = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        if (reducedMotion) return;
+        const loop = Animated.loop(Animated.sequence([
+            Animated.timing(bob, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+            Animated.timing(bob, { toValue: 0, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        ]));
+        loop.start();
+        return () => loop.stop();
+    }, []);
+    const mascotBob = bob.interpolate({ inputRange: [0, 1], outputRange: [0, -5] });
+    const searchPress = useRef(new Animated.Value(0)).current;
+    const searchDown = searchPress.interpolate({ inputRange: [0, 1], outputRange: [0, 5] });
+    const searchIn = () => Animated.timing(searchPress, { toValue: 1, duration: 70, useNativeDriver: true }).start();
+    const searchOut = () => Animated.spring(searchPress, { toValue: 0, speed: 18, bounciness: 10, useNativeDriver: true }).start();
     const night = m.key === 'night';
     const tileStyle = night ? 'navigation-night-v1' : 'light-v11';
 
@@ -843,7 +861,22 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     </Marker>
                 ))}
             </MapView>
+            {Platform.OS === 'web' && ENV.MAPBOX_PUBLIC_TOKEN ? (
+                // Web preview only: a still map in the same place as the live phone map.
+                <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image resizeMode="cover" style={StyleSheet.absoluteFillObject}
+                    source={{ uri: `https://api.mapbox.com/styles/v1/mapbox/${tileStyle}/static/${currentLng},${currentLat},14.5,0/600x1200@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}&attribution=false&logo=false` }} /></View>
+            ) : null}
             <LinearGradient pointerEvents="none" colors={m.mapWash as any} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 180 }} />
+
+            {/* Your pickup, centred in the visible map */}
+            <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: Math.max(insets.top + 70, (height - sheetH) / 2 - 30), alignItems: 'center' }}>
+                <View style={{ backgroundColor: m.sheet[1], borderRadius: 14, borderWidth: 2, borderBottomWidth: 4, borderColor: night ? '#3A3049' : '#ECE6F3', paddingHorizontal: 12, paddingVertical: 6, marginBottom: 6 }}>
+                    <Txt variant="label">Your pickup</Txt>
+                </View>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(139,124,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#8B7CFF', borderWidth: 3, borderColor: '#FFFFFF' }} />
+                </View>
+            </View>
 
             {/* Top bar */}
             <View style={{ position: 'absolute', top: insets.top + 12, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -886,55 +919,71 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         keyboardShouldPersistTaps="handled"
                         contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: SPACE.md, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}
                     >
-                        {/* Greeting */}
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                            <View style={{ flex: 1, paddingRight: SPACE.md }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                    <Ionicons name={g.icon} size={13} color={m.accent} />
-                                    <Txt variant="label" tone="accent" style={{ marginLeft: 6 }}>{g.hello}</Txt>
+                        {/* G says hello */}
+                        <Pop>
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                                <Animated.Image source={require('../../assets/logo.png')} resizeMode="contain"
+                                    style={{ width: 92, height: 92, marginLeft: -14, marginRight: -10, transform: [{ translateY: mascotBob }] }} />
+                                <View style={{ flex: 1, marginLeft: SPACE.sm, marginBottom: 6 }}>
+                                    <View style={{ backgroundColor: night ? '#2A2238' : '#FFFFFF', borderRadius: 18, borderWidth: 2, borderBottomWidth: 4,
+                                        borderColor: night ? '#3A3049' : '#ECE6F3', paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm }}>
+                                        <Txt variant="headline">{g.hello}{firstName ? `, ${firstName}` : ''}!</Txt>
+                                        <Txt variant="body" tone="dim" numberOfLines={2}>
+                                            {isAiThinking || visionLoading
+                                                ? (visionLoading ? 'Looking at your photo…' : 'Thinking…')
+                                                : (aiGreeting && aiGreeting !== 'Where to next?' ? aiGreeting : `Where are we going ${g.when}?`)}
+                                        </Txt>
+                                    </View>
+                                    {/* bubble tail */}
+                                    <View style={{ position: 'absolute', left: -6, bottom: 14, width: 14, height: 14, transform: [{ rotate: '45deg' }],
+                                        backgroundColor: night ? '#2A2238' : '#FFFFFF', borderLeftWidth: 2, borderBottomWidth: 2, borderColor: night ? '#3A3049' : '#ECE6F3' }} />
                                 </View>
-                                <Txt variant="hero" numberOfLines={2}>{firstName ? `Welcome back,\n${firstName}` : 'Welcome to G 868'}</Txt>
-                                <Txt variant="body" tone="dim" numberOfLines={2} style={{ marginTop: 4 }}>
-                                    {isAiThinking || visionLoading
-                                        ? (visionLoading ? 'Looking at your photo…' : 'G is thinking…')
-                                        : (aiGreeting && aiGreeting !== 'Where to next?' ? aiGreeting : `Where can we take you ${g.when}?`)}
-                                </Txt>
+                                {platformFlags.aiAssistant && (
+                                    <View style={{ marginLeft: SPACE.sm, marginBottom: 6 }}>
+                                        <IconButton icon="mic" label="Ask G by voice" onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            setVoiceInputText('');
+                                            setVoiceModalVisible(true);
+                                        }} />
+                                    </View>
+                                )}
                             </View>
-                            {platformFlags.aiAssistant && (
-                                <IconButton icon="mic-outline" label="Ask G by voice" onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    setVoiceInputText('');
-                                    setVoiceModalVisible(true);
-                                }} />
-                            )}
-                        </View>
+                        </Pop>
 
-                        {/* Search */}
-                        <Pressable
-                            accessibilityRole="search" accessibilityLabel="Where to?"
-                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openDestinationSearch(); }}
-                            style={({ pressed }) => ({ marginTop: SPACE.lg, borderRadius: RADIUS.pill, padding: 1.5, overflow: 'hidden', opacity: pressed ? 0.9 : 1 })}
-                        >
-                            <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={[StyleSheet.absoluteFillObject, { opacity: 0.6 }]} />
-                            <View style={{ height: 56, borderRadius: RADIUS.pill, backgroundColor: fieldBg, flexDirection: 'row', alignItems: 'center', paddingLeft: SPACE.xl, paddingRight: 6 }}>
-                                <Ionicons name="search" size={20} color={m.searchIcon} />
-                                <Txt variant="headline" style={{ flex: 1, marginLeft: SPACE.md }} numberOfLines={1}>{homeSuggestion || 'Where to?'}</Txt>
-                                <Pressable
-                                    accessibilityRole="button" accessibilityLabel="Ride with a photo of where you are"
-                                    onPress={handleVisionSighting} hitSlop={6}
-                                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                    <Ionicons name="camera-outline" size={19} color={m.ink} />
-                                </Pressable>
-                            </View>
-                        </Pressable>
+                        {/* Where to? — a big chunky key */}
+                        <Pop delay={70}>
+                            <Pressable
+                                accessibilityRole="search" accessibilityLabel="Where to?"
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openDestinationSearch(); }}
+                                onPressIn={searchIn} onPressOut={searchOut}
+                                style={{ marginTop: SPACE.lg }}
+                            >
+                                <View style={{ borderRadius: 20, backgroundColor: '#5B4BD6' }}>
+                                    <Animated.View style={{ height: 60, borderRadius: 20, overflow: 'hidden', flexDirection: 'row', alignItems: 'center',
+                                        paddingLeft: SPACE.lg, paddingRight: 8, transform: [{ translateY: searchDown }] , marginBottom: 5 }}>
+                                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
+                                        <Ionicons name="search" size={22} color="#FFFFFF" />
+                                        <Txt variant="headline" tone="onBrand" style={{ flex: 1, marginLeft: SPACE.md, fontSize: 19 }} numberOfLines={1}>{homeSuggestion || 'Where to?'}</Txt>
+                                        <Pressable
+                                            accessibilityRole="button" accessibilityLabel="Ride with a photo of where you are"
+                                            onPress={handleVisionSighting} hitSlop={6}
+                                            style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            <Ionicons name="camera" size={20} color="#FFFFFF" />
+                                        </Pressable>
+                                    </Animated.View>
+                                </View>
+                            </Pressable>
+                        </Pop>
 
                         {/* Saved places */}
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.md }}>
-                            <Chip icon="home-outline" label="Home" onPress={() => handleQuickAction('Home')} />
-                            <Chip icon="briefcase-outline" label="Work" onPress={() => handleQuickAction('Work')} />
-                            <Chip icon="time-outline" label="Recent" onPress={() => handleQuickAction('Recent')} />
-                        </View>
+                        <Pop delay={130}>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.md }}>
+                                <Chip icon="home" label="Home" onPress={() => handleQuickAction('Home')} />
+                                <Chip icon="briefcase" label="Work" onPress={() => handleQuickAction('Work')} />
+                                <Chip icon="time" label="Recent" onPress={() => handleQuickAction('Recent')} />
+                            </View>
+                        </Pop>
 
                         {/* Fare preview (voice / saved place on its way to booking) */}
                         {(selectedDestinationPreview || isEstimatingFare) && (
@@ -974,58 +1023,58 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
                         {/* G's tip */}
                         {proactiveAction && (
-                            <Card style={{ marginTop: SPACE.sm, flexDirection: 'row', alignItems: 'flex-start' }}>
-                                <Ionicons name="sparkles" size={16} color={m.accent} style={{ marginTop: 2 }} />
-                                <Txt variant="body" style={{ flex: 1, marginHorizontal: SPACE.md }}>{proactiveAction}</Txt>
-                                <Pressable accessibilityRole="button" accessibilityLabel="Dismiss tip" onPress={() => setProactiveAction(null)} hitSlop={8}>
-                                    <Ionicons name="close" size={18} color={m.faint} />
-                                </Pressable>
-                            </Card>
+                            <Pop>
+                                <Card style={{ marginTop: SPACE.sm, flexDirection: 'row', alignItems: 'flex-start' }}>
+                                    <Ionicons name="sparkles" size={16} color="#8B7CFF" style={{ marginTop: 2 }} />
+                                    <Txt variant="body" style={{ flex: 1, marginHorizontal: SPACE.md }}>{proactiveAction}</Txt>
+                                    <Pressable accessibilityRole="button" accessibilityLabel="Dismiss tip" onPress={() => setProactiveAction(null)} hitSlop={8}>
+                                        <Ionicons name="close" size={18} color={m.faint} />
+                                    </Pressable>
+                                </Card>
+                            </Pop>
                         )}
 
-                        {/* Services */}
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.lg, marginHorizontal: -SPACE.xs }}>
+                        {/* Services — bright tiles that bounce */}
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.md, marginHorizontal: -SPACE.xs }}>
                             {[layers[0], ...otherLayers].map((l, i) => (
-                                <Pressable
-                                    key={l.id} accessibilityRole="button" accessibilityLabel={l.name}
-                                    onPress={() => handleLayerPrimary(l)}
-                                    style={({ pressed }) => ({ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md, alignItems: 'center', opacity: pressed ? 0.8 : 1 })}
-                                >
-                                    {i === 0 ? (
-                                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                            style={{ height: 60, alignSelf: 'stretch', borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
-                                            <Ionicons name="car-sport" size={24} color="#FFFFFF" />
-                                        </LinearGradient>
-                                    ) : (
-                                        <View style={{ height: 60, alignSelf: 'stretch', borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: m.tile }}>
-                                            <Ionicons name={(l.icon || 'apps').replace('-sharp', '') as any} size={22} color={m.ink} />
-                                        </View>
-                                    )}
-                                    <Txt variant="label" numberOfLines={1} style={{ marginTop: 6 }}>{l.name}</Txt>
-                                </Pressable>
+                                <Pop key={l.id} delay={180 + i * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
+                                    <ServiceTile
+                                        label={l.name}
+                                        icon={(i === 0 ? 'car-sport' : (l.icon || 'apps').replace('-sharp', '')) as any}
+                                        color={TILE_COLORS[l.id] || '#8B7CFF'}
+                                        onPress={() => handleLayerPrimary(l)}
+                                    />
+                                </Pop>
                             ))}
-                            {isVerticalsLoading && otherLayers.length === 0 && (
-                                <View style={{ width: '25%', paddingHorizontal: SPACE.xs }}>
-                                    <View style={{ height: 60, borderRadius: 20, backgroundColor: m.tile, opacity: 0.6 }} />
-                                </View>
+                            {lockedLayer && (
+                                <Pop delay={180 + (otherLayers.length + 1) * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
+                                    <ServiceTile label={lockedLayer.name} icon="lock-closed" color={night ? '#4A4058' : '#C9C1D6'} onPress={() => toast(lockedLayer.label || `Keep riding to unlock ${lockedLayer.name}`)} />
+                                </Pop>
                             )}
                         </View>
 
-                        {/* Next unlock */}
-                        {lockedLayer && (
-                            <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>
-                                    <Ionicons name="lock-closed-outline" size={17} color={m.accent} />
-                                </View>
-                                <View style={{ flex: 1, marginLeft: SPACE.md }}>
-                                    <Txt variant="bodyStrong" numberOfLines={1}>{lockedLayer.name} unlocks soon</Txt>
-                                    <Txt variant="caption" tone="dim" numberOfLines={2}>{lockedLayer.label || `${lockedLayer.progress ?? 0} of ${lockedLayer.need ?? 0} rides`}</Txt>
-                                    <View style={{ height: 4, borderRadius: 2, backgroundColor: m.field, marginTop: SPACE.sm, overflow: 'hidden' }}>
-                                        <View style={{ height: 4, width: `${Math.min(100, Math.round(((lockedLayer.progress ?? 0) / Math.max(1, lockedLayer.need ?? 1)) * 100))}%`, backgroundColor: m.accent }} />
+                        {/* Your progress */}
+                        <Pop delay={320}>
+                            <Card style={{ marginTop: SPACE.xs }} onPress={() => navigation.navigate('Subscription')}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#FFB020', borderBottomWidth: 4, borderColor: shade('#FFB020'), alignItems: 'center', justifyContent: 'center' }}>
+                                        <Ionicons name="trophy" size={22} color="#FFFFFF" />
                                     </View>
+                                    <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                                        <Txt variant="headline">{lockedLayer ? `Unlock ${lockedLayer.name}` : 'Your G-Level'}</Txt>
+                                        <Txt variant="caption" tone="dim" numberOfLines={1}>
+                                            {lockedLayer
+                                                ? `${Math.max(0, (lockedLayer.need ?? 0) - (lockedLayer.progress ?? 0))} more to go`
+                                                : 'Every ride moves you up and unlocks perks'}
+                                        </Txt>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={18} color={m.faint} />
+                                </View>
+                                <View style={{ marginTop: SPACE.md }}>
+                                    <Progress value={lockedLayer ? (lockedLayer.progress ?? 0) / Math.max(1, lockedLayer.need ?? 1) : 0.08} color="#FFB020" />
                                 </View>
                             </Card>
-                        )}
+                        </Pop>
 
                         {/* Nearby shops */}
                         {nearbyVendors.length > 0 && (
@@ -1033,11 +1082,10 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -GUTTER }} contentContainerStyle={{ paddingHorizontal: GUTTER, gap: SPACE.md }}>
                                     {nearbyVendors.map(v => (
                                         <Card key={v.id} style={{ width: 168, padding: SPACE.md }} onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                                             navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
                                         }}>
-                                            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.sm }}>
-                                                <Ionicons name="storefront-outline" size={18} color={m.accent} />
+                                            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#2FB57C', alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.sm }}>
+                                                <Ionicons name="storefront" size={18} color="#FFFFFF" />
                                             </View>
                                             <Txt variant="bodyStrong" numberOfLines={1}>{v.name}</Txt>
                                             <Txt variant="caption" tone={(v as any).is_usual ? 'accent' : 'dim'} numberOfLines={1}>
@@ -1050,15 +1098,17 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         )}
 
                         {/* Trust */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md, padding: SPACE.md, borderRadius: RADIUS.card, backgroundColor: m.trustBg, borderWidth: 1, borderColor: m.chipBorder }}>
-                            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(47,181,124,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                                <Ionicons name="shield-checkmark" size={17} color="#2FB57C" />
+                        <Pop delay={380}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md, padding: SPACE.md, borderRadius: RADIUS.card, backgroundColor: night ? 'rgba(47,181,124,0.12)' : '#EAF8F1', borderWidth: 2, borderColor: night ? 'rgba(47,181,124,0.25)' : '#C9EEDB' }}>
+                                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#2FB57C', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Ionicons name="shield-checkmark" size={19} color="#FFFFFF" />
+                                </View>
+                                <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                                    <Txt variant="headline">You're in safe hands</Txt>
+                                    <Txt variant="caption" tone="dim">Verified drivers · G Guardian on call 24/7</Txt>
+                                </View>
                             </View>
-                            <View style={{ flex: 1, marginLeft: SPACE.md }}>
-                                <Txt variant="bodyStrong">You are in safe hands</Txt>
-                                <Txt variant="caption" tone="dim">Verified drivers · G Guardian on call 24/7</Txt>
-                            </View>
-                        </View>
+                        </Pop>
                     </ScrollView>
                 </LinearGradient>
             </Animated.View>
@@ -1181,4 +1231,30 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 function Overlay({ children }: { children: React.ReactNode }) {
     const m = useTheme();
     return <View style={[StyleSheet.absoluteFill, { backgroundColor: m.page, justifyContent: 'center', zIndex: 50 }]}>{children}</View>;
+}
+
+const TILE_COLORS: Record<string, string> = {
+    ride: '#8B7CFF', market: '#2FB57C', laundry: '#3FD9E8', merchant: '#FF8A3D',
+    escape: '#4C9AFF', tap: '#B65CFF', events: '#FF5C8A', fete: '#FFB020',
+};
+
+// A bright square key with a 3D lip that drops when pressed.
+function ServiceTile({ label, icon, color, onPress }: { label: string; icon: any; color: string; onPress: () => void }) {
+    const press = useRef(new Animated.Value(0)).current;
+    const down = press.interpolate({ inputRange: [0, 1], outputRange: [0, 5] });
+    return (
+        <Pressable accessibilityRole="button" accessibilityLabel={label}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}
+            onPressIn={() => Animated.timing(press, { toValue: 1, duration: 70, useNativeDriver: true }).start()}
+            onPressOut={() => Animated.spring(press, { toValue: 0, speed: 18, bounciness: 12, useNativeDriver: true }).start()}
+            style={{ alignItems: 'center' }}>
+            <View style={{ alignSelf: 'stretch', borderRadius: 20, backgroundColor: shade(color) }}>
+                <Animated.View style={{ height: 64, borderRadius: 20, backgroundColor: color, alignItems: 'center', justifyContent: 'center', marginBottom: 5, transform: [{ translateY: down }] }}>
+                    <View pointerEvents="none" style={{ position: 'absolute', top: 6, left: 12, right: 12, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' }} />
+                    <Ionicons name={icon} size={26} color="#FFFFFF" />
+                </Animated.View>
+            </View>
+            <Txt variant="label" numberOfLines={1} style={{ marginTop: 6 }}>{label}</Txt>
+        </Pressable>
+    );
 }

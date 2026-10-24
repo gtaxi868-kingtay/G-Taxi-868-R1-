@@ -7,6 +7,7 @@ import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } 
 import {
     Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
 } from '@expo-google-fonts/manrope';
+import { Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black } from '@expo-google-fonts/nunito';
 import { applyGlobalFont } from './src/theme/typography';
 import { ToastHost } from './src/components/Toast';
 import { HomePreview } from './src/screens/design/HomePreview';
@@ -240,6 +241,9 @@ function App() {
         Manrope_600SemiBold,
         Manrope_700Bold,
         Manrope_800ExtraBold,
+        Nunito_700Bold,
+        Nunito_800ExtraBold,
+        Nunito_900Black,
     });
     const [fontTimedOut, setFontTimedOut] = useState(false);
 
