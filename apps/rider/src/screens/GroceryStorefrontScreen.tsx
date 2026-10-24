@@ -1,23 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-    View, Text, FlatList, TouchableOpacity, StyleSheet,
-    ActivityIndicator, useWindowDimensions, ScrollView, RefreshControl,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, FlatList, ScrollView, RefreshControl } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { useLocationTracking } from '../hooks/useLocationTracking';
-import { LoadingOverlay } from '@gtaxi/design-system/native';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-
-const CYAN = '#22D3EE';
-// Decorative labels/icons (section headers, empty states) use this
-// neutral tone -- cyan is reserved for things the rider can tap.
-const NEUTRAL = 'rgba(255,255,255,0.5)';
+import { Card, Chip, EmptyState, GUTTER, Header, Loading, Row, SPACE, Txt, useTheme } from '../ui/kit';
 
 interface Merchant {
     id: string;
@@ -46,7 +36,6 @@ const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export function GroceryStorefrontScreen({ navigation }: any) {
-    const { width } = useWindowDimensions();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
     const { location } = useLocationTracking(true);
@@ -74,33 +63,31 @@ export function GroceryStorefrontScreen({ navigation }: any) {
 
             if (error) throw error;
 
+            setFetchError(null);
             const list = (data || []) as Merchant[];
             setMerchants(list);
 
             if (user?.id) {
+                // order_items has no product name or shop columns: go through
+                // the product. The database only returns this rider's own items.
                 const { data: orders } = await supabase
                     .from('order_items')
-                    .select('product_name, product_id, merchant_id, merchants(name)')
+                    .select('product_id, products!product_id(name, merchant_id, merchants(name))')
                     .limit(100);
 
                 if (orders && orders.length > 0) {
                     const counts: Record<string, any> = {};
                     orders.forEach((o: any) => {
-                        const key = o.product_name;
-                        if (!counts[key]) {
-                            counts[key] = { 
-                                name: key, 
-                                id: o.product_id, 
-                                merchant_id: o.merchant_id,
-                                merchant_name: o.merchants?.name,
-                                count: 0 
-                            };
+                        const p = o.products;
+                        if (!p || !o.product_id) return;
+                        if (!counts[o.product_id]) {
+                            counts[o.product_id] = { name: p.name, id: o.product_id, merchant_id: p.merchant_id, merchant_name: p.merchants?.name, count: 0 };
                         }
-                        counts[key].count += 1;
+                        counts[o.product_id].count += 1;
                     });
 
                     const sorted = Object.values(counts)
-                        .sort((a, b) => b.count - a.count)
+                        .sort((a: any, b: any) => b.count - a.count)
                         .slice(0, 8);
                     
                     setRegularItems(sorted as RegularItem[]);
@@ -153,228 +140,72 @@ export function GroceryStorefrontScreen({ navigation }: any) {
         navigation.navigate('ProductListing', { merchant });
     };
 
-    const renderMerchant = ({ item }: { item: Merchant }) => (
-        <TouchableOpacity
-            style={s.merchantCard}
-            onPress={() => handleMerchantPress(item)}
-            activeOpacity={0.85}
-        >
-            <View style={s.merchantIcon}>
-                <Ionicons name={CATEGORY_ICONS[item.category] || CATEGORY_ICONS.default} size={24} color={VOICES.rider.accent} />
-            </View>
-            <View style={s.merchantInfo}>
-                <Text style={s.merchantName}>{item.name}</Text>
-                <Text style={s.merchantMeta}>
-                    {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
-                    {item.address ? `  •  ${item.address}` : ''}
-                </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={VOICES.rider.accent} />
-        </TouchableOpacity>
+    const m = useTheme();
+    const label = (c: string) => c.charAt(0).toUpperCase() + c.slice(1);
+
+    const rail = (title: string, items: React.ReactNode) => (
+        <View style={{ marginTop: SPACE.lg }}>
+            <Txt variant="overline" tone="faint" style={{ marginBottom: SPACE.sm }}>{title}</Txt>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -GUTTER }} contentContainerStyle={{ paddingHorizontal: GUTTER, gap: SPACE.md }}>
+                {items}
+            </ScrollView>
+        </View>
     );
 
-    return (
-        <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
-            <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-                <TouchableOpacity
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
-                    style={s.backBtn}
-                >
-                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
-                </TouchableOpacity>
-                <Text style={s.headerTitle}>Stores near you</Text>
-                <View style={{ width: 38 }} />
-            </View>
-
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={s.catScroll}
-                contentContainerStyle={s.catContent}
-            >
+    const header = (
+        <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -GUTTER }} contentContainerStyle={{ paddingHorizontal: GUTTER }}>
                 {['all', ...categories].map(cat => (
-                    <TouchableOpacity
-                        key={cat}
-                        onPress={() => { setSelectedCategory(cat); Haptics.selectionAsync(); }}
-                        style={[s.catChip, selectedCategory === cat && s.catChipActive]}
-                    >
-                        <Text style={[s.catChipText, selectedCategory === cat && s.catChipTextActive]}>
-                            {cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}
-                        </Text>
-                    </TouchableOpacity>
+                    <Chip key={cat} label={cat === 'all' ? 'All' : label(cat)} selected={selectedCategory === cat}
+                        onPress={() => { setSelectedCategory(cat); Haptics.selectionAsync(); }} />
                 ))}
             </ScrollView>
 
-            {usualStores.length > 0 && (
-                <View style={s.regularsContainer}>
-                    <View style={s.sectionHeader}>
-                        <Ionicons name="sparkles" size={14} color={NEUTRAL} />
-                        <Text style={s.sectionTitle}>YOUR USUALS</Text>
-                    </View>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={s.regularsScroll}
-                    >
-                        {usualStores.map((store: any) => (
-                            <TouchableOpacity
-                                key={store.merchant_id}
-                                style={s.regularCard}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    navigation.navigate('ProductListing', {
-                                        merchant: {
-                                            id: store.merchant_id,
-                                            name: store.name,
-                                            category: store.category,
-                                            address: store.address,
-                                            is_active: true,
-                                            delivery_fee_cents: store.delivery_fee_cents,
-                                        },
-                                    });
-                                }}
-                            >
-                                <View style={s.itemIcon}>
-                                    <Ionicons name={CATEGORY_ICONS[store.category] || CATEGORY_ICONS.default} size={20} color={VOICES.rider.accent} />
-                                </View>
-                                <Text style={s.itemName} numberOfLines={1}>{store.name}</Text>
-                                <Text style={s.itemMerchant} numberOfLines={1}>
-                                    {store.is_featured ? 'Featured' : `Ordered ${store.visit_count}×`}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            )}
+            {usualStores.length > 0 && rail('Your usuals', usualStores.map((store: any) => (
+                <Card key={store.merchant_id} style={{ width: 150, padding: SPACE.md }} onPress={() => {
+                    Haptics.selectionAsync();
+                    navigation.navigate('ProductListing', { merchant: { id: store.merchant_id, name: store.name, category: store.category, address: store.address, is_active: true, delivery_fee_cents: store.delivery_fee_cents } });
+                }}>
+                    <Ionicons name={CATEGORY_ICONS[store.category] || CATEGORY_ICONS.default} size={20} color={m.accent} />
+                    <Txt variant="bodyStrong" numberOfLines={1} style={{ marginTop: SPACE.sm }}>{store.name}</Txt>
+                    <Txt variant="caption" tone="dim" numberOfLines={1}>{store.is_featured ? 'Featured' : `Ordered ${store.visit_count}×`}</Txt>
+                </Card>
+            )))}
 
-            {regularItems.length > 0 && (
-                <View style={s.regularsContainer}>
-                    <View style={s.sectionHeader}>
-                        <Ionicons name="flash" size={14} color={NEUTRAL} />
-                        <Text style={s.sectionTitle}>THE REGULARS</Text>
-                    </View>
-                    <ScrollView 
-                        horizontal 
-                        showsHorizontalScrollIndicator={false} 
-                        contentContainerStyle={s.regularsScroll}
-                    >
-                        {regularItems.map((item, idx) => (
-                            <TouchableOpacity 
-                                key={idx} 
-                                style={s.regularCard}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                    navigation.navigate('ProductDetail', { 
-                                        productId: item.id, 
-                                        merchantId: item.merchant_id 
-                                    });
-                                }}
-                            >
-                                <View style={s.itemIcon}>
-                                    <Ionicons name="cube-outline" size={20} color={NEUTRAL} />
-                                </View>
-                                <Text style={s.itemName} numberOfLines={1}>{item.name}</Text>
-                                <Text style={s.itemMerchant} numberOfLines={1}>{item.merchant_name}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            )}
+            {regularItems.length > 0 && rail('Buy again', regularItems.map((item) => (
+                <Card key={item.id} style={{ width: 150, padding: SPACE.md }} onPress={() => { Haptics.selectionAsync(); navigation.navigate('ProductDetail', { productId: item.id }); }}>
+                    <Ionicons name="cube-outline" size={20} color={m.accent} />
+                    <Txt variant="bodyStrong" numberOfLines={1} style={{ marginTop: SPACE.sm }}>{item.name}</Txt>
+                    <Txt variant="caption" tone="dim" numberOfLines={1}>{item.merchant_name}</Txt>
+                </Card>
+            )))}
 
-            {loading && <LoadingOverlay message="Loading..." color={CYAN} />}
+            <Txt variant="overline" tone="faint" style={{ marginTop: SPACE.xl, marginBottom: SPACE.sm }}>ALL SHOPS</Txt>
+        </>
+    );
 
-            {!loading && fetchError ? (
-                <View style={s.center}>
-                    <Ionicons name="warning-outline" size={48} color="#EF4444" style={s.emptyIcon} />
-                    <Text style={[s.emptyText, { color: '#EF4444' }]}>Failed to load stores</Text>
-                    <Text style={s.emptySubtext}>{fetchError}</Text>
-                </View>
-            ) : !loading && filteredMerchants.length === 0 ? (
-                <View style={s.center}>
-                    <Ionicons name="storefront-outline" size={48} color={NEUTRAL} style={s.emptyIcon} />
-                    <Text style={s.emptyText}>No stores available right now.</Text>
-                    <Text style={s.emptySubtext}>Pull down to refresh.</Text>
-                </View>
-            ) : (
+    return (
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
+            <Header title="Shops near you" onBack={() => { Haptics.selectionAsync(); navigation.goBack(); }} />
+            {loading ? <Loading /> : (
                 <FlatList<Merchant>
-                    data={filteredMerchants}
+                    data={fetchError ? [] : filteredMerchants}
                     keyExtractor={item => item.id}
-                    renderItem={renderMerchant}
-                    style={s.list}
-                    contentContainerStyle={s.listContent}
+                    ListHeaderComponent={header}
+                    renderItem={({ item, index }) => (
+                        <Row icon={CATEGORY_ICONS[item.category] || CATEGORY_ICONS.default} title={item.name}
+                            subtitle={[label(item.category), item.address].filter(Boolean).join(' · ')}
+                            last={index === filteredMerchants.length - 1} onPress={() => handleMerchantPress(item)} />
+                    )}
+                    contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: SPACE.sm, paddingBottom: insets.bottom + SPACE.xxl }}
                     showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            tintColor={CYAN}
-                        />
-                    }
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={m.accent} colors={['#8B7CFF']} />}
+                    ListEmptyComponent={fetchError
+                        ? <EmptyState icon="cloud-offline-outline" title="Could not load shops" body="Pull down to try again." />
+                        : <EmptyState icon="storefront-outline" title="No shops open near you yet" body="Pull down to refresh." />}
                 />
             )}
-        </LinearGradient>
+        </View>
     );
 }
-
-const s = StyleSheet.create({
-    container: { flex: 1 },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingBottom: 12,
-    },
-    backBtn: {
-        width: 38, height: 38, borderRadius: 19,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    headerTitle: {
-        fontSize: 20, fontWeight: '700', color: '#EAF3F6', letterSpacing: 0.2,
-    },
-    catScroll: { maxHeight: 52 },
-    catContent: { paddingHorizontal: 20, paddingBottom: 8, gap: 10, alignItems: 'center' },
-    catChip: {
-        paddingHorizontal: 18, paddingVertical: 8, borderRadius: 50,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        ...ghostBorder(0.12),
-    },
-    catChipActive: {
-        backgroundColor: VOICES.rider.accent,
-        borderColor: VOICES.rider.accent,
-    },
-    catChipText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '300' },
-    catChipTextActive: { color: '#EAF3F6', fontWeight: '700' },
-    list: { flex: 1 },
-    listContent: { padding: 20, gap: 14 },
-    merchantCard: {
-        flexDirection: 'row', alignItems: 'center',
-        borderRadius: 20, overflow: 'hidden',
-        ...ghostBorder(0.12),
-        padding: 16, gap: 14,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    merchantIcon: {
-        width: 52, height: 52, borderRadius: 16,
-        backgroundColor: `${VOICES.rider.accent}33`,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    merchantInfo: { flex: 1 },
-    merchantName: { fontSize: 16, fontWeight: '700', color: '#EAF3F6' },
-    merchantMeta: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 3 },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-    loadingText: { color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 14 },
-    emptyIcon: { marginBottom: 16 },
-    emptyText: { color: '#EAF3F6', fontSize: 18, fontWeight: '700' },
-    emptySubtext: { color: 'rgba(255,255,255,0.4)', fontSize: 14, marginTop: 6 },
-
-    regularsContainer: { marginTop: 12, marginBottom: 24 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12, gap: 6 },
-    sectionTitle: { fontSize: 11, fontWeight: '900', color: NEUTRAL, letterSpacing: 2 },
-    regularsScroll: { paddingHorizontal: 20, gap: 12 },
-    regularCard: { width: 140, padding: 16, borderRadius: 20, overflow: 'hidden', ...ghostBorder(0.2), backgroundColor: 'rgba(255,255,255,0.03)' },
-    itemIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(0,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-    itemName: { fontSize: 14, fontWeight: '700', color: '#EAF3F6' },
-    itemMerchant: { fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2, fontWeight: '300' },
-});

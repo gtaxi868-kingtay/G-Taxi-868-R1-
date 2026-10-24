@@ -1,17 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-    View, Text, FlatList, TouchableOpacity, StyleSheet,
-    ActivityIndicator, useWindowDimensions, Alert,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, FlatList, Pressable } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-
-const CYAN = '#22D3EE';
+import { BrandBadge, Button, Card, EmptyState, GUTTER, Header, IconButton, Loading, SPACE, Txt, useTheme } from '../ui/kit';
 
 function productIconFor(name: string): keyof typeof Ionicons.glyphMap {
     const n = name.toLowerCase();
@@ -36,14 +30,13 @@ interface CartItem {
 }
 
 export function ProductListingScreen({ navigation, route }: any) {
-    const { width } = useWindowDimensions();
-    const CARD_WIDTH = (width - 52) / 2;
     const { merchant } = route.params;
     const insets = useSafeAreaInsets();
 
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [cart, setCart] = useState<CartItem[]>([]);
+    const [loadError, setLoadError] = useState(false);
 
     const fetchProducts = useCallback(async () => {
         try {
@@ -55,10 +48,11 @@ export function ProductListingScreen({ navigation, route }: any) {
                 .order('name', { ascending: true });
 
             if (error) throw error;
+            setLoadError(false);
             setProducts((data || []) as Product[]);
         } catch (err) {
             console.error('[ProductListing] fetch error:', err);
-            Alert.alert('Error', 'Could not load products. Please try again.');
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -66,188 +60,83 @@ export function ProductListingScreen({ navigation, route }: any) {
 
     useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
+    // Items added from the product detail screen come back as a param.
+    const added = route.params?.addProduct;
+    useEffect(() => {
+        if (!added?.product) return;
+        setCart(prev => {
+            const existing = prev.find(c => c.product.id === added.product.id);
+            if (existing) return prev.map(c => c.product.id === added.product.id ? { ...c, quantity: c.quantity + added.quantity } : c);
+            return [...prev, { product: added.product, quantity: added.quantity }];
+        });
+    }, [added?.key]);
+
     const getCartQty = (productId: string) =>
         cart.find(c => c.product.id === productId)?.quantity ?? 0;
 
     const addToCart = (product: Product) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setCart(prev => {
             const existing = prev.find(c => c.product.id === product.id);
-            if (existing) {
-                return prev.map(c =>
-                    c.product.id === product.id
-                        ? { ...c, quantity: c.quantity + 1 }
-                        : c
-                );
-            }
+            if (existing) return prev.map(c => c.product.id === product.id ? { ...c, quantity: c.quantity + 1 } : c);
             return [...prev, { product, quantity: 1 }];
         });
     };
 
+    const m = useTheme();
     const cartTotal = cart.reduce((sum, i) => sum + i.product.price_cents * i.quantity, 0);
     const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+    const openCart = () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate('GroceryCart', { cart, merchant }); };
 
     const renderProduct = ({ item }: { item: Product }) => {
         const qty = getCartQty(item.id);
         return (
-            <TouchableOpacity
-                style={[s.productCard, { width: CARD_WIDTH }]}
-                activeOpacity={0.85}
-                onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    navigation.navigate('ProductDetail', { product: item, onAddToCart: addToCart });
-                }}
-            >
-                <View style={s.productImageBox}>
-                    <Ionicons name={productIconFor(item.name)} size={32} color={VOICES.rider.accent} />
-                </View>
-                <View style={s.productMeta}>
-                    <Text style={s.productName} numberOfLines={2}>{item.name}</Text>
-                    <Text style={s.productPrice}>
-                        ${(item.price_cents / 100).toFixed(2)} TTD
-                    </Text>
-                </View>
-                <TouchableOpacity
-                    style={[s.addBtn, qty > 0 && s.addBtnActive]}
-                    onPress={() => addToCart(item)}
-                >
-                    <Text style={s.addBtnText}>{qty > 0 ? `+${qty}` : '+'}</Text>
-                </TouchableOpacity>
-            </TouchableOpacity>
+            <View style={{ width: '50%', padding: SPACE.xs }}>
+                <Card style={{ padding: SPACE.md }} onPress={() => { Haptics.selectionAsync(); navigation.navigate('ProductDetail', { product: item, merchant }); }}>
+                    <View style={{ height: 88, borderRadius: 16, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name={productIconFor(item.name)} size={30} color={m.accent} />
+                    </View>
+                    <Txt variant="bodyStrong" numberOfLines={2} style={{ marginTop: SPACE.sm, minHeight: 42 }}>{item.name}</Txt>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.xs }}>
+                        <Txt variant="body" tone="dim" style={{ flex: 1 }}>${(item.price_cents / 100).toFixed(2)}</Txt>
+                        <Pressable accessibilityRole="button" accessibilityLabel={`Add ${item.name}`} onPress={() => addToCart(item)} hitSlop={6}>
+                            {qty > 0 ? (
+                                <View style={{ minWidth: 36, height: 36, borderRadius: 18, paddingHorizontal: 8, backgroundColor: '#8B7CFF', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Txt variant="label" tone="onBrand">{qty}</Txt>
+                                </View>
+                            ) : <BrandBadge icon="add" size={36} round />}
+                        </Pressable>
+                    </View>
+                </Card>
+            </View>
         );
     };
 
     return (
-        <LinearGradient colors={['#0A0A1F', '#12122A']} style={s.container}>
-            <View style={[s.header, { paddingTop: insets.top + 8 }]}>
-                <TouchableOpacity
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.goBack(); }}
-                    style={s.backBtn}
-                >
-                    <Ionicons name="arrow-back" size={22} color="#EAF3F6" />
-                </TouchableOpacity>
-                <View style={s.headerCenter}>
-                    <Text style={s.headerTitle}>{merchant.name}</Text>
-                    <Text style={s.headerSub}>
-                        {merchant.category.charAt(0).toUpperCase() + merchant.category.slice(1)}
-                    </Text>
-                </View>
-                <TouchableOpacity
-                    style={s.cartBtn}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        navigation.navigate('GroceryCart', { cart, merchant });
-                    }}
-                    disabled={cartCount === 0}
-                >
-                    <Ionicons name="cart-outline" size={22} color={cartCount > 0 ? CYAN : 'rgba(255,255,255,0.3)'} />
-                    {cartCount > 0 && (
-                        <View style={s.cartBadge}>
-                            <Text style={s.cartBadgeText}>{cartCount}</Text>
-                        </View>
-                    )}
-                </TouchableOpacity>
-            </View>
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
+            <Header title={merchant.name} onBack={() => { Haptics.selectionAsync(); navigation.goBack(); }}
+                right={cartCount > 0 ? <IconButton icon="cart-outline" label="View cart" onPress={openCart} /> : undefined} />
 
-            {loading ? (
-                <View style={s.center}>
-                    <ActivityIndicator size="large" color={CYAN} />
-                    <Text style={s.loadingText}>Loading products...</Text>
-                </View>
-            ) : products.length === 0 ? (
-                <View style={s.center}>
-                    <Ionicons name="cube-outline" size={48} color="rgba(255,255,255,0.5)" style={s.emptyIcon} />
-                    <Text style={s.emptyText}>No products available.</Text>
-                </View>
-            ) : (
+            {loading ? <Loading /> : (
                 <FlatList<Product>
                     data={products}
                     keyExtractor={item => item.id}
                     renderItem={renderProduct}
                     numColumns={2}
-                    contentContainerStyle={s.grid}
-                    columnWrapperStyle={{ gap: 12 }}
+                    contentContainerStyle={{ paddingHorizontal: GUTTER - SPACE.xs, paddingBottom: (cartCount > 0 ? 110 : 0) + insets.bottom + SPACE.xl }}
                     showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={loadError
+                        ? <EmptyState icon="cloud-offline-outline" title="Could not load this shop" body="Check your connection and try again." action={<Button title="Try again" variant="secondary" onPress={fetchProducts} />} />
+                        : <EmptyState icon="cube-outline" title="Nothing to order yet" body="This shop has not added products yet." />}
                 />
             )}
 
             {cartCount > 0 && (
-                <TouchableOpacity
-                    style={s.cartBar}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        navigation.navigate('GroceryCart', { cart, merchant });
-                    }}
-                >
-                    <Text style={s.cartBarLeft}>{cartCount} item{cartCount !== 1 ? 's' : ''}</Text>
-                    <Text style={s.cartBarCenter}>View cart</Text>
-                    <Text style={s.cartBarRight}>${(cartTotal / 100).toFixed(2)} TTD</Text>
-                </TouchableOpacity>
+                <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: SPACE.md, paddingBottom: Math.max(insets.bottom, SPACE.lg), backgroundColor: m.page, borderTopWidth: 1, borderTopColor: m.chipBorder }}>
+                    <Button title={`View cart · ${cartCount} item${cartCount !== 1 ? 's' : ''} · $${(cartTotal / 100).toFixed(2)}`} onPress={openCart} />
+                </View>
             )}
-        </LinearGradient>
+        </View>
     );
 }
-
-const s = StyleSheet.create({
-    container: { flex: 1 },
-    header: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 20, paddingBottom: 12, gap: 12,
-    },
-    backBtn: {
-        width: 38, height: 38, borderRadius: 19,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    headerCenter: { flex: 1 },
-    headerTitle: { fontSize: 18, fontWeight: '700', color: '#EAF3F6' },
-    headerSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 },
-    cartBtn: {
-        width: 38, height: 38, borderRadius: 19,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    cartBadge: {
-        position: 'absolute', top: -2, right: -2,
-        width: 16, height: 16, borderRadius: 8,
-        backgroundColor: VOICES.rider.accent, alignItems: 'center', justifyContent: 'center',
-    },
-    cartBadgeText: { fontSize: 10, color: '#EAF3F6', fontWeight: '800' },
-    grid: { padding: 20, gap: 12, paddingBottom: 100 },
-    productCard: {
-        borderRadius: 20, overflow: 'hidden',
-        ...ghostBorder(0.12),
-        padding: 14, backgroundColor: 'rgba(255,255,255,0.05)',
-    },
-    productImageBox: {
-        height: 90, borderRadius: 14,
-        backgroundColor: `${VOICES.rider.accent}26`,
-        alignItems: 'center', justifyContent: 'center',
-        marginBottom: 10,
-    },
-    productMeta: { gap: 4, marginBottom: 10 },
-    productName: { fontSize: 14, fontWeight: '600', color: '#EAF3F6', lineHeight: 19 },
-    // Prices stay off cyan -- cyan signals tappability, not money.
-    productPrice: { fontSize: 15, fontWeight: '800', color: '#EAF3F6' },
-    addBtn: {
-        alignSelf: 'flex-end', width: 32, height: 32, borderRadius: 16,
-        backgroundColor: `${VOICES.rider.accent}4D`,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    addBtnActive: { backgroundColor: VOICES.rider.accent },
-    addBtnText: { fontSize: 18, color: '#EAF3F6', fontWeight: '700', lineHeight: 22 },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-    loadingText: { color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 14 },
-    emptyIcon: { marginBottom: 16 },
-    emptyText: { color: '#EAF3F6', fontSize: 18, fontWeight: '700' },
-    cartBar: {
-        position: 'absolute', bottom: 24, left: 20, right: 20,
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        borderRadius: 20, overflow: 'hidden', padding: 18,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        ...ghostBorder(0.3),
-    },
-    cartBarLeft: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
-    cartBarCenter: { fontSize: 16, color: CYAN, fontWeight: '800' },
-    cartBarRight: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
-});

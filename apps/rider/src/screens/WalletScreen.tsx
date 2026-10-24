@@ -27,7 +27,7 @@ export function WalletScreen({ navigation }: any) {
     const animatedBalance = useSharedValue(0);
 
     useEffect(() => {
-        if (!user?.id) return;
+        if (!user?.id) { setLoading(false); return; }
 
         fetchWalletData();
 
