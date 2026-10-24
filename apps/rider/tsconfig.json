@@ -34,7 +34,8 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    "../../shared/**/*.ts"
+    "../../shared/**/*.ts",
+    "nativewind-env.d.ts"
   ],
   "exclude": [
     "node_modules"

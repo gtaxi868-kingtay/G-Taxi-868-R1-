@@ -1,8 +1,18 @@
 import React, { useEffect, useState } from 'react';
+import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
+import {
+    Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
+} from '@expo-google-fonts/manrope';
+import { applyGlobalFont } from './src/theme/typography';
+import { ToastHost } from './src/components/Toast';
+import { HomePreview } from './src/screens/design/HomePreview';
+
+// Every Text/TextInput gets Manrope at the right weight (see typography.ts).
+applyGlobalFont();
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -217,6 +227,11 @@ function App() {
     const [fontsLoaded, fontError] = useFonts({
         CormorantGaramond_500Medium,
         CormorantGaramond_600SemiBold,
+        Manrope_400Regular,
+        Manrope_500Medium,
+        Manrope_600SemiBold,
+        Manrope_700Bold,
+        Manrope_800ExtraBold,
     });
     const [fontTimedOut, setFontTimedOut] = useState(false);
 
@@ -238,6 +253,16 @@ function App() {
         return <View style={{ flex: 1, backgroundColor: '#07070F' }} />;
     }
 
+    // Design sample for review (web only): /design-preview
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname === '/design-preview') {
+        return (
+            <SafeAreaProvider>
+                <HomePreview />
+                <ToastHost />
+            </SafeAreaProvider>
+        );
+    }
+
     const content = (
         <SafeAreaProvider>
             <QueryClientProvider client={queryClient}>
@@ -249,6 +274,7 @@ function App() {
                                 <StatusBar style="light" />
                                 <RootNavigator />
                             </NavigationContainer>
+                            <ToastHost />
                         </View>
                     </ErrorBoundary>
                 </AuthProvider>

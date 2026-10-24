@@ -55,4 +55,13 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     : context.resolveRequest(context, moduleName, platform);
 };
 
-module.exports = config;
+// NativeWind compiles Tailwind classes from global.css. It needs Tailwind 3;
+// the resolver below keeps it off the monorepo's hoisted Tailwind 4, here and
+// in the child processes NativeWind starts.
+const twResolver = path.join(__dirname, 'tailwind-v3-resolver.cjs');
+require(twResolver);
+if (!(process.env.NODE_OPTIONS || '').includes(twResolver)) {
+  process.env.NODE_OPTIONS = `${process.env.NODE_OPTIONS || ''} --require ${twResolver}`.trim();
+}
+const { withNativeWind } = require('nativewind/metro');
+module.exports = withNativeWind(config, { input: './global.css' });
