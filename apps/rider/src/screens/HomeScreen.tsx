@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, Image, ScrollView,
-    useWindowDimensions, Alert, Platform, Modal, TextInput, KeyboardAvoidingView,
-    Linking, PanResponder,
+    View, StyleSheet, Image, ScrollView, Pressable, Animated, Easing,
+    useWindowDimensions, Alert, Platform, Modal, KeyboardAvoidingView, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
@@ -13,11 +12,7 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Reanimated, {
-    useSharedValue, withSpring,
-    useAnimatedStyle, withDelay,
-    FadeIn, FadeOut, useReducedMotion,
-} from 'react-native-reanimated';
+import { useReducedMotion } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -27,16 +22,18 @@ import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
 import { Sidebar } from '../components/Sidebar';
-import { LayerDeck, Layer } from '../components/home/LayerDeck';
-import { LiquidGlass, Skeleton } from '@gtaxi/design-system/native';
-import { ANIMATION, SURFACE, VOICES } from '@gtaxi/design-system';
-import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import type { Layer } from '../components/home/LayerDeck';
+import { greetingFor } from '../theme/mood';
+import {
+    BRAND_GRADIENT, BrandBadge, Button, Card, Chip, EmptyState, Field, GUTTER, IconButton,
+    RADIUS, Section, SPACE, Txt, useTheme,
+} from '../ui/kit';
 
 const { supabase } = initializeSupabaseClient('native');
 
 const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
-const BRAND = '#34E6EC';
+const BRAND = '#8B7CFF';
 
 const DARK_MAP_STYLE = [
     { elementType: 'geometry', stylers: [{ color: '#07070F' }] },
@@ -81,7 +78,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [showLocationConfirm, setShowLocationConfirm] = useState(false);
     const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [activeLayerId, setActiveLayerId] = useState('ride');
     const [homeSuggestion, setHomeSuggestion] = useState<string | null>(null);
 
     const nfcDedupCache = useRef<Map<string, number>>(new Map());
@@ -99,34 +95,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
     const reducedMotion = useReducedMotion();
 
-    // Sheet snap positions: PEEK shows 220px at the bottom; EXPANDED shows most of screen
-    const PEEK_OFFSET = height - 220;
-    const EXPANDED_OFFSET = insets.top + 60;
-
-    const sheetY = useSharedValue(reducedMotion ? PEEK_OFFSET : height);
-
-    const panResponder = useRef(
-        PanResponder.create({
-            onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 8,
-            onPanResponderGrant: () => {
-                Haptics.selectionAsync();
-            },
-            onPanResponderMove: (_, gs) => {
-                const next = sheetY.value + gs.dy;
-                if (next >= EXPANDED_OFFSET && next <= PEEK_OFFSET) {
-                    sheetY.value = next;
-                }
-            },
-            onPanResponderRelease: (_, gs) => {
-                const mid = (EXPANDED_OFFSET + PEEK_OFFSET) / 2;
-                const snapTo = (sheetY.value < mid || gs.vy < -0.5)
-                    ? EXPANDED_OFFSET
-                    : PEEK_OFFSET;
-                sheetY.value = withSpring(snapTo, { damping: 22, stiffness: 180 });
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            },
-        })
-    ).current;
+    const [sheetH, setSheetH] = useState(360);
 
     const { activeRide: contextActiveRide } = useRide();
 
@@ -375,12 +344,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         if (aiSuggestionsEnabled) {
             fetchAIGreeting();
             fetchProactiveSuggestion();
-        }
-
-        if (!reducedMotion) {
-            sheetY.value = withDelay(200, withSpring(PEEK_OFFSET, { damping: 22, stiffness: 180 }));
-        } else {
-            sheetY.value = PEEK_OFFSET;
         }
 
         return () => {
@@ -752,11 +715,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         }
     };
 
-    const expandSheet = () => {
-        sheetY.value = withSpring(EXPANDED_OFFSET, { damping: 22, stiffness: 180 });
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    };
-
     // Ride card sub-line carries the live driver-presence promise when drivers exist.
     const driverSubText = realtimeDrivers.length > 0
         ? `${realtimeDrivers.length} ${realtimeDrivers.length === 1 ? 'driver' : 'drivers'} nearby${driverEtaMin ? ` · ~${driverEtaMin} min` : ''}`
@@ -807,46 +765,66 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         }
     };
 
-    const animatedSheet = useAnimatedStyle(() => ({
-        transform: [{ translateY: sheetY.value }]
-    }));
+    // Store says this build is older than the minimum allowed.
+    const needsUpdate = (() => {
+        const min = systemStatus.config?.min_version_rider;
+        const cur = Constants.expoConfig?.version;
+        if (!min || !cur) return false;
+        const c = cur.split('.').map(Number), n = min.split('.').map(Number);
+        for (let i = 0; i < 3; i++) {
+            if ((c[i] || 0) < (n[i] || 0)) return true;
+            if ((c[i] || 0) > (n[i] || 0)) return false;
+        }
+        return false;
+    })();
+
+    const m = useTheme();
+    const g = greetingFor();
+    const firstName = profile?.name?.split(' ')[0];
+    const night = m.key === 'night';
+    const tileStyle = night ? 'navigation-night-v1' : 'light-v11';
+
+    // Sheet entrance: glides up once, content fades in after it.
+    const sheetRise = useRef(new Animated.Value(reducedMotion ? 0 : 40)).current;
+    const sheetFade = useRef(new Animated.Value(reducedMotion ? 1 : 0)).current;
+    useEffect(() => {
+        if (reducedMotion) return;
+        Animated.parallel([
+            Animated.timing(sheetRise, { toValue: 0, duration: 480, easing: Easing.bezier(0.23, 1, 0.32, 1), useNativeDriver: true }),
+            Animated.timing(sheetFade, { toValue: 1, duration: 360, easing: Easing.bezier(0.23, 1, 0.32, 1), useNativeDriver: true }),
+        ]).start();
+    }, []);
+
+    const otherLayers = layers.filter(l => l.id !== 'ride' && !l.locked);
+    const lockedLayer = layers.find(l => l.locked);
+    const fieldBg = night ? m.sheet[1] : '#FFFFFF';
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
 
-            {/* Map — fullscreen behind the sheet */}
+            {/* Map — fills the top of the screen behind the sheet */}
             <MapView
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
-                customMapStyle={DARK_MAP_STYLE}
-                initialRegion={{
-                    latitude: currentLat,
-                    longitude: currentLng,
-                    latitudeDelta: 0.015,
-                    longitudeDelta: 0.015,
-                }}
+                customMapStyle={night ? DARK_MAP_STYLE : []}
+                initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.015, longitudeDelta: 0.015 }}
+                mapPadding={{ top: insets.top + 60, right: 0, bottom: sheetH, left: 0 }}
                 showsUserLocation
-                userInterfaceStyle="dark"
+                userInterfaceStyle={night ? 'dark' : 'light'}
             >
                 {ENV.MAPBOX_PUBLIC_TOKEN && (
                     <UrlTile
-                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
+                        key={tileStyle}
+                        urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${tileStyle}/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
                         shouldReplaceMapContent={true}
                     />
                 )}
-
                 {realtimeDrivers.map(d => (
-                    <Marker
-                        key={d.id}
-                        coordinate={{ latitude: (d.lat as any) || 0, longitude: (d.lng as any) || 0 }}
-                        anchor={{ x: 0.5, y: 0.5 }}
-                        rotation={d.heading || 0}
-                    >
-                        <Image source={CAR_ASSET} style={s.carMarker} resizeMode="contain" />
+                    <Marker key={d.id} coordinate={{ latitude: (d.lat as any) || 0, longitude: (d.lng as any) || 0 }} anchor={{ x: 0.5, y: 0.5 }} rotation={d.heading || 0}>
+                        <Image source={CAR_ASSET} style={{ width: 40, height: 40 }} resizeMode="contain" />
                     </Marker>
                 ))}
-
                 {savedPlaces.map((place) => (
                     <Marker
                         key={`saved-${place.id}`}
@@ -855,350 +833,242 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             navigation.navigate('RideConfirmation', {
                                 pickup: { latitude: currentLat, longitude: currentLng },
-                                destination: { latitude: place.lat, longitude: place.lng, address: place.address || place.label }
+                                destination: { latitude: place.lat, longitude: place.lng, address: place.address || place.label },
                             });
                         }}
                     >
-                        <View style={s.savedPlacePin}>
-                            <Ionicons name="heart" size={16} color="#EAF3F6" />
+                        <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: m.accent, borderWidth: 2, borderColor: '#FFFFFF' }}>
+                            <Ionicons name={place.label === 'Work' ? 'briefcase' : place.label === 'Home' ? 'home' : 'heart'} size={14} color="#FFFFFF" />
                         </View>
                     </Marker>
                 ))}
             </MapView>
+            <LinearGradient pointerEvents="none" colors={m.mapWash as any} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 180 }} />
 
-            {/* Top bar — absolute over the map */}
-            <View style={[s.topBarContainer, { top: insets.top + 12 }, width > 600 && { alignItems: 'center' }]}>
-                <LiquidGlass tier="chrome" voice="rider" style={[s.topBarBlur, width > 600 && { maxWidth: 600 }]}>
-                    <View style={s.topBar}>
-                        <Image
-                            source={require('../../assets/logo.png')}
-                            style={s.topBarLogo}
-                            resizeMode="contain"
-                        />
-
-                        <View style={s.topBarRight}>
-                            <TouchableOpacity
-                                style={s.iconButton}
-                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                    (navigation.navigate as any)('Notifications');
-                                }}
-                                accessibilityLabel="View notifications"
-                                accessibilityRole="button"
-                            >
-                                <Ionicons name="notifications-outline" size={22} color="#EAF3F6" />
-                                {unreadCount > 0 && <View style={s.notificationBadge} />}
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={s.avatarButton}
-                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsMenuOpen(true); }}
-                                accessibilityLabel="Open menu"
-                                accessibilityRole="button"
-                            >
-                                {profile?.avatar_url ? (
-                                    <Image source={{ uri: profile.avatar_url }} style={s.avatarImage} />
-                                ) : (
-                                    <View style={s.avatarPlaceholder}>
-                                        <Ionicons name="person" size={18} color={VOICES.rider.accent} />
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </LiquidGlass>
+            {/* Top bar */}
+            <View style={{ position: 'absolute', top: insets.top + 12, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <IconButton icon="menu" label="Open menu" tone="filled" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsMenuOpen(true); }} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: m.sheet[1], borderWidth: 1, borderColor: m.sheetBorder }}>
+                    <View style={{ width: 7, height: 7, borderRadius: 4, marginRight: 8, backgroundColor: realtimeDrivers.length > 0 ? '#2FB57C' : m.faint }} />
+                    <Txt variant="label">{realtimeDrivers.length > 0 ? driverSubText : 'Finding drivers near you'}</Txt>
+                </View>
+                <View>
+                    <IconButton icon="notifications-outline" label="Notifications" tone="filled" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Notifications'); }} />
+                    {unreadCount > 0 && <View pointerEvents="none" style={{ position: 'absolute', top: 8, right: 9, width: 9, height: 9, borderRadius: 5, backgroundColor: '#E5484D', borderWidth: 1.5, borderColor: m.sheet[1] }} />}
+                </View>
             </View>
 
             {!systemStatus.stripe_ready && (
-                <View style={[s.maintenanceBanner, { top: insets.top + 80 }]}>
-                    <Ionicons name="warning" size={16} color="#F59E0B" />
-                    <Text style={s.maintenanceText}>
-                        System Maintenance: Card payments currently unavailable.
-                    </Text>
+                <View style={{ position: 'absolute', top: insets.top + 66, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center', padding: SPACE.md, borderRadius: 14, backgroundColor: night ? 'rgba(245,158,11,0.16)' : '#FFF6E5' }}>
+                    <Ionicons name="information-circle" size={16} color="#D97706" />
+                    <Txt variant="caption" style={{ marginLeft: SPACE.sm, flex: 1 }}>Card payments are paused right now. Cash still works.</Txt>
                 </View>
             )}
+
+            {/* Bottom sheet */}
+            <Animated.View
+                onLayout={(e) => setSheetH(e.nativeEvent.layout.height)}
+                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: height - insets.top - 72, opacity: sheetFade, transform: [{ translateY: sheetRise }] }}
+            >
+                {m.glow ? (
+                    <LinearGradient pointerEvents="none" colors={m.glow as any} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
+                        style={{ position: 'absolute', left: 0, right: 0, top: -60, height: 90, opacity: 0.55 }} />
+                ) : null}
+                <LinearGradient
+                    colors={m.sheet as any}
+                    style={{ borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, borderWidth: 1, borderBottomWidth: 0, borderColor: m.sheetBorder,
+                        shadowColor: '#000', shadowOpacity: m.shadowOpacity, shadowRadius: 24, shadowOffset: { width: 0, height: -6 }, elevation: 16 }}
+                >
+                    <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: m.chipBorder, alignSelf: 'center', marginTop: 10, marginBottom: 6 }} />
+                    <ScrollView
+                        bounces={false}
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: SPACE.md, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}
+                    >
+                        {/* Greeting */}
+                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                            <View style={{ flex: 1, paddingRight: SPACE.md }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                    <Ionicons name={g.icon} size={13} color={m.accent} />
+                                    <Txt variant="label" tone="accent" style={{ marginLeft: 6 }}>{g.hello}</Txt>
+                                </View>
+                                <Txt variant="hero" numberOfLines={2}>{firstName ? `Welcome back,\n${firstName}` : 'Welcome to G 868'}</Txt>
+                                <Txt variant="body" tone="dim" numberOfLines={2} style={{ marginTop: 4 }}>
+                                    {isAiThinking || visionLoading
+                                        ? (visionLoading ? 'Looking at your photo…' : 'G is thinking…')
+                                        : (aiGreeting && aiGreeting !== 'Where to next?' ? aiGreeting : `Where can we take you ${g.when}?`)}
+                                </Txt>
+                            </View>
+                            {platformFlags.aiAssistant && (
+                                <IconButton icon="mic-outline" label="Ask G by voice" onPress={() => {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                    setVoiceInputText('');
+                                    setVoiceModalVisible(true);
+                                }} />
+                            )}
+                        </View>
+
+                        {/* Search */}
+                        <Pressable
+                            accessibilityRole="search" accessibilityLabel="Where to?"
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openDestinationSearch(); }}
+                            style={({ pressed }) => ({ marginTop: SPACE.lg, borderRadius: RADIUS.pill, padding: 1.5, overflow: 'hidden', opacity: pressed ? 0.9 : 1 })}
+                        >
+                            <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={[StyleSheet.absoluteFillObject, { opacity: 0.6 }]} />
+                            <View style={{ height: 56, borderRadius: RADIUS.pill, backgroundColor: fieldBg, flexDirection: 'row', alignItems: 'center', paddingLeft: SPACE.xl, paddingRight: 6 }}>
+                                <Ionicons name="search" size={20} color={m.searchIcon} />
+                                <Txt variant="headline" style={{ flex: 1, marginLeft: SPACE.md }} numberOfLines={1}>{homeSuggestion || 'Where to?'}</Txt>
+                                <Pressable
+                                    accessibilityRole="button" accessibilityLabel="Ride with a photo of where you are"
+                                    onPress={handleVisionSighting} hitSlop={6}
+                                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    <Ionicons name="camera-outline" size={19} color={m.ink} />
+                                </Pressable>
+                            </View>
+                        </Pressable>
+
+                        {/* Saved places */}
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.md }}>
+                            <Chip icon="home-outline" label="Home" onPress={() => handleQuickAction('Home')} />
+                            <Chip icon="briefcase-outline" label="Work" onPress={() => handleQuickAction('Work')} />
+                            <Chip icon="time-outline" label="Recent" onPress={() => handleQuickAction('Recent')} />
+                        </View>
+
+                        {/* Fare preview (voice / saved place on its way to booking) */}
+                        {(selectedDestinationPreview || isEstimatingFare) && (
+                            <Card style={{ marginTop: SPACE.sm }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Txt variant="bodyStrong" numberOfLines={1}>{selectedDestinationPreview?.address || 'Getting your price…'}</Txt>
+                                        <Txt variant="caption" tone="dim" style={{ marginTop: 2 }}>
+                                            {isEstimatingFare ? 'Getting your price…' : estimatedFare ? `About ${formatTTDDollars(estimatedFare / 100)}` : 'Price not available yet'}
+                                        </Txt>
+                                    </View>
+                                    {!isEstimatingFare && (
+                                        <Pressable accessibilityRole="button" accessibilityLabel="Clear" onPress={clearFarePreview} hitSlop={8}>
+                                            <Ionicons name="close-circle" size={22} color={m.faint} />
+                                        </Pressable>
+                                    )}
+                                </View>
+                                {stopSuggestions.length > 0 && selectedDestinationPreview && (
+                                    <View style={{ marginTop: SPACE.md }}>
+                                        <Txt variant="overline" tone="faint" style={{ marginBottom: SPACE.sm }}>ADD A STOP ON THE WAY</Txt>
+                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                                            {stopSuggestions.map((stop, i) => (
+                                                <Chip key={i} label={stop.name} onPress={() => {
+                                                    navigation.navigate('RideConfirmation', {
+                                                        destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
+                                                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
+                                                        stop: { name: stop.name, latitude: stop.lat, longitude: stop.lng },
+                                                    });
+                                                    clearFarePreview();
+                                                }} />
+                                            ))}
+                                        </View>
+                                    </View>
+                                )}
+                            </Card>
+                        )}
+
+                        {/* G's tip */}
+                        {proactiveAction && (
+                            <Card style={{ marginTop: SPACE.sm, flexDirection: 'row', alignItems: 'flex-start' }}>
+                                <Ionicons name="sparkles" size={16} color={m.accent} style={{ marginTop: 2 }} />
+                                <Txt variant="body" style={{ flex: 1, marginHorizontal: SPACE.md }}>{proactiveAction}</Txt>
+                                <Pressable accessibilityRole="button" accessibilityLabel="Dismiss tip" onPress={() => setProactiveAction(null)} hitSlop={8}>
+                                    <Ionicons name="close" size={18} color={m.faint} />
+                                </Pressable>
+                            </Card>
+                        )}
+
+                        {/* Services */}
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.lg, marginHorizontal: -SPACE.xs }}>
+                            {[layers[0], ...otherLayers].map((l, i) => (
+                                <Pressable
+                                    key={l.id} accessibilityRole="button" accessibilityLabel={l.name}
+                                    onPress={() => handleLayerPrimary(l)}
+                                    style={({ pressed }) => ({ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md, alignItems: 'center', opacity: pressed ? 0.8 : 1 })}
+                                >
+                                    {i === 0 ? (
+                                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                            style={{ height: 60, alignSelf: 'stretch', borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}>
+                                            <Ionicons name="car-sport" size={24} color="#FFFFFF" />
+                                        </LinearGradient>
+                                    ) : (
+                                        <View style={{ height: 60, alignSelf: 'stretch', borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: m.tile }}>
+                                            <Ionicons name={(l.icon || 'apps').replace('-sharp', '') as any} size={22} color={m.ink} />
+                                        </View>
+                                    )}
+                                    <Txt variant="label" numberOfLines={1} style={{ marginTop: 6 }}>{l.name}</Txt>
+                                </Pressable>
+                            ))}
+                            {isVerticalsLoading && otherLayers.length === 0 && (
+                                <View style={{ width: '25%', paddingHorizontal: SPACE.xs }}>
+                                    <View style={{ height: 60, borderRadius: 20, backgroundColor: m.tile, opacity: 0.6 }} />
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Next unlock */}
+                        {lockedLayer && (
+                            <Card style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>
+                                    <Ionicons name="lock-closed-outline" size={17} color={m.accent} />
+                                </View>
+                                <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                                    <Txt variant="bodyStrong" numberOfLines={1}>{lockedLayer.name} unlocks soon</Txt>
+                                    <Txt variant="caption" tone="dim" numberOfLines={2}>{lockedLayer.label || `${lockedLayer.progress ?? 0} of ${lockedLayer.need ?? 0} rides`}</Txt>
+                                    <View style={{ height: 4, borderRadius: 2, backgroundColor: m.field, marginTop: SPACE.sm, overflow: 'hidden' }}>
+                                        <View style={{ height: 4, width: `${Math.min(100, Math.round(((lockedLayer.progress ?? 0) / Math.max(1, lockedLayer.need ?? 1)) * 100))}%`, backgroundColor: m.accent }} />
+                                    </View>
+                                </View>
+                            </Card>
+                        )}
+
+                        {/* Nearby shops */}
+                        {nearbyVendors.length > 0 && (
+                            <Section title="Shops near you">
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -GUTTER }} contentContainerStyle={{ paddingHorizontal: GUTTER, gap: SPACE.md }}>
+                                    {nearbyVendors.map(v => (
+                                        <Card key={v.id} style={{ width: 168, padding: SPACE.md }} onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
+                                        }}>
+                                            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.sm }}>
+                                                <Ionicons name="storefront-outline" size={18} color={m.accent} />
+                                            </View>
+                                            <Txt variant="bodyStrong" numberOfLines={1}>{v.name}</Txt>
+                                            <Txt variant="caption" tone={(v as any).is_usual ? 'accent' : 'dim'} numberOfLines={1}>
+                                                {(v as any).is_featured ? 'Featured' : (v as any).is_usual ? 'Your usual' : v.is_open ? 'Open now' : 'Closed'} · ~{v.avg_delivery_minutes} min
+                                            </Txt>
+                                        </Card>
+                                    ))}
+                                </ScrollView>
+                            </Section>
+                        )}
+
+                        {/* Trust */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md, padding: SPACE.md, borderRadius: RADIUS.card, backgroundColor: m.trustBg, borderWidth: 1, borderColor: m.chipBorder }}>
+                            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(47,181,124,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                                <Ionicons name="shield-checkmark" size={17} color="#2FB57C" />
+                            </View>
+                            <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                                <Txt variant="bodyStrong">You are in safe hands</Txt>
+                                <Txt variant="caption" tone="dim">Verified drivers · G Guardian on call 24/7</Txt>
+                            </View>
+                        </View>
+                    </ScrollView>
+                </LinearGradient>
+            </Animated.View>
 
             <Sidebar
                 visible={isMenuOpen}
                 onClose={() => setIsMenuOpen(false)}
                 navigation={navigation}
-                user={{
-                    name: profile?.name || 'Rider',
-                    rating: 5.0,
-                    photo_url: profile?.avatar_url ?? undefined,
-                }}
+                user={{ name: profile?.name || 'Rider', rating: 5.0, photo_url: profile?.avatar_url ?? undefined }}
             />
-
-            {/* AI/vision loading bubble — floats above the sheet peek zone */}
-            {(isAiThinking || visionLoading) && (
-                <Reanimated.View
-                    entering={FadeIn}
-                    exiting={FadeOut}
-                    style={s.aiBubbleContainer}
-                >
-                    <LiquidGlass tier="panel" voice="rider" style={s.aiBlur}>
-                        <View style={s.aiAvatar}>
-                            <Ionicons name={visionLoading ? "scan" : "sparkles"} size={16} color={VOICES.rider.accent} />
-                        </View>
-                        <View style={{ flex: 1, marginLeft: 12 }}>
-                            {visionLoading ? (
-                                <Text style={s.aiCyan}>Analyzing your sight...</Text>
-                            ) : (
-                                <Text style={s.aiThinking}>AI is thinking...</Text>
-                            )}
-                        </View>
-                    </LiquidGlass>
-                </Reanimated.View>
-            )}
-
-            {/* Vision FAB — floats above the sheet peek zone */}
-            <TouchableOpacity
-                style={s.visionFab}
-                onPress={handleVisionSighting}
-                activeOpacity={0.7}
-                accessibilityLabel="Open AI vision scanner"
-                accessibilityRole="button"
-            >
-                <View style={s.visionGlass}>
-                    <Ionicons name="scan-outline" size={28} color={VOICES.rider.accent} />
-                    <Text style={s.visionText}>VISION</Text>
-                </View>
-            </TouchableOpacity>
-
-            {/* Bottom sheet */}
-            <Reanimated.View
-                style={[
-                    s.sheet,
-                    animatedSheet,
-                    { paddingBottom: insets.bottom + 20 },
-                    width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300 },
-                ]}
-            >
-                {/* Liquid Glass substrate — floats the booking sheet over the live map */}
-                <LiquidGlass
-                    tier="panel"
-                    voice="rider"
-                    pointerEvents="none"
-                    style={[StyleSheet.absoluteFillObject, s.sheetGlass]}
-                />
-
-                {/* Drag handle — always visible in peek zone */}
-                <View {...panResponder.panHandlers} style={s.handleZone}>
-                    <TouchableOpacity onPress={expandSheet} activeOpacity={0.7} accessibilityLabel="Expand options" accessibilityRole="button">
-                        <View style={s.handleBar} />
-                    </TouchableOpacity>
-                </View>
-
-                <ScrollView
-                    style={s.sheetScroll}
-                    contentContainerStyle={s.sheetContent}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    scrollEventThrottle={16}
-                >
-                    {/* Greeting + voice row */}
-                    <View style={s.greetRow}>
-                        <Text style={s.greetText} numberOfLines={2}>
-                            {aiGreeting || 'Where to next?'}
-                        </Text>
-                        {/* 'ai_assistant_active' on Platform Control. That switch
-                            used to control nothing at all — an admin could turn the
-                            assistant "off" and the mic stayed right here. */}
-                        {platformFlags.aiAssistant && (
-                            <TouchableOpacity
-                                style={s.micBtn}
-                                onPress={() => {
-                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-                                    setVoiceInputText('');
-                                    setVoiceModalVisible(true);
-                                }}
-                                accessibilityLabel="Ask G-Taxi by voice"
-                                accessibilityRole="button"
-                            >
-                                <Ionicons name="mic" size={20} color={VOICES.rider.accent} />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {/* Swipeable layer deck — booking + verticals + level meter in one control */}
-                    {isVerticalsLoading ? (
-                        <View style={s.skeletonContainer}>
-                            <Skeleton width="100%" height={144} borderRadius={22} />
-                        </View>
-                    ) : (
-                        <LayerDeck
-                            layers={layers}
-                            onPrimary={handleLayerPrimary}
-                            onActiveChange={(l) => setActiveLayerId(l.id)}
-                        />
-                    )}
-
-                    {/* Ride-only quick places */}
-                    {activeLayerId === 'ride' && (
-                    <View style={s.pills}>
-                        <TouchableOpacity
-                            style={s.pill}
-                            onPress={() => handleQuickAction('Home')}
-                            accessibilityLabel="Ride to saved Home address"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="home-outline" size={18} color={VOICES.rider.accent} />
-                            <Text style={s.pillLabel}>Home</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={s.pill}
-                            onPress={() => handleQuickAction('Work')}
-                            accessibilityLabel="Ride to saved Work address"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="briefcase-outline" size={18} color={VOICES.rider.accent} />
-                            <Text style={s.pillLabel}>Work</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={s.recentPill}
-                            onPress={() => handleQuickAction('Recent')}
-                            accessibilityLabel="View recent rides"
-                            accessibilityRole="button"
-                        >
-                            <Ionicons name="time-outline" size={22} color={VOICES.rider.accent} />
-                        </TouchableOpacity>
-                    </View>
-                    )}
-
-                    {/* Fare preview */}
-                    {(selectedDestinationPreview || isEstimatingFare) && (
-                        <Reanimated.View entering={FadeIn} exiting={FadeOut} style={s.farePreviewContainer}>
-                            <View style={s.farePreviewBlur}>
-                                <View style={s.farePreviewContent}>
-                                    <View style={s.fareIconContainer}>
-                                        <Ionicons name="wallet-outline" size={20} color={VOICES.rider.accent} />
-                                    </View>
-                                    <View style={s.fareTextContainer}>
-                                        <Text style={s.fareAddress}>
-                                            {selectedDestinationPreview?.address || 'Estimating...'}
-                                        </Text>
-                                        <View style={s.fareRow}>
-                                            {isEstimatingFare ? (
-                                                <Text style={{ color: VOICES.rider.accent, fontWeight: '700' }}>Calculating...</Text>
-                                            ) : estimatedFare ? (
-                                                <>
-                                                    <Text style={s.fareAmount}>
-                                                        {formatTTDDollars(estimatedFare / 100)}
-                                                    </Text>
-                                                    <Text style={s.fareLabel}>estimated</Text>
-                                                </>
-                                            ) : (
-                                                <Text style={{ color: 'rgba(255,255,255,0.6)' }}>Fare unavailable</Text>
-                                            )}
-                                        </View>
-                                    </View>
-                                    {!isEstimatingFare && estimatedFare && (
-                                        <TouchableOpacity
-                                            onPress={clearFarePreview}
-                                            style={s.fareCloseBtn}
-                                            accessibilityLabel="Clear fare estimate"
-                                            accessibilityRole="button"
-                                        >
-                                            <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.4)" />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            </View>
-                            {stopSuggestions.length > 0 && selectedDestinationPreview && (
-                                <View style={s.stopSuggestionsStrip}>
-                                    <Text style={s.stopSuggestionsTitle}>Suggested stops</Text>
-                                    <View style={s.stopSuggestionRow}>
-                                        {stopSuggestions.map((stop, i) => (
-                                            <TouchableOpacity
-                                                key={i}
-                                                style={s.stopSuggestionChip}
-                                                accessibilityLabel={`Add stop at ${stop.name}`}
-                                                accessibilityRole="button"
-                                                onPress={() => {
-                                                    navigation.navigate('RideConfirmation', {
-                                                        destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
-                                                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
-                                                        stop: { name: stop.name, latitude: stop.lat, longitude: stop.lng }
-                                                    });
-                                                    clearFarePreview();
-                                                }}
-                                            >
-                                                <Text style={s.stopSuggestionLabel}>{stop.name}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                </View>
-                            )}
-                        </Reanimated.View>
-                    )}
-
-                    {/* Proactive AI suggestion */}
-                    {proactiveAction && (
-                        <Reanimated.View entering={FadeIn} style={s.proactiveHud}>
-                            <LinearGradient
-                                colors={[`${BRAND}30`, `${BRAND}08`]}
-                                style={s.proactiveGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <View style={s.aiIndicator}>
-                                    <Ionicons name="sparkles" size={14} color={VOICES.rider.accent} />
-                                </View>
-                                <Text style={s.proactiveText}>{proactiveAction}</Text>
-                                <TouchableOpacity
-                                    onPress={() => setProactiveAction(null)}
-                                    accessibilityLabel="Dismiss AI suggestion"
-                                    accessibilityRole="button"
-                                >
-                                    <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
-                                </TouchableOpacity>
-                            </LinearGradient>
-                        </Reanimated.View>
-                    )}
-
-                    {/* Nearby merchants */}
-                    {nearbyVendors.length > 0 && (
-                        <View style={{ marginTop: 20 }}>
-                            <Text style={{ color: '#EAF3F6', fontWeight: '700', fontSize: 18, paddingHorizontal: 20, marginBottom: 12 }}>Nearby Merchants</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
-                                {nearbyVendors.map(v => (
-                                    <TouchableOpacity
-                                        key={v.id}
-                                        activeOpacity={0.88}
-                                        onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
-                                        }}
-                                        accessibilityLabel={`Shop at ${v.name}${v.is_open ? '' : ' (closed)'}`}
-                                        accessibilityRole="button"
-                                        style={{ width: 160, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-                                    >
-                                        <LinearGradient colors={['rgba(109,40,217,0.15)', 'rgba(52,230,236,0.08)']} style={{ padding: 16 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                                                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(109,40,217,0.25)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                                                    <Ionicons name="storefront-outline" size={18} color="#6D28D9" />
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text style={{ color: '#EAF3F6', fontWeight: '700', fontSize: 13 }} numberOfLines={1}>{v.name}</Text>
-                                                    <Text style={{ color: (v as any).is_usual ? VOICES.rider.accent : 'rgba(255,255,255,0.45)', fontSize: 11 }}>
-                                                        {(v as any).is_featured ? 'Featured' : (v as any).is_usual ? 'Your usual' : v.is_open ? 'Open' : 'Closed'}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{Math.round(v.distance_meters)} m</Text>
-                                                <Text style={{ color: VOICES.rider.accent, fontSize: 11, fontWeight: '600' }}>~{v.avg_delivery_minutes} min</Text>
-                                            </View>
-                                        </LinearGradient>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-                    )}
-                </ScrollView>
-            </Reanimated.View>
 
             <SavedPlaceModal visible={!!activeModalLabel} defaultLabel={activeModalLabel || ''} onClose={() => setActiveModalLabel(null)} onSave={handleSavePlace} />
             <RecentRidesModal visible={showRecentModal} onClose={() => setShowRecentModal(false)} recentLocations={recentRides} onSelect={async (loc) => {
@@ -1207,164 +1077,82 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 setTimeout(() => {
                     navigation.navigate('RideConfirmation', {
                         destination: { latitude: loc.latitude, longitude: loc.longitude, address: loc.address },
-                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' }
+                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
                     });
                     clearFarePreview();
                 }, 1500);
             }} />
 
+            {/* Full-screen notices */}
             {systemStatus.config?.maintenance_mode === 'true' && (
-                <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
-                    <View style={[glassSurface(100), s.lockBlur]}>
-                        <View style={s.hudLockRing} />
-                        <Ionicons name="flash" size={64} color={VOICES.rider.accent} />
-                        <Text style={s.lockTitle}>Feature locked</Text>
-                        <Text style={s.lockSubtitle}>
-                            Complete your first ride to unlock this.
-                        </Text>
-                    </View>
-                </View>
+                <Overlay>
+                    <EmptyState icon="construct-outline" title="We'll be right back" body="G 868 is getting a quick update. Please try again in a few minutes." />
+                </Overlay>
+            )}
+            {needsUpdate && (
+                <Overlay>
+                    <EmptyState
+                        icon="cloud-download-outline" title="Update G 868"
+                        body="A newer version is ready. Update the app to keep riding safely."
+                        action={<Button title="Open the store" onPress={() => Linking.openURL(Platform.OS === 'ios' ? 'https://apps.apple.com' : 'market://details?id=com.gtaxi.rider').catch(() => {})} />}
+                    />
+                </Overlay>
             )}
 
-            {systemStatus.config?.min_version_rider && Constants.expoConfig?.version && (
-                (() => {
-                    const current = Constants.expoConfig.version.split('.').map(Number);
-                    const min = systemStatus.config.min_version_rider.split('.').map(Number);
-                    let needsUpdate = false;
-                    for (let i = 0; i < 3; i++) {
-                        if ((current[i] || 0) < (min[i] || 0)) { needsUpdate = true; break; }
-                        if ((current[i] || 0) > (min[i] || 0)) break;
-                    }
-
-                    if (needsUpdate) {
-                        return (
-                            <View style={[StyleSheet.absoluteFill, s.lockOverlay]}>
-                                <View style={[glassSurface(100), s.lockBlur]}>
-                                    <Ionicons name="cloud-download" size={64} color={VOICES.rider.accent} />
-                                    <Text style={[s.lockTitle, { color: '#EAF3F6' }]}>Update Required</Text>
-                                    <Text style={s.lockSubtitle}>
-                                        A critical security update is available. Please update your app to continue using G-TAXI.
-                                    </Text>
-                                    <TouchableOpacity style={s.updateBtn} accessibilityLabel="Update the app now" accessibilityRole="button" onPress={() => Alert.alert("Update", "Please check the App Store or Google Play for the latest version.")}>
-                                        <Text style={s.updateBtnText}>Update Now</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        );
-                    }
-                    return null;
-                })()
-            )}
-
-            {showLocationConfirm && (
-                <View style={[StyleSheet.absoluteFill, s.locationConfirmOverlay]}>
-                    <View style={[glassSurface(40), s.locationConfirmBlur, { width: width - 40 }]}>
-                        <View style={s.locationConfirmCard}>
-                            <Ionicons name="location-outline" size={48} color="#F59E0B" style={{ marginBottom: 16 }} />
-                            <Text style={s.locationConfirmTitle}>Your location may not be precise</Text>
-                            <Text style={s.locationConfirmSubtitle}>
-                                GPS accuracy: {Math.round(locationAccuracy || 0)} meters.{'\n'}
-                                Is this pin in the right place?
-                            </Text>
-
-                            <View style={s.miniMapContainer}>
-                                {/* Lite mode (Android): a still map image instead of a second
-                                    live map running under the main one -- lighter on old phones. */}
-                                <MapView
-                                    liteMode
-                                    style={s.miniMap}
-                                    region={{
-                                        latitude: currentLat,
-                                        longitude: currentLng,
-                                        latitudeDelta: 0.005,
-                                        longitudeDelta: 0.005,
-                                    }}
-                                    customMapStyle={DARK_MAP_STYLE}
-                                    scrollEnabled={false}
-                                    zoomEnabled={false}
-                                >
-                                    <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
-                                        <View style={s.accuracyPin}>
-                                            <View style={[s.accuracyRing, { width: Math.min((locationAccuracy || 50), 200), height: Math.min((locationAccuracy || 50), 200) }]} />
-                                            <View style={s.accuracyDot} />
-                                        </View>
-                                    </Marker>
-                                </MapView>
-                            </View>
-
-                            <View style={s.locationConfirmButtons}>
-                                <TouchableOpacity
-                                    style={s.locationConfirmBtnSecondary}
-                                    onPress={() => {
-                                        setShowLocationConfirm(false);
-                                        navigation.navigate('DestinationSearch', {
-                                            currentLocation: { latitude: currentLat, longitude: currentLng },
-                                            editPickupMode: true
-                                        });
-                                    }}
-                                    accessibilityLabel="Move pickup pin manually"
-                                    accessibilityRole="button"
-                                >
-                                    <Text style={s.locationConfirmBtnSecondaryText}>Move the pin</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={s.locationConfirmBtnPrimary}
-                                    onPress={() => {
-                                        setShowLocationConfirm(false);
-                                        navigation.navigate('DestinationSearch', {
-                                            currentLocation: { latitude: currentLat, longitude: currentLng }
-                                        });
-                                    }}
-                                    accessibilityLabel="Confirm pickup location and search destination"
-                                    accessibilityRole="button"
-                                >
-                                    <Text style={s.locationConfirmBtnPrimaryText}>Yes, this is right</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-            )}
-
-            <Modal
-                visible={voiceModalVisible}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setVoiceModalVisible(false)}
-            >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={s.voiceModalOverlay}
-                >
-                    <View style={s.voiceModalCard}>
-                        <View style={s.voiceModalHeader}>
-                            <View style={s.voiceModalAiDot}>
-                                <Ionicons name="mic" size={18} color={VOICES.rider.accent} />
-                            </View>
-                            <Text style={s.voiceModalTitle}>AI Voice Command</Text>
-                        </View>
-                        <Text style={s.voiceModalSubtitle}>
-                            {isRecordingVoice ? 'Listening — tap the mic to send' : 'Tap the mic to speak, or type below'}
-                        </Text>
-                        <TouchableOpacity
-                            style={[s.voiceMicBtn, isRecordingVoice && s.voiceMicBtnActive]}
-                            onPress={isRecordingVoice ? stopVoiceRecordingAndSend : startVoiceRecording}
-                            activeOpacity={0.85}
-                            accessibilityLabel={isRecordingVoice ? 'Stop recording and send' : 'Start voice recording'}
-                            accessibilityRole="button"
-                        >
-                            <LinearGradient
-                                colors={isRecordingVoice ? ['#EF4444', '#EF4444CC'] : [BRAND, `${BRAND}CC`]}
-                                style={s.voiceMicGradient}
+            {/* Pickup accuracy check */}
+            <Modal visible={showLocationConfirm} transparent animationType="fade" onRequestClose={() => setShowLocationConfirm(false)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)', justifyContent: 'flex-end' }}>
+                    <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
+                        <Txt variant="title">Is your pickup right?</Txt>
+                        <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs }}>
+                            Your phone's location is only accurate to about {Math.round(locationAccuracy || 0)} metres. Check the pin before you book.
+                        </Txt>
+                        <View style={{ height: 160, borderRadius: RADIUS.card, overflow: 'hidden', marginVertical: SPACE.lg }}>
+                            <MapView
+                                liteMode
+                                style={{ flex: 1 }}
+                                region={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.005, longitudeDelta: 0.005 }}
+                                customMapStyle={night ? DARK_MAP_STYLE : []}
+                                scrollEnabled={false}
+                                zoomEnabled={false}
                             >
-                                <Ionicons name={isRecordingVoice ? 'stop' : 'mic'} size={28} color="#EAF3F6" />
-                            </LinearGradient>
-                        </TouchableOpacity>
-                        <TextInput
-                            style={s.voiceModalInput}
-                            placeholder="e.g. Take me to Port of Spain"
-                            placeholderTextColor="rgba(255,255,255,0.3)"
+                                <Marker coordinate={{ latitude: currentLat, longitude: currentLng }} />
+                            </MapView>
+                        </View>
+                        <Button title="Yes, this is right" onPress={() => {
+                            setShowLocationConfirm(false);
+                            navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng } });
+                        }} />
+                        <Button title="Move the pin" variant="ghost" style={{ marginTop: SPACE.md }} onPress={() => {
+                            setShowLocationConfirm(false);
+                            navigation.navigate('DestinationSearch', { currentLocation: { latitude: currentLat, longitude: currentLng }, editPickupMode: true });
+                        }} />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Ask G (voice or typed) */}
+            <Modal visible={voiceModalVisible} transparent animationType="slide" onRequestClose={() => setVoiceModalVisible(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(10,6,20,0.55)', justifyContent: 'flex-end' }}>
+                    <View style={{ backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, padding: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm, alignItems: 'center' }}>
+                        <Txt variant="title">Ask G</Txt>
+                        <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs, textAlign: 'center' }}>
+                            {isRecordingVoice ? 'Listening. Tap again to send.' : 'Tap the mic and say where you want to go, or type it.'}
+                        </Txt>
+                        <Pressable
+                            accessibilityRole="button" accessibilityLabel={isRecordingVoice ? 'Stop and send' : 'Start speaking'}
+                            onPress={isRecordingVoice ? stopVoiceRecordingAndSend : startVoiceRecording}
+                            style={{ marginVertical: SPACE.xl }}
+                        >
+                            {isRecordingVoice ? (
+                                <View style={{ width: 76, height: 76, borderRadius: 38, backgroundColor: '#E5484D', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Ionicons name="stop" size={30} color="#FFFFFF" />
+                                </View>
+                            ) : <BrandBadge icon="mic" size={76} round />}
+                        </Pressable>
+                        <Field
+                            style={{ alignSelf: 'stretch' }}
+                            placeholder="e.g. Take me to Trincity Mall"
                             value={voiceInputText}
                             onChangeText={setVoiceInputText}
                             autoCapitalize="sentences"
@@ -1375,35 +1163,13 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                                 if (text) handleVoiceComplete(text);
                             }}
                         />
-                        <View style={s.voiceModalButtons}>
-                            <TouchableOpacity
-                                style={s.voiceModalCancel}
-                                onPress={() => setVoiceModalVisible(false)}
-                                accessibilityLabel="Cancel voice command"
-                                accessibilityRole="button"
-                            >
-                                <Text style={s.voiceModalCancelText}>Cancel</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={s.voiceModalSend}
-                                onPress={() => {
-                                    const text = voiceInputText.trim();
-                                    setVoiceModalVisible(false);
-                                    if (text) handleVoiceComplete(text);
-                                }}
-                                accessibilityLabel="Send voice command"
-                                accessibilityRole="button"
-                            >
-                                <LinearGradient
-                                    colors={[BRAND, `${BRAND}CC`]}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                    style={s.voiceModalSendGradient}
-                                >
-                                    <Ionicons name="send" size={16} color="#EAF3F6" />
-                                    <Text style={s.voiceModalSendText}>Send</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
+                        <View style={{ flexDirection: 'row', alignSelf: 'stretch', gap: SPACE.md }}>
+                            <Button title="Cancel" variant="secondary" style={{ flex: 1 }} onPress={() => setVoiceModalVisible(false)} />
+                            <Button title="Send" icon="send" style={{ flex: 1 }} onPress={() => {
+                                const text = voiceInputText.trim();
+                                setVoiceModalVisible(false);
+                                if (text) handleVoiceComplete(text);
+                            }} />
                         </View>
                     </View>
                 </KeyboardAvoidingView>
@@ -1412,841 +1178,7 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     );
 }
 
-const Z = {
-    topBar: 10,
-    sheet: 20,
-    lockOverlay: 30,
-    locationConfirm: 40,
-};
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-
-    carMarker: {
-        width: 44,
-        height: 44,
-        shadowColor: VOICES.rider.accent,
-        shadowRadius: 12,
-        shadowOpacity: 0.8,
-        shadowOffset: { width: 0, height: 0 },
-    },
-    savedPlacePin: {
-        backgroundColor: BRAND,
-        borderRadius: 20,
-        padding: 8,
-        borderWidth: 2,
-        borderColor: BRAND,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    topBarContainer: {
-        position: 'absolute',
-        left: 20,
-        right: 20,
-        zIndex: Z.topBar,
-    },
-    topBarBlur: {
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    topBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    topBarLogo: {
-        width: 48,
-        height: 48,
-    },
-    topBarRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    iconButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.1),
-    },
-    notificationBadge: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: VOICES.rider.accent,
-    },
-    avatarButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.1),
-        overflow: 'hidden',
-    },
-    avatarImage: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-    },
-    avatarPlaceholder: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: `${BRAND}26`,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    maintenanceBanner: {
-        position: 'absolute',
-        left: 20,
-        right: 20,
-        backgroundColor: 'rgba(255, 243, 205, 0.95)',
-        padding: 12,
-        borderRadius: 14,
-        flexDirection: 'row',
-        alignItems: 'center',
-        zIndex: 90,
-    },
-    maintenanceText: {
-        marginLeft: 8,
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#856404',
-    },
-
-    // Bottom sheet
-    sheet: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: '100%',
-        zIndex: Z.sheet,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        ...elevationGlow(12),
-    },
-    sheetGlass: {
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        borderBottomLeftRadius: 0,
-        borderBottomRightRadius: 0,
-    },
-    handleZone: {
-        alignItems: 'center',
-        paddingTop: 12,
-        paddingBottom: 8,
-    },
-    handleBar: {
-        width: 40,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-    },
-    sheetScroll: {
-        flex: 1,
-    },
-    sheetContent: {
-        paddingHorizontal: 20,
-        paddingTop: 4,
-        paddingBottom: 40,
-        gap: 16,
-    },
-
-    // AI loading bubble
-    aiBubbleContainer: {
-        position: 'absolute',
-        left: 20,
-        right: 20,
-        bottom: 248,
-        zIndex: Z.topBar,
-    },
-    aiBlur: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 14,
-        borderRadius: 20,
-    },
-    aiAvatar: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: `${BRAND}26`,
-    },
-    aiThinking: {
-        color: 'rgba(255,255,255,0.6)',
-    },
-    aiCyan: {
-        color: VOICES.rider.accent,
-    },
-
-    // Vision FAB
-    visionFab: {
-        position: 'absolute',
-        right: 20,
-        bottom: 248,
-        zIndex: Z.topBar,
-    },
-    visionGlass: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 20,
-        ...ghostBorder(0.4),
-        backgroundColor: 'rgba(5, 5, 5, 0.8)',
-    },
-    visionText: {
-        marginLeft: 8,
-        fontSize: 13,
-        fontWeight: '700',
-        color: VOICES.rider.accent,
-        letterSpacing: 0.5,
-    },
-
-    // Greeting + voice row
-    greetRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    greetText: {
-        flex: 1,
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#EAF3F6',
-        lineHeight: 20,
-    },
-    micBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        backgroundColor: `${BRAND}1F`,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.25),
-    },
-
-    // Driver presence trust caption
-    driverPresence: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingVertical: 2,
-    },
-    driverPresenceDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#10B981',
-    },
-    driverPresenceText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: 'rgba(242,245,248,0.7)',
-    },
-    driverPresenceEta: {
-        color: VOICES.rider.accent,
-        fontWeight: '700',
-    },
-
-    // Pills
-    pills: {
-        flexDirection: 'row',
-        gap: 10,
-        alignItems: 'center',
-    },
-    pill: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        height: 48,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 14,
-        paddingHorizontal: 16,
-        ...ghostBorder(0.08),
-    },
-    pillLabel: {
-        marginLeft: 8,
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#EAF3F6',
-    },
-    recentPill: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.08),
-    },
-
-    // Proactive AI HUD
-    proactiveHud: {
-        // no extra margin — gap in sheetContent handles spacing
-    },
-    proactiveGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 14,
-        borderRadius: 16,
-        ...ghostBorder(0.3),
-    },
-    proactiveText: {
-        flex: 1,
-        marginLeft: 10,
-        fontSize: 13,
-        fontWeight: '500',
-        color: '#EAF3F6',
-    },
-    aiIndicator: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: 'rgba(0,0,0,0.2)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    // Skeletons
-    skeletonContainer: {
-        // no extra margin
-    },
-    skeletonGrid: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-
-    // Service bento
-    serviceBentoBox: {
-        gap: 12,
-    },
-    heroCard: {
-        width: '100%',
-        height: 120,
-        borderRadius: 24,
-        overflow: 'hidden',
-        ...elevationGlow(),
-    },
-    heroCardGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 20,
-    },
-    heroCardIconWrap: {
-        width: 64,
-        height: 64,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    heroCardContent: {
-        flex: 1,
-        marginLeft: 16,
-    },
-    heroCardTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#EAF3F6',
-        letterSpacing: -0.5,
-    },
-    heroCardSub: {
-        fontSize: 13,
-        fontWeight: '500',
-        color: 'rgba(255,255,255,0.5)',
-        marginTop: 4,
-    },
-    heroTag: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: VOICES.rider.accent,
-    },
-    heroTagText: {
-        fontSize: 12,
-        fontWeight: '800',
-        color: SURFACE.base,
-        letterSpacing: 0.5,
-    },
-    serviceGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    gridCard: {
-        width: '48%',
-        height: 130,
-        borderRadius: 20,
-        overflow: 'hidden',
-        ...elevationGlow(),
-    },
-    gridCardGradient: {
-        flex: 1,
-        padding: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderRadius: 20,
-    },
-    gridCardIconWrap: {
-        width: 52,
-        height: 52,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 10,
-    },
-    gridCardTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#EAF3F6',
-        textAlign: 'center',
-    },
-    gridCardSub: {
-        fontSize: 11,
-        fontWeight: '500',
-        color: VOICES.rider.textMuted,
-        marginTop: 2,
-        textAlign: 'center',
-    },
-    gridCardPlaceholder: {
-        width: '48%',
-        height: 0,
-    },
-
-    escapeHeroCard: {
-        width: '100%',
-        height: 64,
-        borderRadius: 20,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: 'rgba(203,214,222,0.3)',
-        ...elevationGlow(),
-    },
-    escapeHeroGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-    },
-    escapeHeroLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    escapeHeroIconWrap: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: 'rgba(203,214,222,0.15)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(203,214,222,0.25)',
-    },
-    escapeHeroTitle: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: '#CBD6DE',
-        letterSpacing: 0.2,
-    },
-    escapeHeroSub: {
-        fontSize: 11,
-        color: 'rgba(255,255,255,0.5)',
-        marginTop: 1,
-    },
-    escapeHeroRight: {
-        alignItems: 'flex-end',
-    },
-    escapeHeroFrom: {
-        fontSize: 10,
-        color: 'rgba(203,214,222,0.6)',
-        fontWeight: '500',
-    },
-    escapeHeroPrice: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#CBD6DE',
-        lineHeight: 22,
-    },
-    escapeHeroCurrency: {
-        fontSize: 10,
-        color: 'rgba(203,214,222,0.7)',
-        fontWeight: '600',
-    },
-
-    nextUnlockBanner: {
-        backgroundColor: `${BRAND}0D`,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: `${BRAND}1F`,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-    },
-    nextUnlockRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: 8,
-    },
-    nextUnlockLabel: {
-        color: 'rgba(255,255,255,0.65)',
-        fontSize: 12,
-        fontWeight: '600',
-        flex: 1,
-    },
-    nextUnlockTrack: {
-        height: 4,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-        borderRadius: 2,
-        overflow: 'hidden',
-        marginBottom: 6,
-    },
-    nextUnlockFill: {
-        height: 4,
-        backgroundColor: BRAND,
-        borderRadius: 2,
-    },
-    nextUnlockCount: {
-        color: `${BRAND}99`,
-        fontSize: 10,
-        fontWeight: '700',
-        textAlign: 'right',
-    },
-
-    // Fare preview
-    farePreviewContainer: {
-        borderRadius: 16,
-        overflow: 'hidden',
-    },
-    farePreviewBlur: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        backgroundColor: `${BRAND}14`,
-        ...ghostBorder(0.3),
-    },
-    farePreviewContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 14,
-    },
-    fareIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: `${BRAND}26`,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    fareTextContainer: { flex: 1 },
-    fareAddress: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.6)',
-    },
-    fareRow: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        marginTop: 2,
-    },
-    fareAmount: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#EAF3F6',
-    },
-    fareLabel: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.6)',
-        marginLeft: 6,
-    },
-    fareCloseBtn: { padding: 4 },
-    stopSuggestionsStrip: {
-        paddingHorizontal: 14,
-        paddingBottom: 14,
-    },
-    stopSuggestionsTitle: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.5)',
-        marginBottom: 8,
-        fontWeight: '600',
-    },
-    stopSuggestionRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    stopSuggestionChip: {
-        backgroundColor: `${BRAND}1F`,
-        borderRadius: 20,
-        paddingVertical: 6,
-        paddingHorizontal: 14,
-        borderWidth: 1,
-        borderColor: `${BRAND}33`,
-    },
-    stopSuggestionLabel: {
-        color: '#EAF3F6',
-        fontSize: 13,
-        fontWeight: '600',
-    },
-
-    // Voice modal
-    voiceModalOverlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-    },
-    voiceModalCard: {
-        backgroundColor: SURFACE.base,
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        padding: 28,
-        paddingBottom: 40,
-        ...ghostBorder(),
-    },
-    voiceModalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-        gap: 10,
-    },
-    voiceModalAiDot: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: `${BRAND}1F`,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.3),
-    },
-    voiceModalTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#EAF3F6',
-    },
-    voiceModalSubtitle: {
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.6)',
-        marginBottom: 20,
-        marginLeft: 46,
-    },
-    voiceMicBtn: {
-        alignSelf: 'center',
-        borderRadius: 40,
-        overflow: 'hidden',
-        marginBottom: 20,
-        ...elevationGlow(10),
-    },
-    voiceMicBtnActive: {
-        transform: [{ scale: 1.08 }],
-    },
-    voiceMicGradient: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    voiceModalInput: {
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        ...ghostBorder(0.4),
-        borderRadius: 16,
-        paddingHorizontal: 18,
-        paddingVertical: 14,
-        fontSize: 16,
-        color: '#EAF3F6',
-        marginBottom: 20,
-    },
-    voiceModalButtons: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    voiceModalCancel: {
-        flex: 1,
-        height: 52,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...ghostBorder(0.1),
-    },
-    voiceModalCancelText: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: 'rgba(255,255,255,0.6)',
-    },
-    voiceModalSend: {
-        flex: 1,
-        height: 52,
-        borderRadius: 14,
-        overflow: 'hidden',
-    },
-    voiceModalSendGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-    },
-    voiceModalSendText: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: '#EAF3F6',
-    },
-
-    // Lock overlays
-    lockOverlay: {
-        zIndex: Z.lockOverlay,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(5, 7, 10, 0.6)',
-    },
-    lockBlur: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        borderRadius: 24,
-        backgroundColor: 'rgba(13, 11, 30, 0.95)',
-    },
-    hudLockRing: {
-        position: 'absolute',
-        width: 250,
-        height: 250,
-        borderRadius: 125,
-        borderWidth: 2,
-        borderColor: `${BRAND}33`,
-    },
-    lockTitle: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: VOICES.rider.accent,
-        textAlign: 'center',
-        letterSpacing: 2,
-    },
-    lockSubtitle: {
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.6)',
-        marginTop: 12,
-        textAlign: 'center',
-        paddingHorizontal: 40,
-        lineHeight: 20,
-    },
-    updateBtn: {
-        marginTop: 32,
-        backgroundColor: VOICES.rider.accent,
-        paddingHorizontal: 40,
-        paddingVertical: 16,
-        borderRadius: 16,
-    },
-    updateBtnText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#EAF3F6',
-    },
-
-    // Location confirm overlay
-    locationConfirmOverlay: {
-        zIndex: Z.locationConfirm,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.7)',
-    },
-    locationConfirmBlur: {
-        borderRadius: 24,
-        overflow: 'hidden',
-    },
-    locationConfirmCard: {
-        padding: 24,
-        alignItems: 'center',
-    },
-    locationConfirmTitle: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#EAF3F6',
-        marginBottom: 8,
-        textAlign: 'center',
-    },
-    locationConfirmSubtitle: {
-        fontSize: 14,
-        color: 'rgba(255,255,255,0.6)',
-        marginBottom: 20,
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-    miniMapContainer: {
-        width: '100%',
-        height: 180,
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginBottom: 20,
-        borderWidth: 2,
-        borderColor: '#F59E0B',
-    },
-    miniMap: {
-        width: '100%',
-        height: '100%',
-    },
-    accuracyPin: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    accuracyRing: {
-        borderRadius: 1000,
-        borderWidth: 2,
-        borderColor: 'rgba(245, 158, 11, 0.4)',
-        position: 'absolute',
-    },
-    accuracyDot: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        backgroundColor: '#F59E0B',
-        borderWidth: 3,
-        borderColor: '#EAF3F6',
-    },
-    locationConfirmButtons: {
-        width: '100%',
-        gap: 12,
-    },
-    locationConfirmBtnPrimary: {
-        backgroundColor: VOICES.rider.accent,
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderRadius: 16,
-        alignItems: 'center',
-    },
-    locationConfirmBtnPrimaryText: {
-        color: SURFACE.base,
-        fontSize: 16,
-        fontWeight: '800',
-    },
-    locationConfirmBtnSecondary: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        paddingVertical: 16,
-        paddingHorizontal: 24,
-        borderRadius: 16,
-        alignItems: 'center',
-        ...ghostBorder(),
-    },
-    locationConfirmBtnSecondaryText: {
-        color: '#EAF3F6',
-        fontSize: 16,
-        fontWeight: '700',
-    },
-});
+function Overlay({ children }: { children: React.ReactNode }) {
+    const m = useTheme();
+    return <View style={[StyleSheet.absoluteFill, { backgroundColor: m.page, justifyContent: 'center', zIndex: 50 }]}>{children}</View>;
+}

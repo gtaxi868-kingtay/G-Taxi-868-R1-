@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { Image, Linking, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../context/AuthContext';
-import { RainLogin, CrystalInput, CrystalButton } from '@gtaxi/design-system/native';
-import { VOICES } from '@gtaxi/design-system';
+import { Button, Card, Field, LinkText, Screen, SPACE, Txt } from '../ui/kit';
 
 export function LoginScreen({ navigation }: any) {
     const { signIn } = useAuth();
@@ -13,6 +11,7 @@ export function LoginScreen({ navigation }: any) {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [unverified, setUnverified] = useState(false);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -21,102 +20,64 @@ export function LoginScreen({ navigation }: any) {
         }
         setLoading(true);
         setError('');
+        setUnverified(false);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
         try {
-            const { data, error: signInError } = await signIn(email, password);
+            const { data, error: signInError } = await signIn(email.trim(), password);
             if (signInError) {
                 setError(signInError.message);
             } else if (data?.user && !data.user.email_confirmed_at) {
-                setError('EMAIL NOT VERIFIED — Check your inbox or verify via WhatsApp below');
+                setError('Your email is not confirmed yet. Check your inbox for the link.');
+                setUnverified(true);
             }
         } catch (err: any) {
-            setError(err.message || 'Login failed');
+            setError(err.message || 'Sign in failed');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
-            <RainLogin
-                voice="rider"
-                logoSource={require('../../assets/logo.png')}
-                footer={
-                    <>
-                        <TouchableOpacity
-                            style={s.linkContainer}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                navigation.navigate('ForgotPassword');
-                            }}
-                            accessibilityLabel="Reset your password"
-                            accessibilityRole="button"
+        <Screen
+            hero={
+                <View style={{ paddingTop: SPACE.xxl }}>
+                    <Image source={require('../../assets/logo.png')} style={{ width: 64, height: 64, marginBottom: SPACE.xl }} resizeMode="contain" />
+                    <Txt variant="hero">Welcome to G 868</Txt>
+                    <Txt variant="body" tone="dim" style={{ marginTop: SPACE.xs }}>Sign in to book your ride.</Txt>
+                </View>
+            }
+            footer={
+                <View>
+                    <Button title="Sign in" onPress={handleLogin} loading={loading} />
+                    <LinkText onPress={() => navigation.navigate('Signup')} accent="Create one">New to G 868?</LinkText>
+                </View>
+            }
+        >
+            {error ? (
+                <Card style={{ marginBottom: SPACE.lg, borderColor: '#E5484D' }}>
+                    <Txt variant="bodyStrong" tone="danger">{error}</Txt>
+                    {unverified ? (
+                        <Txt
+                            variant="bodyStrong" tone="accent" style={{ marginTop: SPACE.sm }}
+                            onPress={() => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(email.trim()))}
                         >
-                            <Text style={s.linkText}>
-                                Forgot password? <Text style={s.linkTextAccent}>Reset</Text>
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={s.linkContainer}
-                            onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                navigation.navigate('Signup');
-                            }}
-                            accessibilityLabel="Create a new account"
-                            accessibilityRole="button"
-                        >
-                            <Text style={s.linkText}>
-                                Don't have an account? <Text style={s.linkTextAccent}>Create Account</Text>
-                            </Text>
-                        </TouchableOpacity>
-                    </>
-                }
-            >
-                {error ? <Text style={s.errorText}>{error}</Text> : null}
+                            Verify on WhatsApp instead
+                        </Txt>
+                    ) : null}
+                </Card>
+            ) : null}
 
-                <CrystalInput
-                    label="Email"
-                    voice="rider"
-                    placeholder="you@email.com"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                />
-                <CrystalInput
-                    label="Password"
-                    voice="rider"
-                    placeholder="••••••••"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                />
-                <CrystalButton title="Sign In" voice="rider" onPress={handleLogin} loading={loading} />
-            </RainLogin>
-        </View>
+            <Field label="Email" placeholder="you@email.com" value={email} onChangeText={setEmail}
+                keyboardType="email-address" autoCapitalize="none" textContentType="emailAddress" autoComplete="email" />
+            <Field label="Password" placeholder="Your password" value={password} onChangeText={setPassword}
+                secureTextEntry textContentType="password" autoComplete="password" onSubmitEditing={handleLogin} />
+
+            <View style={{ alignItems: 'flex-end' }}>
+                <Txt variant="bodyStrong" tone="accent" onPress={() => navigation.navigate('ForgotPassword')} accessibilityRole="button">
+                    Forgot password?
+                </Txt>
+            </View>
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1 },
-    errorText: {
-        color: '#FF6B6B',
-        fontSize: 13,
-        fontWeight: '600',
-        textAlign: 'center',
-    },
-    linkContainer: {
-        alignItems: 'center',
-        paddingVertical: 8,
-    },
-    linkText: {
-        color: 'rgba(234,243,246,0.55)',
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    linkTextAccent: {
-        color: VOICES.rider.accent,
-        fontWeight: '700',
-    },
-});

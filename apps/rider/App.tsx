@@ -11,6 +11,8 @@ import { applyGlobalFont } from './src/theme/typography';
 import { ToastHost } from './src/components/Toast';
 import { HomePreview } from './src/screens/design/HomePreview';
 import { MoodPreview } from './src/screens/design/MoodPreview';
+import { GALLERY_PARAMS } from './src/screens/design/galleryParams';
+import { MoodProvider, useTheme } from './src/ui/kit';
 
 // Every Text/TextInput gets Manrope at the right weight (see typography.ts).
 applyGlobalFont();
@@ -117,12 +119,14 @@ if (!isExpoGo && !isWeb) {
     } catch (_e) { /* silent */ }
 }
 
-function AuthNavigator() {
+function AuthNavigator({ initialRoute }: { initialRoute?: any } = {}) {
+    const m = useTheme();
     return (
         <AuthStack.Navigator
+            initialRouteName={initialRoute}
             screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: SURFACE.base },
+                contentStyle: { backgroundColor: m.page },
                 animation: 'slide_from_right',
             }}
         >
@@ -133,66 +137,69 @@ function AuthNavigator() {
     );
 }
 
-function AppNavigator() {
+function AppNavigator({ initialRoute }: { initialRoute?: any } = {}) {
+    const m = useTheme();
+    const p = (name: string) => (initialRoute === name ? GALLERY_PARAMS[name] : undefined);
     return (
         <>
-            <ActiveRideRestorationHandler />
+            {!initialRoute && <ActiveRideRestorationHandler />}
             <AppStack.Navigator
+                initialRouteName={initialRoute}
                 screenOptions={{
                     headerShown: false,
-                    contentStyle: { backgroundColor: SURFACE.base },
+                    contentStyle: { backgroundColor: m.page },
                     animation: 'slide_from_right',
                 }}
             >
-                <AppStack.Screen name="Home" component={HomeScreen} />
-                <AppStack.Screen name="Profile" component={ProfileScreen} />
-                <AppStack.Screen name="Subscription" component={SubscriptionScreen} />
-                <AppStack.Screen name="GSpot" component={GSpotScreen} />
-                <AppStack.Screen name="Notifications" component={NotificationsScreen} />
-                <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} />
-                <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} />
-                <AppStack.Screen name="RideReview" component={RideReviewScreen} />
-                <AppStack.Screen name="SearchingDriver" component={SearchingDriverScreen} />
-                <AppStack.Screen name="ActiveRide" component={ActiveRideScreen} />
-                <AppStack.Screen name="Rating" component={RatingScreen} />
-                <AppStack.Screen name="Trips" component={TripsScreen} />
-                <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
-                <AppStack.Screen name="Settings" component={SettingsScreen} />
-                <AppStack.Screen name="Payment" component={PaymentScreen} />
-                <AppStack.Screen name="Wallet" component={WalletScreen} />
-                <AppStack.Screen name="WalletTopUp" component={WalletTopUpScreen} />
-                <AppStack.Screen name="SavedPlaces" component={SavedPlacesScreen} />
-                <AppStack.Screen name="Help" component={HelpScreen} />
-                <AppStack.Screen name="ReportProblem" component={ReportProblemScreen} />
-                <AppStack.Screen name="Receipt" component={ReceiptScreen} />
-                <AppStack.Screen name="Promo" component={PromoScreen} />
-                <AppStack.Screen name="Chat" component={ChatScreen} />
-                <AppStack.Screen name="AISettings" component={AISettingsScreen} />
-                <AppStack.Screen name="GroceryStorefront" component={GroceryStorefrontScreen} />
-                <AppStack.Screen name="ProductListing" component={ProductListingScreen} />
-                <AppStack.Screen name="ProductDetail" component={ProductDetailScreen} />
-                <AppStack.Screen name="GroceryCart" component={GroceryCartScreen} />
-                <AppStack.Screen name="GroceryOrderStatus" component={GroceryOrderStatusScreen} />
-                <AppStack.Screen name="VisionScanner" component={VisionScannerScreen} />
-                <AppStack.Screen name="LaundryLanding" component={LaundryLandingScreen} />
-                <AppStack.Screen name="LaundryEstimator" component={LaundryEstimatorScreen} />
-                <AppStack.Screen name="LaundryOrderStatus" component={LaundryOrderStatusScreen} />
-                <AppStack.Screen name="DriverFound" component={DriverFoundScreen} />
-                <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} />
-                <AppStack.Screen name="NfcScan" component={NfcScanScreen} />
-                <AppStack.Screen name="NfcPay" component={NfcPayScreen} />
-                <AppStack.Screen name="TagMarker" component={TagMarkerScreen} />
-                <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} />
-                <AppStack.Screen name="Legal" component={LegalScreen} />
-                <AppStack.Screen name="Referral" component={ReferralScreen} />
-                <AppStack.Screen name="FoodDelivery" component={FoodDeliveryScreen} />
-                <AppStack.Screen name="EscapeStorefront" component={EscapeStorefrontScreen} />
-                <AppStack.Screen name="EscapeCheckout" component={EscapeCheckoutScreen} />
-                <AppStack.Screen name="ActivePass" component={ActivePassScreen} />
-                <AppStack.Screen name="PassportSubmission" component={PassportSubmissionScreen} />
-                <AppStack.Screen name="Carnival" component={CarnivalScreen} />
-                <AppStack.Screen name="Events" component={EventsScreen} />
-                <AppStack.Screen name="CashWithdrawal" component={CashWithdrawalScreen} />
+                <AppStack.Screen name="Home" component={HomeScreen} initialParams={p("Home")} />
+                <AppStack.Screen name="Profile" component={ProfileScreen} initialParams={p("Profile")} />
+                <AppStack.Screen name="Subscription" component={SubscriptionScreen} initialParams={p("Subscription")} />
+                <AppStack.Screen name="GSpot" component={GSpotScreen} initialParams={p("GSpot")} />
+                <AppStack.Screen name="Notifications" component={NotificationsScreen} initialParams={p("Notifications")} />
+                <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} initialParams={p("DestinationSearch")} />
+                <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} initialParams={p("RideConfirmation")} />
+                <AppStack.Screen name="RideReview" component={RideReviewScreen} initialParams={p("RideReview")} />
+                <AppStack.Screen name="SearchingDriver" component={SearchingDriverScreen} initialParams={p("SearchingDriver")} />
+                <AppStack.Screen name="ActiveRide" component={ActiveRideScreen} initialParams={p("ActiveRide")} />
+                <AppStack.Screen name="Rating" component={RatingScreen} initialParams={p("Rating")} />
+                <AppStack.Screen name="Trips" component={TripsScreen} initialParams={p("Trips")} />
+                <AppStack.Screen name="EditProfile" component={EditProfileScreen} initialParams={p("EditProfile")} />
+                <AppStack.Screen name="Settings" component={SettingsScreen} initialParams={p("Settings")} />
+                <AppStack.Screen name="Payment" component={PaymentScreen} initialParams={p("Payment")} />
+                <AppStack.Screen name="Wallet" component={WalletScreen} initialParams={p("Wallet")} />
+                <AppStack.Screen name="WalletTopUp" component={WalletTopUpScreen} initialParams={p("WalletTopUp")} />
+                <AppStack.Screen name="SavedPlaces" component={SavedPlacesScreen} initialParams={p("SavedPlaces")} />
+                <AppStack.Screen name="Help" component={HelpScreen} initialParams={p("Help")} />
+                <AppStack.Screen name="ReportProblem" component={ReportProblemScreen} initialParams={p("ReportProblem")} />
+                <AppStack.Screen name="Receipt" component={ReceiptScreen} initialParams={p("Receipt")} />
+                <AppStack.Screen name="Promo" component={PromoScreen} initialParams={p("Promo")} />
+                <AppStack.Screen name="Chat" component={ChatScreen} initialParams={p("Chat")} />
+                <AppStack.Screen name="AISettings" component={AISettingsScreen} initialParams={p("AISettings")} />
+                <AppStack.Screen name="GroceryStorefront" component={GroceryStorefrontScreen} initialParams={p("GroceryStorefront")} />
+                <AppStack.Screen name="ProductListing" component={ProductListingScreen} initialParams={p("ProductListing")} />
+                <AppStack.Screen name="ProductDetail" component={ProductDetailScreen} initialParams={p("ProductDetail")} />
+                <AppStack.Screen name="GroceryCart" component={GroceryCartScreen} initialParams={p("GroceryCart")} />
+                <AppStack.Screen name="GroceryOrderStatus" component={GroceryOrderStatusScreen} initialParams={p("GroceryOrderStatus")} />
+                <AppStack.Screen name="VisionScanner" component={VisionScannerScreen} initialParams={p("VisionScanner")} />
+                <AppStack.Screen name="LaundryLanding" component={LaundryLandingScreen} initialParams={p("LaundryLanding")} />
+                <AppStack.Screen name="LaundryEstimator" component={LaundryEstimatorScreen} initialParams={p("LaundryEstimator")} />
+                <AppStack.Screen name="LaundryOrderStatus" component={LaundryOrderStatusScreen} initialParams={p("LaundryOrderStatus")} />
+                <AppStack.Screen name="DriverFound" component={DriverFoundScreen} initialParams={p("DriverFound")} />
+                <AppStack.Screen name="NfcHandshake" component={NfcHandshakeScreen} initialParams={p("NfcHandshake")} />
+                <AppStack.Screen name="NfcScan" component={NfcScanScreen} initialParams={p("NfcScan")} />
+                <AppStack.Screen name="NfcPay" component={NfcPayScreen} initialParams={p("NfcPay")} />
+                <AppStack.Screen name="TagMarker" component={TagMarkerScreen} initialParams={p("TagMarker")} />
+                <AppStack.Screen name="ServiceBooking" component={ServiceBookingScreen} initialParams={p("ServiceBooking")} />
+                <AppStack.Screen name="Legal" component={LegalScreen} initialParams={p("Legal")} />
+                <AppStack.Screen name="Referral" component={ReferralScreen} initialParams={p("Referral")} />
+                <AppStack.Screen name="FoodDelivery" component={FoodDeliveryScreen} initialParams={p("FoodDelivery")} />
+                <AppStack.Screen name="EscapeStorefront" component={EscapeStorefrontScreen} initialParams={p("EscapeStorefront")} />
+                <AppStack.Screen name="EscapeCheckout" component={EscapeCheckoutScreen} initialParams={p("EscapeCheckout")} />
+                <AppStack.Screen name="ActivePass" component={ActivePassScreen} initialParams={p("ActivePass")} />
+                <AppStack.Screen name="PassportSubmission" component={PassportSubmissionScreen} initialParams={p("PassportSubmission")} />
+                <AppStack.Screen name="Carnival" component={CarnivalScreen} initialParams={p("Carnival")} />
+                <AppStack.Screen name="Events" component={EventsScreen} initialParams={p("Events")} />
+                <AppStack.Screen name="CashWithdrawal" component={CashWithdrawalScreen} initialParams={p("CashWithdrawal")} />
             </AppStack.Navigator>
         </>
     );
@@ -264,23 +271,45 @@ function App() {
         );
     }
 
+    // Screen gallery for layout review (web only): /design-preview/screens?s=Home
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname === '/design-preview/screens') {
+        const s = new URLSearchParams(window.location.search).get('s') || 'Home';
+        const isAuth = s === 'Login' || s === 'Signup' || s === 'ForgotPassword';
+        const mq = new URLSearchParams(window.location.search).get('mood');
+        return (
+            <SafeAreaProvider><MoodProvider force={mq === 'day' || mq === 'night' ? mq : undefined}>
+                <QueryClientProvider client={queryClient}>
+                    <AuthProvider>
+                        <ErrorBoundary>
+                            <NavigationContainer>
+                                {isAuth ? <AuthNavigator initialRoute={s} /> : (
+                                    <RideProvider><EscapeTripProvider><AppNavigator initialRoute={s} /></EscapeTripProvider></RideProvider>
+                                )}
+                            </NavigationContainer>
+                            <ToastHost />
+                        </ErrorBoundary>
+                    </AuthProvider>
+                </QueryClientProvider>
+            </MoodProvider></SafeAreaProvider>
+        );
+    }
+
     const content = (
-        <SafeAreaProvider>
+        <SafeAreaProvider><MoodProvider>
             <QueryClientProvider client={queryClient}>
                 <AuthProvider>
                     <ErrorBoundary>
                         <View style={{ flex: 1 }}>
                             <OfflineBanner />
                             <NavigationContainer linking={linking}>
-                                <StatusBar style="light" />
-                                <RootNavigator />
+                                                                <RootNavigator />
                             </NavigationContainer>
                             <ToastHost />
                         </View>
                     </ErrorBoundary>
                 </AuthProvider>
             </QueryClientProvider>
-        </SafeAreaProvider>
+        </MoodProvider></SafeAreaProvider>
     );
 
     if (isExpoGo || isWeb) return content;
