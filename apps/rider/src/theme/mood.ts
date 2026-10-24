@@ -55,7 +55,7 @@ export const NIGHT: Mood = {
     mapStyle: 'navigation-night-v1',
     mapWash: ['rgba(12,8,24,0.75)', 'rgba(20,10,40,0.15)', 'rgba(12,8,24,0.0)'],
     page: '#0B0814',
-    sheet: ['rgba(30,22,48,0.92)', 'rgba(15,11,24,0.98)'],
+    sheet: ['rgba(30,22,48,0.97)', 'rgba(15,11,24,0.99)'],
     sheetBorder: 'rgba(185,174,255,0.22)',
     glow: ['rgba(139,124,255,0.0)', 'rgba(139,124,255,0.85)', 'rgba(63,217,232,0.6)', 'rgba(63,217,232,0.0)'],
     ink: '#F6F0E8', dim: 'rgba(246,240,232,0.68)', faint: 'rgba(246,240,232,0.42)',

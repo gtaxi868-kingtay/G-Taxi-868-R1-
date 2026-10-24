@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-    Alert, ScrollView, useWindowDimensions, Platform, Linking
+    View, StyleSheet, Pressable, ActivityIndicator, Modal,
+    Alert, ScrollView, useWindowDimensions, Linking
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,18 +13,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeSupabaseClient, ENV, supportWhatsAppLink } from '@gtaxi/core';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
 import { PaymentSelector, PaymentMethod } from '../components/PaymentSelector';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { Button, Card, GUTTER, IconButton, RADIUS, Row, Section, SPACE, Txt, useTheme } from '../ui/kit';
 import { formatTTDDollars } from '../utils/currency';
 
 const { supabase, getSupabase } = initializeSupabaseClient('native');
 
-const CYAN = '#34E6EC';
-const CYAN_SOFT = 'rgba(52,230,236,0.1)';
-const WARNING = '#F59E0B';
-const ERROR = '#EF4444';
-const SUCCESS = '#10B981';
 
 interface StopSuggestion {
     place_name: string;
@@ -72,6 +63,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const [vehicles, setVehicles] = useState<VehicleOption[]>(FALLBACK_VEHICLES);
     const [selectedType, setSelectedType] = useState<string>('standard');
     const [confirming, setConfirming] = useState(false);
+    const [footerH, setFooterH] = useState(150);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
     const [walletBalance, setWalletBalance] = useState<number>(0);
 
@@ -288,14 +280,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const handleConfirm = async () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-        if (paymentMethod === 'card') {
-            Alert.alert('Card Payments Coming Soon', 'Card payments via WiPay are launching soon. Please use Cash or G-Coin for this ride.');
-            return;
-        }
 
         if (requiresVerification && (!selfieVerified || !selfieUri)) {
             setSelfieError(verificationReason);
-            Alert.alert('Safety photo needed', verificationReason);
             return;
         }
 
@@ -443,413 +430,226 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             ? 'Late-night ride: take a quick safety photo'
             : 'Large cash fare: take a quick safety photo';
 
+    const m = useTheme();
+    const night = m.key === 'night';
+    const tileStyle = night ? 'navigation-night-v1' : 'light-v11';
+    const pickupLabel = source === 'nfc_kiosk' ? (sourceMetadata?.locationName || 'NFC Kiosk')
+        : source === 'qr_stand' ? (sourceMetadata?.stand || sourceMetadata?.standName || 'Taxi Stand')
+        : pickupLoc?.address || 'Current location';
+    const needsPhoto = requiresVerification && (!selfieVerified || !selfieUri);
+    const stopPriceCents = (stop: StopSuggestion) =>
+        (stop.stop_type === 'grocery' ? (fare?.pricing_constants?.stop_base_grocery_cents ?? 3500)
+            : stop.stop_type === 'pharmacy' ? (fare?.pricing_constants?.stop_base_pharmacy_cents ?? 2500)
+            : (fare?.pricing_constants?.stop_base_other_cents ?? 1500))
+        + Math.round((stop.estimated_wait_minutes || 0) * (fare?.pricing_constants?.wait_fee_per_minute_cents ?? 95));
+    const mapH = Math.round(height * 0.32);
+
+    const openCamera = async () => {
+        if (selfieVerified) return;
+        if (!cameraPermission?.granted) {
+            const perm = await requestCameraPermission();
+            if (!perm.granted) { setSelfieError('Allow camera access to take the safety photo.'); return; }
+        }
+        setSelfieMode(true);
+    };
+
     return (
-        <View style={s.root} pointerEvents="box-none">
-            <StatusBar style="light" />
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
 
-            <View style={{ height: height * 0.35 }}>
-                <MapView
-                    ref={mapRef}
-                    style={StyleSheet.absoluteFillObject}
-                    provider={PROVIDER_DEFAULT}
-                    userInterfaceStyle="dark"
-                >
+            {/* Route map */}
+            <View style={{ height: mapH + 28 }}>
+                <MapView ref={mapRef} style={StyleSheet.absoluteFillObject} provider={PROVIDER_DEFAULT} userInterfaceStyle={night ? 'dark' : 'light'}
+                    mapPadding={{ top: insets.top + 50, right: 24, bottom: 48, left: 24 }}>
                     {ENV.MAPBOX_PUBLIC_TOKEN && (
-                        <UrlTile
-                            urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`}
-                            shouldReplaceMapContent={true}
-                        />
+                        <UrlTile key={tileStyle} urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${tileStyle}/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent={true} />
                     )}
-                    <Marker coordinate={pickupLoc}><View style={s.markerPickup} /></Marker>
-                    <Marker coordinate={destination}><View style={s.markerDropoff} /></Marker>
-
-                    {stopSuggestions.map((stop, index) => (
-                        <Marker
-                            key={`stop-${index}`}
-                            coordinate={{ latitude: stop.lat, longitude: stop.lng }}
-                            onPress={() => toggleStop(stop)}
-                        >
-                            <View style={{
-                                backgroundColor: selectedStops.some(s => s.place_name === stop.place_name)
-                                    ? 'rgba(52,230,236, 0.9)'
-                                    : 'rgba(109,40,217, 0.85)',
-                                borderRadius: 20,
-                                padding: 6,
-                                borderWidth: 1.5,
-                                borderColor: '#EAF3F6',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}>
-                                <Text style={{ fontSize: 14 }}>{stop.emoji}</Text>
-                            </View>
-                        </Marker>
-                    ))}
+                    <Marker coordinate={pickupLoc}>
+                        <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#8B7CFF', borderWidth: 3, borderColor: '#FFFFFF' }} />
+                    </Marker>
+                    <Marker coordinate={destination}>
+                        <View style={{ width: 16, height: 16, borderRadius: 4, backgroundColor: m.key === 'day' ? '#21152E' : '#E9CFA6', borderWidth: 3, borderColor: '#FFFFFF' }} />
+                    </Marker>
+                    {stopSuggestions.map((stop, index) => {
+                        const on = selectedStops.some(x => x.place_name === stop.place_name);
+                        return (
+                            <Marker key={`stop-${index}`} coordinate={{ latitude: stop.lat, longitude: stop.lng }} onPress={() => toggleStop(stop)}>
+                                <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF', backgroundColor: on ? '#3FD9E8' : '#8B7CFF' }}>
+                                    <Txt variant="caption">{stop.emoji}</Txt>
+                                </View>
+                            </Marker>
+                        );
+                    })}
                 </MapView>
-
-                <TouchableOpacity
-                    style={[s.backBtn, { top: insets.top + 10 }]}
-                    onPress={() => navigation.goBack()}
-                >
-                    <Ionicons name="arrow-back" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
+                <View style={{ position: 'absolute', top: insets.top + SPACE.sm, left: GUTTER - 4 }}>
+                    <IconButton icon="chevron-back" label="Back" tone="filled" onPress={() => navigation.goBack()} />
+                </View>
             </View>
 
-            <View style={s.bottomContainer}>
-                <LiquidGlass tier="panel" voice="rider" style={s.panel}>
-                    <View style={s.handle} />
-                    
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
-                        <View style={s.routeBox}>
-                            <View style={s.routeRow}>
-                                <View style={s.routeDot} />
-                                <View style={{ flex: 1, marginLeft: 16 }}>
-                                    <Text style={s.addrLabel}>PICKUP</Text>
-                                    <Text style={s.addrText} numberOfLines={1}>
-                                        {source === 'nfc_kiosk' ? (sourceMetadata?.locationName || 'NFC Kiosk') :
-                                         source === 'qr_stand' ? (sourceMetadata?.stand || sourceMetadata?.standName || 'Taxi Stand') :
-                                         pickupLoc?.address || 'Current Location'}
-                                    </Text>
-                                </View>
-                            </View>
-                            <View style={s.routeLine} />
-                            <View style={s.routeRow}>
-                                <View style={s.routeSquare} />
-                                <View style={{ flex: 1, marginLeft: 16 }}>
-                                    <Text style={s.addrLabel}>DESTINATION</Text>
-                                    <Text style={s.addrText} numberOfLines={1}>
-                                        {destination?.address || 'Destination'}
-                                    </Text>
-                                </View>
+            {/* Details sheet */}
+            <View style={{ flex: 1, marginTop: -28, backgroundColor: m.sheet[1], borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, borderWidth: 1, borderBottomWidth: 0, borderColor: m.sheetBorder, overflow: 'hidden' }}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: GUTTER, paddingBottom: footerH + SPACE.lg }}>
+                    {/* Route */}
+                    <Card>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#8B7CFF' }} />
+                            <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                                <Txt variant="caption" tone="faint">Pickup</Txt>
+                                <Txt variant="bodyStrong" numberOfLines={1}>{pickupLabel}</Txt>
                             </View>
                         </View>
-
+                        <View style={{ width: 2, height: 14, backgroundColor: m.chipBorder, marginLeft: 4, marginVertical: 4 }} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: m.key === 'day' ? '#21152E' : '#E9CFA6' }} />
+                            <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                                <Txt variant="caption" tone="faint">Drop-off</Txt>
+                                <Txt variant="bodyStrong" numberOfLines={1}>{destination?.address || 'Destination'}</Txt>
+                            </View>
+                        </View>
                         {fare && (
-                            <View style={s.statsRow}>
-                                <Text style={s.logisticsText}>
-                                    {(fare?.distance_meters / 1000).toFixed(1)} km · {Math.round(fare?.duration_seconds / 60)} min
-                                </Text>
-                            </View>
+                            <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.md }}>
+                                {(fare.distance_meters / 1000).toFixed(1)} km · about {Math.round(fare.duration_seconds / 60)} min
+                            </Txt>
                         )}
+                    </Card>
 
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.vehicleScroll} contentContainerStyle={{ paddingRight: 20 }}>
-                            {vehicles.map(v => (
-                                <TouchableOpacity
-                                    key={v.key}
-                                    style={[s.vehicleCard, selectedType === v.key && s.vehicleCardActive]}
-                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedType(v.key); }}
+                    {/* Vehicle */}
+                    <Section title="Choose a ride">
+                        {vehicles.map((v, i) => {
+                            const on = selectedType === v.key;
+                            const price = fare ? Math.max(Math.round(baseFareCents * v.multiplier), v.minFareCents ?? 0) : null;
+                            return (
+                                <Pressable
+                                    key={v.key} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={v.label}
+                                    onPress={() => { Haptics.selectionAsync(); setSelectedType(v.key); }}
+                                    style={({ pressed }) => ({
+                                        flexDirection: 'row', alignItems: 'center', padding: SPACE.md, marginBottom: i === vehicles.length - 1 ? 0 : SPACE.sm,
+                                        borderRadius: RADIUS.field, borderWidth: 1.5, borderColor: on ? m.accent : m.chipBorder,
+                                        backgroundColor: on ? (m.key === 'day' ? 'rgba(122,92,255,0.08)' : 'rgba(185,174,255,0.12)') : m.chip,
+                                        opacity: pressed ? 0.85 : 1,
+                                    })}
                                 >
-                                    <Ionicons name={v.icon as any} size={24} color={selectedType === v.key ? SURFACE.base : VOICES.rider.accent} />
-                                    <Text style={[s.vehicleType, { color: selectedType === v.key ? SURFACE.base : '#EAF3F6' }]}>{v.label}</Text>
-                                    <Text style={[s.vehicleMultiplier, { color: selectedType === v.key ? 'rgba(6,8,10,0.6)' : VOICES.rider.textMuted }]}>{v.multiplier}x</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
+                                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>
+                                        <Ionicons name={(v.icon as any) || 'car-outline'} size={22} color={on ? m.accent : m.ink} />
+                                    </View>
+                                    <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                                        <Txt variant="bodyStrong">{v.label}</Txt>
+                                        {v.desc ? <Txt variant="caption" tone="dim" numberOfLines={1}>{v.desc}</Txt> : null}
+                                    </View>
+                                    <Txt variant="headline">{price !== null ? formatTTDDollars(price / 100) : '—'}</Txt>
+                                </Pressable>
+                            );
+                        })}
+                    </Section>
 
-                        {stopSuggestions.length > 0 && (
-                            <View style={s.stopsSection}>
-                                <Text style={s.sectionTitle}>Suggested stops</Text>
-                                {stopSuggestions.map((stop, index) => {
-                                    const isSelected = selectedStops.some(s => s.place_name === stop.place_name);
-                                    return (
-                                        <TouchableOpacity
-                                            key={index}
-                                            onPress={() => toggleStop(stop)}
-                                            style={[s.stopItem, isSelected && s.stopItemActive]}
-                                        >
-                                            <View style={s.stopEmojiWrap}>
-                                                <Text style={{ fontSize: 20 }}>{stop.emoji}</Text>
+                    {/* Stops */}
+                    {stopSuggestions.length > 0 && (
+                        <Section title="Add a stop on the way">
+                            {stopSuggestions.map((stop, index) => {
+                                const on = selectedStops.some(x => x.place_name === stop.place_name);
+                                return (
+                                    <Row
+                                        key={index}
+                                        title={`${stop.emoji} ${stop.place_name}`}
+                                        subtitle={`${stop.is_network_partner ? 'G partner · ' : ''}about ${stop.estimated_wait_minutes} min wait`}
+                                        onPress={() => toggleStop(stop)}
+                                        last={index === stopSuggestions.length - 1}
+                                        right={stop.is_network_partner ? (
+                                            <Button title="Book" size="sm" variant="secondary" onPress={() => handleBookService(stop)} />
+                                        ) : (
+                                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                                <Txt variant="label" tone={on ? 'accent' : 'dim'} style={{ marginRight: SPACE.sm }}>+{formatTTDDollars(stopPriceCents(stop) / 100)}</Txt>
+                                                <Ionicons name={on ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={on ? m.accent : m.faint} />
                                             </View>
-                                            <View style={{ flex: 1, marginLeft: 12 }}>
-                                                <Text style={s.stopName}>{stop.place_name}</Text>
-                                                <Text style={s.stopSubtext}>
-                                                    {stop.is_network_partner ? 'G-TAXI PARTNER · ' : ''}+{stop.estimated_wait_minutes}m wait
-                                                </Text>
-                                            </View>
-                                            <View style={{ alignItems: 'flex-end' }}>
-                                                {stop.is_network_partner ? (
-                                                    <TouchableOpacity 
-                                                        onPress={() => handleBookService(stop)}
-                                                        style={{ backgroundColor: CYAN_SOFT, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 4 }}
-                                                    >
-                                                        <Text style={s.bookServiceText}>BOOK SERVICE</Text>
-                                                    </TouchableOpacity>
-                                                ) : (
-                                                    <Text style={[s.stopPrice, { color: isSelected ? CYAN : VOICES.rider.textMuted }]}>
-                                                        +${(((stop.stop_type === 'grocery' ? (fare?.pricing_constants?.stop_base_grocery_cents ?? 3500) : stop.stop_type === 'pharmacy' ? (fare?.pricing_constants?.stop_base_pharmacy_cents ?? 2500) : (fare?.pricing_constants?.stop_base_other_cents ?? 1500)) + Math.round((stop.estimated_wait_minutes || 0) * (fare?.pricing_constants?.wait_fee_per_minute_cents ?? 95))) / 100).toFixed(2)}
-                                                    </Text>
-                                                )}
-                                            </View>
-                                        </TouchableOpacity>
-                                    );
-                                })}
+                                        )}
+                                    />
+                                );
+                            })}
+                        </Section>
+                    )}
+
+                    {/* Payment */}
+                    <View style={{ marginTop: SPACE.xl }}>
+                        <PaymentSelector selected={paymentMethod} onSelect={setPaymentMethod} walletBalance={walletBalance / 100} requiredAmount={displayFareCents / 100} />
+                    </View>
+
+                    {/* Safety photo */}
+                    {requiresVerification ? (
+                        <Card style={{ marginTop: SPACE.xl }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name={selfieVerified ? 'checkmark-circle' : 'shield-checkmark-outline'} size={20} color={selfieVerified ? '#2FB57C' : m.accent} />
+                                <Txt variant="bodyStrong" style={{ flex: 1, marginLeft: SPACE.sm }}>{selfieVerified ? 'Safety photo saved' : verificationReason}</Txt>
                             </View>
-                        )}
-
-                        <View style={s.fareDisplay}>
-                            <Text style={s.fareLabel}>TOTAL ESTIMATE</Text>
-                            {fare ? (
-                                <Text style={s.fareValue}>{formatTTDDollars(parseFloat(finalFare))}</Text>
-                            ) : fareError ? (
-                                // Used to render "--" (or NaN) with no explanation.
-                                <TouchableOpacity onPress={() => fetchFare(selectedStops)} accessibilityRole="button">
-                                    <Text style={s.fareLabel}>Couldn't get a price. Tap to try again.</Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <ActivityIndicator />
+                            {!selfieVerified && (
+                                <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.xs }}>
+                                    A private photo of who booked, kept in case anything goes wrong. It is not an ID check.
+                                </Txt>
                             )}
+                            {selfieError ? <Txt variant="caption" tone="danger" style={{ marginTop: SPACE.sm }}>{selfieError}</Txt> : null}
+                            {!selfieVerified && (
+                                <Button title={selfieUploading ? 'Saving photo…' : 'Take safety photo'} icon="camera-outline" variant="secondary" size="md"
+                                    loading={selfieUploading} style={{ marginTop: SPACE.md }} onPress={openCamera} />
+                            )}
+                        </Card>
+                    ) : (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.lg }}>
+                            <Ionicons name="shield-checkmark" size={16} color="#2FB57C" />
+                            <Txt variant="caption" tone="dim" style={{ marginLeft: SPACE.sm }}>Safety photo on file</Txt>
                         </View>
+                    )}
 
-                        <PaymentSelector
-                            selected={paymentMethod}
-                            onSelect={setPaymentMethod}
-                            walletBalance={walletBalance / 100}
-                            requiredAmount={displayFareCents / 100}
-                        />
-
-                        {requiresVerification ? (
-                            <>
-                                <View style={s.verifyReasonRow}>
-                                    <Ionicons name="shield-checkmark-outline" size={16} color={WARNING} />
-                                    <Text style={s.verifyReasonText}>{verificationReason}</Text>
-                                </View>
-
-                                {selfieError && (
-                                    <View style={s.selfieErrorContainer}>
-                                        <Ionicons name="alert-circle" size={16} color={ERROR} />
-                                        <Text style={s.selfieErrorText}>{selfieError}</Text>
-                                    </View>
-                                )}
-
-                                <TouchableOpacity
-                                    style={[s.selfieBtn, selfieVerified && s.selfieBtnVerified]}
-                                    onPress={async () => {
-                                        if (selfieVerified) return;
-                                        if (!cameraPermission?.granted) {
-                                            const perm = await requestCameraPermission();
-                                            if (!perm.granted) {
-                                                Alert.alert('Camera needed', 'Allow camera access to take the safety photo.');
-                                                return;
-                                            }
-                                        }
-                                        setSelfieMode(true);
-                                    }}
-                                >
-                                    {selfieUploading ? (
-                                        <ActivityIndicator color={CYAN} size="small" />
-                                    ) : (
-                                        <Ionicons
-                                            name={selfieVerified ? 'checkmark-circle' : 'camera-outline'}
-                                            size={20}
-                                            color={selfieVerified ? SUCCESS : CYAN}
-                                        />
-                                    )}
-                                    <Text style={[s.selfieBtnText, selfieVerified && { color: SUCCESS }]}>
-                                        {selfieUploading ? 'Saving photo…' : selfieVerified ? 'Photo saved' : 'Take safety photo'}
-                                    </Text>
-                                </TouchableOpacity>
-                            </>
-                        ) : (
-                            <View style={s.identityShield}>
-                                <Ionicons name="shield-checkmark" size={20} color={CYAN} />
-                                <Text style={s.identityText}>Safety photo on file</Text>
+                    {requestStatus === 'still_trying' && (
+                        <Card style={{ marginTop: SPACE.lg }}><Txt variant="bodyStrong">Still connecting… please wait</Txt></Card>
+                    )}
+                    {requestStatus === 'failed' && (
+                        <Card style={{ marginTop: SPACE.lg, borderColor: '#E5484D' }}>
+                            <Txt variant="bodyStrong">We could not reach a driver right now.</Txt>
+                            <View style={{ flexDirection: 'row', gap: SPACE.md, marginTop: SPACE.md }}>
+                                <Button title="Try again" size="md" style={{ flex: 1 }} onPress={handleRetry} />
+                                <Button title="WhatsApp us" size="md" variant="secondary" icon="logo-whatsapp" style={{ flex: 1 }} onPress={openWhatsAppFallback} />
                             </View>
-                        )}
-
-                        {requestStatus === 'still_trying' && (
-                            <View style={s.statusBanner}>
-                                <Text style={s.statusTextAmber}>Still connecting... please wait</Text>
-                            </View>
-                        )}
-
-                        {requestStatus === 'failed' && (
-                            <View style={s.failureContainer}>
-                                <Text style={s.failureTitle}>We're having trouble connecting right now.</Text>
-                                <View style={s.failureButtons}>
-                                    <TouchableOpacity style={s.retryBtn} onPress={handleRetry}>
-                                        <Text style={s.retryBtnText}>Try Again</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={s.whatsappBtn} onPress={openWhatsAppFallback}>
-                                        <Text style={s.whatsappBtnText}>Contact via WhatsApp</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        )}
-
-                        {selfieMode && (
-                            <View style={StyleSheet.absoluteFill}>
-                                <CameraView
-                                    ref={cameraRef}
-                                    facing="front"
-                                    style={StyleSheet.absoluteFill}
-                                    onMountError={() => { Alert.alert('Camera Error', 'Could not open camera.'); setSelfieMode(false); }}
-                                >
-                                    <View style={{ flex: 1, justifyContent: 'flex-end', padding: 24, paddingBottom: 60 }}>
-                                        <View style={{ backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 24, alignItems: 'center' }}>
-                                            <Text style={{ color: '#EAF3F6', fontSize: 16, fontWeight: '800', marginBottom: 8 }}>
-                                                Identity Verification
-                                            </Text>
-                                            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>
-                                                We keep a private photo of who booked this ride, in case anything goes wrong. It is not a face or ID check.
-                                            </Text>
-                                            <View style={{ flexDirection: 'row', gap: 12 }}>
-                                                <TouchableOpacity
-                                                    onPress={() => setSelfieMode(false)}
-                                                    style={{ flex: 1, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}
-                                                >
-                                                    <Text style={{ color: '#EAF3F6', fontWeight: '700', fontSize: 13 }}>Cancel</Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    onPress={handleSelfieCapture}
-                                                    disabled={selfieUploading}
-                                                    style={{ flex: 2, height: 48, borderRadius: 24, backgroundColor: CYAN, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
-                                                >
-                                                    {selfieUploading ? (
-                                                        <ActivityIndicator color={SURFACE.base} size="small" />
-                                                    ) : (
-                                                        <>
-                                                            <Ionicons name="camera" size={18} color={SURFACE.base} />
-                                                            <Text style={{ color: SURFACE.base, fontWeight: '900', fontSize: 13 }}>TAKE PHOTO</Text>
-                                                        </>
-                                                    )}
-                                                </TouchableOpacity>
-                                            </View>
-                                        </View>
-                                    </View>
-                                </CameraView>
-                            </View>
-                        )}
-
-                        <TouchableOpacity
-                            style={[s.confirmBtn, (confirming || (requiresVerification && (!selfieVerified || !selfieUri))) && { opacity: 0.5 }]}
-                            onPress={handleConfirm}
-                            disabled={confirming || (requiresVerification && (!selfieVerified || !selfieUri))}
-                        >
-                            <LinearGradient
-                                colors={[VOICES.rider.accent, VOICES.rider.accentDark]}
-                                style={s.btnGradient}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                {confirming ? <ActivityIndicator color={SURFACE.base} /> : (
-                                    <Text style={s.confirmBtnText}>Confirm {selectedVehicle?.label ?? (selectedType.charAt(0).toUpperCase() + selectedType.slice(1))}</Text>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </ScrollView>
-                </LiquidGlass>
+                        </Card>
+                    )}
+                </ScrollView>
             </View>
+
+            {/* Price + confirm, pinned */}
+            <View
+                onLayout={(e) => setFooterH(e.nativeEvent.layout.height)}
+                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: SPACE.md, paddingBottom: Math.max(insets.bottom, SPACE.lg),
+                    backgroundColor: m.sheet[1], borderTopWidth: 1, borderTopColor: m.chipBorder }}
+            >
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: SPACE.md }}>
+                    <Txt variant="body" tone="dim">Estimated fare</Txt>
+                    {fare ? <Txt variant="title">{formatTTDDollars(displayFareCents / 100)}</Txt>
+                        : fareError ? <Txt variant="bodyStrong" tone="accent" onPress={() => fetchFare(selectedStops)}>Price failed. Tap to retry</Txt>
+                        : <ActivityIndicator color={m.accent} />}
+                </View>
+                <Button
+                    title={needsPhoto ? 'Take the safety photo first' : `Confirm ${selectedVehicle?.label ?? 'ride'}`}
+                    onPress={needsPhoto ? openCamera : handleConfirm}
+                    loading={confirming}
+                    disabled={!fare && !fareError}
+                />
+            </View>
+
+            {/* Safety photo camera */}
+            <Modal visible={selfieMode} animationType="slide" onRequestClose={() => setSelfieMode(false)}>
+                <View style={{ flex: 1, backgroundColor: '#000' }}>
+                    <CameraView ref={cameraRef} facing="front" style={StyleSheet.absoluteFill}
+                        onMountError={() => { setSelfieError('Could not open the camera.'); setSelfieMode(false); }} />
+                    <View style={{ position: 'absolute', left: GUTTER, right: GUTTER, bottom: Math.max(insets.bottom, SPACE.lg) + SPACE.lg, padding: SPACE.xl, borderRadius: RADIUS.card, backgroundColor: 'rgba(15,11,24,0.82)' }}>
+                        <Txt variant="headline" style={{ color: '#FFFFFF', textAlign: 'center' }}>Safety photo</Txt>
+                        <Txt variant="caption" style={{ color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: SPACE.xs }}>
+                            Kept private, only used if something goes wrong on this ride.
+                        </Txt>
+                        <View style={{ flexDirection: 'row', gap: SPACE.md, marginTop: SPACE.lg }}>
+                            <Button title="Cancel" variant="secondary" size="md" style={{ flex: 1 }} onPress={() => setSelfieMode(false)} />
+                            <Button title="Take photo" icon="camera" size="md" style={{ flex: 1 }} loading={selfieUploading} onPress={handleSelfieCapture} />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    backBtn: { position: 'absolute', left: 20, width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(11,14,18,0.8)', alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.15) },
-    
-    bottomContainer: { flex: 1, marginTop: -30 },
-    panel: { flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 0, overflow: 'hidden' },
-    handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginBottom: 24 },
-
-    routeBox: { backgroundColor: SURFACE.containerLow, borderRadius: 20, padding: 20, marginBottom: 20, ...ghostBorder(0.2) },
-    routeRow: { flexDirection: 'row', alignItems: 'center' },
-    routeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: VOICES.rider.accent },
-    routeSquare: { width: 8, height: 8, borderRadius: 2, backgroundColor: WARNING },
-    routeLine: { width: 1.5, height: 15, backgroundColor: SURFACE.containerHigh, marginLeft: 3.25, marginVertical: 4 },
-    addrLabel: { fontSize: 11, fontWeight: '700', color: VOICES.rider.textMuted, letterSpacing: 1, marginBottom: 4 },
-    addrText: { fontSize: 15, fontWeight: '600', color: '#EAF3F6' },
-
-    statsRow: { marginBottom: 24, alignItems: 'center' },
-    logisticsText: { fontSize: 13, fontWeight: '600', color: VOICES.rider.textMuted, letterSpacing: 0.5 },
-    
-    vehicleScroll: { marginBottom: 32 },
-    vehicleCard: { width: 110, height: 120, backgroundColor: SURFACE.containerLow, borderRadius: 20, padding: 16, marginRight: 12, alignItems: 'center', justifyContent: 'center', ...ghostBorder(0.2) },
-    vehicleCardActive: { backgroundColor: VOICES.rider.accent, borderColor: CYAN },
-    vehicleType: { marginTop: 8, fontSize: 14, fontWeight: '700' },
-    vehicleMultiplier: { fontSize: 12, fontWeight: '600' },
-
-    stopsSection: { marginBottom: 32 },
-    sectionTitle: { fontSize: 12, fontWeight: '800', color: VOICES.rider.accent, letterSpacing: 1, marginBottom: 12 },
-    stopItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, backgroundColor: SURFACE.containerLow, marginBottom: 10, ...ghostBorder(0.06) },
-    stopItemActive: { borderColor: VOICES.rider.accent, backgroundColor: CYAN_SOFT },
-    stopEmojiWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    stopName: { fontSize: 15, fontWeight: '700', color: '#EAF3F6' },
-    stopSubtext: { fontSize: 13, fontWeight: '500', color: VOICES.rider.textMuted },
-    stopPrice: { fontSize: 15, fontWeight: '700' },
-    bookServiceText: { fontSize: 12, fontWeight: '800', color: CYAN, letterSpacing: 0.5 },
-
-    fareDisplay: { alignItems: 'center', marginBottom: 24 },
-    fareLabel: { fontSize: 12, fontWeight: '600', color: VOICES.rider.textMuted, letterSpacing: 1, marginBottom: 4 },
-    fareValue: { fontSize: 36, fontWeight: '900', color: VOICES.rider.accent },
-    
-    identityShield: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: CYAN_SOFT, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 100, marginBottom: 12, alignSelf: 'center' },
-    identityText: { marginLeft: 8, fontSize: 12, fontWeight: '800', color: CYAN, letterSpacing: 1 },
-    verifyReasonRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(245,158,11,0.22)' },
-    verifyReasonText: { flex: 1, fontSize: 12, fontWeight: '600', color: '#F2D08A' },
-    selfieBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: SURFACE.containerLow, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 16, marginBottom: 24, ...ghostBorder(0.2), gap: 8 },
-    selfieBtnVerified: { backgroundColor: 'rgba(16,185,129,0.1)', ...ghostBorder(0.3) },
-    selfieBtnText: { fontSize: 12, fontWeight: '800', color: CYAN, letterSpacing: 0.5 },
-    selfieErrorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(239,68,68,0.1)', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, marginBottom: 12, gap: 8 },
-    selfieErrorText: { fontSize: 12, fontWeight: '700', color: ERROR, flex: 1 },
-
-    confirmBtn: { height: 60, borderRadius: 30, overflow: 'hidden', ...elevationGlow(6) },
-    btnGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    confirmBtnText: { fontSize: 16, fontWeight: '900', color: SURFACE.base, letterSpacing: 0.5 },
-    markerPickup: { width: 14, height: 14, borderRadius: 7, backgroundColor: CYAN, borderWidth: 2, borderColor: '#EAF3F6' },
-    markerDropoff: { width: 14, height: 14, borderRadius: 7, backgroundColor: WARNING, borderWidth: 2, borderColor: '#EAF3F6' },
-
-    statusBanner: {
-        backgroundColor: 'rgba(245, 158, 11, 0.15)',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 12,
-        marginBottom: 16,
-        ...ghostBorder(0.2),
-        alignItems: 'center'
-    },
-    statusTextAmber: {
-        color: WARNING,
-        fontSize: 14,
-        fontWeight: '700'
-    },
-    failureContainer: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        padding: 20,
-        borderRadius: 16,
-        marginBottom: 16,
-        ...ghostBorder(0.2),
-        alignItems: 'center'
-    },
-    failureTitle: {
-        color: '#EAF3F6',
-        fontSize: 16,
-        fontWeight: '700',
-        marginBottom: 16,
-        textAlign: 'center'
-    },
-    failureButtons: {
-        flexDirection: 'row',
-        gap: 12
-    },
-    retryBtn: {
-        backgroundColor: VOICES.rider.accent,
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 12
-    },
-    retryBtnText: {
-        color: '#EAF3F6',
-        fontSize: 14,
-        fontWeight: '800'
-    },
-    whatsappBtn: {
-        backgroundColor: '#25D366',
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 12
-    },
-    whatsappBtnText: {
-        color: '#EAF3F6',
-        fontSize: 14,
-        fontWeight: '800'
-    }
-});

@@ -1,15 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-    View, Text, TouchableOpacity, StyleSheet,
-    Animated, useWindowDimensions, ActivityIndicator,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { cancelRide } from '../services/api';
+import { toast } from '../components/Toast';
+import { CancelReasonSheet } from '../components/CancelReasonSheet';
+import { BrandBadge, Button, Card, Loading, RADIUS, Row, Screen, SPACE, Txt, useTheme } from '../ui/kit';
 import { AppScreenProps } from '../navigation/types';
 
 // plate/rating can be genuinely missing. Never invent them: a rider looks
@@ -22,7 +20,6 @@ interface DriverInfo {
 }
 
 export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverFound'>) {
-    const { width } = useWindowDimensions();
     const { rideId, driver: initialDriver, destination, fare } = route.params as {
         rideId: string;
         driver?: DriverInfo;
@@ -107,133 +104,67 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
         });
     };
 
+    const m = useTheme();
+    const [reasonOpen, setReasonOpen] = useState(false);
+    const [canceling, setCanceling] = useState(false);
+
+    // Cancel here used to only go back to Home, leaving the ride live and the
+    // driver still on the way. It now cancels the ride for real.
+    const handleCancel = async (reasonCode: string | null) => {
+        if (canceling) return;
+        setCanceling(true);
+        setReasonOpen(false);
+        const res = await cancelRide(rideId, reasonCode);
+        setCanceling(false);
+        if (!res?.success) {
+            toast(res?.error || 'Could not cancel. Please try again.', 'error');
+            return;
+        }
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        toast('Ride cancelled');
+        navigation.reset({ index: 0, routes: [{ name: 'Home' as never }] } as any);
+    };
+
     if (loading) {
         return (
-            <LinearGradient colors={['#1A0533', '#0D1B4B']} style={[s.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color="#00E5FF" />
-                <Text style={{ color: 'rgba(255,255,255,0.6)', marginTop: 16, fontSize: 16 }}>Finding your driver...</Text>
-            </LinearGradient>
+            <Screen scroll={false}>
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <Loading />
+                    <Txt variant="body" tone="dim">Getting your driver's details…</Txt>
+                </View>
+            </Screen>
         );
     }
 
-
     return (
-        <LinearGradient colors={['#1A0533', '#0D1B4B']} style={s.container}>
-            <Animated.View style={[s.content, { opacity: opacityAnim, transform: [{ scale: scaleAnim }] }]}>
-                <View style={s.avatarContainer}>
-                    <View style={s.avatarGlow} />
-                    <View style={s.avatar}>
-                        <Ionicons name="car-sport-outline" size={36} color="#EAF3F6" />
-                    </View>
-                    <View style={s.ratingBadge}>
-                        <Ionicons name="star" size={12} color="#F59E0B" />
-                        <Text style={s.ratingText}>{driver?.rating != null ? driver.rating.toFixed(1) : 'New'}</Text>
+        <Screen
+            scroll
+            footer={
+                <View>
+                    <Button title="Track my ride" icon="navigate-outline" onPress={handleTrack} />
+                    <Button title="Cancel ride" variant="ghost" style={{ marginTop: SPACE.md }} loading={canceling} onPress={() => setReasonOpen(true)} />
+                </View>
+            }
+        >
+            <Animated.View style={{ alignItems: 'center', paddingTop: insets.top + SPACE.xxl, opacity: opacityAnim, transform: [{ scale: scaleAnim }] }}>
+                <View>
+                    <BrandBadge icon="car-sport" size={104} round />
+                    <View style={{ position: 'absolute', bottom: -4, right: -8, flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACE.sm, paddingVertical: 4, borderRadius: RADIUS.pill, backgroundColor: m.sheet[1], borderWidth: 1, borderColor: m.chipBorder }}>
+                        <Ionicons name="star" size={12} color="#F5A524" />
+                        <Txt variant="label" style={{ marginLeft: 4 }}>{driver?.rating != null ? driver.rating.toFixed(1) : 'New'}</Txt>
                     </View>
                 </View>
-
-                <Text style={s.matchedTitle}>Driver Found!</Text>
-                <Text style={s.driverName}>{driver?.name ?? 'Your driver'}</Text>
-
-                <View style={s.infoCard}>
-                    <View style={[glassSurface(30), StyleSheet.absoluteFillObject]} />
-                    <View style={s.infoRow}>
-                        <Ionicons name="car-outline" size={18} color="#00E5FF" />
-                        <Text style={s.infoText}>{driver?.vehicle ?? 'Vehicle'}</Text>
-                    </View>
-                    <View style={s.divider} />
-                    <View style={s.infoRow}>
-                        <Ionicons name="card-outline" size={18} color="#00E5FF" />
-                        <Text style={s.infoText}>{driver?.plate ?? 'Plate not on file. Confirm with your driver'}</Text>
-                    </View>
-                    <View style={s.divider} />
-                    <View style={s.infoRow}>
-                        <Ionicons name="time-outline" size={18} color="#10B981" />
-                        <Text style={[s.infoText, { color: '#10B981' }]}>On the way to you...</Text>
-                    </View>
-                </View>
-
-                <Text style={s.rideId}>Ride Reference: #{rideId?.slice(0, 8).toUpperCase()}</Text>
+                <Txt variant="label" tone="accent" style={{ marginTop: SPACE.xl }}>Your driver is on the way</Txt>
+                <Txt variant="hero" style={{ textAlign: 'center', marginTop: SPACE.xs }}>{driver?.name ?? 'Your driver'}</Txt>
             </Animated.View>
 
-            <View style={[s.ctaContainer, { paddingBottom: insets.bottom + 24 }]}>
-                <TouchableOpacity style={s.ctaButton} onPress={handleTrack} activeOpacity={0.88}>
-                    <LinearGradient
-                        colors={[VOICES.rider.accent, '#00E5FF']}
-                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                        style={s.ctaGradient}
-                    >
-                        <Ionicons name="navigate-outline" size={22} color="#EAF3F6" style={{ marginRight: 10 }} />
-                        <Text style={s.ctaText}>Track My Ride →</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
+            <Card style={{ marginTop: SPACE.xl, paddingVertical: SPACE.xs }}>
+                <Row icon="car-outline" title={driver?.vehicle ?? 'Vehicle'} subtitle="Vehicle" />
+                <Row icon="pricetag-outline" title={driver?.plate ?? 'Plate not on file'} subtitle={driver?.plate ? 'Check this plate before you get in' : 'Confirm the plate with your driver'} />
+                <Row icon="receipt-outline" title={`#${rideId?.slice(0, 8).toUpperCase()}`} subtitle="Ride reference" last />
+            </Card>
 
-                <TouchableOpacity
-                    style={s.cancelBtn}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        (navigation.navigate as any)('Home');
-                    }}
-                >
-                    <Text style={s.cancelText}>Cancel</Text>
-                </TouchableOpacity>
-            </View>
-        </LinearGradient>
+            <CancelReasonSheet visible={reasonOpen} onPick={handleCancel} onClose={() => setReasonOpen(false)} />
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    container: { flex: 1, justifyContent: 'center' },
-    content: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-    avatarContainer: { position: 'relative', marginBottom: 24 },
-    avatarGlow: {
-        position: 'absolute', width: 160, height: 160, borderRadius: 80,
-        backgroundColor: 'rgba(0,229,255,0.1)',
-        shadowColor: '#00E5FF', shadowOpacity: 0.5, shadowRadius: 30, elevation: 0,
-        top: -20, left: -20,
-    },
-    avatar: {
-        width: 120, height: 120, borderRadius: 60,
-        backgroundColor: 'rgba(123,92,240,0.2)',
-        borderColor: '#00E5FF',
-        alignItems: 'center', justifyContent: 'center',
-        ...elevationGlow(4),
-    },
-    avatarEmoji: { fontSize: 56 },
-    ratingBadge: {
-        position: 'absolute', bottom: 0, right: 0,
-        flexDirection: 'row', alignItems: 'center', gap: 3,
-        backgroundColor: SURFACE.base, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4,
-        ...ghostBorder(),
-    },
-    ratingText: { fontSize: 12, fontWeight: '700', color: '#F59E0B' },
-    matchedTitle: {
-        fontSize: 14, fontWeight: '800', color: '#00E5FF',
-        letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8,
-    },
-    driverName: { fontSize: 38, color: '#EAF3F6', marginBottom: 28, fontFamily: 'CormorantGaramond_600SemiBold' },
-    infoCard: {
-        width: '100%', borderRadius: 24, overflow: 'hidden',
-        ...ghostBorder(),
-        padding: 6, backgroundColor: 'rgba(255,255,255,0.03)',
-        marginBottom: 20,
-    },
-    infoRow: {
-        flexDirection: 'row', alignItems: 'center', gap: 12,
-        paddingHorizontal: 18, paddingVertical: 14,
-    },
-    infoText: { fontSize: 16, color: '#EAF3F6', fontWeight: '600' },
-    divider: { height: 1, backgroundColor: 'rgba(123,92,240,0.3)', marginHorizontal: 18 },
-    rideId: { fontSize: 12, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 },
-    ctaContainer: { paddingHorizontal: 24, gap: 12 },
-    ctaButton: { 
-        borderRadius: 20, 
-        overflow: 'hidden',
-        ...elevationGlow(6),
-    },
-    ctaGradient: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18,
-    },
-    ctaText: { fontSize: 18, fontWeight: '900', color: '#EAF3F6', letterSpacing: 0.5 },
-    cancelBtn: { alignItems: 'center', paddingVertical: 12 },
-    cancelText: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-});
