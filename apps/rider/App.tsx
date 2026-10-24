@@ -10,6 +10,7 @@ import {
 import { applyGlobalFont } from './src/theme/typography';
 import { ToastHost } from './src/components/Toast';
 import { HomePreview } from './src/screens/design/HomePreview';
+import { MoodPreview } from './src/screens/design/MoodPreview';
 
 // Every Text/TextInput gets Manrope at the right weight (see typography.ts).
 applyGlobalFont();
@@ -257,7 +258,7 @@ function App() {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname === '/design-preview') {
         return (
             <SafeAreaProvider>
-                <HomePreview />
+                {new URLSearchParams(window.location.search).has('mood') ? <MoodPreview /> : <HomePreview />}
                 <ToastHost />
             </SafeAreaProvider>
         );
