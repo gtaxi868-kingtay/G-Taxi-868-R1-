@@ -736,17 +736,22 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
             <CancelReasonSheet visible={reasonOpen} onPick={executeCancelRide} onClose={() => setReasonOpen(false)} />
 
-            {sosPanel && rideId && (
-                <GuardianSosPanel
-                    rideId={rideId}
-                    guardianPhone={sosPanel.guardianPhone}
-                    lat={location?.coords.latitude ?? null}
-                    lng={location?.coords.longitude ?? null}
-                    driverName={driver?.name ?? null}
-                    plate={driver?.plate_number ?? null}
-                    onClose={() => setSosPanel(null)}
-                />
-            )}
+            {/* SOS: a full sheet over everything, so the call buttons are never hidden */}
+            <Modal visible={!!(sosPanel && rideId)} transparent animationType="slide" onRequestClose={() => setSosPanel(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(10,0,4,0.6)', justifyContent: 'flex-end', paddingHorizontal: GUTTER, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}>
+                    {sosPanel && rideId ? (
+                        <GuardianSosPanel
+                            rideId={rideId}
+                            guardianPhone={sosPanel.guardianPhone}
+                            lat={location?.coords.latitude ?? null}
+                            lng={location?.coords.longitude ?? null}
+                            driverName={driver?.name ?? null}
+                            plate={driver?.plate_number ?? null}
+                            onClose={() => setSosPanel(null)}
+                        />
+                    ) : null}
+                </View>
+            </Modal>
 
             {/* Add a shop as a stop */}
             <Modal visible={!!selectedMerchant} transparent animationType="fade" onRequestClose={() => setSelectedMerchant(null)}>

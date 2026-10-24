@@ -1,87 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { useNetInfo } from '@react-native-community/netinfo';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SPACE, Txt, useTheme } from '../ui/kit';
 
+// Small pill at the top: "No internet connection", then "Back online" for
+// two seconds once it returns. Only shows "Back online" after a real outage.
 export function OfflineBanner() {
-  const netInfo = useNetInfo();
-  const insets = useSafeAreaInsets();
-  const [showReconnected, setShowReconnected] = useState(false);
+    const m = useTheme();
+    const netInfo = useNetInfo();
+    const insets = useSafeAreaInsets();
+    const [showReconnected, setShowReconnected] = useState(false);
+    const wasOffline = useRef(false);
 
-  const isOffline = netInfo.isConnected === false;
-  const wasOffline = netInfo.isConnected === true && showReconnected;
+    const isOffline = netInfo.isConnected === false;
 
-  useEffect(() => {
-    if (netInfo.isConnected === true && showReconnected === false) {
-      // We just came back online
-      const hasBeenOfflineBefore = netInfo.details !== null;
-      if (hasBeenOfflineBefore) {
-        setShowReconnected(true);
-        const timer = setTimeout(() => {
-          setShowReconnected(false);
-        }, 2000);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [netInfo.isConnected]);
+    useEffect(() => {
+        if (netInfo.isConnected === false) { wasOffline.current = true; return; }
+        if (netInfo.isConnected === true && wasOffline.current) {
+            wasOffline.current = false;
+            setShowReconnected(true);
+            const timer = setTimeout(() => setShowReconnected(false), 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [netInfo.isConnected]);
 
-  if (!isOffline && !showReconnected) return null;
+    if (!isOffline && !showReconnected) return null;
 
-  return (
-    <View style={[styles.container, { paddingTop: Math.max(20, insets.top) }]}>
-        <BlurView intensity={30} tint="dark" style={[
-          styles.banner,
-          showReconnected && !isOffline && styles.bannerReconnected
-        ]}>
-            <View style={[
-              styles.dot,
-              showReconnected && !isOffline && styles.dotReconnected
-            ]} />
-            <Text style={[
-              styles.text,
-              showReconnected && !isOffline && styles.textReconnected
-            ]}>
-              {isOffline ? 'No internet connection' : 'Reconnected'}
-            </Text>
-        </BlurView>
-    </View>
-  );
+    return (
+        <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + SPACE.sm, left: 0, right: 0, alignItems: 'center', zIndex: 900 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', height: 34, paddingHorizontal: SPACE.lg, borderRadius: 17, backgroundColor: m.sheet[1], borderWidth: 1, borderColor: m.sheetBorder }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, marginRight: SPACE.sm, backgroundColor: isOffline ? '#E5484D' : '#2FB57C' }} />
+                <Txt variant="label">{isOffline ? 'No internet connection' : 'Back online'}</Txt>
+            </View>
+        </View>
+    );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0,
-    zIndex: 99999,
-  },
-  banner: {
-    backgroundColor: 'rgba(255, 77, 109, 0.9)',
-    height: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  bannerReconnected: {
-    backgroundColor: 'rgba(0, 255, 148, 0.9)',
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EAF3F6',
-  },
-  dotReconnected: {
-    backgroundColor: '#07070F',
-  },
-  text: {
-    color: '#EAF3F6',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  textReconnected: {
-    color: '#07070F',
-  }
-});
