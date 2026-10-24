@@ -18,6 +18,6 @@ describe('NfcHandshakeScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: { tagUid: 'test-tag-uid' } };
     const { getByText } = render(<NfcHandshakeScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/Establishing Unified Handshake/i)).toBeTruthy();
+    expect(getByText(/Connecting to this G point/i)).toBeTruthy();
   });
 });

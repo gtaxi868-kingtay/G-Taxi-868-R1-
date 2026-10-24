@@ -26,6 +26,6 @@ describe('GroceryOrderStatusScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: { orderId: 'test-order-1' } };
     const { getByText } = render(<GroceryOrderStatusScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText('Order Status')).toBeTruthy();
+    expect(getByText('Your order')).toBeTruthy();
   });
 });

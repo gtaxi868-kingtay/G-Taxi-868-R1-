@@ -15,6 +15,6 @@ describe('TagMarkerScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: { tagUid: 'test-tag' } };
     const { getByText } = render(<TagMarkerScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/New Tag Detected/i)).toBeTruthy();
+    expect(getByText(/This tag is not set up yet/i)).toBeTruthy();
   });
 });

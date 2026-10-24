@@ -22,6 +22,6 @@ describe('WalletTopUpScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const { getByText } = render(<WalletTopUpScreen navigation={navigation as any} />);
-    expect(getByText(/Financial Support/i)).toBeTruthy();
+    expect(getByText(/Add money/i)).toBeTruthy();
   });
 });

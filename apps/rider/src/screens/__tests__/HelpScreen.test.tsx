@@ -13,6 +13,6 @@ describe('HelpScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: {}, key: 'test', name: 'Help' as const };
     const { getByText } = render(<HelpScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/Help Center/i)).toBeTruthy();
+    expect(getByText(/Common questions/i)).toBeTruthy();
   });
 });

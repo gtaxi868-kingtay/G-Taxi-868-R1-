@@ -21,6 +21,6 @@ describe('SearchingDriverScreen', () => {
     const navigation = { navigate: jest.fn(), replace: jest.fn(), goBack: jest.fn(), reset: jest.fn(), addListener: jest.fn() };
     const route = { params: { rideId: 'test-ride-1', destination: { latitude: 10.65, longitude: -61.50, address: 'Dest' }, pickup: { latitude: 10.66, longitude: -61.51, address: 'Pickup' } } };
     const { getByText } = render(<SearchingDriverScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/Finding your G-Taxi/i)).toBeTruthy();
+    expect(getByText(/Finding your driver/i)).toBeTruthy();
   });
 });

@@ -13,6 +13,6 @@ describe('ForgotPasswordScreen', () => {
   it('renders without crashing', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const { getByText } = render(<ForgotPasswordScreen navigation={navigation as any} route={{} as any} />);
-    expect(getByText(/Reset Password/i)).toBeTruthy();
+    expect(getByText(/Reset your password/i)).toBeTruthy();
   });
 });

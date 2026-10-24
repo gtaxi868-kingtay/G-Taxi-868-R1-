@@ -19,6 +19,6 @@ describe('RatingScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: { driver: { id: 'test-driver', name: 'Test Driver' }, fare: { total_fare_cents: 5000 }, rideId: 'test-ride', paymentMethod: 'cash' } };
     const { getByText } = render(<RatingScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/Test Driver/i)).toBeTruthy();
+    expect(getByText(/How was your ride with Test/i)).toBeTruthy();
   });
 });

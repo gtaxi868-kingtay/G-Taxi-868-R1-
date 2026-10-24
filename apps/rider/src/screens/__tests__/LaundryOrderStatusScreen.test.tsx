@@ -14,6 +14,6 @@ describe('LaundryOrderStatusScreen', () => {
     const navigation = { navigate: jest.fn(), goBack: jest.fn() };
     const route = { params: { orderId: 'test-order-123', service: { label: 'Wash & Fold' }, weight: 5, priceCents: 2500 } };
     const { getByText } = render(<LaundryOrderStatusScreen navigation={navigation as any} route={route as any} />);
-    expect(getByText(/Order Status/i)).toBeTruthy();
+    expect(getByText(/Your laundry/i)).toBeTruthy();
   });
 });
