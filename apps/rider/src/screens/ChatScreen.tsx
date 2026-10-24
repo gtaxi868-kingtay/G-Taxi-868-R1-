@@ -1,33 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    View, StyleSheet, TouchableOpacity, TextInput,
-    FlatList, KeyboardAvoidingView, Platform, useWindowDimensions,
-    Image, Alert
-} from 'react-native';
+import { View, TextInput, Pressable, FlatList, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '@/design-system/primitives';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-
-const CYAN = '#06B6D4';
-
-const R = {
-    bg: SURFACE.base,
-    surface: 'rgba(255,255,255,0.08)',
-    surface2: 'rgba(255,255,255,0.03)',
-    border: 'rgba(255,255,255,0.15)',
-    purple: VOICES.rider.accent,
-    purpleLight: CYAN,
-    gold: '#F59E0B',
-    white: '#EAF3F6',
-    muted: 'rgba(255,255,255,0.7)',
-};
+import { toast } from '../components/Toast';
+import { BRAND_GRADIENT, BrandBadge, Chip, EmptyState, FONT, GUTTER, Header, IconButton, Loading, SPACE, Txt, useTheme } from '../ui/kit';
 
 interface Message {
     id: string;
@@ -39,7 +19,6 @@ interface Message {
 }
 
 export function ChatScreen({ route, navigation }: any) {
-    const { width } = useWindowDimensions();
     const { rideId, driver } = route.params;
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
@@ -97,128 +76,78 @@ export function ChatScreen({ route, navigation }: any) {
             type: 'text'
         });
 
-        if (error) Alert.alert('Error', 'Failed to send message');
+        if (error) { toast('Message not sent. Please try again.', 'error'); setInputText(text); }
     };
 
-    const quickReplies = ["I'm outside 👋", "On my way down", "Running 2 min late", "Which entrance?", "👍 Got it"];
+    const m = useTheme();
+    const quickReplies = ["I'm outside 👋", 'On my way down', 'Running 2 min late', 'Which entrance?', '👍 Got it'];
+    const phone = driver?.phone_number || driver?.phone;
 
     const renderMessage = ({ item }: { item: Message }) => {
         const isSelf = item.sender_id === user?.id;
         return (
-            <View style={[s.msgRow, isSelf ? s.msgSelf : s.msgOther]}>
-                {!isSelf && <View style={s.msgAvatar}><Txt style={{ fontSize: 10, color: '#EAF3F6' }}>DR</Txt></View>}
-                <View style={[s.bubble, isSelf ? s.bubbleSelf : s.bubbleOther]}>
-                    {isSelf && (
-                        <LinearGradient
-                            colors={[VOICES.rider.accent, CYAN]}
-                            start={{x: 0, y: 0}}
-                            end={{x: 1, y: 0}}
-                            style={StyleSheet.absoluteFillObject}
-                        />
+            <View style={{ flexDirection: 'row', justifyContent: isSelf ? 'flex-end' : 'flex-start', marginBottom: SPACE.sm }}>
+                <View style={{ maxWidth: '80%', borderRadius: 20, borderBottomRightRadius: isSelf ? 6 : 20, borderBottomLeftRadius: isSelf ? 20 : 6, overflow: 'hidden',
+                    backgroundColor: isSelf ? undefined : m.field }}>
+                    {isSelf ? (
+                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingHorizontal: SPACE.lg, paddingVertical: SPACE.md }}>
+                            <Txt variant="body" tone="onBrand">{item.content}</Txt>
+                        </LinearGradient>
+                    ) : (
+                        <View style={{ paddingHorizontal: SPACE.lg, paddingVertical: SPACE.md }}>
+                            <Txt variant="body">{item.content}</Txt>
+                        </View>
                     )}
-                    <Txt variant="bodyReg" color="#EAF3F6">{item.content}</Txt>
                 </View>
             </View>
         );
     };
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
+        <View style={{ flex: 1, backgroundColor: m.page }}>
+            <StatusBar style={m.statusBar} />
+            <Header
+                title={driver?.name || 'Your driver'}
+                onBack={() => navigation.goBack()}
+                right={phone ? <IconButton icon="call-outline" label="Call your driver" onPress={() => Linking.openURL(`tel:${phone}`)} /> : undefined}
+            />
 
-            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
-                <View style={s.headerTitle}>
-                    <Txt variant="bodyBold" color="#EAF3F6">{driver?.name || 'Driver'}</Txt>
-                    <View style={s.statusRow}>
-                        <View style={[s.statusDot, { backgroundColor: CYAN }]} />
-                        <Txt variant="caption" color={R.muted}>Active Engagement</Txt>
-                    </View>
-                </View>
-                <TouchableOpacity style={s.headerBtn}>
-                    <Ionicons name="call" size={20} color="#EAF3F6" />
-                </TouchableOpacity>
-            </View>
-
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                style={{ flex: 1 }}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-            >
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
                 <FlatList<Message>
                     ref={flatListRef}
                     data={messages}
                     keyExtractor={item => item.id}
                     renderItem={renderMessage}
-                    contentContainerStyle={s.list}
+                    contentContainerStyle={{ padding: GUTTER, flexGrow: 1 }}
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                    ListEmptyComponent={loading ? <Loading /> : <EmptyState icon="chatbubbles-outline" title="Say hello" body="Messages with your driver show up here." />}
                 />
 
-                <View style={s.quickReplies}>
-                    <FlatList<string>
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        data={quickReplies}
-                        keyExtractor={item => item}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity style={s.chip} onPress={() => handleSend(item)}>
-                                <Txt variant="small" color="#EAF3F6">{item}</Txt>
-                            </TouchableOpacity>
-                        )}
-                        contentContainerStyle={{ paddingHorizontal: 16 }}
-                    />
-                </View>
+                <FlatList<string>
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    data={quickReplies}
+                    keyExtractor={item => item}
+                    renderItem={({ item }) => <Chip label={item} onPress={() => handleSend(item)} />}
+                    contentContainerStyle={{ paddingHorizontal: GUTTER }}
+                    style={{ flexGrow: 0 }}
+                />
 
-                <View style={[s.inputArea, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-                    <View style={s.inputWrap}>
-                        <TextInput
-                            style={s.input}
-                            placeholder="Message driver..."
-                            placeholderTextColor={R.muted}
-                            value={inputText}
-                            onChangeText={setInputText}
-                            multiline
-                        />
-                        <TouchableOpacity style={s.sendBtn} onPress={() => handleSend()}>
-                            <LinearGradient
-                                colors={[VOICES.rider.accent, CYAN]}
-                                style={s.sendGrad}
-                            >
-                                <Ionicons name="send" size={18} color="#EAF3F6" />
-                            </LinearGradient>
-                        </TouchableOpacity>
-                    </View>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: GUTTER, paddingTop: SPACE.sm, paddingBottom: Math.max(insets.bottom, SPACE.lg), borderTopWidth: 1, borderTopColor: m.chipBorder }}>
+                    <TextInput
+                        style={{ flex: 1, minHeight: 48, maxHeight: 120, borderRadius: 24, paddingHorizontal: SPACE.lg, paddingTop: 13, paddingBottom: 13,
+                            backgroundColor: m.field, color: m.ink, fontFamily: FONT.medium, fontSize: 16 }}
+                        placeholder="Message your driver"
+                        placeholderTextColor={m.faint}
+                        value={inputText}
+                        onChangeText={setInputText}
+                        multiline
+                    />
+                    <Pressable accessibilityRole="button" accessibilityLabel="Send" onPress={() => handleSend()} style={{ marginLeft: SPACE.sm }}>
+                        <BrandBadge icon="send" size={48} round />
+                    </Pressable>
                 </View>
             </KeyboardAvoidingView>
         </View>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 16 },
-    headerBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { flex: 1, marginLeft: 16 },
-    statusRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-    statusDot: { width: 6, height: 6, borderRadius: 3, marginRight: 6 },
-
-    list: { padding: 24, paddingBottom: 100 },
-    msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 16 },
-    msgSelf: { justifyContent: 'flex-end' },
-    msgOther: { justifyContent: 'flex-start' },
-    msgAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: R.purple, alignItems: 'center', justifyContent: 'center' },
-    bubble: { maxWidth: '80%', padding: 16, borderRadius: 24, overflow: 'hidden' },
-    bubbleSelf: { borderBottomRightRadius: 4 },
-    bubbleOther: { backgroundColor: 'rgba(255,255,255,0.03)', borderBottomLeftRadius: 4, ...ghostBorder(0.05) },
-
-    quickReplies: { paddingVertical: 16 },
-    chip: { backgroundColor: 'rgba(255,255,255,0.03)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, marginRight: 12, ...ghostBorder(0.05) },
-
-    inputArea: { paddingHorizontal: 20, paddingTop: 12 },
-    inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 32, paddingLeft: 24, paddingRight: 8, paddingVertical: 8, ...ghostBorder(0.05) },
-    input: { flex: 1, color: '#EAF3F6', fontSize: 16, maxHeight: 120, paddingVertical: 10 },
-    sendBtn: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden' },
-    sendGrad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-});
