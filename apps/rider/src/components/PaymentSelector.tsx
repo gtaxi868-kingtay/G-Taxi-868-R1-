@@ -48,8 +48,8 @@ export function PaymentSelector({ selected, onSelect, walletBalance, requiredAmo
                             }}
                             style={({ pressed }) => ({
                                 flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: 60, padding: SPACE.md,
-                                borderRadius: RADIUS.field, borderWidth: 1.5,
-                                borderColor: on ? m.accent : m.chipBorder,
+                                borderRadius: RADIUS.field, borderWidth: 2, borderBottomWidth: 4,
+                                borderColor: on ? '#8B7CFF' : (m.key === 'day' ? '#E7E1F0' : 'rgba(255,255,255,0.10)'),
                                 backgroundColor: on ? (m.key === 'day' ? 'rgba(122,92,255,0.08)' : 'rgba(185,174,255,0.12)') : m.chip,
                                 opacity: opt.disabled ? 0.5 : pressed ? 0.85 : 1,
                             })}

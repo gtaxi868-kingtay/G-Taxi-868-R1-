@@ -57,6 +57,8 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
         if (user?.id) {
             fetchProfileStats();
             fetchProgressionPerks();
+        } else {
+            setLoading(false);
         }
     }, [user?.id, fetchProfileStats]);
     

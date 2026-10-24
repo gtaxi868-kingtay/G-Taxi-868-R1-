@@ -41,8 +41,8 @@ export function LaundryLandingScreen({ navigation }: any) {
                     <Pressable key={svc.id} accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={svc.label}
                         onPress={() => { Haptics.selectionAsync(); setSelected(svc); }}
                         style={({ pressed }) => ({
-                            flexDirection: 'row', alignItems: 'center', padding: SPACE.lg, marginBottom: SPACE.md, borderRadius: RADIUS.card, borderWidth: 1.5,
-                            borderColor: on ? m.accent : m.chipBorder, backgroundColor: on ? (m.key === 'day' ? 'rgba(122,92,255,0.08)' : 'rgba(185,174,255,0.12)') : m.chip,
+                            flexDirection: 'row', alignItems: 'center', padding: SPACE.lg, marginBottom: SPACE.md, borderRadius: RADIUS.card, borderWidth: 2, borderBottomWidth: 4,
+                            borderColor: on ? '#8B7CFF' : (m.key === 'day' ? '#E7E1F0' : 'rgba(255,255,255,0.10)'), backgroundColor: on ? (m.key === 'day' ? 'rgba(122,92,255,0.08)' : 'rgba(185,174,255,0.12)') : m.chip,
                             opacity: pressed ? 0.85 : 1,
                         })}>
                         <View style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>

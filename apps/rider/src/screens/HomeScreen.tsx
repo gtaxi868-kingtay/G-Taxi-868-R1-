@@ -861,11 +861,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                     </Marker>
                 ))}
             </MapView>
-            {Platform.OS === 'web' && ENV.MAPBOX_PUBLIC_TOKEN ? (
-                // Web preview only: a still map in the same place as the live phone map.
-                <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image resizeMode="cover" style={StyleSheet.absoluteFillObject}
-                    source={{ uri: `https://api.mapbox.com/styles/v1/mapbox/${tileStyle}/static/${currentLng},${currentLat},14.5,0/600x1200@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}&attribution=false&logo=false` }} /></View>
-            ) : null}
             <LinearGradient pointerEvents="none" colors={m.mapWash as any} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 180 }} />
 
             {/* Your pickup, centred in the visible map */}

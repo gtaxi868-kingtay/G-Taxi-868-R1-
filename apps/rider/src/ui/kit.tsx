@@ -107,6 +107,11 @@ function useKeyPress() {
     return { translateY, onPressIn, onPressOut };
 }
 
+// Light haptic tick that can never throw (some devices/test mocks return nothing).
+function tick() {
+    try { Promise.resolve(Haptics.selectionAsync()).catch(() => {}); } catch { /* no haptics */ }
+}
+
 // Darken a #RRGGBB colour for the 3D lip under a face.
 export function shade(hex: string, amt = 0.22): string {
     const h = hex.replace('#', '');
@@ -274,7 +279,7 @@ export function Button({
     return (
         <Pressable
             accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled: !!off, busy: !!loading }}
-            onPress={off ? undefined : () => { Haptics.selectionAsync().catch(() => {}); onPress?.(); }}
+            onPress={off ? undefined : () => { tick(); onPress?.(); }}
             onPressIn={off ? undefined : onPressIn} onPressOut={off ? undefined : onPressOut}
             style={[{ opacity: off ? 0.5 : 1 }, style]}
         >
@@ -352,7 +357,7 @@ export function Card({ children, style, onPress }: { children: React.ReactNode; 
     };
     if (!onPress) return <View style={[box, style]}>{children}</View>;
     return (
-        <Pressable accessibilityRole="button" onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress(); }} onPressIn={onPressIn} onPressOut={onPressOut}>
+        <Pressable accessibilityRole="button" onPress={() => { tick(); onPress(); }} onPressIn={onPressIn} onPressOut={onPressOut}>
             <Animated.View style={[box, style, { transform: [{ scale }] }]}>{children}</Animated.View>
         </Pressable>
     );
@@ -408,7 +413,7 @@ export function Chip({ label, icon, selected, onPress }: { label: string; icon?:
     const border = selected ? '#8B7CFF' : (m.key === 'day' ? '#E7E1F0' : 'rgba(255,255,255,0.10)');
     return (
         <Pressable accessibilityRole="button" accessibilityState={{ selected: !!selected }}
-            onPress={() => { Haptics.selectionAsync().catch(() => {}); onPress?.(); }} onPressIn={onPressIn} onPressOut={onPressOut}
+            onPress={() => { tick(); onPress?.(); }} onPressIn={onPressIn} onPressOut={onPressOut}
             style={{ marginRight: SPACE.sm, marginBottom: SPACE.sm }}>
             <Animated.View style={{
                 flexDirection: 'row', alignItems: 'center', height: 42, paddingHorizontal: 14, borderRadius: 14,

@@ -45,10 +45,26 @@ interface VehicleOption {
 // truck/hiab/wrecker) comes from the vehicle_classes table, which RLS limits
 // to active classes. Multipliers here must match _shared/pricing.ts.
 const FALLBACK_VEHICLES: VehicleOption[] = [
-    { key: 'standard', label: 'Standard', multiplier: 1.0, icon: 'car-outline', desc: 'Daily logistics', minFareCents: null },
-    { key: 'xl', label: 'XL', multiplier: 1.5, icon: 'bus-outline', desc: 'Group & Bulk', minFareCents: null },
-    { key: 'premium', label: 'Premium', multiplier: 2.0, icon: 'star-outline', desc: 'Executive Pro', minFareCents: null },
+    { key: 'standard', label: 'Standard', multiplier: 1.0, icon: 'car-outline', desc: 'Everyday rides', minFareCents: null },
+    { key: 'xl', label: 'XL', multiplier: 1.5, icon: 'bus-outline', desc: 'Room for the whole crew', minFareCents: null },
+    { key: 'premium', label: 'Premium', multiplier: 2.0, icon: 'star-outline', desc: 'Top-rated cars and drivers', minFareCents: null },
 ];
+
+// What riders see under each ride type. vehicle_classes.description holds
+// admin notes (rate research for heavy classes), so it is only shown when it
+// is short enough to be a rider-facing line.
+const RIDER_DESC: Record<string, string> = {
+    standard: 'Everyday rides',
+    xl: 'Room for the whole crew',
+    premium: 'Top-rated cars and drivers',
+    truck: 'Flatbed and cargo moves',
+    hiab: 'Crane lifts and drops',
+    wrecker: 'Towing and recovery',
+};
+function riderDesc(key: string, dbDesc?: string | null): string {
+    if (RIDER_DESC[key]) return RIDER_DESC[key];
+    return dbDesc && dbDesc.length <= 40 ? dbDesc : '';
+}
 
 export function RideConfirmationScreen({ navigation, route }: any) {
     const { height } = useWindowDimensions();
@@ -105,7 +121,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                             label: d.label,
                             multiplier: d.multiplier_x100 / 100,
                             icon: d.icon || 'car-outline',
-                            desc: d.description || '',
+                            desc: riderDesc(d.key, d.description),
                             minFareCents: d.min_fare_cents ?? null,
                         })));
                     }
@@ -460,6 +476,12 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             {/* Route map */}
             <View style={{ height: mapH + 28 }}>
                 <MapView ref={mapRef} style={StyleSheet.absoluteFillObject} provider={PROVIDER_DEFAULT} userInterfaceStyle={night ? 'dark' : 'light'}
+                    initialRegion={{
+                        latitude: (pickupLoc.latitude + (destination?.latitude ?? pickupLoc.latitude)) / 2,
+                        longitude: (pickupLoc.longitude + (destination?.longitude ?? pickupLoc.longitude)) / 2,
+                        latitudeDelta: Math.max(0.02, Math.abs(pickupLoc.latitude - (destination?.latitude ?? pickupLoc.latitude)) * 1.8),
+                        longitudeDelta: Math.max(0.02, Math.abs(pickupLoc.longitude - (destination?.longitude ?? pickupLoc.longitude)) * 1.8),
+                    }}
                     mapPadding={{ top: insets.top + 50, right: 24, bottom: 48, left: 24 }}>
                     {ENV.MAPBOX_PUBLIC_TOKEN && (
                         <UrlTile key={tileStyle} urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${tileStyle}/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent={true} />
@@ -524,7 +546,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                                     onPress={() => { Haptics.selectionAsync(); setSelectedType(v.key); }}
                                     style={({ pressed }) => ({
                                         flexDirection: 'row', alignItems: 'center', padding: SPACE.md, marginBottom: i === vehicles.length - 1 ? 0 : SPACE.sm,
-                                        borderRadius: RADIUS.field, borderWidth: 1.5, borderColor: on ? m.accent : m.chipBorder,
+                                        borderRadius: RADIUS.field, borderWidth: 2, borderBottomWidth: 4, borderColor: on ? '#8B7CFF' : (m.key === 'day' ? '#E7E1F0' : 'rgba(255,255,255,0.10)'),
                                         backgroundColor: on ? (m.key === 'day' ? 'rgba(122,92,255,0.08)' : 'rgba(185,174,255,0.12)') : m.chip,
                                         opacity: pressed ? 0.85 : 1,
                                     })}

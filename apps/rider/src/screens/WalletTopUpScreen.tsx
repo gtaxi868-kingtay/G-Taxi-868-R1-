@@ -137,8 +137,8 @@ export function WalletTopUpScreen({ navigation }: any) {
                                 <Pressable accessibilityRole="radio" accessibilityState={{ selected: on }} accessibilityLabel={`$${amt} TTD`}
                                     onPress={() => handleAmountSelect(amt)}
                                     style={({ pressed }) => ({
-                                        height: 72, borderRadius: RADIUS.field, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
-                                        borderColor: on ? m.accent : m.chipBorder, backgroundColor: on ? (m.key === 'day' ? 'rgba(122,92,255,0.08)' : 'rgba(185,174,255,0.12)') : m.chip,
+                                        height: 72, borderRadius: RADIUS.field, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderBottomWidth: 4,
+                                        borderColor: on ? '#8B7CFF' : (m.key === 'day' ? '#E7E1F0' : 'rgba(255,255,255,0.10)'), backgroundColor: on ? (m.key === 'day' ? 'rgba(122,92,255,0.08)' : 'rgba(185,174,255,0.12)') : m.chip,
                                         opacity: pressed ? 0.85 : 1,
                                     })}>
                                     <Txt variant="title">${amt}</Txt>

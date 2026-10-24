@@ -43,6 +43,7 @@ export const GALLERY_PARAMS: Record<string, any> = {
     DriverFound: {
         driverId: '00000000-0000-0000-0000-000000000000', rideId: '00000000-0000-0000-0000-000000000000',
         driverName: 'Marcus', driverRating: 4.9, vehicle: 'Toyota Corolla', plate: 'PDX 4821', eta: 4, destination: DEST,
+        driver: { name: 'Marcus Joseph', vehicle: 'Toyota Corolla · Silver', plate: 'PDX 4821', rating: 4.9 },
     },
     NfcHandshake: {},
     NfcScan: { mode: 'scan' },
