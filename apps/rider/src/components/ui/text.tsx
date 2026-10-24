@@ -8,6 +8,8 @@ import { cn } from '../../lib/cn';
 const textVariants = cva('text-ink', {
     variants: {
         variant: {
+            // Brand serif, for welcome moments only (Cormorant Garamond).
+            greeting: 'font-display text-[33px] leading-[38px] tracking-[-0.2px]',
             display: 'font-heavy text-[30px] leading-[36px] tracking-[-0.6px]',
             title: 'font-bold text-[22px] leading-[28px] tracking-[-0.3px]',
             headline: 'font-semibold text-[17px] leading-[22px]',

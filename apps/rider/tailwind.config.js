@@ -1,5 +1,5 @@
 // Design tokens for the rider app (NativeWind = Tailwind for React Native).
-// One quiet dark palette, one typeface (Manrope), one brand accent.
+// Warm dark palette, Manrope for UI, Cormorant for the welcome, brand purple->cyan.
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ['./App.tsx', './src/**/*.{ts,tsx}'],
@@ -7,16 +7,18 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg: '#0A0A0F',
-        sheet: '#111117',
-        surface: '#17171F',
-        raised: '#20202A',
-        line: 'rgba(255,255,255,0.07)',
-        ink: '#F5F5F7',
-        dim: 'rgba(245,245,247,0.62)',
-        faint: 'rgba(245,245,247,0.40)',
-        brand: { DEFAULT: '#8B7CFF', soft: 'rgba(139,124,255,0.14)', cyan: '#3FD9E8' },
-        safe: '#3DDC97',
+        // Warm luxury: aubergine-black base and ivory text (not cold blue-black
+        // and stark white), with the brand purple->cyan kept for key moments.
+        bg: '#0D0B11',
+        sheet: '#15121A',
+        surface: '#1C1822',
+        raised: '#251F2D',
+        line: 'rgba(255,240,230,0.08)',
+        ink: '#F7F2EC',
+        dim: 'rgba(247,242,236,0.66)',
+        faint: 'rgba(247,242,236,0.42)',
+        brand: { DEFAULT: '#8B7CFF', soft: 'rgba(139,124,255,0.16)', cyan: '#3FD9E8' },
+        safe: '#5BD8A0',
       },
       fontFamily: {
         sans: ['Manrope_500Medium'],

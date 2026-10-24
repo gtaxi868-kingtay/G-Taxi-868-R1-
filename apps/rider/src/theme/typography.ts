@@ -49,6 +49,24 @@ function weightFor(fontWeight: unknown, fallback: Weight): Weight {
     }
 }
 
+const FONT_CLASS = /(^|\s)font-/;
+
+// True when NativeWind classes on this element choose a font. Native: the
+// className prop. Web: react-native-web carries the classes inside style as
+// objects marked $$css, so look there too.
+function setsOwnFont(props: any): boolean {
+    if (typeof props?.className === 'string' && FONT_CLASS.test(props.className)) return true;
+    const visit = (st: any): boolean => {
+        if (!st) return false;
+        if (Array.isArray(st)) return st.some(visit);
+        if (typeof st === 'object' && st.$$css) {
+            return Object.entries(st).some(([k, v]) => FONT_CLASS.test(k) || (typeof v === 'string' && FONT_CLASS.test(v)));
+        }
+        return false;
+    };
+    return visit(props?.style);
+}
+
 let applied = false;
 
 // Call once, before the first render (App.tsx does).
@@ -59,6 +77,10 @@ export function applyGlobalFont(): void {
         const original = Component?.render;
         if (typeof original !== 'function') continue;
         Component.render = function patchedRender(props: any, ref: any) {
+            // A NativeWind className that sets a font (font-display, font-bold...)
+            // is the component's own choice: leave it alone. On web NativeWind
+            // uses real CSS classes, so the style prop alone would not show it.
+            if (setsOwnFont(props)) return original.call(this, props, ref);
             const flat = StyleSheet.flatten(props?.style) || {};
             const family: string | undefined = flat.fontFamily;
             const isManropeFile = typeof family === 'string' && family.startsWith('Manrope_');
