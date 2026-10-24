@@ -1,164 +1,106 @@
 import React, { useEffect } from 'react';
-import {
-    Image, View, StyleSheet, TouchableOpacity,
-    useWindowDimensions, Pressable, Alert
-} from 'react-native';
+import { Alert, Image, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
+import Constants from 'expo-constants';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@gtaxi/core';
-import { Txt } from '@/design-system/primitives';
-import { Logo } from '@gtaxi/design-system/native';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
-
-const CYAN = '#06B6D4';
+import { BRAND_GRADIENT, GUTTER, Row, SPACE, Txt, useTheme } from '../ui/kit';
 
 interface SidebarProps {
     visible: boolean;
     onClose: () => void;
     user?: {
         name: string;
-        rating: number;
+        rating?: number;
         photo_url?: string;
     };
     navigation: any;
 }
 
+const EASE = Easing.bezier(0.23, 1, 0.32, 1);
+
 export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
+    const m = useTheme();
+    const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
-    const SIDEBAR_WIDTH = width * 0.8;
-    const slideAnim = useSharedValue(-SIDEBAR_WIDTH);
-    const fadeAnim = useSharedValue(0);
+    const PANEL_W = Math.min(width * 0.84, 360);
+    const slide = useSharedValue(-PANEL_W);
+    const fade = useSharedValue(0);
 
     useEffect(() => {
         if (visible) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            slideAnim.value = withSpring(0, ANIMATION.spring);
-            fadeAnim.value = withTiming(1, { duration: 300 });
+            slide.value = withTiming(0, { duration: 280, easing: EASE });
+            fade.value = withTiming(1, { duration: 220 });
         } else {
-            slideAnim.value = withTiming(-SIDEBAR_WIDTH, { duration: 250 });
-            fadeAnim.value = withTiming(0, { duration: 250 });
+            slide.value = withTiming(-PANEL_W, { duration: 220, easing: EASE });
+            fade.value = withTiming(0, { duration: 200 });
         }
     }, [visible]);
 
-    const backdropStyle = useAnimatedStyle(() => ({
-        opacity: fadeAnim.value,
-    }));
-
-    const panelStyle = useAnimatedStyle(() => ({
-        transform: [{ translateX: slideAnim.value }],
-    }));
+    const backdropStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+    const panelStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.value }] }));
 
     if (!visible) return null;
 
-    const navigateTo = (screen: string) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const go = (screen: string) => {
+        Haptics.selectionAsync();
         onClose();
         navigation.navigate(screen);
     };
 
     const handleLogout = () => {
-        Alert.alert("Log Out", "Are you sure you want to log out?", [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Log Out",
-                style: "destructive",
-                onPress: async () => {
-                    await supabase.auth.signOut();
-                    onClose();
-                }
-            }
+        Alert.alert('Sign out?', 'You can sign back in any time.', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Sign out', style: 'destructive', onPress: async () => { await supabase.auth.signOut(); onClose(); } },
         ]);
     };
 
     return (
-        <View style={s.overlay}>
-            <Animated.View style={[s.backdrop, backdropStyle]}>
-                <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 }}>
+            <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(10,6,20,0.5)' }, backdropStyle]}>
+                <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close menu" />
             </Animated.View>
 
-            <Animated.View style={[s.panel, { width: SIDEBAR_WIDTH }, panelStyle]}>
-                <View style={[s.blur, glassSurface(100, 0.2)]}>
-
-                    <TouchableOpacity style={s.header} onPress={() => navigateTo('Profile')}>
-                        <LinearGradient colors={[VOICES.rider.accent, VOICES.rider.accentDark]} style={s.avatarBorder}>
-                            <View style={s.avatarInner}>
-                                {user?.photo_url ? (
-                                    <Image source={{ uri: user.photo_url }} style={s.image} />
-                                ) : (
-                                    <Txt variant="headingM" weight="heavy" color="#EAF3F6">{user?.name?.charAt(0) || 'R'}</Txt>
-                                )}
-                            </View>
-                        </LinearGradient>
-                        <View style={s.userInfo}>
-                            <Txt variant="headingM" weight="heavy" color="#EAF3F6">{user?.name || 'Rider'}</Txt>
-                            <View style={s.rating}>
-                                <Ionicons name="star" size={12} color="#FFD700" />
-                                <Txt variant="caption" weight="heavy" color="#FFD700" style={{ marginLeft: 4 }}>
-                                    {user?.rating?.toFixed(1) || '5.0'}
-                                </Txt>
-                            </View>
+            <Animated.View style={[{ position: 'absolute', top: 0, bottom: 0, left: 0, width: PANEL_W, backgroundColor: m.sheet[1], borderTopRightRadius: 28, borderBottomRightRadius: 28, overflow: 'hidden' }, panelStyle]}>
+                <ScrollView contentContainerStyle={{ paddingTop: insets.top + SPACE.xl, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.lg, paddingHorizontal: GUTTER }}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Your profile" onPress={() => go('Profile')}
+                        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', opacity: pressed ? 0.8 : 1 })}>
+                        <View style={{ width: 56, height: 56, borderRadius: 28, overflow: 'hidden' }}>
+                            {user?.photo_url ? (
+                                <Image source={{ uri: user.photo_url }} style={{ width: 56, height: 56 }} />
+                            ) : (
+                                <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                    <Txt variant="title" tone="onBrand">{user?.name?.charAt(0) || 'G'}</Txt>
+                                </LinearGradient>
+                            )}
                         </View>
-                    </TouchableOpacity>
+                        <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                            <Txt variant="title" numberOfLines={1}>{user?.name || 'Rider'}</Txt>
+                            <Txt variant="caption" tone="accent">View your profile</Txt>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={m.faint} />
+                    </Pressable>
 
-                    <View style={s.menu}>
-                        <MenuItem icon="car" label="Your Trips" onPress={() => navigateTo('Trips')} />
-                        <MenuItem icon="wallet" label="Wallet" onPress={() => navigateTo('Wallet')} />
-                        <MenuItem icon="bookmark" label="Saved Places" onPress={() => navigateTo('SavedPlaces')} />
-                        <MenuItem icon="gift" label="Promotions" onPress={() => navigateTo('Promo')} />
-                        <MenuItem icon="settings" label="Settings" onPress={() => navigateTo('Settings')} />
-                        <MenuItem icon="help-circle" label="Help" onPress={() => navigateTo('Help')} />
+                    <View style={{ marginTop: SPACE.xl }}>
+                        <Row icon="car-outline" title="Your trips" onPress={() => go('Trips')} />
+                        <Row icon="wallet-outline" title="Wallet" onPress={() => go('Wallet')} />
+                        <Row icon="bookmark-outline" title="Saved places" onPress={() => go('SavedPlaces')} />
+                        <Row icon="notifications-outline" title="Notifications" onPress={() => go('Notifications')} />
+                        <Row icon="gift-outline" title="Promotions" onPress={() => go('Promo')} />
+                        <Row icon="people-outline" title="Invite friends" onPress={() => go('Referral')} />
+                        <Row icon="settings-outline" title="Settings" onPress={() => go('Settings')} />
+                        <Row icon="help-buoy-outline" title="Help" onPress={() => go('Help')} last />
                     </View>
 
-                    <View style={s.footer}>
-                        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout}>
-                            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-                            <Txt variant="bodyBold" color="#EF4444" style={{ marginLeft: 12 }}>Sign out</Txt>
-                        </TouchableOpacity>
+                    <Row icon="log-out-outline" title="Sign out" danger onPress={handleLogout} right={<View />} last />
 
-                        <View style={s.footerLogo}>
-                            <Logo size={24} variant="full" />
-                            <Txt variant="small" color="#AEA9B5" style={{ marginTop: 12 }}>
-                                EMPIRE OS • V3.2 PREMIUM
-                            </Txt>
-                        </View>
-                    </View>
-
-                </View>
+                    <Txt variant="caption" tone="faint" style={{ marginTop: SPACE.xl }}>G 868 · version {Constants.expoConfig?.version || '1.0'}</Txt>
+                </ScrollView>
             </Animated.View>
         </View>
     );
 }
-
-const MenuItem = ({ icon, label, onPress }: any) => (
-    <TouchableOpacity style={s.menuItem} onPress={onPress}>
-        <View style={s.menuIcon}>
-            <Ionicons name={icon as any} size={22} color={VOICES.rider.accent} />
-        </View>
-        <Txt variant="bodyBold" color="#EAF3F6" style={{ fontSize: 16 }}>{label}</Txt>
-    </TouchableOpacity>
-);
-
-const s = StyleSheet.create({
-    overlay: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
-    backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
-    panel: { height: '100%', backgroundColor: 'transparent' },
-    blur: { flex: 1, paddingHorizontal: 20 },
-
-    header: { flexDirection: 'row', alignItems: 'center', marginTop: 80, marginBottom: 40, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 24, ...ghostBorder(0.08) },
-    avatarBorder: { width: 62, height: 62, borderRadius: 31, padding: 2, alignItems: 'center', justifyContent: 'center' },
-    avatarInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#1A1823', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-    image: { width: '100%', height: '100%' },
-    userInfo: { marginLeft: 16 },
-    rating: { flexDirection: 'row', alignItems: 'center', marginTop: 4, backgroundColor: 'rgba(245,158,11,0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, alignSelf: 'flex-start' },
-
-    menu: { flex: 1, gap: 4 },
-    menuItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16 },
-    menuIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: `${VOICES.rider.accent}0D`, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
-
-    footer: { paddingVertical: 32, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
-    logoutBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: 'rgba(239,68,68,0.05)', marginBottom: 24 },
-    footerLogo: { alignItems: 'center', opacity: 0.8 },
-});

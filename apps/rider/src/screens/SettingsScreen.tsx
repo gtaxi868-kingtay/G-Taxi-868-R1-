@@ -1,38 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity, Switch,
-    ScrollView, Alert, useWindowDimensions, TextInput, ActivityIndicator, Linking
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Alert, Linking } from 'react-native';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { usePlatformFlags } from '../hooks/usePlatformFlags';
-import { Txt } from '@/design-system/primitives';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
+import { toast } from '../components/Toast';
+import { Button, Card, Field, Row, Screen, Section, SPACE, Toggle, Txt, useTheme } from '../ui/kit';
 import { LEGAL_DOC_URLS } from '@g868/shared/legal';
 
-const CYAN = '#06B6D4';
-
-const R = {
-    bg: SURFACE.base,
-    surface: 'rgba(255,255,255,0.08)',
-    border: 'rgba(191,64,255,0.2)',
-    purple: VOICES.rider.accent,
-    purpleLight: VOICES.rider.accent,
-    gold: '#F59E0B',
-    white: '#EAF3F6',
-    muted: '#AEA9B5',
-};
-
 export function SettingsScreen({ navigation }: any) {
-    const { width } = useWindowDimensions();
     const { user } = useAuth();
-    const insets = useSafeAreaInsets();
     // 'opt_in_ai_routing' on the admin's Platform Control page. Until now that
     // switch controlled nothing; this is the read that makes it real.
     const { flags } = usePlatformFlags();
@@ -167,7 +147,7 @@ export function SettingsScreen({ navigation }: any) {
     const saveEmergencyContact = async () => {
         if (!user) return;
         if (!contactName.trim() || !contactPhone.trim()) {
-            Alert.alert('Incomplete', 'Please enter both a name and phone number.');
+            toast('Enter both a name and a phone number.', 'error');
             return;
         }
         setSavingContact(true);
@@ -180,10 +160,10 @@ export function SettingsScreen({ navigation }: any) {
             .eq('id', user.id);
         setSavingContact(false);
         if (error) {
-            Alert.alert('Error', 'Could not save emergency contact. Please try again.');
+            toast('Could not save your emergency contact. Please try again.', 'error');
         } else {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert('Saved', 'Your emergency contact will be notified by SMS if you press SOS during a ride.');
+            toast('Emergency contact saved', 'success');
         }
     };
 
@@ -206,270 +186,102 @@ export function SettingsScreen({ navigation }: any) {
         }
     };
 
+    const m = useTheme();
+    const toggleRow = (title: string, sub: string, value: boolean, onChange: (v: boolean) => void, last?: boolean) => (
+        <Row title={title} subtitle={sub} last={last} right={<Toggle label={title} value={value} onChange={onChange} />} />
+    );
+
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
+        <Screen title="Settings" onBack={() => navigation.goBack()}>
+            <Section title="Notifications" style={{ marginTop: SPACE.sm }}>
+                <Card style={{ paddingVertical: SPACE.xs }}>
+                    {toggleRow('Ride updates', 'Driver arrivals and trip status', notifyRides, (v) => toggleSetting('ride_updates', v))}
+                    {toggleRow('Promotions', 'Discounts and news', notifyPromos, (v) => toggleSetting('promotions', v), true)}
+                </Card>
+            </Section>
 
-            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Settings</Txt>
-            </View>
+            <Section title="Emergency contact">
+                <Card>
+                    <Txt variant="caption" tone="dim" style={{ marginBottom: SPACE.md }}>We tell this person where you are if you press SOS during a ride.</Txt>
+                    <Field label="Name" placeholder="Contact name" value={contactName} onChangeText={setContactName} autoCapitalize="words" />
+                    <Field label="Phone" placeholder="+1 868 000 0000" value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" />
+                    <Button title="Save contact" size="md" variant="secondary" loading={savingContact} onPress={saveEmergencyContact} />
+                </Card>
+            </Section>
 
-            <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 40 }]}>
+            <Section title="Privacy">
+                <Card style={{ paddingVertical: SPACE.xs }}>
+                    {flags.aiRoutingOffered && toggleRow('Smarter routes', 'Share trip data for discounted routes', aiRouting, (v) => toggleSetting('ai_routing', v))}
+                    <Row title="Clear saved app data" subtitle="Resets preferences stored on this phone" last
+                        right={<Ionicons name="refresh-outline" size={20} color={m.faint} />}
+                        onPress={() => Alert.alert('Clear saved app data?', 'Preferences stored on this phone will reset. You stay signed in.', [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Clear', style: 'destructive', onPress: async () => {
+                                try { const keys = await AsyncStorage.getAllKeys(); await AsyncStorage.multiRemove(keys); toast('App data cleared', 'success'); }
+                                catch { toast('Could not clear app data', 'error'); }
+                            } },
+                        ])} />
+                </Card>
+            </Section>
 
-                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>NOTIFICATIONS</Txt>
-                <View style={s.card}>
-                    <SettingRow
-                        label="Ride Updates"
-                        sub="Driver arrivals and status"
-                        value={notifyRides}
-                        onToggle={(v: boolean) => toggleSetting('ride_updates', v)}
-                    />
-                    <View style={s.divider} />
-                    <SettingRow
-                        label="Promotions"
-                        sub="Discounts and news"
-                        value={notifyPromos}
-                        onToggle={(v: boolean) => toggleSetting('promotions', v)}
-                    />
-                </View>
-
-                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>EMERGENCY CONTACT</Txt>
-                <View style={s.card}>
-                    <View style={{ padding: 20, paddingBottom: 8 }}>
-                        <Txt variant="small" color={R.muted}>
-                            Notified by SMS with your live location if you press SOS during a ride.
-                        </Txt>
+            <Section title="G-Level">
+                <Card onPress={() => { Haptics.selectionAsync(); (navigation as any).navigate('Subscription'); }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Txt variant="bodyStrong" style={{ flex: 1 }}>{progTier === 'g_member' ? 'G-Member' : `Level ${progLevel}`}</Txt>
+                        <Ionicons name="chevron-forward" size={18} color={m.faint} />
                     </View>
-                    <TextInput
-                        style={s.input}
-                        placeholder="Contact name"
-                        placeholderTextColor={R.muted}
-                        value={contactName}
-                        onChangeText={setContactName}
-                    />
-                    <TextInput
-                        style={s.input}
-                        placeholder="Phone number (e.g. +1868...)"
-                        placeholderTextColor={R.muted}
-                        value={contactPhone}
-                        onChangeText={setContactPhone}
-                        keyboardType="phone-pad"
-                    />
-                    <TouchableOpacity style={s.saveBtn} onPress={saveEmergencyContact} disabled={savingContact}>
-                        {savingContact ? (
-                            <ActivityIndicator size="small" color="#EAF3F6" />
-                        ) : (
-                            <Txt variant="bodyBold" color="#EAF3F6">Save Emergency Contact</Txt>
-                        )}
-                    </TouchableOpacity>
-                </View>
+                    <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.xs }}>
+                        {progTier === 'g_member'
+                            ? '15% off all rides, priority matching and 20 minutes free waiting.'
+                            : progLevel >= 5
+                                ? 'You qualify for G-Member. Tap to see the benefits.'
+                                : `${progDiscount > 0 ? `${progDiscount}% off rides now. ` : ''}Ride more to unlock better perks.`}
+                    </Txt>
+                </Card>
+            </Section>
 
-                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>PRIVACY & SECURITY</Txt>
-                <View style={s.card}>
-                    {flags.aiRoutingOffered && (
-                        <>
-                            <SettingRow
-                                label="AI Route Opt-In"
-                                sub="Share data for discount routes"
-                                value={aiRouting}
-                                onToggle={(v: boolean) => toggleSetting('ai_routing', v)}
-                            />
-                            <View style={s.divider} />
-                        </>
-                    )}
-                    <TouchableOpacity style={s.row} onPress={async () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); try { const keys = await AsyncStorage.getAllKeys(); await AsyncStorage.multiRemove(keys); Alert.alert('Cache Cleared', 'Local storage has been refreshed.'); } catch { Alert.alert('Error', 'Could not clear cache.'); } }}>
-                        <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color="#EAF3F6">Clear App Cache</Txt>
-                            <Txt variant="small" color={R.muted}>Refresh local storage</Txt>
-                        </View>
-                        <Ionicons name="trash-outline" size={20} color={R.muted} />
-                    </TouchableOpacity>
-                </View>
+            <Section title="More">
+                <Card style={{ paddingVertical: SPACE.xs }}>
+                    <Row icon="people-outline" title="Invite friends" subtitle="Give TT$15, get TT$15" onPress={() => (navigation as any).navigate('Referral')} />
+                    <Row icon="document-text-outline" title="Terms of Service" onPress={() => Linking.openURL(LEGAL_DOC_URLS.terms_of_service)} />
+                    <Row icon="lock-closed-outline" title="Privacy Policy" onPress={() => Linking.openURL(LEGAL_DOC_URLS.privacy_policy)} />
+                    <Row icon="information-circle-outline" title="Version" right={<Txt variant="body" tone="dim">{Constants.expoConfig?.version || '1.0'}</Txt>} last />
+                </Card>
+            </Section>
 
-                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>G-LEVEL</Txt>
-                <TouchableOpacity style={s.card} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); (navigation as any).navigate('Subscription'); }}>
-                    <View style={{ padding: 20 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                            <View style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 99, backgroundColor: progTier === 'g_member' ? '#CBD6DE' : R.purple }}>
-                                <Text style={{ color: '#EAF3F6', fontWeight: '800', fontSize: 12, textTransform: 'uppercase' }}>
-                                    {progTier === 'g_member' ? 'G-Member' : `Level ${progLevel}`}
-                                </Text>
-                            </View>
-                            {progTier === 'g_member' && (
-                                <Text style={{ color: R.muted, fontSize: 12 }}>15% off · Unlimited priority</Text>
-                            )}
-                            {progTier !== 'g_member' && progDiscount > 0 && (
-                                <Text style={{ color: R.muted, fontSize: 12 }}>{progDiscount}% off rides</Text>
-                            )}
-                        </View>
-                        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, lineHeight: 18 }}>
-                            {progTier === 'g_member'
-                                ? 'You are a G-Member. 15% off all rides, unlimited priority matching, 20-minute wait grace.'
-                                : progLevel >= 5
-                                    ? 'Level 5 — you qualify for G-Member. Tap to upgrade and get 15% off everything.'
-                                    : `Level ${progLevel} — ride more to unlock better perks. Tap to see your full benefits.`}
-                        </Text>
-                    </View>
-                    <View style={s.divider} />
-                    <View style={s.row}>
-                        <Text style={{ color: R.purple, fontWeight: '700', fontSize: 14 }}>View G-Level</Text>
-                        <Ionicons name="chevron-forward" size={18} color={R.purple} />
-                    </View>
-                </TouchableOpacity>
-
-                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>EARN</Txt>
-                <View style={s.card}>
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); (navigation as any).navigate('Referral'); }}>
-                        <View style={{ flex: 1 }}>
-                            <Txt variant="bodyBold" color="#EAF3F6">Refer & Earn</Txt>
-                            <Txt variant="small" color={R.muted}>Give TTD $15, get TTD $15</Txt>
-                        </View>
-                        <Ionicons name="gift-outline" size={20} color={R.purple} />
-                    </TouchableOpacity>
-                </View>
-
-                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>ABOUT</Txt>
-                <View style={s.card}>
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL(LEGAL_DOC_URLS.terms_of_service); }}>
-                        <Txt variant="bodyBold" color="#EAF3F6">Terms of Service</Txt>
-                        <Ionicons name="chevron-forward" size={18} color={R.muted} />
-                    </TouchableOpacity>
-                    <View style={s.divider} />
-                    <TouchableOpacity style={s.row} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); Linking.openURL(LEGAL_DOC_URLS.privacy_policy); }}>
-                        <Txt variant="bodyBold" color="#EAF3F6">Privacy Policy</Txt>
-                        <Ionicons name="chevron-forward" size={18} color={R.muted} />
-                    </TouchableOpacity>
-                    <View style={s.divider} />
-                    <View style={s.row}>
-                        <Txt variant="bodyBold" color="#EAF3F6">Version</Txt>
-                        <Txt variant="small" color={R.muted}>2.4.0 (Nano Banana)</Txt>
-                    </View>
-                </View>
-
-                <Txt variant="caption" weight="heavy" color={R.muted} style={s.sectionLabel}>YOUR ACCOUNT</Txt>
-                <View style={s.card}>
+            <Section title="Your account">
+                <Card>
                     {delStatus?.pending ? (
-                        <View style={{ padding: 20 }}>
-                            <Txt variant="bodyBold" color="#F59E0B">
-                                {delStatus.status === 'on_hold'
-                                    ? 'Deletion paused'
-                                    : 'Deletion scheduled'}
-                            </Txt>
-                            <Txt variant="small" color={R.muted} style={{ marginTop: 6, lineHeight: 18 }}>
+                        <>
+                            <Txt variant="bodyStrong" style={{ color: '#D97706' }}>{delStatus.status === 'on_hold' ? 'Deletion paused' : 'Deletion scheduled'}</Txt>
+                            <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.xs }}>
                                 {delStatus.status === 'on_hold'
                                     ? `We cannot finish this yet: ${delStatus.hold_reason ?? 'an open matter on your account'}. It will complete once that is resolved.`
-                                    : `Your account will be deleted on ${new Date(delStatus.scheduled_at).toLocaleDateString()}. You can stop this at any time before then.`}
+                                    : `Your account will be deleted on ${new Date(delStatus.scheduled_at).toLocaleDateString()}. You can stop this any time before then.`}
                             </Txt>
                             {Number(delStatus.wallet_balance_cents ?? 0) > 0 && (
-                                <Txt variant="small" color="#F59E0B" style={{ marginTop: 10, lineHeight: 18 }}>
-                                    You still have TT${(Number(delStatus.wallet_balance_cents) / 100).toFixed(2)} in your wallet.
-                                    Withdraw it before then — it cannot be returned afterwards.
+                                <Txt variant="caption" style={{ color: '#D97706', marginTop: SPACE.sm }}>
+                                    You still have TT${(Number(delStatus.wallet_balance_cents) / 100).toFixed(2)} in your wallet. Withdraw it first; it cannot be returned afterwards.
                                 </Txt>
                             )}
-                            <TouchableOpacity
-                                style={[s.row, { marginTop: 14, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16 }]}
-                                disabled={delBusy}
-                                onPress={cancelDeletion}
-                            >
-                                {delBusy
-                                    ? <ActivityIndicator size="small" color="#EAF3F6" />
-                                    : <Txt variant="bodyBold" color={R.purple}>Keep my account</Txt>}
-                            </TouchableOpacity>
-                        </View>
+                            <Button title="Keep my account" size="md" style={{ marginTop: SPACE.md }} loading={delBusy} onPress={cancelDeletion} />
+                        </>
                     ) : showConfirm ? (
-                        <View style={{ padding: 20 }}>
-                            <Txt variant="bodyBold" color="#EAF3F6">Type DELETE to confirm</Txt>
-                            <Txt variant="small" color={R.muted} style={{ marginTop: 6, lineHeight: 18 }}>
-                                This starts a 30-day countdown. You can stop it any time before it ends.
-                            </Txt>
-                            <TextInput
-                                value={confirmText}
-                                onChangeText={setConfirmText}
-                                autoCapitalize="characters"
-                                autoCorrect={false}
-                                placeholder="DELETE"
-                                placeholderTextColor="rgba(255,255,255,0.25)"
-                                style={{
-                                    marginTop: 14, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14,
-                                    backgroundColor: 'rgba(0,0,0,0.25)', color: '#EAF3F6', fontWeight: '700',
-                                    letterSpacing: 2, borderWidth: 1, borderColor: R.border,
-                                }}
-                            />
-                            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                                <TouchableOpacity
-                                    style={{ flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)' }}
-                                    onPress={() => { setShowConfirm(false); setConfirmText(''); }}
-                                >
-                                    <Txt variant="bodyBold" color="#EAF3F6">Cancel</Txt>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={{
-                                        flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 16,
-                                        backgroundColor: confirmText.trim() === 'DELETE' ? '#B91C1C' : 'rgba(185,28,28,0.25)',
-                                    }}
-                                    disabled={confirmText.trim() !== 'DELETE' || delBusy}
-                                    onPress={submitDeletion}
-                                >
-                                    {delBusy
-                                        ? <ActivityIndicator size="small" color="#EAF3F6" />
-                                        : <Txt variant="bodyBold" color="#EAF3F6">Delete account</Txt>}
-                                </TouchableOpacity>
+                        <>
+                            <Txt variant="bodyStrong">Type DELETE to confirm</Txt>
+                            <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.xs, marginBottom: SPACE.md }}>This starts a 30-day countdown. You can stop it any time before it ends.</Txt>
+                            <Field value={confirmText} onChangeText={setConfirmText} autoCapitalize="characters" autoCorrect={false} placeholder="DELETE" />
+                            <View style={{ flexDirection: 'row', gap: SPACE.md }}>
+                                <Button title="Cancel" size="md" variant="secondary" style={{ flex: 1 }} onPress={() => { setShowConfirm(false); setConfirmText(''); }} />
+                                <Button title="Delete account" size="md" variant="danger" style={{ flex: 1 }} loading={delBusy}
+                                    disabled={confirmText.trim() !== 'DELETE'} onPress={submitDeletion} />
                             </View>
-                        </View>
+                        </>
                     ) : (
-                        <TouchableOpacity style={s.row} onPress={startDeletion}>
-                            <View style={{ flex: 1 }}>
-                                <Txt variant="bodyBold" color="#EAF3F6">Delete my account</Txt>
-                                <Txt variant="small" color={R.muted}>Erases your details. 30 days to change your mind.</Txt>
-                            </View>
-                            <Ionicons name="close-circle-outline" size={20} color="#B91C1C" />
-                        </TouchableOpacity>
+                        <Row icon="trash-outline" title="Delete my account" subtitle="Erases your details. 30 days to change your mind." danger last onPress={startDeletion} />
                     )}
-                </View>
-
-            </ScrollView>
-        </View>
+                </Card>
+            </Section>
+        </Screen>
     );
 }
-
-function SettingRow({ label, sub, value, onToggle }: any) {
-    return (
-        <View style={s.row}>
-            <View style={{ flex: 1 }}>
-                <Txt variant="bodyBold" color="#EAF3F6">{label}</Txt>
-                <Txt variant="small" color={R.muted}>{sub}</Txt>
-            </View>
-            <Switch
-                value={value}
-                onValueChange={onToggle}
-                trackColor={{ false: '#333', true: R.purple }}
-                thumbColor="#EAF3F6"
-            />
-        </View>
-    );
-}
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-
-    scroll: { paddingHorizontal: 20 },
-    sectionLabel: { marginLeft: 16, marginBottom: 12, marginTop: 32, letterSpacing: 2 },
-    card: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 32, padding: 12, ...elevationGlow(8) },
-    row: { flexDirection: 'row', alignItems: 'center', padding: 20 },
-    divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 20 },
-    input: {
-        backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16,
-        paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: '#EAF3F6',
-        marginHorizontal: 12, marginTop: 10, ...ghostBorder(0.12),
-    },
-    saveBtn: {
-        backgroundColor: VOICES.rider.accent, borderRadius: 16,
-        alignItems: 'center', justifyContent: 'center', paddingVertical: 14,
-        margin: 12, marginTop: 14,
-    },
-});

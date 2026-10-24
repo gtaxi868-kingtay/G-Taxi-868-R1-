@@ -1,31 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, StyleSheet, TouchableOpacity, FlatList,
-    Alert, useWindowDimensions, ActivityIndicator
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { StatusBar } from 'expo-status-bar';
+import { Alert, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
-import { Txt } from '@/design-system/primitives';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-
-const CYAN = '#06B6D4';
-
-const R = {
-    bg: SURFACE.base,
-    surface: 'rgba(255,255,255,0.08)',
-    border: 'rgba(255,255,255,0.15)',
-    purple: VOICES.rider.accent,
-    purpleLight: CYAN,
-    gold: '#F59E0B',
-    white: '#EAF3F6',
-    muted: 'rgba(255,255,255,0.7)',
-};
+import { Button, Card, EmptyState, Loading, Row, Screen, SPACE } from '../ui/kit';
 
 interface SavedPlace {
     id: string;
@@ -37,9 +16,7 @@ interface SavedPlace {
 }
 
 export function SavedPlacesScreen({ navigation }: any) {
-    const { width } = useWindowDimensions();
     const { user } = useAuth();
-    const insets = useSafeAreaInsets();
 
     const [places, setPlaces] = useState<SavedPlace[]>([]);
     const [loading, setLoading] = useState(true);
@@ -71,8 +48,8 @@ export function SavedPlacesScreen({ navigation }: any) {
     const handleDelete = (id: string, label: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert(
-            'Delete Place',
-            `Are you sure you want to remove "${label}"?`,
+            'Remove this place?',
+            `"${label}" will be removed from your saved places.`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -92,84 +69,29 @@ export function SavedPlacesScreen({ navigation }: any) {
         );
     };
 
-    const renderItem = ({ item }: { item: SavedPlace }) => (
-        <View style={s.card}>
-            <View style={s.iconWrap}>
-                <Txt style={{ fontSize: 20 }}>{item.icon || '📍'}</Txt>
-            </View>
-            <View style={s.info}>
-                <Txt variant="bodyBold" color="#EAF3F6">{item.label}</Txt>
-                <Txt variant="small" color={R.muted} numberOfLines={1}>{item.address}</Txt>
-            </View>
-            <TouchableOpacity onPress={() => handleDelete(item.id, item.label)} style={s.deleteBtn}>
-                <Ionicons name="trash-outline" size={20} color={R.muted} />
-            </TouchableOpacity>
-        </View>
-    );
+    const iconFor = (label: string) => label === 'Home' ? 'home-outline' : label === 'Work' ? 'briefcase-outline' : 'bookmark-outline';
 
     return (
-        <View style={s.root}>
-            <StatusBar style="light" />
-
-            <View style={[s.header, { paddingTop: insets.top + 10 }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={s.headerBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#EAF3F6" />
-                </TouchableOpacity>
-                <Txt variant="headingM" weight="heavy" color="#EAF3F6" style={{ marginLeft: 16, fontFamily: 'CormorantGaramond_600SemiBold' }}>Saved Places</Txt>
-            </View>
-
-            {loading ? (
-                <View style={s.center}><ActivityIndicator color={R.purple} /></View>
+        <Screen
+            title="Saved places"
+            onBack={() => navigation.goBack()}
+            footer={<Button title="Add a place" icon="add" onPress={() => { Haptics.selectionAsync(); navigation.navigate('DestinationSearch', { saveMode: true }); }} />}
+        >
+            {loading ? <Loading /> : places.length === 0 ? (
+                <EmptyState icon="bookmark-outline" title="No saved places yet" body="Save Home, Work or any spot you go often, then book it in one tap." />
             ) : (
-                <FlatList<SavedPlace>
-                    data={places}
-                    keyExtractor={item => item.id}
-                    renderItem={renderItem}
-                    contentContainerStyle={[s.list, { paddingBottom: insets.bottom + 40 }]}
-                    ListEmptyComponent={
-                        <View style={s.empty}>
-                            <Ionicons name="bookmark-outline" size={64} color={R.muted} />
-                            <Txt variant="bodyReg" color={R.muted} style={{ marginTop: 16 }}>No saved places yet</Txt>
-                        </View>
-                    }
-                />
+                <Card style={{ paddingVertical: SPACE.xs }}>
+                    {places.map((item, i) => (
+                        <Row key={item.id} icon={iconFor(item.label) as any} title={item.label} subtitle={item.address} last={i === places.length - 1}
+                            right={
+                                <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${item.label}`} hitSlop={10} onPress={() => handleDelete(item.id, item.label)}>
+                                    <Ionicons name="trash-outline" size={20} color="#E5484D" />
+                                </Pressable>
+                            }
+                        />
+                    ))}
+                </Card>
             )}
-
-            <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-                <TouchableOpacity
-                    style={s.addBtn}
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('DestinationSearch', { saveMode: true }); }}
-                >
-                    <LinearGradient
-                        colors={[VOICES.rider.accent, CYAN]}
-                        start={{x: 0, y: 0}}
-                        end={{x: 1, y: 0}}
-                        style={s.btnGradient}
-                    >
-                        <Ionicons name="add" size={24} color="#EAF3F6" />
-                        <Txt variant="bodyBold" color="#EAF3F6" style={{ marginLeft: 8 }}>ADD NEW PLACE</Txt>
-                    </LinearGradient>
-                </TouchableOpacity>
-            </View>
-        </View>
+        </Screen>
     );
 }
-
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: R.bg },
-    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-    headerBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-
-    list: { paddingHorizontal: 20 },
-    card: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', padding: 20, borderRadius: 32, marginBottom: 12, ...ghostBorder(0.05) },
-    iconWrap: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-    info: { flex: 1, marginLeft: 16 },
-    deleteBtn: { padding: 12 },
-
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    empty: { marginTop: 100, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: 40, borderRadius: 40 },
-
-    footer: { paddingHorizontal: 20, paddingTop: 16 },
-    addBtn: { height: 64, borderRadius: 24, overflow: 'hidden' },
-    btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-});
