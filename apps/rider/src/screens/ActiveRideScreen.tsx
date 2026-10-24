@@ -540,7 +540,9 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                 text: "SEND SOS", style: "destructive", onPress: async () => {
                     // Show the call buttons first: a person is one tap away
                     // whatever happens to the network request below.
-                    setSosPanel({ guardianPhone: null });
+                    // Wait for the alert to finish closing: iOS drops a Modal
+                    // presented while an Alert is still animating out.
+                    setTimeout(() => setSosPanel(prev => prev ?? { guardianPhone: null }), UI_SETTLE_MS);
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                     if (!rideId) return;
                     setIsSosLoading(true);
