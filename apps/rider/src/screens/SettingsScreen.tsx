@@ -232,7 +232,7 @@ export function SettingsScreen({ navigation }: any) {
                     </View>
                     <Txt variant="caption" tone="dim" style={{ marginTop: SPACE.xs }}>
                         {progTier === 'g_member'
-                            ? '15% off all rides, priority matching and 20 minutes free waiting.'
+                            ? '15% off your first 6 rides each month, priority matching and 20 minutes free waiting.'
                             : progLevel >= 5
                                 ? 'You qualify for G-Member. Tap to see the benefits.'
                                 : `${progDiscount > 0 ? `${progDiscount}% off rides now. ` : ''}Ride more to unlock better perks.`}

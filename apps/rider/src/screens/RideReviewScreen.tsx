@@ -1,9 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity, useWindowDimensions,
-  ScrollView, Alert, Platform,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,8 +7,8 @@ import * as Haptics from 'expo-haptics';
 import Reanimated, {
   useSharedValue, useAnimatedStyle, withSpring,
 } from 'react-native-reanimated';
-import { GlassCard } from '@gtaxi/design-system/native';
-import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { toast } from '../components/Toast';
+import { Button, Card, RADIUS, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
 import { supabase } from '@gtaxi/core';
 
 const THEME = {
@@ -23,9 +19,9 @@ const THEME = {
   textMuted: 'rgba(255,255,255,0.35)',
   glassBg: 'rgba(5,5,5,0.85)',
   borderGlass: 'rgba(0,255,255,0.15)',
-  green: '#00FF94',
-  gold: '#F59E0B',
-  red: '#DC2626',
+  green: '#2FB57C',
+  gold: '#F5A524',
+  red: '#E5484D',
 };
 
 const DARK_MAP_STYLE = [
@@ -91,7 +87,7 @@ export default function RideReviewScreen({ route, navigation }: any) {
 
   const handleCreateRide = async () => {
     if (stops.length < 2) {
-      Alert.alert('Missing Stops', 'Please add at least a pickup and dropoff location.');
+      toast('Add a pickup and a drop-off first.', 'error');
       return;
     }
 
@@ -136,7 +132,7 @@ export default function RideReviewScreen({ route, navigation }: any) {
         pickup: pickup,
       });
     } catch (err: any) {
-      Alert.alert('Failed to Create Ride', err.message || 'Please try again.');
+      toast(err.message || 'Could not book the ride. Please try again.', 'error');
     } finally {
       setIsCreating(false);
     }
@@ -153,336 +149,68 @@ export default function RideReviewScreen({ route, navigation }: any) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const m = useTheme();
+  // The old pencil buttons opened DestinationSearch with params it does not
+  // read (editStopIndex), which booked a new ride instead of editing a stop.
+  // Editing stops here is not supported, so they are gone.
   return (
-    <View style={s.root}>
-      <StatusBar style="light" />
-
-      {/* Back Button */}
-      <TouchableOpacity
-        style={[s.backBtn, { top: insets.top + 12 }]}
-        onPress={() => navigation.goBack()}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="chevron-back" size={24} color={THEME.textPrimary} />
-      </TouchableOpacity>
-
-      {/* Map Thumbnail */}
-      <View style={s.mapContainer}>
-        <MapView
-          style={StyleSheet.absoluteFill}
-          provider={PROVIDER_DEFAULT}
-          customMapStyle={DARK_MAP_STYLE}
-          initialRegion={{
-            latitude: getCenterLat(),
-            longitude: getCenterLng(),
-            latitudeDelta: 0.08,
-            longitudeDelta: 0.08,
-          }}
-          scrollEnabled={false}
-          zoomEnabled={false}
-          rotateEnabled={false}
-        >
-          {stops.filter(s => s.lat).map((stop, i) => (
+    <Screen
+      title="Your route"
+      onBack={() => navigation.goBack()}
+      footer={<Button title={`Confirm ride · TT$${fareDollars}`} icon="car-sport" loading={isCreating} onPress={handleCreateRide} />}
+    >
+      <View style={{ height: 180, borderRadius: RADIUS.card, overflow: 'hidden', marginTop: SPACE.sm }}>
+        <MapView style={StyleSheet.absoluteFill} provider={PROVIDER_DEFAULT} customMapStyle={m.key === 'night' ? DARK_MAP_STYLE : []}
+          initialRegion={{ latitude: getCenterLat(), longitude: getCenterLng(), latitudeDelta: 0.08, longitudeDelta: 0.08 }}
+          scrollEnabled={false} zoomEnabled={false} rotateEnabled={false}>
+          {stops.filter(st => st.lat).map((stop, i) => (
             <Marker key={`marker-${i}`} coordinate={{ latitude: stop.lat, longitude: stop.lng }}>
-              <View style={[s.markerDot, { backgroundColor: STOP_ICONS[stop.type]?.color || THEME.accent }]}>
-                <Text style={s.markerIndex}>{i + 1}</Text>
+              <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FFFFFF', backgroundColor: STOP_ICONS[stop.type]?.color || '#8B7CFF' }}>
+                <Txt variant="label" tone="onBrand">{i + 1}</Txt>
               </View>
             </Marker>
           ))}
-          {stops.filter(s => s.lat).length >= 2 && (
-            <Polyline
-              coordinates={stops.filter(s => s.lat).map(s => ({ latitude: s.lat, longitude: s.lng }))}
-              strokeColor={THEME.accent}
-              strokeWidth={2}
-              lineDashPattern={[6, 4]}
-            />
+          {stops.filter(st => st.lat).length >= 2 && (
+            <Polyline coordinates={stops.filter(st => st.lat).map(st => ({ latitude: st.lat, longitude: st.lng }))} strokeColor="#8B7CFF" strokeWidth={3} />
           )}
         </MapView>
       </View>
 
-      {/* Validation Warning */}
       {params.validation_required && (
-        <GlassCard style={s.warningBanner}>
-          <Ionicons name="warning" size={16} color={THEME.gold} />
-          <Text style={s.warningText}>Location unclear. Please verify the stops below.</Text>
-        </GlassCard>
+        <Card style={{ marginTop: SPACE.md, flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="alert-circle-outline" size={18} color="#D97706" />
+          <Txt variant="body" style={{ flex: 1, marginLeft: SPACE.sm }}>We were not sure about some places. Please check the stops below.</Txt>
+        </Card>
       )}
 
-      {/* Stop Timeline */}
-      <View style={[s.timelinePanel, { paddingTop: insets.top + 80, paddingBottom: insets.bottom + 120 }]}>
-        <ScrollView
-          style={s.timelineScroll}
-          contentContainerStyle={s.timelineContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={s.timelineTitle}>Your Route</Text>
-
-          {stops.map((stop, i) => {
-            const icon = STOP_ICONS[stop.type];
-            return (
-              <View key={`stop-${i}`} style={s.stopRow}>
-                <View style={s.stopTimelineCol}>
-                  <View style={[s.stopDot, { backgroundColor: icon?.color || THEME.accent }]}>
-                    <Ionicons name={icon?.icon as any} size={14} color={THEME.bg} />
-                  </View>
-                  {i < stops.length - 1 && <View style={s.stopLine} />}
+      <Section title="Stops">
+        <Card>
+          {stops.map((stop, i) => (
+            <View key={`stop-${i}`} style={{ flexDirection: 'row' }}>
+              <View style={{ alignItems: 'center', width: 28 }}>
+                <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: STOP_ICONS[stop.type]?.color || '#8B7CFF' }}>
+                  <Ionicons name={STOP_ICONS[stop.type]?.icon as any} size={12} color="#FFFFFF" />
                 </View>
-
-                <View style={s.stopContent}>
-                  <Text style={s.stopType}>{STOP_LABELS[stop.type] || 'Stop'}</Text>
-                  <Text style={s.stopAddress} numberOfLines={2}>
-                    {stop.address || 'Location pending...'}
-                  </Text>
-                  {stop.lat === 0 && (
-                    <Text style={s.stopUnresolved}>Unresolved — will search on map</Text>
-                  )}
-                </View>
-
-                <TouchableOpacity
-                  style={s.editBtn}
-                  onPress={() => {
-                    navigation.navigate('DestinationSearch', {
-                      editStopIndex: i,
-                      currentStops: stops,
-                    });
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="pencil" size={16} color={THEME.textMuted} />
-                </TouchableOpacity>
+                {i < stops.length - 1 && <View style={{ width: 2, flex: 1, minHeight: 18, backgroundColor: m.chipBorder }} />}
               </View>
-            );
-          })}
-        </ScrollView>
+              <View style={{ flex: 1, marginLeft: SPACE.md, paddingBottom: i < stops.length - 1 ? SPACE.lg : 0 }}>
+                <Txt variant="caption" tone="faint">{STOP_LABELS[stop.type] || 'Stop'}</Txt>
+                <Txt variant="bodyStrong" numberOfLines={2}>{stop.address || 'Location not found yet'}</Txt>
+                {stop.lat === 0 && <Txt variant="caption" style={{ color: '#D97706' }}>We could not place this on the map</Txt>}
+              </View>
+            </View>
+          ))}
+        </Card>
+      </Section>
 
-        {/* Fare Summary Chip */}
-        <GlassCard style={s.fareCard}>
-          <View style={s.fareRow}>
-            <Ionicons name="cash-outline" size={18} color={THEME.accent} />
-            <Text style={s.fareLabel}>Est. Fare</Text>
-            <Text style={s.fareValue}>TTD ${fareDollars}</Text>
+      <Card style={{ marginTop: SPACE.md, flexDirection: 'row' }}>
+        {[[`TT$${fareDollars}`, 'Estimated fare'], [`${totalDistanceKm} km`, 'Distance'], [`~${totalDurationMin} min`, 'Time']].map(([v, l], i) => (
+          <View key={l} style={{ flex: 1, alignItems: 'center', borderLeftWidth: i ? 1 : 0, borderLeftColor: m.chipBorder }}>
+            <Txt variant="headline">{v}</Txt>
+            <Txt variant="caption" tone="dim">{l}</Txt>
           </View>
-          <View style={s.fareDivider} />
-          <View style={s.fareMeta}>
-            <View style={s.fareMetaItem}>
-              <Ionicons name="navigate-outline" size={14} color={THEME.textMuted} />
-              <Text style={s.fareMetaText}>{totalDistanceKm} km</Text>
-            </View>
-            <View style={s.fareMetaItem}>
-              <Ionicons name="time-outline" size={14} color={THEME.textMuted} />
-              <Text style={s.fareMetaText}>~{totalDurationMin} min</Text>
-            </View>
-            <View style={s.fareMetaItem}>
-              <Ionicons name="flag-outline" size={14} color={THEME.textMuted} />
-              <Text style={s.fareMetaText}>{stops.length} stop{stops.length > 1 ? 's' : ''}</Text>
-            </View>
-          </View>
-        </GlassCard>
-
-        {/* Confirm Button */}
-        <TouchableOpacity
-          style={[s.confirmBtn, isCreating && s.confirmBtnDisabled]}
-          onPress={handleCreateRide}
-          disabled={isCreating}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="car-sport-sharp" size={22} color={THEME.bg} />
-          <Text style={s.confirmBtnText}>
-            {isCreating ? 'Requesting...' : 'Confirm Ride'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+        ))}
+      </Card>
+    </Screen>
   );
 }
-
-const s = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: THEME.bg,
-  },
-  backBtn: {
-    position: 'absolute',
-    left: 16,
-    zIndex: 30,
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: THEME.glassBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: THEME.borderGlass,
-  },
-  mapContainer: {
-    height: 240,
-    width: '100%',
-  },
-  markerDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: THEME.bg,
-  },
-  markerIndex: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: THEME.bg,
-  },
-  warningBanner: {
-    marginHorizontal: 16,
-    marginTop: -40,
-    zIndex: 25,
-    padding: 12,
-  },
-  warningText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: THEME.gold,
-    marginTop: 4,
-  },
-  timelinePanel: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  timelineScroll: {
-    flex: 1,
-  },
-  timelineContent: {
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  timelineTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.textPrimary,
-    marginBottom: 20,
-    letterSpacing: -0.5,
-  },
-  stopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 4,
-  },
-  stopTimelineCol: {
-    width: 32,
-    alignItems: 'center',
-  },
-  stopDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stopLine: {
-    width: 2,
-    flex: 1,
-    minHeight: 40,
-    backgroundColor: 'rgba(0,255,255,0.2)',
-    marginVertical: 4,
-  },
-  stopContent: {
-    flex: 1,
-    marginLeft: 12,
-    paddingBottom: 16,
-  },
-  stopType: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: THEME.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  stopAddress: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: THEME.textPrimary,
-    lineHeight: 20,
-  },
-  stopUnresolved: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: THEME.gold,
-    marginTop: 2,
-  },
-  editBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-    marginTop: 4,
-  },
-  fareCard: {
-    ...elevationGlow(),
-    padding: 16,
-    marginBottom: 16,
-  },
-  fareRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  fareLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: THEME.textSecondary,
-    flex: 1,
-  },
-  fareValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: THEME.accent,
-    fontVariant: ['tabular-nums'],
-  },
-  fareDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginVertical: 12,
-  },
-  fareMeta: {
-    flexDirection: 'row',
-    gap: 20,
-  },
-  fareMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  fareMetaText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: THEME.textMuted,
-    fontVariant: ['tabular-nums'],
-  },
-  confirmBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 18,
-    borderRadius: 16,
-    backgroundColor: THEME.accent,
-    shadowColor: '#34E6EC',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  confirmBtnDisabled: {
-    opacity: 0.6,
-  },
-  confirmBtnText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.bg,
-    letterSpacing: 0.3,
-  },
-});
