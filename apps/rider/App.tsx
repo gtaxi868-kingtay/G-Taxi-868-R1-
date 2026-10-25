@@ -87,6 +87,8 @@ import { CashWithdrawalScreen } from './src/screens/CashWithdrawalScreen';
 
 import { EscapeTripProvider } from './src/context/EscapeContext';
 import { ActiveRideRestorationHandler } from './src/components/ActiveRideRestorationHandler';
+import { NotificationTapRouter } from './src/components/NotificationTapRouter';
+import { navigationRef } from './src/navigation/navigationRef';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { OfflineBanner } from './src/components/OfflineBanner';
 import { installCrashReporter } from '@gtaxi/core';
@@ -149,6 +151,7 @@ function AppNavigator({ initialRoute }: { initialRoute?: any } = {}) {
     return (
         <>
             {!initialRoute && <ActiveRideRestorationHandler />}
+            {!initialRoute && !isWeb && <NotificationTapRouter />}
             <AppStack.Navigator
                 initialRouteName={initialRoute}
                 screenOptions={{
@@ -315,7 +318,7 @@ function App() {
                     <ErrorBoundary>
                         <View style={{ flex: 1 }}>
                             <OfflineBanner />
-                            <NavigationContainer linking={linking}>
+                            <NavigationContainer linking={linking} ref={navigationRef}>
                                                                 <RootNavigator />
                             </NavigationContainer>
                             <ToastHost />
