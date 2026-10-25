@@ -19,7 +19,9 @@ interface RecentItem { id: string; name: string; address: string; latitude: numb
 export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'DestinationSearch'>) {
     const insets = useSafeAreaInsets();
     const netInfo = useNetInfo();
-    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode, saveMode } = route.params || {};
+    // `stop`: a shop the rider wants to stop at on the way (Home shop card);
+    // carried through to RideConfirmation once they pick where they're going.
+    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode, saveMode, stop } = route.params || {};
 
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
@@ -166,6 +168,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
             sourceMetadata,
             kioskId,
             taxiStandId,
+            stop,
         });
     };
 
@@ -204,6 +207,18 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
             </View>
             {editPickupMode && (
                 <Txt variant="caption" tone="dim" style={{ paddingHorizontal: GUTTER, marginBottom: SPACE.sm }}>Choose the exact spot where the driver should meet you.</Txt>
+            )}
+            {stop && !editPickupMode && (
+                <View style={{ marginHorizontal: GUTTER, marginBottom: SPACE.md, flexDirection: 'row', alignItems: 'center', padding: SPACE.md, borderRadius: 16,
+                    backgroundColor: m.field, borderWidth: 2, borderBottomWidth: 4, borderColor: m.chipBorder }}>
+                    <View style={{ width: 34, height: 34, borderRadius: 11, backgroundColor: '#FF8A3D', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="storefront" size={17} color="#FFFFFF" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                        <Txt variant="overline" tone="faint">STOP ON THE WAY</Txt>
+                        <Txt variant="bodyStrong" numberOfLines={1}>{stop.name}</Txt>
+                    </View>
+                </View>
             )}
 
             {netInfo.isConnected === false && (

@@ -129,6 +129,8 @@ export type AppStackParamList = {
     // Opened from Saved Places "Add new place": picking a result saves it
     // instead of booking a ride.
     saveMode?: boolean;
+    // A shop to stop at on the way (Home shop card "Stop on my way").
+    stop?: RideConfirmationParams['stop'];
   };
   RideConfirmation: RideConfirmationParams;
   RideReview: {

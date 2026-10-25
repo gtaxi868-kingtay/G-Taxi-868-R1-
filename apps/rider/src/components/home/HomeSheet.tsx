@@ -65,8 +65,9 @@ export function HomeSheet({
     }, [snaps]);
 
     const onTopLayout = (e: LayoutChangeEvent) => {
-        // handle (24) + top block + a little breathing room + safe area
-        const h = Math.ceil(24 + e.nativeEvent.layout.height + SPACE.md + bottomInset);
+        // handle (24) + top block + the gap before the scroll content starts,
+        // so nothing from the half stop peeks out under the cards.
+        const h = Math.ceil(24 + e.nativeEvent.layout.height + SPACE.sm + bottomInset);
         if (Math.abs(h - peekH) > 2) setPeekH(h);
     };
 

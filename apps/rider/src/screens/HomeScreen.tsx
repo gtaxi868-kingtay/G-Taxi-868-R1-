@@ -14,6 +14,10 @@ import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import { HomeSheet } from '../components/home/HomeSheet';
+import { ShopPin } from '../components/home/ShopPin';
+import { ShopCarousel } from '../components/home/ShopCarousel';
+import { ShopActionSheet, type ShopAction } from '../components/home/ShopActionSheet';
+import { rankShops, type MapShop } from '../components/home/rankShops';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -90,7 +94,12 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
     const [isEstimatingFare, setIsEstimatingFare] = useState(false);
-    const [nearbyVendors, setNearbyVendors] = useState<Array<{ id: string; name: string; store_type: string; address: string; delivery_fee_cents: number; avg_delivery_minutes: number; is_open: boolean; distance_meters: number }>>([]);
+    // Every active shop with a location near the rider (all types, not just
+    // grocery). These are the map pins and the swipe cards.
+    const [shops, setShops] = useState<MapShop[]>([]);
+    const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+    const [actionShop, setActionShop] = useState<MapShop | null>(null);
+    const mapRef = useRef<MapView>(null);
     const [stopSuggestions, setStopSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
     const reducedMotion = useReducedMotion();
@@ -276,39 +285,44 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     useEffect(() => {
         const lat = location?.coords?.latitude || DEFAULT_LOCATION.latitude;
         const lng = location?.coords?.longitude || DEFAULT_LOCATION.longitude;
-        if (!featureFlags.grocery) return;
-        // Personalized ranking (visits, learned routes, featured promos) with
-        // consent; plain distance ranking when suggestions are off. Falls back
-        // to the old RPC if g_rank_merchants isn't deployed yet.
+        // g_rank_merchants: active shops within 20 km, ranked; it does NOT bill
+        // promotion impressions (checked live 2026-10-25), so loading pins for
+        // every rider costs shops nothing. All store types, up to 30.
+        const toShop = (m: any): MapShop => ({
+            id: m.merchant_id ?? m.id,
+            name: m.name,
+            lat: m.lat,
+            lng: m.lng,
+            distance_m: m.distance_m ?? m.distance_meters,
+            is_featured: !!(m.is_featured ?? m.is_promoted),
+            is_open: !!m.is_open,
+            store_type: m.store_type,
+            category: m.category ?? m.store_type,
+            address: m.address ?? '',
+            cover_image_url: m.cover_image_url ?? null,
+            avg_delivery_minutes: m.avg_delivery_minutes ?? 30,
+            delivery_fee_cents: m.delivery_fee_cents ?? 0,
+            is_usual: !!m.is_usual,
+        });
         supabase
-            .rpc('g_rank_merchants', { p_rider_id: profile?.id ?? null, p_lat: lat, p_lng: lng, p_store_type: 'grocery', p_limit: 10 })
+            .rpc('g_rank_merchants', { p_rider_id: profile?.id ?? null, p_lat: lat, p_lng: lng, p_store_type: null, p_limit: 30 })
             .then(
                 ({ data, error }) => {
                     if (error || !data) {
+                        // Older fallback; same behaviour it always had.
                         supabase
-                            .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: 'grocery' })
+                            .rpc('get_nearby_merchants', { p_lat: lat, p_lng: lng, p_radius_km: 15, p_store_type: null })
                             .then(
-                                ({ data: fallback }) => setNearbyVendors(fallback || []),
-                                (err: unknown) => console.warn('[HomeScreen] merchant rail failed:', err),
+                                ({ data: fallback }) => setShops(rankShops((fallback || []).map(toShop))),
+                                (err: unknown) => console.warn('[HomeScreen] shop pins failed:', err),
                             );
                         return;
                     }
-                    setNearbyVendors(data.map((m: any) => ({
-                        id: m.merchant_id,
-                        name: m.name,
-                        store_type: m.store_type,
-                        address: m.address ?? '',
-                        delivery_fee_cents: m.delivery_fee_cents ?? 0,
-                        avg_delivery_minutes: m.avg_delivery_minutes ?? 30,
-                        is_open: m.is_open,
-                        distance_meters: m.distance_m,
-                        is_usual: m.is_usual,
-                        is_featured: m.is_featured,
-                    })));
+                    setShops(rankShops(data.map(toShop)));
                 },
                 (err: unknown) => console.warn('[HomeScreen] g_rank_merchants failed:', err),
             );
-    }, [location, featureFlags.grocery, profile?.id]);
+    }, [location, profile?.id]);
 
     useEffect(() => {
         const { nfcTagId, nfcLat, nfcLng, nfcLocation } = route?.params || {};
@@ -705,6 +719,50 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
         top: Math.max(insets.top + 84, (boxH - sheetHeight.value) / 2 - 40),
     }));
 
+    // Swiping to a shop's card: fly the map to it and grow its pin. The map's
+    // bottom padding follows the sheet, so the shop lands in the visible part.
+    const selectShop = React.useCallback((shop: MapShop | null) => {
+        setSelectedShopId(shop?.id ?? null);
+        const target = shop ? { latitude: shop.lat, longitude: shop.lng } : { latitude: currentLat, longitude: currentLng };
+        mapRef.current?.animateCamera({ center: target }, { duration: reducedMotion ? 0 : 450 });
+    }, [currentLat, currentLng, reducedMotion]);
+
+    const openShop = React.useCallback((shop: MapShop) => {
+        Haptics.selectionAsync().catch(() => {});
+        setSelectedShopId(shop.id);
+        setActionShop(shop);
+    }, []);
+
+    const onShopAction = (action: ShopAction, shop: MapShop) => {
+        const here = { latitude: currentLat, longitude: currentLng, address: 'Current Location' };
+        switch (action) {
+            case 'ride':
+                navigation.navigate('RideConfirmation', {
+                    pickup: here,
+                    destination: { latitude: shop.lat, longitude: shop.lng, address: shop.address || shop.name },
+                });
+                break;
+            case 'stop':
+                // Pick where you're going; the shop rides along as a stop.
+                navigation.navigate('DestinationSearch', {
+                    currentLocation: here,
+                    stop: { name: shop.name, latitude: shop.lat, longitude: shop.lng, address: shop.address, merchantId: shop.id, storeType: shop.store_type },
+                });
+                break;
+            case 'deliver':
+                (navigation.navigate as any)('ProductListing', {
+                    merchant: {
+                        id: shop.id, name: shop.name, store_type: shop.store_type, category: shop.category || shop.store_type,
+                        address: shop.address || '', delivery_fee_cents: shop.delivery_fee_cents ?? 0,
+                        avg_delivery_minutes: shop.avg_delivery_minutes ?? 30, is_open: shop.is_open, distance_meters: shop.distance_m,
+                    },
+                });
+                break;
+            default:
+                break;
+        }
+    };
+
     const otherLayers = layers.filter(l => l.id !== 'ride' && !l.locked);
     const lockedLayer = layers.find(l => l.locked);
     const fieldBg = night ? m.sheet[1] : '#FFFFFF';
@@ -715,6 +773,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
 
             {/* Map — fills the top of the screen behind the sheet */}
             <MapView
+                ref={mapRef}
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
                 customMapStyle={night ? DARK_MAP_STYLE : []}
@@ -734,6 +793,9 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                     <Marker key={d.id} coordinate={{ latitude: (d.lat as any) || 0, longitude: (d.lng as any) || 0 }} anchor={{ x: 0.5, y: 0.5 }} rotation={d.heading || 0}>
                         <Image source={CAR_ASSET} style={{ width: 40, height: 40 }} resizeMode="contain" />
                     </Marker>
+                ))}
+                {shops.map(shop => (
+                    <ShopPin key={`shop-${shop.id}`} shop={shop} selected={shop.id === selectedShopId} onPress={openShop} />
                 ))}
                 {savedPlaces.map((place) => (
                     <Marker
@@ -798,6 +860,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                     height={sheetHeight}
                     onSettled={setSheetH}
                     top={
+                        <>
                         <Pressable
                             accessibilityRole="search" accessibilityLabel="Where to?"
                             onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openDestinationSearch(); }}
@@ -829,6 +892,8 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                                 </Animated.View>
                             </View>
                         </Pressable>
+                        <ShopCarousel shops={shops} selectedId={selectedShopId} onSelect={selectShop} onOpen={openShop} />
+                        </>
                     }
                 >
                     {/* Saved places */}
@@ -928,27 +993,6 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                     </View>
                 </Pop>
 
-                {/* Nearby shops */}
-                {nearbyVendors.length > 0 && (
-                    <Section title="Shops near you">
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -GUTTER }} contentContainerStyle={{ paddingHorizontal: GUTTER, gap: SPACE.md }}>
-                            {nearbyVendors.map(v => (
-                                <Card key={v.id} style={{ width: 168, padding: SPACE.md }} onPress={() => {
-                                    navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
-                                }}>
-                                    <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#2FB57C', alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.sm }}>
-                                        <Ionicons name="storefront" size={18} color="#FFFFFF" />
-                                    </View>
-                                    <Txt variant="bodyStrong" numberOfLines={1}>{v.name}</Txt>
-                                    <Txt variant="caption" tone={(v as any).is_usual ? 'accent' : 'dim'} numberOfLines={1}>
-                                        {(v as any).is_featured ? 'Featured' : (v as any).is_usual ? 'Your usual' : v.is_open ? 'Open now' : 'Closed'} · ~{v.avg_delivery_minutes} min
-                                    </Txt>
-                                </Card>
-                            ))}
-                        </ScrollView>
-                    </Section>
-                )}
-
                 {/* Trust */}
                 <Pop delay={380}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md, padding: SPACE.md, borderRadius: RADIUS.card, backgroundColor: night ? 'rgba(47,181,124,0.12)' : '#EAF8F1', borderWidth: 2, borderColor: night ? 'rgba(47,181,124,0.25)' : '#C9EEDB' }}>
@@ -963,6 +1007,8 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                 </Pop>
                 </HomeSheet>
             )}
+
+            <ShopActionSheet shop={actionShop} onClose={() => setActionShop(null)} onAction={onShopAction} />
 
             <SavedPlaceModal visible={!!activeModalLabel} defaultLabel={activeModalLabel || ''} onClose={() => setActiveModalLabel(null)} onSave={handleSavePlace} />
             <RecentRidesModal visible={showRecentModal} onClose={() => setShowRecentModal(false)} recentLocations={recentRides} onSelect={async (loc) => {
