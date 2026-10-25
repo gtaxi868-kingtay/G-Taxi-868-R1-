@@ -25,7 +25,7 @@ export function ReferralScreen({ navigation }: AppScreenProps<'Referral'>) {
     const [copying, setCopying] = useState(false);
 
     const load = useCallback(async () => {
-        if (!user) return;
+        if (!user) { setLoading(false); return; } // never spin forever with no user
         setLoading(true);
         try {
             const { data: existingCode } = await supabase
@@ -137,7 +137,15 @@ export function ReferralScreen({ navigation }: AppScreenProps<'Referral'>) {
                                             <Button title="Share" icon="share-social-outline" size="md" style={{ flex: 1 }} onPress={shareCode} />
                                         </View>
                                     </>
-                                ) : <Loading />}
+                                ) : (
+                                    // Loading has finished here, so no code means the code
+                                    // could not be fetched or created: offer a retry
+                                    // instead of a spinner that never stops.
+                                    <View style={{ alignItems: 'center', marginTop: SPACE.md }}>
+                                        <Txt variant="body" tone="dim" style={{ textAlign: 'center' }}>We couldn't get your code just now.</Txt>
+                                        <Button title="Try again" icon="refresh" variant="secondary" size="md" style={{ marginTop: SPACE.md }} onPress={load} />
+                                    </View>
+                                )}
                             </Card>
 
                             <Card style={{ flexDirection: 'row', marginTop: SPACE.md }}>

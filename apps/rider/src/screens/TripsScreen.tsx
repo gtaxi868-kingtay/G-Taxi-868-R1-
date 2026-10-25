@@ -20,7 +20,9 @@ export function TripsScreen({ navigation }: any) {
     const [loadError, setLoadError] = useState(false);
 
     useEffect(() => {
-        if (user?.id) fetchTrips();
+        // No signed-in user (e.g. mid sign-out): show the empty state rather
+        // than a spinner that never stops.
+        if (user?.id) fetchTrips(); else setLoading(false);
     }, [user?.id]);
 
     const fetchTrips = async () => {

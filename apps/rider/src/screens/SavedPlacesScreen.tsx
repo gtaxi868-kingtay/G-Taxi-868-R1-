@@ -22,7 +22,7 @@ export function SavedPlacesScreen({ navigation }: any) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (user) fetchSavedPlaces();
+        if (user) fetchSavedPlaces(); else setLoading(false); // never spin forever with no user
         // Reload when coming back from "Add new place".
         const unsub = navigation.addListener('focus', () => { if (user) fetchSavedPlaces(); });
         return unsub;

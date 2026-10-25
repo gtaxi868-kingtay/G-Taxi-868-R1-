@@ -129,10 +129,14 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
     };
 
     const m = useTheme();
+    // Opened from Your trips: a back arrow returns to the list. Opened at the
+    // end of a ride (the stack was reset to this screen): no back, only
+    // "Back to home".
+    const onBack = navigation.canGoBack() ? () => navigation.goBack() : undefined;
 
     if (loading) {
         return (
-            <Screen scroll={false}>
+            <Screen scroll={false} title="Receipt" onBack={onBack}>
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                     <Loading />
                     <Txt variant="body" tone="dim">Loading your receipt…</Txt>
@@ -143,7 +147,7 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
 
     if (error || !ride) {
         return (
-            <Screen footer={<Button title="Back to home" onPress={handleDone} />}>
+            <Screen title="Receipt" onBack={onBack} footer={<Button title="Back to home" onPress={handleDone} />}>
                 <EmptyState icon="receipt-outline" title="We could not load this receipt" body="Check your connection, then open it again from Your Trips." />
             </Screen>
         );
@@ -166,6 +170,8 @@ export function ReceiptScreen({ navigation, route }: AppScreenProps<'Receipt'>) 
 
     return (
         <Screen
+            title="Receipt"
+            onBack={onBack}
             footer={
                 <View>
                     <Button title="Back to home" onPress={handleDone} />
