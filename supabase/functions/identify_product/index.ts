@@ -11,6 +11,9 @@ import { checkRateLimit } from "../_shared/rateLimit.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
+// gemini-1.5-flash was retired by Google, so every photo failed. Same model
+// default as _shared/llm.ts; override with the GEMINI_MODEL secret.
+const GEMINI_VISION_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.5-flash";
 
 
 serve(async (req: Request) => {
@@ -44,7 +47,7 @@ serve(async (req: Request) => {
     const base64Data = image.split(',')[1] || image;
 
     // --- REAL GEMINI VISION CALL ---
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
     
     const response = await aiFetch(geminiUrl, {
       method: 'POST',
