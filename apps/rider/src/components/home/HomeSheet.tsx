@@ -74,6 +74,8 @@ export function HomeSheet({
     const native = Gesture.Native();
     const pan = Gesture.Pan()
         .activeOffsetY([-8, 8])
+        // A sideways swipe (the shop cards) must never drag the sheet.
+        .failOffsetX([-12, 12])
         .simultaneousWithExternalGesture(native)
         .onBegin(() => { start.value = height.value; })
         .onUpdate((e) => {
