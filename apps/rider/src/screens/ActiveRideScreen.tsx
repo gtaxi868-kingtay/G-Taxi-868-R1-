@@ -474,24 +474,18 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             return;
         }
 
-        setIsMusicLoading(true);
-        const { error } = await supabase
-            .from('rides')
-            .update({ 
-                entertainment_url: musicUrl,
-                entertainment_status: 'pending' 
-            })
-            .eq('id', rideId);
-        
         if (!rideId) {
             Alert.alert("Error", "No active ride session found.");
-            setIsMusicLoading(false);
             return;
         }
-
+        setIsMusicLoading(true);
+        // Riders cannot update rides directly (no grant; RLS only allows a
+        // cancel). rider_set_ride_options changes just these fields on the
+        // rider's own live ride.
+        const { data, error } = await supabase.rpc('rider_set_ride_options', { p_ride_id: rideId, p_entertainment_url: musicUrl });
         setIsMusicLoading(false);
-        if (error) {
-            Alert.alert("Error", "Could not send suggestion.");
+        if (error || !(data as any)?.success) {
+            Alert.alert("Couldn't send it", (data as any)?.error || "Could not send suggestion. Please try again.");
         } else {
             setMusicModalVisible(false);
             setAiInsight("Music suggestion sent! Waiting for driver approval...");
@@ -517,15 +511,15 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     const toggleSafeEntry = async () => {
         try {
             const nextValue = !ride?.safe_entry;
-            const { error } = await supabase
-                .from('rides')
-                .update({ safe_entry: nextValue })
-                .eq('id', rideId);
-            
-            if (!error) {
+            const { data, error } = await supabase.rpc('rider_set_ride_options', { p_ride_id: rideId, p_safe_entry: nextValue });
+
+            if (!error && (data as any)?.success) {
                 setRide((prev: any) => ({ ...prev, safe_entry: nextValue }));
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 setAiInsight(nextValue ? "Safe Entry Mode ACTIVE. Driver is instructed to wait for you." : "Safe Entry Mode disabled.");
+            } else {
+                // Used to fail silently: the rider tapped a safety switch and nothing happened.
+                Alert.alert("Safe Entry", (data as any)?.error || "Couldn't change Safe Entry right now. Please try again.");
             }
         } catch (error) {
             console.error(error);
