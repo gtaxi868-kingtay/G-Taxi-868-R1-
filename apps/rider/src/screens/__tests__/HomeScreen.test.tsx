@@ -44,6 +44,7 @@ jest.mock('../../components/SavedPlaceModal', () => ({ SavedPlaceModal: 'SavedPl
 jest.mock('../../components/RecentRidesModal', () => ({ RecentRidesModal: 'RecentRidesModal' }));
 jest.mock('../../services/api', () => ({ getSavedPlaces: jest.fn(() => Promise.resolve([])), savePlace: jest.fn(), getRecentRides: jest.fn(() => Promise.resolve([])), estimateFare: jest.fn() }));
 jest.mock('../../hooks/useNearbyDrivers', () => ({ useNearbyDrivers: () => ({ drivers: [], loading: false }) }));
+jest.mock('../../hooks/useTouchPoints', () => ({ useTouchPoints: () => [] }));
 jest.mock('../../utils/currency', () => ({ formatTTDDollars: (v: number) => `$${(v / 100).toFixed(2)}` }));
 
 describe('HomeScreen', () => {

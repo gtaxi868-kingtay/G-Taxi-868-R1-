@@ -14,6 +14,8 @@ import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import { HomeSheet } from '../components/home/HomeSheet';
+import { CarMarker } from '../components/home/CarMarker';
+import { useTouchPoints } from '../hooks/useTouchPoints';
 import { ShopPin } from '../components/home/ShopPin';
 import { ShopCarousel } from '../components/home/ShopCarousel';
 import { ShopActionSheet, type ShopAction } from '../components/home/ShopActionSheet';
@@ -38,7 +40,6 @@ import { toast } from '../components/Toast';
 
 const { supabase } = initializeSupabaseClient('native');
 
-const CAR_ASSET = require('../../assets/images/car_gtaxi_standard_v7.png');
 
 const BRAND = '#8B7CFF';
 
@@ -379,12 +380,14 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const currentLat = location?.coords.latitude || DEFAULT_LOCATION.latitude;
     const currentLng = location?.coords.longitude || DEFAULT_LOCATION.longitude;
     const { drivers: realtimeDrivers } = useNearbyDrivers(currentLat, currentLng);
+    // G-Touch Points riders are allowed to see (live/activated only).
+    const touchPoints = useTouchPoints();
 
     // Trust caption: convert the abstract map dots into an explicit promise.
     // ETA is a rough estimate from nearest driver distance (~30km/h urban => m/500 ≈ min),
     // surfaced with a "~" so it never reads as a hard guarantee.
     const nearestDriverMeters = realtimeDrivers.reduce<number | null>((min, d) => {
-        const dlat = (d.lat as any), dlng = (d.lng as any);
+        const dlat = d.lat, dlng = d.lng;
         if (!Number.isFinite(dlat) || !Number.isFinite(dlng)) return min;
         const m = haversineMeters(currentLat, currentLng, dlat, dlng);
         return min === null || m < min ? m : min;
@@ -790,8 +793,15 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                     />
                 )}
                 {realtimeDrivers.map(d => (
-                    <Marker key={d.id} coordinate={{ latitude: (d.lat as any) || 0, longitude: (d.lng as any) || 0 }} anchor={{ x: 0.5, y: 0.5 }} rotation={d.heading || 0}>
-                        <Image source={CAR_ASSET} style={{ width: 40, height: 40 }} resizeMode="contain" />
+                    <CarMarker key={d.id} lat={d.lat} lng={d.lng} heading={d.heading} glide={!reducedMotion} />
+                ))}
+                {touchPoints.map(p => (
+                    <Marker key={`tp-${p.id}`} coordinate={{ latitude: p.lat, longitude: p.lng }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}
+                        accessibilityLabel={`G-Touch Point, ${p.name}`}
+                        onPress={() => toast(`${p.name}: a G-Touch Point. Tap your phone or keychain here to book.`)}>
+                        <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: '#B65CFF', borderWidth: 2, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="radio" size={15} color="#FFFFFF" />
+                        </View>
                     </Marker>
                 ))}
                 {shops.map(shop => (

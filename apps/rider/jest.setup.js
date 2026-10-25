@@ -252,6 +252,8 @@ jest.mock('react-native-maps', () => {
     default: MapViewComponent,
     MapView: MapViewComponent,
     Marker: ({ children }) => React.createElement(View, null, children),
+    MarkerAnimated: ({ children }) => React.createElement(View, null, children),
+    AnimatedRegion: class { timing() { return { start() {}, stop() {} }; } },
     PROVIDER_DEFAULT: 'google',
     UrlTile: ({ urlTemplate }) => React.createElement(View, null),
     Polyline: ({ coordinates }) => React.createElement(View, null),

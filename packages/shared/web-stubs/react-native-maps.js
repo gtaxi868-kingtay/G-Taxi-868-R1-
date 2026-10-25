@@ -41,6 +41,14 @@ const MapView = forwardRef(function MapView(props, ref) {
 });
 
 export function Marker() { return null; }
+// Animated marker API (used by the rider's gliding cars). No-ops on web, where
+// the map is a still image.
+export const MarkerAnimated = function MarkerAnimated() { return null; };
+export class AnimatedRegion {
+  constructor(region) { this.region = region; }
+  timing() { return { start: () => {}, stop: () => {} }; }
+  spring() { return { start: () => {}, stop: () => {} }; }
+}
 export function Polyline() { return null; }
 export function Callout() { return null; }
 export function UrlTile() { return null; }
