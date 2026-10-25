@@ -590,22 +590,24 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-            navigation.navigate('RideConfirmation', {
-                destination: {
-                    latitude: data.refined_lat,
-                    longitude: data.refined_lng,
-                    address: data.landmark_name || data.address
+            // The photo pins down WHERE THE RIDER IS (vision_pickup's own prompt:
+            // "the user has sent a photo and their current GPS"). It used to be
+            // sent as the DESTINATION with GPS as pickup, i.e. a ride from here
+            // to here. Now it becomes the pickup and the rider picks where to go.
+            const refinedLat = Number(data.refined_lat), refinedLng = Number(data.refined_lng);
+            const hasRefined = Number.isFinite(refinedLat) && Number.isFinite(refinedLng);
+            navigation.navigate('DestinationSearch', {
+                currentLocation: {
+                    latitude: hasRefined ? refinedLat : currentPos.coords.latitude,
+                    longitude: hasRefined ? refinedLng : currentPos.coords.longitude,
+                    address: data.landmark_name || data.address || 'Your Location',
                 },
-                pickup: {
-                    latitude: currentPos.coords.latitude,
-                    longitude: currentPos.coords.longitude,
-                    address: 'Your Location'
-                }
             });
 
         } catch (err: any) {
-            console.error("Vision Error:", err);
-            Alert.alert("AI Sight Failed", err.message || "We couldn't pinpoint your location. Please type your destination.");
+            console.warn("Vision pickup failed:", err?.message);
+            // Never show a raw provider error to a rider.
+            Alert.alert("Couldn't read that photo", "We couldn't work out where you are from the photo. Check your pickup pin on the map, then tap Where to?.");
         } finally {
             setVisionLoading(false);
         }
