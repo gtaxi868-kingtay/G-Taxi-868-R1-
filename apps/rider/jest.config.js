@@ -3,7 +3,7 @@ module.exports = {
     transformIgnorePatterns: [
         'node_modules/(?!(@react-native/|react-native/|expo/|expo-[^/]+/|@expo/|@unimodules/|unimodules/|expo-modules-core/|react-native-reanimated/|@react-navigation/|@stripe/|@gorhom/|@react-native-community/))',
     ],
-    setupFiles: ['./jest.setup.js'],
+    setupFiles: [require.resolve('react-native-gesture-handler/jestSetup'), './jest.setup.js'],
     moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
     },

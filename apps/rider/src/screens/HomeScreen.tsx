@@ -12,7 +12,8 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useReducedMotion } from 'react-native-reanimated';
+import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
+import { HomeSheet } from '../components/home/HomeSheet';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useNetInfo } from '@react-native-community/netinfo';
@@ -95,6 +96,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const reducedMotion = useReducedMotion();
 
     const [sheetH, setSheetH] = useState(360);
+    const [boxH, setBoxH] = useState(0);
 
     const { activeRide: contextActiveRide } = useRide();
 
@@ -696,23 +698,19 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const night = m.key === 'night';
     const tileStyle = night ? 'navigation-night-v1' : 'light-v11';
 
-    // Sheet entrance: glides up once, content fades in after it.
-    const sheetRise = useRef(new Animated.Value(reducedMotion ? 0 : 40)).current;
-    const sheetFade = useRef(new Animated.Value(reducedMotion ? 1 : 0)).current;
-    useEffect(() => {
-        if (reducedMotion) return;
-        Animated.parallel([
-            Animated.timing(sheetRise, { toValue: 0, duration: 480, easing: Easing.bezier(0.23, 1, 0.32, 1), useNativeDriver: true }),
-            Animated.timing(sheetFade, { toValue: 1, duration: 360, easing: Easing.bezier(0.23, 1, 0.32, 1), useNativeDriver: true }),
-        ]).start();
-    }, []);
+    // Live sheet height (UI thread) so the pickup pin stays centred in the
+    // map that is still visible while the sheet is dragged.
+    const sheetHeight = useSharedValue(0);
+    const pickupStyle = useAnimatedStyle(() => ({
+        top: Math.max(insets.top + 84, (boxH - sheetHeight.value) / 2 - 40),
+    }));
 
     const otherLayers = layers.filter(l => l.id !== 'ride' && !l.locked);
     const lockedLayer = layers.find(l => l.locked);
     const fieldBg = night ? m.sheet[1] : '#FFFFFF';
 
     return (
-        <View style={{ flex: 1, backgroundColor: m.page }}>
+        <View style={{ flex: 1, backgroundColor: m.page }} onLayout={(e) => setBoxH(e.nativeEvent.layout.height)}>
             <StatusBar style={m.statusBar} />
 
             {/* Map — fills the top of the screen behind the sheet */}
@@ -757,21 +755,28 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
             </MapView>
             <LinearGradient pointerEvents="none" colors={m.mapWash as any} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 180 }} />
 
-            {/* Your pickup, centred in the visible map */}
-            <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: Math.max(insets.top + 70, (height - sheetH) / 2 - 30), alignItems: 'center' }}>
+            {/* Your pickup, centred in the map that is still visible above the sheet */}
+            <Reanimated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }, pickupStyle]}>
                 <View style={{ backgroundColor: m.sheet[1], borderRadius: 14, borderWidth: 2, borderBottomWidth: 4, borderColor: night ? '#3A3049' : '#ECE6F3', paddingHorizontal: 12, paddingVertical: 6, marginBottom: 6 }}>
                     <Txt variant="label">Your pickup</Txt>
                 </View>
                 <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(139,124,255,0.22)', alignItems: 'center', justifyContent: 'center' }}>
                     <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#8B7CFF', borderWidth: 3, borderColor: '#FFFFFF' }} />
                 </View>
-            </View>
+            </Reanimated.View>
 
-            {/* Top bar */}
-            <View style={{ position: 'absolute', top: insets.top + 12, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: m.sheet[1], borderWidth: 1, borderColor: m.sheetBorder }}>
-                    <View style={{ width: 7, height: 7, borderRadius: 4, marginRight: 8, backgroundColor: realtimeDrivers.length > 0 ? '#2FB57C' : m.faint }} />
-                    <Txt variant="label">{realtimeDrivers.length > 0 ? driverSubText : 'Finding drivers near you'}</Txt>
+            {/* Top bar: G greets you on the map, so it shows even with the sheet down */}
+            <View style={{ position: 'absolute', top: insets.top + 12, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingLeft: 4, paddingRight: 14, paddingVertical: 4, borderRadius: 24,
+                    backgroundColor: m.sheet[1], borderWidth: 2, borderBottomWidth: 4, borderColor: night ? '#3A3049' : '#ECE6F3', marginRight: SPACE.md }}>
+                    <Image source={require('../../assets/logo.png')} resizeMode="contain" style={{ width: 38, height: 38 }} />
+                    <View style={{ flexShrink: 1, marginLeft: 6 }}>
+                        <Txt variant="headline" numberOfLines={1}>{g.hello}{firstName ? `, ${firstName}` : ''}</Txt>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ width: 7, height: 7, borderRadius: 4, marginRight: 6, backgroundColor: realtimeDrivers.length > 0 ? '#2FB57C' : m.faint }} />
+                            <Txt variant="caption" tone="dim" numberOfLines={1}>{realtimeDrivers.length > 0 ? driverSubText : 'Finding drivers near you'}</Txt>
+                        </View>
+                    </View>
                 </View>
                 <View>
                     <IconButton icon="notifications-outline" label="Notifications" tone="filled" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Notifications'); }} />
@@ -780,227 +785,184 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
             </View>
 
             {!systemStatus.stripe_ready && (
-                <View style={{ position: 'absolute', top: insets.top + 66, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center', padding: SPACE.md, borderRadius: 14, backgroundColor: night ? 'rgba(245,158,11,0.16)' : '#FFF6E5' }}>
+                <View style={{ position: 'absolute', top: insets.top + 74, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center', padding: SPACE.md, borderRadius: 14, backgroundColor: night ? 'rgba(245,158,11,0.16)' : '#FFF6E5' }}>
                     <Ionicons name="information-circle" size={16} color="#D97706" />
                     <Txt variant="caption" style={{ marginLeft: SPACE.sm, flex: 1 }}>Card payments are paused right now. Cash still works.</Txt>
                 </View>
             )}
 
-            {/* Bottom sheet */}
-            <Animated.View
-                onLayout={(e) => setSheetH(e.nativeEvent.layout.height)}
-                style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: height - insets.top - 72, opacity: sheetFade, transform: [{ translateY: sheetRise }] }}
-            >
-                {m.glow ? (
-                    <LinearGradient pointerEvents="none" colors={m.glow as any} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }}
-                        style={{ position: 'absolute', left: 0, right: 0, top: -60, height: 90, opacity: 0.55 }} />
-                ) : null}
-                <LinearGradient
-                    colors={m.sheet as any}
-                    style={{ borderTopLeftRadius: RADIUS.sheet, borderTopRightRadius: RADIUS.sheet, borderWidth: 1, borderBottomWidth: 0, borderColor: m.sheetBorder,
-                        shadowColor: '#000', shadowOpacity: m.shadowOpacity, shadowRadius: 24, shadowOffset: { width: 0, height: -6 }, elevation: 16 }}
-                >
-                    <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: m.chipBorder, alignSelf: 'center', marginTop: 10, marginBottom: 6 }} />
-                    <ScrollView
-                        bounces={false}
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                        contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: SPACE.md, paddingBottom: Math.max(insets.bottom, SPACE.lg) + SPACE.sm }}
-                    >
-                        {/* G says hello */}
-                        <Pop>
-                            <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-                                <Animated.Image source={require('../../assets/logo.png')} resizeMode="contain"
-                                    style={{ width: 92, height: 92, marginLeft: -14, marginRight: -10, transform: [{ translateY: mascotBob }] }} />
-                                <View style={{ flex: 1, marginLeft: SPACE.sm, marginBottom: 6 }}>
-                                    <View style={{ backgroundColor: night ? '#2A2238' : '#FFFFFF', borderRadius: 18, borderWidth: 2, borderBottomWidth: 4,
-                                        borderColor: night ? '#3A3049' : '#ECE6F3', paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm }}>
-                                        <Txt variant="headline">{g.hello}{firstName ? `, ${firstName}` : ''}!</Txt>
-                                        <Txt variant="body" tone="dim" numberOfLines={2}>
-                                            {isAiThinking || visionLoading
-                                                ? (visionLoading ? 'Looking at your photo…' : 'Thinking…')
-                                                : (aiGreeting && aiGreeting !== 'Where to next?' ? aiGreeting : `Where are we going ${g.when}?`)}
-                                        </Txt>
-                                    </View>
-                                    {/* bubble tail */}
-                                    <View style={{ position: 'absolute', left: -6, bottom: 14, width: 14, height: 14, transform: [{ rotate: '45deg' }],
-                                        backgroundColor: night ? '#2A2238' : '#FFFFFF', borderLeftWidth: 2, borderBottomWidth: 2, borderColor: night ? '#3A3049' : '#ECE6F3' }} />
-                                </View>
-                                {platformFlags.aiAssistant && (
-                                    <View style={{ marginLeft: SPACE.sm, marginBottom: 6 }}>
-                                        <IconButton icon="mic" label="Ask G by voice" onPress={() => {
-                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                                            setVoiceInputText('');
-                                            setVoiceModalVisible(true);
-                                        }} />
-                                    </View>
-                                )}
-                            </View>
-                        </Pop>
-
-                        {/* Where to? — a big chunky key */}
-                        <Pop delay={70}>
-                            <Pressable
-                                accessibilityRole="search" accessibilityLabel="Where to?"
-                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openDestinationSearch(); }}
-                                onPressIn={searchIn} onPressOut={searchOut}
-                                style={{ marginTop: SPACE.lg }}
-                            >
-                                <View style={{ borderRadius: 20, backgroundColor: '#5B4BD6' }}>
-                                    <Animated.View style={{ height: 60, borderRadius: 20, overflow: 'hidden', flexDirection: 'row', alignItems: 'center',
-                                        paddingLeft: SPACE.lg, paddingRight: 8, transform: [{ translateY: searchDown }] , marginBottom: 5 }}>
-                                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
-                                        <Ionicons name="search" size={22} color="#FFFFFF" />
-                                        <Txt variant="headline" tone="onBrand" style={{ flex: 1, marginLeft: SPACE.md, fontSize: 19 }} numberOfLines={1}>{homeSuggestion || 'Where to?'}</Txt>
+            {/* The Where-to sheet: drag it (or tap the handle) between peek, half and full */}
+            {boxH > 0 && (
+                <HomeSheet
+                    available={Math.max(320, boxH - insets.top - 76)}
+                    height={sheetHeight}
+                    onSettled={setSheetH}
+                    top={
+                        <Pressable
+                            accessibilityRole="search" accessibilityLabel="Where to?"
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); openDestinationSearch(); }}
+                            onPressIn={searchIn} onPressOut={searchOut}
+                        >
+                            <View style={{ borderRadius: 20, backgroundColor: '#5B4BD6' }}>
+                                <Animated.View style={{ height: 60, borderRadius: 20, overflow: 'hidden', flexDirection: 'row', alignItems: 'center',
+                                    paddingLeft: SPACE.lg, paddingRight: 8, transform: [{ translateY: searchDown }], marginBottom: 5 }}>
+                                    <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
+                                    <Ionicons name="search" size={22} color="#FFFFFF" />
+                                    <Txt variant="headline" tone="onBrand" style={{ flex: 1, marginLeft: SPACE.md, fontSize: 19 }} numberOfLines={1}>{homeSuggestion || 'Where to?'}</Txt>
+                                    {platformFlags.aiAssistant && (
                                         <Pressable
-                                            accessibilityRole="button" accessibilityLabel="Ride with a photo of where you are"
-                                            onPress={handleVisionSighting} hitSlop={6}
-                                            style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}
+                                            accessibilityRole="button" accessibilityLabel="Ask G by voice"
+                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setVoiceInputText(''); setVoiceModalVisible(true); }}
+                                            hitSlop={6}
+                                            style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}
                                         >
-                                            <Ionicons name="camera" size={20} color="#FFFFFF" />
-                                        </Pressable>
-                                    </Animated.View>
-                                </View>
-                            </Pressable>
-                        </Pop>
-
-                        {/* Saved places */}
-                        <Pop delay={130}>
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.md }}>
-                                <Chip icon="home" label="Home" onPress={() => handleQuickAction('Home')} />
-                                <Chip icon="briefcase" label="Work" onPress={() => handleQuickAction('Work')} />
-                                <Chip icon="time" label="Recent" onPress={() => handleQuickAction('Recent')} />
-                            </View>
-                        </Pop>
-
-                        {/* Fare preview (voice / saved place on its way to booking) */}
-                        {(selectedDestinationPreview || isEstimatingFare) && (
-                            <Card style={{ marginTop: SPACE.sm }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <View style={{ flex: 1 }}>
-                                        <Txt variant="bodyStrong" numberOfLines={1}>{selectedDestinationPreview?.address || 'Getting your price…'}</Txt>
-                                        <Txt variant="caption" tone="dim" style={{ marginTop: 2 }}>
-                                            {isEstimatingFare ? 'Getting your price…' : estimatedFare ? `About ${formatTTDDollars(estimatedFare / 100)}` : 'Price not available yet'}
-                                        </Txt>
-                                    </View>
-                                    {!isEstimatingFare && (
-                                        <Pressable accessibilityRole="button" accessibilityLabel="Clear" onPress={clearFarePreview} hitSlop={8}>
-                                            <Ionicons name="close-circle" size={22} color={m.faint} />
+                                            <Ionicons name="mic" size={20} color="#FFFFFF" />
                                         </Pressable>
                                     )}
-                                </View>
-                                {stopSuggestions.length > 0 && selectedDestinationPreview && (
-                                    <View style={{ marginTop: SPACE.md }}>
-                                        <Txt variant="overline" tone="faint" style={{ marginBottom: SPACE.sm }}>ADD A STOP ON THE WAY</Txt>
-                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                                            {stopSuggestions.map((stop, i) => (
-                                                <Chip key={i} label={stop.name} onPress={() => {
-                                                    navigation.navigate('RideConfirmation', {
-                                                        destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
-                                                        pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
-                                                        stop: { name: stop.name, latitude: stop.lat, longitude: stop.lng },
-                                                    });
-                                                    clearFarePreview();
-                                                }} />
-                                            ))}
-                                        </View>
-                                    </View>
-                                )}
-                            </Card>
-                        )}
-
-                        {/* G's tip */}
-                        {proactiveAction && (
-                            <Pop>
-                                <Card style={{ marginTop: SPACE.sm, flexDirection: 'row', alignItems: 'flex-start' }}>
-                                    <Ionicons name="sparkles" size={16} color="#8B7CFF" style={{ marginTop: 2 }} />
-                                    <Txt variant="body" style={{ flex: 1, marginHorizontal: SPACE.md }}>{proactiveAction}</Txt>
-                                    <Pressable accessibilityRole="button" accessibilityLabel="Dismiss tip" onPress={() => setProactiveAction(null)} hitSlop={8}>
-                                        <Ionicons name="close" size={18} color={m.faint} />
+                                    <Pressable
+                                        accessibilityRole="button" accessibilityLabel="Ride with a photo of where you are"
+                                        onPress={handleVisionSighting} hitSlop={6}
+                                        style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <Ionicons name="camera" size={20} color="#FFFFFF" />
                                     </Pressable>
-                                </Card>
-                            </Pop>
-                        )}
+                                </Animated.View>
+                            </View>
+                        </Pressable>
+                    }
+                >
+                    {/* Saved places */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                        <Chip icon="home" label="Home" onPress={() => handleQuickAction('Home')} />
+                        <Chip icon="briefcase" label="Work" onPress={() => handleQuickAction('Work')} />
+                        <Chip icon="time" label="Recent" onPress={() => handleQuickAction('Recent')} />
+                    </View>
 
-                        {/* Services — bright tiles that bounce */}
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.md, marginHorizontal: -SPACE.xs }}>
-                            {[layers[0], ...otherLayers].map((l, i) => (
-                                <Pop key={l.id} delay={180 + i * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
-                                    <KeyTile
-                                        title={l.name}
-                                        icon={(i === 0 ? 'car-sport' : (l.icon || 'apps').replace('-sharp', '')) as any}
-                                        color={SERVICE_COLORS[l.id] || '#8B7CFF'}
-                                        onPress={() => handleLayerPrimary(l)}
-                                    />
-                                </Pop>
-                            ))}
-                            {lockedLayer && (
-                                <Pop delay={180 + (otherLayers.length + 1) * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
-                                    <KeyTile title={lockedLayer.name} icon="lock-closed" locked color={night ? '#4A4058' : '#C9C1D6'} onPress={() => toast(lockedLayer.label || `Keep riding to unlock ${lockedLayer.name}`)} />
-                                </Pop>
+                {/* Fare preview (voice / saved place on its way to booking) */}
+                {(selectedDestinationPreview || isEstimatingFare) && (
+                    <Card style={{ marginTop: SPACE.sm }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flex: 1 }}>
+                                <Txt variant="bodyStrong" numberOfLines={1}>{selectedDestinationPreview?.address || 'Getting your price…'}</Txt>
+                                <Txt variant="caption" tone="dim" style={{ marginTop: 2 }}>
+                                    {isEstimatingFare ? 'Getting your price…' : estimatedFare ? `About ${formatTTDDollars(estimatedFare / 100)}` : 'Price not available yet'}
+                                </Txt>
+                            </View>
+                            {!isEstimatingFare && (
+                                <Pressable accessibilityRole="button" accessibilityLabel="Clear" onPress={clearFarePreview} hitSlop={8}>
+                                    <Ionicons name="close-circle" size={22} color={m.faint} />
+                                </Pressable>
                             )}
                         </View>
-
-                        {/* Your progress */}
-                        <Pop delay={320}>
-                            <Card style={{ marginTop: SPACE.xs }} onPress={() => navigation.navigate('Subscription')}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: '#FFB020', borderBottomWidth: 4, borderColor: shade('#FFB020'), alignItems: 'center', justifyContent: 'center' }}>
-                                        <Ionicons name="trophy" size={22} color="#FFFFFF" />
-                                    </View>
-                                    <View style={{ flex: 1, marginLeft: SPACE.md }}>
-                                        <Txt variant="headline">{lockedLayer ? `Unlock ${lockedLayer.name}` : 'Your G-Level'}</Txt>
-                                        <Txt variant="caption" tone="dim" numberOfLines={1}>
-                                            {lockedLayer
-                                                ? `${Math.max(0, (lockedLayer.need ?? 0) - (lockedLayer.progress ?? 0))} more to go`
-                                                : 'Every ride moves you up and unlocks perks'}
-                                        </Txt>
-                                    </View>
-                                    <Ionicons name="chevron-forward" size={18} color={m.faint} />
-                                </View>
-                                <View style={{ marginTop: SPACE.md }}>
-                                    <Progress value={lockedLayer ? (lockedLayer.progress ?? 0) / Math.max(1, lockedLayer.need ?? 1) : 0.08} color="#FFB020" />
-                                </View>
-                            </Card>
-                        </Pop>
-
-                        {/* Nearby shops */}
-                        {nearbyVendors.length > 0 && (
-                            <Section title="Shops near you">
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -GUTTER }} contentContainerStyle={{ paddingHorizontal: GUTTER, gap: SPACE.md }}>
-                                    {nearbyVendors.map(v => (
-                                        <Card key={v.id} style={{ width: 168, padding: SPACE.md }} onPress={() => {
-                                            navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
-                                        }}>
-                                            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#2FB57C', alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.sm }}>
-                                                <Ionicons name="storefront" size={18} color="#FFFFFF" />
-                                            </View>
-                                            <Txt variant="bodyStrong" numberOfLines={1}>{v.name}</Txt>
-                                            <Txt variant="caption" tone={(v as any).is_usual ? 'accent' : 'dim'} numberOfLines={1}>
-                                                {(v as any).is_featured ? 'Featured' : (v as any).is_usual ? 'Your usual' : v.is_open ? 'Open now' : 'Closed'} · ~{v.avg_delivery_minutes} min
-                                            </Txt>
-                                        </Card>
+                        {stopSuggestions.length > 0 && selectedDestinationPreview && (
+                            <View style={{ marginTop: SPACE.md }}>
+                                <Txt variant="overline" tone="faint" style={{ marginBottom: SPACE.sm }}>ADD A STOP ON THE WAY</Txt>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                                    {stopSuggestions.map((stop, i) => (
+                                        <Chip key={i} label={stop.name} onPress={() => {
+                                            navigation.navigate('RideConfirmation', {
+                                                destination: { latitude: selectedDestinationPreview.lat, longitude: selectedDestinationPreview.lng, address: selectedDestinationPreview.address },
+                                                pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
+                                                stop: { name: stop.name, latitude: stop.lat, longitude: stop.lng },
+                                            });
+                                            clearFarePreview();
+                                        }} />
                                     ))}
-                                </ScrollView>
-                            </Section>
-                        )}
-
-                        {/* Trust */}
-                        <Pop delay={380}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md, padding: SPACE.md, borderRadius: RADIUS.card, backgroundColor: night ? 'rgba(47,181,124,0.12)' : '#EAF8F1', borderWidth: 2, borderColor: night ? 'rgba(47,181,124,0.25)' : '#C9EEDB' }}>
-                                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#2FB57C', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Ionicons name="shield-checkmark" size={19} color="#FFFFFF" />
-                                </View>
-                                <View style={{ flex: 1, marginLeft: SPACE.md }}>
-                                    <Txt variant="headline">You're in safe hands</Txt>
-                                    <Txt variant="caption" tone="dim">Verified drivers · G Guardian on call 24/7</Txt>
                                 </View>
                             </View>
-                        </Pop>
-                    </ScrollView>
-                </LinearGradient>
-            </Animated.View>
+                        )}
+                    </Card>
+                )}
 
+                {/* G's tip */}
+                {proactiveAction && (
+                    <Pop>
+                        <Card style={{ marginTop: SPACE.sm, flexDirection: 'row', alignItems: 'flex-start' }}>
+                            <Ionicons name="sparkles" size={16} color="#8B7CFF" style={{ marginTop: 2 }} />
+                            <Txt variant="body" style={{ flex: 1, marginHorizontal: SPACE.md }}>{proactiveAction}</Txt>
+                            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss tip" onPress={() => setProactiveAction(null)} hitSlop={8}>
+                                <Ionicons name="close" size={18} color={m.faint} />
+                            </Pressable>
+                        </Card>
+                    </Pop>
+                )}
+
+                {/* Services — bright tiles that bounce */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.md, marginHorizontal: -SPACE.xs }}>
+                    {[layers[0], ...otherLayers].map((l, i) => (
+                        <Pop key={l.id} delay={180 + i * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
+                            <KeyTile
+                                title={l.name}
+                                icon={(i === 0 ? 'car-sport' : (l.icon || 'apps').replace('-sharp', '')) as any}
+                                color={SERVICE_COLORS[l.id] || '#8B7CFF'}
+                                onPress={() => handleLayerPrimary(l)}
+                            />
+                        </Pop>
+                    ))}
+                    {lockedLayer && (
+                        <Pop delay={180 + (otherLayers.length + 1) * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
+                            <KeyTile title={lockedLayer.name} icon="lock-closed" locked color={night ? '#4A4058' : '#C9C1D6'} onPress={() => toast(lockedLayer.label || `Keep riding to unlock ${lockedLayer.name}`)} />
+                        </Pop>
+                    )}
+                </View>
+
+                {/* G's line for you (the hello itself is on the map) */}
+                <Pop>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                        <Animated.Image source={require('../../assets/logo.png')} resizeMode="contain"
+                            style={{ width: 92, height: 92, marginLeft: -14, marginRight: -10, transform: [{ translateY: mascotBob }] }} />
+                        <View style={{ flex: 1, marginLeft: SPACE.sm, marginBottom: 6 }}>
+                            <View style={{ backgroundColor: night ? '#2A2238' : '#FFFFFF', borderRadius: 18, borderWidth: 2, borderBottomWidth: 4,
+                                borderColor: night ? '#3A3049' : '#ECE6F3', paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm }}>
+                                <Txt variant="overline" tone="accent">G SAYS</Txt>
+                                <Txt variant="body" numberOfLines={3} style={{ marginTop: 2 }}>
+                                    {isAiThinking || visionLoading
+                                        ? (visionLoading ? 'Looking at your photo…' : 'Thinking…')
+                                        : (aiGreeting && aiGreeting !== 'Where to next?' ? aiGreeting : `Where are we going ${g.when}?`)}
+                                </Txt>
+                            </View>
+                            {/* bubble tail */}
+                            <View style={{ position: 'absolute', left: -6, bottom: 14, width: 14, height: 14, transform: [{ rotate: '45deg' }],
+                                backgroundColor: night ? '#2A2238' : '#FFFFFF', borderLeftWidth: 2, borderBottomWidth: 2, borderColor: night ? '#3A3049' : '#ECE6F3' }} />
+                        </View>
+                    </View>
+                </Pop>
+
+                {/* Nearby shops */}
+                {nearbyVendors.length > 0 && (
+                    <Section title="Shops near you">
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -GUTTER }} contentContainerStyle={{ paddingHorizontal: GUTTER, gap: SPACE.md }}>
+                            {nearbyVendors.map(v => (
+                                <Card key={v.id} style={{ width: 168, padding: SPACE.md }} onPress={() => {
+                                    navigation.navigate('ProductListing', { merchant: { ...v, category: v.store_type } });
+                                }}>
+                                    <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#2FB57C', alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.sm }}>
+                                        <Ionicons name="storefront" size={18} color="#FFFFFF" />
+                                    </View>
+                                    <Txt variant="bodyStrong" numberOfLines={1}>{v.name}</Txt>
+                                    <Txt variant="caption" tone={(v as any).is_usual ? 'accent' : 'dim'} numberOfLines={1}>
+                                        {(v as any).is_featured ? 'Featured' : (v as any).is_usual ? 'Your usual' : v.is_open ? 'Open now' : 'Closed'} · ~{v.avg_delivery_minutes} min
+                                    </Txt>
+                                </Card>
+                            ))}
+                        </ScrollView>
+                    </Section>
+                )}
+
+                {/* Trust */}
+                <Pop delay={380}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: SPACE.md, padding: SPACE.md, borderRadius: RADIUS.card, backgroundColor: night ? 'rgba(47,181,124,0.12)' : '#EAF8F1', borderWidth: 2, borderColor: night ? 'rgba(47,181,124,0.25)' : '#C9EEDB' }}>
+                        <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#2FB57C', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="shield-checkmark" size={19} color="#FFFFFF" />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                            <Txt variant="headline">You're in safe hands</Txt>
+                            <Txt variant="caption" tone="dim">Verified drivers · G Guardian on call 24/7</Txt>
+                        </View>
+                    </View>
+                </Pop>
+                </HomeSheet>
+            )}
 
             <SavedPlaceModal visible={!!activeModalLabel} defaultLabel={activeModalLabel || ''} onClose={() => setActiveModalLabel(null)} onSave={handleSavePlace} />
             <RecentRidesModal visible={showRecentModal} onClose={() => setShowRecentModal(false)} recentLocations={recentRides} onSelect={async (loc) => {

@@ -3,6 +3,7 @@ import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
 import {
     Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
@@ -294,7 +295,7 @@ function App() {
         const isAuth = s === 'Login' || s === 'Signup' || s === 'ForgotPassword';
         const mq = new URLSearchParams(window.location.search).get('mood');
         return (
-            <SafeAreaProvider><MoodProvider force={mq === 'day' || mq === 'night' ? mq : undefined}>
+            <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider><MoodProvider force={mq === 'day' || mq === 'night' ? mq : undefined}>
                 <QueryClientProvider client={queryClient}>
                     <AuthProvider>
                         <ErrorBoundary>
@@ -307,12 +308,12 @@ function App() {
                         </ErrorBoundary>
                     </AuthProvider>
                 </QueryClientProvider>
-            </MoodProvider></SafeAreaProvider>
+            </MoodProvider></SafeAreaProvider></GestureHandlerRootView>
         );
     }
 
     const content = (
-        <SafeAreaProvider><MoodProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider><MoodProvider>
             <QueryClientProvider client={queryClient}>
                 <AuthProvider>
                     <ErrorBoundary>
@@ -326,7 +327,7 @@ function App() {
                     </ErrorBoundary>
                 </AuthProvider>
             </QueryClientProvider>
-        </MoodProvider></SafeAreaProvider>
+        </MoodProvider></SafeAreaProvider></GestureHandlerRootView>
     );
 
     if (isExpoGo || isWeb) return content;
