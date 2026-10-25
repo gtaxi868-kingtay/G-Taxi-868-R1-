@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { stopFromParam, type StopSuggestion } from '../utils/shopStop';
+import { decode } from 'base64-arraybuffer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -234,8 +235,12 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const handleSelfieCapture = async () => {
         if (!cameraRef.current) return;
         try {
-            const photo = await cameraRef.current.takePictureAsync({ quality: 0.7 });
-            if (!photo || !photo.uri) {
+            // base64 straight from the camera: the old fetch(uri).blob() upload is a
+            // known React Native failure ("Network request failed" on Android),
+            // which is what riders hit. Same bytes-upload path as EditProfile's
+            // avatar, which works.
+            const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: true });
+            if (!photo || !photo.base64) {
                 setSelfieError('Failed to capture photo');
                 return;
             }
@@ -254,15 +259,14 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             // shape would fail the policy AND be missed at deletion time.
             const fileName = `${userId}/${Date.now()}.jpg`;
 
-            const response = await fetch(photo.uri);
-            const blob = await response.blob();
-
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            const { error: uploadError } = await supabase.storage
                 .from('verification-photos')
-                .upload(fileName, blob, { contentType: 'image/jpeg' });
+                .upload(fileName, decode(photo.base64), { contentType: 'image/jpeg' });
 
             if (uploadError) {
-                setSelfieError('Upload failed: ' + uploadError.message);
+                setSelfieError(/network/i.test(uploadError.message)
+                    ? 'No connection right now. Check your data or Wi-Fi and try again.'
+                    : 'Could not save your photo. Please try again.');
                 setSelfieUploading(false);
                 return;
             }
@@ -285,7 +289,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             setDeviceVerified(true);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (err: any) {
-            setSelfieError('Camera error: ' + (err.message || 'Unknown error'));
+            setSelfieError(/network/i.test(err?.message || '')
+                ? 'No connection right now. Check your data or Wi-Fi and try again.'
+                : 'The camera had a problem. Please try again.');
             setSelfieUploading(false);
         }
     };
