@@ -16,6 +16,7 @@ import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue } from '
 import { HomeSheet } from '../components/home/HomeSheet';
 import { CarMarker } from '../components/home/CarMarker';
 import { useTouchPoints } from '../hooks/useTouchPoints';
+import { usualTrip, type UsualTrip } from '../utils/usualTrip';
 import { ShopPin } from '../components/home/ShopPin';
 import { ShopCarousel } from '../components/home/ShopCarousel';
 import { ShopActionSheet, type ShopAction } from '../components/home/ShopActionSheet';
@@ -63,7 +64,7 @@ import type { TabScreenProps } from '../navigation/types';
 export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
-    const { profile } = useAuth();
+    const { profile, user } = useAuth();
     // Platform-wide switches from the admin's Platform Control page. One query
     // for all of them, kept live over realtime.
     const { flags: platformFlags } = usePlatformFlags();
@@ -100,6 +101,23 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const [shops, setShops] = useState<MapShop[]>([]);
     const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
     const [actionShop, setActionShop] = useState<MapShop | null>(null);
+    // "Your usual": where this rider most often goes at this time of day.
+    const [usual, setUsual] = useState<UsualTrip | null>(null);
+    useEffect(() => {
+        if (!user?.id) return;
+        let cancelled = false;
+        supabase
+            .from('rides')
+            .select('created_at, status, dropoff_lat, dropoff_lng, dropoff_address')
+            .eq('rider_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(60)
+            .then(({ data, error }: any) => {
+                if (cancelled || error) return;
+                setUsual(usualTrip(data || []));
+            }, () => {});
+        return () => { cancelled = true; };
+    }, [user?.id]);
     const mapRef = useRef<MapView>(null);
     const [stopSuggestions, setStopSuggestions] = useState<{ name: string; lat: number; lng: number }[]>([]);
 
@@ -906,8 +924,17 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                         </>
                     }
                 >
-                    {/* Saved places */}
+                    {/* Your usual (only when there is a real habit) + saved places */}
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                        {usual && (
+                            <Chip icon="repeat" label={`Again: ${usual.address.split(',')[0].slice(0, 22)}`} onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                navigation.navigate('RideConfirmation', {
+                                    pickup: { latitude: currentLat, longitude: currentLng, address: 'Current Location' },
+                                    destination: { latitude: usual.lat, longitude: usual.lng, address: usual.address },
+                                });
+                            }} />
+                        )}
                         <Chip icon="home" label="Home" onPress={() => handleQuickAction('Home')} />
                         <Chip icon="briefcase" label="Work" onPress={() => handleQuickAction('Work')} />
                         <Chip icon="time" label="Recent" onPress={() => handleQuickAction('Recent')} />
