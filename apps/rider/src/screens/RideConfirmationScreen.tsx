@@ -4,6 +4,7 @@ import {
     Alert, ScrollView, useWindowDimensions, Linking
 } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
+import { stopFromParam, type StopSuggestion } from '../utils/shopStop';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -19,18 +20,6 @@ import { formatTTDDollars } from '../utils/currency';
 const { supabase, getSupabase } = initializeSupabaseClient('native');
 
 
-interface StopSuggestion {
-    place_name: string;
-    place_address: string;
-    lat: number;
-    lng: number;
-    stop_type: string;
-    emoji: string;
-    estimated_wait_minutes: number;
-    is_preferred: boolean;
-    is_network_partner?: boolean;
-    merchant_id?: string;
-}
 
 interface VehicleOption {
     key: string;
@@ -69,6 +58,11 @@ function riderDesc(key: string, dbDesc?: string | null): string {
 export function RideConfirmationScreen({ navigation, route }: any) {
     const { height } = useWindowDimensions();
     const { destination, pickup, source, sourceMetadata, kioskId, taxiStandId } = route.params;
+    // A stop chosen before booking (a shop on the Home map, or G's "add a stop
+    // on the way"). This param used to be ignored, so the stop silently
+    // vanished; it is now selected, shown in the stop list and priced from
+    // the very first fare request.
+    const presetStop = useMemo(() => stopFromParam(route.params?.stop), []);
     const insets = useSafeAreaInsets();
     const mapRef = useRef<MapView>(null);
     const cameraRef = useRef<CameraView>(null);
@@ -88,8 +82,8 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const requestTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const [stopSuggestions, setStopSuggestions] = useState<StopSuggestion[]>([]);
-    const [selectedStops, setSelectedStops] = useState<StopSuggestion[]>([]);
+    const [stopSuggestions, setStopSuggestions] = useState<StopSuggestion[]>(presetStop ? [presetStop] : []);
+    const [selectedStops, setSelectedStops] = useState<StopSuggestion[]>(presetStop ? [presetStop] : []);
     const [bookForFamily, setBookForFamily] = useState(false);
     const [selfieMode, setSelfieMode] = useState(false);
     const [selfieUri, setSelfieUri] = useState<string | null>(null);
@@ -180,6 +174,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                     pickup_lng: pickupLoc.longitude,
                     dropoff_lat: destination.latitude,
                     dropoff_lng: destination.longitude,
+                    stops: presetStop ? [{ stop_type: presetStop.stop_type, estimated_wait_minutes: presetStop.estimated_wait_minutes }] : undefined,
                 }),
                 getWalletBalance()
             ]);
@@ -196,7 +191,9 @@ export function RideConfirmationScreen({ navigation, route }: any) {
                 }
             });
             if (stopsRes?.success && stopsRes.data?.suggestions) {
-                setStopSuggestions(stopsRes.data.suggestions);
+                // Keep the rider's own stop at the top of the list.
+                const fromG: StopSuggestion[] = stopsRes.data.suggestions;
+                setStopSuggestions(presetStop ? [presetStop, ...fromG.filter(x => x.place_name !== presetStop.place_name)] : fromG);
             }
 
             fitMapTimeout.current = setTimeout(() => {

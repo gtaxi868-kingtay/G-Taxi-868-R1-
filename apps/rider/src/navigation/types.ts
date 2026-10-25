@@ -25,7 +25,8 @@ export type RideConfirmationParams = {
   kioskId?: string;
   taxiStandId?: string;
   editPickupMode?: boolean;
-  stop?: { name: string; latitude: number; longitude: number };
+  // A stop chosen before booking; see utils/shopStop.ts.
+  stop?: { name: string; latitude: number; longitude: number; address?: string; merchantId?: string; storeType?: string };
 };
 
 export type ActiveRideParams = {
