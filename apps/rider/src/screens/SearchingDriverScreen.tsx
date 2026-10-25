@@ -274,7 +274,7 @@ export function SearchingDriverScreen({ route, navigation }: any) {
         await cancelRide(rideId, reasonCode);
         if (!silent) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate('Home');
+            navigation.navigate('Home', { screen: 'Map' });
         }
     };
 

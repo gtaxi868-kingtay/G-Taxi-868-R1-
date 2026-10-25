@@ -1,4 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -88,18 +90,32 @@ export type TagMarkerParams = {
   tagUid?: string;
 };
 
+// Params the Map tab (the old Home screen) accepts: QR taxi-stand deep links
+// and NFC taps.
+export type MapParams = {
+  lat?: string;
+  lng?: string;
+  stand?: string;
+  source?: string;
+  nfcTagId?: string;
+  nfcLat?: string;
+  nfcLng?: string;
+  nfcLocation?: string;
+  editPickupMode?: boolean;
+};
+
+// The five bottom tabs. They live inside the stack route named "Home", so
+// every existing navigate('Home') / reset to 'Home' still lands on the tabs.
+export type MainTabParamList = {
+  Map: MapParams | undefined;
+  Services: undefined;
+  Activity: undefined;
+  WalletTab: undefined;
+  You: undefined;
+};
+
 export type AppStackParamList = {
-  Home: {
-    lat?: string;
-    lng?: string;
-    stand?: string;
-    source?: string;
-    nfcTagId?: string;
-    nfcLat?: string;
-    nfcLng?: string;
-    nfcLocation?: string;
-    editPickupMode?: boolean;
-  };
+  Home: NavigatorScreenParams<MainTabParamList> | undefined;
   Profile: undefined;
   Notifications: undefined;
   DestinationSearch: {
@@ -211,3 +227,10 @@ export type RootStackParamList = AppStackParamList;
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;
 export type AppScreenProps<T extends keyof AppStackParamList> = NativeStackScreenProps<AppStackParamList, T>;
+
+// Props for a screen shown as a bottom tab: tab navigation plus everything the
+// parent stack can do (navigate to any app screen, replace, reset).
+export type TabScreenProps<T extends keyof MainTabParamList> = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, T>,
+  NativeStackScreenProps<AppStackParamList>
+>;

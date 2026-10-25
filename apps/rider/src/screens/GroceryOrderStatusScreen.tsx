@@ -203,7 +203,7 @@ export function GroceryOrderStatusScreen({ navigation, route }: any) {
 
     return (
         <Screen title="Your order" onBack={() => navigation.goBack()}
-            footer={<Button title="Back to home" variant="secondary" onPress={() => { Haptics.selectionAsync(); navigation.navigate('Home'); }} />}>
+            footer={<Button title="Back to home" variant="secondary" onPress={() => { Haptics.selectionAsync(); navigation.navigate('Home', { screen: 'Map' }); }} />}>
             <View style={{ height: 200, borderRadius: RADIUS.card, overflow: 'hidden', marginTop: SPACE.sm }}>
                 <MapView ref={mapRef} style={{ flex: 1 }} provider={PROVIDER_DEFAULT} initialRegion={mapRegion} userInterfaceStyle={m.key === 'night' ? 'dark' : 'light'}>
                     {merchantLocation && <Marker coordinate={merchantLocation} title="Shop" pinColor="#F5A524" />}

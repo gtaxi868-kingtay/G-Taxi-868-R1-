@@ -11,10 +11,12 @@ import Reanimated, {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { useInTab } from '../navigation/useInTab';
 import { toast } from '../components/Toast';
 import { BRAND_GRADIENT, BrandBadge, EmptyState, GUTTER, Header, Loading, RADIUS, Row, SPACE, Txt, useTheme } from '../ui/kit';
 
 export function WalletScreen({ navigation }: any) {
+    const inTab = useInTab(navigation);
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 
@@ -148,7 +150,7 @@ export function WalletScreen({ navigation }: any) {
     return (
         <View style={{ flex: 1, backgroundColor: m.page }}>
             <StatusBar style={m.statusBar} />
-            <Header title="Wallet" onBack={() => navigation.goBack()} />
+            <Header title="Wallet" onBack={inTab ? undefined : () => navigation.goBack()} />
             {loading && !refreshing ? <Loading /> : (
                 <FlatList<any>
                     data={transactions}

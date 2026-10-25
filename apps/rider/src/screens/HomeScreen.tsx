@@ -21,7 +21,8 @@ import { useRide } from '../context/RideContext';
 import { useNearbyDrivers } from '../hooks/useNearbyDrivers';
 import { usePlatformFlags } from '../hooks/usePlatformFlags';
 import { initializeSupabaseClient, DEFAULT_LOCATION, ENV } from '@gtaxi/core';
-import { Sidebar } from '../components/Sidebar';
+import { KeyTile } from '../components/KeyTile';
+import { useServices, SERVICE_ROUTES, SERVICE_COLORS } from '../hooks/useServices';
 import type { Layer } from '../components/home/LayerDeck';
 import { greetingFor } from '../theme/mood';
 import {
@@ -51,22 +52,21 @@ import { SavedPlace, Location as RideLocation, haversineMeters, isWithinRadius, 
 import { SavedPlaceModal } from '../components/SavedPlaceModal';
 import { RecentRidesModal } from '../components/RecentRidesModal';
 import { formatTTDDollars } from '../utils/currency';
-import { AppScreenProps } from '../navigation/types';
+import type { TabScreenProps } from '../navigation/types';
 
-export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
+export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const { width, height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
     const { profile } = useAuth();
     // Platform-wide switches from the admin's Platform Control page. One query
     // for all of them, kept live over realtime.
     const { flags: platformFlags } = usePlatformFlags();
+    // Which services this rider has unlocked (shared with the Services tab).
+    const { layers, featureFlags, homeSuggestion } = useServices();
 
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
     const [recentRides, setRecentRides] = useState<RideLocation[]>([]);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [featureFlags, setFeatureFlags] = useState({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, fete: false, events: false });
-    const [nextUnlock, setNextUnlock] = useState<{ vertical: string; progress: number; required: number; label: string } | null>(null);
     const [systemStatus, setSystemStatus] = useState<{ stripe_ready: boolean; mapbox_ready: boolean; config: Record<string, string> }>({ stripe_ready: true, mapbox_ready: true, config: {} });
     const [activeModalLabel, setActiveModalLabel] = useState<string | null>(null);
     const [showRecentModal, setShowRecentModal] = useState(false);
@@ -79,7 +79,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [showLocationConfirm, setShowLocationConfirm] = useState(false);
     const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [homeSuggestion, setHomeSuggestion] = useState<string | null>(null);
 
     const nfcDedupCache = useRef<Map<string, number>>(new Map());
     const netInfo = useNetInfo();
@@ -87,7 +86,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const [voiceModalVisible, setVoiceModalVisible] = useState(false);
     const [voiceInputText, setVoiceInputText] = useState('');
 
-    const [isVerticalsLoading, setIsVerticalsLoading] = useState(true);
     const [selectedDestinationPreview, setSelectedDestinationPreview] = useState<{lat: number, lng: number, address: string} | null>(null);
     const [estimatedFare, setEstimatedFare] = useState<number | null>(null);
     const [isEstimatingFare, setIsEstimatingFare] = useState(false);
@@ -149,82 +147,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
         fetchPlaces();
 
-        const fetchEnabledVerticals = async () => {
-            setIsVerticalsLoading(true);
-            try {
-                // kiosk/carnival/events used to be three separate round-trips to
-                // system_feature_flags. usePlatformFlags fetches every switch in
-                // one query and keeps them live, so adding more gates costs
-                // nothing extra.
-                const [progressRes] = await Promise.all([
-                    supabase.functions.invoke('get_rider_progress'),
-                ]);
-
-                if (progressRes.error) throw progressRes.error;
-
-                const { data: suggestionData } = await supabase
-                    .rpc('get_home_suggestion', { p_rider_id: profile?.id })
-                    .maybeSingle();
-                const suggestion = suggestionData as { cta_text?: string; vertical?: string; reason_code?: string } | null;
-                if (suggestion?.cta_text) {
-                    setHomeSuggestion(suggestion.cta_text);
-                }
-
-                // `unlocked_verticals` is now the EFFECTIVE list: the rider
-                // earned it AND the admin currently allows it. That
-                // intersection happens in get_rider_progress so it cannot be
-                // bypassed from here. Previously this only reflected what the
-                // rider earned, which is why the admin's vertical toggle
-                // appeared to do nothing.
-                const unlocked: string[] = progressRes.data?.data?.unlocked_verticals || [];
-
-                // Verticals with no progression gate (carnival, events) still
-                // have to respect the same admin switch. Default to true when
-                // the map is absent so an older payload can't blank the screen.
-                const platform: Record<string, boolean> = progressRes.data?.data?.platform_enabled || {};
-                const adminAllows = (name: string) => platform[name] !== false;
-
-                // This effect has an empty dependency array, so it must NOT read
-                // platformFlags — it would capture the first render's values and
-                // never see an admin toggle. The platform switch is applied at
-                // render time in the `layers` memo below, which does depend on
-                // them. What is computed here is only: did the rider earn it,
-                // and does vertical_settings allow it.
-                const flags = {
-                    grocery: unlocked.includes('grocery'),
-                    laundry: unlocked.includes('laundry_nfc') || unlocked.includes('laundry'),
-                    merchant: unlocked.includes('merchant_delivery'),
-                    kiosk: unlocked.includes('laundry_nfc') || unlocked.includes('kiosk'),
-                    caribbean_travel: unlocked.includes('g_escape') || unlocked.includes('caribbean_travel'),
-                    fete: adminAllows('carnival'),
-                    events: adminAllows('events'),
-                };
-
-                setFeatureFlags(flags);
-                setNextUnlock(progressRes.data?.data?.next_unlock ?? null);
-            } catch (err) {
-                console.warn('[HomeScreen] Failed to fetch rider progress:', err);
-                setFeatureFlags({ grocery: false, laundry: false, merchant: false, kiosk: false, caribbean_travel: false, fete: false, events: false });
-                setNextUnlock(null);
-            } finally {
-                setIsVerticalsLoading(false);
-            }
-        };
-        fetchEnabledVerticals();
-
-        const verticalsChannel = supabase
-            .channel('verticals-realtime')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'vertical_settings' },
-                () => { fetchEnabledVerticals(); }
-            )
-            .on(
-                'postgres_changes',
-                { event: 'UPDATE', schema: 'public', table: 'rider_progression', filter: `rider_id=eq.${profile?.id}` },
-                () => { fetchEnabledVerticals(); }
-            )
-            .subscribe();
 
         const fetchStatus = async () => {
             try {
@@ -347,9 +269,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
             fetchProactiveSuggestion();
         }
 
-        return () => {
-            verticalsChannel?.unsubscribe();
-        };
     }, []);
 
     useEffect(() => {
@@ -721,23 +640,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
         ? `${realtimeDrivers.length} ${realtimeDrivers.length === 1 ? 'driver' : 'drivers'} nearby${driverEtaMin ? ` · ~${driverEtaMin} min` : ''}`
         : 'Get a taxi anywhere';
 
-    const layers: Layer[] = useMemo(() => {
-        const arr: Layer[] = [
-            { id: 'ride', name: 'Ride', sub: driverSubText, accent: BRAND, icon: 'car-sport-sharp', search: homeSuggestion || 'Where to?' },
-        ];
-        if (featureFlags.grocery) arr.push({ id: 'market', name: 'Market', sub: 'Groceries delivered', accent: '#F59E0B', icon: 'cart-sharp', search: 'Shop groceries & more' });
-        if (featureFlags.laundry) arr.push({ id: 'laundry', name: 'Laundry', sub: 'Fresh & folded', accent: '#34E6EC', icon: 'shirt-sharp', search: 'Schedule a pickup' });
-        if (featureFlags.merchant) arr.push({ id: 'merchant', name: 'Food', sub: 'Delivery from local spots', accent: '#F97316', icon: 'fast-food-sharp', search: 'Order food & more' });
-        // Each of these needs BOTH gates: the rider earned it / the vertical is
-        // enabled (featureFlags), AND the platform switch on Platform Control is
-        // on (platformFlags). Either one off hides the tile.
-        if (featureFlags.caribbean_travel) arr.push({ id: 'escape', name: 'G-Escape', sub: 'Caribbean packages', accent: '#CBD6DE', icon: 'airplane-sharp', search: 'Browse escapes' });
-        if (featureFlags.kiosk && platformFlags.kiosk) arr.push({ id: 'tap', name: 'Tap', sub: 'Scan a puck', accent: BRAND, icon: 'radio-sharp', search: 'Open NFC scanner' });
-        if (featureFlags.events && platformFlags.events) arr.push({ id: 'events', name: 'Events', sub: 'Nightlife & fetes', accent: '#6D28D9', icon: 'calendar-sharp', search: 'What\'s happening' });
-        if (featureFlags.fete && platformFlags.carnival) arr.push({ id: 'fete', name: 'Carnival', sub: 'Bands & fetes', accent: '#FF2D55', icon: 'musical-notes-sharp', search: 'Find your band' });
-        if (nextUnlock) arr.push({ id: 'locked', name: nextUnlock.vertical, accent: '#34E6EC', icon: 'lock-closed', locked: true, progress: nextUnlock.progress, need: nextUnlock.required, label: nextUnlock.label });
-        return arr;
-    }, [featureFlags, platformFlags, nextUnlock, driverSubText, homeSuggestion]);
 
     const openDestinationSearch = () => {
         const accuracy = location?.coords?.accuracy;
@@ -753,17 +655,9 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
     const handleLayerPrimary = (layer: Layer) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        switch (layer.id) {
-            case 'ride': openDestinationSearch(); break;
-            case 'market': navigation.navigate('GroceryStorefront'); break;
-            case 'laundry': navigation.navigate('LaundryLanding'); break;
-            case 'merchant': navigation.navigate('FoodDelivery'); break;
-            case 'escape': navigation.navigate('EscapeStorefront'); break;
-            case 'tap': (navigation.navigate as any)('NfcScan'); break;
-            case 'events': navigation.navigate('Events'); break;
-            case 'fete': navigation.navigate('Carnival'); break;
-            default: break;
-        }
+        if (layer.id === 'ride') { openDestinationSearch(); return; }
+        const route = SERVICE_ROUTES[layer.id];
+        if (route) (navigation.navigate as any)(route);
     };
 
     // Store says this build is older than the minimum allowed.
@@ -875,7 +769,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 
             {/* Top bar */}
             <View style={{ position: 'absolute', top: insets.top + 12, left: GUTTER, right: GUTTER, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <IconButton icon="menu" label="Open menu" tone="filled" onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsMenuOpen(true); }} />
                 <View style={{ flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 14, borderRadius: 18, backgroundColor: m.sheet[1], borderWidth: 1, borderColor: m.sheetBorder }}>
                     <View style={{ width: 7, height: 7, borderRadius: 4, marginRight: 8, backgroundColor: realtimeDrivers.length > 0 ? '#2FB57C' : m.faint }} />
                     <Txt variant="label">{realtimeDrivers.length > 0 ? driverSubText : 'Finding drivers near you'}</Txt>
@@ -1033,17 +926,17 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.md, marginHorizontal: -SPACE.xs }}>
                             {[layers[0], ...otherLayers].map((l, i) => (
                                 <Pop key={l.id} delay={180 + i * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
-                                    <ServiceTile
-                                        label={l.name}
+                                    <KeyTile
+                                        title={l.name}
                                         icon={(i === 0 ? 'car-sport' : (l.icon || 'apps').replace('-sharp', '')) as any}
-                                        color={TILE_COLORS[l.id] || '#8B7CFF'}
+                                        color={SERVICE_COLORS[l.id] || '#8B7CFF'}
                                         onPress={() => handleLayerPrimary(l)}
                                     />
                                 </Pop>
                             ))}
                             {lockedLayer && (
                                 <Pop delay={180 + (otherLayers.length + 1) * 50} style={{ width: '25%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
-                                    <ServiceTile label={lockedLayer.name} icon="lock-closed" color={night ? '#4A4058' : '#C9C1D6'} onPress={() => toast(lockedLayer.label || `Keep riding to unlock ${lockedLayer.name}`)} />
+                                    <KeyTile title={lockedLayer.name} icon="lock-closed" locked color={night ? '#4A4058' : '#C9C1D6'} onPress={() => toast(lockedLayer.label || `Keep riding to unlock ${lockedLayer.name}`)} />
                                 </Pop>
                             )}
                         </View>
@@ -1108,12 +1001,6 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
                 </LinearGradient>
             </Animated.View>
 
-            <Sidebar
-                visible={isMenuOpen}
-                onClose={() => setIsMenuOpen(false)}
-                navigation={navigation}
-                user={{ name: profile?.name || 'Rider', rating: 5.0, photo_url: profile?.avatar_url ?? undefined }}
-            />
 
             <SavedPlaceModal visible={!!activeModalLabel} defaultLabel={activeModalLabel || ''} onClose={() => setActiveModalLabel(null)} onSave={handleSavePlace} />
             <RecentRidesModal visible={showRecentModal} onClose={() => setShowRecentModal(false)} recentLocations={recentRides} onSelect={async (loc) => {
@@ -1226,30 +1113,4 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
 function Overlay({ children }: { children: React.ReactNode }) {
     const m = useTheme();
     return <View style={[StyleSheet.absoluteFill, { backgroundColor: m.page, justifyContent: 'center', zIndex: 50 }]}>{children}</View>;
-}
-
-const TILE_COLORS: Record<string, string> = {
-    ride: '#8B7CFF', market: '#2FB57C', laundry: '#3FD9E8', merchant: '#FF8A3D',
-    escape: '#4C9AFF', tap: '#B65CFF', events: '#FF5C8A', fete: '#FFB020',
-};
-
-// A bright square key with a 3D lip that drops when pressed.
-function ServiceTile({ label, icon, color, onPress }: { label: string; icon: any; color: string; onPress: () => void }) {
-    const press = useRef(new Animated.Value(0)).current;
-    const down = press.interpolate({ inputRange: [0, 1], outputRange: [0, 5] });
-    return (
-        <Pressable accessibilityRole="button" accessibilityLabel={label}
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}
-            onPressIn={() => Animated.timing(press, { toValue: 1, duration: 70, useNativeDriver: true }).start()}
-            onPressOut={() => Animated.spring(press, { toValue: 0, speed: 18, bounciness: 12, useNativeDriver: true }).start()}
-            style={{ alignItems: 'center' }}>
-            <View style={{ alignSelf: 'stretch', borderRadius: 20, backgroundColor: shade(color) }}>
-                <Animated.View style={{ height: 64, borderRadius: 20, backgroundColor: color, alignItems: 'center', justifyContent: 'center', marginBottom: 5, transform: [{ translateY: down }] }}>
-                    <View pointerEvents="none" style={{ position: 'absolute', top: 6, left: 12, right: 12, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' }} />
-                    <Ionicons name={icon} size={26} color="#FFFFFF" />
-                </Animated.View>
-            </View>
-            <Txt variant="label" numberOfLines={1} style={{ marginTop: 6 }}>{label}</Txt>
-        </Pressable>
-    );
 }

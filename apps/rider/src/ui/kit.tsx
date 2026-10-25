@@ -98,8 +98,8 @@ function usePressScale() {
 }
 
 // Chunky "key" press: the face drops onto its lip, then springs back up.
-const LIP = 4;
-function useKeyPress() {
+export const LIP = 4;
+export function useKeyPress() {
     const down = useRef(new Animated.Value(0)).current;
     const onPressIn = () => Animated.timing(down, { toValue: 1, duration: 70, useNativeDriver: true }).start();
     const onPressOut = () => Animated.spring(down, { toValue: 0, speed: 18, bounciness: 10, useNativeDriver: true }).start();
@@ -108,7 +108,7 @@ function useKeyPress() {
 }
 
 // Light haptic tick that can never throw (some devices/test mocks return nothing).
-function tick() {
+export function tick() {
     try { Promise.resolve(Haptics.selectionAsync()).catch(() => {}); } catch { /* no haptics */ }
 }
 

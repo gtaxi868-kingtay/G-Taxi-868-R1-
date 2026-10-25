@@ -131,7 +131,7 @@ export function LaundryOrderStatusScreen({ navigation, route }: any) {
 
     return (
         <Screen title="Your laundry" onBack={() => navigation.goBack()}
-            footer={<Button title="Back to home" variant="secondary" onPress={() => { Haptics.selectionAsync(); navigation.navigate('Home'); }} />}>
+            footer={<Button title="Back to home" variant="secondary" onPress={() => { Haptics.selectionAsync(); navigation.navigate('Home', { screen: 'Map' }); }} />}>
             <Card style={{ marginTop: SPACE.sm }}>
                 <Txt variant="headline">Order #{orderId.slice(0, 8).toUpperCase()}</Txt>
                 {summary ? <Txt variant="caption" tone="dim" style={{ marginTop: 2 }}>{summary}</Txt> : null}

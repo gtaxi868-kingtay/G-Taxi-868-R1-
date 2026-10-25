@@ -17,7 +17,7 @@ import { MoodProvider, useTheme } from './src/ui/kit';
 
 // Every Text/TextInput gets Manrope at the right weight (see typography.ts).
 applyGlobalFont();
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, type LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
@@ -35,7 +35,7 @@ import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { GSpotScreen } from './src/screens/GSpotScreen';
-import { HomeScreen } from './src/screens/HomeScreen';
+import { MainTabs } from './src/navigation/MainTabs';
 import { AnimatedSplash } from './src/components/AnimatedSplash';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
@@ -138,8 +138,13 @@ function AuthNavigator({ initialRoute }: { initialRoute?: any } = {}) {
     );
 }
 
+// Tab names (web gallery: /design-preview/screens?s=Services opens that tab).
+const TAB_NAMES = ['Map', 'Services', 'Activity', 'WalletTab', 'You'];
+
 function AppNavigator({ initialRoute }: { initialRoute?: any } = {}) {
     const m = useTheme();
+    const galleryTab = TAB_NAMES.includes(initialRoute) ? initialRoute : undefined;
+    if (galleryTab) initialRoute = 'Home';
     const p = (name: string) => (initialRoute === name ? GALLERY_PARAMS[name] : undefined);
     return (
         <>
@@ -152,7 +157,7 @@ function AppNavigator({ initialRoute }: { initialRoute?: any } = {}) {
                     animation: 'slide_from_right',
                 }}
             >
-                <AppStack.Screen name="Home" component={HomeScreen} initialParams={p("Home")} />
+                <AppStack.Screen name="Home" component={MainTabs} initialParams={galleryTab ? ({ initialTab: galleryTab } as any) : undefined} />
                 <AppStack.Screen name="Profile" component={ProfileScreen} initialParams={p("Profile")} />
                 <AppStack.Screen name="Subscription" component={SubscriptionScreen} initialParams={p("Subscription")} />
                 <AppStack.Screen name="GSpot" component={GSpotScreen} initialParams={p("GSpot")} />
@@ -215,17 +220,22 @@ function RootNavigator() {
     return user ? <RideProvider><EscapeTripProvider><AppNavigator /></EscapeTripProvider></RideProvider> : <AuthNavigator />;
 }
 
-const linking = {
+const linking: LinkingOptions<AppStackParamList> = {
     prefixes: ['gtaxi://'],
     config: {
         screens: {
+            // QR taxi-stand links land on the map tab inside the tabs.
             Home: {
-                path: 'request',
-                parse: {
-                    lat: (lat: string) => parseFloat(lat),
-                    lng: (lng: string) => parseFloat(lng),
-                    stand: (stand: string) => stand,
-                }
+                screens: {
+                    Map: {
+                        path: 'request',
+                        parse: {
+                            lat: (lat: string) => parseFloat(lat),
+                            lng: (lng: string) => parseFloat(lng),
+                            stand: (stand: string) => stand,
+                        }
+                    },
+                },
             },
             EscapeStorefront: 'escape/:packageId?',
         }

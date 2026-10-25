@@ -69,7 +69,7 @@ export function ServiceBookingScreen({ navigation, route }: any) {
             }
 
             toast(`Request sent to ${merchantName}. We'll let you know when they confirm.`, 'success');
-            navigation.navigate('Home');
+            navigation.navigate('Home', { screen: 'Map' });
         } catch (err: any) {
             toast(err.message || 'Booking did not go through.', 'error');
         } finally {

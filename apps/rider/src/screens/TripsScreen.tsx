@@ -6,9 +6,11 @@ import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
+import { useInTab } from '../navigation/useInTab';
 import { Button, Card, EmptyState, GUTTER, Header, Loading, SPACE, Txt, useTheme } from '../ui/kit';
 
 export function TripsScreen({ navigation }: any) {
+    const inTab = useInTab(navigation);
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
 
@@ -78,7 +80,7 @@ export function TripsScreen({ navigation }: any) {
     return (
         <View style={{ flex: 1, backgroundColor: m.page }}>
             <StatusBar style={m.statusBar} />
-            <Header title="Your trips" onBack={() => navigation.goBack()} />
+            <Header title="Your trips" onBack={inTab ? undefined : () => navigation.goBack()} />
             {loading ? <Loading /> : (
                 <FlatList<any>
                     data={trips}
@@ -89,7 +91,7 @@ export function TripsScreen({ navigation }: any) {
                     ListEmptyComponent={
                         loadError
                             ? <EmptyState icon="cloud-offline-outline" title="Could not load your trips" body="Pull down to try again." />
-                            : <EmptyState icon="car-outline" title="No trips yet" body="Your rides will show up here." action={<Button title="Book a ride" onPress={() => navigation.navigate('Home')} />} />
+                            : <EmptyState icon="car-outline" title="No trips yet" body="Your rides will show up here." action={<Button title="Book a ride" onPress={() => navigation.navigate('Home', { screen: 'Map' })} />} />
                     }
                 />
             )}
