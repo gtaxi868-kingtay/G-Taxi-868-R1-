@@ -40,7 +40,6 @@ jest.mock('../../components/home/LayerDeck', () => {
   const { View } = require('react-native');
   return { LayerDeck: ({ children }: any) => React.createElement(View, null, children), Layer: ({ children }: any) => React.createElement(View, null, children) };
 });
-jest.mock('../../components/Sidebar', () => ({ Sidebar: 'Sidebar' }));
 jest.mock('../../components/SavedPlaceModal', () => ({ SavedPlaceModal: 'SavedPlaceModal' }));
 jest.mock('../../components/RecentRidesModal', () => ({ RecentRidesModal: 'RecentRidesModal' }));
 jest.mock('../../services/api', () => ({ getSavedPlaces: jest.fn(() => Promise.resolve([])), savePlace: jest.fn(), getRecentRides: jest.fn(() => Promise.resolve([])), estimateFare: jest.fn() }));
