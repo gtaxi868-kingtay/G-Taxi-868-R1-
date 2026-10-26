@@ -51,11 +51,11 @@ Deno.serve(async (req) => {
     // If this signup came from a Commander's node invite, validate it BEFORE
     // creating any account — a bad/expired/claimed token should fail fast,
     // not leave an orphaned auth user behind.
-    let invite: { id: string; kiosk_node_id: string; token: string } | null = null
+    let invite: { id: string; kiosk_node_id: string | null; token: string; merchant_id: string | null; claims_existing: boolean } | null = null
     if (invite_token) {
       const { data: inviteRow, error: inviteErr } = await supabaseAdmin
         .from('merchant_invites')
-        .select('id, kiosk_node_id, token, status, expires_at')
+        .select('id, kiosk_node_id, token, status, expires_at, merchant_id, claims_existing')
         .eq('token', invite_token)
         .maybeSingle()
 
@@ -78,6 +78,23 @@ Deno.serve(async (req) => {
         )
       }
       invite = inviteRow
+    }
+
+    // A claim link (admin_create_business_claim) points at a business record
+    // that ALREADY exists, e.g. a hotel our team typed in. The owner takes
+    // over that record instead of getting a second, empty one.
+    const claimingExisting = !!(invite?.claims_existing && invite.merchant_id)
+    if (claimingExisting) {
+      const [{ data: target }, { count: owners }] = await Promise.all([
+        supabaseAdmin.from('merchants').select('id, created_by').eq('id', invite!.merchant_id!).maybeSingle(),
+        supabaseAdmin.from('profiles').select('id', { count: 'exact', head: true }).eq('merchant_id', invite!.merchant_id!),
+      ])
+      if (!target || target.created_by || (owners ?? 0) > 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'This business already has an owner account. Sign in instead.' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -105,24 +122,40 @@ Deno.serve(async (req) => {
       if (details?.address) claimedAddress = details.address
     }
 
-    const { data: merchant, error: merchantError } = await supabaseAdmin
-      .from('merchants')
-      .insert({
-        name: full_name,
-        // category is CHECK-constrained to a fixed 18-value list — safe to use
-        // claimedCategory unvalidated here because it can only ever have come
-        // from that same fixed list on the public waitlist form.
-        category: claimedCategory || 'local',
-        address: claimedAddress || null,
-        created_by: newUser.user.id,
-        activation_status: 'pending',
-        is_active: false,
-      })
-      .select()
-      .single()
+    // Claim: take the existing record, but only if it is STILL unowned (the
+    // created_by IS NULL filter makes two people racing the same link safe).
+    const { data: merchant, error: merchantError } = claimingExisting
+      ? await supabaseAdmin
+          .from('merchants')
+          .update({ created_by: newUser.user.id })
+          .eq('id', invite!.merchant_id!)
+          .is('created_by', null)
+          .select()
+          .single()
+      : await supabaseAdmin
+          .from('merchants')
+          .insert({
+            name: full_name,
+            // category is CHECK-constrained to a fixed 18-value list — safe to use
+            // claimedCategory unvalidated here because it can only ever have come
+            // from that same fixed list on the public waitlist form.
+            category: claimedCategory || 'local',
+            address: claimedAddress || null,
+            created_by: newUser.user.id,
+            activation_status: 'pending',
+            is_active: false,
+          })
+          .select()
+          .single()
 
-    if (merchantError) {
+    if (merchantError || !merchant) {
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+      if (claimingExisting) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'This business was just claimed by someone else. Contact G868 support.' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       throw merchantError
     }
 
@@ -138,7 +171,12 @@ Deno.serve(async (req) => {
       })
 
     if (profileError) {
-      await supabaseAdmin.from('merchants').delete().eq('id', merchant.id).maybeSingle()
+      if (claimingExisting) {
+        // Never delete a claimed record: hand it back unowned.
+        await supabaseAdmin.from('merchants').update({ created_by: null }).eq('id', merchant.id)
+      } else {
+        await supabaseAdmin.from('merchants').delete().eq('id', merchant.id).maybeSingle()
+      }
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
       throw profileError
     }
@@ -167,10 +205,13 @@ Deno.serve(async (req) => {
     // is surfaced as a warning, not a rollback — HQ can link it manually.
     let node_link_warning: string | null = null
     if (invite) {
-      const { error: linkErr } = await supabaseAdmin
-        .from('kiosk_nodes')
-        .update({ merchant_id: merchant.id })
-        .eq('id', invite.kiosk_node_id)
+      // A claim link may have no node; a commander invite always has one.
+      const { error: linkErr } = invite.kiosk_node_id
+        ? await supabaseAdmin
+            .from('kiosk_nodes')
+            .update({ merchant_id: merchant.id })
+            .eq('id', invite.kiosk_node_id)
+        : { error: null }
 
       const { error: claimErr } = await supabaseAdmin
         .from('merchant_invites')

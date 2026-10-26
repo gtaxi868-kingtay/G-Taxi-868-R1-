@@ -253,6 +253,28 @@ export function EscapeManagement() {
     setZonesLoading(false);
   }, []);
 
+  // Claim links: the hotel's owner takes over this record and keeps the
+  // nightly rate current themselves (founder, 2026-10-26: our team should not
+  // be stuck copying rates). One live link per hotel; a new one cancels the old.
+  const [claimLinks, setClaimLinks] = useState<Record<string, { loading?: boolean; url?: string; expires?: string; error?: string; copied?: boolean }>>({});
+  const makeClaimLink = async (n: LodgingNode) => {
+    setClaimLinks((c) => ({ ...c, [n.id]: { loading: true } }));
+    const { data, error } = await supabase.rpc('admin_create_business_claim', { p_lodging_id: n.id });
+    if (error || !data?.success) {
+      setClaimLinks((c) => ({ ...c, [n.id]: { error: data?.error || 'Could not make a claim link. Try again.' } }));
+      return;
+    }
+    setClaimLinks((c) => ({ ...c, [n.id]: { url: data.claim_url, expires: data.expires_at } }));
+  };
+  const copyClaimLink = async (id: string, url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setClaimLinks((c) => ({ ...c, [id]: { ...c[id], copied: true } }));
+    } catch {
+      setClaimLinks((c) => ({ ...c, [id]: { ...c[id], error: 'Copy failed. Select the link and copy it by hand.' } }));
+    }
+  };
+
   const loadLodging = useCallback(async () => {
     setLodgingLoading(true);
     const { data } = await supabase.from('lodging_nodes').select('*').order('name');
@@ -1009,9 +1031,30 @@ export function EscapeManagement() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-black text-cyan-400">{fmtTTD(n.base_price_per_night_cents)}/night</span>
-                    <button onClick={() => setEditingLodging(n)} className="text-[10px] font-black text-cyan-400 uppercase">Edit</button>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-black text-cyan-400">{fmtTTD(n.base_price_per_night_cents)}/night</span>
+                      <button onClick={() => setEditingLodging(n)} className="text-[10px] font-black text-cyan-400 uppercase">Edit</button>
+                      <button onClick={() => makeClaimLink(n)} disabled={claimLinks[n.id]?.loading}
+                        className="text-[10px] font-black text-emerald-400 uppercase disabled:opacity-40">
+                        {claimLinks[n.id]?.loading ? 'Making link…' : 'Claim link'}
+                      </button>
+                    </div>
+                    {claimLinks[n.id]?.error && <p className="text-[11px] text-red-400">{claimLinks[n.id].error}</p>}
+                    {claimLinks[n.id]?.url && (
+                      <div className="flex items-center gap-3 text-[11px]">
+                        <span className="text-white/50 max-w-[260px] truncate" title={claimLinks[n.id].url}>{claimLinks[n.id].url}</span>
+                        <button onClick={() => copyClaimLink(n.id, claimLinks[n.id].url!)} className="font-black text-cyan-400 uppercase">
+                          {claimLinks[n.id].copied ? 'Copied' : 'Copy'}
+                        </button>
+                        {n.owner_whatsapp && (
+                          <a className="font-black text-emerald-400 uppercase" target="_blank" rel="noreferrer"
+                            href={`https://wa.me/${n.owner_whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${n.owner_name || ''}, this link connects ${n.name} to its own G868 business account, so you can keep your room rates up to date yourself: ${claimLinks[n.id].url}`)}`}>
+                            WhatsApp owner
+                          </a>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
