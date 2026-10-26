@@ -10,7 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
+import { FaceAutoCapture } from '../components/FaceAutoCapture';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initializeSupabaseClient, ENV, supportWhatsAppLink } from '@gtaxi/core';
 import { estimateFare, createRide, getWalletBalance } from '../services/api';
@@ -66,7 +67,6 @@ export function RideConfirmationScreen({ navigation, route }: any) {
     const presetStop = useMemo(() => stopFromParam(route.params?.stop), []);
     const insets = useSafeAreaInsets();
     const mapRef = useRef<MapView>(null);
-    const cameraRef = useRef<CameraView>(null);
 
     const [loading, setLoading] = useState(true);
     const [fare, setFare] = useState<any>(null);
@@ -232,18 +232,14 @@ export function RideConfirmationScreen({ navigation, route }: any) {
         });
     };
 
-    const handleSelfieCapture = async () => {
-        if (!cameraRef.current) return;
+    // FaceAutoCapture takes the photo itself once the rider's face is steady
+    // in the oval, then hands us the bytes.
+    const handleSelfieCapture = async (base64: string) => {
         try {
             // base64 straight from the camera: the old fetch(uri).blob() upload is a
             // known React Native failure ("Network request failed" on Android),
             // which is what riders hit. Same bytes-upload path as EditProfile's
             // avatar, which works.
-            const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: true });
-            if (!photo || !photo.base64) {
-                setSelfieError('Failed to capture photo');
-                return;
-            }
             setSelfieUploading(true);
             setSelfieError(null);
 
@@ -261,7 +257,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
             const { error: uploadError } = await supabase.storage
                 .from('verification-photos')
-                .upload(fileName, decode(photo.base64), { contentType: 'image/jpeg' });
+                .upload(fileName, decode(base64), { contentType: 'image/jpeg' });
 
             if (uploadError) {
                 setSelfieError(/network/i.test(uploadError.message)
@@ -469,6 +465,7 @@ export function RideConfirmationScreen({ navigation, route }: any) {
             const perm = await requestCameraPermission();
             if (!perm.granted) { setSelfieError('Allow camera access to take the safety photo.'); return; }
         }
+        setSelfieError(null);
         setSelfieMode(true);
     };
 
@@ -660,20 +657,13 @@ export function RideConfirmationScreen({ navigation, route }: any) {
 
             {/* Safety photo camera */}
             <Modal visible={selfieMode} animationType="slide" onRequestClose={() => setSelfieMode(false)}>
-                <View style={{ flex: 1, backgroundColor: '#000' }}>
-                    <CameraView ref={cameraRef} facing="front" style={StyleSheet.absoluteFill}
-                        onMountError={() => { setSelfieError('Could not open the camera.'); setSelfieMode(false); }} />
-                    <View style={{ position: 'absolute', left: GUTTER, right: GUTTER, bottom: Math.max(insets.bottom, SPACE.lg) + SPACE.lg, padding: SPACE.xl, borderRadius: RADIUS.card, backgroundColor: 'rgba(15,11,24,0.82)' }}>
-                        <Txt variant="headline" style={{ color: '#FFFFFF', textAlign: 'center' }}>Safety photo</Txt>
-                        <Txt variant="caption" style={{ color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: SPACE.xs }}>
-                            Kept private, only used if something goes wrong on this ride.
-                        </Txt>
-                        <View style={{ flexDirection: 'row', gap: SPACE.md, marginTop: SPACE.lg }}>
-                            <Button title="Cancel" variant="secondary" size="md" style={{ flex: 1 }} onPress={() => setSelfieMode(false)} />
-                            <Button title="Take photo" icon="camera" size="md" style={{ flex: 1 }} loading={selfieUploading} onPress={handleSelfieCapture} />
-                        </View>
-                    </View>
-                </View>
+                <FaceAutoCapture
+                    busy={selfieUploading}
+                    error={selfieMode ? selfieError : null}
+                    onRetry={() => setSelfieError(null)}
+                    onCapture={handleSelfieCapture}
+                    onCancel={() => setSelfieMode(false)}
+                />
             </Modal>
         </View>
     );
