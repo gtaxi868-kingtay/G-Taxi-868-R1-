@@ -3,18 +3,19 @@ import { supabase } from './lib/supabase';
 import { 
   Package, MapPin, CheckCircle, Clock, AlertTriangle, LogOut, 
   Sparkles, Bell, ShieldCheck, Users, DollarSign, Scan,
-  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X, Megaphone, Wine, BedDouble
+  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X, Megaphone, Wine, BedDouble, PlaneLanding
 } from 'lucide-react';
 import { MerchantFinancials } from './pages/MerchantFinancials';
 import { MerchantPromotions } from './pages/MerchantPromotions';
 import { MerchantGSpot } from './pages/MerchantGSpot';
 import { MerchantRooms } from './pages/MerchantRooms';
+import { MerchantAirport } from './pages/MerchantAirport';
 import { MerchantLogin } from './pages/MerchantLogin';
 import { MerchantRegister } from './pages/MerchantRegister';
 import { MerchantJoinWithCode } from './pages/MerchantJoinWithCode';
 
 type MerchantMode = 'HOTEL' | 'RETAIL' | 'SERVICE' | 'AIRPORT';
-type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions' | 'gspot' | 'rooms';
+type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions' | 'gspot' | 'rooms' | 'airport';
 
 function App() {
   const [view, setView] = useState<'login' | 'register' | 'join' | 'app'>('login');
@@ -178,6 +179,9 @@ function App() {
               {mode === 'HOTEL' && (
                 <MerchantNavItem active={activeTab === 'rooms'} onClick={() => handleNav('rooms')} icon={<BedDouble size={20}/>} label="Rooms & Rates" />
               )}
+              {mode === 'HOTEL' && (
+                <MerchantNavItem active={activeTab === 'airport'} onClick={() => handleNav('airport')} icon={<PlaneLanding size={20}/>} label="Airport Pickups" />
+              )}
           </nav>
 
           <div className="mt-auto space-y-4">
@@ -286,6 +290,7 @@ function App() {
               {activeTab === 'promotions' && <MerchantPromotions merchantId={merchant?.id} />}
               {activeTab === 'gspot' && <MerchantGSpot />}
               {activeTab === 'rooms' && <MerchantRooms />}
+              {activeTab === 'airport' && <MerchantAirport />}
           </div>
 
           {showDispatch && (
