@@ -15,6 +15,7 @@ import { OrdersScreen } from './src/screens/OrdersScreen';
 import { DispatchScreen } from './src/screens/DispatchScreen';
 import { EarningsScreen } from './src/screens/EarningsScreen';
 import { PropertyManagementScreen } from './src/screens/PropertyManagementScreen';
+import { OfflineBanner } from './src/components/OfflineBanner';
 import { EquityProgressScreen } from './src/screens/EquityProgressScreen';
 import { ProductCatalogScreen } from './src/screens/ProductCatalogScreen';
 import { AppointmentsScreen } from './src/screens/AppointmentsScreen';
@@ -90,6 +91,7 @@ export default function App() {
             <NavigationContainer>
               <RootNavigator />
             </NavigationContainer>
+            <OfflineBanner />
           </View>
         </AuthProvider>
       </SafeAreaProvider>

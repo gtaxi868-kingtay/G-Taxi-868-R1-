@@ -40,12 +40,18 @@ export const MerchantAirport = () => {
     const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
     const [pickups, setPickups] = useState<Pickup[]>([]);
     const [loading, setLoading] = useState(true);
+    const [listError, setListError] = useState<string | null>(null);
 
     const load = useCallback(async () => {
-        setLoading(true);
-        const { data } = await supabase.functions.invoke('merchant', { body: { action: 'list_airport_pickups' } });
-        setPickups(data?.success ? data.pickups : []);
-        setLoading(false);
+        setLoading(true); setListError(null);
+        try {
+            const { data, error } = await supabase.functions.invoke('merchant', { body: { action: 'list_airport_pickups' } });
+            if (error && !data) throw error;
+            if (!data?.success) { setListError(data?.error || 'Could not load your pickups.'); setPickups([]); return; }
+            setPickups(data.pickups);
+        } catch {
+            setListError(navigator.onLine === false ? 'You are offline. Your pickups will load when you reconnect.' : 'Could not load your pickups. Check your connection and try again.');
+        } finally { setLoading(false); }
     }, []);
     useEffect(() => { load(); }, [load]);
 
@@ -67,6 +73,7 @@ export const MerchantAirport = () => {
     };
 
     const book = async () => {
+        if (navigator.onLine === false) { setNotice({ ok: false, text: 'You are offline. The pickup was not booked.' }); return; }
         setBooking(true); setNotice(null);
         try {
             const { data, error } = await supabase.functions.invoke('merchant', { body: { action: 'book_airport_pickup', ...form } });
@@ -135,7 +142,12 @@ export const MerchantAirport = () => {
             </div>
 
             {loading ? (
-                <div className="py-16 text-center"><Loader2 className="animate-spin mx-auto text-white/30" size={24} /></div>
+                <div className="py-16 text-center"><Loader2 className="animate-spin mx-auto text-white/30" size={24} /><p className="text-white/30 text-xs mt-3">Loading your pickups…</p></div>
+            ) : listError ? (
+                <div className="py-12 text-center bg-white/[0.02] rounded-3xl border border-dashed border-white/10">
+                    <p className="text-white/60 text-sm">{listError}</p>
+                    <button onClick={load} className="mt-4 h-10 px-5 rounded-xl bg-white/10 text-white text-xs font-bold">Try again</button>
+                </div>
             ) : pickups.length === 0 ? (
                 <div className="py-16 text-center bg-white/[0.02] rounded-3xl border border-dashed border-white/10">
                     <PlaneLanding size={36} className="mx-auto mb-3 text-white/20" />
