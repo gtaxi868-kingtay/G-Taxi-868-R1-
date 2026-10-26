@@ -63,7 +63,17 @@ export function pickupTimeFor(f: FlightStatus): string | null {
 export function pickFlight(raw: any, date: string, airport?: string): FlightStatus | null {
     const flights: any[] = Array.isArray(raw?.flights) ? raw.flights : [];
     const localDate = (iso: string) => new Date(new Date(iso).getTime() - 4 * 3_600_000).toISOString().slice(0, 10);
-    const rows = flights
+    // Codeshares: one physical flight can come back under several flight
+    // numbers. Keep each FlightAware flight id once, preferring the operating
+    // carrier's own entry (ident_iata equals the operator's flight number).
+    const seen = new Map<string, any>();
+    for (const f of flights) {
+        const key = String(f.fa_flight_id || `${f.ident_iata || f.ident}|${f.scheduled_in}`);
+        const prev = seen.get(key);
+        const isOperator = f.operator_iata && String(f.ident_iata || "").startsWith(f.operator_iata);
+        if (!prev || (isOperator && !(prev.operator_iata && String(prev.ident_iata || "").startsWith(prev.operator_iata)))) seen.set(key, f);
+    }
+    const rows = [...seen.values()]
         .map((f) => ({
             ident: String(f.ident_iata || f.ident || ""),
             origin: f.origin?.code_iata ?? null,

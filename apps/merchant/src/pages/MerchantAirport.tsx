@@ -6,7 +6,7 @@ import { PlaneLanding, RefreshCw, Loader2, Search, Check } from 'lucide-react';
 // tracking (FlightAware) is on, the pickup follows the real arrival; when it
 // is off, the hotel types the landing time and we say so plainly.
 type Flight = { ident: string; origin: string | null; status: string; scheduled_in: string | null; estimated_in: string | null; actual_in: string | null; gate: string | null; cancelled: boolean };
-type Pickup = { id: string; status: string; scheduled_for: string | null; total_fare_cents: number | null; payment_method: string; ride_pin: string | null; metadata: Record<string, any> };
+type Pickup = { id: string; status: string; scheduled_for: string | null; total_fare_cents: number | null; payment_method: string; ride_pin: string | null; metadata: Record<string, any>; cancellation_reason?: string | null };
 
 const tt = (iso: string | null | undefined) => iso
     ? new Date(iso).toLocaleString('en-TT', { timeZone: 'America/Port_of_Spain', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
@@ -17,11 +17,12 @@ const todayTT = () => new Date(Date.now() - 4 * 3_600_000).toISOString().slice(0
 export function pickupLabel(p: Pickup): string {
     if (p.metadata?.flight_problem === 'cancelled') return 'Flight cancelled: call your guest';
     if (p.metadata?.flight_problem === 'diverted') return 'Flight diverted: call your guest';
+    if (p.metadata?.flight_problem === 'stale' && p.status === 'scheduled') return 'Flight data out of date: check the arrivals board';
     if (p.status === 'scheduled') return p.metadata?.flight_tracked ? 'Booked · following the flight' : 'Booked · not tracked';
     if (p.status === 'searching') return 'Finding a driver';
     if (['assigned', 'arrived', 'in_progress'].includes(p.status)) return 'Driver on the way';
     if (['completed', 'payment_confirmed', 'closed'].includes(p.status)) return 'Done';
-    if (p.status === 'cancelled') return 'Cancelled';
+    if (p.status === 'cancelled') return /no-show/i.test(p.cancellation_reason || '') ? 'Guest didn\'t come (driver waited)' : 'Cancelled';
     return p.status;
 }
 

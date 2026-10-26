@@ -66,6 +66,10 @@ async function serverFailure(res: { data: any; error: any }): Promise<string | n
     return null;
 }
 
+
+// Read by the hotel's Airport Pickups screen to say the guest never came.
+export const NO_SHOW_REASON = 'Airport guest no-show: driver waited 30+ minutes and could not reach the guest';
+
 export function ActiveTripScreen({ route, navigation }: any) {
     // Location every 5 s while on a job; every 20 s otherwise (Phase 4 cost control).
     useEffect(() => {
@@ -351,21 +355,33 @@ export function ActiveTripScreen({ route, navigation }: any) {
         ]);
     };
 
+    const cancelWith = async (reason?: string) => {
+        // Leave the trip only once the server has cancelled it;
+        // otherwise the rider would be left on a trip we walked away from.
+        const res = await supabase.functions.invoke('cancel_ride', { body: reason ? { ride_id: rideId, reason } : { ride_id: rideId } });
+        const failure = await serverFailure(res);
+        if (failure) {
+            Alert.alert('Could not cancel', failure);
+            return;
+        }
+        await AsyncStorage.removeItem('active_ride_id');
+        navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+    };
+
     const handleCancel = () => {
+        // Airport pickup, driver already at the meeting point: the hotel must
+        // learn the guest never came, not just "cancelled" (airport SOP §5).
+        if (ride?.metadata?.is_airport_pickup && ride?.status === 'arrived') {
+            Alert.alert('Guest not here?', 'Only after waiting 30 minutes past pickup time and trying the guest twice and the hotel once.', [
+                { text: 'Keep waiting', style: 'cancel' },
+                { text: "Guest didn't come", style: 'destructive', onPress: () => cancelWith(NO_SHOW_REASON) },
+                { text: 'Other reason', onPress: () => cancelWith() },
+            ]);
+            return;
+        }
         Alert.alert('Cancel Trip', 'Are you sure?', [
             { text: 'No', style: 'cancel' },
-            { text: 'Yes', style: 'destructive', onPress: async () => {
-                // Leave the trip only once the server has cancelled it;
-                // otherwise the rider would be left on a trip we walked away from.
-                const res = await supabase.functions.invoke('cancel_ride', { body: { ride_id: rideId } });
-                const failure = await serverFailure(res);
-                if (failure) {
-                    Alert.alert('Could not cancel', failure);
-                    return;
-                }
-                await AsyncStorage.removeItem('active_ride_id');
-                navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
-            }}
+            { text: 'Yes', style: 'destructive', onPress: () => cancelWith() },
         ]);
     };
 

@@ -18,11 +18,41 @@ export type PickupPlan =
     | { action: "move"; scheduled_for: string }
     | { action: "flag"; reason: "cancelled" | "diverted" };
 
-export function planPickup(ride: WaitingRide, flight: FlightStatus): PickupPlan {
+// Cost guard (AeroAPI bills per query). A flight is only re-fetched when a
+// pickup actually depends on it:
+//  - pickup more than 6 h away: at most once an hour;
+//  - within 6 h: every run (10 minutes);
+//  - already landed and fetched after landing: never again.
+export function shouldRefresh(
+    cached: { fetched_at: string | null; actual_in: string | null } | null,
+    earliestPickup: number,
+    now = Date.now(),
+): boolean {
+    if (!cached?.fetched_at) return true;
+    const fetched = new Date(cached.fetched_at).getTime();
+    if (cached.actual_in && fetched > new Date(cached.actual_in).getTime()) return false;
+    if (earliestPickup - now > 6 * 3_600_000) return now - fetched >= 3_600_000;
+    return true;
+}
+
+// Flight data counts as stale when nothing fresh came back for 30+ minutes
+// and the pickup is within the hour: drivers must check before trusting it.
+export function isStale(lastChecked: string | null | undefined, pickupAt: string | null, now = Date.now()): boolean {
+    if (!pickupAt) return false;
+    const pickup = new Date(pickupAt).getTime();
+    if (pickup - now > 3_600_000) return false;
+    const checked = lastChecked ? new Date(lastChecked).getTime() : 0;
+    return now - checked > 30 * 60_000;
+}
+
+export function planPickup(ride: WaitingRide, flight: FlightStatus, now = Date.now()): PickupPlan {
     if (flight.cancelled) return { action: "flag", reason: "cancelled" };
     if (flight.diverted) return { action: "flag", reason: "diverted" };
-    const next = pickupTimeFor(flight);
+    let next = pickupTimeFor(flight);
     if (!next) return { action: "keep" };
+    // Landed so early that the guest is already out: send the car now rather
+    // than at a time in the past.
+    if (new Date(next).getTime() < now) next = new Date(now).toISOString();
     const current = ride.scheduled_for ? new Date(ride.scheduled_for).getTime() : NaN;
     if (Number.isFinite(current) && Math.abs(new Date(next).getTime() - current) < MOVE_THRESHOLD_MS) return { action: "keep" };
     return { action: "move", scheduled_for: next };
@@ -46,8 +76,7 @@ export async function cacheFlight(supabase: any, f: FlightStatus): Promise<void>
     }, { onConflict: "flight_number,flight_date" });
 }
 
-export async function refreshFlightPickups(supabase: any): Promise<Record<string, unknown>> {
-    const now = Date.now();
+export async function refreshFlightPickups(supabase: any, now = Date.now()): Promise<Record<string, unknown>> {
     const { data: rides, error } = await supabase
         .from("rides")
         .select("id, scheduled_for, metadata")
@@ -65,18 +94,35 @@ export async function refreshFlightPickups(supabase: any): Promise<Record<string
         groups.set(key, [...(groups.get(key) || []), r]);
     }
 
-    let moved = 0, flagged = 0, checked = 0;
+    let moved = 0, flagged = 0, checked = 0, skipped = 0, stale = 0;
     const errors: string[] = [];
     for (const [key, group] of groups) {
         const [flightNumber, flightDate, airport] = key.split("|");
+        const earliest = Math.min(...group.map((r) => new Date(r.scheduled_for || 0).getTime()));
+        const { data: cached } = await supabase.from("airline_flights").select("fetched_at, actual_in")
+            .eq("flight_number", flightNumber).eq("flight_date", flightDate).maybeSingle();
+        if (!shouldRefresh(cached, earliest, now)) { skipped++; continue; }
+
         const res = await fetchFlightStatus(flightNumber, flightDate, airport);
         if (!res.configured) return { success: true, configured: false, waiting_rides: rides?.length ?? 0 };
-        if (!res.flight) { errors.push(`${flightNumber}: ${res.error || "not found"}`); continue; }
+        if (!res.flight) {
+            errors.push(`${flightNumber}: ${res.error || "not found"}`);
+            // No fresh data: flag pickups that are close and haven't been
+            // confirmed for 30+ minutes, instead of silently trusting old data.
+            for (const ride of group) {
+                if (isStale(ride.metadata?.flight_checked_at, ride.scheduled_for, now) && ride.metadata?.flight_problem !== "stale") {
+                    await supabase.from("rides").update({ metadata: { ...(ride.metadata || {}), flight_problem: "stale" } })
+                        .eq("id", ride.id).eq("status", "scheduled");
+                    stale++;
+                }
+            }
+            continue;
+        }
         checked++;
         await cacheFlight(supabase, res.flight);
 
         for (const ride of group) {
-            const plan = planPickup(ride, res.flight);
+            const plan = planPickup(ride, res.flight, now);
             const meta: Record<string, any> = {
                 ...(ride.metadata || {}),
                 flight_status: res.flight.status,
@@ -84,6 +130,8 @@ export async function refreshFlightPickups(supabase: any): Promise<Record<string
                 flight_gate: res.flight.gate,
                 flight_checked_at: new Date().toISOString(),
             };
+            // Fresh data clears a stale flag (cancelled/diverted stay until the hotel acts).
+            if (meta.flight_problem === "stale") delete meta.flight_problem;
             if (plan.action === "move") {
                 meta.pickup_moved_from = ride.scheduled_for;
                 await supabase.from("rides").update({ scheduled_for: plan.scheduled_for, metadata: meta })
@@ -100,5 +148,6 @@ export async function refreshFlightPickups(supabase: any): Promise<Record<string
             }
         }
     }
-    return { success: true, configured: true, waiting_rides: rides?.length ?? 0, flights_checked: checked, moved, flagged, errors };
+    // configured = the FlightAware key exists, not merely "nothing failed".
+    return { success: true, configured: !!Deno.env.get("FLIGHTAWARE_AEROAPI_KEY"), waiting_rides: rides?.length ?? 0, flights_checked: checked, flights_skipped_cost_guard: skipped, moved, flagged, stale, errors };
 }

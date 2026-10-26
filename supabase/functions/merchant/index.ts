@@ -767,7 +767,7 @@ serve(async (req) => {
         const merchantId = profile?.merchant_id ?? null;
         if (!(await isMerchantMember(supabase, user.id, merchantId))) return json({ success: false, error: "This account is not linked to a business." }, 403);
         const { data: rows, error } = await supabase.from("rides")
-          .select("id, status, scheduled_for, pickup_address, dropoff_address, total_fare_cents, payment_method, ride_pin, metadata, created_at")
+          .select("id, status, scheduled_for, pickup_address, dropoff_address, total_fare_cents, payment_method, ride_pin, metadata, created_at, cancellation_reason")
           .eq("metadata->>dispatched_by_merchant_id", merchantId)
           .eq("metadata->>is_airport_pickup", "true")
           .order("scheduled_for", { ascending: false })
