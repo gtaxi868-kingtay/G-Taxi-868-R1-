@@ -3,19 +3,20 @@ import { supabase } from './lib/supabase';
 import { 
   Package, MapPin, CheckCircle, Clock, AlertTriangle, LogOut, 
   Sparkles, Bell, ShieldCheck, Users, DollarSign, Scan,
-  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X, Megaphone, Wine, BedDouble, PlaneLanding
+  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X, Megaphone, Wine, BedDouble, PlaneLanding, Banknote
 } from 'lucide-react';
 import { MerchantFinancials } from './pages/MerchantFinancials';
 import { MerchantPromotions } from './pages/MerchantPromotions';
 import { MerchantGSpot } from './pages/MerchantGSpot';
 import { MerchantRooms } from './pages/MerchantRooms';
 import { MerchantAirport } from './pages/MerchantAirport';
+import { MerchantPayouts } from './pages/MerchantPayouts';
 import { MerchantLogin } from './pages/MerchantLogin';
 import { MerchantRegister } from './pages/MerchantRegister';
 import { MerchantJoinWithCode } from './pages/MerchantJoinWithCode';
 
 type MerchantMode = 'HOTEL' | 'RETAIL' | 'SERVICE' | 'AIRPORT';
-type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions' | 'gspot' | 'rooms' | 'airport';
+type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions' | 'gspot' | 'rooms' | 'airport' | 'payouts';
 
 function App() {
   const [view, setView] = useState<'login' | 'register' | 'join' | 'app'>('login');
@@ -174,6 +175,7 @@ function App() {
               <MerchantNavItem active={activeTab === 'dashboard'} onClick={() => handleNav('dashboard')} icon={<Package size={20}/>} label="Live Manifests" />
               <MerchantNavItem active={activeTab === 'appointments'} onClick={() => handleNav('appointments')} icon={<Clock size={20}/>} label="Guest Schedule" />
               <MerchantNavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Audit" />
+              <MerchantNavItem active={activeTab === 'payouts'} onClick={() => handleNav('payouts')} icon={<Banknote size={20}/>} label="Earnings & Payouts" />
               <MerchantNavItem active={activeTab === 'promotions'} onClick={() => handleNav('promotions')} icon={<Megaphone size={20}/>} label="Promotions" />
               <MerchantNavItem active={activeTab === 'gspot'} onClick={() => handleNav('gspot')} icon={<Wine size={20}/>} label="G Spot" />
               {mode === 'HOTEL' && (
@@ -291,6 +293,7 @@ function App() {
               {activeTab === 'gspot' && <MerchantGSpot />}
               {activeTab === 'rooms' && <MerchantRooms />}
               {activeTab === 'airport' && <MerchantAirport />}
+              {activeTab === 'payouts' && <MerchantPayouts />}
           </div>
 
           {showDispatch && (

@@ -7,11 +7,11 @@
 //  - Draft/advisory types (draft_post, support_reply_draft, content_calendar,
 //    recommendation): "executing" means acknowledging — the human posts/sends
 //    manually. Marked executed with manual:true.
-//  - 11 real handlers below actually do the thing: initiate_lime_fleet,
+//  - 12 real handlers below actually do the thing: initiate_lime_fleet,
 //    unlock_territory_vertical, activate_merchant_promo,
 //    approve_garage_request, escape_confirm_group, escape_open_lane,
 //    grid_candidate, grant_transition_bonus, reactivate_cron_job,
-//    set_g_config_key, publish_escape_package.
+//    set_g_config_key, publish_escape_package, approve_business_payout.
 //  - g_action_types (see 20260908000000_g_action_type_registry.sql) is the
 //    single source of truth for which action_type is which — this file's
 //    HANDLERS is cross-checked against it on every invocation
@@ -363,6 +363,19 @@ const HANDLERS: Record<string, (supabase: Svc, p: Proposal) => Promise<ExecResul
     // longer matches what the admin approved, and is idempotent on retry.
     async publish_escape_package(supabase, p) {
         const { data, error } = await supabase.rpc("publish_escape_package", { p_proposal_id: p.id });
+        if (error) return { ok: false, result: { error: error.message } };
+        if (data?.success === false) return { ok: false, result: data };
+        return { ok: true, result: data };
+    },
+
+    // Filed by merchant_request_payout() (20261026160000) when a hotel asks
+    // to be paid its room money + 1% lobby share. Approving only marks the
+    // payout approved: the bank transfer is made by hand and recorded with
+    // admin_mark_business_payout_paid, which is where the wallet is debited.
+    // business_payout_approve re-reads the proposal itself (only the id
+    // crosses this boundary) and refuses anything not still 'requested'.
+    async approve_business_payout(supabase, p) {
+        const { data, error } = await supabase.rpc("business_payout_approve", { p_proposal_id: p.id });
         if (error) return { ok: false, result: { error: error.message } };
         if (data?.success === false) return { ok: false, result: data };
         return { ok: true, result: data };
