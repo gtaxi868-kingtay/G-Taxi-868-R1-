@@ -144,7 +144,10 @@ type LodgingNode = {
   quoted_at?: string | null;
   quote_expires_at?: string | null;
   quote_contact_note?: string | null;
+  booking_hotel_id?: string | null;
 };
+
+type RatePeriodRow = { id: string; rate_cents: number; valid_from: string; valid_to: string; source: string };
 
 type MerchantOption = { id: string; name: string };
 
@@ -275,6 +278,42 @@ export function EscapeManagement() {
     }
   };
 
+  const revokeClaimLink = async (n: LodgingNode) => {
+    if (!n.merchant_id) return;
+    const { data, error } = await supabase.rpc('admin_revoke_business_claim', { p_merchant_id: n.merchant_id });
+    setClaimLinks((c) => ({ ...c, [n.id]: error || !data?.success
+      ? { error: data?.error || 'Could not revoke. Try again.' }
+      : { error: data.revoked ? 'Claim link revoked. It no longer works.' : 'There was no live claim link to revoke.' } }));
+  };
+
+  // Dated rates for the hotel being edited (lodging_rate_periods).
+  const ttToday = () => new Date(Date.now() - 4 * 3_600_000).toISOString().slice(0, 10);
+  const [ratePeriods, setRatePeriods] = useState<RatePeriodRow[]>([]);
+  const [rateDraft, setRateDraft] = useState({ rate: '', from: ttToday(), to: new Date(Date.now() - 4 * 3_600_000 + 29 * 86_400_000).toISOString().slice(0, 10) });
+  const [rateMsg, setRateMsg] = useState<string | null>(null);
+  const loadRatePeriods = useCallback(async (lodgingId?: string) => {
+    if (!lodgingId) { setRatePeriods([]); return; }
+    const { data } = await supabase.from('lodging_rate_periods').select('id, rate_cents, valid_from, valid_to, source')
+      .eq('lodging_id', lodgingId).eq('status', 'active').gte('valid_to', ttToday()).order('valid_from');
+    setRatePeriods((data as RatePeriodRow[]) || []);
+  }, []);
+  const addRatePeriod = async () => {
+    if (!editingLodging?.id) return;
+    const cents = Math.round(Number(rateDraft.rate) * 100);
+    if (!cents) { setRateMsg('Enter the nightly rate in TT dollars.'); return; }
+    const { data, error } = await supabase.rpc('admin_add_lodging_rate', { p_lodging_id: editingLodging.id, p_rate_cents: cents, p_from: rateDraft.from, p_to: rateDraft.to });
+    setRateMsg(error ? error.message : data?.success ? 'Rate added.' : data?.error || 'Could not add the rate.');
+    if (data?.success) { setRateDraft({ ...rateDraft, rate: '' }); loadRatePeriods(editingLodging.id); loadLodging(); }
+  };
+  const cancelRatePeriod = async (id: string) => {
+    if (!window.confirm('Cancel this rate? G stops using it straight away.')) return;
+    const { data, error } = await supabase.rpc('admin_cancel_lodging_rate', { p_period_id: id });
+    setRateMsg(error ? error.message : data?.success ? 'Rate cancelled.' : data?.error || 'Could not cancel.');
+    loadRatePeriods(editingLodging?.id);
+    loadLodging();
+  };
+  useEffect(() => { setRateMsg(null); loadRatePeriods(editingLodging?.id); }, [editingLodging?.id, loadRatePeriods]);
+
   const loadLodging = useCallback(async () => {
     setLodgingLoading(true);
     const { data } = await supabase.from('lodging_nodes').select('*').order('name');
@@ -309,12 +348,8 @@ export function EscapeManagement() {
       alert('Name, destination code, zone, nights, nightly rate, and max guests are required');
       return;
     }
-    // Stamp who/when only when the quote itself changed, so editing a
-    // description doesn't silently "refresh" an old quote.
-    const prev = node.id ? lodgingNodes.find(l => l.id === node.id) : undefined;
-    const quoteChanged = (node.quoted_rate_per_night_cents ?? null) !== (prev?.quoted_rate_per_night_cents ?? null)
-      || (node.quote_expires_at ?? null) !== (prev?.quote_expires_at ?? null);
-    const { data: { user } } = await supabase.auth.getUser();
+    // Rates are NOT written here: they are dated rates (Rates panel below),
+    // and the database refuses a price typed straight into the hotel record.
     const payload = {
       name: node.name, merchant_id: node.merchant_id || null, destination_code: node.destination_code,
       location_zone: node.location_zone, nights: node.nights,
@@ -323,12 +358,7 @@ export function EscapeManagement() {
       description: node.description ?? null, cover_image_url: node.cover_image_url ?? null,
       owner_name: node.owner_name ?? null, owner_phone: node.owner_phone ?? null,
       owner_whatsapp: node.owner_whatsapp ?? null, owner_email: node.owner_email ?? null,
-      quoted_rate_per_night_cents: node.quoted_rate_per_night_cents ?? null,
-      quote_expires_at: node.quote_expires_at ?? null,
-      quote_contact_note: node.quote_contact_note ?? null,
-      ...(quoteChanged && node.quoted_rate_per_night_cents
-        ? { quoted_at: new Date().toISOString(), quoted_by: user?.id ?? null }
-        : {}),
+      booking_hotel_id: node.booking_hotel_id?.trim() || null,
     };
     const { error } = node.id
       ? await supabase.from('lodging_nodes').update(payload).eq('id', node.id)
@@ -912,22 +942,45 @@ export function EscapeManagement() {
               </div>
 
               <div className="border-t border-white/5 pt-4">
-                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-1">Owner's Rate Quote</p>
+                <p className="text-[9px] font-bold text-white/30 uppercase tracking-widest mb-1">Rates</p>
                 <p className="text-xs text-white/40 mb-3">
-                  Packages are priced from this quote, not the listed rate. A package can't be created against
-                  this property until there's a quote that hasn't expired.
+                  Packages are priced from the dated rate that covers today. Once the owner claims the hotel they
+                  keep these themselves; dates can never overlap.
                 </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <LField label="Quoted Rate / Night (TTD)">
-                    <input type="number" step="0.01" value={editingLodging.quoted_rate_per_night_cents ? (editingLodging.quoted_rate_per_night_cents / 100).toFixed(2) : ''} onChange={(e) => setEditingLodging({ ...editingLodging, quoted_rate_per_night_cents: e.target.value ? Math.round(Number(e.target.value) * 100) : null })} className="admin-input" />
-                  </LField>
-                  <LField label="Quote Valid Until">
-                    <input type="date" value={editingLodging.quote_expires_at ? editingLodging.quote_expires_at.slice(0, 10) : ''} onChange={(e) => setEditingLodging({ ...editingLodging, quote_expires_at: e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : null })} className="admin-input" />
-                  </LField>
-                </div>
+                {!editingLodging.id ? (
+                  <p className="text-xs text-white/50">Save the hotel first, then add its rate.</p>
+                ) : (
+                  <>
+                    {ratePeriods.length === 0 ? (
+                      <p className="text-xs text-yellow-400/80 mb-3">No dated rate. G can't build a package on this hotel until one covers today.</p>
+                    ) : (
+                      <ul className="mb-3 divide-y divide-white/5">
+                        {ratePeriods.map((p) => (
+                          <li key={p.id} className="py-2 flex items-center justify-between text-xs text-white/70">
+                            <span>{fmtTTD(p.rate_cents)}/night · {p.valid_from} to {p.valid_to} · by {p.source === 'hotel' ? 'the hotel' : p.source === 'admin' ? 'G868' : p.source}</span>
+                            <button onClick={() => cancelRatePeriod(p.id)} className="text-[10px] font-black text-red-400 uppercase">Cancel</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="grid grid-cols-3 gap-3">
+                      <LField label="Rate / Night (TTD)">
+                        <input type="number" step="0.01" value={rateDraft.rate} onChange={(e) => setRateDraft({ ...rateDraft, rate: e.target.value })} className="admin-input" />
+                      </LField>
+                      <LField label="From">
+                        <input type="date" value={rateDraft.from} onChange={(e) => setRateDraft({ ...rateDraft, from: e.target.value })} className="admin-input" />
+                      </LField>
+                      <LField label="To">
+                        <input type="date" value={rateDraft.to} onChange={(e) => setRateDraft({ ...rateDraft, to: e.target.value })} className="admin-input" />
+                      </LField>
+                    </div>
+                    <button onClick={addRatePeriod} className="mt-3 text-[10px] font-black text-cyan-400 uppercase">Add rate</button>
+                    {rateMsg && <p className="text-xs mt-2 text-white/60">{rateMsg}</p>}
+                  </>
+                )}
                 <div className="mt-4">
-                  <LField label="Quote Note">
-                    <input value={editingLodging.quote_contact_note ?? ''} onChange={(e) => setEditingLodging({ ...editingLodging, quote_contact_note: e.target.value })} placeholder="e.g. WhatsApp with owner, includes taxes" className="admin-input" />
+                  <LField label="Booking.com hotel ID (optional)">
+                    <input value={editingLodging.booking_hotel_id ?? ''} onChange={(e) => setEditingLodging({ ...editingLodging, booking_hotel_id: e.target.value })} placeholder="Only once G868 is a Booking.com partner" className="admin-input" />
                   </LField>
                 </div>
               </div>
@@ -1039,6 +1092,9 @@ export function EscapeManagement() {
                         className="text-[10px] font-black text-emerald-400 uppercase disabled:opacity-40">
                         {claimLinks[n.id]?.loading ? 'Making link…' : 'Claim link'}
                       </button>
+                      {n.merchant_id && (
+                        <button onClick={() => revokeClaimLink(n)} className="text-[10px] font-black text-red-400 uppercase">Revoke link</button>
+                      )}
                     </div>
                     {claimLinks[n.id]?.error && <p className="text-[11px] text-red-400">{claimLinks[n.id].error}</p>}
                     {claimLinks[n.id]?.url && (
