@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase';
 import { 
   Package, MapPin, CheckCircle, Clock, AlertTriangle, LogOut, 
   Sparkles, Bell, ShieldCheck, Users, DollarSign, Scan,
-  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X, Megaphone, Wine, BedDouble, PlaneLanding, Banknote
+  PlaneTakeoff, ShoppingBag, Scissors, CreditCard, Menu, X, Megaphone, Wine, BedDouble, PlaneLanding, Banknote, Building2
 } from 'lucide-react';
 import { MerchantFinancials } from './pages/MerchantFinancials';
 import { MerchantPromotions } from './pages/MerchantPromotions';
@@ -11,12 +11,13 @@ import { MerchantGSpot } from './pages/MerchantGSpot';
 import { MerchantRooms } from './pages/MerchantRooms';
 import { MerchantAirport } from './pages/MerchantAirport';
 import { MerchantPayouts } from './pages/MerchantPayouts';
+import { MerchantOverview } from './pages/MerchantOverview';
 import { MerchantLogin } from './pages/MerchantLogin';
 import { MerchantRegister } from './pages/MerchantRegister';
 import { MerchantJoinWithCode } from './pages/MerchantJoinWithCode';
 
 type MerchantMode = 'HOTEL' | 'RETAIL' | 'SERVICE' | 'AIRPORT';
-type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions' | 'gspot' | 'rooms' | 'airport' | 'payouts';
+type MerchantView = 'dashboard' | 'appointments' | 'financials' | 'promotions' | 'gspot' | 'rooms' | 'airport' | 'payouts' | 'business';
 
 function App() {
   const [view, setView] = useState<'login' | 'register' | 'join' | 'app'>('login');
@@ -172,6 +173,7 @@ function App() {
           </div>
 
           <nav className="flex-1 space-y-3">
+              <MerchantNavItem active={activeTab === 'business'} onClick={() => handleNav('business')} icon={<Building2 size={20}/>} label="My Business" />
               <MerchantNavItem active={activeTab === 'dashboard'} onClick={() => handleNav('dashboard')} icon={<Package size={20}/>} label="Live Manifests" />
               <MerchantNavItem active={activeTab === 'appointments'} onClick={() => handleNav('appointments')} icon={<Clock size={20}/>} label="Guest Schedule" />
               <MerchantNavItem active={activeTab === 'financials'} onClick={() => handleNav('financials')} icon={<CreditCard size={20}/>} label="Financial Audit" />
@@ -294,6 +296,7 @@ function App() {
               {activeTab === 'rooms' && <MerchantRooms />}
               {activeTab === 'airport' && <MerchantAirport />}
               {activeTab === 'payouts' && <MerchantPayouts />}
+              {activeTab === 'business' && <MerchantOverview />}
           </div>
 
           {showDispatch && (
