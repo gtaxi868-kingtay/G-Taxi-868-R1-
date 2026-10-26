@@ -218,6 +218,16 @@ Deno.serve(async (req) => {
         .update({ status: 'claimed', claimed_at: new Date().toISOString(), merchant_id: merchant.id })
         .eq('id', invite.id)
 
+      // Audit trail (founder: every claim is logged). Best-effort: the
+      // account already exists and must not fail on a log write.
+      if (invite.claims_existing) {
+        const { error: auditErr } = await supabaseAdmin.from('business_audit_log').insert({
+          merchant_id: merchant.id, actor: newUser.user.id, action: 'business_claimed',
+          detail: { invite_id: invite.id, email },
+        })
+        if (auditErr) console.error('merchant_signup: claim audit failed (non-fatal):', auditErr.message)
+      }
+
       if (linkErr || claimErr) {
         console.error('merchant_signup: invite linking failed (non-fatal):', linkErr?.message, claimErr?.message)
         node_link_warning = 'Your account was created, but we could not link it to your spot automatically. HQ will fix this.'

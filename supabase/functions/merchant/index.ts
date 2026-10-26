@@ -7,6 +7,8 @@ import { calculateFare, fetchVehicleClass } from "../_shared/pricing.ts";
 import { secureFetch } from "../_shared/networkUtility.ts";
 import { AIRPORTS, exitBufferMinutes, fetchFlightStatus, normaliseFlightNumber, pickupTimeFor } from "../_shared/flightaware.ts";
 import { cacheFlight } from "../_shared/flightPickups.ts";
+import { bestRate, extractRateCandidates, fetchPageText } from "../_shared/hotelRates.ts";
+import { chat, BudgetExceededError, RateLimitedError } from "../_shared/llm.ts";
 
 import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -554,6 +556,67 @@ serve(async (req) => {
             ? `${vehicleClass.label} on the way. ${clientName} has been notified — about ${fareText}, paid to the driver.`
             : `${vehicleClass.label} on the way. About ${fareText}, paid to the driver. Give your client PIN ${pin}.`,
         });
+      }
+
+      // ── Hotel rates from the hotel's own website ─────────────────────────
+      // Reads the hotel's rates page and files a SUGGESTION. Nothing goes
+      // live until the hotel accepts it (merchant_decide_rate_suggestion).
+      case "read_hotel_rate": {
+        const lodgingId = String(body.lodging_id || "");
+        const { data: profile } = await supabase.from("profiles").select("merchant_id").eq("id", user.id).maybeSingle();
+        const { data: lodging } = await supabase.from("lodging_nodes")
+          .select("id, name, merchant_id, rate_source_url").eq("id", lodgingId).maybeSingle();
+        if (!lodging || !profile?.merchant_id || lodging.merchant_id !== profile.merchant_id) {
+          return json({ success: false, error: "This property is not on your account." }, 403);
+        }
+        if (!lodging.rate_source_url) return json({ success: false, error: "Add the web address of your rates page first." }, 400);
+
+        // Each read hits the hotel's site (and maybe the AI): 5 an hour is plenty.
+        const { count: recent } = await supabase.from("lodging_rate_suggestions").select("id", { count: "exact", head: true })
+          .eq("lodging_id", lodging.id).eq("source", "website").gte("created_at", new Date(Date.now() - 3_600_000).toISOString());
+        if ((recent ?? 0) >= 5) return json({ success: false, error: "You've checked your website 5 times this hour. Try again later." }, 429);
+
+        const page = await fetchPageText(lodging.rate_source_url);
+        if (!page.ok) return json({ success: false, error: page.error }, 422);
+
+        let found = bestRate(page.text);
+        if (!found) {
+          // One AI attempt, through the budgeted gateway. Its answer is only
+          // used if that exact amount appears on the page: no invented prices.
+          try {
+            const ai = await chat(supabase, {
+              department: "hotel_rate_reader",
+              system: "You read hotel web pages. Reply with JSON only.",
+              messages: [{ role: "user", content: `From this hotel page text, find the standard nightly room rate. Reply {"amount_text": "<exactly as written on the page, with its currency symbol>"} or {"amount_text": null} if there is no nightly rate.\n\n${page.text.slice(0, 6000)}` }],
+              temperature: 0,
+              maxTokens: 80,
+            });
+            const raw = String(ai?.choices?.[0]?.message?.content || "").replace(/```(?:json)?/g, "").trim();
+            const amountText = JSON.parse(raw)?.amount_text;
+            if (typeof amountText === "string" && amountText && page.text.includes(amountText)) {
+              found = extractRateCandidates(amountText + " per night")[0] ?? null;
+            }
+          } catch (e) {
+            if (!(e instanceof BudgetExceededError || e instanceof RateLimitedError)) console.error("read_hotel_rate AI fallback failed:", e);
+          }
+        }
+
+        await supabase.from("lodging_rate_suggestions").update({ status: "superseded" })
+          .eq("lodging_id", lodging.id).eq("source", "website").eq("status", "pending");
+        await supabase.from("business_audit_log").insert({
+          merchant_id: lodging.merchant_id, lodging_id: lodging.id, actor: user.id, action: "website_read",
+          detail: { url: page.finalUrl, found: found ? found.amount_text : null },
+        });
+        if (!found) {
+          return json({ success: true, found: false, message: "We read your page but couldn't see a nightly room rate on it. Enter your rate below instead." });
+        }
+        const { data: suggestion, error: sErr } = await supabase.from("lodging_rate_suggestions").insert({
+          lodging_id: lodging.id, source: "website", source_url: page.finalUrl,
+          rate_cents: found.rate_cents, currency: found.currency, amount_text: found.amount_text,
+          excerpt: found.excerpt.slice(0, 300),
+        }).select("id, rate_cents, currency, amount_text, excerpt").single();
+        if (sErr) throw sErr;
+        return json({ success: true, found: true, suggestion });
       }
 
       // ── Airport pickups that follow the flight ───────────────────────────

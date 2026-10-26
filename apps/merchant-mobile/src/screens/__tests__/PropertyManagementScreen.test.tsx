@@ -26,7 +26,7 @@ describe('PropertyManagementScreen (rooms & rates)', () => {
         ));
         const { findByText, getByLabelText, getByText } = render(<PropertyManagementScreen navigation={{ goBack: jest.fn() }} />);
         expect(await findByText('St Lawrence Beach House')).toBeTruthy();
-        expect(getByText('No rate yet')).toBeTruthy();
+        expect(getByText('No rate today')).toBeTruthy();
         fireEvent.changeText(getByLabelText('New nightly rate for St Lawrence Beach House'), '1,200.50');
         fireEvent.press(getByText('Save rate'));
         await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('merchant_set_lodging_rate', { p_lodging_id: 'h1', p_rate_cents: 120050, p_valid_days: 30 }));

@@ -29,7 +29,13 @@ export type LodgingRow = {
     quoted_rate_per_night_cents: number | null;
     quote_expires_at: string | null;
     rate_set_by_hotel: boolean;
+    rate_source_url?: string | null;
+    periods?: { id: string; rate_cents: number; from: string; to: string; source: string }[];
+    pending_suggestion?: { id: string; source: string; rate_cents: number | null; currency: string | null; amount_text: string | null; excerpt: string | null } | null;
 };
+
+const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('en-TT', { day: 'numeric', month: 'short' });
+const toCents = (v: string) => { const n = Number(v.replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null; };
 
 const DAY_OPTIONS = [14, 30, 60, 90];
 
@@ -38,7 +44,7 @@ function fmtTTD(cents: number) {
 }
 
 export function rateStatus(row: LodgingRow, now = Date.now()): { label: string; color: string } {
-    if (!row.quoted_rate_per_night_cents || !row.quote_expires_at) return { label: 'No rate yet', color: 'rgba(255,255,255,0.45)' };
+    if (!row.quoted_rate_per_night_cents || !row.quote_expires_at) return { label: 'No rate today', color: 'rgba(255,255,255,0.45)' };
     const left = new Date(row.quote_expires_at).getTime() - now;
     if (left <= 0) return { label: 'Rate expired', color: '#EF4444' };
     const days = Math.ceil(left / 86_400_000);
@@ -56,6 +62,23 @@ export function PropertyManagementScreen({ navigation }: any) {
     const [drafts, setDrafts] = useState<Record<string, { rate: string; days: number }>>({});
     const [savingId, setSavingId] = useState<string | null>(null);
     const [notes, setNotes] = useState<Record<string, { ok: boolean; text: string }>>({});
+    const [urls, setUrls] = useState<Record<string, string>>({});
+    const [acceptRates, setAcceptRates] = useState<Record<string, string>>({});
+    const [busy, setBusy] = useState<string | null>(null);
+
+    // One path for every other action: plain words back, never silent.
+    const act = async (row: LodgingRow, key: string, call: () => Promise<{ data: any; error: any }>, okText: string) => {
+        setBusy(`${row.id}:${key}`);
+        try {
+            const { data, error } = await call();
+            if (error && !data) throw error;
+            if (data?.success === false) { setNotes((n) => ({ ...n, [row.id]: { ok: false, text: data.error || 'That did not work. Try again.' } })); return; }
+            setNotes((n) => ({ ...n, [row.id]: { ok: true, text: data?.message || okText } }));
+            await load();
+        } catch {
+            setNotes((n) => ({ ...n, [row.id]: { ok: false, text: 'No connection. Nothing was saved.' } }));
+        } finally { setBusy(null); }
+    };
 
     const load = useCallback(async () => {
         setLoadError(null);
@@ -194,6 +217,65 @@ export function PropertyManagementScreen({ navigation }: any) {
                                 <TouchableOpacity style={[styles.primaryBtn, saving && { opacity: 0.5 }]} onPress={() => save(row)} disabled={saving} accessibilityRole="button">
                                     {saving ? <ActivityIndicator color="#E9F5F3" /> : <Text style={styles.primaryBtnText}>Save rate</Text>}
                                 </TouchableOpacity>
+                                {(row.periods || []).length > 0 && (
+                                    <View style={{ marginTop: 14 }}>
+                                        <Text style={styles.label}>Your rates</Text>
+                                        {row.periods!.map((p) => (
+                                            <View key={p.id} style={styles.periodRow}>
+                                                <Text style={styles.periodText}>{fmtTTD(p.rate_cents)} · {fmtDay(p.from)} to {fmtDay(p.to)}</Text>
+                                                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Cancel rate from ${fmtDay(p.from)}`} disabled={busy === `${row.id}:c${p.id}`}
+                                                    onPress={() => act(row, `c${p.id}`, async () => await supabase.rpc('merchant_cancel_lodging_rate', { p_period_id: p.id }), 'Rate cancelled.')}>
+                                                    <Text style={styles.cancelText}>Cancel</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+
+                                <Text style={[styles.label, { marginTop: 14 }]}>Your rates page (optional)</Text>
+                                <TextInput style={styles.input} autoCapitalize="none" keyboardType="url" placeholder="https://yourhotel.com/rates"
+                                    placeholderTextColor="rgba(255,255,255,0.3)" value={urls[row.id] ?? row.rate_source_url ?? ''}
+                                    onChangeText={(t) => setUrls((u) => ({ ...u, [row.id]: t }))} accessibilityLabel={`Rates page for ${row.name}`} />
+                                <View style={styles.chips}>
+                                    <TouchableOpacity style={styles.chip} accessibilityRole="button" disabled={busy === `${row.id}:url`}
+                                        onPress={() => act(row, 'url', async () => await supabase.rpc('merchant_set_rate_source', { p_lodging_id: row.id, p_url: (urls[row.id] ?? '').trim() || null }), 'Website saved.')}>
+                                        <Text style={styles.chipText}>Save address</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.chip, !row.rate_source_url && { opacity: 0.4 }]} accessibilityRole="button" disabled={!row.rate_source_url || busy === `${row.id}:read`}
+                                        onPress={() => act(row, 'read', async () => await supabase.functions.invoke('merchant', { body: { action: 'read_hotel_rate', lodging_id: row.id } }), 'We found a rate on your website. Check it below.')}>
+                                        <Text style={styles.chipText}>{busy === `${row.id}:read` ? 'Reading…' : 'Read my website'}</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {row.pending_suggestion ? (() => {
+                                    const sg = row.pending_suggestion!;
+                                    const needsTTD = sg.currency !== 'TTD' || !sg.rate_cents;
+                                    return (
+                                        <View style={styles.suggestion}>
+                                            <Text style={styles.current}>We found <Text style={styles.currentStrong}>{sg.amount_text}</Text>{sg.source === 'booking_com' ? ' on Booking.com' : ' on your website'}.
+                                                {sg.currency === 'USD' ? ' It is in US dollars: type your TT$ rate.' : needsTTD ? ' Type your TT$ rate to use it.' : ''}</Text>
+                                            {needsTTD && (
+                                                <TextInput style={styles.input} keyboardType="decimal-pad" placeholder="Your TT$ rate" placeholderTextColor="rgba(255,255,255,0.3)"
+                                                    value={acceptRates[row.id] ?? ''} onChangeText={(t) => setAcceptRates((a) => ({ ...a, [row.id]: t }))} accessibilityLabel="Your TT dollar rate" />
+                                            )}
+                                            <View style={styles.chips}>
+                                                <TouchableOpacity style={[styles.chip, { backgroundColor: VOICES.merchant.accent }]} accessibilityRole="button"
+                                                    onPress={() => {
+                                                        const cents = needsTTD ? toCents(acceptRates[row.id] ?? '') : null;
+                                                        if (needsTTD && !cents) { setNotes((n) => ({ ...n, [row.id]: { ok: false, text: 'Type the TT$ nightly rate to accept this.' } })); return; }
+                                                        act(row, 'decide', async () => await supabase.rpc('merchant_decide_rate_suggestion', { p_suggestion_id: sg.id, p_accept: true, p_rate_cents: cents }), 'Accepted for the next 30 days.');
+                                                    }}>
+                                                    <Text style={styles.chipText}>Use for 30 days</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity style={styles.chip} accessibilityRole="button"
+                                                    onPress={() => act(row, 'decide', async () => await supabase.rpc('merchant_decide_rate_suggestion', { p_suggestion_id: sg.id, p_accept: false }), 'Dismissed.')}>
+                                                    <Text style={styles.chipText}>Dismiss</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    );
+                                })() : null}
+
                                 {note ? <Text style={[styles.note, { color: note.ok ? '#22C55E' : '#EF4444' }]}>{note.text}</Text> : null}
                             </View>
                         );
@@ -229,4 +311,8 @@ const styles = StyleSheet.create({
     primaryBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 14, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
     primaryBtnText: { color: '#E9F5F3', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
     note: { fontSize: 12, marginTop: 10, fontFamily: 'Manrope' },
+    periodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+    periodText: { color: '#E9F5F3', fontSize: 13, fontFamily: 'Manrope' },
+    cancelText: { color: '#EF4444', fontWeight: '700', fontSize: 12, fontFamily: 'SpaceGrotesk', padding: 8 },
+    suggestion: { marginTop: 4, marginBottom: 6, padding: 12, borderRadius: 14, backgroundColor: 'rgba(34,197,94,0.06)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)' },
 });
