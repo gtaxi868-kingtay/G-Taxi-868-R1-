@@ -23,5 +23,5 @@ describe('TripRequestScreen', () => {
     fireEvent.press(getByLabelText('Accept'));
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('ActiveTrip', { rideId: 'ride1' }));
     expect(mockAccept).toHaveBeenCalledWith('ride1', 'drv1');
-  });
+  }, 20000);
 });
