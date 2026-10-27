@@ -23,8 +23,6 @@ import { TripRequestScreen } from './src/screens/TripRequestScreen';
 import { ActiveTripScreen } from './src/screens/ActiveTripScreen';
 import { DeliveryRequestScreen } from './src/screens/DeliveryRequestScreen';
 import { ActiveDeliveryScreen } from './src/screens/ActiveDeliveryScreen';
-import { EarningsScreen } from './src/screens/EarningsScreen';
-import { WalletScreen } from './src/screens/WalletScreen';
 import { ScheduledRidesScreen } from './src/screens/ScheduledRidesScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PendingApprovalScreen } from './src/screens/PendingApprovalScreen';
@@ -176,8 +174,6 @@ function AppNavigator() {
             />
             <AppStack.Screen name="DeliveryRequest" component={DeliveryRequestScreen} />
             <AppStack.Screen name="ActiveDelivery" component={ActiveDeliveryScreen} />
-            <AppStack.Screen name="Earnings" component={EarningsScreen} />
-            <AppStack.Screen name="Wallet" component={WalletScreen} />
             <AppStack.Screen name="ScheduledRides" component={ScheduledRidesScreen} />
             <AppStack.Screen name="Profile" component={ProfileScreen} />
             <AppStack.Screen name="Chat" component={ChatScreen} />

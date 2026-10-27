@@ -13,3 +13,4 @@ describe('WalletScreen', () => {
     expect(_smoke.toJSON()).toBeTruthy();
   });
 });
+
