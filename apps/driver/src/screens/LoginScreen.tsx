@@ -44,7 +44,7 @@ export function LoginScreen() {
 
         if (error) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            Alert.alert('Login Failed', error.message);
+            Alert.alert('Could not sign in', /invalid login credentials/i.test(error.message) ? 'That email and password do not match. Check the password, or reset it.' : error.message);
         }
     };
 
@@ -105,6 +105,9 @@ export function LoginScreen() {
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
                 />
                 <CrystalInput
                     label="Security Access"

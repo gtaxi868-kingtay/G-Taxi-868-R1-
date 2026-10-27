@@ -196,8 +196,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const signIn = async (email: string, password: string) => {
         setLoading(true);
+        // Phone keyboards add a trailing space after a suggested email and
+        // sometimes capitalise it; the server then says "Invalid login
+        // credentials" even with the right password.
         const { error } = await supabase.auth.signInWithPassword({
-            email,
+            email: email.trim().toLowerCase(),
             password,
         });
         if (error) setLoading(false);
