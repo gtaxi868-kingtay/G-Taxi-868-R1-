@@ -19,6 +19,22 @@ import { DRIVE_COLORS, ttd } from '../theme/drive';
 // lowest so the screen can never promise more than the payout.
 const DEFAULT_DRIVER_SHARE = 0.78;
 
+// Turn the server's refusal into a plain sentence. It used to say "Trip
+// taken" for every failure, which hid the real cause (an expired offer, or
+// a driver testing with the same account that booked the ride).
+export function acceptFailure(statusCode: number | undefined, reason: string | null): { title: string; body: string } {
+    const r = reason || '';
+    if (statusCode === 429) return { title: 'Slow down a moment', body: 'Too many taps. Try again in a few seconds.' };
+    if (statusCode === 401) return { title: 'Signed out', body: 'Please sign in again.' };
+    if (/own ride/i.test(r)) return { title: 'This is your own ride', body: 'You booked this ride with the same account. Use a different rider account to test.' };
+    if (/expired|no longer available/i.test(r)) return { title: 'Offer ran out', body: 'The time to accept this trip ended. New trips will keep coming while you are online.' };
+    if (/already taken|unavailable/i.test(r)) return { title: 'Trip taken', body: 'Another driver got this one first. More trips are coming.' };
+    if (/pending approval/i.test(r)) return { title: 'Not approved yet', body: 'Your driver account is still being reviewed.' };
+    if (/active ride/i.test(r)) return { title: 'Finish your current trip first', body: r };
+    if (/debt|balance/i.test(r)) return { title: 'Wallet too low', body: 'Settle what you owe in Wallet to accept trips.' };
+    return { title: 'Could not accept', body: r || 'Check your signal and try again.' };
+}
+
 function paymentLabel(method: string | null): { label: string; icon: IconName } {
     if (method === 'card') return { label: 'Card', icon: 'card-outline' };
     if (method === 'wallet') return { label: 'Wallet', icon: 'wallet-outline' };
@@ -120,11 +136,10 @@ export function TripRequestScreen({ navigation, route }: any) {
         handling.current = true;
         setIsHandling(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const { error, statusCode } = await acceptRide(offer.ride_id, driver.id);
+        const { error, statusCode, reason } = await acceptRide(offer.ride_id, driver.id);
         if (error) {
-            if (statusCode === 429) Alert.alert('Slow down a moment', 'Too many taps. Try again in a few seconds.');
-            else if (statusCode === 401) Alert.alert('Signed out', 'Please sign in again.');
-            else Alert.alert('Trip taken', 'Another driver got this one first. More trips are coming.');
+            const { title, body } = acceptFailure(statusCode, reason);
+            Alert.alert(title, body);
             navigation.goBack();
         } else navigation.replace('ActiveTrip', { rideId: offer.ride_id });
     };

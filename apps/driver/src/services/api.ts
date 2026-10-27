@@ -23,7 +23,17 @@ async function _acceptRideInternal(rideId: string, driverId: string) {
     const { data, error } = await supabase.functions.invoke('accept_ride', {
         body: { ride_id: rideId, driver_id: driverId } // driver_id redundant if auth used, but good for check
     });
-    return { data, error };
+    if (!error && data?.success !== false) return { data, error: null, statusCode: 200, reason: null };
+    // A refusal (4xx/5xx) arrives as a FunctionsHttpError whose body holds the
+    // server's own reason. Read it, so the driver sees "offer expired" or
+    // "your own ride" instead of a generic message.
+    let reason: string | null = data?.error ?? null;
+    let statusCode: number | undefined = (error as any)?.context?.status;
+    try {
+        const body = await (error as any)?.context?.json?.();
+        reason = body?.error || body?.message || reason;
+    } catch { /* body already read or not JSON */ }
+    return { data, error: error ?? new Error(reason || 'Accept failed'), statusCode, reason: reason || (error as any)?.message || null };
 }
 
 export async function declineRide(offerId: string) {

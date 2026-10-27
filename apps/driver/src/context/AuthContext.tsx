@@ -66,6 +66,15 @@ async function registerPushToken(userId: string): Promise<void> {
             lightColor: '#FF231F7C',
             sound: 'default',
         });
+        // The server's pushes carry no channelId, so Android delivers them on
+        // the 'default' channel -- which was normal importance: no pop-up,
+        // easy to miss while another app is open. Make it loud too.
+        await Notifications.setNotificationChannelAsync('default', {
+            name: 'Trip alerts',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            sound: 'default',
+        });
     }
 
     try {

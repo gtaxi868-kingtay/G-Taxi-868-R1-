@@ -25,3 +25,15 @@ describe('TripRequestScreen', () => {
     expect(mockAccept).toHaveBeenCalledWith('ride1', 'drv1');
   }, 20000);
 });
+
+import { acceptFailure } from '../TripRequestScreen';
+
+describe('acceptFailure', () => {
+  it("names the real reason instead of always 'Trip taken'", () => {
+    expect(acceptFailure(403, 'Cannot accept your own ride request').title).toBe('This is your own ride');
+    expect(acceptFailure(410, 'Offer expired or no longer available').title).toBe('Offer ran out');
+    expect(acceptFailure(409, 'Ride unavailable or already taken.').title).toBe('Trip taken');
+    expect(acceptFailure(429, null).title).toBe('Slow down a moment');
+    expect(acceptFailure(500, null).title).toBe('Could not accept');
+  });
+});
