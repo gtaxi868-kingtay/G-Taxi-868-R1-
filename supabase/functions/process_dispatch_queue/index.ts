@@ -58,7 +58,7 @@ async function dispatchRideRound(supabaseAdmin: any, item: any, now: Date) {
 
   const { data: offers } = await supabaseAdmin
     .from("ride_offers")
-    .select("driver_id, status, expires_at")
+    .select("id, driver_id, status, expires_at")
     .eq("ride_id", ride.id);
   const live = (offers || []).some((o: any) => o.status === "pending" && new Date(o.expires_at) > now);
   if (live) return { task_id: item.id, task_type: "RIDE", status: "offer_outstanding" };
@@ -154,14 +154,23 @@ async function dispatchRideRound(supabaseAdmin: any, item: any, now: Date) {
     : Math.round(fareCents * 0.78);
 
   const offerExpiresAt = new Date(Date.now() + RIDE_OFFER_SECONDS * 1000).toISOString();
-  const { error: offerErr } = await supabaseAdmin.from("ride_offers").insert({
-    ride_id: ride.id,
-    driver_id: claimed.driver_id,
+  const offerFields = {
     status: "pending",
     distance_meters: Math.round((claimed.distance_km ?? 0) * 1000),
     driver_payout_cents: driverPayout,
     expires_at: offerExpiresAt,
-  });
+  };
+  // ride_offers is UNIQUE (ride_id, driver_id), so a second chance must
+  // re-open the driver's lapsed offer rather than insert another (an insert
+  // failed on the constraint and the round was silently skipped). The
+  // driver app listens for UPDATEs too, so the reopened offer pops up the
+  // same way; accept_ride checks status 'pending' + expires_at, both fresh.
+  const lapsed = (offers || []).find((o: any) => o.driver_id === claimed.driver_id && o.status !== "declined");
+  const { error: offerErr } = lapsed
+    ? await supabaseAdmin.from("ride_offers")
+        .update({ ...offerFields, created_at: now.toISOString() })
+        .eq("id", lapsed.id).neq("status", "declined")
+    : await supabaseAdmin.from("ride_offers").insert({ ride_id: ride.id, driver_id: claimed.driver_id, ...offerFields });
   if (offerErr) throw offerErr;
 
   await supabaseAdmin.from("rides").update({ status: "searching" }).eq("id", ride.id).in("status", MATCHABLE_RIDE_STATUSES);
