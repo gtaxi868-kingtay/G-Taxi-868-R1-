@@ -4,6 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
+import { Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
+import { Nunito_800ExtraBold, Nunito_900Black } from '@expo-google-fonts/nunito';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { ActivityIndicator, View, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,7 +17,8 @@ import { OutboxService } from '@g868/shared/OutboxService';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
-import { DashboardScreen } from './src/screens/DashboardScreen';
+import { DriverTabs } from './src/navigation/DriverTabs';
+import { MoodProvider } from './src/ui/kit';
 import { TripRequestScreen } from './src/screens/TripRequestScreen';
 import { ActiveTripScreen } from './src/screens/ActiveTripScreen';
 import { DeliveryRequestScreen } from './src/screens/DeliveryRequestScreen';
@@ -162,7 +165,8 @@ function AppNavigator() {
         <>
             <DriverActiveRideRestorationHandler />
             <AppStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-            <AppStack.Screen name="Dashboard" component={DashboardScreen} />
+            {/* Dashboard is the tab home: Drive · Earnings · Wallet · You */}
+            <AppStack.Screen name="Dashboard" component={DriverTabs} />
             <AppStack.Screen name="PendingApproval" component={PendingApprovalScreen} />
             <AppStack.Screen name="TripRequest" component={TripRequestScreen} />
             <AppStack.Screen
@@ -209,6 +213,8 @@ function App() {
     const [fontsLoaded, fontError] = useFonts({
         CormorantGaramond_500Medium,
         CormorantGaramond_600SemiBold,
+        Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
+        Nunito_800ExtraBold, Nunito_900Black,
     });
     const [fontTimedOut, setFontTimedOut] = useState(false);
 
@@ -234,6 +240,7 @@ function App() {
             <SafeAreaProvider>
                 <ErrorBoundary>
                     <AuthProvider>
+                        <MoodProvider>
                         <View style={{ flex: 1 }}>
                             <OfflineBanner />
                             <NavigationContainer linking={{
@@ -250,6 +257,7 @@ function App() {
                                 <RootNavigator />
                             </NavigationContainer>
                         </View>
+                        </MoodProvider>
                     </AuthProvider>
                 </ErrorBoundary>
             </SafeAreaProvider>

@@ -1,646 +1,461 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-    View, StyleSheet, TouchableOpacity, Text,
-    ActivityIndicator, Linking, Alert, Animated,
-    useWindowDimensions, ScrollView, Image, RefreshControl,
-    AppState
+    View, StyleSheet, Pressable, Text, ActivityIndicator, Alert, Animated, Easing, AppState,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, Circle, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Reanimated, {
-    useSharedValue, withSpring, withTiming, withRepeat, withDelay,
-    withSequence, useAnimatedStyle,
-    Easing, interpolate,
-} from 'react-native-reanimated';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { DEFAULT_LOCATION, ENV } from '@g868/shared/env';
 import { useRideOfferSubscription, useDeliveryOfferSubscription } from '../services/realtime';
 import { supabase } from '@gtaxi/core';
-import { Sidebar } from '../components/Sidebar';
-import { Ionicons } from '@expo/vector-icons';
 import { NfcIdentityHandler } from '../components/NfcIdentityHandler';
 import { AreaSafetyCard } from '../components/AreaSafetyCard';
-import { SURFACE, ANIMATION, VOICES } from '@gtaxi/design-system';
-import { elevationGlow, glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
+import { Button, Pop, Progress, Txt, FONT, SPACE, tick, useTheme, usePressScale } from '../ui/kit';
+import { DRIVE_COLORS, greetingFor, ttd } from '../theme/drive';
+import {
+    computeStreak, goalLine, goalProgress, streakLine, ttDay,
+    DEFAULT_GOAL_CENTS, GOAL_CHOICES_CENTS,
+} from '../utils/driveStats';
 
-const CAR_SIZE = 120;
+// The Drive tab (founder, 2026-10-27): the map is the screen. A light game
+// layer (streak, daily goal, a short celebration after each trip) sits in
+// small pieces at the edges and never covers the map.
+
 const LOCKOUT_THRESHOLD_CENTS = -60000;
+const GOAL_KEY = 'drive_goal_cents';
+const GOAL_CELEBRATED_KEY = 'drive_goal_celebrated_day';
 
-function getGreeting() {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning,';
-    if (h < 17) return 'Good afternoon,';
-    return 'Good evening,';
-}
+type Hotspot = { label: string; score: number; lat: number; lng: number };
+type Toast = { icon: keyof typeof Ionicons.glyphMap; title: string; body?: string; color: string } | null;
 
 function firstName(name?: string) {
-    return name?.split(' ')[0] || 'Driver';
+    return name?.trim().split(' ')[0] || 'Driver';
 }
 
-const QUICK_NAV = [
-    { icon: 'wallet-outline', label: 'Wallet', screen: 'Wallet' },
-    { icon: 'bar-chart-outline', label: 'Earnings', screen: 'Earnings' },
-    { icon: 'calendar-outline', label: 'Schedule', screen: 'ScheduledRides' },
-    { icon: 'person-outline', label: 'Profile', screen: 'Profile' },
-    { icon: 'warning-outline', label: 'Report', screen: 'ReportIssue' },
-    { icon: 'home-outline', label: 'Scout', screen: 'ScoutReferral' },
-    { icon: 'people-outline', label: 'Refer', screen: 'DriverReferral' },
-    { icon: 'git-network-outline', label: 'Networks', screen: 'Networks' },
-    { icon: 'car-sport-outline', label: 'Buy Car', screen: 'VehicleSales' },
-    { icon: 'construct-outline', label: 'G Garage', screen: 'GGarage' },
-] as const;
-
-export function DashboardScreen({ navigation }: { navigation: { navigate: (screen: string, params?: object) => void; goBack: () => void; replace: (screen: string, params?: object) => void } }) {
-    const { width, height } = useWindowDimensions();
+export function DashboardScreen({ navigation }: { navigation: { navigate: (screen: string, params?: object) => void } }) {
+    const m = useTheme();
     const insets = useSafeAreaInsets();
-    const { driver, user, toggleOnline, signOut, refreshPushToken } = useAuth();
-    const { location, signalStatus } = useLocationTracking();
-    const { offer, clearOffer } = useRideOfferSubscription(driver?.id);
-    const { offer: deliveryOffer, clearOffer: clearDeliveryOffer } = useDeliveryOfferSubscription(driver?.id);
-    const isOnline = driver?.is_online;
-    const panelHeightLocal = height * 0.54;
-    const mapHeightLocal = height - panelHeightLocal + 32;
+    const { driver, user, toggleOnline, signOut } = useAuth();
+    const { location } = useLocationTracking();
+    const { offer } = useRideOfferSubscription(driver?.id);
+    const { offer: deliveryOffer } = useDeliveryOfferSubscription(driver?.id);
+    const isOnline = !!driver?.is_online;
 
-    const [sidebarVisible, setSidebarVisible] = useState(false);
+    const mapRef = useRef<MapView>(null);
+    const [cardH, setCardH] = useState(260);
     const [balanceCents, setBalanceCents] = useState<number | null>(null);
     const [isToggling, setIsToggling] = useState(false);
-    const [pushMissing, setPushMissing] = useState(false);
-    const [isFixingPush, setIsFixingPush] = useState(false);
-    const [todayTrips, setTodayTrips] = useState(0);
-    const [todayEarnings, setTodayEarnings] = useState(0);
-    const [carLabel, setCarLabel] = useState(false);
-    const [refreshing, setRefreshing] = useState(false);
-    const [systemStatus, setSystemStatus] = useState<Record<string, unknown>>({ stripe_ready: true, fcm_ready: true, config: {} });
-    const [demandHint, setDemandHint] = useState<string | null>(null);
-    const [demandHotspots, setDemandHotspots] = useState<any[]>([]);
+    const [todayTrips, setTodayTrips] = useState<number | null>(null);
+    const [todayCents, setTodayCents] = useState(0);
+    const [streak, setStreak] = useState({ days: 0, todayDone: false });
+    const [goalCents, setGoalCents] = useState<number>(DEFAULT_GOAL_CENTS);
+    const [pickingGoal, setPickingGoal] = useState(false);
+    const [hotspots, setHotspots] = useState<Hotspot[]>([]);
     const [nfcVisible, setNfcVisible] = useState(false);
-
-    const panelY = useSharedValue(panelHeightLocal);
-    const carY = useSharedValue(40);
-    const carSpinFast = useSharedValue(0);
-    const glowRadius = useSharedValue(0);
-
-    const card0 = useSharedValue(0);
-    const card1 = useSharedValue(0);
-
-    const navBounce = [
-        useSharedValue(1), useSharedValue(1), useSharedValue(1), useSharedValue(1),
-        useSharedValue(1), useSharedValue(1), useSharedValue(1), useSharedValue(1),
-    ];
-
-    const pulseScale = useRef(new Animated.Value(1)).current;
-    const pulseOpacity = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        panelY.value = withSpring(0, ANIMATION.spring);
-        // gentle float only — no rotation gimmick
-        carY.value = withRepeat(
-            withSequence(
-                withTiming(-28, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-                withTiming(-12, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-            ),
-            -1,
-            true,
-        );
-        [card0, card1].forEach((c, i) => {
-            c.value = withDelay(i * 80, withSpring(1, ANIMATION.spring));
-        });
-    }, []);
-
-    const fetchStats = useCallback(async () => {
-        if (!driver?.id) return;
-        try {
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            const { data: rides } = await supabase
-                .from('rides')
-                // (was select('total_fare') -- no such column, so the query failed
-                // and today's trips/earnings always showed 0; and it summed the
-                // whole fare instead of the driver's share)
-                .select('driver_payout_cents')
-                .eq('driver_id', driver.id)
-                .in('status', ['completed', 'payment_confirmed', 'closed'])
-                .gte('completed_at', todayStart.toISOString());
-            if (rides) {
-                setTodayTrips(rides.length);
-                setTodayEarnings(rides.reduce((sum, r: any) => sum + (r.driver_payout_cents ?? 0), 0) / 100);
-            }
-        } catch (e) { /* stats unavailable */ }
-    }, [driver?.id]);
-
-    useEffect(() => {
-        const earningsAnim = withTiming(todayEarnings, { duration: 900 });
-        // earningsVal is not needed here — display todayEarnings directly
-    }, [todayEarnings]);
-
-    useEffect(() => {
-        const handleAppStateChange = async (nextAppState: string) => {
-            if (nextAppState === 'background' || nextAppState === 'inactive') {
-                if (driver?.is_online) {
-                    await supabase.from('drivers').update({ last_seen: new Date().toISOString() }).eq('id', driver.id);
-                }
-            }
-        };
-        const subscription = AppState.addEventListener('change', handleAppStateChange);
-        const heartbeatInterval = setInterval(async () => {
-            if (driver?.is_online && AppState.currentState === 'active') {
-                await supabase.from('drivers').update({ last_seen: new Date().toISOString() }).eq('id', driver.id);
-            }
-        }, 30000);
-        return () => {
-            subscription.remove();
-            clearInterval(heartbeatInterval);
-        };
-    }, [driver?.id, driver?.is_online]);
-
-    useEffect(() => {
-        const fetchStatus = async () => {
-            try {
-                const { data, error } = await supabase.functions.invoke('get_system_status');
-                if (!error && data?.success) setSystemStatus(data.data as Record<string, unknown>);
-            } catch (err) { /* System status failed */ }
-        };
-        fetchStatus();
-        const checkActiveTrip = async () => {
-            if (!driver?.id) return;
-            try {
-                const { data } = await supabase.from('rides').select('id').eq('driver_id', driver.id).in('status', ['assigned', 'arrived', 'in_progress']).maybeSingle();
-                if (data?.id) navigation.replace('ActiveTrip', { rideId: data.id });
-            } catch (e) { /* Recovery failed */ }
-        };
-        checkActiveTrip();
-        const fetchBalance = async () => {
-            if (!user?.id) return;
-            try {
-                // get_wallet_balance enforces p_user_id === auth.uid() — the
-                // driver's auth user ID, NOT the drivers table row id.
-                const { data, error } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
-                if (!error && data != null) setBalanceCents(data as number);
-            } catch (e) { /* Balance fetch failed */ }
-        };
-        fetchBalance();
-        fetchStats();
-        const fetchDemand = async () => {
-            if (!driver?.id) return;
-            try {
-                // Real demand heatmap: recency-decayed ride pickups in ~550m cells,
-                // hour-of-week-aware, computed server-side (10-min cached).
-                const { data, error } = await supabase.functions.invoke('driver_heatmap');
-                if (!error && Array.isArray(data?.cells) && data.cells.length > 0) {
-                    setDemandHotspots(data.cells.map((c: any) => ({
-                        zone_name: c.label,
-                        demand_score: c.score,
-                        lat: c.lat,
-                        lng: c.lng,
-                        rides: c.rides,
-                    })));
-                } else {
-                    setDemandHotspots([]);
-                }
-            } catch { setDemandHotspots([]); }
-        };
-        fetchDemand();
-        const demandTimer = setInterval(fetchDemand, 10 * 60 * 1000);
-        return () => clearInterval(demandTimer);
-    }, [driver?.id, user?.id]);
-
-    useEffect(() => {
-        glowRadius.value = withSpring(isOnline ? 80 : 0, ANIMATION.spring);
-    }, [isOnline]);
-
-    useEffect(() => {
-        if (!isOnline) { pulseOpacity.setValue(0); return; }
-        const loop = Animated.loop(Animated.sequence([
-            Animated.parallel([
-                Animated.spring(pulseScale, { toValue: 1.6, ...ANIMATION.spring, useNativeDriver: true }),
-                Animated.spring(pulseOpacity, { toValue: 0, ...ANIMATION.spring, useNativeDriver: true }),
-            ]),
-            Animated.parallel([
-                Animated.spring(pulseScale, { toValue: 1, ...ANIMATION.spring, useNativeDriver: true }),
-                Animated.spring(pulseOpacity, { toValue: 0.5, ...ANIMATION.spring, useNativeDriver: true }),
-            ]),
-        ]));
-        pulseOpacity.setValue(0.5);
-        loop.start();
-        return () => loop.stop();
-    }, [isOnline]);
+    const [statsError, setStatsError] = useState(false);
+    const [toast, setToast] = useState<Toast>(null);
+    const lastTrips = useRef<number | null>(null);
 
     const currentLat = location?.coords?.latitude ?? DEFAULT_LOCATION.latitude;
     const currentLng = location?.coords?.longitude ?? DEFAULT_LOCATION.longitude;
     const isPending = driver?.verified_status === 'pending';
     const isLockedOut = (balanceCents ?? 0) < LOCKOUT_THRESHOLD_CENTS;
 
-    const card0Style = useAnimatedStyle(() => ({
-        opacity: card0.value,
-        transform: [{ scale: interpolate(card0.value, [0, 1], [0.95, 1]) }],
-    }));
-    const card1Style = useAnimatedStyle(() => ({
-        opacity: card1.value,
-        transform: [{ scale: interpolate(card1.value, [0, 1], [0.95, 1]) }],
-    }));
+    // ---- data ------------------------------------------------------------------
 
-    const navStyle0 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[0].value }] }));
-    const navStyle1 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[1].value }] }));
-    const navStyle2 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[2].value }] }));
-    const navStyle3 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[3].value }] }));
-    const navStyle4 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[4].value }] }));
-    const navStyle5 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[5].value }] }));
-    const navStyle6 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[6].value }] }));
-    const navStyle7 = useAnimatedStyle(() => ({ transform: [{ scale: navBounce[7].value }] }));
-    const navStyles = [navStyle0, navStyle1, navStyle2, navStyle3, navStyle4, navStyle5, navStyle6, navStyle7];
+    useEffect(() => {
+        AsyncStorage.getItem(GOAL_KEY).then((v) => { const n = Number(v); if (n > 0) setGoalCents(n); }, () => {});
+    }, []);
 
-    const panelStyle = useAnimatedStyle(() => ({ transform: [{ translateY: panelY.value }] }));
-    const carStyle = useAnimatedStyle(() => ({ transform: [{ translateY: carY.value }] }));
+    const showToast = useCallback((t: NonNullable<Toast>) => {
+        setToast(t);
+        setTimeout(() => setToast(null), 3800);
+    }, []);
 
-    const handleToggle = async () => { setIsToggling(true); try { await toggleOnline(); } finally { setIsToggling(false); } };
-    const handleCarTap = () => {
-        carSpinFast.value = withSequence(withTiming(360, { duration: 600, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 0 }));
-        setCarLabel(true);
-        setTimeout(() => setCarLabel(false), 2000);
-    };
-    const handleFixPush = async () => {
-        setIsFixingPush(true);
-        try { await refreshPushToken?.(); setPushMissing(false); }
-        catch (e) { Alert.alert('Push Setup Failed', 'Please enable notifications in Settings.'); }
-        finally { setIsFixingPush(false); }
-    };
-    const onRefresh = useCallback(async () => {
-        setRefreshing(true);
+    const fetchStats = useCallback(async () => {
+        if (!driver?.id) return;
         try {
-            const { data } = await supabase.functions.invoke('get_system_status');
-            if (data?.success) setSystemStatus(data.data as Record<string, unknown>);
-        } catch (e) { /* Refresh failed */ }
-        await fetchStats();
-        setRefreshing(false);
-    }, [fetchStats]);
+            const since = new Date(Date.now() - 31 * 86_400_000).toISOString();
+            const { data, error } = await supabase
+                .from('rides')
+                .select('driver_payout_cents, completed_at')
+                .eq('driver_id', driver.id)
+                .in('status', ['completed', 'payment_confirmed', 'closed'])
+                .gte('completed_at', since);
+            if (error) throw error;
+            const rows = (data ?? []) as { driver_payout_cents: number | null; completed_at: string | null }[];
+            const today = ttDay(new Date());
+            const todays = rows.filter((r) => r.completed_at && ttDay(r.completed_at) === today);
+            const cents = todays.reduce((sum, r) => sum + (r.driver_payout_cents ?? 0), 0);
+            const prev = lastTrips.current;
+            setTodayTrips(todays.length);
+            setTodayCents(cents);
+            setStreak(computeStreak(rows.map((r) => r.completed_at || '')));
+            setStatsError(false);
+            lastTrips.current = todays.length;
+
+            // A finished trip since we last looked: a short, quiet celebration.
+            if (prev !== null && todays.length > prev) {
+                const latest = todays.reduce((a, b) => ((a.completed_at || '') > (b.completed_at || '') ? a : b));
+                showToast({ icon: 'checkmark-circle', title: `Trip done · +${ttd(latest.driver_payout_cents)}`, body: `${todays.length} today`, color: DRIVE_COLORS.online });
+            }
+            // First time over the daily goal today: a bigger one, once a day.
+            if (goalProgress(cents, goalCents).reached) {
+                const done = await AsyncStorage.getItem(GOAL_CELEBRATED_KEY).catch(() => null);
+                if (done !== today) {
+                    await AsyncStorage.setItem(GOAL_CELEBRATED_KEY, today).catch(() => {});
+                    if (prev !== null) {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        showToast({ icon: 'trophy', title: 'Daily goal reached', body: `${ttd(cents, 0)} today. Everything from here is extra.`, color: DRIVE_COLORS.money });
+                    }
+                }
+            }
+        } catch {
+            setStatsError(true);
+        }
+    }, [driver?.id, goalCents, showToast]);
+
+    const fetchBalance = useCallback(async () => {
+        if (!user?.id) return;
+        try {
+            // get_wallet_balance enforces p_user_id === auth.uid() (the auth
+            // user id, not drivers.id).
+            const { data, error } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
+            if (!error && data != null) setBalanceCents(data as number);
+        } catch { /* balance stays hidden */ }
+    }, [user?.id]);
+
+    const fetchDemand = useCallback(async () => {
+        if (!driver?.id) return;
+        try {
+            // Recency-decayed pickups in ~550 m cells, computed server-side.
+            const { data, error } = await supabase.functions.invoke('driver_heatmap');
+            if (!error && Array.isArray(data?.cells)) {
+                setHotspots(data.cells
+                    .filter((c: any) => c.lat != null && c.lng != null)
+                    .map((c: any) => ({ label: c.label || 'Busy area', score: Number(c.score) || 0, lat: c.lat, lng: c.lng })));
+            } else setHotspots([]);
+        } catch { setHotspots([]); }
+    }, [driver?.id]);
+
+    // Refresh whenever the Drive tab comes back into view (e.g. after a trip).
+    // While it's on screen, check again every minute (also retries after a
+    // failed load).
+    useFocusEffect(useCallback(() => {
+        fetchStats();
+        fetchBalance();
+        const t = setInterval(() => { fetchStats(); fetchBalance(); }, 60_000);
+        return () => clearInterval(t);
+    }, [fetchStats, fetchBalance]));
+
+    useEffect(() => {
+        fetchDemand();
+        const t = setInterval(fetchDemand, 10 * 60 * 1000);
+        return () => clearInterval(t);
+    }, [fetchDemand]);
+
+    // Back on an active trip after a restart: go straight to it.
+    useEffect(() => {
+        if (!driver?.id) return;
+        supabase.from('rides').select('id').eq('driver_id', driver.id).in('status', ['assigned', 'arrived', 'in_progress']).maybeSingle()
+            .then(({ data }: { data: { id: string } | null }) => { if (data?.id) navigation.navigate('ActiveTrip', { rideId: data.id }); }, () => {});
+    }, [driver?.id]);
+
+    // Heartbeat while online.
+    useEffect(() => {
+        const beat = () => { if (driver?.is_online) supabase.from('drivers').update({ last_seen: new Date().toISOString() }).eq('id', driver.id).then(() => {}, () => {}); };
+        const sub = AppState.addEventListener('change', (s) => { if (s !== 'active') beat(); });
+        const t = setInterval(() => { if (AppState.currentState === 'active') beat(); }, 30000);
+        return () => { sub.remove(); clearInterval(t); };
+    }, [driver?.id, driver?.is_online]);
 
     useEffect(() => { if (offer?.ride_id) navigation.navigate('TripRequest', { rideId: offer.ride_id, offer }); }, [offer]);
     useEffect(() => { if (deliveryOffer?.order_id) navigation.navigate('DeliveryRequest', { orderId: deliveryOffer.order_id, offer: deliveryOffer }); }, [deliveryOffer]);
 
+    // ---- actions ---------------------------------------------------------------
+
+    const handleToggle = async () => {
+        if (!isOnline && isLockedOut) {
+            Alert.alert('Wallet too low to go online', `Your wallet is at ${ttd(balanceCents)}. Top up past -TT$600 to take trips again.`, [
+                { text: 'Not now', style: 'cancel' },
+                { text: 'Open Wallet', onPress: () => navigation.navigate('Wallet') },
+            ]);
+            return;
+        }
+        Haptics.impactAsync(isOnline ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Heavy);
+        setIsToggling(true);
+        try { await toggleOnline(); }
+        catch { Alert.alert('Could not change status', 'Check your signal and try again.'); }
+        finally { setIsToggling(false); }
+    };
+
+    const chooseGoal = (cents: number) => {
+        tick();
+        setGoalCents(cents);
+        setPickingGoal(false);
+        AsyncStorage.setItem(GOAL_KEY, String(cents)).catch(() => {});
+    };
+
+    const flyTo = (lat: number, lng: number) => {
+        tick();
+        mapRef.current?.animateCamera({ center: { latitude: lat, longitude: lng }, zoom: 14 }, { duration: 700 });
+    };
+
+    // ---- pending approval ------------------------------------------------------
+
     if (isPending) return (
-        <View style={[s.root, s.center]}>
+        <View style={[s.root, { backgroundColor: m.page, justifyContent: 'center', padding: SPACE.xxl }]}>
             <StatusBar style="light" />
-            <LinearGradient colors={['#1A1200', SURFACE.base]} style={StyleSheet.absoluteFillObject} />
-            <View style={s.iconCircle}><Ionicons name="hourglass-outline" size={32} color={VOICES.driver.accent} /></View>
-            <Text style={[s.centerTitle, { fontSize: 22, fontWeight: '700', color: '#EAF3F6' }]}>Application under review</Text>
-            <Text style={[s.centerBody, { fontSize: 14, fontWeight: '400', color: 'rgba(255,255,255,0.6)', lineHeight: 22 }]}>We're reviewing your documents. You'll be notified once an administrator approves your account — usually within 1–2 days.</Text>
-            <TouchableOpacity style={s.outlineBtn} onPress={signOut} accessibilityLabel="Sign out" accessibilityRole="button">
-                <Ionicons name="log-out-outline" size={16} color="#FF4D4D" />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#FF4D4D', marginLeft: 6 }}>Sign out</Text>
-            </TouchableOpacity>
+            <Pop>
+                <View style={[s.pendingIcon, { backgroundColor: m.field }]}><Ionicons name="hourglass-outline" size={32} color={m.accent} /></View>
+                <Txt variant="hero" style={{ textAlign: 'center' }}>Application under review</Txt>
+                <Txt tone="dim" style={{ textAlign: 'center', marginTop: SPACE.md, marginBottom: SPACE.xxl }}>
+                    We're checking your documents. You'll get a message once you're approved, usually within 1–2 days.
+                </Txt>
+                <Button title="Sign out" variant="secondary" icon="log-out-outline" onPress={signOut} />
+            </Pop>
         </View>
     );
 
-    const tileWidth = (width - 40 - 24) / 4; // 4 columns, 20px padding each side, 8px gaps × 3
+    // ---- map-first layout ------------------------------------------------------
+
+    const goal = goalProgress(todayCents, goalCents);
+    const topHot = [...hotspots].sort((a, b) => b.score - a.score)[0];
 
     return (
-        <View style={s.root}>
+        <View style={[s.root, { backgroundColor: m.page }]}>
             <StatusBar style="light" />
-            <LinearGradient colors={['#1A1200', SURFACE.base]} style={StyleSheet.absoluteFillObject} />
-
             <NfcIdentityHandler
                 visible={nfcVisible}
                 onClose={() => setNfcVisible(false)}
                 onSuccess={async (profile) => {
-                    if (!profile) { Alert.alert('Key Error', 'Could not read profile data.'); return; }
-                    const name = profile.full_name || 'you';
-                    // profiles has no balance column; the wallet ledger is the truth.
+                    if (!profile) { Alert.alert('Key not read', 'Could not read that key. Try again.'); return; }
                     const { data: cents } = await supabase.rpc('get_wallet_balance', { p_user_id: profile.id });
-                    const balance = typeof cents === 'number' ? `TT$${(cents / 100).toFixed(2)}` : 'unavailable';
-                    Alert.alert('Key Recognized', `Linked to: ${name}\nWallet: ${balance}`);
+                    Alert.alert('Key recognised', `Linked to: ${profile.full_name || 'rider'}\nWallet: ${typeof cents === 'number' ? ttd(cents) : 'unavailable'}`);
                 }}
             />
 
-            <View style={[s.mapContainer, { height: mapHeightLocal }]} pointerEvents="box-none">
-                <MapView style={StyleSheet.absoluteFillObject} provider={PROVIDER_DEFAULT} initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}>
-                    {ENV.MAPBOX_PUBLIC_TOKEN && (
-                        <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
-                    )}
-                    {/* Demand heat cells — gold intensity tracks relative demand */}
-                    {demandHotspots.map((h: any, i: number) => (
-                        h.lat != null && h.lng != null ? (
-                            <Circle
-                                key={`heat-${i}`}
-                                center={{ latitude: h.lat, longitude: h.lng }}
-                                radius={350}
-                                fillColor={`rgba(230,180,80,${0.08 + 0.22 * (h.demand_score || 0)})`}
-                                strokeColor={`rgba(230,180,80,${0.15 + 0.35 * (h.demand_score || 0)})`}
-                                strokeWidth={1}
-                            />
-                        ) : null
-                    ))}
-                    {location && (
-                        <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
-                            <View style={s.markerWrap}>
-                                <Animated.View style={[s.markerRing, { transform: [{ scale: pulseScale }], opacity: pulseOpacity, borderColor: isOnline ? '#10B981' : VOICES.driver.accent }]} />
-                                <View style={[s.markerCore, { backgroundColor: isOnline ? '#10B981' : VOICES.driver.accent }]} />
-                            </View>
-                        </Marker>
-                    )}
-                </MapView>
+            <MapView
+                ref={mapRef}
+                style={StyleSheet.absoluteFillObject}
+                provider={PROVIDER_DEFAULT}
+                initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
+                mapPadding={{ top: insets.top + 60, bottom: cardH, left: 0, right: 0 }}
+                showsCompass={false}
+                toolbarEnabled={false}
+            >
+                {ENV.MAPBOX_PUBLIC_TOKEN ? (
+                    <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${m.mapStyle}/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
+                ) : null}
+                {hotspots.map((h, i) => (
+                    <Circle
+                        key={`heat-${i}`}
+                        center={{ latitude: h.lat, longitude: h.lng }}
+                        radius={350}
+                        fillColor={`rgba(255,159,67,${0.10 + 0.25 * h.score})`}
+                        strokeColor={`rgba(255,159,67,${0.25 + 0.4 * h.score})`}
+                        strokeWidth={1}
+                    />
+                ))}
+                {location ? (
+                    <Marker coordinate={{ latitude: currentLat, longitude: currentLng }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+                        <DriverDot online={isOnline} />
+                    </Marker>
+                ) : null}
+            </MapView>
 
-                <View style={[s.mapOverlay, { top: insets.top + 12 }]} pointerEvents="box-none">
-                    <TouchableOpacity style={s.mapBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSidebarVisible(true); }} activeOpacity={0.8} accessibilityLabel="Open driver menu" accessibilityRole="button">
-                        <Ionicons name="menu-outline" size={22} color="#EAF3F6" />
-                    </TouchableOpacity>
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <TouchableOpacity style={[s.mapBtn, { backgroundColor: VOICES.driver.accent + '20', borderColor: VOICES.driver.accent + '40', borderWidth: 1 }]} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setNfcVisible(true); }} activeOpacity={0.8} accessibilityLabel="Scan NFC kiosk" accessibilityRole="button">
-                            <Ionicons name="radio-outline" size={20} color={VOICES.driver.accent} />
-                        </TouchableOpacity>
-                        <Text style={s.logoText}>G-TAXI</Text>
+            {/* Readability wash under the status bar */}
+            <LinearGradient pointerEvents="none" colors={m.mapWash as [string, string]} style={[s.topWash, { height: insets.top + 90 }]} />
+
+            {/* Top: who you are (left), streak + key reader (right) */}
+            <View style={[s.topRow, { top: insets.top + SPACE.sm }]} pointerEvents="box-none">
+                <View style={[s.glass, s.hello]}>
+                    <View style={[s.avatar, { backgroundColor: m.accent }]}>
+                        <Text style={s.avatarText}>{firstName(driver?.name).charAt(0).toUpperCase()}</Text>
                     </View>
+                    <View>
+                        <Txt variant="caption" tone="dim">{greetingFor()}</Txt>
+                        <Txt variant="headline" numberOfLines={1}>{firstName(driver?.name)}</Txt>
+                    </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: SPACE.sm }}>
+                    <Pressable accessibilityRole="button" accessibilityLabel={streakLine(streak.days, streak.todayDone)}
+                        onPress={() => { tick(); showToast({ icon: 'flame', title: streakLine(streak.days, streak.todayDone), body: 'One finished trip a day keeps it going.', color: DRIVE_COLORS.streak }); }}
+                        style={[s.glass, s.chip]}>
+                        <Ionicons name="flame" size={18} color={streak.days > 0 ? DRIVE_COLORS.streak : m.faint} />
+                        <Text style={[s.chipNum, { color: streak.days > 0 ? DRIVE_COLORS.streak : m.faint }]}>{streak.days}</Text>
+                    </Pressable>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Scan a G-Touch key" onPress={() => { tick(); setNfcVisible(true); }} style={[s.glass, s.round]}>
+                        <Ionicons name="radio-outline" size={20} color={m.accent} />
+                    </Pressable>
                 </View>
             </View>
 
-            <Reanimated.View style={[s.carWrap, { bottom: panelHeightLocal - 20 }, carStyle]}>
-                {isOnline && (
-                    <View style={[s.carGlow, { width: 140, height: 140, borderRadius: 70, backgroundColor: VOICES.driver.accent + '12', position: 'absolute', top: -10 }]} />
-                )}
-                <TouchableOpacity onPress={handleCarTap} activeOpacity={0.9} accessibilityLabel="View vehicle details" accessibilityRole="button">
-                    <Image source={require('../../assets/images/car_gtaxi_standard_v7.png')} style={s.carImg} resizeMode="contain" />
-                </TouchableOpacity>
-                {carLabel && (
-                    <Text style={s.carLabel}>G-Taxi Standard</Text>
-                )}
-            </Reanimated.View>
+            {/* Busy area hint: tap to look there */}
+            {isOnline && topHot ? (
+                <Pressable onPress={() => flyTo(topHot.lat, topHot.lng)} accessibilityRole="button" accessibilityLabel={`Busy now near ${topHot.label}. Show on map`}
+                    style={[s.glass, s.hotChip, { top: insets.top + 76 }]}>
+                    <Ionicons name="flame-outline" size={15} color={DRIVE_COLORS.streak} />
+                    <Txt variant="label" numberOfLines={1} style={{ marginLeft: 6, maxWidth: 220 }}>Busy now: {topHot.label}</Txt>
+                </Pressable>
+            ) : null}
 
-            <Reanimated.View style={[s.panelOuter, { height: panelHeightLocal }, panelStyle, width > 600 && { left: '50%', right: 'auto', width: 600, marginLeft: -300 }]}>
-                <BlurView tint="dark" intensity={50} style={{ flex: 1, borderWidth: 0 }}>
-                    <View style={s.panelInner}>
-                        <View style={s.handle} />
-                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} />}>
-
-                            {/* Greeting + Online toggle */}
-                            <View style={s.greetingRow}>
-                                <View>
-                                    <Text style={s.greetingText}>{getGreeting()}</Text>
-                                    <Text style={s.driverName}>{firstName(driver?.name)}</Text>
-                                </View>
-                                <TouchableOpacity
-                                    style={[s.statusPill, isOnline ? s.statusPillOn : s.statusPillOff]}
-                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); handleToggle(); }}
-                                    disabled={isToggling}
-                                    activeOpacity={0.85}
-                                    accessibilityLabel={isOnline ? 'Go offline' : 'Go online to receive rides'}
-                                    accessibilityRole="switch"
-                                    accessibilityState={{ checked: isOnline }}
-                                >
-                                    {isToggling ? (
-                                        <ActivityIndicator color={VOICES.driver.accent} size="small" />
-                                    ) : (
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                            <View style={[s.statusDot, { backgroundColor: isOnline ? VOICES.driver.accent : 'rgba(174,169,181,0.3)' }]} />
-                                            <Text style={[s.statusText, { color: isOnline ? VOICES.driver.accent : '#AEA9B5' }]}>
-                                                {isOnline ? 'Online' : 'Offline'}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Hero earnings block */}
-                            <Reanimated.View style={[s.heroBlock, card0Style]}>
-                                <TouchableOpacity
-                                    activeOpacity={0.85}
-                                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Earnings'); }}
-                                    accessibilityLabel={`Today's earnings: $${todayEarnings.toFixed(2)}`}
-                                    accessibilityRole="button"
-                                    style={{ flex: 1 }}
-                                >
-                                    <View style={s.heroBlockInner}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={s.heroLabel}>Today's earnings</Text>
-                                            <Text style={s.heroAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>TT${todayEarnings.toFixed(2)}</Text>
-                                            <Text style={s.heroDetail}>{todayTrips} {todayTrips === 1 ? 'trip' : 'trips'} completed</Text>
-                                        </View>
-                                        <View style={s.heroRight}>
-                                            <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.25)" />
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-
-                                {balanceCents !== null && (
-                                    <View style={s.heroDivider} />
-                                )}
-                                {balanceCents !== null && (
-                                    <TouchableOpacity
-                                        style={s.walletRow}
-                                        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate('Wallet'); }}
-                                        activeOpacity={0.7}
-                                        accessibilityLabel={`Wallet balance: $${(balanceCents / 100).toFixed(2)}`}
-                                        accessibilityRole="button"
-                                    >
-                                        <Ionicons name="wallet-outline" size={14} color="rgba(255,255,255,0.4)" />
-                                        <Text style={s.walletLabel}>Wallet</Text>
-                                        <Text style={[s.walletAmount, isLockedOut && { color: '#EF4444' }]}>
-                                            ${(balanceCents / 100).toFixed(2)} TTD
-                                        </Text>
-                                        <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.2)" />
-                                    </TouchableOpacity>
-                                )}
-                            </Reanimated.View>
-
-                            {/* Demand hotspot card */}
-                            {isOnline && demandHotspots.length > 0 && (
-                                <TouchableOpacity
-                                    style={s.demandCard}
-                                    onPress={() => navigation.navigate('Earnings')}
-                                    activeOpacity={0.8}
-                                    accessibilityLabel="Demand hotspots nearby"
-                                    accessibilityRole="button"
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                        <View style={s.demandIcon}>
-                                            <Ionicons name="flame-outline" size={18} color="#FF6B35" />
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={s.demandTitle}>Hot zones now</Text>
-                                            <Text style={s.demandSub}>
-                                                {demandHotspots.slice(0, 3).map((h: any) =>
-                                                    `${h.zone_name || h.geohash || 'Area'} (${h.multiplier ? `×${h.multiplier}` : h.demand_score ? `${Math.round(h.demand_score * 100)}%` : 'high'})`
-                                                ).join('  ·  ')}
-                                            </Text>
-                                        </View>
-                                        <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.25)" />
-                                    </View>
-                                </TouchableOpacity>
-                            )}
-
-                            {/* What this driver's own check-ins have built, read back */}
-                            <AreaSafetyCard lat={currentLat} lng={currentLng} />
-
-                            {/* Push notification banner */}
-                            {pushMissing && (
-                                <TouchableOpacity style={s.pushBanner} onPress={handleFixPush} disabled={isFixingPush} activeOpacity={0.8} accessibilityLabel="Fix push notifications" accessibilityRole="button">
-                                    <Ionicons name="notifications-off-outline" size={16} color="#E6B450" />
-                                    <Text style={s.pushBannerText}>Notifications off — tap to fix</Text>
-                                    {isFixingPush && <ActivityIndicator size="small" color="#E6B450" style={{ marginLeft: 8 }} />}
-                                </TouchableOpacity>
-                            )}
-
-                            {/* Quick access — 4-column wrap grid */}
-                            <Text style={s.sectionLabel}>Quick access</Text>
-                            <Reanimated.View style={[s.quickGrid, card1Style]}>
-                                {QUICK_NAV.map((item, i) => (
-                                    <Reanimated.View key={item.screen} style={[{ width: tileWidth }, navStyles[i]]}>
-                                        <TouchableOpacity
-                                            style={s.quickCard}
-                                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate(item.screen); }}
-                                            activeOpacity={0.7}
-                                            accessibilityLabel={`Go to ${item.label}`}
-                                            accessibilityRole="button"
-                                        >
-                                            <View style={s.quickIconWrap}>
-                                                <Ionicons name={item.icon as any} size={20} color={VOICES.driver.accent} />
-                                            </View>
-                                            <Text style={s.quickLabel}>{item.label}</Text>
-                                        </TouchableOpacity>
-                                    </Reanimated.View>
-                                ))}
-                            </Reanimated.View>
-
-                        </ScrollView>
+            {/* Celebration / info toast */}
+            {toast ? (
+                <Pop style={[s.toastWrap, { top: insets.top + 120 }]}>
+                    <View style={[s.toast, { borderColor: toast.color }]}>
+                        <Ionicons name={toast.icon} size={26} color={toast.color} />
+                        <View style={{ marginLeft: SPACE.md, flex: 1 }}>
+                            <Txt variant="headline">{toast.title}</Txt>
+                            {toast.body ? <Txt variant="caption" tone="dim">{toast.body}</Txt> : null}
+                        </View>
                     </View>
-                </BlurView>
-            </Reanimated.View>
+                </Pop>
+            ) : null}
 
-            <Sidebar visible={sidebarVisible} onClose={() => setSidebarVisible(false)} user={{ name: driver?.name || 'Driver', rating: (driver as any)?.rating ?? null }} navigation={navigation} />
+            {/* Re-centre */}
+            <Pressable accessibilityRole="button" accessibilityLabel="Centre map on me" onPress={() => flyTo(currentLat, currentLng)}
+                style={[s.glass, s.round, s.recentre, { bottom: cardH + SPACE.md }]}>
+                <Ionicons name="locate" size={20} color={m.ink} />
+            </Pressable>
+
+            {/* Bottom card: today, goal, and the one big action */}
+            <View style={s.cardWrap} onLayout={(e) => setCardH(e.nativeEvent.layout.height)}>
+                <LinearGradient colors={m.sheet as [string, string]} style={[s.card, { borderColor: m.sheetBorder }]}>
+                    <View style={s.statsRow}>
+                        <Pressable style={{ flex: 1 }} onPress={() => { tick(); navigation.navigate('Earnings'); }} accessibilityRole="button" accessibilityLabel={`Today ${ttd(todayCents)}. Open earnings`}>
+                            <Txt variant="overline" tone="faint">TODAY</Txt>
+                            {todayTrips === null && !statsError ? <ActivityIndicator color={DRIVE_COLORS.money} style={{ alignSelf: 'flex-start', marginVertical: 8 }} /> : (
+                                <Text style={[s.money, { color: DRIVE_COLORS.money }]} numberOfLines={1} adjustsFontSizeToFit>{ttd(todayCents)}</Text>
+                            )}
+                            <Txt variant="caption" tone="dim">
+                                {statsError ? "Couldn't load today. Check your signal; it retries every minute." : `${todayTrips ?? 0} ${todayTrips === 1 ? 'trip' : 'trips'}`}
+                            </Txt>
+                        </Pressable>
+                        {balanceCents !== null ? (
+                            <Pressable onPress={() => { tick(); navigation.navigate('Wallet'); }} accessibilityRole="button" accessibilityLabel={`Wallet ${ttd(balanceCents)}`}
+                                style={[s.walletPill, { backgroundColor: isLockedOut ? 'rgba(255,90,95,0.14)' : m.field }]}>
+                                <Ionicons name="wallet-outline" size={15} color={isLockedOut ? DRIVE_COLORS.danger : m.dim} />
+                                <Txt variant="label" style={{ marginLeft: 6, color: isLockedOut ? DRIVE_COLORS.danger : m.ink }}>{ttd(balanceCents)}</Txt>
+                            </Pressable>
+                        ) : null}
+                    </View>
+
+                    <Pressable onPress={() => { tick(); setPickingGoal((v) => !v); }} accessibilityRole="button" accessibilityLabel={`${goalLine(todayCents, goalCents)}. Change goal`} style={{ marginTop: SPACE.md }}>
+                        <Progress value={goal.ratio} color={goal.reached ? DRIVE_COLORS.online : DRIVE_COLORS.money} height={10} />
+                        <View style={s.goalRow}>
+                            <Txt variant="caption" tone={goal.reached ? 'success' : 'dim'}>{goalLine(todayCents, goalCents)}</Txt>
+                            <Txt variant="caption" tone="faint">{pickingGoal ? 'Close' : 'Change'}</Txt>
+                        </View>
+                    </Pressable>
+                    {pickingGoal ? (
+                        <View style={s.goalChoices}>
+                            {GOAL_CHOICES_CENTS.map((c) => (
+                                <Pressable key={c} onPress={() => chooseGoal(c)} accessibilityRole="button" accessibilityState={{ selected: c === goalCents }}
+                                    style={[s.goalChoice, { borderColor: c === goalCents ? DRIVE_COLORS.money : m.chipBorder, backgroundColor: c === goalCents ? 'rgba(244,206,119,0.12)' : m.chip }]}>
+                                    <Txt variant="label" style={{ color: c === goalCents ? DRIVE_COLORS.money : m.ink }}>{ttd(c, 0)}</Txt>
+                                </Pressable>
+                            ))}
+                        </View>
+                    ) : null}
+
+                    {isLockedOut ? (
+                        <Txt variant="caption" tone="danger" style={{ marginTop: SPACE.md }}>
+                            Your wallet is below -TT$600. Top up in Wallet to take trips.
+                        </Txt>
+                    ) : null}
+
+                    <View style={{ marginTop: SPACE.lg }}>
+                        {isOnline ? (
+                            <View style={s.onlineRow}>
+                                <View style={s.onlineInfo}>
+                                    <Radar />
+                                    <View style={{ marginLeft: SPACE.md, flex: 1 }}>
+                                        <Txt variant="headline" style={{ color: DRIVE_COLORS.online }}>You're online</Txt>
+                                        <Txt variant="caption" tone="dim">Looking for trips near you</Txt>
+                                    </View>
+                                </View>
+                                <Button title="Go offline" size="md" variant="secondary" onPress={handleToggle} loading={isToggling} style={{ width: 132 }} />
+                            </View>
+                        ) : (
+                            <Button title="Go online" icon="power" color={DRIVE_COLORS.online} onPress={handleToggle} loading={isToggling} />
+                        )}
+                    </View>
+
+                    <AreaSafetyCard lat={location ? currentLat : null} lng={location ? currentLng : null} />
+                </LinearGradient>
+            </View>
+        </View>
+    );
+}
+
+// Your position: a bright dot; green with a soft ring while online.
+function DriverDot({ online }: { online: boolean }) {
+    const color = online ? DRIVE_COLORS.online : DRIVE_COLORS.cyan;
+    return (
+        <View style={s.dotWrap}>
+            <View style={[s.dotRing, { borderColor: color, backgroundColor: online ? 'rgba(47,208,138,0.18)' : 'rgba(63,217,232,0.15)' }]} />
+            <View style={[s.dotCore, { backgroundColor: color }]} />
+        </View>
+    );
+}
+
+// Calm "searching" pulse next to "You're online": slow, small, no flashing.
+function Radar() {
+    const v = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        const loop = Animated.loop(Animated.timing(v, { toValue: 1, duration: 1800, easing: Easing.out(Easing.quad), useNativeDriver: true }));
+        loop.start();
+        return () => loop.stop();
+    }, []);
+    return (
+        <View style={s.radar}>
+            <Animated.View style={[s.radarRing, {
+                opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
+                transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.8] }) }],
+            }]} />
+            <View style={s.radarCore} />
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: '#0A0718' },
-    center: { justifyContent: 'center', alignItems: 'center', padding: 32 },
-    iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: VOICES.driver.accent + '14', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
-    centerTitle: { textAlign: 'center', marginBottom: 12 },
-    centerBody: { textAlign: 'center', lineHeight: 24, paddingHorizontal: 24, marginBottom: 32 },
-    outlineBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 50, ...ghostBorder(0.35) },
-    solidBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 50, gap: 8 },
-
-    // Map layer
-    mapContainer: { width: '100%', overflow: 'hidden' },
-    mapOverlay: { position: 'absolute', left: 20, right: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    mapBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(7,5,15,0.85)', justifyContent: 'center', alignItems: 'center', ...ghostBorder(0.05) },
-    logoText: { fontSize: 22, fontWeight: '900', color: VOICES.driver.accent, letterSpacing: 2, alignSelf: 'center' },
-
-    // Marker
-    markerWrap: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center' },
-    markerRing: { position: 'absolute', width: 32, height: 32, borderRadius: 16, borderWidth: 2 },
-    markerCore: { width: 12, height: 12, borderRadius: 6, borderWidth: 2.5, borderColor: '#0A0718' },
-
-    // Car
-    carWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 10 },
-    carGlow: {},
-    carImg: { width: CAR_SIZE, height: CAR_SIZE },
-    carLabel: { marginTop: 4, fontSize: 11, fontWeight: '600', color: VOICES.driver.accent, letterSpacing: 0.5, textAlign: 'center', backgroundColor: 'rgba(7,5,15,0.7)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-
-    // Panel
-    panelOuter: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.06)' },
-    panelInner: { flex: 1, paddingHorizontal: 20, paddingTop: 10 },
-    handle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
-
-    // Greeting row
-    greetingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    greetingText: { fontSize: 13, fontWeight: '400', color: 'rgba(255,255,255,0.45)' },
-    driverName: { fontSize: 22, fontWeight: '700', color: '#EAF3F6', marginTop: 1, letterSpacing: -0.3 },
-
-    // Online/offline toggle
-    statusPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 50 },
-    statusPillOn: { backgroundColor: VOICES.driver.accent + '14', borderWidth: 1, borderColor: VOICES.driver.accent + '35' },
-    statusPillOff: { backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-    statusDot: { width: 7, height: 7, borderRadius: 3.5 },
-    statusText: { fontSize: 13, fontWeight: '600' },
-
-    // Hero earnings block
-    heroBlock: {
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        borderRadius: 20,
-        borderWidth: 0.5,
-        borderColor: 'rgba(255,255,255,0.08)',
-        marginBottom: 20,
-        overflow: 'hidden',
-    },
-    heroBlockInner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 18,
-        paddingTop: 18,
-        paddingBottom: 14,
-    },
-    heroLabel: { fontSize: 9, fontWeight: '500', color: 'rgba(234,243,246,0.4)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 },
-    heroAmount: { fontSize: 42, color: VOICES.driver.gold, fontFamily: VOICES.driver.serifSemi, fontVariant: ['tabular-nums'] },
-    heroDetail: { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4 },
-    heroRight: { paddingLeft: 12 },
-    heroDivider: { height: 0.5, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 18 },
-    walletRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 18,
-        paddingVertical: 12,
-    },
-    walletLabel: { fontSize: 12, color: 'rgba(255,255,255,0.4)', flex: 1 },
-    walletAmount: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
-
-    // Demand hotspot card
-    demandCard: {
-        backgroundColor: 'rgba(255,107,53,0.06)',
-        borderRadius: 14,
-        borderWidth: 0.5,
-        borderColor: 'rgba(255,107,53,0.2)',
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        marginBottom: 16,
-    },
-    demandIcon: {
-        width: 32, height: 32, borderRadius: 10,
-        backgroundColor: 'rgba(255,107,53,0.15)',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    demandTitle: { fontSize: 13, fontWeight: '600', color: '#FF8A50', marginBottom: 2 },
-    demandSub: { fontSize: 11, color: 'rgba(255,138,80,0.6)', lineHeight: 16 },
-
-    // Push banner
-    pushBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: 'rgba(230,180,80,0.08)',
-        borderRadius: 12,
-        borderWidth: 0.5,
-        borderColor: 'rgba(230,180,80,0.25)',
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        marginBottom: 16,
-    },
-    pushBannerText: { fontSize: 13, color: '#E6B450', flex: 1 },
-
-    // Quick access
-    sectionLabel: { fontSize: 12, fontWeight: '500', color: 'rgba(255,255,255,0.35)', marginBottom: 12, letterSpacing: 0.2 },
-    quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    quickCard: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 14,
-        borderWidth: 0.5,
-        borderColor: 'rgba(255,255,255,0.07)',
-        alignItems: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 4,
-    },
-    quickIconWrap: {
-        width: 38,
-        height: 38,
-        borderRadius: 11,
-        backgroundColor: VOICES.driver.accent + '14',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 6,
-    },
-    quickLabel: { fontSize: 10, fontWeight: '500', color: 'rgba(255,255,255,0.45)', textAlign: 'center' },
+    root: { flex: 1 },
+    pendingIcon: { width: 80, height: 80, borderRadius: 40, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.xl },
+    topWash: { position: 'absolute', top: 0, left: 0, right: 0 },
+    topRow: { position: 'absolute', left: SPACE.lg, right: SPACE.lg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    glass: { backgroundColor: 'rgba(14,17,23,0.88)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' },
+    hello: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingLeft: 6, paddingRight: 16, borderRadius: 28, maxWidth: '60%' },
+    avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+    avatarText: { fontFamily: FONT.roundBlack, fontSize: 18, color: '#08090D' },
+    chip: { flexDirection: 'row', alignItems: 'center', height: 48, paddingHorizontal: 14, borderRadius: 24 },
+    chipNum: { fontFamily: FONT.roundBlack, fontSize: 18, marginLeft: 4 },
+    round: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+    hotChip: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 14, borderRadius: 18 },
+    toastWrap: { position: 'absolute', left: SPACE.lg, right: SPACE.lg },
+    toast: { flexDirection: 'row', alignItems: 'center', padding: SPACE.lg, borderRadius: 20, borderWidth: 2, backgroundColor: 'rgba(14,17,23,0.96)' },
+    recentre: { position: 'absolute', right: SPACE.lg },
+    cardWrap: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+    card: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderBottomWidth: 0, paddingHorizontal: SPACE.xl, paddingTop: SPACE.lg, paddingBottom: SPACE.lg },
+    statsRow: { flexDirection: 'row', alignItems: 'flex-start' },
+    money: { fontFamily: FONT.roundBlack, fontSize: 38, lineHeight: 44, fontVariant: ['tabular-nums'] },
+    walletPill: { flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 12, borderRadius: 18, marginTop: 4 },
+    goalRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+    goalChoices: { flexDirection: 'row', gap: SPACE.sm, marginTop: SPACE.sm },
+    goalChoice: { flex: 1, height: 40, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+    onlineRow: { flexDirection: 'row', alignItems: 'center', gap: SPACE.md },
+    onlineInfo: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    radar: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+    radarRing: { position: 'absolute', width: 28, height: 28, borderRadius: 14, backgroundColor: DRIVE_COLORS.online },
+    radarCore: { width: 12, height: 12, borderRadius: 6, backgroundColor: DRIVE_COLORS.online },
+    dotWrap: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+    dotRing: { position: 'absolute', width: 34, height: 34, borderRadius: 17, borderWidth: 2 },
+    dotCore: { width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: '#08090D' },
 });
