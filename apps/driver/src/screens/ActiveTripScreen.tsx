@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity,
+    View, Text, StyleSheet,
     Alert, Linking, Platform,
-    Modal, TextInput, KeyboardAvoidingView, ScrollView,
-    ActivityIndicator, Image,
+    Modal, TextInput, KeyboardAvoidingView,
+    ActivityIndicator,
 } from 'react-native';
 const getAsyncStorage = () => {
     try {
@@ -19,7 +19,6 @@ const getAsyncStorage = () => {
 const AsyncStorage = getAsyncStorage();
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
 import { GuardianSosPanel } from '../components/GuardianSosPanel';
@@ -27,10 +26,10 @@ import { ENV } from '@g868/shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { updateRideStatus, setLocationTrackingMode } from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
-import { VOICES } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { NavigationAndStatusControl } from '../components/NavigationAndStatusControl';
+import { StatusBar } from 'expo-status-bar';
+import { Button, Pop, Txt, FONT, SPACE, useTheme } from '../ui/kit';
+import { DRIVE_COLORS, ttd } from '../theme/drive';
 
 function decodePolyline(encoded: string) {
     if (!encoded) return [];
@@ -97,6 +96,15 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const [cashConfirming, setCashConfirming] = useState(false);
     const [safeMarked, setSafeMarked] = useState(false);
     const [safeMarking, setSafeMarking] = useState(false);
+    const [pinError, setPinError] = useState<string | null>(null);
+    const m = useTheme();
+    // The leave-guard below is registered once, so it must read the latest
+    // status through a ref. It used to read `ride` from the first render
+    // (always null), which blocked "Back to Drive" even after the trip was
+    // completed or cancelled and left the driver stuck on this screen.
+    const statusRef = useRef<string | null>(null);
+    const leavingRef = useRef(false);
+    useEffect(() => { statusRef.current = ride?.status ?? null; }, [ride?.status]);
 
     let intakeCh: any = null;
 
@@ -159,7 +167,8 @@ export function ActiveTripScreen({ route, navigation }: any) {
             setRide((prev: any) => ({ ...prev, ...row }));
             if (row.status === 'cancelled') {
                 leftTrip = true;
-                Alert.alert('Trip Cancelled', 'The rider cancelled the trip.');
+                leavingRef.current = true;
+                Alert.alert('Trip cancelled', 'The rider cancelled this trip. You are back online for new trips.');
                 await AsyncStorage.removeItem('active_ride_id');
                 navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
             }
@@ -210,9 +219,10 @@ export function ActiveTripScreen({ route, navigation }: any) {
             .subscribe();
 
         const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
-            if (ride?.status === 'completed' || ride?.status === 'cancelled' || ride?.status === 'closed') return;
+            const st = statusRef.current;
+            if (leavingRef.current || st === 'completed' || st === 'cancelled' || st === 'closed') return;
             e.preventDefault();
-            Alert.alert('Active Trip', 'You are currently in an active trip. Please complete or cancel the trip through the official protocol before leaving this screen.', [{ text: 'Stay in Trip', style: 'cancel' }]);
+            Alert.alert('You are on a trip', 'Finish or cancel the trip with the buttons on screen before leaving.', [{ text: 'Stay on trip', style: 'cancel' }]);
         });
 
         return () => {
@@ -276,14 +286,15 @@ export function ActiveTripScreen({ route, navigation }: any) {
             const lng = (location as any)?.coords?.longitude;
 
             if (!lat || !lng) {
-                Alert.alert('GPS Required', 'Location required to update status');
+                Alert.alert('No GPS yet', 'Wait a moment for your location, then try again.');
                 return false;
             }
 
             const { error } = await updateRideStatus(rideId, newStatus, lat, lng, pin);
 
             if (error) {
-                Alert.alert('Error', error.message || 'Failed to update status');
+                // A wrong PIN is shown inside the PIN box instead of a pop-up.
+                if (!pin) Alert.alert('Not updated', error.message || 'Check your signal and try again.');
                 return false;
             }
 
@@ -319,14 +330,14 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const handleArrived = async () => { await handleStatusChange('arrived'); };
 
     const handleComplete = async () => {
-        Alert.alert('Complete Trip', 'End this trip?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Complete', onPress: async () => {
+        Alert.alert(ride?.order_id ? 'Mark delivered?' : 'Complete this trip?', ride?.order_id ? 'Only once the customer has the order.' : 'Only once the rider is out of the car.', [
+            { text: 'Not yet', style: 'cancel' },
+            { text: ride?.order_id ? 'Delivered' : 'Complete', onPress: async () => {
                 const lat = (location as any)?.coords?.latitude;
                 const lng = (location as any)?.coords?.longitude;
-                if (!lat || !lng) { Alert.alert('GPS Required'); return; }
+                if (!lat || !lng) { Alert.alert('No GPS yet', 'Wait a moment for your location, then try again.'); return; }
                 const { data, error } = await updateRideStatus(rideId, 'completed', lat, lng);
-                if (error) Alert.alert('Error');
+                if (error) Alert.alert('Trip not completed', (error as any)?.message || 'Check your signal and try again.');
                 else if (data) {
                     await AsyncStorage.removeItem('active_ride_id');
                     setRide((prev: any) => ({
@@ -365,6 +376,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
             return;
         }
         await AsyncStorage.removeItem('active_ride_id');
+        leavingRef.current = true;
         navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
     };
 
@@ -422,18 +434,23 @@ export function ActiveTripScreen({ route, navigation }: any) {
     const currentLat = (location as any)?.coords?.latitude || ride?.pickup_lat || 0;
     const currentLng = (location as any)?.coords?.longitude || ride?.pickup_lng || 0;
 
+    const backToDrive = () => {
+        leavingRef.current = true;
+        navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
+    };
+
     if (!ride) {
         return (
-            <View style={{ flex: 1, backgroundColor: SURFACE.base, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-                <ActivityIndicator size="large" color={VOICES.driver.accent} />
-                <Text style={{ marginTop: 16, color: VOICES.driver.textMuted, fontSize: 15 }}>Loading your trip...</Text>
+            <View style={[s.root, s.center, { backgroundColor: m.page }]}>
+                <StatusBar style="light" />
+                <ActivityIndicator size="large" color={m.accent} />
+                <Txt tone="dim" style={{ marginTop: SPACE.lg }}>Loading your trip…</Txt>
             </View>
         );
     }
 
     if (ride?.status === 'completed' || ride?.status === 'closed') {
         const payoutCents = ride?.driver_payout_cents;
-        const earnings = payoutCents != null ? (payoutCents / 100).toFixed(2) : '--';
         const isCash = ride?.payment_method === 'cash' || ride?.payment_method === null || ride?.payment_method === undefined;
         // What the rider actually hands over: the full fare (NOT the driver's
         // share -- this prompt used to show driver_payout_cents, so a driver
@@ -441,163 +458,131 @@ export function ActiveTripScreen({ route, navigation }: any) {
         // its cut), plus any earlier cancellation fee carried onto this ride.
         const carriedFeeCents = Number(ride?.metadata?.carried_fee_cents) || 0;
         const collectCents = (ride?.total_fare_cents || 0) + carriedFeeCents;
-        const collect = (collectCents / 100).toFixed(2);
+
+        const confirmCash = async () => {
+            setCashConfirming(true);
+            try {
+                const { data: orderData } = await supabase
+                    .from('orders')
+                    .select('id')
+                    .eq('ride_id', rideId)
+                    .maybeSingle();
+                if (orderData?.id) {
+                    const res = await supabase.functions.invoke('confirm_cash_collection', { body: { order_id: orderData.id } });
+                    const failure = await serverFailure(res);
+                    if (failure) {
+                        Alert.alert('Cash not recorded', failure + '\nTry again.');
+                        return;
+                    }
+                }
+                // A plain cash ride is already booked when the trip
+                // completes (complete_ride -> settle_cash_ride); there is
+                // nothing more to send.
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setCashConfirmed(true);
+            } catch (err) {
+                console.error('cash confirmation error:', err);
+                Alert.alert('Cash not recorded', 'Could not confirm the cash. Check your signal and try again.');
+            } finally {
+                setCashConfirming(false);
+            }
+        };
 
         if (isCash && !cashConfirmed) {
             return (
-                <View style={[s.root, { justifyContent: 'center', padding: 24 }]}>
-                    <LinearGradient colors={['#1a3a2a', '#0d2818']} style={StyleSheet.absoluteFillObject} />
-                    <LiquidGlass voice="driver" style={s.completedCardBlur} accentEdge>
-                        <View style={s.completedCardInner}>
-                            <View style={[s.successCircle, { borderColor: VOICES.driver.gold }]}>
-                                <Ionicons name="cash-outline" size={44} color={VOICES.driver.gold} />
-                            </View>
-                            <Text style={s.completedTitle}>Cash Collected?</Text>
-                            <Text style={s.cashPromptText}>
-                                Collect TTD ${collect} in cash from the rider.{'\n'}
-                                {carriedFeeCents > 0
-                                    ? `That includes TTD ${(carriedFeeCents / 100).toFixed(2)} the rider owes from an earlier cancelled trip.\n`
-                                    : ''}
-                                Your earnings: TTD ${earnings}.{'\n'}
-                                Confirm once you have the cash.
-                            </Text>
-                            <View style={s.cashConfirmActions}>
-                                <TouchableOpacity
-                                    style={[s.dashBtn, { flex: 1 }]}
-                                    onPress={async () => {
-                                        setCashConfirming(true);
-                                        try {
-                                            const { data: orderData } = await supabase
-                                                .from('orders')
-                                                .select('id')
-                                                .eq('ride_id', rideId)
-                                                .maybeSingle();
-                                            if (orderData?.id) {
-                                                const res = await supabase.functions.invoke('confirm_cash_collection', { body: { order_id: orderData.id } });
-                                                const failure = await serverFailure(res);
-                                                if (failure) {
-                                                    Alert.alert('Cash not recorded', failure + '\nTry again.');
-                                                    return;
-                                                }
-                                            }
-                                            // A plain cash ride is already booked when the trip
-                                            // completes (complete_ride -> settle_cash_ride); there
-                                            // is nothing more to send. (The old fallback sent a
-                                            // field update_ride_status ignores.)
-                                            setCashConfirmed(true);
-                                        } catch (err) {
-                                            console.error('cash confirmation error:', err);
-                                            Alert.alert('Cash Error', 'Could not confirm cash receipt. Try again.');
-                                        } finally {
-                                            setCashConfirming(false);
-                                        }
-                                    }}
-                                    accessibilityLabel="Confirm cash collected"
-                                    accessibilityRole="button"
-                                >
-                                    <LinearGradient
-                                        colors={[VOICES.driver.gold, '#B8860B']}
-                                        style={s.dashBtnGradient}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                    >
-                                        {cashConfirming ? (
-                                            <ActivityIndicator color={SURFACE.base} />
-                                        ) : (
-                                            <>
-                                                <Ionicons name="cash-outline" size={18} color={SURFACE.base} style={{ marginRight: 6 }} />
-                                                <Text style={s.dashBtnText}>CONFIRM CASH COLLECTED</Text>
-                                            </>
-                                        )}
-                                    </LinearGradient>
-                                </TouchableOpacity>
-                            </View>
+                <View style={[s.root, s.done, { backgroundColor: m.page }]}>
+                    <StatusBar style="light" />
+                    <Pop>
+                        <View style={[s.bigIcon, { backgroundColor: 'rgba(244,206,119,0.14)', borderColor: DRIVE_COLORS.money }]}>
+                            <Ionicons name="cash" size={44} color={DRIVE_COLORS.money} />
                         </View>
-                    </LiquidGlass>
+                        <Txt variant="overline" tone="dim" style={s.centerText}>COLLECT FROM THE RIDER</Txt>
+                        <Text style={[s.bigMoney, { color: DRIVE_COLORS.money }]} adjustsFontSizeToFit numberOfLines={1}>{ttd(collectCents)}</Text>
+                        <Txt tone="dim" style={s.centerText}>in cash</Txt>
+                        {carriedFeeCents > 0 ? (
+                            <Txt variant="caption" tone="faint" style={[s.centerText, { marginTop: SPACE.sm }]}>
+                                Includes {ttd(carriedFeeCents)} the rider owes from an earlier cancelled trip.
+                            </Txt>
+                        ) : null}
+                        <View style={[s.payoutRow, { backgroundColor: m.field }]}>
+                            <Txt tone="dim">Your share</Txt>
+                            <Txt variant="headline" style={{ color: DRIVE_COLORS.money }}>{payoutCents != null ? ttd(payoutCents) : '…'}</Txt>
+                        </View>
+                    </Pop>
+                    <Button title="I have the cash" icon="checkmark-circle" color={DRIVE_COLORS.online} onPress={confirmCash} loading={cashConfirming} style={{ marginTop: SPACE.xxl }} />
                 </View>
             );
         }
 
         return (
-            <View style={[s.root, { justifyContent: 'center', padding: 24 }]}>
-                <LinearGradient colors={[VOICES.driver.accent, VOICES.driver.accentDark]} style={StyleSheet.absoluteFillObject} />
-                <LiquidGlass voice="driver" style={s.completedCardBlur} accentEdge>
-                    <View style={s.completedCardInner}>
-                        <View style={s.successCircle}>
-                            <Ionicons name="checkmark-circle" size={48} color={VOICES.driver.gold} />
-                        </View>
-                        <Text style={s.completedTitle}>Trip Completed!</Text>
-                        <View style={s.earningsBlock}>
-                            <Text style={s.earningsLabelSmall}>Your earnings</Text>
-                            <Text style={s.earningsValueLarge}>TTD ${earnings}</Text>
-                        </View>
-                        {safeMarked ? (
-                            <View style={s.safeConfirmedRow}>
-                                <Ionicons name="shield-checkmark" size={18} color={VOICES.driver.gold} style={{ marginRight: 6 }} />
-                                <Text style={s.safeConfirmedText}>Marked safe — thank you</Text>
-                            </View>
-                        ) : (
-                            <TouchableOpacity
-                                style={[s.dashBtn, { marginBottom: 12 }]}
-                                disabled={safeMarking}
-                                onPress={async () => {
-                                    setSafeMarking(true);
-                                    try {
-                                        const { error } = await supabase.rpc('mark_ride_safe', { p_ride_id: rideId });
-                                        if (error) { console.error('mark_ride_safe failed:', error); Alert.alert('Could not mark safe', 'Please try again.'); }
-                                        else { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setSafeMarked(true); }
-                                    } catch (err) { console.error('mark_ride_safe error:', err); Alert.alert('Could not mark safe', 'Please try again.'); }
-                                    finally { setSafeMarking(false); }
-                                }}
-                                accessibilityLabel="Mark yourself safe"
-                                accessibilityRole="button"
-                            >
-                                <LinearGradient colors={[VOICES.driver.gold, '#B8860B']} style={s.dashBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                                    {safeMarking ? (
-                                        <ActivityIndicator color={SURFACE.base} />
-                                    ) : (
-                                        <>
-                                            <Ionicons name="shield-checkmark-outline" size={18} color={SURFACE.base} style={{ marginRight: 6 }} />
-                                            <Text style={s.dashBtnText}>I'M SAFE / LEFT THE AREA</Text>
-                                        </>
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        )}
-                        <TouchableOpacity style={s.dashBtn} onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] })} accessibilityLabel="Back to dashboard" accessibilityRole="button">
-                            <LinearGradient colors={[VOICES.driver.accent, VOICES.driver.accentDark]} style={s.dashBtnGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-                                <Text style={s.dashBtnText}>Back to Dashboard</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
+            <View style={[s.root, s.done, { backgroundColor: m.page }]}>
+                <StatusBar style="light" />
+                <Pop>
+                    <View style={[s.bigIcon, { backgroundColor: 'rgba(47,208,138,0.14)', borderColor: DRIVE_COLORS.online }]}>
+                        <Ionicons name="checkmark" size={48} color={DRIVE_COLORS.online} />
                     </View>
-                </LiquidGlass>
+                    <Txt variant="hero" style={s.centerText}>Trip done</Txt>
+                    <Txt tone="dim" style={[s.centerText, { marginTop: SPACE.xl }]}>You earned</Txt>
+                    <Text style={[s.bigMoney, { color: DRIVE_COLORS.money }]} adjustsFontSizeToFit numberOfLines={1}>{payoutCents != null ? ttd(payoutCents) : '…'}</Text>
+                </Pop>
+                <View style={{ marginTop: SPACE.xxl, gap: SPACE.md }}>
+                    {safeMarked ? (
+                        <View style={s.safeRow}>
+                            <Ionicons name="shield-checkmark" size={18} color={DRIVE_COLORS.online} />
+                            <Txt variant="bodyStrong" style={{ color: DRIVE_COLORS.online, marginLeft: 6 }}>Marked safe. Thank you.</Txt>
+                        </View>
+                    ) : (
+                        <Button
+                            title="I'm safe and leaving the area"
+                            icon="shield-checkmark"
+                            variant="secondary"
+                            loading={safeMarking}
+                            onPress={async () => {
+                                setSafeMarking(true);
+                                try {
+                                    const { error } = await supabase.rpc('mark_ride_safe', { p_ride_id: rideId });
+                                    if (error) { console.error('mark_ride_safe failed:', error); Alert.alert('Not marked safe', 'Please try again.'); }
+                                    else { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setSafeMarked(true); }
+                                } catch (err) { console.error('mark_ride_safe error:', err); Alert.alert('Not marked safe', 'Please try again.'); }
+                                finally { setSafeMarking(false); }
+                            }}
+                        />
+                    )}
+                    <Button title="Back to Drive" icon="navigate" color={DRIVE_COLORS.online} onPress={backToDrive} />
+                </View>
             </View>
         );
     }
 
-    return (
-        <View style={s.root} pointerEvents="box-none">
-            <LinearGradient colors={[VOICES.driver.accent, VOICES.driver.accentDark]} style={StyleSheet.absoluteFillObject} />
+    const target = ride?.status === 'assigned'
+        ? { latitude: ride?.pickup_lat || 0, longitude: ride?.pickup_lng || 0 }
+        : { latitude: ride?.dropoff_lat || 0, longitude: ride?.dropoff_lng || 0 };
 
+    return (
+        <View style={[s.root, { backgroundColor: m.page }]} pointerEvents="box-none">
+            <StatusBar style="light" />
             <MapView
                 style={StyleSheet.absoluteFillObject}
                 provider={PROVIDER_DEFAULT}
                 initialRegion={{ latitude: currentLat, longitude: currentLng, latitudeDelta: 0.05, longitudeDelta: 0.05 }}
+                mapPadding={{ top: insets.top + 70, bottom: 360, left: 0, right: 0 }}
+                showsCompass={false}
+                toolbarEnabled={false}
             >
-                {ENV.MAPBOX_PUBLIC_TOKEN && (
-                    <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
-                )}
-                <Marker coordinate={{ latitude: currentLat, longitude: currentLng }}>
+                {ENV.MAPBOX_PUBLIC_TOKEN ? (
+                    <UrlTile urlTemplate={`https://api.mapbox.com/styles/v1/mapbox/${m.mapStyle}/tiles/256/{z}/{x}/{y}@2x?access_token=${ENV.MAPBOX_PUBLIC_TOKEN}`} shouldReplaceMapContent maximumZ={19} />
+                ) : null}
+                {routeCoords.length > 0 ? <Polyline coordinates={routeCoords} strokeColor={DRIVE_COLORS.cyan} strokeWidth={5} /> : null}
+                <Marker coordinate={{ latitude: currentLat, longitude: currentLng }} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
                     <View style={s.driverMarker}>
-                        <Ionicons name="car-sport" size={22} color={VOICES.driver.accent} />
+                        <Ionicons name="car-sport" size={20} color="#08090D" />
                     </View>
                 </Marker>
-                {ride && (
-                    <Marker coordinate={{ latitude: ride?.status === 'assigned' ? ride?.pickup_lat || 0 : ride?.dropoff_lat || 0, longitude: ride?.status === 'assigned' ? ride?.pickup_lng || 0 : ride?.dropoff_lng || 0 }}>
-                        <View style={s.destMarker} />
-                    </Marker>
-                )}
-                {routeCoords.length > 0 && <Polyline coordinates={routeCoords} strokeColor={VOICES.driver.accent} strokeWidth={4} />}
+                <Marker coordinate={target} tracksViewChanges={false}>
+                    <View style={[s.destMarker, { backgroundColor: ride?.status === 'assigned' ? DRIVE_COLORS.online : DRIVE_COLORS.money }]}>
+                        <Ionicons name={ride?.status === 'assigned' ? 'person' : 'flag'} size={14} color="#08090D" />
+                    </View>
+                </Marker>
             </MapView>
 
             <NavigationAndStatusControl
@@ -611,20 +596,20 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 hasMerchantPhoto={hasMerchantPhoto}
                 routeCoords={routeCoords}
                 onArrived={handleArrived}
-                onVerifyPickup={() => setShowPinModal(true)}
+                onVerifyPickup={() => { setPinError(null); setPinInput(''); setShowPinModal(true); }}
                 onComplete={handleComplete}
                 onCancel={handleCancel}
                 onSOS={handleSOS}
                 onOpenNavigation={openNavigation}
                 onChat={() => navigation.navigate('Chat', { rideId, rider })}
-                onCall={() => { if (rider?.phone_number) { Linking.openURL(`tel:${rider.phone_number}`); } else { Alert.alert('No Number', 'This rider has no phone number on file. Use chat instead.'); }}}
+                onCall={() => { if (rider?.phone_number) { Linking.openURL(`tel:${rider.phone_number}`); } else { Alert.alert('No phone number', 'This rider has no number on file. Send a message instead.'); } }}
                 onDeliveryConfirmPickup={handleDeliveryConfirmPickup}
                 onEntertainmentAccept={handleEntertainmentAccept}
                 onEntertainmentReject={handleEntertainmentReject}
             />
 
-            {sosPanel && rideId && (
-                <View style={{ position: 'absolute', left: 16, right: 16, top: 60 }}>
+            {sosPanel && rideId ? (
+                <View style={{ position: 'absolute', left: 16, right: 16, top: insets.top + 76 }}>
                     <GuardianSosPanel
                         rideId={rideId}
                         guardianPhone={sosPanel.guardianPhone}
@@ -634,202 +619,58 @@ export function ActiveTripScreen({ route, navigation }: any) {
                         onClose={() => setSosPanel(null)}
                     />
                 </View>
-            )}
+            ) : null}
 
-            <Modal visible={showPinModal} transparent animationType="fade">
+            <Modal visible={showPinModal} transparent animationType="fade" onRequestClose={() => setShowPinModal(false)}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={s.modalOverlay}>
-                    <LiquidGlass voice="driver" style={s.modalContent}>
-                        <Text style={s.modalTitle}>ENTER VERIFICATION PIN</Text>
-                        <TextInput style={s.pinInput} keyboardType="number-pad" maxLength={4} value={pinInput} onChangeText={setPinInput} placeholder="0000" placeholderTextColor="rgba(255,255,255,0.2)" autoFocus />
+                    <View style={[s.modalCard, { backgroundColor: m.tile, borderColor: m.chipBorder }]}>
+                        <Txt variant="title" style={s.centerText}>Rider's PIN</Txt>
+                        <Txt tone="dim" style={s.centerText}>Ask the rider for the 4 digits on their screen.</Txt>
+                        <TextInput
+                            style={[s.pinInput, { color: m.ink, backgroundColor: m.field, borderColor: pinError ? DRIVE_COLORS.danger : 'transparent' }]}
+                            keyboardType="number-pad"
+                            maxLength={4}
+                            value={pinInput}
+                            onChangeText={(t) => { setPinInput(t.replace(/\D/g, '')); setPinError(null); }}
+                            placeholder="····"
+                            placeholderTextColor={m.faint}
+                            autoFocus
+                            accessibilityLabel="Rider PIN"
+                        />
+                        {pinError ? <Txt variant="caption" tone="danger" style={s.centerText}>{pinError}</Txt> : null}
                         <View style={s.modalActions}>
-                            <TouchableOpacity style={s.modalCancel} onPress={() => setShowPinModal(false)} accessibilityLabel="Cancel PIN entry" accessibilityRole="button">
-                                <Text style={s.modalCancelText}>CANCEL</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={s.modalConfirm} onPress={async () => { if (await handleStatusChange('in_progress', pinInput)) setShowPinModal(false); }} accessibilityLabel="Verify passenger PIN" accessibilityRole="button">
-                                <Text style={s.modalConfirmText}>VERIFY</Text>
-                            </TouchableOpacity>
+                            <Button title="Back" variant="secondary" onPress={() => setShowPinModal(false)} style={{ flex: 1 }} />
+                            <Button
+                                title="Start trip"
+                                color={DRIVE_COLORS.online}
+                                disabled={pinInput.length !== 4}
+                                onPress={async () => {
+                                    if (await handleStatusChange('in_progress', pinInput)) { setShowPinModal(false); setPinInput(''); }
+                                    else setPinError('That PIN did not work. Check it with the rider.');
+                                }}
+                                style={{ flex: 2 }}
+                            />
                         </View>
-                    </LiquidGlass>
+                    </View>
                 </KeyboardAvoidingView>
             </Modal>
         </View>
     );
 }
 
-const SURFACE = { base: '#0B0E12' };
-
 const s = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: SURFACE.base,
-    },
-    completedCardBlur: {
-        borderWidth: 0,
-    },
-    completedCardInner: {
-        padding: 28,
-        alignItems: 'center',
-    },
-    completedTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#FFF',
-        textAlign: 'center',
-        marginTop: 16,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    earningsLabelSmall: {
-        fontSize: 12,
-        fontWeight: '800',
-        color: VOICES.driver.gold,
-        letterSpacing: 1.5,
-        marginBottom: 8,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    earningsValueLarge: {
-        fontSize: 42,
-        fontWeight: '800',
-        color: VOICES.driver.gold,
-        letterSpacing: -0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    dashBtn: {
-        width: '100%',
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginTop: 24,
-        ...elevationGlow(4),
-    },
-    dashBtnGradient: {
-        paddingVertical: 16,
-        alignItems: 'center',
-    },
-    dashBtnText: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: SURFACE.base,
-        letterSpacing: 0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    safeConfirmedRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 12,
-    },
-    safeConfirmedText: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: VOICES.driver.gold,
-        letterSpacing: 0.3,
-    },
-    driverMarker: {
-        width: 40,
-        height: 40,
-        borderRadius: 14,
-        backgroundColor: SURFACE.base,
-        borderWidth: 2,
-        borderColor: VOICES.driver.accent,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    destMarker: {
-        width: 14,
-        height: 14,
-        borderRadius: 4,
-        backgroundColor: VOICES.driver.accent,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(20,17,34,0.95)',
-        justifyContent: 'center',
-        padding: 20,
-    },
-    modalContent: {
-        padding: 28,
-        borderWidth: 0,
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: '#FFF',
-        textAlign: 'center',
-        marginBottom: 20,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    pinInput: {
-        width: '100%',
-        height: 70,
-        fontSize: 42,
-        textAlign: 'center',
-        color: VOICES.driver.accent,
-        marginVertical: 20,
-        letterSpacing: 12,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    modalActions: {
-        flexDirection: 'row',
-        gap: 12,
-        width: '100%',
-    },
-    modalCancel: {
-        flex: 1,
-        height: 52,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(255,255,255,0.04)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.12)',
-    },
-    modalCancelText: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: 'rgba(255,255,255,0.6)',
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    modalConfirm: {
-        flex: 1,
-        height: 52,
-        backgroundColor: VOICES.driver.accent,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...elevationGlow(4),
-    },
-    modalConfirmText: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: SURFACE.base,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    successCircle: {
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: 'rgba(255,200,0,0.12)',
-        borderWidth: 2, borderColor: VOICES.driver.gold,
-        alignItems: 'center', justifyContent: 'center',
-        alignSelf: 'center', marginBottom: 16,
-    },
-    earningsBlock: {
-        alignItems: 'center', paddingVertical: 16,
-        paddingHorizontal: 24, borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        marginTop: 1,
-    },
-    cashPromptText: {
-        fontSize: 15,
-        fontWeight: '600',
-        color: 'rgba(255,255,255,0.7)',
-        textAlign: 'center',
-        lineHeight: 22,
-        marginTop: 8,
-        marginBottom: 4,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    cashConfirmActions: {
-        width: '100%',
-        marginTop: 20,
-    },
+    root: { flex: 1 },
+    center: { alignItems: 'center', justifyContent: 'center', padding: SPACE.xxl },
+    done: { justifyContent: 'center', paddingHorizontal: SPACE.xxl },
+    centerText: { textAlign: 'center' },
+    bigIcon: { width: 96, height: 96, borderRadius: 48, borderWidth: 3, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.xl },
+    bigMoney: { fontFamily: FONT.roundBlack, fontSize: 56, lineHeight: 64, textAlign: 'center', fontVariant: ['tabular-nums'] },
+    payoutRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACE.xl, paddingHorizontal: SPACE.lg, height: 52, borderRadius: 16 },
+    safeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 48 },
+    driverMarker: { width: 38, height: 38, borderRadius: 19, backgroundColor: DRIVE_COLORS.cyan, borderWidth: 3, borderColor: '#08090D', alignItems: 'center', justifyContent: 'center' },
+    destMarker: { width: 30, height: 30, borderRadius: 15, borderWidth: 3, borderColor: '#08090D', alignItems: 'center', justifyContent: 'center' },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(8,9,13,0.85)', justifyContent: 'center', padding: SPACE.xl },
+    modalCard: { borderRadius: 24, borderWidth: 2, padding: SPACE.xl, gap: SPACE.sm },
+    pinInput: { height: 76, borderRadius: 18, borderWidth: 2, fontFamily: FONT.roundBlack, fontSize: 40, textAlign: 'center', letterSpacing: 16, marginVertical: SPACE.md },
+    modalActions: { flexDirection: 'row', gap: SPACE.md, marginTop: SPACE.sm },
 });
