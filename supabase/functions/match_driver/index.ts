@@ -225,8 +225,9 @@ serve(async (req: Request) => {
             ? payoutEstimate
             : Math.round(totalFare * 0.78);
 
-        // Create Time-Limited Ride Offer (15 seconds)
-        const expiresAt = new Date(Date.now() + 15 * 1000).toISOString();
+        // Time-limited ride offer: 30 s, same as process_dispatch_queue (15 s
+        // expired before a driver could switch apps and tap Accept).
+        const expiresAt = new Date(Date.now() + 30 * 1000).toISOString();
         const { error: insertError } = await supabaseAdmin
             .from("ride_offers")
             .insert({

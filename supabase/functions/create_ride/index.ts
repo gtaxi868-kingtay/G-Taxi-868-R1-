@@ -731,6 +731,28 @@ serve(async (req: Request) => {
             console.error("Failed to enqueue dispatch task (non-fatal):", err);
         }
 
+        // ── Dispatch now, not on the next cron tick ──────────────────────
+        // Queueing alone left the rider waiting up to a minute (47 s in the
+        // founder's 2026-10-27 test) for the once-a-minute sweep to send the
+        // first offer. Run this ride's first round immediately; the cron
+        // still handles every later round. Never blocks or fails the booking.
+        try {
+            const cronSecret = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
+            if (cronSecret) {
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), 6000);
+                await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/process_dispatch_queue`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "x-cron-secret": cronSecret },
+                    body: JSON.stringify({ ride_id: newRideId }),
+                    signal: ctrl.signal,
+                }).catch((e) => console.error("Immediate dispatch failed (cron will retry):", e?.message ?? e));
+                clearTimeout(t);
+            }
+        } catch (err) {
+            console.error("Immediate dispatch error (non-fatal):", err);
+        }
+
         // ── Push Notification to Rider ─────────────────────────────────────
         try {
             const { data: riderProfile } = await adminClient
