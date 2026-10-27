@@ -11,6 +11,7 @@ import Reanimated, {
     useSharedValue, withTiming, useDerivedValue,
 } from 'react-native-reanimated';
 import { supabase } from '@gtaxi/core';
+import { photoBytes } from '../utils/driverSignup';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -258,6 +259,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 quality: 0.7,
+                base64: true,
             });
             if (result.canceled || !result.assets[0]) return;
 
@@ -267,14 +269,16 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
             const uid = session.user.id;
 
             const asset = result.assets[0];
-            const fileExt = asset.uri.split('.').pop();
+            if (!asset.base64) throw new Error('That photo could not be read. Please choose it again.');
+            const mime = asset.mimeType || 'image/jpeg';
+            const fileExt = mime.split('/')[1] === 'png' ? 'png' : 'jpg';
             const receiptPath = `${uid}/${kind}-${Date.now()}.${fileExt}`;
 
-            const imgRes = await fetch(asset.uri);
-            const blob = await imgRes.blob();
+            // base64 bytes, not fetch(uri).blob(): the blob read fails on
+            // many Android phones.
             const { error: uploadError } = await supabase.storage
                 .from('receipts')
-                .upload(receiptPath, blob);
+                .upload(receiptPath, photoBytes(asset.base64), { contentType: mime });
             if (uploadError) throw uploadError;
 
             // OCR is best-effort; admin checks the photo either way.

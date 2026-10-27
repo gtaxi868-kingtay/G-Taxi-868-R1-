@@ -23,6 +23,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
+import { photoBytes } from '../utils/driverSignup';
 import { useAuth } from '../context/AuthContext';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
@@ -95,20 +96,22 @@ export default function ComplianceDocumentsScreen({ navigation }: any) {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 quality: 0.8,
+                base64: true,
             });
             if (result.canceled || !result.assets?.[0]) return;
 
             setUploading(docType.key);
             const asset = result.assets[0];
-            const ext = (asset.uri.split('.').pop() || 'jpg').split('?')[0];
+            if (!asset.base64) throw new Error('That photo could not be read. Please choose it again.');
+            const mime = asset.mimeType || 'image/jpeg';
+            const ext = mime.split('/')[1] === 'png' ? 'png' : 'jpg';
             const path = `${driver?.id ?? 'unknown'}/${docType.key}_${Date.now()}.${ext}`;
 
-            const resp = await fetch(asset.uri);
-            const blob = await resp.blob();
-
+            // base64 bytes, not fetch(uri).blob(): the blob read fails on
+            // many Android phones.
             const { data: up, error: upErr } = await supabase.storage
                 .from('driver-documents')
-                .upload(path, blob, { contentType: blob.type || 'image/jpeg' });
+                .upload(path, photoBytes(asset.base64), { contentType: mime });
             if (upErr) throw upErr;
 
             // Private bucket -> signed url the reviewer can actually open.

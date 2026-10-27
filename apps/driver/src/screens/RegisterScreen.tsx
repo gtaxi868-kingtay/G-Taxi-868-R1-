@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import * as ImagePicker from 'expo-image-picker';
 import { VOICES } from '@gtaxi/design-system';
+import { photoBytes, isAlreadyRegistered, friendlySignupError } from '../utils/driverSignup';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 interface NavigationProp {
@@ -64,6 +65,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
     }, []);
 
     // KYC Documents
+    // Each holds the picked photo's base64 (null until chosen).
     const [licenseFront, setLicenseFront] = useState<string | null>(null);
     const [licenseBack, setLicenseBack] = useState<string | null>(null);
     const [vehiclePhoto, setVehiclePhoto] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
         setStep(2);
     };
 
-    const pickImage = async (setter: (uri: string) => void) => {
+    const pickImage = async (setter: (base64: string) => void) => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
@@ -101,23 +103,16 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             base64: true,
         });
 
-        if (!result.canceled && result.assets?.[0]?.uri) {
-            setter(result.assets[0].uri);
-        }
+        if (result.canceled) return;
+        const b64 = result.assets?.[0]?.base64;
+        if (b64) setter(b64);
+        else Alert.alert('Photo Not Read', 'That photo could not be read. Please choose it again.');
     };
 
-    const uploadImage = async (uri: string, path: string) => {
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        const arrayBuffer = await new Promise<ArrayBuffer>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as ArrayBuffer);
-            reader.readAsArrayBuffer(blob);
-        });
-
+    const uploadImage = async (base64: string, path: string) => {
         const { data, error } = await supabase.storage
             .from('driver-documents')
-            .upload(path, arrayBuffer, {
+            .upload(path, photoBytes(base64), {
                 contentType: 'image/jpeg',
                 upsert: true
             });
@@ -139,7 +134,7 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setLoading(true);
         try {
-            const { data: authData, error: authError } = await supabase.auth.signUp({
+            const signUpRes = await supabase.auth.signUp({
                 email: email.trim().toLowerCase(),
                 password,
                 options: {
@@ -150,10 +145,21 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                     },
                 },
             });
-
-            if (authError) throw authError;
+            let authData = signUpRes.data;
+            // Tapping Submit again after a half-finished attempt (photos
+            // failed to send, signal dropped): the account already exists, so
+            // sign in with the same details and finish the application
+            // instead of dead-ending on "User already registered".
+            if (signUpRes.error && isAlreadyRegistered(signUpRes.error.message)) {
+                const signIn = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+                if (signIn.error) throw signIn.error;
+                authData = { user: signIn.data.user, session: signIn.data.session };
+            } else if (signUpRes.error) {
+                throw signUpRes.error;
+            }
             if (!authData.user) throw new Error('Signup failed');
             const requiresEmailConfirmation = !authData.session;
+            const userId = authData.user.id;
 
             // Pre-fill from an approved waitlist signup, if this phone matches
             // one. Must happen AFTER signUp (claim_waitlist_details is
@@ -213,12 +219,28 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
                 });
             }
 
+            // Documents and the driver record need a login. With email
+            // confirmation on there is none yet: stop here, and after they
+            // confirm, Submit again signs in (above) and finishes.
+            if (requiresEmailConfirmation) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                Alert.alert(
+                    'Confirm Your Email',
+                    'We sent you an email. Tap the link in it, then come back here and tap Submit again to send your documents.\n\nDidn\'t get it?',
+                    [
+                        { text: 'Verify via WhatsApp', onPress: () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(email)) },
+                        { text: 'OK' },
+                    ]
+                );
+                return;
+            }
+
             // 1. Upload Documents
             const ts = Date.now();
             const [frontPath, backPath, vehiclePathResult] = await Promise.all([
-                uploadImage(licenseFront, `${authData.user.id}/license_front_${ts}.jpg`),
-                uploadImage(licenseBack, `${authData.user.id}/license_back_${ts}.jpg`),
-                uploadImage(vehiclePhoto, `${authData.user.id}/vehicle_${ts}.jpg`),
+                uploadImage(licenseFront, `${userId}/license_front_${ts}.jpg`),
+                uploadImage(licenseBack, `${userId}/license_back_${ts}.jpg`),
+                uploadImage(vehiclePhoto, `${userId}/vehicle_${ts}.jpg`),
             ]);
 
             // 2. Create Driver Record
@@ -231,8 +253,12 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             // (drivers_verified_status enum). vehicle_image_url is not a
             // real column either -- the vehicle photo is already stored
             // correctly via the driver_documents insert below.
-            const { data: driverData, error: driverError } = await supabase.from('drivers').insert({
-                user_id: authData.user.id,
+            // A retry may already have created the record; reuse it.
+            const { data: existingDriver } = await supabase.from('drivers').select('id').eq('user_id', userId).maybeSingle();
+            const { data: driverData, error: driverError } = existingDriver
+                ? { data: existingDriver, error: null }
+                : await supabase.from('drivers').insert({
+                user_id: userId,
                 name: fullName.trim(),
                 phone_number: phone.trim(),
                 vehicle_model: vehicleModel.trim(),
@@ -245,14 +271,15 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
 
             if (driverError) throw driverError;
 
-            // 3. Create Document Records
-            await supabase.from('driver_documents').insert([
+            // 3. Create Document Records. Admin approves from these rows, so a
+            // failure here must be shown (it used to be silently ignored,
+            // leaving an application with no documents to review).
+            const { error: docsError } = await supabase.from('driver_documents').insert([
                 { driver_id: driverData.id, document_type: 'permit_front', storage_path: frontPath },
                 { driver_id: driverData.id, document_type: 'permit_back', storage_path: backPath },
                 { driver_id: driverData.id, document_type: 'vehicle_inspection', storage_path: vehiclePathResult }
             ]);
-
-            if (driverError) throw driverError;
+            if (docsError) throw docsError;
 
             // Link to the shop that signed this driver up (needs a session;
             // without one it is parked above and applied at first sign-in).
@@ -267,35 +294,16 @@ export function RegisterScreen({ navigation, onBack }: { navigation?: Navigation
             }
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            if (requiresEmailConfirmation) {
-                Alert.alert(
-                    'Check Your Email',
-                    'Your application is submitted. Please verify your email to activate your account.\n\nDidn\'t get the code?',
-                    [
-                        { text: 'Verify via WhatsApp', onPress: () => Linking.openURL('https://wa.me/18687031000?text=VERIFY_ACCOUNT_' + encodeURIComponent(email)) },
-                        { text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }
-                    ]
-                );
-            } else {
-                Alert.alert(
-                    'Application Submitted',
-                    'Your application is under review. You will be notified once approved.' + shopWarning,
-                    [{ text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }]
-                );
-            }
+            Alert.alert(
+                'Application Submitted',
+                'Your application is under review. You will be notified once approved.' + shopWarning,
+                [{ text: 'OK', onPress: () => { onBack?.(); navigation?.goBack(); } }]
+            );
         } catch (err) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            const message = err instanceof Error ? err.message : String(err);
-            if (message.includes("already registered as a rider") ||
-                message.includes("already registered as a driver")) {
-                Alert.alert(
-                    "Phone Already Registered",
-                    "This phone number is already linked to a G-Taxi account. " +
-                    "Each phone number can only be used for one account."
-                );
-            } else {
-                Alert.alert('Error', message);
-            }
+            const message = err instanceof Error ? err.message : String((err as { message?: string })?.message ?? err);
+            const { title, body } = friendlySignupError(message);
+            Alert.alert(title, body);
         } finally {
             setLoading(false);
         }
