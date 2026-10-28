@@ -45,7 +45,7 @@ export function EquityProgressScreen({ navigation, route }: any) {
                 .from('equity_contracts')
                 .select(`
                     *,
-                    travel_properties(name, destination_name, cover_image_url)
+                    merchants(name)
                 `)
                 .eq('merchant_id', merchant.id)
                 .neq('status', 'cancelled');
@@ -86,7 +86,7 @@ export function EquityProgressScreen({ navigation, route }: any) {
             ) : (
                 <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}>
                     {contracts.map(contract => {
-                        const prop = contract.travel_properties;
+                        const merchantName = contract.merchants?.name;
                         const t1pct = Math.min(100, (contract.current_room_nights_delivered / contract.tier_1_rooms) * 100);
                         const t2pct = Math.min(100, (contract.current_room_nights_delivered / contract.tier_2_rooms) * 100);
                         const vestT1 = contract.current_room_nights_delivered >= contract.tier_1_rooms;
@@ -100,8 +100,7 @@ export function EquityProgressScreen({ navigation, route }: any) {
                                 >
                                     <View style={styles.contractHeader}>
                                         <View style={{ flex: 1 }}>
-                                            <Text style={styles.propName}>{prop?.name || 'Property'}</Text>
-                                            <Text style={styles.propDest}>{prop?.destination_name}</Text>
+                                            <Text style={styles.propName}>{merchantName || 'Property'}</Text>
                                         </View>
                                         <View style={[styles.statusBadge, { backgroundColor: contract.current_equity_pct > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.06)' }]}>
                                             <Text style={[styles.statusText, { color: contract.current_equity_pct > 0 ? GOLD : 'rgba(255,255,255,0.4)' }]}>
@@ -206,7 +205,6 @@ const styles = StyleSheet.create({
     contractGrad: { padding: 22, gap: 16 },
     contractHeader: { flexDirection: 'row', alignItems: 'flex-start' },
     propName: { color: '#E9F5F3', fontWeight: '800', fontSize: 18, fontFamily: 'SpaceGrotesk' },
-    propDest: { color: VOICES.merchant.textMuted, fontSize: 13, marginTop: 2, fontFamily: 'Manrope' },
     statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
     statusText: { fontWeight: '700', fontSize: 11, textTransform: 'capitalize', fontFamily: 'SpaceGrotesk' },
     nightsRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },

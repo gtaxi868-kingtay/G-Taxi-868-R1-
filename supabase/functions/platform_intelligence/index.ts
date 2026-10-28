@@ -1,15 +1,13 @@
 // Supabase Edge Function: platform_intelligence
 // AI agent (Groq llama-3.3-70b with tool_use) that runs every 15 min via pg_cron.
-// Reads demand data, unmatched orders, and flight inventory.
-// Makes decisions: activate surge, dispatch orders, create package drafts.
+// Reads demand data and unmatched orders.
+// Makes decisions: activate surge, dispatch orders.
 // Logs all decisions + reasoning to agent_decision_log.
 // Self-contained — no _shared/ imports.
 //
 // DETERMINISTIC PRE-STEPS (run before the AI loop, every invocation):
 //  1. activateScheduledTransfers — flip rides status='scheduled' → 'searching' 45 min before departure
-//  2. sendTravelReminders — push 48h and 24h departure reminders for confirmed travel_bookings
-//  3. sendMerchantOverdueWarnings — push day-4 overdue warning to merchant owners before suspension
-//  4. checkRateExpiry — alert admins when active package wholesale rates expire within 7 days
+//  2. sendMerchantOverdueWarnings — push day-4 overdue warning to merchant owners before suspension
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
@@ -122,65 +120,6 @@ async function activateScheduledTransfers(supabase: SB) {
     }
 }
 
-// ── PRE-STEP 2: Travel departure reminders (48h and 24h) ─────────────────────
-// Deduped via agent_decision_log sentinel key `travel_reminder_{booking_id}_{hours}h`.
-async function sendTravelReminders(supabase: SB) {
-    const now = Date.now();
-    const windows = [
-        { hours: 48, label: "48h" },
-        { hours: 24, label: "24h" },
-    ];
-
-    for (const w of windows) {
-        const windowStart = new Date(now + (w.hours - 1) * 60 * 60 * 1000).toISOString();
-        const windowEnd   = new Date(now + (w.hours + 1) * 60 * 60 * 1000).toISOString();
-
-        const { data: bookings } = await supabase
-            .from("travel_bookings")
-            .select("id, user_id, package_id, travel_packages(title, departure_at)")
-            .eq("status", "confirmed")
-            .gte("travel_packages.departure_at", windowStart)
-            .lte("travel_packages.departure_at", windowEnd);
-
-        if (!bookings?.length) continue;
-
-        for (const booking of bookings) {
-            const sentinelKey = `travel_reminder_${booking.id}_${w.label}`;
-
-            const { data: existing } = await supabase
-                .from("agent_decision_log")
-                .select("id")
-                .eq("decision_type", "travel_reminder_sent")
-                .contains("payload", { sentinel: sentinelKey })
-                .maybeSingle();
-
-            if (existing) continue;
-
-            const { data: profile } = await supabase
-                .from("profiles")
-                .select("push_token, name")
-                .eq("id", booking.user_id)
-                .single();
-
-            const pkgTitle = (booking as any).travel_packages?.title ?? "your trip";
-            await sendExpoPush(
-                profile?.push_token ?? null,
-                `${w.label} until departure`,
-                `${pkgTitle} departs in ${w.hours} hours. Check your details.`,
-                { booking_id: booking.id, type: "travel_reminder" },
-            );
-
-            await supabase.from("agent_decision_log").insert({
-                decision_type: "travel_reminder_sent",
-                reasoning: `${w.label} reminder for booking ${booking.id}`,
-                tool_used: "sendTravelReminders",
-                payload: { sentinel: sentinelKey, booking_id: booking.id },
-                outcome: "push sent",
-            });
-        }
-    }
-}
-
 // ── PRE-STEP 3: Merchant overdue warnings (day 4) ────────────────────────────
 // Merchants overdue for 3–5 days get one warning push: "your map pin disappears in 3 days."
 // Deduped via agent_decision_log sentinel key `merchant_overdue_warning_{merchant_id}`.
@@ -236,63 +175,6 @@ async function sendMerchantOverdueWarnings(supabase: SB) {
         });
 
         console.log(`[sendMerchantOverdueWarnings] warning sent for merchant ${sub.merchant_id}`);
-    }
-}
-
-// ── PRE-STEP 4: Rate expiry alerts (Rockefeller) ─────────────────────────────
-// Active travel packages with rate_expiry_at < now()+7days → push admin + log.
-// Deduped via agent_decision_log sentinel key `rate_expiry_alert_{pkg_id}`.
-async function checkRateExpiry(supabase: SB) {
-    const sevenDaysOut = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    const { data: expiring } = await supabase
-        .from("travel_packages")
-        .select("id, title, rate_expiry_at, rate_contact")
-        .eq("status", "active")
-        .not("rate_expiry_at", "is", null)
-        .lte("rate_expiry_at", sevenDaysOut);
-
-    if (!expiring?.length) return;
-
-    for (const pkg of expiring) {
-        const sentinelKey = `rate_expiry_alert_${pkg.id}`;
-        const { data: existing } = await supabase
-            .from("agent_decision_log")
-            .select("id")
-            .eq("decision_type", "rate_expiry_alert")
-            .contains("payload", { sentinel: sentinelKey })
-            .maybeSingle();
-        if (existing) continue;
-
-        const daysLeft = Math.ceil((new Date(pkg.rate_expiry_at).getTime() - Date.now()) / 86400000);
-        const isExpired = daysLeft <= 0;
-        const label = isExpired ? "EXPIRED" : `expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`;
-
-        // Push all admin users
-        const { data: admins } = await supabase
-            .from("profiles")
-            .select("push_token")
-            .eq("role", "admin")
-            .not("push_token", "is", null);
-
-        for (const admin of admins ?? []) {
-            await sendExpoPush(
-                admin.push_token,
-                isExpired ? "⚠️ Rate expired — package at risk" : "Rate renewal needed",
-                `${pkg.title} — wholesale rate ${label}.${pkg.rate_contact ? ` Contact: ${pkg.rate_contact}` : ""}`,
-                { package_id: pkg.id, type: "rate_expiry_alert" },
-            );
-        }
-
-        await supabase.from("agent_decision_log").insert({
-            decision_type: "rate_expiry_alert",
-            reasoning: `Package "${pkg.title}" rate ${label}`,
-            tool_used: "checkRateExpiry",
-            payload: { sentinel: sentinelKey, package_id: pkg.id, rate_expiry_at: pkg.rate_expiry_at, days_left: daysLeft },
-            outcome: `Alert pushed to ${admins?.length ?? 0} admin(s)`,
-        });
-
-        console.log(`[checkRateExpiry] ${pkg.title} — rate ${label}`);
     }
 }
 
@@ -762,15 +644,6 @@ const TOOLS = [
         },
     },
     {
-        name: "get_package_opportunities",
-        description: "Returns available flight inventory with seats available for Caribbean travel packages. Use to identify package creation opportunities.",
-        input_schema: {
-            type: "object",
-            properties: {},
-            required: [],
-        },
-    },
-    {
         name: "set_surge_multiplier",
         description: "Activates or updates surge pricing for a geographic zone. Call this when demand_score >= 1.4.",
         input_schema: {
@@ -784,21 +657,6 @@ const TOOLS = [
                 expires_minutes: { type: "number", description: "Minutes until surge expires. Default 30." },
             },
             required: ["center_lat", "center_lng", "multiplier", "reason"],
-        },
-    },
-    {
-        name: "create_package_draft",
-        description: "Creates a draft travel package from flight inventory. Admin must review and publish it. Use when a flight has 10+ available seats and complementary accommodation exists.",
-        input_schema: {
-            type: "object",
-            properties: {
-                flight_inventory_id: { type: "string", description: "UUID of the flight_inventory row" },
-                title: { type: "string", description: "Package title, e.g. 'Tobago Weekend Escape'" },
-                destination_name: { type: "string", description: "Human-readable destination" },
-                price_per_person_cents: { type: "number", description: "Suggested retail price per person in TTD cents" },
-                reasoning: { type: "string", description: "Why this package is viable" },
-            },
-            required: ["flight_inventory_id", "title", "destination_name", "price_per_person_cents", "reasoning"],
         },
     },
     {
@@ -844,12 +702,6 @@ async function executeTool(
 
         case "get_order_dispatch_queue": {
             const { data, error } = await supabase.rpc("get_order_dispatch_queue");
-            if (error) return { error: error.message };
-            return data ?? [];
-        }
-
-        case "get_package_opportunities": {
-            const { data, error } = await supabase.rpc("get_package_opportunities");
             if (error) return { error: error.message };
             return data ?? [];
         }
@@ -913,56 +765,6 @@ async function executeTool(
             });
 
             return { success: true, zone_id: zoneId };
-        }
-
-        case "create_package_draft": {
-            const { flight_inventory_id, title, destination_name, price_per_person_cents, reasoning } = input as {
-                flight_inventory_id: string;
-                title: string;
-                destination_name: string;
-                price_per_person_cents: number;
-                reasoning: string;
-            };
-
-            const { data: flight } = await supabase
-                .from("flight_inventory")
-                .select("destination_code, departure_at, wholesale_price_cents, retail_price_cents")
-                .eq("id", flight_inventory_id)
-                .single();
-
-            if (!flight) return { error: "Flight not found" };
-
-            const { data: pkg, error } = await supabase
-                .from("travel_packages")
-                .insert({
-                    title,
-                    destination_code: flight.destination_code,
-                    destination_name,
-                    flight_inventory_id,
-                    price_per_person_cents,
-                    wholesale_cost_cents: flight.wholesale_price_cents,
-                    max_travelers: 20,
-                    status: "draft",
-                    auto_generated: true,
-                    departure_at: flight.departure_at,
-                    flight_info: { source: "auto_generated" },
-                    hotel_info: {},
-                })
-                .select("id")
-                .single();
-
-            if (error) return { error: error.message };
-
-            await supabase.from("agent_decision_log").insert({
-                run_id: runId,
-                decision_type: "package_created",
-                reasoning,
-                tool_used: "create_package_draft",
-                payload: { package_id: pkg?.id, flight_inventory_id, title },
-                outcome: `Draft package ${pkg?.id} created for admin review`,
-            });
-
-            return { success: true, package_id: pkg?.id };
         }
 
         case "dispatch_pending_order": {
@@ -1061,9 +863,7 @@ serve(async (req) => {
         // ── DETERMINISTIC PRE-STEPS (run every invocation, always) ──────────────
         await Promise.allSettled([
             activateScheduledTransfers(supabase),
-            sendTravelReminders(supabase),
             sendMerchantOverdueWarnings(supabase),
-            checkRateExpiry(supabase),
             checkProgressionUnlocks(supabase),
             orchestrateLiquidity(supabase),
             gridLiquidityCheck(supabase),
@@ -1106,17 +906,15 @@ Your job: run every 15 minutes, check system state, make targeted interventions.
 
 Rules:
 1. Activate surge ONLY when demand_score >= 1.4 in a zone. Multiplier = min(demand_score * 0.8, 2.0), rounded to nearest 0.1.
-2. Create package drafts ONLY when a flight has >= 10 available seats AND margin_per_seat > 50000 cents (TTD $500).
-3. Dispatch orders that have been pending > 10 minutes with attempts < 3.
-4. Always call log_no_action if nothing meets the threshold — never leave a run unlogged.
-5. Make at most 3 interventions per run to avoid over-automation.
-6. Be conservative: wrong surge activation damages driver trust. Wrong order dispatch creates failed deliveries.
+2. Dispatch orders that have been pending > 10 minutes with attempts < 3.
+3. Always call log_no_action if nothing meets the threshold — never leave a run unlogged.
+4. Make at most 3 interventions per run to avoid over-automation.
+5. Be conservative: wrong surge activation damages driver trust. Wrong order dispatch creates failed deliveries.
 
 Context:
 - Currency: TTD (Trinidad & Tobago Dollars)
 - Service area: Port of Spain and surrounding TT
-- Platform fee: 18.5% of ride fare (drops to 16% for drivers with $500+ wallet balance)
-- Travel packages: Caribbean destinations (Tobago TAB, Barbados BGI, Grenada GND)`;
+- Platform fee: 18.5% of ride fare (drops to 16% for drivers with $500+ wallet balance)`;
 
         // tool_call_id and tool_calls are part of the OpenAI-compatible
         // tool-use protocol Groq implements: a `role: "tool"` message MUST
