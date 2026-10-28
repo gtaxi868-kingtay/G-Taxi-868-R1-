@@ -179,6 +179,21 @@ serve(async (req: Request) => {
         const liveLongDistanceThreshold = cfg["LONG_DISTANCE_KM_THRESHOLD"] ?? PRICING.LONG_DISTANCE_KM_THRESHOLD;
         const liveLongDistancePerKm = cfg["LONG_DISTANCE_PER_KM_CENTS"] ?? PRICING.LONG_DISTANCE_PER_KM_CENTS;
 
+        // Fuel escalator (founder rule, 2026-10-28): when the price of
+        // super climbs in published steps above the baseline it was
+        // priced on, the per-km rate climbs with it. Drivers are never
+        // quietly squeezed by a fuel rise, the platform margin is
+        // untouched, and the rider sees the adjustment as its own
+        // line in pricing_constants below. Mirrors the SQL helper
+        // fuel_per_km_adjustment_cents() used on the delivery side.
+        const fuelPriceCents    = cfg["FUEL_PRICE_CENTS"] ?? 597;
+        const fuelBaselineCents = cfg["FUEL_BASELINE_CENTS"] ?? 597;
+        const fuelStepCents     = cfg["FUEL_STEP_CENTS"] ?? 50;
+        const fuelStepPerKm     = cfg["FUEL_STEP_PER_KM_CENTS"] ?? 10;
+        const fuelAdjPerKmCents = fuelStepCents > 0
+            ? Math.max(0, Math.floor((fuelPriceCents - fuelBaselineCents) / fuelStepCents)) * fuelStepPerKm
+            : 0;
+
         const totalStopsFeeCents = calculateStopsFee(Array.isArray(stops) ? stops : []);
 
         const multiplier = vehicleClass ? vehicleClass.multiplier_x100 / 100 : staticMultiplier(vehicle_type);
@@ -188,8 +203,8 @@ serve(async (req: Request) => {
         const normalDistanceKm = Math.min(distanceKm, liveLongDistanceThreshold);
         const longDistanceKm = Math.max(distanceKm - liveLongDistanceThreshold, 0);
         let rawFare = liveBaseFare +
-            Math.round(normalDistanceKm * livePerKm) +
-            Math.round(longDistanceKm * liveLongDistancePerKm) +
+            Math.round(normalDistanceKm * (livePerKm + fuelAdjPerKmCents)) +
+            Math.round(longDistanceKm * (liveLongDistancePerKm + fuelAdjPerKmCents)) +
             Math.round(durationMin * livePerMin);
         rawFare = Math.round((rawFare + totalStopsFeeCents) * multiplier * surgeMultiplier);
         const fareCents = Math.max(rawFare, liveMinFare, classMinFare);
@@ -209,6 +224,8 @@ serve(async (req: Request) => {
                     pricing_constants: {
                         base_fare_cents: liveBaseFare,
                         per_km_cents: livePerKm,
+                        fuel_price_cents: fuelPriceCents,
+                        fuel_adjustment_per_km_cents: fuelAdjPerKmCents,
                         per_min_cents: livePerMin,
                         min_fare_cents: Math.max(liveMinFare, classMinFare),
                         stop_base_grocery_cents: PRICING.STOP_BASE_GROCERY_CENTS,

@@ -398,7 +398,24 @@ serve(async (req: Request) => {
         const vehicleLabel = vehicleClass?.label ?? vehicle_type;
         const vehicleMultiplier = vehicleClass ? vehicleClass.multiplier_x100 / 100 : undefined;
 
-        let fareCents = calculateFare(distanceMeters, durationSeconds, vehicle_type, 1.0, stopsFeeCents, vehicleMultiplier);
+        // Fuel escalator (2026-10-28): same FUEL_* pricing_config keys and
+        // step math as estimate_fare, so the booked fare matches the quote.
+        let fuelAdjPerKmCents = 0;
+        try {
+            const { data: fuelRows } = await adminClient
+                .from("pricing_config")
+                .select("key, value_cents")
+                .in("key", ["FUEL_PRICE_CENTS", "FUEL_BASELINE_CENTS", "FUEL_STEP_CENTS", "FUEL_STEP_PER_KM_CENTS"]);
+            const fcfg: Record<string, number> = {};
+            for (const row of (fuelRows ?? []) as Array<{ key: string; value_cents: number }>) fcfg[row.key] = row.value_cents;
+            const fPrice = fcfg["FUEL_PRICE_CENTS"] ?? 597;
+            const fBase = fcfg["FUEL_BASELINE_CENTS"] ?? 597;
+            const fStep = fcfg["FUEL_STEP_CENTS"] ?? 50;
+            const fPerKm = fcfg["FUEL_STEP_PER_KM_CENTS"] ?? 10;
+            fuelAdjPerKmCents = fStep > 0 ? Math.max(0, Math.floor((fPrice - fBase) / fStep)) * fPerKm : 0;
+        } catch (_e) { /* fuel read failed — charge the standard fare, never block a booking on it */ }
+
+        let fareCents = calculateFare(distanceMeters, durationSeconds, vehicle_type, 1.0, stopsFeeCents, vehicleMultiplier, fuelAdjPerKmCents);
         if (vehicleClass?.min_fare_cents) {
             fareCents = Math.max(fareCents, vehicleClass.min_fare_cents);
         }

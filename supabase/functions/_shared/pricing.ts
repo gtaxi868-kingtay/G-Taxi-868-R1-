@@ -86,7 +86,8 @@ export function calculateFare(
     vehicleType: string = "Standard",
     surgeMultiplier: number = 1.0,
     stopsFeeCents: number = 0,
-    multiplierOverride?: number
+    multiplierOverride?: number,
+    fuelAdjPerKmCents: number = 0
 ): number {
     const distanceKm = distanceMeters / 1000;
     const durationMin = durationSeconds / 60;
@@ -95,9 +96,12 @@ export function calculateFare(
     const normalDistanceKm = Math.min(distanceKm, longDistanceThresholdKm);
     const longDistanceKm = Math.max(distanceKm - longDistanceThresholdKm, 0);
 
+    // Fuel escalator (2026-10-28): the caller reads the FUEL_* keys from
+    // pricing_config and passes the current per-km adjustment, so the
+    // charged fare carries the same fuel line as the estimate_fare quote.
     let fareCents = PRICING.BASE_FARE_CENTS +
-        Math.round(normalDistanceKm * PRICING.PER_KM_CENTS) +
-        Math.round(longDistanceKm * PRICING.LONG_DISTANCE_PER_KM_CENTS) +
+        Math.round(normalDistanceKm * (PRICING.PER_KM_CENTS + fuelAdjPerKmCents)) +
+        Math.round(longDistanceKm * (PRICING.LONG_DISTANCE_PER_KM_CENTS + fuelAdjPerKmCents)) +
         Math.round(durationMin * PRICING.PER_MIN_CENTS);
 
     fareCents = Math.round((fareCents + stopsFeeCents) * multiplier * surgeMultiplier);
