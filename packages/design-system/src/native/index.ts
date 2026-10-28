@@ -6,7 +6,7 @@
 // star re-exports of that package silently dropped everything. Keep this
 // list in sync with @gtaxi/design-system-native's own public surface.
 export {
-  CrystalInput, CrystalButton, RainLogin,
+  CrystalInput, CrystalButton, RainLogin, ForgotPasswordFlow,
   VOICES, BRAND, SEMANTIC, SPACING, RADIUS, GRADIENTS,
   Logo, GlassCard, LiquidGlass, PrimaryButton, InfoChip, StatusBadge, LoadingOverlay, Skeleton,
 } from '@gtaxi/design-system-native';

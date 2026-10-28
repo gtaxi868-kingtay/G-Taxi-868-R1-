@@ -6,3 +6,4 @@ export * from './components';
 // Named re-export sidesteps whatever the interop bug is and is what CI's
 // LoginScreen test was actually failing on.
 export { CrystalInput, CrystalButton, RainLogin } from './rainLogin';
+export { ForgotPasswordFlow } from './forgotPassword';
