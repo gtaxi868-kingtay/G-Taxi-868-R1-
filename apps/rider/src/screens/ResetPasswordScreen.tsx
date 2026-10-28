@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { authErrorMessage } from '../utils/authMessages';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@gtaxi/core';
@@ -23,7 +24,7 @@ export function ResetPasswordScreen() {
         setSaving(true);
         const { error: updateError } = await supabase.auth.updateUser({ password });
         setSaving(false);
-        if (updateError) { setError(updateError.message); return; }
+        if (updateError) { setError(authErrorMessage(updateError, 'reset')); return; }
         toast('Your new password is set', 'success');
         finishPasswordRecovery();
     };

@@ -106,6 +106,14 @@ jest.mock('expo-av', () => ({
   },
 }));
 
+// expo-file-system's native shim can't load under Jest ("Super expression must
+// either be null or a function"); FaceAutoCapture only deletes probe frames.
+jest.mock('expo-file-system', () => ({
+  deleteAsync: jest.fn(() => Promise.resolve()),
+  cacheDirectory: 'file:///cache/',
+  documentDirectory: 'file:///docs/',
+}));
+
 jest.mock('expo-camera', () => ({
   CameraView: 'CameraView',
   CameraType: { front: 'front', back: 'back' },

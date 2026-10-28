@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { authErrorMessage } from '../utils/authMessages';
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { RainLogin, CrystalInput, CrystalButton } from '@gtaxi/design-system/native';
@@ -195,7 +196,7 @@ export function SignupScreen({ navigation }: any) {
 
         } catch (err: any) {
 
-            setError(err.message || 'Signup failed. Please try again.');
+            setError(authErrorMessage(err, 'signup'));
         } finally {
             setLoading(false);
         }

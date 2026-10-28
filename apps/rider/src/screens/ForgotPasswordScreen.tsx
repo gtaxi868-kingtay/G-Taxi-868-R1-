@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { authErrorMessage } from '../utils/authMessages';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -26,13 +27,13 @@ export function ForgotPasswordScreen({ navigation }: any) {
                 redirectTo: 'gtaxi://reset-password',
             });
             if (resetError) {
-                setError(resetError.message);
+                setError(authErrorMessage(resetError, 'reset'));
             } else {
                 setSent(true);
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
         } catch (err: any) {
-            setError(err.message || 'Could not send the reset email.');
+            setError(authErrorMessage(err, 'reset'));
         } finally {
             setLoading(false);
         }
