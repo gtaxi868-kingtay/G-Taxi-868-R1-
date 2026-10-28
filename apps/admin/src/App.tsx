@@ -31,8 +31,11 @@ import { SystemHealth } from './pages/SystemHealth';
 import { CashWithdrawalSettings } from './pages/CashWithdrawalSettings';
 import { Waitlist } from './pages/Waitlist';
 import { SosAlerts } from './pages/SosAlerts';
+import { BusinessPayouts } from './pages/BusinessPayouts';
+import { WhatsAppIntake } from './pages/WhatsAppIntake';
+import { AirportFlights } from './pages/AirportFlights';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, AlertOctagon, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain, HeartPulse, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, AlertOctagon, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain, HeartPulse, ClipboardList, Banknote, MessageCircle, PlaneLanding } from 'lucide-react';
 
 function AdminSecurityGate({ children }: { children: React.ReactNode }) {
     const [gateState, setGateState] = useState<'loading' | 'unauthorized' | 'authorized'>('loading');
@@ -94,7 +97,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist' | 'sosalerts' | 'cashout';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist' | 'sosalerts' | 'cashout' | 'payouts' | 'intake' | 'airport';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
@@ -125,6 +128,9 @@ const TAB_LABELS: Record<AdminView, string> = {
     health: 'System Health',
     waitlist: 'Waitlist Signups',
     sosalerts: 'SOS & Safety Alerts',
+    payouts: 'Business Payouts',
+    intake: 'WhatsApp Intake',
+    airport: 'Airport Pickups',
 };
 
 function App() {
@@ -234,6 +240,9 @@ function App() {
                         <NavItem active={activeTab === 'dealer'} onClick={() => handleNav('dealer')} icon={<Car size={20}/>} label="Dealer Brokerage" />
                         <NavItem active={activeTab === 'intelligence'} onClick={() => handleNav('intelligence')} icon={<Bot size={20}/>} label="AI Intelligence" />
                         <NavItem active={activeTab === 'approvals'} onClick={() => handleNav('approvals')} icon={<Inbox size={20}/>} label="G Approvals" />
+                        <NavItem active={activeTab === 'payouts'} onClick={() => handleNav('payouts')} icon={<Banknote size={20}/>} label="Business Payouts" />
+                        <NavItem active={activeTab === 'intake'} onClick={() => handleNav('intake')} icon={<MessageCircle size={20}/>} label="WhatsApp Intake" />
+                        <NavItem active={activeTab === 'airport'} onClick={() => handleNav('airport')} icon={<PlaneLanding size={20}/>} label="Airport Pickups" />
                         <NavItem active={activeTab === 'gchat'} onClick={() => handleNav('gchat')} icon={<Bot size={20}/>} label="Talk to G" />
                         <NavItem active={activeTab === 'pricing'} onClick={() => handleNav('pricing')} icon={<Tag size={20}/>} label="Pricing Config" />
                         <NavItem active={activeTab === 'merchants'} onClick={() => handleNav('merchants')} icon={<Store size={20}/>} label="Merchant Network" />
@@ -317,6 +326,9 @@ function App() {
                         {activeTab === 'dealer' && <DealerBrokerage />}
                         {activeTab === 'intelligence' && <Intelligence />}
                         {activeTab === 'approvals' && <Approvals />}
+                        {activeTab === 'payouts' && <BusinessPayouts />}
+                        {activeTab === 'intake' && <WhatsAppIntake />}
+                        {activeTab === 'airport' && <AirportFlights />}
                         {activeTab === 'gchat' && <GChat />}
                         {activeTab === 'pricing' && <Pricing />}
                         {activeTab === 'merchants' && <MerchantNetwork />}

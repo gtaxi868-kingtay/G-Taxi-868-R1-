@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { refreshFlightPickups } from '../_shared/flightPickups.ts'
 const CRON_SECRET = Deno.env.get('PLATFORM_CRON_SECRET') ?? ''
 
 
@@ -32,6 +34,23 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+  }
+
+  // Every 10 minutes (cron refresh-flight-pickups-10min): keep hotel-booked
+  // airport pickups on the real arrival time. Separate from the Amadeus fare
+  // sync below, which needs its own keys.
+  const body = await req.json().catch(() => ({}))
+  if (body?.mode === 'refresh_flight_pickups') {
+    try {
+      const sb = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+      const result = await refreshFlightPickups(sb)
+      return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    } catch (e) {
+      console.error('refresh_flight_pickups failed:', e)
+      return new Response(JSON.stringify({ success: false, error: String((e as Error)?.message || e) }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
   }
 
   const AMADEUS_API_KEY = Deno.env.get('AMADEUS_API_KEY')

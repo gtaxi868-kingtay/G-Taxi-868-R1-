@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
 
     const { data: invite, error } = await supabaseAdmin
       .from('merchant_invites')
-      .select('status, expires_at, merchant_name, kiosk_node:kiosk_node_id(location_name, pickup_address)')
+      .select('status, expires_at, merchant_name, claims_existing, kiosk_node:kiosk_node_id(location_name, pickup_address)')
       .eq('token', token)
       .maybeSingle()
 
@@ -81,7 +81,9 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        location_name: kiosk?.location_name || null,
+        // A claim link for an existing business (e.g. a hotel) has no
+        // counter tag yet: show the business's own name instead.
+        location_name: kiosk?.location_name || (invite.claims_existing ? invite.merchant_name : null) || null,
         address: kiosk?.pickup_address || null,
         merchant_name_hint: invite.merchant_name || null,
       }),

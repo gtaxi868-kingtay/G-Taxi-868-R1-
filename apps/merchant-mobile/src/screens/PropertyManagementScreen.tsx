@@ -1,153 +1,143 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ScrollView,
-    TextInput, Alert, ActivityIndicator, RefreshControl,
+    TextInput, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { initializeSupabaseClient } from '@gtaxi/core';
-import { useAuth } from '../context/AuthContext';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { glassSurface, ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
 const { supabase } = initializeSupabaseClient('native');
 
-function fmtDate(iso: string) {
-    return new Date(iso).toLocaleDateString('en-TT', { day: 'numeric', month: 'short', year: 'numeric' });
+// Rooms & rates for a hotel on its own account (founder, 2026-10-26: our team
+// must not be stuck copying rates off hotel websites). This screen used to
+// read and write travel_properties / travel_bookings, the Travel tables that
+// were retired when Travel merged into G-Escape, so anything a hotel entered
+// here never reached a rider. It now uses the hotel's G-Escape record
+// (lodging_nodes) through merchant_my_lodging / merchant_set_lodging_rate,
+// the same rate G's daily package builder reads.
+export type LodgingRow = {
+    id: string;
+    name: string;
+    location_zone: string | null;
+    max_guests: number | null;
+    nights: number | null;
+    quoted_rate_per_night_cents: number | null;
+    quote_expires_at: string | null;
+    rate_set_by_hotel: boolean;
+    rate_source_url?: string | null;
+    periods?: { id: string; rate_cents: number; from: string; to: string; source: string }[];
+    pending_suggestion?: { id: string; source: string; rate_cents: number | null; currency: string | null; amount_text: string | null; excerpt: string | null } | null;
+};
+
+const fmtDay = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('en-TT', { day: 'numeric', month: 'short' });
+const toCents = (v: string) => { const n = Number(v.replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null; };
+
+const DAY_OPTIONS = [14, 30, 60, 90];
+
+function fmtTTD(cents: number) {
+    return `TT$${(cents / 100).toLocaleString('en-TT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export function rateStatus(row: LodgingRow, now = Date.now()): { label: string; color: string } {
+    if (!row.quoted_rate_per_night_cents || !row.quote_expires_at) return { label: 'No rate today', color: 'rgba(255,255,255,0.45)' };
+    const left = new Date(row.quote_expires_at).getTime() - now;
+    if (left <= 0) return { label: 'Rate expired', color: '#EF4444' };
+    const days = Math.ceil(left / 86_400_000);
+    return days <= 3
+        ? { label: `Expires in ${days} day${days === 1 ? '' : 's'}`, color: '#F59E0B' }
+        : { label: `Live for ${days} days`, color: '#22C55E' };
 }
 
 export function PropertyManagementScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
-    const { user } = useAuth();
-
-    const [property, setProperty] = useState<any>(null);
-    const [availability, setAvailability] = useState<Record<string, Record<string, boolean>>>({});
-    const [bookings, setBookings] = useState<any[]>([]);
+    const [rows, setRows] = useState<LodgingRow[]>([]);
     const [loading, setLoading] = useState(true);
-    const [syncing, setSyncing] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [drafts, setDrafts] = useState<Record<string, { rate: string; days: number }>>({});
+    const [savingId, setSavingId] = useState<string | null>(null);
+    const [notes, setNotes] = useState<Record<string, { ok: boolean; text: string }>>({});
+    const [urls, setUrls] = useState<Record<string, string>>({});
+    const [acceptRates, setAcceptRates] = useState<Record<string, string>>({});
+    const [busy, setBusy] = useState<string | null>(null);
 
-    const [icalEditing, setIcalEditing] = useState(false);
-    const [icalInputs, setIcalInputs] = useState<Record<string, string>>({});
-    const [savingIcal, setSavingIcal] = useState(false);
+    // One path for every other action: plain words back, never silent.
+    const act = async (row: LodgingRow, key: string, call: () => Promise<{ data: any; error: any }>, okText: string) => {
+        setBusy(`${row.id}:${key}`);
+        try {
+            const { data, error } = await call();
+            if (error && !data) throw error;
+            if (data?.success === false) { setNotes((n) => ({ ...n, [row.id]: { ok: false, text: data.error || 'That did not work. Try again.' } })); return; }
+            setNotes((n) => ({ ...n, [row.id]: { ok: true, text: data?.message || okText } }));
+            await load();
+        } catch {
+            setNotes((n) => ({ ...n, [row.id]: { ok: false, text: 'No connection. Nothing was saved.' } }));
+        } finally { setBusy(null); }
+    };
 
-    const load = useCallback(async (silent = false) => {
-        if (!silent) setLoading(true);
-        if (!user) { setLoading(false); return; }
-
-        const { data: merchant } = await supabase
-            .from('merchants')
-            .select('id')
-            .eq('created_by', user.id)
-            .maybeSingle();
-
-        if (!merchant) { setLoading(false); return; }
-
-        const { data: prop } = await supabase
-            .from('travel_properties')
-            .select('*')
-            .eq('merchant_id', merchant.id)
-            .maybeSingle();
-
-        setProperty(prop);
-
-        if (prop) {
-            setIcalInputs(prop.ical_urls || {});
-
-            const today = new Date().toISOString().slice(0, 10);
-            const end = new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10);
-
-            const { data: avail } = await supabase
-                .from('property_availability')
-                .select('date, room_type, is_available')
-                .eq('property_id', prop.id)
-                .gte('date', today)
-                .lte('date', end)
-                .order('date');
-
-            const grouped: Record<string, Record<string, boolean>> = {};
-            for (const row of avail || []) {
-                if (!grouped[row.room_type]) grouped[row.room_type] = {};
-                grouped[row.room_type][row.date] = row.is_available;
-            }
-            setAvailability(grouped);
-
-            const { data: bkgs } = await supabase
-                .from('travel_bookings')
-                .select('id, traveler_count, total_cents, confirmed_at, travel_packages!inner(title, departure_at, property_id)')
-                .eq('travel_packages.property_id', prop.id)
-                .eq('status', 'confirmed')
-                .order('created_at', { ascending: false })
-                .limit(20);
-            setBookings(bkgs || []);
+    const load = useCallback(async () => {
+        setLoadError(null);
+        try {
+            const { data, error } = await supabase.rpc('merchant_my_lodging');
+            if (error) throw error;
+            setRows((data as LodgingRow[]) || []);
+        } catch {
+            setLoadError('Could not load your rooms. Check your connection and try again.');
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
         }
-
-        setLoading(false);
-        setRefreshing(false);
-    }, [user]);
+    }, []);
 
     useEffect(() => { load(); }, [load]);
 
-    const syncIcal = async () => {
-        if (!property) return;
-        setSyncing(true);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        const { data, error } = await supabase.functions.invoke('travel', {
-            body: { action: 'sync_ical', property_id: property.id },
-        });
-        setSyncing(false);
-        if (error || data?.error) {
-            Alert.alert('Sync Failed', error?.message || data?.error);
-        } else {
-            Alert.alert('Synced', `iCal sync complete. ${data.synced || 0} room type(s) updated.`);
-            await load(true);
-        }
-    };
-
-    const saveIcalUrls = async () => {
-        if (!property) return;
-        setSavingIcal(true);
-        const { error } = await supabase
-            .from('travel_properties')
-            .update({ ical_urls: icalInputs, sync_status: 'pending' })
-            .eq('id', property.id);
-        setSavingIcal(false);
-        if (error) {
-            Alert.alert('Error', 'Could not save iCal URLs.');
-        } else {
-            setIcalEditing(false);
-            setProperty((p: any) => ({ ...p, ical_urls: icalInputs }));
-            Alert.alert('Saved', 'iCal URLs updated. Tap Sync to pull latest availability.');
-        }
-    };
-
-    const register = async () => {
-        if (!user) return;
-        const { data: merchant } = await supabase.from('merchants').select('id').eq('created_by', user.id).maybeSingle();
-        if (!merchant) {
-            Alert.alert('No Merchant', 'You need a registered merchant account first.');
+    const save = async (row: LodgingRow) => {
+        const d = drafts[row.id] || { rate: '', days: 30 };
+        const dollars = Number(d.rate.replace(/[^0-9.]/g, ''));
+        if (!Number.isFinite(dollars) || dollars <= 0) {
+            setNotes((n) => ({ ...n, [row.id]: { ok: false, text: 'Enter your nightly rate in TT dollars.' } }));
             return;
         }
-        const name = await new Promise<string>(resolve => {
-            Alert.prompt('Property Name', 'Enter the name of your property', [
-                { text: 'Cancel', onPress: () => resolve(''), style: 'cancel' },
-                { text: 'Next', onPress: v => resolve(v || '') },
-            ]);
-        });
-        if (!name) return;
-        const { error } = await supabase.from('travel_properties').insert({
-            merchant_id: merchant.id,
-            name,
-            destination_code: 'TAB',
-            destination_name: 'Tobago',
-            is_active: true,
-            sync_status: 'pending',
-        });
-        if (error) { Alert.alert('Error', error.message); return; }
-        await load();
+        setSavingId(row.id);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+        try {
+            const { data, error } = await supabase.rpc('merchant_set_lodging_rate', {
+                p_lodging_id: row.id,
+                p_rate_cents: Math.round(dollars * 100),
+                p_valid_days: d.days,
+            });
+            if (error) throw error;
+            if (!data?.success) {
+                setNotes((n) => ({ ...n, [row.id]: { ok: false, text: data?.error || 'Could not save the rate.' } }));
+                return;
+            }
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            setNotes((n) => ({ ...n, [row.id]: { ok: true, text: 'Saved. G will build packages with this rate.' } }));
+            setDrafts((x) => { const c = { ...x }; delete c[row.id]; return c; });
+            await load();
+        } catch {
+            setNotes((n) => ({ ...n, [row.id]: { ok: false, text: 'No connection. Your rate was not saved.' } }));
+        } finally {
+            setSavingId(null);
+        }
     };
+
+    const header = (
+        <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
+                <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
+            </TouchableOpacity>
+            <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.headerTitle}>Rooms & rates</Text>
+                <Text style={styles.headerSub}>Your nightly rate for G-Escape trips</Text>
+            </View>
+        </View>
+    );
 
     if (loading) {
         return (
@@ -157,182 +147,141 @@ export function PropertyManagementScreen({ navigation }: any) {
         );
     }
 
-    if (!property) {
-        return (
-            <View style={[styles.root, { paddingTop: insets.top }]}>
-                <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                        <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Property Management</Text>
-                </View>
-                <View style={styles.center}>
-                    <Ionicons name="home-outline" size={48} color="rgba(255,255,255,0.15)" />
-                    <Text style={styles.emptyTitle}>No property registered</Text>
-                    <Text style={styles.emptySub}>Register your hotel or villa to join the Caribbean Escapes pipeline.</Text>
-                    <TouchableOpacity style={styles.registerBtn} onPress={register}>
-                        <Text style={styles.registerBtnText}>Register Property</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-    const nextDates: string[] = [];
-    for (let i = 0; i < 30; i++) {
-        const d = new Date(Date.now() + i * 86400 * 1000);
-        nextDates.push(d.toISOString().slice(0, 10));
-    }
-
-    const roomTypes = Object.keys(property.ical_urls || {});
-    const allRoomTypes = roomTypes.length > 0 ? roomTypes : Object.keys(availability);
-
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
             <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
-                </TouchableOpacity>
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={styles.headerTitle}>{property.name}</Text>
-                    <Text style={styles.headerSub}>{property.destination_name} · {property.destination_code}</Text>
+            {header}
+            {loadError ? (
+                <View style={styles.center}>
+                    <Ionicons name="cloud-offline-outline" size={44} color="rgba(255,255,255,0.2)" />
+                    <Text style={styles.emptySub}>{loadError}</Text>
+                    <TouchableOpacity style={styles.primaryBtn} onPress={() => { setLoading(true); load(); }}>
+                        <Text style={styles.primaryBtnText}>Try again</Text>
+                    </TouchableOpacity>
                 </View>
-                <View style={[styles.syncBadge, { backgroundColor: property.sync_status === 'synced' ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)' }]}>
-                    <Text style={{ color: property.sync_status === 'synced' ? '#22C55E' : '#F59E0B', fontSize: 11, fontWeight: '700' }}>
-                        {property.sync_status}
-                    </Text>
+            ) : rows.length === 0 ? (
+                <View style={styles.center}>
+                    <Ionicons name="bed-outline" size={48} color="rgba(255,255,255,0.15)" />
+                    <Text style={styles.emptyTitle}>No rooms on your account yet</Text>
+                    <Text style={styles.emptySub}>If you run a hotel or guesthouse, ask G868 for your claim link. It connects your property to this account.</Text>
                 </View>
-            </View>
-
-            <ScrollView
-                contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={VOICES.merchant.accent} />}
-            >
-                <View style={styles.section}>
-                    <View style={styles.sectionRow}>
-                        <Text style={styles.sectionTitle}>ICAL SYNC</Text>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <TouchableOpacity
-                                onPress={() => setIcalEditing(e => !e)}
-                                style={[styles.iconBtn, { backgroundColor: VOICES.merchant.accent + '18' }]}
-                            >
-                                <Ionicons name="pencil-outline" size={16} color={VOICES.merchant.accent} />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={syncIcal}
-                                disabled={syncing}
-                                style={[styles.syncBtn, syncing && { opacity: 0.5 }]}
-                            >
-                                {syncing
-                                    ? <ActivityIndicator size="small" color="#E9F5F3" />
-                                    : <><Ionicons name="refresh" size={14} color="#E9F5F3" /><Text style={styles.syncBtnText}>Sync Now</Text></>
-                                }
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
-                    {property.last_sync_at && (
-                        <Text style={styles.syncTime}>Last synced {fmtDate(property.last_sync_at)}</Text>
-                    )}
-
-                    {icalEditing && (
-                        <View style={[styles.icalCard, glassSurface(0.15), ghostBorder(0.12)]}>
-                            <Text style={styles.icalHint}>Paste your Airbnb or Vrbo iCal URL for each room type. Find it in your listing calendar settings.</Text>
-                            {allRoomTypes.length === 0 && (
-                                <TextInput
-                                    style={styles.icalInput}
-                                    placeholder="Room type (e.g. double)"
-                                    placeholderTextColor="rgba(255,255,255,0.2)"
-                                    onChangeText={v => setIcalInputs({ standard: v })}
-                                />
-                            )}
-                            {allRoomTypes.map(rt => (
-                                <View key={rt} style={{ marginBottom: 10 }}>
-                                    <Text style={styles.roomLabel}>{rt}</Text>
-                                    <TextInput
-                                        style={styles.icalInput}
-                                        value={icalInputs[rt] || ''}
-                                        onChangeText={v => setIcalInputs(prev => ({ ...prev, [rt]: v }))}
-                                        placeholder="https://www.airbnb.com/calendar/ical/..."
-                                        placeholderTextColor="rgba(255,255,255,0.2)"
-                                        autoCapitalize="none"
-                                        keyboardType="url"
-                                    />
-                                </View>
-                            ))}
-                            <TouchableOpacity
-                                onPress={saveIcalUrls}
-                                disabled={savingIcal}
-                                style={[styles.saveBtn, { backgroundColor: VOICES.merchant.accent }]}
-                            >
-                                {savingIcal
-                                    ? <ActivityIndicator size="small" color="#000" />
-                                    : <Text style={styles.saveBtnText}>Save iCal URLs</Text>
-                                }
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </View>
-
-                {allRoomTypes.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>30-DAY AVAILABILITY</Text>
-                        {allRoomTypes.map(rt => (
-                            <View key={rt} style={{ marginBottom: 16 }}>
-                                <Text style={styles.roomLabel}>{rt}</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                    <View style={{ flexDirection: 'row', gap: 4, paddingVertical: 8 }}>
-                                        {nextDates.map(date => {
-                                            const avail = availability[rt]?.[date];
-                                            const isToday = date === today;
-                                            return (
-                                                <View key={date} style={[
-                                                    styles.dayCell,
-                                                    { backgroundColor: avail === true ? '#22C55E22' : avail === false ? '#EF444422' : 'rgba(255,255,255,0.04)' },
-                                                    isToday && { borderColor: VOICES.merchant.accent, borderWidth: 1 },
-                                                ]}>
-                                                    <Text style={styles.dayNum}>{new Date(date).getDate()}</Text>
-                                                    <Text style={styles.dayMon}>{new Date(date).toLocaleDateString('en', { month: 'short' }).slice(0, 3)}</Text>
-                                                    {avail === true && <View style={styles.dotGreen} />}
-                                                    {avail === false && <View style={styles.dotRed} />}
-                                                </View>
-                                            );
-                                        })}
-                                    </View>
-                                </ScrollView>
-                            </View>
-                        ))}
-                        <View style={styles.legend}>
-                            <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#22C55E' }]} /><Text style={styles.legendText}>Available</Text></View>
-                            <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} /><Text style={styles.legendText}>Booked</Text></View>
-                            <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: 'rgba(255,255,255,0.2)' }]} /><Text style={styles.legendText}>Unknown</Text></View>
-                        </View>
-                    </View>
-                )}
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>TRAVEL PACKAGE BOOKINGS</Text>
-                    {bookings.length === 0 ? (
-                        <Text style={[styles.emptySub, { textAlign: 'center' }]}>No package bookings yet. Your rooms appear in packages once supply is synced.</Text>
-                    ) : (
-                        bookings.map(b => {
-                            const pkg = (b as any).travel_packages;
-                            return (
-                                <View key={b.id} style={[styles.bookingRow, glassSurface(0.1)]}>
+            ) : (
+                <ScrollView
+                    contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}
+                    keyboardShouldPersistTaps="handled"
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={VOICES.merchant.accent} />}
+                >
+                    {rows.map((row) => {
+                        const st = rateStatus(row);
+                        const d = drafts[row.id] || { rate: '', days: 30 };
+                        const note = notes[row.id];
+                        const saving = savingId === row.id;
+                        return (
+                            <View key={row.id} style={[styles.card, glassSurface(0.12), ghostBorder()]}>
+                                <View style={styles.cardTop}>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={styles.bookingTitle}>{pkg?.title || 'Package booking'}</Text>
-                                        <Text style={styles.bookingMeta}>{b.traveler_count} guest{b.traveler_count > 1 ? 's' : ''} · {pkg?.departure_at ? fmtDate(pkg.departure_at) : ''}</Text>
+                                        <Text style={styles.cardTitle}>{row.name}</Text>
+                                        <Text style={styles.cardMeta}>
+                                            {[row.location_zone, row.max_guests ? `up to ${row.max_guests} guests` : null, row.nights ? `${row.nights}-night stays` : null].filter(Boolean).join(' · ')}
+                                        </Text>
                                     </View>
-                                    <Text style={[styles.bookingAmt, { color: VOICES.merchant.accent }]}>TTD ${(b.total_cents / 100).toFixed(0)}</Text>
+                                    <Text style={[styles.status, { color: st.color }]}>{st.label}</Text>
                                 </View>
-                            );
-                        })
-                    )}
-                </View>
-            </ScrollView>
+                                {row.quoted_rate_per_night_cents ? (
+                                    <Text style={styles.current}>
+                                        Current rate <Text style={styles.currentStrong}>{fmtTTD(row.quoted_rate_per_night_cents)}</Text> a night
+                                        {row.rate_set_by_hotel ? '' : ' (entered by G868)'}
+                                    </Text>
+                                ) : null}
+                                <Text style={styles.label}>New nightly rate (TT$)</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    keyboardType="decimal-pad"
+                                    placeholder="e.g. 1200"
+                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                    value={d.rate}
+                                    onChangeText={(t) => setDrafts((x) => ({ ...x, [row.id]: { ...d, rate: t } }))}
+                                    accessibilityLabel={`New nightly rate for ${row.name}`}
+                                />
+                                <Text style={styles.label}>Good for</Text>
+                                <View style={styles.chips}>
+                                    {DAY_OPTIONS.map((days) => (
+                                        <TouchableOpacity key={days}
+                                            style={[styles.chip, d.days === days && { backgroundColor: VOICES.merchant.accent }]}
+                                            onPress={() => setDrafts((x) => ({ ...x, [row.id]: { ...d, days } }))}
+                                            accessibilityRole="button" accessibilityState={{ selected: d.days === days }}>
+                                            <Text style={styles.chipText}>{days === 14 ? '2 weeks' : `${days} days`}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                                <TouchableOpacity style={[styles.primaryBtn, saving && { opacity: 0.5 }]} onPress={() => save(row)} disabled={saving} accessibilityRole="button">
+                                    {saving ? <ActivityIndicator color="#E9F5F3" /> : <Text style={styles.primaryBtnText}>Save rate</Text>}
+                                </TouchableOpacity>
+                                {(row.periods || []).length > 0 && (
+                                    <View style={{ marginTop: 14 }}>
+                                        <Text style={styles.label}>Your rates</Text>
+                                        {row.periods!.map((p) => (
+                                            <View key={p.id} style={styles.periodRow}>
+                                                <Text style={styles.periodText}>{fmtTTD(p.rate_cents)} · {fmtDay(p.from)} to {fmtDay(p.to)}</Text>
+                                                <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Cancel rate from ${fmtDay(p.from)}`} disabled={busy === `${row.id}:c${p.id}`}
+                                                    onPress={() => act(row, `c${p.id}`, async () => await supabase.rpc('merchant_cancel_lodging_rate', { p_period_id: p.id }), 'Rate cancelled.')}>
+                                                    <Text style={styles.cancelText}>Cancel</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+
+                                <Text style={[styles.label, { marginTop: 14 }]}>Your rates page (optional)</Text>
+                                <TextInput style={styles.input} autoCapitalize="none" keyboardType="url" placeholder="https://yourhotel.com/rates"
+                                    placeholderTextColor="rgba(255,255,255,0.3)" value={urls[row.id] ?? row.rate_source_url ?? ''}
+                                    onChangeText={(t) => setUrls((u) => ({ ...u, [row.id]: t }))} accessibilityLabel={`Rates page for ${row.name}`} />
+                                <View style={styles.chips}>
+                                    <TouchableOpacity style={styles.chip} accessibilityRole="button" disabled={busy === `${row.id}:url`}
+                                        onPress={() => act(row, 'url', async () => await supabase.rpc('merchant_set_rate_source', { p_lodging_id: row.id, p_url: (urls[row.id] ?? '').trim() || null }), 'Website saved.')}>
+                                        <Text style={styles.chipText}>Save address</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.chip, !row.rate_source_url && { opacity: 0.4 }]} accessibilityRole="button" disabled={!row.rate_source_url || busy === `${row.id}:read`}
+                                        onPress={() => act(row, 'read', async () => await supabase.functions.invoke('merchant', { body: { action: 'read_hotel_rate', lodging_id: row.id } }), 'We found a rate on your website. Check it below.')}>
+                                        <Text style={styles.chipText}>{busy === `${row.id}:read` ? 'Reading…' : 'Read my website'}</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {row.pending_suggestion ? (() => {
+                                    const sg = row.pending_suggestion!;
+                                    const needsTTD = sg.currency !== 'TTD' || !sg.rate_cents;
+                                    return (
+                                        <View style={styles.suggestion}>
+                                            <Text style={styles.current}>We found <Text style={styles.currentStrong}>{sg.amount_text}</Text>{sg.source === 'booking_com' ? ' on Booking.com' : ' on your website'}.
+                                                {sg.currency === 'USD' ? ' It is in US dollars: type your TT$ rate.' : needsTTD ? ' Type your TT$ rate to use it.' : ''}</Text>
+                                            {needsTTD && (
+                                                <TextInput style={styles.input} keyboardType="decimal-pad" placeholder="Your TT$ rate" placeholderTextColor="rgba(255,255,255,0.3)"
+                                                    value={acceptRates[row.id] ?? ''} onChangeText={(t) => setAcceptRates((a) => ({ ...a, [row.id]: t }))} accessibilityLabel="Your TT dollar rate" />
+                                            )}
+                                            <View style={styles.chips}>
+                                                <TouchableOpacity style={[styles.chip, { backgroundColor: VOICES.merchant.accent }]} accessibilityRole="button"
+                                                    onPress={() => {
+                                                        const cents = needsTTD ? toCents(acceptRates[row.id] ?? '') : null;
+                                                        if (needsTTD && !cents) { setNotes((n) => ({ ...n, [row.id]: { ok: false, text: 'Type the TT$ nightly rate to accept this.' } })); return; }
+                                                        act(row, 'decide', async () => await supabase.rpc('merchant_decide_rate_suggestion', { p_suggestion_id: sg.id, p_accept: true, p_rate_cents: cents }), 'Accepted for the next 30 days.');
+                                                    }}>
+                                                    <Text style={styles.chipText}>Use for 30 days</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity style={styles.chip} accessibilityRole="button"
+                                                    onPress={() => act(row, 'decide', async () => await supabase.rpc('merchant_decide_rate_suggestion', { p_suggestion_id: sg.id, p_accept: false }), 'Dismissed.')}>
+                                                    <Text style={styles.chipText}>Dismiss</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    );
+                                })() : null}
+
+                                {note ? <Text style={[styles.note, { color: note.ok ? '#22C55E' : '#EF4444' }]}>{note.text}</Text> : null}
+                            </View>
+                        );
+                    })}
+                </ScrollView>
+            )}
         </View>
     );
 }
@@ -343,37 +292,27 @@ const styles = StyleSheet.create({
     backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
     headerTitle: { color: '#E9F5F3', fontWeight: '800', fontSize: 17, fontFamily: 'SpaceGrotesk' },
     headerSub: { color: VOICES.merchant.textMuted, fontSize: 12, fontFamily: 'Manrope' },
-    syncBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
     emptyTitle: { color: '#E9F5F3', fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
     emptySub: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center', fontFamily: 'Manrope' },
-    registerBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 18, paddingHorizontal: 24, paddingVertical: 13 },
-    registerBtnText: { color: '#E9F5F3', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
-    scroll: { paddingTop: 8, paddingHorizontal: 20, gap: 28 },
-    section: { gap: 8 },
-    sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    sectionTitle: { color: 'rgba(255,255,255,0.55)', fontWeight: '700', fontSize: 11, letterSpacing: 2, fontFamily: 'SpaceGrotesk' },
-    syncTime: { color: 'rgba(255,255,255,0.55)', fontSize: 12, fontFamily: 'Manrope' },
-    iconBtn: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    syncBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: VOICES.merchant.accent, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
-    syncBtnText: { color: '#E9F5F3', fontWeight: '700', fontSize: 12, fontFamily: 'SpaceGrotesk' },
-    icalCard: { borderRadius: 18, padding: 16, gap: 4 },
-    icalHint: { color: VOICES.merchant.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 10, fontFamily: 'Manrope' },
-    icalInput: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, color: '#E9F5F3', fontSize: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', fontFamily: 'Manrope' },
-    roomLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: '600', textTransform: 'capitalize', marginBottom: 4, fontFamily: 'Manrope' },
-    saveBtn: { borderRadius: 14, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
-    saveBtnText: { color: '#000', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
-    dayCell: { width: 40, height: 52, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 2 },
-    dayNum: { color: '#E9F5F3', fontWeight: '700', fontSize: 13, fontFamily: 'SpaceGrotesk' },
-    dayMon: { color: 'rgba(255,255,255,0.35)', fontSize: 9, fontFamily: 'Manrope' },
-    dotGreen: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' },
-    dotRed: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#EF4444' },
-    legend: { flexDirection: 'row', gap: 16, marginTop: 4 },
-    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    legendDot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { color: 'rgba(255,255,255,0.35)', fontSize: 11, fontFamily: 'Manrope' },
-    bookingRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14 },
-    bookingTitle: { color: '#E9F5F3', fontWeight: '600', fontSize: 14, fontFamily: 'SpaceGrotesk' },
-    bookingMeta: { color: VOICES.merchant.textMuted, fontSize: 12, marginTop: 2, fontFamily: 'Manrope' },
-    bookingAmt: { fontWeight: '700', fontSize: 15, fontFamily: 'SpaceGrotesk' },
+    scroll: { paddingTop: 8, paddingHorizontal: 20, gap: 16 },
+    card: { borderRadius: 18, padding: 16 },
+    cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
+    cardTitle: { color: '#E9F5F3', fontWeight: '700', fontSize: 15, fontFamily: 'SpaceGrotesk' },
+    cardMeta: { color: VOICES.merchant.textMuted, fontSize: 12, marginTop: 2, fontFamily: 'Manrope' },
+    status: { fontSize: 11, fontWeight: '700', fontFamily: 'SpaceGrotesk' },
+    current: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 12, fontFamily: 'Manrope' },
+    currentStrong: { color: '#E9F5F3', fontWeight: '700' },
+    label: { color: 'rgba(255,255,255,0.55)', fontWeight: '700', fontSize: 11, letterSpacing: 1.5, marginBottom: 6, marginTop: 4, fontFamily: 'SpaceGrotesk' },
+    input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: '#E9F5F3', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 10, fontFamily: 'Manrope' },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
+    chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.06)', minHeight: 40, justifyContent: 'center' },
+    chipText: { color: '#E9F5F3', fontWeight: '600', fontSize: 13, fontFamily: 'Manrope' },
+    primaryBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 14, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
+    primaryBtnText: { color: '#E9F5F3', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
+    note: { fontSize: 12, marginTop: 10, fontFamily: 'Manrope' },
+    periodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+    periodText: { color: '#E9F5F3', fontSize: 13, fontFamily: 'Manrope' },
+    cancelText: { color: '#EF4444', fontWeight: '700', fontSize: 12, fontFamily: 'SpaceGrotesk', padding: 8 },
+    suggestion: { marginTop: 4, marginBottom: 6, padding: 12, borderRadius: 14, backgroundColor: 'rgba(34,197,94,0.06)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)' },
 });

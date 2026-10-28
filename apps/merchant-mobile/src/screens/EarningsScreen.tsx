@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { BusinessPayoutCard } from '../components/BusinessPayoutCard';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Share,
 } from 'react-native';
@@ -306,6 +307,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
           </View>
 
           <ScrollView contentContainerStyle={s.scrollContent}>
+            <BusinessPayoutCard />
             {activeTab === 'overview' && (
               <View>
                 {network && (
