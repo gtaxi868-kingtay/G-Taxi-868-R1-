@@ -131,7 +131,11 @@ export function HomeScreen({ navigation, route }: AppScreenProps<'Home'>) {
     const { activeRide: contextActiveRide } = useRide();
 
     useEffect(() => {
-        if (contextActiveRide?.ride_id) {
+        // Only a trip that has actually started belongs on the ActiveRide
+        // screen. Every other state has its own screen, owned by the
+        // restoration handler (SearchingDriver, DriverFound, Receipt) —
+        // yanking them all here stranded riders whose trip hadn't begun.
+        if (contextActiveRide?.ride_id && (contextActiveRide.status === 'arrived' || contextActiveRide.status === 'in_progress')) {
             navigation.replace('ActiveRide', { rideId: contextActiveRide.ride_id });
             return;
         }

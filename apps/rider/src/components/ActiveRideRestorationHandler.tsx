@@ -24,7 +24,13 @@ export function ActiveRideRestorationHandler() {
             const now = new Date();
             const minutesSinceUpdate = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
 
-            if (ride.status !== 'in_progress' && minutesSinceUpdate > RIDE_TTL_MINUTES) {
+            // Only a ride nobody has claimed yet may be given up on:
+            // expire_ride itself refuses anything past requested/searching.
+            // An assigned or arrived ride is restored no matter how long
+            // the phone was gone — its updated_at froze when the driver
+            // was assigned, so a long pickup wait looks "stale" when it
+            // is anything but.
+            if ((ride.status === 'requested' || ride.status === 'searching') && minutesSinceUpdate > RIDE_TTL_MINUTES) {
                 const { error } = await supabase.rpc('expire_ride', { p_ride_id: ride.ride_id });
                 if (error) console.error('Failed to expire stale ride:', error);
                 return;
