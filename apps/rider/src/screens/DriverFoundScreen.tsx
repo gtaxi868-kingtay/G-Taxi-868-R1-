@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    Animated, useWindowDimensions, ActivityIndicator,
+    Animated, useWindowDimensions, ActivityIndicator, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,8 @@ import { supabase } from '@gtaxi/core';
 import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow, glassSurface } from '@gtaxi/design-system/utils/style-rules';
 import { AppScreenProps } from '../navigation/types';
+import { cancelRide } from '../services/api';
+import { useRide } from '../context/RideContext';
 
 // plate/rating can be genuinely missing. Never invent them: a rider looks
 // for this plate on the street, so a made-up one is a safety problem.
@@ -35,6 +37,8 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
     const opacityAnim = useRef(new Animated.Value(0)).current;
     const [driver, setDriver] = useState<DriverInfo | null>(initialDriver || null);
     const [loading, setLoading] = useState(!initialDriver);
+    const { clearActiveRide } = useRide();
+    const [cancelling, setCancelling] = useState(false);
 
     useEffect(() => {
         if (initialDriver) {
@@ -107,6 +111,37 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
         });
     };
 
+    // This button used to only navigate Home: the ride stayed assigned on
+    // the server, the driver kept driving to the pickup, and the rider
+    // believed the trip was cancelled. Cancel for real — server first,
+    // and only leave once the server confirms.
+    const handleCancel = () => {
+        if (cancelling) return;
+        Alert.alert(
+            'Cancel this ride?',
+            'Your driver is on the way to you. Cancelling is free for the first 10 minutes after they accept.',
+            [
+                { text: 'Keep my ride', style: 'cancel' },
+                {
+                    text: 'Cancel ride',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setCancelling(true);
+                        const res = await cancelRide(rideId);
+                        if (!res.success) {
+                            setCancelling(false);
+                            Alert.alert('Could not cancel', 'Your ride is still active. Check your signal and try again.');
+                            return;
+                        }
+                        clearActiveRide();
+                        (navigation as any).reset({ index: 0, routes: [{ name: 'Home' }] });
+                        setTimeout(() => Alert.alert('Ride Cancelled', 'Your ride has been cancelled.'), 400);
+                    },
+                },
+            ]
+        );
+    };
+
     if (loading) {
         return (
             <LinearGradient colors={['#1A0533', '#0D1B4B']} style={[s.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -169,12 +204,13 @@ export function DriverFoundScreen({ navigation, route }: AppScreenProps<'DriverF
 
                 <TouchableOpacity
                     style={s.cancelBtn}
+                    disabled={cancelling}
                     onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        (navigation.navigate as any)('Home');
+                        handleCancel();
                     }}
                 >
-                    <Text style={s.cancelText}>Cancel</Text>
+                    <Text style={s.cancelText}>{cancelling ? 'Cancelling…' : 'Cancel'}</Text>
                 </TouchableOpacity>
             </View>
         </LinearGradient>

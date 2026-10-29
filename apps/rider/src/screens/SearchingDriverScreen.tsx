@@ -23,6 +23,7 @@ import { supabase } from '@gtaxi/core';
 import { cancelRide, matchDriver } from '../services/api';
 import { fetchDriverDetails } from '../services/realtime';
 import { CancelReasonSheet } from '../components/CancelReasonSheet';
+import { useRide } from '../context/RideContext';
 
 const WARNING = '#F59E0B';
 const ERROR = '#FF4D6D';
@@ -42,6 +43,13 @@ export function SearchingDriverScreen({ route, navigation }: any) {
     const { width } = useWindowDimensions();
     const { rideId, destination, fare, pickup, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
+    const { clearActiveRide } = useRide();
+    // The leave-guard is registered once at mount; reading the isCanceling
+    // state there froze it at false, so the guard intercepted even the
+    // app's own exits (including the server-cancel reset) and demanded a
+    // second, pointless cancel. The guard reads this ref instead; state
+    // still drives the button's disabled look.
+    const cancelingRef = useRef(false);
 
     const [dots, setDots] = useState('');
     const [reasonOpen, setReasonOpen] = useState(false);
@@ -174,7 +182,9 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                 if (payload.new.status === 'cancelled') {
                     clearInterval(pollTimer);
                     sub.unsubscribe();
+                    cancelingRef.current = true;
                     setIsCanceling(true);
+                    clearActiveRide();
                     Alert.alert('Ride Cancelled', 'Your request timed out or was cancelled.');
                     navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
                 }
@@ -232,14 +242,16 @@ export function SearchingDriverScreen({ route, navigation }: any) {
             if (ride?.status === "cancelled") {
                 clearInterval(pollTimer);
                 sub.unsubscribe();
+                cancelingRef.current = true;
                 setIsCanceling(true);
+                clearActiveRide();
                 Alert.alert('Ride Cancelled', 'Your request timed out or was cancelled.');
                 navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
             }
         }, 3000);
 
         const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
-            if (isCanceling) return; // Allow navigation if explicitly canceling
+            if (cancelingRef.current) return; // Allow navigation if explicitly canceling
 
             // Prevent default behavior of leaving the screen
             e.preventDefault();
@@ -253,8 +265,11 @@ export function SearchingDriverScreen({ route, navigation }: any) {
                         text: 'Cancel Ride',
                         style: 'destructive',
                         onPress: () => {
+                            // handleCancel performs the exit itself once
+                            // the server confirms; the prevented action
+                            // is dropped on purpose (replaying it used to
+                            // fire a second navigation on top of the first).
                             handleCancel();
-                            navigation.dispatch(e.data.action);
                         },
                     },
                 ]
@@ -285,13 +300,26 @@ export function SearchingDriverScreen({ route, navigation }: any) {
     };
 
     const handleCancel = async (silent = false, reasonCode: string | null = null) => {
-        if (isCanceling) return;
+        if (cancelingRef.current) return;
+        cancelingRef.current = true;
         setIsCanceling(true);
         setReasonOpen(false);
-        await cancelRide(rideId, reasonCode);
+        const res = await cancelRide(rideId, reasonCode);
+        if (!res.success) {
+            // The request is still live on the server. Stay on this screen
+            // and say so — landing on Home while the search continues is
+            // what bounced the rider straight back here a moment later.
+            cancelingRef.current = false;
+            setIsCanceling(false);
+            if (!silent) {
+                Alert.alert('Could not cancel', 'Your request is still active. Check your signal and try again.');
+            }
+            return;
+        }
+        clearActiveRide();
         if (!silent) {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate('Home');
+            navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
         }
     };
 

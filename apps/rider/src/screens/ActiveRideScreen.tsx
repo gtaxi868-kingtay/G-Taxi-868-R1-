@@ -26,6 +26,7 @@ import { fetchDriverDetails } from '../services/realtime';
 import { useRideSession } from '../hooks/useRideSession';
 import { GuardianSosPanel } from '../components/GuardianSosPanel';
 import { CancelReasonSheet } from '../components/CancelReasonSheet';
+import { useRide } from '../context/RideContext';
 
 const CYAN = '#00E5FF';
 const SUCCESS = '#00FF94';
@@ -116,6 +117,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     const { width, height } = useWindowDimensions();
     const { rideId, paymentMethod } = route.params;
     const insets = useSafeAreaInsets();
+    const { clearActiveRide } = useRide();
 
     const [ride, setRide] = useState<any>(null);
     const [driver, setDriver] = useState<any>(null);
@@ -140,6 +142,16 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
     const [signalStatus, setSignalStatus] = useState<'ok' | 'stale' | 'lost'>('ok');
     // Fix 4: Ref to hold the location watcher so it can be cleaned up on unmount
     const locationWatcherRef = useRef<{ remove: () => void } | null>(null);
+    // The leave-guard below is registered once, so it must read the latest
+    // status through a ref. Reading `ride` there froze it at the first
+    // render (always null), which blocked the app's own exits after a
+    // completion or cancellation and stranded the rider on a dead trip
+    // screen behind an "Active Ride" alert. leavingRef marks the exits
+    // this screen starts itself after a confirmed cancellation, which
+    // happen before the new status has rendered into the ref.
+    const statusRef = useRef<string | null>(null);
+    const leavingRef = useRef(false);
+    useEffect(() => { statusRef.current = ride?.status ?? null; }, [ride?.status]);
 
     const [merchants, setMerchants] = useState<any[]>([]);
     const [merchantsLoading, setMerchantsLoading] = useState(false);
@@ -212,8 +224,10 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
         })();
 
         const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
-            // Allow navigation if the ride is actually finished
-            if (ride?.status === 'completed' || ride?.status === 'closed' || ride?.status === 'cancelled') {
+            // Allow navigation if the ride is actually finished, or if this
+            // screen is leaving after a confirmed cancellation.
+            const st = statusRef.current;
+            if (leavingRef.current || st === 'completed' || st === 'closed' || st === 'cancelled') {
                 return;
             }
 
@@ -271,6 +285,7 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                     // console.log('MEMORY UPDATE: Silent fail:', err?.message || err);
                 });
 
+                leavingRef.current = true;
                 navigation.replace('Rating', {
                     driver,
                     fare: { total_fare_cents: updatedRide.total_fare_cents || ride?.total_fare_cents },
@@ -278,7 +293,10 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
                     paymentMethod: paymentMethod || updatedRide.payment_method
                 });
             } else if (updatedRide.status === 'cancelled') {
-                Alert.alert('Ride Cancelled', 'The driver had to cancel this trip.');
+                clearActiveRide();
+                leavingRef.current = true;
+                const reason = typeof updatedRide.cancellation_reason === 'string' ? updatedRide.cancellation_reason : '';
+                Alert.alert('Ride Cancelled', reason && reason !== 'Driver cancelled' ? reason : 'The driver had to cancel this trip.');
                 navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
             } else if (updatedRide.status === 'arrived' && !hasArrivalNotifiedRef.current) {
                 // FIX F7: Driver arrival notification
@@ -375,7 +393,11 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             });
 
             if (error) throw error;
+            // invoke does not throw on a refusal carried in the body.
+            if (data && data.success === false) throw new Error(data.error || 'Cancel refused');
 
+            clearActiveRide();
+            leavingRef.current = true;
             navigation.replace('Home');
             setTimeout(() => Alert.alert("Ride Cancelled", "Your ride has been cancelled."), UI_SETTLE_MS);
         } catch (err) {
@@ -406,6 +428,16 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
             setRide(data);
             setDriver(data.driver);
             setDriverLocation({ latitude: data.driver?.lat, longitude: data.driver?.lng });
+
+            // Opened (or brought back to the front) onto a ride that is
+            // already cancelled: leave cleanly instead of rendering a
+            // dead trip the rider can neither use nor exit.
+            if (data.status === 'cancelled') {
+                clearActiveRide();
+                leavingRef.current = true;
+                Alert.alert('Ride Cancelled', 'This trip was cancelled.');
+                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+            }
         }
     };
 
