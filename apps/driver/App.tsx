@@ -108,6 +108,38 @@ function AppNavigator() {
                 return;
             }
 
+            // A live trip outranks everything else here, including the
+            // approval gate: a driver mid-trip must always land back on the
+            // trip screen. Newest first, never maybeSingle — with two active
+            // rows maybeSingle errors and the trip reads as "no trip".
+            const { data: activeRides, error: rideError } = await supabase
+                .from('rides')
+                .select('id')
+                .eq('driver_id', driverRecord.id)
+                .in('status', ['assigned', 'arrived', 'in_progress'])
+                .order('updated_at', { ascending: false })
+                .limit(1);
+
+            if (!rideError && activeRides && activeRides.length > 0) {
+                setActiveRideId(activeRides[0].id);
+                await AsyncStorage.setItem('active_ride_id', activeRides[0].id);
+                setInitialRoute('ActiveTrip');
+                return;
+            }
+
+            if (rideError) {
+                // The check itself failed (signal, server). Fall back to the
+                // last trip this phone knew about — the trip screen verifies
+                // the ride and leaves on its own if it is finished. A failed
+                // check must never erase the saved trip.
+                const savedRideId = await AsyncStorage.getItem('active_ride_id').catch(() => null);
+                if (savedRideId) {
+                    setActiveRideId(savedRideId);
+                    setInitialRoute('ActiveTrip');
+                    return;
+                }
+            }
+
             // Approval lives in verified_status. drivers.status is only
             // online/offline/busy (CHECK), so the old status === 'pending'
             // test never matched and new drivers landed on the dashboard.
@@ -116,24 +148,18 @@ function AppNavigator() {
                 return;
             }
 
-            const { data } = await supabase
-                .from('rides')
-                .select('id')
-                .eq('driver_id', driverRecord.id)
-                .in('status', ['assigned', 'arrived', 'in_progress'])
-                .maybeSingle();
-
-            if (data) {
-                setActiveRideId(data.id);
-                await AsyncStorage.setItem('active_ride_id', data.id);
-                setInitialRoute('ActiveTrip');
-            } else {
-                await AsyncStorage.removeItem('active_ride_id');
-                setInitialRoute('Dashboard');
-            }
-        } catch (_err) {
             await AsyncStorage.removeItem('active_ride_id');
             setInitialRoute('Dashboard');
+        } catch (_err) {
+            // Same rule as a failed ride check: a saved trip beats a blank
+            // dashboard. Land on Dashboard only when nothing is saved.
+            const savedRideId = await AsyncStorage.getItem('active_ride_id').catch(() => null);
+            if (savedRideId) {
+                setActiveRideId(savedRideId);
+                setInitialRoute('ActiveTrip');
+            } else {
+                setInitialRoute('Dashboard');
+            }
         }
     }, [user]);
 

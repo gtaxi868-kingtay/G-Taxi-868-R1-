@@ -61,6 +61,7 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
     const [nfcVisible, setNfcVisible] = useState(false);
     const [statsError, setStatsError] = useState(false);
     const [toast, setToast] = useState<Toast>(null);
+    const [activeRideId, setActiveRideId] = useState<string | null>(null);
     const lastTrips = useRef<number | null>(null);
 
     const currentLat = location?.coords?.latitude ?? DEFAULT_LOCATION.latitude;
@@ -145,28 +146,39 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
         } catch { setHotspots([]); }
     }, [driver?.id]);
 
+    // A live trip always has a way back in from here. The app-level checks
+    // can fail silently (one bad signal at the wrong second), so the home
+    // screen checks too and shows a card the driver can tap — no auto-jump,
+    // no maybeSingle (two active rows must never read as "no trip"). A
+    // failed check keeps the last known state; the next minute retries.
+    const checkActiveRide = useCallback(async () => {
+        if (!driver?.id) return;
+        const { data, error } = await supabase
+            .from('rides')
+            .select('id')
+            .eq('driver_id', driver.id)
+            .in('status', ['assigned', 'arrived', 'in_progress'])
+            .order('updated_at', { ascending: false })
+            .limit(1);
+        if (!error) setActiveRideId(data?.[0]?.id ?? null);
+    }, [driver?.id]);
+
     // Refresh whenever the Drive tab comes back into view (e.g. after a trip).
     // While it's on screen, check again every minute (also retries after a
     // failed load).
     useFocusEffect(useCallback(() => {
         fetchStats();
         fetchBalance();
-        const t = setInterval(() => { fetchStats(); fetchBalance(); }, 60_000);
+        checkActiveRide();
+        const t = setInterval(() => { fetchStats(); fetchBalance(); checkActiveRide(); }, 60_000);
         return () => clearInterval(t);
-    }, [fetchStats, fetchBalance]));
+    }, [fetchStats, fetchBalance, checkActiveRide]));
 
     useEffect(() => {
         fetchDemand();
         const t = setInterval(fetchDemand, 10 * 60 * 1000);
         return () => clearInterval(t);
     }, [fetchDemand]);
-
-    // Back on an active trip after a restart: go straight to it.
-    useEffect(() => {
-        if (!driver?.id) return;
-        supabase.from('rides').select('id').eq('driver_id', driver.id).in('status', ['assigned', 'arrived', 'in_progress']).maybeSingle()
-            .then(({ data }: { data: { id: string } | null }) => { if (data?.id) navigation.navigate('ActiveTrip', { rideId: data.id }); }, () => {});
-    }, [driver?.id]);
 
     // Heartbeat while online.
     useEffect(() => {
@@ -326,6 +338,20 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
                 <Ionicons name="locate" size={20} color={m.ink} />
             </Pressable>
 
+            {/* Trip in progress: the manual way back to the trip screen */}
+            {activeRideId ? (
+                <Pressable accessibilityRole="button" accessibilityLabel="Trip in progress. Return to the trip"
+                    onPress={() => { tick(); navigation.navigate('ActiveTrip', { rideId: activeRideId }); }}
+                    style={[s.tripCard, { bottom: cardH + SPACE.md + 56 }]}>
+                    <Ionicons name="navigate-circle" size={26} color={DRIVE_COLORS.online} />
+                    <View style={{ marginLeft: SPACE.md, flex: 1 }}>
+                        <Txt variant="headline" style={{ color: DRIVE_COLORS.online }}>Trip in progress</Txt>
+                        <Txt variant="caption" tone="dim">Tap to return to your trip</Txt>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={m.dim} />
+                </Pressable>
+            ) : null}
+
             {/* Bottom card: today, goal, and the one big action */}
             <View style={s.cardWrap} onLayout={(e) => setCardH(e.nativeEvent.layout.height)}>
                 <LinearGradient colors={m.sheet as [string, string]} style={[s.card, { borderColor: m.sheetBorder }]}>
@@ -441,6 +467,7 @@ const s = StyleSheet.create({
     hotChip: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', alignItems: 'center', height: 36, paddingHorizontal: 14, borderRadius: 18 },
     toastWrap: { position: 'absolute', left: SPACE.lg, right: SPACE.lg },
     toast: { flexDirection: 'row', alignItems: 'center', padding: SPACE.lg, borderRadius: 20, borderWidth: 2, backgroundColor: 'rgba(14,17,23,0.96)' },
+    tripCard: { position: 'absolute', left: SPACE.lg, right: SPACE.lg, flexDirection: 'row', alignItems: 'center', padding: SPACE.lg, borderRadius: 20, borderWidth: 2, borderColor: DRIVE_COLORS.online, backgroundColor: 'rgba(14,17,23,0.96)' },
     recentre: { position: 'absolute', right: SPACE.lg },
     cardWrap: { position: 'absolute', left: 0, right: 0, bottom: 0 },
     card: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderBottomWidth: 0, paddingHorizontal: SPACE.xl, paddingTop: SPACE.lg, paddingBottom: SPACE.lg },
