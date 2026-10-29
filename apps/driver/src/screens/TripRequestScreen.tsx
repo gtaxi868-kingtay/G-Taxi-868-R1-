@@ -120,6 +120,33 @@ export function TripRequestScreen({ navigation, route }: any) {
         return () => { alive = false; };
     }, [offer?.ride_id]);
 
+    // If the rider cancels while this offer is on screen, leave at once
+    // with the reason stated — never sit out the countdown on a dead trip
+    // or let an Accept tap land on a ride that no longer exists.
+    useEffect(() => {
+        if (!offer?.ride_id) return;
+        let gone = false;
+        const leaveCancelled = () => {
+            if (gone || handling.current) return;
+            gone = true;
+            handling.current = true;
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert('Trip cancelled', 'The rider cancelled this trip. You are still online — the next trip will come to you here.');
+            navigation.goBack();
+        };
+        const checkRide = async () => {
+            const { data } = await supabase.from('rides').select('status').eq('id', offer.ride_id).maybeSingle();
+            if (data?.status === 'cancelled') leaveCancelled();
+        };
+        const ch = supabase.channel(`trip_request_ride_${offer.ride_id}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${offer.ride_id}` }, (payload: any) => {
+                if (payload.new?.status === 'cancelled') leaveCancelled();
+            })
+            .subscribe((status) => { if (status === 'SUBSCRIBED') checkRide(); });
+        const poll = setInterval(checkRide, 5000);
+        return () => { gone = true; clearInterval(poll); ch.unsubscribe(); };
+    }, [offer?.ride_id]);
+
     useEffect(() => {
         if (!offer?.expires_at) return;
         const t = setInterval(() => {

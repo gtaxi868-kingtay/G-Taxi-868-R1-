@@ -21,6 +21,7 @@ import MapView, { Marker, Polyline, PROVIDER_DEFAULT, UrlTile } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { supabase } from '@gtaxi/core';
+import { useAuth } from '../context/AuthContext';
 import { GuardianSosPanel } from '../components/GuardianSosPanel';
 import { ENV } from '@g868/shared/env';
 import { useLocationTracking } from '../hooks/useLocationTracking';
@@ -78,6 +79,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
 
     const { rideId } = route.params;
     const insets = useSafeAreaInsets();
+    const { restoreOnlineAfterTrip } = useAuth();
     const { location, signalStatus } = useLocationTracking();
 
     const [ride, setRide] = useState<any>(null);
@@ -168,8 +170,17 @@ export function ActiveTripScreen({ route, navigation }: any) {
             if (row.status === 'cancelled') {
                 leftTrip = true;
                 leavingRef.current = true;
-                Alert.alert('Trip cancelled', 'The rider cancelled this trip. You are back online for new trips.');
+                // Hand his availability back before saying anything about
+                // it: the stale-driver sweep can have flipped his row
+                // offline while this trip ran, and "you are back online"
+                // must be true when the driver reads it, not a hope.
+                const backOnline = await restoreOnlineAfterTrip();
                 await AsyncStorage.removeItem('active_ride_id');
+                const reason = typeof row.cancellation_reason === 'string' ? row.cancellation_reason : '';
+                const who = !reason || reason.startsWith('Rider cancelled')
+                    ? 'The rider cancelled this trip.'
+                    : 'This trip was cancelled.';
+                Alert.alert('Trip cancelled', backOnline ? `${who} You are back online for new trips.` : who);
                 navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
             }
         };
@@ -376,6 +387,9 @@ export function ActiveTripScreen({ route, navigation }: any) {
             return;
         }
         await AsyncStorage.removeItem('active_ride_id');
+        // His own cancel ends the trip, not his shift: land on the
+        // Dashboard with the same availability he had when it started.
+        await restoreOnlineAfterTrip();
         leavingRef.current = true;
         navigation.reset({ index: 0, routes: [{ name: 'Dashboard' }] });
     };

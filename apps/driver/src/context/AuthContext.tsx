@@ -29,6 +29,7 @@ interface AuthContextType {
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<void>;
     toggleOnline: () => Promise<void>;
+    restoreOnlineAfterTrip: () => Promise<boolean>;
     refreshPushToken: () => Promise<void>;
 }
 
@@ -268,8 +269,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (user) await registerPushToken(user.id);
     };
 
+    // A trip ended by a cancellation — either side — must hand the driver
+    // back his availability exactly as it was when the trip started. While
+    // a trip runs, nothing in this app re-reads the drivers row, and the
+    // stale-driver sweep can flip the row offline mid-trip when pings
+    // stall (e.g. the app sits backgrounded on a one-phone test). Without
+    // this, the driver lands on the Dashboard offline — or worse, the
+    // screen claims he is online while the database says he is not, and
+    // dispatch never offers him another trip. Re-read the row; if it went
+    // offline underneath a driver who was online when the trip began,
+    // restore it the same way toggleOnline writes it. A driver who was
+    // offline to begin with is only re-synced, never forced online.
+    // Resolves true when the driver ends this call online.
+    const restoreOnlineAfterTrip = async (): Promise<boolean> => {
+        if (!user || !driver) return false;
+        const wasOnline = !!driver.is_online;
+        try {
+            const { data } = await supabase
+                .from('drivers')
+                .select('*')
+                .eq('user_id', user.id)
+                .single();
+
+            if (!data) return wasOnline;
+
+            if (data.is_online) {
+                setDriver(data as DriverProfile);
+                return true;
+            }
+
+            if (!wasOnline) {
+                setDriver(data as DriverProfile);
+                return false;
+            }
+
+            const { error } = await supabase
+                .from('drivers')
+                .update({
+                    is_online: true,
+                    status: 'online',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('user_id', user.id);
+
+            if (!error) {
+                setDriver({ ...(data as DriverProfile), is_online: true, status: 'online' });
+                return true;
+            }
+
+            setDriver(data as DriverProfile);
+            return false;
+        } catch {
+            return wasOnline;
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, session, driver, loading, signIn, signOut, toggleOnline, refreshPushToken }}>
+        <AuthContext.Provider value={{ user, session, driver, loading, signIn, signOut, toggleOnline, restoreOnlineAfterTrip, refreshPushToken }}>
             {children}
         </AuthContext.Provider>
     );
