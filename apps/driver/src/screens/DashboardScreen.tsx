@@ -257,7 +257,31 @@ export function DashboardScreen({ navigation }: { navigation: { navigate: (scree
     const panelStyle = useAnimatedStyle(() => ({ transform: [{ translateY: panelY.value }] }));
     const carStyle = useAnimatedStyle(() => ({ transform: [{ translateY: carY.value }] }));
 
-    const handleToggle = async () => { setIsToggling(true); try { await toggleOnline(); } finally { setIsToggling(false); } };
+    const handleToggle = async () => {
+        setIsToggling(true);
+        try {
+            // Going online: check insurance first so a refusal arrives with
+            // its reason and a straight route to the upload screen. The
+            // server enforces the same gate (trigger_enforce_insurance);
+            // this pre-check is the explanation, not the enforcement.
+            if (!isOnline) {
+                const { data: insData } = await supabase.rpc('driver_insurance_status');
+                const ins = insData as { compliant?: boolean; message?: string } | null;
+                if (ins && ins.compliant === false) {
+                    Alert.alert(
+                        'Insurance Required',
+                        ins.message || 'Insurance not on file. Upload your insurance documents to go online.',
+                        [
+                            { text: 'Not now', style: 'cancel' },
+                            { text: 'Upload documents', onPress: () => navigation.navigate('ComplianceDocuments') },
+                        ]
+                    );
+                    return;
+                }
+            }
+            await toggleOnline();
+        } finally { setIsToggling(false); }
+    };
     const handleCarTap = () => {
         carSpinFast.value = withSequence(withTiming(360, { duration: 600, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 0 }));
         setCarLabel(true);

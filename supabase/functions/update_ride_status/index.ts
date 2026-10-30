@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendPushNotification } from "../_shared/push.ts";
 import { sendWhatsApp } from "../_shared/sms.ts";
 import { captureException } from "../_shared/sentry.ts";
+import { checkRateLimit } from "../_shared/rateLimit.ts";
 
 import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -94,7 +95,8 @@ serve(async (req: Request) => {
     // Only the assigned driver can update the ride.
     // rides.driver_id holds drivers.id (set by accept_ride/match_driver), which
     // is not the auth uid for most drivers — resolve via drivers.user_id.
-    if (ride.driver_id !== userId) {
+    let assignedDriverId: string | null = ride.driver_id === userId ? userId : null;
+    if (!assignedDriverId) {
       const { data: driverRecord } = await supabaseAdmin
         .from("drivers")
         .select("id")
@@ -107,6 +109,7 @@ serve(async (req: Request) => {
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      assignedDriverId = driverRecord.id;
     }
 
     if (!isMetadataOnly) {
@@ -172,6 +175,21 @@ serve(async (req: Request) => {
         }
 
         if (ride.ride_pin !== pin) {
+          const pinAttemptCheck = await checkRateLimit(
+            supabaseAdmin,
+            `ride_pin:${ride_id}:${assignedDriverId ?? userId}`,
+            "update_ride_status_pin"
+          );
+          if (!pinAttemptCheck.allowed) {
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: "PIN verification locked after 5 failed attempts. Please contact support or ask the rider to arrange a new ride PIN.",
+                data: null,
+              }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
           return new Response(
             JSON.stringify({ success: false, error: "Invalid PIN. Please ask the rider for their 4-digit code.", data: null }),
             { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -240,7 +258,7 @@ serve(async (req: Request) => {
     // Determine the valid previous state (only for status transitions)
     let query = supabaseAdmin
       .from("rides")
-      .update(updatePayload)
+      .update(updatePayload, { count: "exact" })
       .eq("id", ride_id);
 
     if (status) {
@@ -249,6 +267,20 @@ serve(async (req: Request) => {
     }
 
     const { error: updateError, count } = await query;
+
+    if (updateError) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to update ride", data: null }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (status && count === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to update ride: invalid current state", data: null }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // ── Out-of-app notification to Rider on Arrival ──────────────────────
     // Push AND WhatsApp/SMS so the rider gets "driver arrived" even if their
@@ -276,13 +308,6 @@ serve(async (req: Request) => {
                 `G-Taxi: your driver has ARRIVED at the pickup location. Please head out to meet them. (Ride ${String(ride.id).slice(0, 8)})`
             ).catch(err => console.error("Arrival WhatsApp/SMS failed (non-fatal):", err));
         }
-    }
-
-    if (updateError || (status && count === 0)) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Failed to update ride: invalid current state", data: null }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     return new Response(

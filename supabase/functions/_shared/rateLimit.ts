@@ -45,6 +45,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     nfc_restore_session: { maxRequests: 5, windowSeconds: 300 },
     send_push_notification: { maxRequests: 30, windowSeconds: 60 },
     update_ride_status: { maxRequests: 10, windowSeconds: 60 },
+    // Failed PIN attempts only: check_rate_limit increments before it
+    // answers, so a cap of 4 makes the fifth failed attempt fail closed.
+    update_ride_status_pin: { maxRequests: 4, windowSeconds: 3600 },
     merchant_gateway: { maxRequests: 30, windowSeconds: 60 },
     merchant_order_picker: { maxRequests: 20, windowSeconds: 60 },
     merchant_update_order_status: { maxRequests: 10, windowSeconds: 60 },

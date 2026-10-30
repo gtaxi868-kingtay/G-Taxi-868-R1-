@@ -261,8 +261,20 @@ serve(async (req: Request) => {
         updateData.financing_approved_at = new Date().toISOString();
 
         // Auto-generate brokerage commission invoice
-        const { data: commissionResult } = await supabaseAdmin
+        const { data: commissionResult, error: commissionError } = await supabaseAdmin
           .rpc("handle_brokerage_commission", { p_sale_id: sale_id });
+
+        if (commissionError) {
+          console.error("handle_brokerage_commission failed:", commissionError);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Brokerage commission failed: ${commissionError.message}`,
+              data: null,
+            }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
 
         if (commissionResult?.brokerage_fee_cents > 0) {
           updateData.brokerage_fee_cents = commissionResult.brokerage_fee_cents;

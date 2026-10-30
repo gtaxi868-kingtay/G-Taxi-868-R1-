@@ -74,6 +74,26 @@ async function resolveDriverAuthUserId(
 
 const PLATFORM_ACCOUNT = "00000000-0000-0000-0000-000000000000";
 
+async function raiseAdminAlert(
+  // deno-lint-ignore no-explicit-any
+  supabaseAdmin: any,
+  type: string,
+  title: string,
+  body: string,
+  severity: string,
+  // deno-lint-ignore no-explicit-any
+  details: Record<string, any>
+): Promise<void> {
+  const { error } = await supabaseAdmin.rpc("raise_admin_alert", {
+    p_type: type,
+    p_title: title,
+    p_body: body,
+    p_severity: severity,
+    p_details: details,
+  });
+  if (error) console.error(`Failed to raise admin alert ${type}:`, error);
+}
+
 serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
   if (req.method === "OPTIONS") {
@@ -226,14 +246,47 @@ serve(async (req: Request) => {
 
       const fareCents = ride.total_fare_cents || 0;
       if (fareCents > 0) {
-        await supabaseAdmin.from("wallet_transactions").insert({
+        const { error: escrowPayoutError } = await supabaseAdmin.from("wallet_transactions").insert({
           user_id: driverAuthUserId,
           ride_id: ride_id,
           amount: fareCents,
           transaction_type: "driver_payout",
           description: "G-Escape ground transfer payout (from escrow)",
           status: "completed",
-        }).then((res) => res, (err: unknown) => console.error("Escrow driver payout insert failed:", err));
+        });
+
+        if (escrowPayoutError) {
+          console.error("Escrow driver payout insert failed:", escrowPayoutError);
+          await raiseAdminAlert(
+            supabaseAdmin,
+            "ESCROW_DRIVER_PAYOUT_FAILED",
+            "Escrow driver payout failed",
+            `Ride ${ride_id} completed, but the escrow driver payout record failed. The driver has not been confirmed paid.`,
+            "CRITICAL",
+            { ride_id, driver_user_id: driverAuthUserId, fare_cents: fareCents, error: escrowPayoutError.message }
+          );
+
+          const { error: rollbackError, count: rollbackCount } = await supabaseAdmin
+            .from("rides")
+            .update({ status: "in_progress", payment_status: "pending" }, { count: "exact" })
+            .eq("id", ride_id)
+            .eq("status", "completed");
+          const rollbackSucceeded = !rollbackError && rollbackCount === 1;
+          if (!rollbackSucceeded) {
+            console.error("Escrow payout rollback failed:", rollbackError ?? `matched ${rollbackCount ?? 0} rows`);
+          }
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: rollbackSucceeded
+                ? "Escrow driver payout failed. The driver was not paid; the transfer was returned to in-progress for retry."
+                : "Escrow driver payout failed. The driver was not paid; the completed status could not be rolled back automatically.",
+              data: { driver_paid: false, payout_error: escrowPayoutError.message, rollback_succeeded: rollbackSucceeded },
+            }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
 
       // package_reservations links this ride via exactly one of its four
@@ -585,6 +638,27 @@ serve(async (req: Request) => {
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    } else if (ride.payment_method === "wallet") {
+      // Wallet was already captured before completion was requested; the
+      // wallet branch above intentionally has no further settlement to run.
+    } else {
+      const unsupportedMethod = ride.payment_method ?? "(missing)";
+      await raiseAdminAlert(
+        supabaseAdmin,
+        "UNSUPPORTED_RIDE_PAYMENT_METHOD",
+        "Ride completion blocked: unsupported payment method",
+        `Ride ${ride_id} has payment method '${unsupportedMethod}', which has no settlement path in complete_ride. The ride was not completed.`,
+        "CRITICAL",
+        { ride_id, payment_method: ride.payment_method ?? null, payment_status: ride.payment_status ?? null }
+      );
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Unsupported payment method '${unsupportedMethod}'. Ride cannot be completed until it is assigned a supported settlement path.`,
+          data: { payment_method: ride.payment_method ?? null },
+        }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // ── UPDATE RIDE RECORD (atomic guard) ─────────────────────────────────
@@ -799,28 +873,57 @@ serve(async (req: Request) => {
     let leaseDeductionStatus: "none" | "deducted" | "insufficient_balance" = "none";
 
     if (ride.driver_id) {
-      const { data: leaseResult } = await supabaseAdmin
-        .rpc("deduct_lease_installment_for_ride", { p_ride_id: ride_id })
+      // deduct_lease_installment_for_ride operates on fleet_leases and
+      // requires (p_lease_id, p_ride_id, p_gross_cents), returning
+      // installment_cents. The previous call passed only p_ride_id and
+      // read a deduction_cents column the function does not return, so
+      // this block never deducted anything. Look up the driver's active
+      // fleet lease first; drivers without one skip cleanly. (WS2 repair,
+      // 2026-10-29. The driver_leases book is deducted separately above
+      // via deduct_loan_installment.)
+      const { data: fleetLease } = await supabaseAdmin
+        .from("fleet_leases")
+        .select("id")
+        .eq("driver_id", ride.driver_id)
+        .eq("status", "active")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle()
         .then((res) => res, (err: unknown) => {
-          console.error("Lease deduction failed (non-blocking):", err);
+          console.error("Fleet lease lookup failed (non-blocking):", err);
           return { data: null };
         });
 
-      if (leaseResult && leaseResult.length > 0) {
-        const lr = leaseResult[0];
-        if (lr.success && lr.deduction_cents > 0) {
-          leaseDeductionCents = lr.deduction_cents;
-          leaseDeductionStatus = "deducted";
-          console.log(`[LEASE_DEDUCTION] Deducted ${lr.deduction_cents} cents for ride ${ride_id}`);
+      if (fleetLease?.id) {
+        const { data: leaseResult } = await supabaseAdmin
+          .rpc("deduct_lease_installment_for_ride", {
+            p_lease_id: fleetLease.id,
+            p_ride_id: ride_id,
+            p_gross_cents: effectiveFare,
+          })
+          .then((res) => res, (err: unknown) => {
+            console.error("Lease deduction failed (non-blocking):", err);
+            return { data: null };
+          });
 
-          await supabaseAdmin
-            .from("platform_revenue_logs")
-            .update({ lease_deduction_cents: lr.deduction_cents })
-            .eq("ride_id", ride_id)
-            .then((res) => res, (err: unknown) => console.error("Failed to update revenue log lease deduction:", err));
-        } else if (lr.deduction_cents > 0 && !lr.success) {
-          leaseDeductionStatus = "insufficient_balance";
-          console.warn(`[LEASE_DEDUCTION] Failed for ride ${ride_id}: ${lr.error_message}`);
+        if (leaseResult && leaseResult.length > 0) {
+          const lr = leaseResult[0];
+          if (lr.success && lr.installment_cents > 0) {
+            leaseDeductionCents = lr.installment_cents;
+            leaseDeductionStatus = "deducted";
+            console.log(`[LEASE_DEDUCTION] Deducted ${lr.installment_cents} cents for ride ${ride_id}`);
+
+            await supabaseAdmin
+              .from("platform_revenue_logs")
+              .update({ lease_deduction_cents: lr.installment_cents })
+              .eq("ride_id", ride_id)
+              .then((res) => res, (err: unknown) => console.error("Failed to update revenue log lease deduction:", err));
+          } else if (!lr.success) {
+            if ((lr.error_message || "").toLowerCase().includes("insufficient")) {
+              leaseDeductionStatus = "insufficient_balance";
+            }
+            console.warn(`[LEASE_DEDUCTION] Failed for ride ${ride_id}: ${lr.error_message}`);
+          }
         }
       }
     }
@@ -1014,7 +1117,7 @@ serve(async (req: Request) => {
                 sendPushNotification(
                   driverProfile.push_token,
                   "BYD Lease Unlocked",
-                  "You've driven 90 active days. You now qualify for a G-Taxi BYD lease. Check your app to apply.",
+                  "You've reached 500 completed rides with a 4.8+ rating. You now qualify for a G-Taxi BYD lease. Check your app to apply.",
                   { type: "LEASE_ELIGIBLE" }
                 ).then((res) => res, () => {});
               }

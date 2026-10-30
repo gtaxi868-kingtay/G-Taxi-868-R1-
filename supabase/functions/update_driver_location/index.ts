@@ -101,6 +101,19 @@ serve(async (req: Request) => {
 
         const lastRecord = historyData && historyData.length > 0 ? historyData[0] : null;
 
+        // SOS handling must not depend on prior location history: a
+        // driver's first-ever ping can be the emergency ping.
+        if (sos) {
+            console.warn(`[SAFETY] SOS TRIGGERED for driver ${driver_id}`);
+            await adminClient.from("ride_events").insert({
+                event_type: "emergency_sos",
+                actor_type: "driver",
+                actor_id: driver_id,
+                metadata: { lat, lng, timestamp: new Date().toISOString() }
+            });
+            // Note: Twilio Hook would go here to text the Next of Kin
+        }
+
         if (lastRecord) {
             // STEP 2 - Calculate time delta
             const now = new Date();
@@ -156,17 +169,7 @@ serve(async (req: Request) => {
                 // Normal GPS jitter. Permitted to continue down to insert/update untouched.
             }
 
-            // --- SAFETY: SOS & DETOUR DETECTION ---
-            if (sos) {
-                console.warn(`[SAFETY] SOS TRIGGERED for driver ${driver_id}`);
-                await adminClient.from("ride_events").insert({
-                    event_type: "emergency_sos",
-                    actor_type: "driver",
-                    actor_id: driver_id,
-                    metadata: { lat, lng, timestamp: now.toISOString() }
-                });
-                // Note: Twilio Hook would go here to text the Next of Kin
-            }
+            // --- SAFETY: DETOUR DETECTION (SOS handled above) ---
 
             // DETOUR DETECTION
             // Fetch active ride to check destination drift
@@ -235,15 +238,28 @@ serve(async (req: Request) => {
 
         // B. Update current snapshot (drivers table)
         // This keeps the "Ghost Cars" and distance calcs fresh.
+        // INSURANCE GATE: a ping must not silently re-online a driver whose
+        // insurance is not on file or has expired — the server gate
+        // (trigger_enforce_insurance) would refuse the write anyway. Ask
+        // check_driver_insurance_compliance first and only mark online when
+        // compliant; location/last_seen still update either way.
+        const { data: insCheck } = await adminClient
+            .rpc("check_driver_insurance_compliance", { p_driver_id: driver_id });
+        const insuranceCompliant = (insCheck as { compliant?: boolean } | null)?.compliant === true;
+
+        const snapshotUpdate: Record<string, unknown> = {
+            lat,
+            lng,
+            heading,
+            last_seen: new Date().toISOString()
+        };
+        if (insuranceCompliant) {
+            snapshotUpdate.is_online = true; // Implicitly mark as online if sending updates
+        }
+
         const { error: snapshotError } = await adminClient
             .from("drivers")
-            .update({
-                lat,
-                lng,
-                heading,
-                is_online: true, // Implicitly mark as online if sending updates
-                last_seen: new Date().toISOString()
-            })
+            .update(snapshotUpdate)
             .eq("id", driver_id);
 
         if (snapshotError) {

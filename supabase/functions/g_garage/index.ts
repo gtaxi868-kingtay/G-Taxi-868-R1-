@@ -133,7 +133,11 @@ Deno.serve(async (req) => {
 
         const vehicleClasses = await Promise.all(
           (vehicleClassRows || []).map(async (vc) => {
-            const { data: leaseCentsPerDay } = await supabaseAdmin.rpc('compute_vehicle_class_lease_cents', { p_key: vc.key })
+            const { data: leaseCentsPerDay, error: leasePricingError } = await supabaseAdmin.rpc('compute_vehicle_class_lease_cents', { p_key: vc.key })
+            if (leasePricingError) {
+              console.error(`[g_garage:get_status] Lease pricing failed for ${vc.key}:`, leasePricingError)
+              return { ...vc, lease_cents_per_day: null, lease_pricing_error: leasePricingError.message }
+            }
             return { ...vc, lease_cents_per_day: leaseCentsPerDay }
           })
         )
@@ -230,6 +234,9 @@ Deno.serve(async (req) => {
         const { target_vehicle_class_key, withhold_percentage } = body
         if (!target_vehicle_class_key || typeof withhold_percentage !== 'number') {
           return json({ success: false, error: 'target_vehicle_class_key and withhold_percentage are required' }, 400)
+        }
+        if (!Number.isFinite(withhold_percentage) || withhold_percentage < 0 || withhold_percentage > 100) {
+          return json({ success: false, error: 'withhold_percentage must be between 0 and 100' }, 400)
         }
         const { data, error } = await supabaseAdmin.rpc('opt_in_deposit_savings', {
           p_driver_user_id: driver.user_id,

@@ -203,7 +203,7 @@ serve(async (req: Request) => {
             );
         }
 
-        const { error: stopErr } = await supabaseAdmin
+        const { data: insertedStop, error: stopErr } = await supabaseAdmin
             .from("ride_stops")
             .insert({
                 ride_id,
@@ -216,7 +216,9 @@ serve(async (req: Request) => {
                 estimated_wait_minutes: 10,
                 stop_convenience_fee_cents: stopFee,
                 status: "pending",
-            });
+            })
+            .select("id")
+            .single();
 
         if (stopErr) {
             console.error("Failed to insert stop:", stopErr);
@@ -226,7 +228,7 @@ serve(async (req: Request) => {
             );
         }
 
-        await supabaseAdmin
+        const { error: fareUpdateError, count: fareUpdateCount } = await supabaseAdmin
             .from("rides")
             .update({
                 total_fare_cents: newFare,
@@ -234,8 +236,38 @@ serve(async (req: Request) => {
                 distance_meters: newDistance,
                 duration_seconds: newDuration,
                 has_stops: true,
-            })
-            .eq("id", ride_id);
+            }, { count: "exact" })
+            .eq("id", ride_id)
+            .in("status", ["searching", "assigned", "arrived", "in_progress"]);
+
+        if (fareUpdateError) {
+            console.error("Failed to update ride fare for stop:", fareUpdateError);
+            if (insertedStop?.id) {
+                const { error: stopRollbackError } = await supabaseAdmin
+                    .from("ride_stops")
+                    .delete()
+                    .eq("id", insertedStop.id);
+                if (stopRollbackError) console.error("Failed to roll back stop after fare update error:", stopRollbackError);
+            }
+            return new Response(
+                JSON.stringify({ success: false, error: "Failed to update ride fare" }),
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        if (fareUpdateCount === 0) {
+            if (insertedStop?.id) {
+                const { error: stopRollbackError } = await supabaseAdmin
+                    .from("ride_stops")
+                    .delete()
+                    .eq("id", insertedStop.id);
+                if (stopRollbackError) console.error("Failed to roll back stop after fare conflict:", stopRollbackError);
+            }
+            return new Response(
+                JSON.stringify({ success: false, error: "Ride is no longer in a state that allows fare changes" }),
+                { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
 
         const { error: logErr } = await supabaseAdmin
             .from("ride_events")

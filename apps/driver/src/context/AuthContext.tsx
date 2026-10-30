@@ -231,6 +231,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 );
                 return;
             }
+
+            // Insurance guard: the server refuses to online a driver whose
+            // insurance is not on file or has expired (trigger_enforce_insurance
+            // calls check_driver_insurance_compliance). Pre-check here so the
+            // driver gets the plain reason instead of a failed write.
+            const { data: insData } = await supabase.rpc('driver_insurance_status');
+            const ins = insData as { compliant?: boolean; message?: string } | null;
+            if (ins && ins.compliant === false) {
+                Alert.alert(
+                    'Insurance Required',
+                    ins.message || 'Insurance not on file. Upload your insurance documents to go online.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
         }
 
         // Optimistic update
@@ -246,7 +261,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .eq('user_id', user.id);
 
         if (error) {
-            Alert.alert('Error', 'Failed to update status');
+            // If the server's insurance gate refused the write, its message
+            // IS the reason — show it instead of a generic failure.
+            const msg = /insurance/i.test(error.message || '')
+                ? error.message
+                : 'Failed to update status';
+            Alert.alert('Error', msg);
             // Revert
             setDriver({ ...driver, is_online: !newStatus, status: !newStatus ? 'online' : 'offline' });
         }

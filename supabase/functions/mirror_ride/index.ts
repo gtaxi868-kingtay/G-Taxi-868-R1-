@@ -53,11 +53,16 @@ serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    await checkRateLimit(supabaseAdmin, user.id, "mirror_ride");
+    const rateCheck = await checkRateLimit(supabaseAdmin, user.id, "mirror_ride");
+    if (!rateCheck.allowed) {
+      return new Response(JSON.stringify({ error: rateCheck.error || "Rate limit exceeded" }), {
+        status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: ride } = await supabaseAdmin
       .from("rides")
-      .select("*, drivers!inner(id, name, vehicle_model, plate_number, lat, lng)")
+      .select("*, drivers!inner(id, user_id, name, vehicle_model, plate_number, lat, lng)")
       .eq("id", rideId)
       .single();
 

@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
 
       if (recentRide) continue;
 
-      await supabase
+      const { error: leaseSuspendError } = await supabase
         .from("fleet_leases")
         .update({
           status: "suspended",
@@ -108,15 +108,22 @@ Deno.serve(async (req: Request) => {
         })
         .eq("id", lease.id);
 
-      if (lease.fleet_vehicle_id) {
-        await supabase
-          .from("fleet_vehicles")
-          .update({ gps_relay_enabled: true })
-          .eq("id", lease.fleet_vehicle_id)
-          .then((__r) => __r, () => null);
+      if (leaseSuspendError) {
+        console.error(`Failed to suspend defaulted lease ${lease.id}:`, leaseSuspendError);
+        continue;
       }
 
-      await supabase.from("system_alerts").insert({
+      if (lease.fleet_vehicle_id) {
+        const { error: gpsEnableError } = await supabase
+          .from("fleet_vehicles")
+          .update({ gps_relay_enabled: true })
+          .eq("id", lease.fleet_vehicle_id);
+        if (gpsEnableError) {
+          console.error(`Failed to enable GPS visibility for lease ${lease.id}:`, gpsEnableError);
+        }
+      }
+
+      const { error: alertError } = await supabase.from("system_alerts").insert({
         type: "LEASE_DEFAULT",
         title: "Driver lease defaulted",
         details: {
@@ -126,7 +133,10 @@ Deno.serve(async (req: Request) => {
           fleet_vehicle_id: lease.fleet_vehicle_id,
         },
         severity: "HIGH",
-      }).then((__r) => __r, () => null);
+      });
+      if (alertError) {
+        console.error(`Failed to record lease default alert for lease ${lease.id}:`, alertError);
+      }
 
       // drivers_status_check only allows online/offline/busy — there is no
       // 'suspended' driver status (that concept lives on fleet_leases,
@@ -134,11 +144,15 @@ Deno.serve(async (req: Request) => {
       // constraint-valid action here; a prior version of this line wrote
       // status: "suspended" wrapped in a swallowed .then(), so it silently
       // failed on every real default and never took the driver offline.
-      await supabase
+      const { error: offlineError } = await supabase
         .from("drivers")
         .update({ is_online: false })
-        .eq("id", lease.driver_id)
-        .then((__r) => __r, () => null);
+        .eq("id", lease.driver_id);
+
+      if (offlineError) {
+        console.error(`Failed to take driver ${lease.driver_id} offline for lease default:`, offlineError);
+        continue;
+      }
 
       // is_online=false alone is not a real block — the very next GPS ping
       // from update_driver_location sets it back to true. Single-account
@@ -146,16 +160,23 @@ Deno.serve(async (req: Request) => {
       // cross-account blocking in this pass): stop the account itself from
       // driving until admin review, enforced server-side in requireDriver.
       const driverUserId = (lease as any).drivers?.user_id;
-      if (driverUserId) {
-        await supabase
-          .from("profiles")
-          .update({
-            platform_blocked: true,
-            platform_blocked_reason: "Lease payment default — contact support to resolve.",
-            platform_blocked_at: now.toISOString(),
-          })
-          .eq("id", driverUserId)
-          .then((__r) => __r, () => null);
+      if (!driverUserId) {
+        console.error(`Cannot platform-block driver ${lease.driver_id} for lease default: driver user_id missing`);
+        continue;
+      }
+
+      const { error: blockError } = await supabase
+        .from("profiles")
+        .update({
+          platform_blocked: true,
+          platform_blocked_reason: "Lease payment default — contact support to resolve.",
+          platform_blocked_at: now.toISOString(),
+        })
+        .eq("id", driverUserId);
+
+      if (blockError) {
+        console.error(`Failed to platform-block driver ${lease.driver_id} for lease default:`, blockError);
+        continue;
       }
 
       defaulted++;
@@ -168,10 +189,15 @@ Deno.serve(async (req: Request) => {
   // could never match any row (confirmed live: 0 drivers have ever had
   // status='active'), so this entire block has silently never fired.
   // is_online = true already scopes this to drivers currently driving.
+  // NULL insurance_expires_at means no insurance was ever approved onto
+  // the driver's record — the state of every pre-gate driver. A plain
+  // .lte() can never match NULL, so not-on-file drivers were never swept;
+  // the .or() below treats NULL as non-compliant, same as the go-online
+  // gate (check_driver_insurance_compliance) does.
   const { data: expiredInsurance } = await supabase
     .from("drivers")
-    .select("id, name, user_id, is_online")
-    .lte("insurance_expires_at", now.toISOString())
+    .select("id, name, user_id, is_online, insurance_expires_at")
+    .or(`insurance_expires_at.is.null,insurance_expires_at.lte.${now.toISOString()}`)
     .eq("is_online", true);
 
   if (expiredInsurance?.length) {
@@ -195,8 +221,12 @@ Deno.serve(async (req: Request) => {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 to: profile.push_token,
-                title: "Insurance expired — driving disabled",
-                body: "Your insurance has expired. Upload a new certificate to resume driving.",
+                title: driver.insurance_expires_at
+                  ? "Insurance expired — driving disabled"
+                  : "Insurance not on file — driving disabled",
+                body: driver.insurance_expires_at
+                  ? "Your insurance has expired. Upload a new certificate to resume driving."
+                  : "No insurance on file. Submit your certificate to resume driving.",
                 data: { type: "insurance_expired", driver_id: driver.id },
               }),
             });
