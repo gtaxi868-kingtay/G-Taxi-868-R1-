@@ -28,7 +28,7 @@ serve(async (req) => {
 
     const { data: merchants, error: merchantsErr } = await supabaseAdmin
       .from("merchants")
-      .select("id, business_name, stripe_customer_id, current_debt_cents")
+      .select("id, name, stripe_customer_id, current_debt_cents")
       .eq("billing_type", "net-30")
       .gt("current_debt_cents", 0);
 
@@ -49,7 +49,7 @@ serve(async (req) => {
 
         if (!customerId) {
           const customer = await stripe.customers.create({
-            name: merchant.business_name,
+            name: merchant.name,
             metadata: { merchant_id: merchant.id },
           });
           customerId = customer.id;
@@ -75,10 +75,17 @@ serve(async (req) => {
 
         await stripe.invoices.sendInvoice(invoice.id);
 
-        await supabaseAdmin
-          .from("merchants")
-          .update({ current_debt_cents: 0 })
-          .eq("id", merchant.id);
+        // Debt is NOT cleared here. It clears when the invoice is PAID —
+        // the old code zeroed current_debt_cents on send, so an unpaid or
+        // ignored invoice erased the merchant's debt from the books.
+        // There is currently NO invoice-payment path in the codebase
+        // (stripe_webhook handles no invoice.paid events, and nothing
+        // else writes current_debt_cents down), so until that path is
+        // built the debt correctly stays on the books after invoicing —
+        // and this function must not be re-run blindly for a merchant
+        // already invoiced, or Stripe will bill the same debt twice.
+        // Flagged in the wave-3A report as a missing path, not patched
+        // over with an invented one.
 
         await supabaseAdmin.from("platform_revenue_logs").insert({
           merchant_id: merchant.id,

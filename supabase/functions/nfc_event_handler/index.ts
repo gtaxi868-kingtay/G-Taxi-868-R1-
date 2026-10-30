@@ -66,16 +66,33 @@ serve(async (req) => {
 
     await checkRateLimit(supabase, user.id, 'nfc_event_handler');
 
-    if (nonce) {
-      const { data: existingEvent } = await supabase
-        .from('nfc_event_logs')
-        .select('id')
-        .eq('location_context->>nonce', nonce)
-        .maybeSingle();
+    // Replay guard (hardened): every tap must carry a nonce, and a nonce is
+    // consumed exactly once per profile. A replay returns a no-op success —
+    // never an error the app retries into existence, and never a second
+    // order or broadcast. Two layers: this lookup, plus the partial unique
+    // index on (profile_id, nonce) from migration 20261030100000, whose
+    // 23505 the rider kiosk branch below treats as the same no-op (that is
+    // what closes the check-then-insert race). The geofence-confirm retry
+    // is safe by design: the mismatch log deliberately omits the nonce, so
+    // the retry is not rejected for presenting it again.
+    if (!nonce) {
+      return json({ error: 'nonce required' }, 400);
+    }
 
-      if (existingEvent) {
-        return json({ error: 'Duplicate event — nonce already used' }, 409);
-      }
+    const { data: existingEvent } = await supabase
+      .from('nfc_event_logs')
+      .select('id')
+      .eq('profile_id', user.id)
+      .eq('location_context->>nonce', nonce)
+      .maybeSingle();
+
+    if (existingEvent) {
+      return json({
+        type: 'DUPLICATE_TAP',
+        duplicate: true,
+        message: 'This tap was already processed.',
+        route: null,
+      });
     }
 
     // ── ROLE RESOLUTION ─────────────────────────────────────────────────────
@@ -415,7 +432,12 @@ serve(async (req) => {
       }, 409);
     }
 
-    await supabase
+    // This insert is the nonce's point of consumption for the order-creating
+    // path, so its result is checked (unlike the purely informational logs
+    // elsewhere in this handler): if the unique (profile_id, nonce) index
+    // rejects it, a concurrent replay won the race — return the duplicate
+    // no-op BEFORE any order is created or broadcast.
+    const { error: tapLogError } = await supabase
       .from('nfc_event_logs')
       .insert({
         tag_uid: tagUid,
@@ -430,6 +452,18 @@ serve(async (req) => {
         },
       })
       .maybeSingle();
+
+    if (tapLogError?.code === '23505') {
+      return json({
+        type: 'DUPLICATE_TAP',
+        duplicate: true,
+        message: 'This tap was already processed.',
+        route: null,
+      });
+    }
+    if (tapLogError) {
+      console.error('kiosk_tap event log failed:', tapLogError.message);
+    }
 
     const defaultService = (kiosk.default_services || ['transport'])[0];
     const dispatchableTasks = ['grocery', 'laundry', 'courier'];

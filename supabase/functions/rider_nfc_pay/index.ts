@@ -30,7 +30,7 @@ serve(async (req: Request) => {
     const { data: { user }, error: authError } = await anonClient.auth.getUser();
     if (authError || !user) return json({ error: "Invalid or expired token" }, 401);
 
-    const { merchant_tag_uid, amount_cents } = await req.json();
+    const { action, merchant_tag_uid, amount_cents } = await req.json();
 
     if (!merchant_tag_uid) return json({ success: false, error: "merchant_tag_uid is required" }, 400);
     if (!amount_cents || amount_cents <= 0) return json({ success: false, error: "amount_cents must be positive" }, 400);
@@ -64,6 +64,49 @@ serve(async (req: Request) => {
     const merchantId = (kioskNode.merchants as any).id;
     const merchantName = (kioskNode.merchants as any).name;
     const locationName = kioskNode.location_name || merchantName;
+
+    // Authorisation-first flow for MERCHANT-initiated charges: the rider
+    // creates a single-use, amount-bound charge session (5 minutes) that
+    // merchant_nfc_charge must present and consume exactly once. This is
+    // what replaces the old model where a merchant could charge a rider
+    // from nothing but the rider's static, printed tag UID. The rider
+    // shows the returned session_id to the merchant (QR/code); the amount
+    // the merchant can charge is the amount fixed here, by the rider.
+    if (action === "create_charge_session") {
+      const { data: sessResult, error: sessError } = await admin.rpc(
+        "create_nfc_charge_session",
+        {
+          p_rider_id: user.id,
+          p_merchant_id: merchantId,
+          p_amount_cents: amount_cents,
+        }
+      );
+
+      if (sessError) {
+        console.error("create_nfc_charge_session RPC error:", sessError);
+        return json({ success: false, error: "Failed to create charge session" }, 500);
+      }
+
+      const session = Array.isArray(sessResult) ? sessResult[0] : sessResult;
+
+      if (!session?.success) {
+        return json({
+          success: false,
+          error: session?.error_message || "Could not create charge session",
+        }, 402);
+      }
+
+      return json({
+        success: true,
+        data: {
+          session_id: session.session_id,
+          merchant_name: merchantName,
+          amount_cents,
+          amount_formatted: `TTD $${(amount_cents / 100).toFixed(2)}`,
+          expires_at: session.expires_at,
+        },
+      });
+    }
 
     const { data: rpcResult, error: rpcError } = await admin.rpc(
       "rider_wallet_payment",

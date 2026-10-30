@@ -3,7 +3,6 @@ import Stripe from 'https://esm.sh/stripe@14.0.0'
 import { requireAuth } from '../_shared/auth.ts'
 import { checkRateLimit } from '../_shared/rateLimit.ts'
 import { checkVerticalAccess } from '../_shared/verticalGate.ts'
-import { quoteDeliveryFee } from '../_shared/deliveryFee.ts'
 
 import { getCorsHeaders } from '../_shared/cors.ts'
 
@@ -17,6 +16,46 @@ const SUPABASE_URL = requireEnv('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+// ONE delivery-fee rule for cart, quote and checkout: the server-set fee
+// from migration 20261028100000 (applied live 28 Oct 2026) — TT$25 +
+// TT$2.25/km, parameterised in pricing_config (DELIVERY_FEE_BASE_CENTS /
+// DELIVERY_FEE_PER_KM_CENTS + fuel adjustment) and computed by the DB
+// function compute_delivery_fee_cents over the straight-line store→door
+// distance. The orders trigger (set_order_delivery_fee) enforces the same
+// number at insert, so what the cart shows is what checkout charges is
+// what the row carries. Before this, get_cart showed the merchant's stale
+// flat delivery_fee_cents while place_order charged a ride-fare formula
+// (base + per-km + per-minute) — three different figures for one delivery.
+// With no delivery point yet (cart browsing), the DB function returns the
+// TT$25 base alone; once the address is known, both paths quote the full
+// distance fee from the same function.
+async function serverDeliveryFeeCents(
+  merchantId: string,
+  deliveryLat: number | null,
+  deliveryLng: number | null,
+): Promise<number> {
+  const { data, error } = await supabase.rpc('compute_delivery_fee_cents', {
+    p_merchant_id: merchantId,
+    p_delivery_lat: deliveryLat,
+    p_delivery_lng: deliveryLng,
+  })
+  if (error) throw error
+  return data as number
+}
+
+// Straight-line metres between two points — display only (the fee itself
+// comes from the DB function, which uses the same sphere distance).
+function straightLineMeters(
+  lat1: number, lng1: number, lat2: number, lng2: number,
+): number {
+  const R = 6371000
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))
+}
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
@@ -129,18 +168,26 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'get_cart') {
-      const { merchant_id } = body
+      const { merchant_id, delivery_lat, delivery_lng } = body
       if (!merchant_id) return json({ error: 'merchant_id is required' }, 400)
 
       const { data: merchant } = await supabase
         .from('merchants')
-        .select('delivery_fee_cents, minimum_order_cents')
+        .select('minimum_order_cents')
         .eq('id', merchant_id)
         .eq('is_active', true)
         .eq('activation_status', 'active')
         .single()
 
       if (!merchant) return json({ error: 'Merchant not found or inactive' }, 404)
+
+      // Same server rule checkout charges (see serverDeliveryFeeCents) —
+      // never the merchant's own flat delivery_fee_cents again. Without a
+      // delivery point this is the TT$25 base; pass delivery_lat/lng to
+      // get the exact distance fee the order will carry.
+      const deliveryFee = await serverDeliveryFeeCents(
+        merchant_id, delivery_lat ?? null, delivery_lng ?? null,
+      )
 
       const { data: cartItems } = await supabase
         .from('cart_items')
@@ -153,7 +200,7 @@ Deno.serve(async (req) => {
           success: true,
           cart: {
             items: [], subtotal_cents: 0,
-            delivery_fee_cents: merchant.delivery_fee_cents, total_cents: 0,
+            delivery_fee_cents: deliveryFee, total_cents: 0,
             minimum_order_met: 0 >= merchant.minimum_order_cents,
             minimum_order_cents: merchant.minimum_order_cents,
           },
@@ -184,7 +231,6 @@ Deno.serve(async (req) => {
         }
       })
 
-      const deliveryFee = merchant.delivery_fee_cents
       return json({
         success: true,
         cart: {
@@ -286,8 +332,8 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Distance-based delivery fee, priced like a regular ride from the
-    // store to the delivery point. The cart shows this before ordering;
+    // Server-set delivery fee quote — TT$25 + TT$2.25/km from the DB rule
+    // (see serverDeliveryFeeCents). The cart shows this before ordering;
     // place_order recomputes it server-side (the client value is never used).
     if (action === 'quote_delivery') {
       const { merchant_id, delivery_lat, delivery_lng } = body
@@ -308,8 +354,17 @@ Deno.serve(async (req) => {
         return json({ error: 'This store has no location set yet, so delivery cannot be priced.' }, 409)
       }
 
-      const quote = await quoteDeliveryFee(supabase, { lat: merchant.lat, lng: merchant.lng }, { lat: delivery_lat, lng: delivery_lng })
-      return json({ success: true, quote })
+      const feeCents = await serverDeliveryFeeCents(merchant_id, delivery_lat, delivery_lng)
+      const distanceMeters = straightLineMeters(merchant.lat, merchant.lng, delivery_lat, delivery_lng)
+      return json({
+        success: true,
+        quote: {
+          fee_cents: feeCents,
+          distance_meters: distanceMeters,
+          duration_seconds: Math.round(distanceMeters / 8.33),
+          source: 'estimate',
+        },
+      })
     }
 
     if (action === 'place_order') {
@@ -352,11 +407,12 @@ Deno.serve(async (req) => {
       }
 
       const subtotal = cartItems.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0)
-      // Distance-based, priced like a regular ride (was a flat
-      // merchants.delivery_fee_cents, which lost the platform money on
-      // cash orders once the driver's distance pay was counted).
-      const quote = await quoteDeliveryFee(supabase, { lat: merchant.lat, lng: merchant.lng }, { lat: delivery_lat, lng: delivery_lng })
-      const deliveryFee = quote.fee_cents
+      // Server-set delivery fee — the same DB rule the cart quotes and
+      // the orders trigger enforces (TT$25 + TT$2.25/km read from
+      // pricing_config; the driver's TT$20 + TT$1.75/km payout is settled
+      // downstream from the same config family). Was a ride-fare formula
+      // (base + per-km + per-minute) that matched neither.
+      const deliveryFee = await serverDeliveryFeeCents(merchant_id, delivery_lat, delivery_lng)
       const total = subtotal + deliveryFee
 
       if (subtotal < merchant.minimum_order_cents) {

@@ -31,14 +31,23 @@ serve(async (req: Request) => {
     const { data: { user }, error: authError } = await anonClient.auth.getUser();
     if (authError || !user) return json({ error: "Invalid or expired token" }, 401);
 
-    const { tag_uid: rawTag, amount_cents, merchant_id: rawMerchantId } = await req.json();
+    // HARDENED CONTRACT (migration 20261030100000): a charge is only possible
+    // against a single-use, amount-bound session the RIDER created while
+    // signed in (rider_nfc_pay, action=create_charge_session). The old
+    // contract — charge any wallet from a static printed tag_uid plus a
+    // merchant-chosen amount — was a forgeable, replayable bearer credential
+    // and is gone. The amount charged comes from the session, never from
+    // this request body.
+    const { session_id, merchant_id: rawMerchantId } = await req.json();
 
-    if (!rawTag) return json({ success: false, error: "tag_uid is required" }, 400);
-    if (!amount_cents || amount_cents <= 0) return json({ success: false, error: "amount_cents must be positive" }, 400);
+    if (!session_id) {
+      return json({
+        success: false,
+        error: "session_id is required — the rider must authorise this charge first (rider_nfc_pay create_charge_session)",
+      }, 400);
+    }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    const tagUid = String(rawTag).replace(/^https?:\/\/[^\/]+\/(node|nfc)\//, "").trim();
 
     const { data: merchant } = await admin
       .from("merchants")
@@ -71,34 +80,40 @@ serve(async (req: Request) => {
       return json({ success: false, error: "Merchant ID mismatch" }, 403);
     }
 
-    // Resolve the RIDER being charged (not the merchant caller) before the
-    // transaction, so progression is gated on the actual party spending.
-    const { data: identityTag } = await admin
-      .from("identity_tags")
-      .select("profile_id, profiles!inner(push_token, full_name)")
-      .eq("tag_uid", tagUid)
-      .eq("is_active", true)
+    // Load the session to identify the RIDER being charged (for the
+    // vertical gate and friendly errors). This read is advisory only —
+    // merchant_wallet_charge_authorised re-validates everything under a
+    // row lock and is the authoritative guard.
+    const { data: session } = await admin
+      .from("nfc_charge_sessions")
+      .select("id, rider_id, merchant_id")
+      .eq("id", session_id)
       .maybeSingle();
 
-    if (identityTag) {
-      const access = await checkVerticalAccess(admin, identityTag.profile_id, "tap");
-      if (!access.allowed) {
-        return json({ success: false, error: access.reason }, 403);
-      }
+    if (!session) {
+      return json({ success: false, error: "Charge session not found" }, 404);
+    }
+
+    if (session.merchant_id !== merchantId) {
+      return json({ success: false, error: "Charge session belongs to a different merchant" }, 403);
+    }
+
+    // Gate progression on the actual party spending (the rider), as before.
+    const access = await checkVerticalAccess(admin, session.rider_id, "tap");
+    if (!access.allowed) {
+      return json({ success: false, error: access.reason }, 403);
     }
 
     const { data: rpcResult, error: rpcError } = await admin.rpc(
-      "merchant_wallet_charge",
+      "merchant_wallet_charge_authorised",
       {
-        p_tag_uid: tagUid,
-        p_amount_cents: amount_cents,
+        p_session_id: session_id,
         p_merchant_id: merchantId,
-        p_merchant_name: merchantName,
       }
     );
 
     if (rpcError) {
-      console.error("merchant_wallet_charge RPC error:", rpcError);
+      console.error("merchant_wallet_charge_authorised RPC error:", rpcError);
       return json({ success: false, error: "Payment processing failed" }, 500);
     }
 
@@ -111,23 +126,33 @@ serve(async (req: Request) => {
       }, 402);
     }
 
-    if (identityTag) {
-      const riderProfile = (identityTag as any).profiles as { push_token?: string; full_name?: string } | null;
-      if (riderProfile?.push_token) {
-        sendPushNotification(
-          riderProfile.push_token,
-          `Payment to ${merchantName}`,
-          `TTD $${(amount_cents / 100).toFixed(2)} charged from your wallet`,
-          { type: "merchant_purchase", merchant_name: merchantName, amount_cents: String(amount_cents) },
-        ).catch((err) => console.error("push notification failed:", err));
-      }
+    // The amount is whatever the rider authorised in the session — the RPC
+    // reports it back; nothing in this request can change it.
+    const chargedAmount = result.amount_cents as number;
 
-      await admin.rpc("record_rider_activity", {
-        p_rider_id: identityTag.profile_id, p_event_type: "nfc_tap",
-        p_amount_cents: amount_cents, p_ride_id: null,
-        p_metadata: { merchant_id: merchantId, transaction_id: result.transaction_id },
-      }).then(null, () => {});
+    const { data: riderProfile } = await admin
+      .from("profiles")
+      .select("push_token, full_name")
+      .eq("id", session.rider_id)
+      .maybeSingle();
+
+    if (riderProfile?.push_token) {
+      sendPushNotification(
+        riderProfile.push_token,
+        `Payment to ${merchantName}`,
+        `TTD $${(chargedAmount / 100).toFixed(2)} charged from your wallet`,
+        { type: "merchant_purchase", merchant_name: merchantName, amount_cents: String(chargedAmount) },
+      ).catch((err) => console.error("push notification failed:", err));
     }
+
+    await admin.rpc("record_rider_activity", {
+      p_rider_id: session.rider_id, p_event_type: "nfc_tap",
+      p_amount_cents: chargedAmount, p_ride_id: null,
+      p_metadata: {
+        merchant_id: merchantId, transaction_id: result.transaction_id,
+        charge_session_id: session_id, already_consumed: result.already_consumed === true,
+      },
+    }).then(null, () => {});
 
     return json({
       success: true,
@@ -135,9 +160,10 @@ serve(async (req: Request) => {
         transaction_id: result.transaction_id,
         rider_name: result.rider_name,
         rider_balance_after_cents: result.rider_balance_after,
-        amount_cents,
-        amount_formatted: `TTD $${(amount_cents / 100).toFixed(2)}`,
+        amount_cents: chargedAmount,
+        amount_formatted: `TTD $${(chargedAmount / 100).toFixed(2)}`,
         merchant_name: merchantName,
+        already_consumed: result.already_consumed === true,
       },
     });
   } catch (err: any) {
