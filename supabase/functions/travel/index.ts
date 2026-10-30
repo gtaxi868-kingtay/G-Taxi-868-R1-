@@ -347,106 +347,14 @@ serve(async (req) => {
         });
       }
 
-      // ── auto_charge_escape_group ────────────────────────────────────────
-      case 'auto_charge_escape_group': {
-        const { data: packages } = await supabase
-          .from('escape_packages')
-          .select('id, package_name, price_per_person_cents, allocated_guests, min_guests_threshold, charge_deadline')
-          .eq('is_active', true)
-          .not('min_guests_threshold', 'is', null);
-
-        let charged = 0;
-        let failed = 0;
-        const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')!;
-
-        const readyPackages = (packages || []).filter(
-          (p: any) => p.allocated_guests >= (p.min_guests_threshold || 999999)
-        );
-
-        for (const pkg of readyPackages) {
-          const { data: participants } = await supabase
-            .from('escape_group_participants')
-            .select('id, rider_id, party_size, status, paid_cents')
-            .eq('package_id', pkg.id)
-            .eq('status', 'intent_pending');
-
-          if (!participants || participants.length === 0) continue;
-
-          for (const p of participants) {
-            const amount_cents = p.party_size * (pkg as any).price_per_person_cents;
-
-            const { data: wallets } = await supabase
-              .from('wallets')
-              .select('balance_cents')
-              .eq('user_id', p.rider_id);
-
-            const wallet = wallets?.[0];
-            if (wallet && wallet.balance_cents >= amount_cents) {
-              const { data: deductResult, error: deductErr } = await supabase
-                .rpc('charge_escape_participant_wallet', {
-                  p_rider_id: p.rider_id, p_amount_cents: amount_cents,
-                  p_package_name: (pkg as any).package_name, p_reference_id: p.id,
-                });
-
-              if (!deductErr) {
-                const { error: updateErr } = await supabase
-                  .from('escape_group_participants')
-                  .update({
-                    status: 'confirmed', paid_cents: amount_cents,
-                    charged_at: new Date().toISOString(), confirmed_at: new Date().toISOString(),
-                  })
-                  .eq('id', p.id);
-
-                if (!updateErr) {
-                  await supabase.rpc('increment_confirmed_guests', {
-                    p_package_id: pkg.id, p_increment: p.party_size,
-                  }).then((__r) => __r, () => {});
-                  charged++;
-                } else {
-                  failed++;
-                }
-              } else {
-                await supabase.from('escape_group_participants')
-                  .update({ status: 'payment_pending' }).eq('id', p.id);
-                failed++;
-              }
-            } else if (STRIPE_SECRET_KEY) {
-              try {
-                const stripeResp = await fetch('https://api.stripe.com/v1/payment_intents', {
-                  method: 'POST',
-                  headers: {
-                    Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                  },
-                  body: new URLSearchParams({
-                    amount: String(amount_cents), currency: 'ttd',
-                    'metadata[participant_id]': p.id,
-                    'metadata[package_name]': (pkg as any).package_name,
-                    'metadata[type]': 'escape_group_booking',
-                    description: `Escape group: ${(pkg as any).package_name} (${p.party_size} pax)`,
-                  }),
-                });
-                if (stripeResp.ok) {
-                  const pi = await stripeResp.json();
-                  await supabase.from('escape_group_participants')
-                    .update({ status: 'payment_pending', stripe_pi_id: pi.id }).eq('id', p.id);
-                }
-                failed++;
-              } catch {
-                failed++;
-              }
-            } else {
-              failed++;
-            }
-          }
-        }
-
-        return json({
-          charged, failed,
-          packages_scanned: (packages || []).length,
-          ready_packages: readyPackages.length,
-        });
-      }
+      // ── auto_charge_escape_group: REMOVED (register #4) ─────────────────
+      // This embedded copy let ANY logged-in rider force-charge every
+      // participant of a threshold-met package, ignoring charge_deadline —
+      // other people's money moved on a stranger's say-so. Caller search
+      // (fix wave 1, Oct 2026): no app or function invokes travel with this
+      // action — the rider app calls only book_escape. The standalone
+      // auto_charge_escape_group function is the single, cron-gated
+      // implementation and remains the only path for group charging.
 
       default:
         return json({ error: `Unknown action: ${action}` }, 400);

@@ -161,13 +161,26 @@ Deno.serve(async (req: Request) => {
 
             const { data: order, error: orderErr } = await supabaseAdmin
                 .from("orders")
-                .select("id, merchant_id, total_cents, delivery_fee_cents")
+                .select("id, merchant_id, total_cents, delivery_fee_cents, order_channel")
                 .eq("id", orderId)
                 .single();
 
             if (orderErr || !order) {
                 console.error("stripe_webhook: Order not found:", orderId);
                 return new Response("Order not found", { status: 404 });
+            }
+
+            // The order row is the authority — never the PI metadata. The
+            // split below keys off order.merchant_id and the order's own
+            // totals (register: stripe_webhook review block).
+            if (pi.amount !== order.total_cents) {
+                console.error("stripe_webhook: PI amount does not match order total:", {
+                    order_id: orderId, pi_amount: pi.amount, order_total_cents: order.total_cents,
+                });
+                await captureException(
+                    new Error(`stripe_webhook order amount mismatch: pi=${pi.amount} order=${order.total_cents}`),
+                    { function: 'stripe_webhook', order_id: orderId },
+                );
             }
 
             // Mark order as paid. NOTE: the value MUST be "captured" — the
@@ -192,27 +205,57 @@ Deno.serve(async (req: Request) => {
                 return new Response("Order update failed", { status: 500 });
             }
 
-            // Split: subtotal → merchant (85%), delivery fee → platform margin
-            // Driver paid separately from delivery fee funds when delivery completes
-            const subTotalCents = order.total_cents - (order.delivery_fee_cents ?? 0);
-            const COMMISSION_RATE = 0.15;
-            const merchantCutCents = Math.round(subTotalCents * (1 - COMMISSION_RATE));
+            // Split (register #13): the rate is NOT a constant here. The
+            // locked shop economics live in the database —
+            // calculate_delivery_merchant_cut(order) reads orders.order_channel
+            // + merchants.store_type and takes its rates from pricing_config
+            // (direct 0%; marketplace grocery/pharmacy 5%, restaurant 10%,
+            // other 8% — admin-tunable without a deploy). The previous flat
+            // 15% contradicted those economics on every order.
+            // Driver paid separately from delivery fee funds when delivery completes.
+            const { data: cutRows, error: cutErr } = await supabaseAdmin
+                .rpc('calculate_delivery_merchant_cut', { p_order_id: orderId });
+
+            const cut = Array.isArray(cutRows) ? cutRows[0] : cutRows;
+            if (cutErr || !cut) {
+                console.error("stripe_webhook: calculate_delivery_merchant_cut failed:", cutErr);
+                return new Response("Order split calculation failed", { status: 500 });
+            }
+
+            const merchantCutCents = cut.merchant_cut_cents;
             const platformFeeCents = order.total_cents - merchantCutCents;
 
-            if (merchantId) {
+            // Merchant identity comes from the fetched order row, never from
+            // caller-supplied PI metadata.
+            const orderMerchantId = order.merchant_id;
+            if (orderMerchantId) {
                 const { data: merchant } = await supabaseAdmin
                     .from("merchants")
                     .select("created_by")
-                    .eq("id", merchantId)
+                    .eq("id", orderMerchantId)
                     .single();
 
                 if (merchant?.created_by) {
-                    await supabaseAdmin.rpc('process_wallet_credit_idempotent', {
+                    // PostgREST RPC failures resolve as { error }, not
+                    // rejections — the old .then(ok, err) wrapper could never
+                    // see them, so a failed credit was invisible while the
+                    // ledger below still recorded completion. Await and check:
+                    // on failure return 500 so Stripe retries (the credit is
+                    // idempotent on event.id + '_merchant').
+                    const { error: creditErr } = await supabaseAdmin.rpc('process_wallet_credit_idempotent', {
                         p_user_id: merchant.created_by,
                         p_amount_cents: merchantCutCents,
                         p_reference_id: event.id + '_merchant',
                         p_provider: 'stripe',
-                    }).then((__r) => __r, e => console.error("Merchant credit failed:", e));
+                    });
+                    if (creditErr) {
+                        console.error("stripe_webhook: Merchant credit failed:", creditErr);
+                        await captureException(
+                            new Error(`Merchant credit failed: ${creditErr.message}`),
+                            { function: 'stripe_webhook', order_id: orderId },
+                        );
+                        return new Response("Merchant credit failed", { status: 500 });
+                    }
                 }
             }
 

@@ -1,12 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAdmin } from "../_shared/auth.ts";
+import { secretMatches } from "../_shared/constantTime.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const PLATFORM_CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
 serve(async (req: Request) => {
@@ -15,31 +18,20 @@ serve(async (req: Request) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-
-    // Cron calls have no auth header (bypass admin check).
-    // HTTP calls require admin role.
-    if (authHeader) {
-      const client = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      const { data: { user }, error } = await client.auth.getUser(
-        authHeader.replace("Bearer ", "")
-      );
-      if (error || !user) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Unauthorized" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const { data: profile } = await client
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      if (!profile || profile.role !== "admin") {
-        return new Response(
-          JSON.stringify({ success: false, error: "Forbidden" }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    // Auth gate (register item #1): this endpoint debits merchant wallets, so
+    // every call must prove who it is. Either the cron secret (constant-time
+    // compare, fail-closed when PLATFORM_CRON_SECRET is unset — same gate as
+    // process_commander_payout / process_settlement_grace) or an admin user
+    // via requireAdmin. There is no unauthenticated path: the previous
+    // "no Authorization header = cron = bypass" branch has been removed.
+    const cronHeader = req.headers.get("x-cron-secret");
+    const isCron = await secretMatches(cronHeader, PLATFORM_CRON_SECRET);
+    if (!isCron) {
+      try {
+        await requireAdmin(req);
+      } catch (e) {
+        if (e instanceof Response) return e;
+        throw e;
       }
     }
 

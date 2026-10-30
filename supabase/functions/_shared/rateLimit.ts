@@ -37,6 +37,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
     create_payment_intent: { maxRequests: 5, windowSeconds: 60 },
     update_driver_location: { maxRequests: 60, windowSeconds: 60 },
     geocode: { maxRequests: 20, windowSeconds: 60 },
+    get_nearby_drivers: { maxRequests: 30, windowSeconds: 60 },
     // Paid Google Places calls per user per day (geocode); past it, Mapbox.
     geocode_google_user: { maxRequests: 60, windowSeconds: 86400 },
     parse_natural_language: { maxRequests: 10, windowSeconds: 60 },
