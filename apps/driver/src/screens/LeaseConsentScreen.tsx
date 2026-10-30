@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    ActivityIndicator, Alert,
+    ActivityIndicator, Alert, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +43,15 @@ const ADDENDUM_TERMS = [
 export default function LeaseConsentScreen({ navigation }: AppScreenProps<'LeaseConsent'>) {
     const insets = useSafeAreaInsets();
     const [driverId, setDriverId] = useState<string | null>(null);
+    // KYC for the bank/Term Finance pack (WS2, 2026-10-29): captured here
+    // because this screen IS the lease application — it is stored on the
+    // driver_leases application row via apply_for_lease.
+    const [nationalId, setNationalId] = useState('');
+    const [dateOfBirth, setDateOfBirth] = useState('');
+    const [residentialAddress, setResidentialAddress] = useState('');
+    const kycComplete = nationalId.trim().length >= 6
+        && /^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth.trim())
+        && residentialAddress.trim().length >= 8;
     const [agreed, setAgreed] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -99,6 +108,9 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
                 fleet_vehicle_id: null,
                 daily_deduction_cents: 15000,
                 total_lease_cents: null,
+                national_id: nationalId.trim(),
+                date_of_birth: dateOfBirth.trim(),
+                residential_address: residentialAddress.trim(),
             };
 
             if (earningsPayload?.rides) {
@@ -248,6 +260,39 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
                     </View>
                 ))}
 
+                <View style={s.kycCard}>
+                    <Text style={s.kycTitle}>Your details for the bank</Text>
+                    <Text style={s.kycHelp}>
+                        Term Finance needs these to prepare your financing pack. They are stored with your lease application only.
+                    </Text>
+                    <Text style={s.kycLabel}>National ID number</Text>
+                    <TextInput
+                        style={s.kycInput}
+                        value={nationalId}
+                        onChangeText={setNationalId}
+                        placeholder="e.g. 19850101001"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        autoCapitalize="none"
+                    />
+                    <Text style={s.kycLabel}>Date of birth (YYYY-MM-DD)</Text>
+                    <TextInput
+                        style={s.kycInput}
+                        value={dateOfBirth}
+                        onChangeText={setDateOfBirth}
+                        placeholder="e.g. 1985-01-01"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        autoCapitalize="none"
+                    />
+                    <Text style={s.kycLabel}>Residential address</Text>
+                    <TextInput
+                        style={s.kycInput}
+                        value={residentialAddress}
+                        onChangeText={setResidentialAddress}
+                        placeholder="Street, area, city"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+                </View>
+
                 <TouchableOpacity
                     style={s.checkRow}
                     onPress={() => setAgreed(v => !v)}
@@ -262,9 +307,9 @@ export default function LeaseConsentScreen({ navigation }: AppScreenProps<'Lease
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[s.signCta, (!agreed || submitting || !driverId) && s.signCtaDisabled]}
+                    style={[s.signCta, (!agreed || !kycComplete || submitting || !driverId) && s.signCtaDisabled]}
                     onPress={handleSign}
-                    disabled={!agreed || submitting || !driverId}
+                    disabled={!agreed || !kycComplete || submitting || !driverId}
                     activeOpacity={0.85}
                 >
                     {submitting ? (
@@ -324,6 +369,28 @@ const s = StyleSheet.create({
     clauseBody: { flex: 1 },
     clauseHeading: { fontSize: 14, fontWeight: '700', color: '#EAF3F6', marginBottom: 6 },
     clauseText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 20 },
+
+    kycCard: {
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+    kycTitle: { fontSize: 14, fontWeight: '700', color: '#EAF3F6', marginBottom: 6 },
+    kycHelp: { fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 18, marginBottom: 12 },
+    kycLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.6)', marginBottom: 6, marginTop: 8 },
+    kycInput: {
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        fontSize: 14,
+        color: '#EAF3F6',
+    },
 
     checkRow: {
         flexDirection: 'row',

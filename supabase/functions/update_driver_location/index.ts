@@ -235,15 +235,28 @@ serve(async (req: Request) => {
 
         // B. Update current snapshot (drivers table)
         // This keeps the "Ghost Cars" and distance calcs fresh.
+        // INSURANCE GATE: a ping must not silently re-online a driver whose
+        // insurance is not on file or has expired — the server gate
+        // (trigger_enforce_insurance) would refuse the write anyway. Ask
+        // check_driver_insurance_compliance first and only mark online when
+        // compliant; location/last_seen still update either way.
+        const { data: insCheck } = await adminClient
+            .rpc("check_driver_insurance_compliance", { p_driver_id: driver_id });
+        const insuranceCompliant = (insCheck as { compliant?: boolean } | null)?.compliant === true;
+
+        const snapshotUpdate: Record<string, unknown> = {
+            lat,
+            lng,
+            heading,
+            last_seen: new Date().toISOString()
+        };
+        if (insuranceCompliant) {
+            snapshotUpdate.is_online = true; // Implicitly mark as online if sending updates
+        }
+
         const { error: snapshotError } = await adminClient
             .from("drivers")
-            .update({
-                lat,
-                lng,
-                heading,
-                is_online: true, // Implicitly mark as online if sending updates
-                last_seen: new Date().toISOString()
-            })
+            .update(snapshotUpdate)
             .eq("id", driver_id);
 
         if (snapshotError) {

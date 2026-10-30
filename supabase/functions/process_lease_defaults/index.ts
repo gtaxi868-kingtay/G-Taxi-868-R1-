@@ -168,10 +168,15 @@ Deno.serve(async (req: Request) => {
   // could never match any row (confirmed live: 0 drivers have ever had
   // status='active'), so this entire block has silently never fired.
   // is_online = true already scopes this to drivers currently driving.
+  // NULL insurance_expires_at means no insurance was ever approved onto
+  // the driver's record — the state of every pre-gate driver. A plain
+  // .lte() can never match NULL, so not-on-file drivers were never swept;
+  // the .or() below treats NULL as non-compliant, same as the go-online
+  // gate (check_driver_insurance_compliance) does.
   const { data: expiredInsurance } = await supabase
     .from("drivers")
-    .select("id, name, user_id, is_online")
-    .lte("insurance_expires_at", now.toISOString())
+    .select("id, name, user_id, is_online, insurance_expires_at")
+    .or(`insurance_expires_at.is.null,insurance_expires_at.lte.${now.toISOString()}`)
     .eq("is_online", true);
 
   if (expiredInsurance?.length) {
@@ -195,8 +200,12 @@ Deno.serve(async (req: Request) => {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 to: profile.push_token,
-                title: "Insurance expired — driving disabled",
-                body: "Your insurance has expired. Upload a new certificate to resume driving.",
+                title: driver.insurance_expires_at
+                  ? "Insurance expired — driving disabled"
+                  : "Insurance not on file — driving disabled",
+                body: driver.insurance_expires_at
+                  ? "Your insurance has expired. Upload a new certificate to resume driving."
+                  : "No insurance on file. Submit your certificate to resume driving.",
                 data: { type: "insurance_expired", driver_id: driver.id },
               }),
             });

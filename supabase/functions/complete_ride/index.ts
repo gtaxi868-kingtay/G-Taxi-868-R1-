@@ -799,28 +799,57 @@ serve(async (req: Request) => {
     let leaseDeductionStatus: "none" | "deducted" | "insufficient_balance" = "none";
 
     if (ride.driver_id) {
-      const { data: leaseResult } = await supabaseAdmin
-        .rpc("deduct_lease_installment_for_ride", { p_ride_id: ride_id })
+      // deduct_lease_installment_for_ride operates on fleet_leases and
+      // requires (p_lease_id, p_ride_id, p_gross_cents), returning
+      // installment_cents. The previous call passed only p_ride_id and
+      // read a deduction_cents column the function does not return, so
+      // this block never deducted anything. Look up the driver's active
+      // fleet lease first; drivers without one skip cleanly. (WS2 repair,
+      // 2026-10-29. The driver_leases book is deducted separately above
+      // via deduct_loan_installment.)
+      const { data: fleetLease } = await supabaseAdmin
+        .from("fleet_leases")
+        .select("id")
+        .eq("driver_id", ride.driver_id)
+        .eq("status", "active")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle()
         .then((res) => res, (err: unknown) => {
-          console.error("Lease deduction failed (non-blocking):", err);
+          console.error("Fleet lease lookup failed (non-blocking):", err);
           return { data: null };
         });
 
-      if (leaseResult && leaseResult.length > 0) {
-        const lr = leaseResult[0];
-        if (lr.success && lr.deduction_cents > 0) {
-          leaseDeductionCents = lr.deduction_cents;
-          leaseDeductionStatus = "deducted";
-          console.log(`[LEASE_DEDUCTION] Deducted ${lr.deduction_cents} cents for ride ${ride_id}`);
+      if (fleetLease?.id) {
+        const { data: leaseResult } = await supabaseAdmin
+          .rpc("deduct_lease_installment_for_ride", {
+            p_lease_id: fleetLease.id,
+            p_ride_id: ride_id,
+            p_gross_cents: effectiveFare,
+          })
+          .then((res) => res, (err: unknown) => {
+            console.error("Lease deduction failed (non-blocking):", err);
+            return { data: null };
+          });
 
-          await supabaseAdmin
-            .from("platform_revenue_logs")
-            .update({ lease_deduction_cents: lr.deduction_cents })
-            .eq("ride_id", ride_id)
-            .then((res) => res, (err: unknown) => console.error("Failed to update revenue log lease deduction:", err));
-        } else if (lr.deduction_cents > 0 && !lr.success) {
-          leaseDeductionStatus = "insufficient_balance";
-          console.warn(`[LEASE_DEDUCTION] Failed for ride ${ride_id}: ${lr.error_message}`);
+        if (leaseResult && leaseResult.length > 0) {
+          const lr = leaseResult[0];
+          if (lr.success && lr.installment_cents > 0) {
+            leaseDeductionCents = lr.installment_cents;
+            leaseDeductionStatus = "deducted";
+            console.log(`[LEASE_DEDUCTION] Deducted ${lr.installment_cents} cents for ride ${ride_id}`);
+
+            await supabaseAdmin
+              .from("platform_revenue_logs")
+              .update({ lease_deduction_cents: lr.installment_cents })
+              .eq("ride_id", ride_id)
+              .then((res) => res, (err: unknown) => console.error("Failed to update revenue log lease deduction:", err));
+          } else if (!lr.success) {
+            if ((lr.error_message || "").toLowerCase().includes("insufficient")) {
+              leaseDeductionStatus = "insufficient_balance";
+            }
+            console.warn(`[LEASE_DEDUCTION] Failed for ride ${ride_id}: ${lr.error_message}`);
+          }
         }
       }
     }
@@ -1014,7 +1043,7 @@ serve(async (req: Request) => {
                 sendPushNotification(
                   driverProfile.push_token,
                   "BYD Lease Unlocked",
-                  "You've driven 90 active days. You now qualify for a G-Taxi BYD lease. Check your app to apply.",
+                  "You've reached 500 completed rides with a 4.8+ rating. You now qualify for a G-Taxi BYD lease. Check your app to apply.",
                   { type: "LEASE_ELIGIBLE" }
                 ).then((res) => res, () => {});
               }

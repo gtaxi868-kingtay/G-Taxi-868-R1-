@@ -27,6 +27,10 @@ interface LeaseData {
     status: LeaseStatus;
     active_days_count: number;
     days_needed?: number;
+    completed_rides?: number;
+    rides_needed?: number;
+    rating?: number;
+    rating_required?: number;
     progress_pct?: number;
     qualified: boolean;
     qualified_at?: string;
@@ -119,13 +123,14 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
 
     const formatTTD = (cents: number) => `$${(cents / 100).toFixed(2)} TTD`;
 
-    // Requesting a specific vehicle now goes through G Garage: it computes
+    // Requesting a specific vehicle goes through G Garage: it computes
     // a real min/max daily contribution from the driver's own last-30-day
-    // earnings and lets them choose a vehicle class + funding source,
-    // rather than this screen firing a flat, unverified daily rate at an
-    // application that always required a fleet_vehicle_id it never had
-    // (apply_for_lease rejects fleet_vehicle_id: null — this button never
-    // actually worked). Once G Garage's admin approval creates the real
+    // earnings and lets them choose a vehicle class + funding source.
+    // The Term Finance application itself (LeaseConsentScreen -> the
+    // earnings-assignment addendum -> apply_for_lease) no longer requires
+    // a fleet_vehicle_id: since the WS2 repair (2026-10-29) the RPC
+    // accepts a vehicle-less application and the vehicle is assigned at
+    // approval. Once G Garage's admin approval creates the real
     // fleet_leases row, it shows up in the ACTIVE case below exactly like
     // before — same lease table, same 15%-of-fare cap at settlement.
     const handleApplyNow = () => {
@@ -148,23 +153,23 @@ export default function LeaseScreen({ navigation }: AppScreenProps<'Lease'>) {
 
                         <View style={s.progressSection}>
                             <View style={s.progressHeader}>
-                                <Text style={s.progressLabel}>Active Driving Days</Text>
-                                <Text style={[s.progressCount, { color: driver.accent }]}>{data.active_days_count} / 90</Text>
+                                <Text style={s.progressLabel}>Completed Rides</Text>
+                                <Text style={[s.progressCount, { color: driver.accent }]}>{data.completed_rides ?? 0} / 500</Text>
                             </View>
                             <View style={s.progressTrack}>
                                 <View style={[s.progressFill, { width: `${data.progress_pct ?? 0}%` as any, backgroundColor: driver.accent }]} />
                             </View>
                             <Text style={s.progressHelp}>
-                                {data.days_needed === 0
-                                    ? 'Qualification complete — admin review pending'
-                                    : `${data.days_needed} more active days needed`}
+                                {data.rides_needed === 0
+                                    ? 'Ride target reached — keep your rating at 4.8 or above'
+                                    : `${data.rides_needed ?? 500} more completed rides needed, with a rating of 4.8 or above`}
                             </Text>
                         </View>
 
                         <View style={s.infoBlock}>
                             <Text style={s.infoTitle}>How it works</Text>
                             {[
-                                'Drive on 90 distinct days within any 6-month window',
+                                'Complete 500 rides and hold a rating of 4.8 or above',
                                 'G-Taxi covers the down payment — no cash upfront',
                                 'A small installment is deducted from each ride (≤ 15% of fare)',
                                 'Drive the car, earn through it, own it faster',

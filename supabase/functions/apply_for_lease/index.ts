@@ -57,21 +57,32 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { fleet_vehicle_id, daily_deduction_cents, total_lease_cents } = await req.json();
+    const {
+      fleet_vehicle_id,
+      daily_deduction_cents,
+      total_lease_cents,
+      national_id,
+      date_of_birth,
+      residential_address,
+    } = await req.json();
 
-    if (!fleet_vehicle_id) {
-      return new Response(JSON.stringify({ error: "fleet_vehicle_id is required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // fleet_vehicle_id is OPTIONAL (WS2 repair, 2026-10-29): the consent
+    // flow applies before a specific vehicle is assigned and legitimately
+    // sends null — the old hard 400 here rejected every consent-flow
+    // application. The RPC validates the vehicle only when one is given;
+    // assignment happens at approval. KYC fields are captured onto the
+    // application row for the bank pack.
 
     // Apply via RPC
     const { data: result, error: rpcError } = await supabase
       .rpc("apply_for_driver_lease", {
         p_driver_id: driver.id,
-        p_fleet_vehicle_id: fleet_vehicle_id,
+        p_fleet_vehicle_id: fleet_vehicle_id || null,
         p_daily_deduction_cents: daily_deduction_cents || 15000,
         p_total_lease_cents: total_lease_cents || null,
+        p_national_id: national_id || null,
+        p_date_of_birth: date_of_birth || null,
+        p_residential_address: residential_address || null,
       });
 
     if (rpcError) {

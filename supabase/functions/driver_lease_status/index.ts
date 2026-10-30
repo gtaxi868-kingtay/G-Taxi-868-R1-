@@ -58,13 +58,33 @@ serve(async (req) => {
   const qualified = eligibility?.qualified ?? false;
 
   if (!qualified) {
+    // WS2 repair (2026-10-29): progress is measured against the CANONICAL
+    // gate — 500 completed rides + 4.8 rating (apply_for_driver_lease).
+    // This endpoint previously measured 90 active days toward a
+    // qualification the application RPC would not honour. Active-day
+    // stats are still returned for history; they no longer define the
+    // progress bar.
+    const { count: completedRides } = await supabaseAdmin
+      .from('rides')
+      .select('id', { count: 'exact', head: true })
+      .eq('driver_id', driver.id)
+      .eq('status', 'completed');
+    const { data: driverRow } = await supabaseAdmin
+      .from('drivers')
+      .select('rating')
+      .eq('id', driver.id)
+      .maybeSingle();
+    const ridesDone = completedRides ?? 0;
     return json({
       success: true,
       data: {
         status: 'NOT_ELIGIBLE_YET',
         active_days_count: activeDays,
-        days_needed: Math.max(0, 90 - activeDays),
-        progress_pct: Math.min(100, Math.round((activeDays / 90) * 100)),
+        completed_rides: ridesDone,
+        rides_needed: Math.max(0, 500 - ridesDone),
+        rating: driverRow?.rating ?? 0,
+        rating_required: 4.8,
+        progress_pct: Math.min(100, Math.round((ridesDone / 500) * 100)),
         qualified: false,
         lease: null,
         dispute: null,
