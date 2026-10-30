@@ -375,11 +375,16 @@ async function gridLiquidityCheck(supabase: SB) {
 
     if (!hotspots?.length) return;
 
+    // drivers.status only ever takes 'online' | 'offline' | 'busy'
+    // (drivers_status_check) — filtering on 'active' matched zero rows,
+    // so this check always saw an empty driver set and silently no-opped.
+    // 'online' (with is_online) is the available set, matching the
+    // active-driver definition commander_gateway's get_territory uses.
     const { data: onlineDrivers } = await supabase
         .from("drivers")
         .select("id, current_lat, current_lng")
         .eq("is_online", true)
-        .eq("status", "active");
+        .eq("status", "online");
 
     if (!onlineDrivers?.length) return;
 

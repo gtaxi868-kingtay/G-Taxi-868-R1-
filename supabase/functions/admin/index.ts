@@ -41,13 +41,25 @@ Deno.serve(async (req) => {
         // project's own rule that wallet_transactions truth is SUM(amount),
         // read via SQL, not accumulated client/function-side).
         const profileIds = (profiles || []).map((p: any) => p.id)
-        const { data: balanceRows } = await supabaseAdmin
+        const { data: balanceRows, error: balanceError } = await supabaseAdmin
           .rpc('get_wallet_balances', { p_user_ids: profileIds })
-          .then((v: any) => v, () => ({ data: null }))
+          .then((v: any) => v, (e: any) => ({ data: null, error: e }))
+        // get_wallet_balances exists live, but if the call errors the
+        // balances are UNKNOWN: report null per user, never a fabricated
+        // 0, and log the failure. (The old code discarded the error
+        // entirely — PostgREST errors resolve, they don't reject, so the
+        // rejection handler never even saw them — and every balance on
+        // the admin user list silently read TT$0.)
+        const balancesKnown = !balanceError && Array.isArray(balanceRows)
+        if (!balancesKnown) {
+          console.error('[admin/get_users] get_wallet_balances failed; balances reported as unknown (null):', balanceError)
+        }
         const balances: Record<string, number> = {}
-        balanceRows?.forEach((row: any) => {
-          balances[row.user_id] = Number(row.balance_cents) || 0
-        })
+        if (balancesKnown) {
+          balanceRows.forEach((row: any) => {
+            balances[row.user_id] = Number(row.balance_cents) || 0
+          })
+        }
 
         const users = (profiles || []).map((p: any) => ({
           id: p.id,
@@ -60,14 +72,19 @@ Deno.serve(async (req) => {
           // then 404'd); and reactivate was impossible without 'suspended'.
           driver_verified_status: driverStatus[p.id] ?? null,
           suspended: !!p.suspended,
-          balance_cents: balances[p.id] || 0,
+          // When the RPC succeeded, a user with no wallet_transactions
+          // rows genuinely has a 0 balance; when it failed, the balance
+          // is unknown and must read as null, not 0.
+          balance_cents: balancesKnown ? (balances[p.id] ?? 0) : null,
         }))
 
+        // Locked-driver detection reads balance_cents, so it must never
+        // fire on unknown (null) balances.
         const lockedDrivers = users
-          .filter((u: any) => u.is_driver && u.balance_cents <= -30000)
+          .filter((u: any) => u.is_driver && u.balance_cents !== null && u.balance_cents <= -30000)
           .map((u: any) => ({ user_id: u.id, name: u.name, balance: u.balance_cents }))
 
-        return json({ success: true, users, lockedDrivers })
+        return json({ success: true, users, lockedDrivers, balances_available: balancesKnown })
       }
 
       case 'toggle_driver': {

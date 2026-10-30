@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth } from "../_shared/auth.ts";
-import { checkRateLimit } from "../_shared/rateLimit.ts";
+import { enforceRateLimit } from "../_shared/rateLimit.ts";
 import { secureFetch } from "../_shared/networkUtility.ts";
 import { chat } from "../_shared/llm.ts";
 
@@ -26,7 +26,12 @@ serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    await checkRateLimit(supabaseAdmin, user.id, "parse_natural_language");
+    // Enforcing wrapper: checkRateLimit's result used to be discarded
+    // here, so the configured limit (10/60s) was computed and ignored —
+    // no limiting at all on a paid-LLM + multi-call Mapbox endpoint.
+    // enforceRateLimit throws a ready-to-return 429 Response instead,
+    // which the catch below already handles.
+    await enforceRateLimit(supabaseAdmin, user.id, "parse_natural_language", corsHeaders);
 
     const { query, current_lat, current_lng } = await req.json();
     if (!query || typeof query !== "string") {

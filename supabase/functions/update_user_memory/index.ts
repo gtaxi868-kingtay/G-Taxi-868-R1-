@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireAuth } from '../_shared/auth.ts';
+import { embedText } from '../_shared/embeddings.ts';
 
 
 import { getCorsHeaders } from '../_shared/cors.ts'
@@ -35,18 +36,36 @@ Deno.serve(async (req) => {
 
     const memoryText = `Rider traveled ${direction || 'unknown direction'} at ${hour}:00 on day ${day_of_week}. ${had_stop ? 'Made a stop.' : 'Direct trip.'} Paid ${payment_method || 'unknown'}.`;
 
-    const encoder = new TextEncoder();
-    const data = encoder.encode(memoryText);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const embedding = hashArray.slice(0, 768).map(b => b / 255);
+    // Real embeddings only, via the shared gateway. The old code
+    // fabricated an "embedding" from a SHA-256 digest — 32 real values
+    // in a vector(768) NOT NULL column — so the insert failed and this
+    // function 500'd on EVERY call (see _shared/embeddings.ts: a hash
+    // has no semantic geometry; never fabricate a vector).
+    // g_memory_write was considered and rejected as the route: it
+    // writes the Jarvis memory store (public.g_memory), not this
+    // function's rider-pattern table (public.user_memories) — a
+    // different table with different consumers.
+    const { vector } = await embedText(supabaseAdmin, memoryText, 'update_user_memory');
+
+    if (!vector) {
+      // No embedding provider configured/reachable, and
+      // user_memories.embedding is NOT NULL — there is no honest row
+      // to write. Store nothing and say so plainly. The only caller
+      // (rider ActiveRideScreen) invokes this fire-and-forget and
+      // ignores the response body, so this signal cannot crash it.
+      console.warn('[update_user_memory] Embedding unavailable; memory not stored for ride', ride_id);
+      return new Response(
+        JSON.stringify({ success: false, stored: false, reason: 'embedding_unavailable', memory: memoryText }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const { error } = await supabaseAdmin
       .from('user_memories')
       .insert({
         user_id,
         memory_text: memoryText,
-        embedding,
+        embedding: vector,
         metadata: {
           ride_id,
           direction,

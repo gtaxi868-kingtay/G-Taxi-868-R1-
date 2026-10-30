@@ -182,6 +182,18 @@ Deno.serve(async (req) => {
           return json({ success: false, error: 'Driver not in your territory' }, 403);
         }
 
+        if (sub_action === 'reject') {
+          // 'rejected' is a real value of the driver_verified_status ENUM,
+          // and get_driver_queue only lists 'unverified'/'pending', so this
+          // write both records the decision and removes the applicant from
+          // the queue. (Was: reject fell through with no write at all and
+          // still returned success — the commander believed the applicant
+          // had been rejected; nothing was recorded.)
+          const { error: rejectError } = await supabaseAdmin
+            .from('drivers').update({ verified_status: 'rejected', is_verified: false }).eq('id', driver_id);
+          if (rejectError) throw rejectError;
+        }
+
         if (sub_action === 'approve') {
           const { error: updateError } = await supabaseAdmin
             .from('drivers').update({ status: 'online', verified_status: 'approved', is_verified: true }).eq('id', driver_id);
@@ -423,8 +435,11 @@ Deno.serve(async (req) => {
           }, 400);
         }
 
+        // rides.driver_id holds drivers.id, NOT the auth user id — count
+        // against the driver row's own id (driver.id, already resolved
+        // above), or every real driver counts ~zero completed rides.
         const { count: ridesCompleted } = await supabaseAdmin
-          .from('rides').select('*', { count: 'exact', head: true }).eq('driver_id', driver.user_id).eq('status', 'completed');
+          .from('rides').select('*', { count: 'exact', head: true }).eq('driver_id', driver.id).eq('status', 'completed');
 
         const completedCount = ridesCompleted || 0;
         const minRides = MIN_RIDES[target_rank];

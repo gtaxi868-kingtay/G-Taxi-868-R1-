@@ -96,9 +96,12 @@ serve(async (req: Request) => {
         }
 
         // C. Check last notification time (prevent spam)
+        // (profiles has no `name` column — it is `full_name`. Selecting
+        // `name` errored the whole query, profile came back null, and
+        // every rider was silently counted as skippedNoToken.)
         const { data: profile } = await supabaseAdmin
           .from("profiles")
-          .select("push_token, last_notification_sent_at, name")
+          .select("push_token, last_notification_sent_at, full_name")
           .eq("id", riderId)
           .single();
 
@@ -118,8 +121,10 @@ serve(async (req: Request) => {
         // D. Generate push message with Groq
         const message = await generatePushMessage(supabaseAdmin, patterns);
 
-        // E. Send push notification
-        await internalFetch(`${SUPABASE_URL}/functions/v1/send_push_notification`, {
+        // E. Send push notification — and CHECK the result. The response
+        // used to be discarded entirely, so a failed send was
+        // indistinguishable from a delivered one.
+        const sendRes = await internalFetch(`${SUPABASE_URL}/functions/v1/send_push_notification`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -133,7 +138,16 @@ serve(async (req: Request) => {
           }),
         });
 
-        // F. Update last sent time
+        if (!sendRes.ok) {
+          // Nothing was sent: do NOT stamp last_notification_sent_at
+          // (the 20h anti-spam guard must not suppress a notification
+          // that never left) and count this rider as an error, not sent.
+          errors++;
+          console.error(`[Daily Push] Send failed for ${riderId}: HTTP ${sendRes.status}`);
+          continue;
+        }
+
+        // F. Update last sent time — only after an actual send.
         await supabaseAdmin
           .from("profiles")
           .update({ last_notification_sent_at: new Date().toISOString() })
