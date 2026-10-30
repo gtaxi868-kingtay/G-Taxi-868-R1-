@@ -67,21 +67,34 @@ serve(async (req: Request) => {
       // Phase 5: Conditional credit with 30-min grace period.
       // Wallet is credited immediately but will be auto-reversed if
       // no bank webhook confirmation arrives within 30 minutes.
-      const { data: wallet } = await supabaseAdmin
-        .from("wallets")
-        .select("balance_cents")
-        .eq("user_id", settlement.driver_id)
-        .single();
+      //
+      // Double-credit guard (register #5): the credit goes through the
+      // credit_wallet RPC, which takes an advisory lock on the reference id,
+      // refuses a second credit for the same settlement, increments
+      // wallets.balance_cents atomically in SQL (never a read-modify-write
+      // from this function), creates the wallet row if the driver has none,
+      // and writes the wallet_transactions ledger row. The request is then
+      // CLAIMED with a status-guarded update (WHERE status = 'pending'); if
+      // the claim returns no row, another verify already processed it and
+      // this call reports no credit of its own.
+      const { data: creditResult, error: creditErr } = await supabaseAdmin.rpc("credit_wallet", {
+        p_user_id: settlement.driver_id,
+        p_amount_cents: settlement.amount_cents,
+        p_type: "cash_settlement",
+        p_description: `Conditional credit (30min grace) — ${settlement.method} (${settlement.reference_token || "no ref"})`,
+        p_reference_id: `settlement:${settlement_id}`,
+      });
 
-      if (wallet) {
-        await supabaseAdmin
-          .from("wallets")
-          .update({ balance_cents: (wallet.balance_cents || 0) + settlement.amount_cents })
-          .eq("user_id", settlement.driver_id);
+      if (creditErr || !creditResult?.success) {
+        console.error("verify_settlement credit_wallet failed:", creditErr || creditResult);
+        return new Response(
+          JSON.stringify({ success: false, error: "Wallet credit failed — settlement left pending for retry" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
       const graceUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-      await supabaseAdmin
+      const { data: claimed, error: claimErr } = await supabaseAdmin
         .from("settlement_requests")
         .update({
           status: "grace_period",
@@ -90,15 +103,40 @@ serve(async (req: Request) => {
           verified_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("id", settlement_id);
+        .eq("id", settlement_id)
+        .eq("status", "pending")
+        .select("id");
 
-      await supabaseAdmin.rpc("log_payment_ledger", {
+      if (claimErr) {
+        console.error("verify_settlement claim failed:", claimErr);
+        return new Response(
+          JSON.stringify({ success: false, error: "Failed to update settlement request" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!claimed || claimed.length === 0) {
+        // Lost the race: another verify/reject already transitioned this
+        // request. credit_wallet's idempotency key means the wallet was
+        // credited at most once across both calls — by the winner, not here.
+        return new Response(
+          JSON.stringify({ success: false, error: "Settlement already processed", data: { credited_cents: 0 } }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { error: ledgerErr } = await supabaseAdmin.rpc("log_payment_ledger", {
         p_ride_id: null,
         p_user_id: settlement.driver_id,
         p_amount_cents: settlement.amount_cents,
         p_type: "cash_settlement",
         p_description: `Conditional credit (30min grace) — ${settlement.method} (${settlement.reference_token || "no ref"})`,
-      }).then((__r) => __r, () => {});
+      });
+      if (ledgerErr) {
+        // Secondary audit log only — the wallet_transactions row written by
+        // credit_wallet is the authoritative ledger. Log, don't hide.
+        console.error("verify_settlement log_payment_ledger failed:", ledgerErr);
+      }
 
       return new Response(
         JSON.stringify({
@@ -109,8 +147,9 @@ serve(async (req: Request) => {
       );
     }
 
-    // Reject
-    await supabaseAdmin
+    // Reject — same status-guarded claim: only a still-pending request can
+    // be rejected by this call.
+    const { data: rejected, error: rejectErr } = await supabaseAdmin
       .from("settlement_requests")
       .update({
         status: "rejected",
@@ -118,7 +157,24 @@ serve(async (req: Request) => {
         verified_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", settlement_id);
+      .eq("id", settlement_id)
+      .eq("status", "pending")
+      .select("id");
+
+    if (rejectErr) {
+      console.error("verify_settlement reject failed:", rejectErr);
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to update settlement request" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!rejected || rejected.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Settlement already processed" }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     return new Response(
       JSON.stringify({ success: true, data: { status: "rejected" } }),

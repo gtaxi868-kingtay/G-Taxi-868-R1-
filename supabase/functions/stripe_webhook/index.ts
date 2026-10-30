@@ -161,13 +161,26 @@ Deno.serve(async (req: Request) => {
 
             const { data: order, error: orderErr } = await supabaseAdmin
                 .from("orders")
-                .select("id, merchant_id, total_cents, delivery_fee_cents")
+                .select("id, merchant_id, total_cents, delivery_fee_cents, order_channel")
                 .eq("id", orderId)
                 .single();
 
             if (orderErr || !order) {
                 console.error("stripe_webhook: Order not found:", orderId);
                 return new Response("Order not found", { status: 404 });
+            }
+
+            // The order row is the authority — never the PI metadata. The
+            // split below keys off order.merchant_id and the order's own
+            // totals (register: stripe_webhook review block).
+            if (pi.amount !== order.total_cents) {
+                console.error("stripe_webhook: PI amount does not match order total:", {
+                    order_id: orderId, pi_amount: pi.amount, order_total_cents: order.total_cents,
+                });
+                await captureException(
+                    new Error(`stripe_webhook order amount mismatch: pi=${pi.amount} order=${order.total_cents}`),
+                    { function: 'stripe_webhook', order_id: orderId },
+                );
             }
 
             // Mark order as paid. NOTE: the value MUST be "captured" — the
@@ -192,27 +205,57 @@ Deno.serve(async (req: Request) => {
                 return new Response("Order update failed", { status: 500 });
             }
 
-            // Split: subtotal → merchant (85%), delivery fee → platform margin
-            // Driver paid separately from delivery fee funds when delivery completes
-            const subTotalCents = order.total_cents - (order.delivery_fee_cents ?? 0);
-            const COMMISSION_RATE = 0.15;
-            const merchantCutCents = Math.round(subTotalCents * (1 - COMMISSION_RATE));
+            // Split (register #13): the rate is NOT a constant here. The
+            // locked shop economics live in the database —
+            // calculate_delivery_merchant_cut(order) reads orders.order_channel
+            // + merchants.store_type and takes its rates from pricing_config
+            // (direct 0%; marketplace grocery/pharmacy 5%, restaurant 10%,
+            // other 8% — admin-tunable without a deploy). The previous flat
+            // 15% contradicted those economics on every order.
+            // Driver paid separately from delivery fee funds when delivery completes.
+            const { data: cutRows, error: cutErr } = await supabaseAdmin
+                .rpc('calculate_delivery_merchant_cut', { p_order_id: orderId });
+
+            const cut = Array.isArray(cutRows) ? cutRows[0] : cutRows;
+            if (cutErr || !cut) {
+                console.error("stripe_webhook: calculate_delivery_merchant_cut failed:", cutErr);
+                return new Response("Order split calculation failed", { status: 500 });
+            }
+
+            const merchantCutCents = cut.merchant_cut_cents;
             const platformFeeCents = order.total_cents - merchantCutCents;
 
-            if (merchantId) {
+            // Merchant identity comes from the fetched order row, never from
+            // caller-supplied PI metadata.
+            const orderMerchantId = order.merchant_id;
+            if (orderMerchantId) {
                 const { data: merchant } = await supabaseAdmin
                     .from("merchants")
                     .select("created_by")
-                    .eq("id", merchantId)
+                    .eq("id", orderMerchantId)
                     .single();
 
                 if (merchant?.created_by) {
-                    await supabaseAdmin.rpc('process_wallet_credit_idempotent', {
+                    // PostgREST RPC failures resolve as { error }, not
+                    // rejections — the old .then(ok, err) wrapper could never
+                    // see them, so a failed credit was invisible while the
+                    // ledger below still recorded completion. Await and check:
+                    // on failure return 500 so Stripe retries (the credit is
+                    // idempotent on event.id + '_merchant').
+                    const { error: creditErr } = await supabaseAdmin.rpc('process_wallet_credit_idempotent', {
                         p_user_id: merchant.created_by,
                         p_amount_cents: merchantCutCents,
                         p_reference_id: event.id + '_merchant',
                         p_provider: 'stripe',
-                    }).then((__r) => __r, e => console.error("Merchant credit failed:", e));
+                    });
+                    if (creditErr) {
+                        console.error("stripe_webhook: Merchant credit failed:", creditErr);
+                        await captureException(
+                            new Error(`Merchant credit failed: ${creditErr.message}`),
+                            { function: 'stripe_webhook', order_id: orderId },
+                        );
+                        return new Response("Merchant credit failed", { status: 500 });
+                    }
                 }
             }
 
@@ -331,6 +374,201 @@ Deno.serve(async (req: Request) => {
                 .from("rides")
                 .update({ payment_status: "failed" })
                 .eq("id", rideId);
+        }
+    }
+
+    // ── B2B NET-30 INVOICE PAID ───────────────────────────────
+    // generate_b2b_invoices stamps every invoice it issues with
+    // metadata.source = 'g868_b2b_net30', merchant_id and a
+    // debt_amount_cents snapshot, and writes a platform_revenue_logs
+    // claim row (metadata.debt_status = 'invoiced') BEFORE sending it.
+    // This handler is the only path that writes merchant debt down.
+    //
+    // Idempotency, two layers:
+    //  1. The layer-1 check at the top of this handler dedupes exact
+    //     redeliveries of this event id via payment_ledger (this
+    //     handler writes a ledger row keyed on event.id below).
+    //  2. Per-INVOICE once-only: Stripe can deliver different events
+    //     for the same invoice payment, so the write-down runs only
+    //     inside an atomic claim — a conditional UPDATE that flips
+    //     the claim row's debt_status invoiced → paid. A second
+    //     delivery (any event id) finds the row already 'paid', or
+    //     loses the conditional update, and writes nothing down.
+    // The reduction is capped at the invoiced snapshot and the debt
+    // is floored at 0 — a write-down can never exceed what was billed
+    // or drive the balance negative.
+    // Invoices without our marker are foreign to this system: ack and
+    // ignore; debt is never touched for them.
+    if (event.type === "invoice.paid") {
+        const invoice = event.data.object as Stripe.Invoice;
+        const merchantId = invoice.metadata?.merchant_id;
+
+        if (invoice.metadata?.source !== "g868_b2b_net30" || !merchantId) {
+            console.log(`stripe_webhook: invoice.paid for ${invoice.id} carries no G868 B2B marker — ignoring.`);
+            return new Response(JSON.stringify({ received: true, ignored: "not_b2b_invoice" }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+
+        const { data: claimRows, error: claimFetchErr } = await supabaseAdmin
+            .from("platform_revenue_logs")
+            .select("id, metadata")
+            .eq("merchant_id", merchantId)
+            .contains("metadata", { stripe_invoice_id: invoice.id })
+            .limit(1);
+
+        if (claimFetchErr) {
+            console.error("stripe_webhook: B2B claim lookup failed:", claimFetchErr);
+            return new Response("Claim lookup failed", { status: 500 });
+        }
+
+        const claim = claimRows?.[0] as { id: string; metadata: Record<string, unknown> } | undefined;
+
+        if (!claim) {
+            // Marker present but no claim row: there is no once-only
+            // anchor, so writing down would be unsafe. Loud but acked —
+            // Stripe retries cannot conjure the row; an admin must
+            // reconcile this invoice manually.
+            console.error(`stripe_webhook: B2B invoice ${invoice.id} has no platform_revenue_logs claim row — debt NOT written down.`);
+            await captureException(
+                new Error(`B2B invoice ${invoice.id} missing claim row`),
+                { function: 'stripe_webhook', merchant_id: merchantId },
+            );
+            return new Response(JSON.stringify({ received: true, warning: "missing_claim_row" }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+
+        if (claim.metadata?.debt_status === "paid") {
+            console.log(`stripe_webhook: B2B invoice ${invoice.id} already applied. Returning 200.`);
+            return new Response(JSON.stringify({ status: "invoice_already_applied" }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+
+        // Claim the row: the conditional update only matches while the
+        // row is still 'invoiced', so exactly one delivery wins it.
+        const { data: claimedRows, error: claimErr } = await supabaseAdmin
+            .from("platform_revenue_logs")
+            .update({
+                metadata: {
+                    ...claim.metadata,
+                    debt_status: "paid",
+                    paid_stripe_event_id: event.id,
+                    paid_at: new Date().toISOString(),
+                },
+            })
+            .eq("id", claim.id)
+            .filter("metadata->>debt_status", "eq", "invoiced")
+            .select("id");
+
+        if (claimErr) {
+            console.error("stripe_webhook: B2B claim update failed:", claimErr);
+            return new Response("Claim update failed", { status: 500 });
+        }
+
+        if (!claimedRows?.length) {
+            console.log(`stripe_webhook: B2B invoice ${invoice.id} claim lost to a parallel delivery. Returning 200.`);
+            return new Response(JSON.stringify({ status: "invoice_already_applied" }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+
+        // Write the debt down. If anything below fails, the claim is
+        // reverted (best effort) before returning 500 so Stripe's retry
+        // can redo the write-down instead of finding the row 'paid'
+        // with the debt still standing.
+        const unclaim = async () => {
+            await supabaseAdmin
+                .from("platform_revenue_logs")
+                .update({ metadata: claim.metadata })
+                .eq("id", claim.id)
+                .then((__r) => __r, (err) => console.error("stripe_webhook: failed to revert B2B claim:", err));
+        };
+
+        const snapshotCents = Number(claim.metadata?.debt_amount_cents) || invoice.amount_paid || 0;
+        const reductionCents = Math.min(invoice.amount_paid ?? 0, snapshotCents);
+
+        const { data: merchantRow, error: merchantErr } = await supabaseAdmin
+            .from("merchants")
+            .select("current_debt_cents, created_by")
+            .eq("id", merchantId)
+            .single();
+
+        if (merchantErr || !merchantRow) {
+            console.error("stripe_webhook: B2B merchant not found:", merchantId, merchantErr);
+            await unclaim();
+            return new Response("Merchant not found", { status: 500 });
+        }
+
+        const newDebtCents = Math.max(0, (merchantRow.current_debt_cents ?? 0) - reductionCents);
+
+        const { error: debtErr } = await supabaseAdmin
+            .from("merchants")
+            .update({ current_debt_cents: newDebtCents })
+            .eq("id", merchantId);
+
+        if (debtErr) {
+            console.error("stripe_webhook: B2B debt write-down failed:", debtErr);
+            await unclaim();
+            return new Response("Debt write-down failed", { status: 500 });
+        }
+
+        // Audit trail in payment_ledger (the layer-1 dedupe anchor for
+        // exact redeliveries of this event). Best-effort: the claimed
+        // row above is the once-only guarantee, so a ledger failure is
+        // logged, not fatal. payment_ledger.user_id is NOT NULL, so the
+        // row is only written when the merchant has an owner account.
+        if (merchantRow.created_by && reductionCents > 0) {
+            const { error: ledgerErr } = await supabaseAdmin
+                .from('payment_ledger')
+                .insert({
+                    ride_id: null,
+                    order_id: null,
+                    user_id: merchantRow.created_by,
+                    amount: reductionCents / 100.0,
+                    currency: (invoice.currency ?? 'ttd').toUpperCase(),
+                    status: 'captured',
+                    provider: 'stripe',
+                    provider_ref: invoice.id,
+                    stripe_event_id: event.id,
+                    processing_status: 'completed',
+                    metadata: { kind: 'b2b_invoice_payment', merchant_id: merchantId, stripe_invoice_id: invoice.id },
+                });
+            if (ledgerErr) {
+                console.error("stripe_webhook: B2B payment_ledger insert failed (write-down already applied):", ledgerErr);
+            }
+        }
+
+        console.log(`stripe_webhook: B2B invoice ${invoice.id} paid — merchant ${merchantId} debt reduced by ${reductionCents}c to ${newDebtCents}c.`);
+        return new Response(JSON.stringify({
+            status: 'b2b_invoice_paid',
+            merchant_id: merchantId,
+            reduction_cents: reductionCents,
+            remaining_debt_cents: newDebtCents,
+        }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+        });
+    }
+
+    // ── B2B NET-30 INVOICE PAYMENT FAILED ─────────────────────
+    // Log + alert only. The claim row stays 'invoiced', the debt stays
+    // on the merchant's books, and generate_b2b_invoices keeps refusing
+    // to re-bill it while it is outstanding. Stripe's own dunning
+    // drives the retry/collection side.
+    if (event.type === "invoice.payment_failed") {
+        const invoice = event.data.object as Stripe.Invoice;
+        if (invoice.metadata?.source === "g868_b2b_net30") {
+            console.error(`stripe_webhook: B2B invoice ${invoice.id} payment FAILED for merchant ${invoice.metadata?.merchant_id ?? "unknown"} — debt remains outstanding.`);
+            await captureException(
+                new Error(`B2B invoice payment failed: ${invoice.id}`),
+                { function: 'stripe_webhook', merchant_id: invoice.metadata?.merchant_id },
+            );
         }
     }
 

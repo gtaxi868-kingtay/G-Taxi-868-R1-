@@ -36,9 +36,16 @@ Deno.serve(async (req: Request) => {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   // ── PENDING RESOLUTION SWEEP ─────────────────────────────────
+  // NOTE (register #3): wipay_sessions has NO amount_cents column — selecting
+  // it made this sweep's first query fail on every run (430 failed billed
+  // calls in six hours, per migration 20260807020000). The amount lives in
+  // form_fields.total (dollars, set by create_wipay_payment). Settlement
+  // below reads the authoritative fare from the ride row, exactly like
+  // wipay_webhook; form_fields is selected only so the amount is available
+  // for logging/reconciliation.
   const { data: pendingSessions, error: fetchError } = await supabase
     .from("wipay_sessions")
-    .select("id, order_id, ride_id, transaction_id, amount_cents, created_at, pending_since")
+    .select("id, order_id, ride_id, transaction_id, form_fields, created_at, pending_since")
     .eq("status", "pending_resolution")
     .lte("pending_since", fiveMinutesAgo);
 
@@ -80,15 +87,25 @@ Deno.serve(async (req: Request) => {
         .then((__r) => __r, () => {});
 
       if (session.ride_id) {
-        // Attempt refund via wallet credit
+        // Attempt refund via wallet credit — GUARDED (register #3): never
+        // refund a ride whose payment already settled. A session can sit in
+        // pending_resolution while the webhook captured and settled the same
+        // ride; force-failing that session must not refund on top of the
+        // settlement. The stale session row is still marked failed above;
+        // only the money movement (and the rider notification) is skipped.
         const { data: ride } = await supabase
           .from("rides")
-          .select("rider_id, total_fare_cents, payment_method")
+          .select("rider_id, total_fare_cents, payment_method, payment_status")
           .eq("id", session.ride_id)
           .single()
           .then((__r) => __r, () => ({ data: null }));
 
-        if (ride?.rider_id && ride?.total_fare_cents) {
+        const alreadySettled = ["captured", "confirmed", "receipt_sent"].includes(ride?.payment_status ?? "");
+        if (alreadySettled) {
+          console.warn(`[process_pending_wipay_settlements] Session ${session.id} force-failed but ride ${session.ride_id} is already ${ride?.payment_status} — refund skipped`);
+        }
+
+        if (!alreadySettled && ride?.rider_id && ride?.total_fare_cents) {
           await supabase
             .rpc("process_wallet_payment_hardened", {
               p_ride_id: session.ride_id,
@@ -151,20 +168,85 @@ Deno.serve(async (req: Request) => {
       const txnStatus = wipayData?.status?.toLowerCase?.() ?? "";
 
       if (txnStatus === "success" || txnStatus === "completed") {
+        // SETTLE THE DRIVER (register #3): previously this path marked the
+        // ride captured and stopped — rider charged, driver never credited,
+        // the exact bug wipay_webhook's ride path was fixed for. Mirror the
+        // webhook: same atomic RPC, same idempotency anchor
+        // (`wipay_<txnId|orderId>`), so if the webhook also fires for this
+        // transaction the settlement lands exactly once.
+        let settlementOk = true;
+
         if (session.ride_id) {
           await supabase
             .from("rides")
             .update({ payment_status: "captured", wipay_transaction_id: session.transaction_id })
             .eq("id", session.ride_id)
             .then((__r) => __r, (err) => console.error("Failed to update ride payment:", err));
+
+          const { data: ride, error: rideErr } = await supabase
+            .from("rides")
+            .select("id, driver_id, rider_id, total_fare_cents")
+            .eq("id", session.ride_id)
+            .maybeSingle();
+
+          if (rideErr || !ride) {
+            console.error("[process_pending_wipay_settlements] Ride not found for settlement:", session.ride_id, rideErr);
+            settlementOk = false;
+          } else if (!ride.driver_id) {
+            // Grocery/other WiPay flows have no driver — nothing to settle.
+            console.log("[process_pending_wipay_settlements] No driver on ride; skipping driver settlement:", session.ride_id);
+          } else if ((ride.total_fare_cents ?? 0) <= 0) {
+            console.error("[process_pending_wipay_settlements] Refusing to settle a non-positive fare:", session.ride_id);
+            settlementOk = false;
+          } else {
+            const eventId = `wipay_${session.transaction_id || session.order_id}`;
+            const { error: settlementError } = await supabase.rpc(
+              "process_driver_settlement_atomic",
+              {
+                p_event_id: eventId,
+                p_ride_id: ride.id,
+                p_driver_id: ride.driver_id,
+                p_rider_id: ride.rider_id,
+                p_gross_cents: ride.total_fare_cents,
+                p_currency: "TTD",
+                p_provider_ref: session.transaction_id || session.order_id,
+              },
+            );
+
+            if (settlementError) {
+              // Money HAS been taken. Do not mark the session resolved —
+              // leave it pending_resolution so the next sweep retries the
+              // (idempotent) settlement, and raise an alert for manual
+              // reconciliation.
+              console.error("[process_pending_wipay_settlements] SETTLEMENT FAILED — rider charged, driver unpaid:", {
+                ride_id: ride.id, event_id: eventId, error: settlementError.message,
+              });
+              await supabase
+                .from("system_alerts")
+                .insert({
+                  type: "PAYMENT_ANOMALY",
+                  title: "WiPay payment captured but driver settlement failed",
+                  severity: "CRITICAL",
+                  details: {
+                    ride_id: ride.id, order_id: session.order_id, transaction_id: session.transaction_id,
+                    gross_cents: ride.total_fare_cents, error: settlementError.message,
+                    body: "Rider was charged. Driver was NOT credited. Reconcile manually.",
+                  },
+                })
+                .then((__r) => __r, () => {});
+              settlementOk = false;
+            }
+          }
         }
 
-        await supabase
-          .from("wipay_sessions")
-          .update({ status: "completed", resolved_at: new Date().toISOString() })
-          .eq("id", session.id);
+        if (settlementOk) {
+          await supabase
+            .from("wipay_sessions")
+            .update({ status: "completed", resolved_at: new Date().toISOString() })
+            .eq("id", session.id);
 
-        resolved++;
+          resolved++;
+        }
       } else if (txnStatus === "cancelled" || txnStatus === "failed") {
         await supabase
           .from("wipay_sessions")

@@ -1,14 +1,24 @@
 // Supabase Edge Function: submit_settlement
 // P2: Driver submits a cash settlement request — WiPay debit or Smart ATM deposit.
-// Validates GPS proximity to verified ATM locations if method = smart_atm.
+// For method = smart_atm the deposit coordinates are required and stored as
+// evidence for the admin's verify decision. NOTE: there is no verified-ATM
+// location table in the system, so no GPS proximity validation is performed
+// here — an earlier version of this header claimed otherwise; that claim was
+// false and has been removed (register: submit_settlement review block).
 // Returns the settlement_requests row for the driver to track.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireDriver } from "../_shared/auth.ts";
 
 import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Sanity bound, not a business rule: a single cash settlement above TT$10,000
+// is outside any plausible day's cash collection for the pilot and indicates
+// a client bug or abuse. The admin verify step remains the real barrier.
+const MAX_SETTLEMENT_CENTS = 1_000_000;
 
 
 serve(async (req: Request) => {
@@ -18,25 +28,28 @@ serve(async (req: Request) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(
-      authHeader?.replace("Bearer ", "") ?? ""
-    );
-    if (authErr || !user) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Driver-only (register: submit_settlement review block): previously any
+    // authenticated user — rider, merchant, anyone — could file a settlement
+    // request for an arbitrary amount, and only the admin's eyeball in
+    // verify_settlement stood between it and a wallet credit. requireDriver
+    // enforces a registered, non-blocked driver record for the caller.
+    const { user } = await requireDriver(req, supabaseAdmin);
 
     const body = await req.json();
     const { amount_cents, method, reference_token, receipt_photo_url, deposit_lat, deposit_lng } = body;
 
-    if (!amount_cents || amount_cents <= 0) {
+    if (!Number.isInteger(amount_cents) || amount_cents <= 0) {
       return new Response(
         JSON.stringify({ success: false, error: "Invalid amount_cents" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (amount_cents > MAX_SETTLEMENT_CENTS) {
+      return new Response(
+        JSON.stringify({ success: false, error: "amount_cents exceeds the maximum single settlement" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

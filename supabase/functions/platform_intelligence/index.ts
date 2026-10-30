@@ -41,15 +41,25 @@ const PLATFORM_CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
 
 // ── Expo push helper (self-contained, no _shared/push.ts) ────────────────────
-async function sendExpoPush(token: string | null, title: string, body: string, data: Record<string, unknown> = {}) {
-    if (!token || !token.startsWith("ExponentPushToken[")) return;
+// Returns true only when Expo accepted the message (ticket status 'ok').
+// Previously this swallowed every failure and returned void, so callers
+// could not tell a delivered push from a silent no-op (no token, invalid
+// token, gateway rejection) — orchestrateLiquidity marked dispatch tasks
+// 'assigned' on the strength of pushes that never left (group5 review).
+// Callers that don't care may still ignore the return value.
+async function sendExpoPush(token: string | null, title: string, body: string, data: Record<string, unknown> = {}): Promise<boolean> {
+    if (!token || !token.startsWith("ExponentPushToken[")) return false;
     try {
-        await fetch("https://exp.host/--/api/v2/push/send", {
+        const resp = await fetch("https://exp.host/--/api/v2/push/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ to: token, title, body, data, sound: "default" }),
         });
-    } catch (_) { /* non-fatal */ }
+        if (!resp.ok) return false;
+        const json = await resp.json().catch(() => null);
+        const ticket = Array.isArray(json?.data) ? json.data[0] : null;
+        return ticket?.status === "ok";
+    } catch (_) { return false; }
 }
 
 // ── PRE-STEP 1: Activate scheduled transfers ─────────────────────────────────
@@ -62,22 +72,34 @@ async function activateScheduledTransfers(supabase: SB) {
         .from("rides")
         .select("id, rider_id, pickup_lat, pickup_lng")
         .eq("status", "scheduled")
-        .lte("scheduled_for", windowCutoff);
+        .lte("scheduled_for", windowCutoff)
+        .order("scheduled_for", { ascending: true });
 
     if (error || !rides?.length) return;
 
-    // AMODEI CIRCUIT BREAKER
-    if (rides.length > 5) {
+    // PER-RUN CAP — replaces the old ">5 circuit breaker", which THREW on
+    // a busy window and thereby disabled activation for every scheduled
+    // transfer at once, precisely when it mattered (group5 review): the
+    // pre-step rejected inside Promise.allSettled and no ride was
+    // matched. More than 5 departures inside 45 minutes is a normal busy
+    // morning, not an anomaly. Now: activate earliest departures first,
+    // up to a per-run bound that still guards against a pathological
+    // burst; the overflow stays 'scheduled' and is picked up by the next
+    // invocation (cron fires every 2 minutes, window is 45) — and the
+    // overflow is alerted, not silently dropped.
+    const MAX_ACTIVATIONS_PER_RUN = 50;
+    let batch = rides;
+    if (rides.length > MAX_ACTIVATIONS_PER_RUN) {
         await supabase.from("system_alerts").insert({
             type: "RATE_LIMIT_BURST",
-            title: "Anomaly Detected: activateScheduledTransfers",
-            details: { message: `Attempted to activate ${rides.length} scheduled transfers at once. Circuit breaker tripped.` },
-            severity: "CRITICAL"
+            title: "activateScheduledTransfers window overflow",
+            details: { message: `${rides.length} scheduled transfers in window; activating earliest ${MAX_ACTIVATIONS_PER_RUN} this run, remainder next run.` },
+            severity: "HIGH"
         }).then((__r) => __r, () => null);
-        throw new Error("Circuit breaker tripped: activateScheduledTransfers exceeded 5 row safety limit.");
+        batch = rides.slice(0, MAX_ACTIVATIONS_PER_RUN);
     }
 
-    for (const ride of rides) {
+    for (const ride of batch) {
         await supabase
             .from("rides")
             .update({ status: "searching" })
@@ -336,12 +358,39 @@ async function orchestrateLiquidity(supabase: SB) {
             : task.task_type === "LAUNDRY" ? "Laundry pickup"
             : "Delivery task";
 
-        await sendExpoPush(
+        const delivered = await sendExpoPush(
             driver.push_token ?? null,
             `New ${taskLabel} available`,
             `Priority ${task.priority} ${task.task_type} — tap to accept.`,
             { task_id: task.id, task_type: task.task_type, ride_id: task.ride_id, order_id: task.order_id, type: "dispatch_task" },
         );
+
+        // A task is only consumed when the driver was actually notified.
+        // sendExpoPush no-ops when the driver has no valid Expo token,
+        // and the old code marked the task 'assigned' anyway — it left
+        // the pending pool assigned to a driver who never heard about
+        // it (group5 review). Undelivered: count the attempt (the
+        // attempts < 3 filter retires it eventually) and leave the task
+        // pending for a later attempt or another driver.
+        if (!delivered) {
+            await supabase.from("dispatch_queue")
+                .update({
+                    attempts: task.attempts + 1,
+                    last_attempted: now.toISOString(),
+                })
+                .eq("id", task.id);
+
+            await supabase.from("agent_decision_log").insert({
+                decision_type: "dispatch_ping_failed",
+                reasoning: `${task.task_type} task ${task.id} (priority ${task.priority}) — push to driver ${driver.driver_id} not delivered; task left pending`,
+                tool_used: "orchestrateLiquidity",
+                payload: { task_id: task.id, driver_id: driver.driver_id, task_type: task.task_type, priority: task.priority },
+                outcome: "push_not_delivered_task_left_pending",
+            }).then((__r) => __r, () => null);
+
+            console.log(`[orchestrateLiquidity] ${task.task_type} task ${task.id} → driver ${driver.driver_id} push NOT delivered, task left pending`);
+            return;
+        }
 
         await supabase.from("dispatch_queue")
             .update({
@@ -375,11 +424,16 @@ async function gridLiquidityCheck(supabase: SB) {
 
     if (!hotspots?.length) return;
 
+    // drivers.status only ever takes 'online' | 'offline' | 'busy'
+    // (drivers_status_check) — filtering on 'active' matched zero rows,
+    // so this check always saw an empty driver set and silently no-opped.
+    // 'online' (with is_online) is the available set, matching the
+    // active-driver definition commander_gateway's get_territory uses.
     const { data: onlineDrivers } = await supabase
         .from("drivers")
         .select("id, current_lat, current_lng")
         .eq("is_online", true)
-        .eq("status", "active");
+        .eq("status", "online");
 
     if (!onlineDrivers?.length) return;
 
@@ -686,12 +740,31 @@ const TOOLS = [
 
 // ── Tool execution ────────────────────────────────────────────────────────────
 
+// The system prompt's "at most 3 interventions per run" rule was enforced
+// by the prompt text alone — the code permitted 5 tool calls per step
+// across 10 iterations, so nothing actually stopped a run from
+// intervening far more than the stated rule (group5 review). The cap
+// lives here, in code. An intervention is a state-changing tool call
+// (surge activation, order dispatch); read-only tools and log_no_action
+// never count. The slot is consumed on invocation, so a failed attempt
+// counts too — the cap is a safety bound, not a success quota.
+const INTERVENTION_TOOLS = new Set(["set_surge_multiplier", "dispatch_pending_order"]);
+const MAX_INTERVENTIONS_PER_RUN = 3;
+
 async function executeTool(
     toolName: string,
     input: Record<string, unknown>,
     supabase: SB,
     runId: string,
+    interventions: { count: number },
 ): Promise<unknown> {
+    if (INTERVENTION_TOOLS.has(toolName)) {
+        if (interventions.count >= MAX_INTERVENTIONS_PER_RUN) {
+            return { error: `Intervention cap reached (${MAX_INTERVENTIONS_PER_RUN} per run) — no further state-changing actions this run. Call log_no_action to close out the run.` };
+        }
+        interventions.count++;
+    }
+
     switch (toolName) {
         case "get_demand_hotspots": {
             const minScore = (input.min_score as number) ?? 1.4;
@@ -770,21 +843,34 @@ async function executeTool(
         case "dispatch_pending_order": {
             const { order_id, reasoning } = input as { order_id: string; reasoning: string };
 
-            const { error } = await supabase
+            // The attempts increment used to run through supabase.rpc("sql",
+            // { query: ... }) — no 'sql' procedure exists, and the call was
+            // swallowed (.then(r, () => null)), so the increment never
+            // happened, invisibly (group5 review). Do it as a read +
+            // conditional update on the pending rows themselves: the
+            // status='pending' filter on both the read and the update is
+            // the guard against double-processing a row.
+            const { data: queueRows, error: fetchErr } = await supabase
                 .from("dispatch_queue")
-                .update({
-                    status: "dispatched",
-                    last_attempted: new Date().toISOString(),
-                })
+                .select("id, attempts")
                 .eq("order_id", order_id)
                 .eq("status", "pending");
 
-            await supabase.rpc("sql", {
-                query: `UPDATE dispatch_queue SET attempts = attempts + 1, last_attempted = now() WHERE order_id = $1`,
-                params: [order_id],
-            }).then((__r) => __r, () => null);
+            if (fetchErr) return { error: fetchErr.message };
 
-            if (error) return { error: error.message };
+            for (const row of queueRows ?? []) {
+                const { error } = await supabase
+                    .from("dispatch_queue")
+                    .update({
+                        status: "dispatched",
+                        attempts: (row.attempts ?? 0) + 1,
+                        last_attempted: new Date().toISOString(),
+                    })
+                    .eq("id", row.id)
+                    .eq("status", "pending");
+
+                if (error) return { error: error.message };
+            }
 
             await supabase.from("agent_decision_log").insert({
                 run_id: runId,
@@ -936,6 +1022,7 @@ Context:
         let continueLoop = true;
         let iterations = 0;
         const MAX_ITERATIONS = 10;
+        const interventions = { count: 0 };
 
         while (continueLoop && iterations < MAX_ITERATIONS) {
             iterations++;
@@ -995,7 +1082,7 @@ Context:
                     let parsedInput: Record<string, unknown> = {};
                     try { parsedInput = JSON.parse(toolCall.function.arguments); } catch { /* empty args */ }
 
-                    const result = await executeTool(toolCall.function.name, parsedInput, supabase, runId);
+                    const result = await executeTool(toolCall.function.name, parsedInput, supabase, runId, interventions);
                     messages.push({
                         role: "tool",
                         tool_call_id: toolCall.id,

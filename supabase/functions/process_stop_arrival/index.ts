@@ -104,16 +104,48 @@ Deno.serve(async (req) => {
         })
       }
 
+      // Ownership (register #10): the stop's ride must be assigned to THIS
+      // driver — the same discipline the delivery branch above applies via
+      // orders.delivery_driver_id. The stop branch previously fetched by id
+      // alone, so any registered driver holding one delivery of their own
+      // could complete (and disrupt) another driver's pending stop.
+      // Checked before the status check so stop state is not leaked to
+      // non-owners. rides.driver_id holds drivers.id.
+      const { data: stopRide, error: stopRideError } = await supabaseAdmin
+        .from('rides')
+        .select('id, driver_id')
+        .eq('id', stop.ride_id)
+        .single()
+
+      if (stopRideError || !stopRide) {
+        return new Response(JSON.stringify({ error: 'Stop ride not found' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (stopRide.driver_id !== driverId) {
+        return new Response(JSON.stringify({ error: 'Not assigned to this ride' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       if (stop.status !== 'pending') {
         return new Response(JSON.stringify({ error: 'Stop already completed or skipped' }), {
           status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
 
-      await supabaseAdmin
+      const { error: stopUpdateError } = await supabaseAdmin
         .from('ride_stops')
         .update({ arrived_at: new Date().toISOString(), status: 'completed' })
         .eq('id', stop_id)
+        .eq('status', 'pending')
+
+      if (stopUpdateError) {
+        return new Response(JSON.stringify({ error: 'Failed to complete stop' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
 
       return new Response(JSON.stringify({
         success: true,
@@ -161,7 +193,13 @@ Deno.serve(async (req) => {
         }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
       payoutResult = settled
-      await supabaseAdmin.from('orders').update({ delivery_status: 'delivered' }).eq('id', delivery_id)
+      // Was silently ignored: a failed write left delivery_status behind a
+      // settlement that already paid out. Log it loudly (the settlement is
+      // the money truth; the status can be reconciled from the log).
+      const { error: deliveredMarkError } = await supabaseAdmin.from('orders').update({ delivery_status: 'delivered' }).eq('id', delivery_id)
+      if (deliveredMarkError) {
+        console.error('process_stop_arrival: settlement landed but delivery_status update failed for', delivery_id, deliveredMarkError)
+      }
     } else {
       // In transit. 'out_for_delivery' is the status both settlement
       // functions accept at the end (the old 'in_delivery' was accepted by

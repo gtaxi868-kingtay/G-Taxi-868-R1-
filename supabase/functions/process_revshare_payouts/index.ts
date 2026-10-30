@@ -39,6 +39,26 @@ async function disburseToOrganizer(
     return { status: 'pending', note: 'WiPay secrets not set' }
   }
 
+  // Local idempotency guard (register #16): if a previous attempt already
+  // reached WiPay and was recorded 'submitted' or 'completed', NEVER
+  // disburse again — return the recorded state. This is the provable
+  // double-pay path (retry after a successful-but-misreported attempt) and
+  // it is now closed locally, independent of provider behaviour.
+  const { data: existingPayout } = await supabaseAdmin
+    .from('revshare_payouts')
+    .select('wipay_status, wipay_transaction_id')
+    .eq('id', payoutId)
+    .maybeSingle()
+    .then((__r: any) => __r, () => ({ data: null }))
+
+  if (existingPayout?.wipay_status === 'submitted' || existingPayout?.wipay_status === 'completed') {
+    return {
+      status: existingPayout.wipay_status,
+      wipay_transaction_id: existingPayout.wipay_transaction_id ?? undefined,
+      note: 'Already disbursed — repeat attempt suppressed by local idempotency guard',
+    }
+  }
+
   // Look up default bank account
   const { data: bankAccount } = await supabaseAdmin
     .from('organizer_bank_accounts')
@@ -58,8 +78,16 @@ async function disburseToOrganizer(
     return { status: 'pending', note: 'No bank account registered' }
   }
 
+  // The idempotency key IS the order_id sent to WiPay, and it is stable per
+  // payout across every attempt. Previously the key was computed and never
+  // sent, while order_id was regenerated with Date.now() per attempt — so a
+  // retry after an ambiguous failure presented as a brand-new payment and
+  // WiPay paid twice. Now every attempt for this payout carries the same
+  // order_id; if WiPay dedupes on order_id (unverifiable from this codebase —
+  // no WiPay call site documents an idempotency field), retries collapse
+  // provider-side as well.
   const idempotencyKey = `wipay_revshare_${payoutId}`
-  const orderId = `revshare_${payoutId.slice(0, 8)}_${Date.now()}`
+  const orderId = idempotencyKey
 
   try {
     const wipayResp = await fetch(`${WIPAY_BASE_URL}/payout`, {
