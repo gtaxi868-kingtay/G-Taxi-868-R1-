@@ -6,23 +6,47 @@
          the URLs below to https://gtaxi.tt once that domain is pointed at
          this Vercel project. -->
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#07070F">
-    <title>Register Your Store | G 868</title>
-    <meta name="description" content="Claim your invited G 868 spot: create your merchant account, add payout details, and submit your store for review.">
+    <title>Register Your Store with G 868 | Trinidad and Tobago</title>
+    <meta name="description" content="Register your shop with G 868 in Trinidad and Tobago. Turn your counter into a taxi stand, earn on every ride that starts there, and go live once HQ approves.">
     <link rel="canonical" href="https://g-taxi-868-r1-admin.vercel.app/merchant-onboard">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="G 868">
-    <meta property="og:title" content="Register Your Store | G 868">
-    <meta property="og:description" content="Claim your invited G 868 spot: create your merchant account, add payout details, and submit your store for review.">
+    <meta property="og:title" content="Register Your Store with G 868 | Trinidad and Tobago">
+    <meta property="og:description" content="Register your shop with G 868 in Trinidad and Tobago. Turn your counter into a taxi stand, earn on every ride that starts there, and go live once HQ approves.">
     <meta property="og:url" content="https://g-taxi-868-r1-admin.vercel.app/merchant-onboard">
     <meta property="og:image" content="https://g-taxi-868-r1-admin.vercel.app/og-preview.jpg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Register Your Store | G 868">
-    <meta name="twitter:description" content="Claim your invited G 868 spot: create your merchant account, add payout details, and submit your store for review.">
+    <meta name="twitter:title" content="Register Your Store with G 868 | Trinidad and Tobago">
+    <meta name="twitter:description" content="Register your shop with G 868 in Trinidad and Tobago. Turn your counter into a taxi stand, earn on every ride that starts there, and go live once HQ approves.">
     <meta name="twitter:image" content="https://g-taxi-868-r1-admin.vercel.app/og-preview.jpg">
+    <script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": "WebPage",
+ "@id": "https://g-taxi-868-r1-admin.vercel.app/merchant-onboard",
+ "url": "https://g-taxi-868-r1-admin.vercel.app/merchant-onboard",
+ "name": "Register Your Store with G 868 | Trinidad and Tobago",
+ "description": "Register your shop with G 868 in Trinidad and Tobago. Turn your counter into a taxi stand, earn on every ride that starts there, and go live once HQ approves.",
+ "inLanguage": "en",
+ "isPartOf": {
+  "@type": "WebSite",
+  "@id": "https://g-taxi-868-r1-admin.vercel.app/#website",
+  "url": "https://g-taxi-868-r1-admin.vercel.app/",
+  "name": "G 868"
+ },
+ "publisher": {
+  "@type": "Organization",
+  "@id": "https://g-taxi-868-r1-admin.vercel.app/#org",
+  "name": "G 868",
+  "url": "https://g-taxi-868-r1-admin.vercel.app/",
+  "logo": "https://g-taxi-868-r1-admin.vercel.app/logo.png"
+ }
+}
+    </script>
     <link rel="icon" href="logo.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -100,7 +124,7 @@
             -webkit-backdrop-filter: blur(14px);
         }
         .invite-banner .label { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan); }
-        .invite-banner .name { font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin-top: 6px; }
+        .invite-banner .name { font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin-top: 6px; margin-bottom: 0; line-height: 1.25; }
         .invite-banner .addr { font-size: 12.5px; color: rgba(234,243,246,0.7); margin-top: 3px; }
         .invite-error {
             background: rgba(239,68,68,0.06); border: 0.5px solid rgba(239,68,68,0.28);
@@ -113,7 +137,7 @@
         .progress .seg.done { background: linear-gradient(90deg, var(--violet), var(--cyan)); }
         .step-label { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: rgba(234,243,246,0.72); margin-bottom: 8px; }
 
-        h1 {
+        h1, h2.step-title {
             font-family: 'Outfit', sans-serif;
             font-weight: 800; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em;
             margin-bottom: 8px; text-wrap: balance;
@@ -185,7 +209,7 @@
         <img class="logo-mark" src="logo.png" alt="G 868" width="44" height="44">
 
         <div id="loadingState">
-            <p style="text-align:center; color:rgba(234,243,246,0.35); font-size:13px; letter-spacing:0.05em;">Loading your invite…</p>
+            <p style="text-align:center; color:rgba(234,243,246,0.7); font-size:13px; letter-spacing:0.05em;">Loading…</p>
         </div>
 
         <div id="inviteErrorState" class="hidden rise">
@@ -195,7 +219,7 @@
         <div id="formState" class="hidden">
             <div class="invite-banner rise">
                 <div class="label" id="inviteLabel">Registering</div>
-                <div class="name" id="inviteLocationName"></div>
+                <h1 class="name" id="inviteLocationName"></h1>
                 <div class="addr" id="inviteAddress"></div>
             </div>
 
@@ -208,7 +232,7 @@
             <!-- Step 1: account + business -->
             <div id="step1" class="rise">
                 <div class="step-label">Step 1 of 3</div>
-                <h1>Create Your Account</h1>
+                <h2 class="step-title">Create Your Account</h2>
                 <p class="sub">This becomes your G 868 shop login.</p>
 
                 <div class="field-group">
@@ -236,7 +260,7 @@
             <!-- Step 2: payout (optional) -->
             <div id="step2" class="hidden">
                 <div class="step-label">Step 2 of 3</div>
-                <h1>Payout Details</h1>
+                <h2 class="step-title">Payout Details</h2>
                 <p class="sub">So G 868 can pay you out. You can add this later if you'd rather skip it now.</p>
 
                 <div class="field-group">
@@ -270,7 +294,7 @@
             <!-- Step 3: confirm -->
             <div id="step3" class="hidden">
                 <div class="step-label">Step 3 of 3</div>
-                <h1>Confirm &amp; Submit</h1>
+                <h2 class="step-title">Confirm &amp; Submit</h2>
                 <p class="sub">Double-check, then send this to G 868 HQ for review.</p>
 
                 <div class="summary-block" id="summaryBlock"></div>
@@ -283,7 +307,7 @@
 
         <div id="successState" class="hidden success-wrap rise">
             <div class="success-icon">✓</div>
-            <h1>Submitted for Review</h1>
+            <h2 class="step-title">Submitted for Review</h2>
             <p class="sub">Your business and spot have been sent to G 868 HQ.</p>
             <div class="lit-edge" aria-hidden="true"></div>
             <div class="success-note" id="successNote">

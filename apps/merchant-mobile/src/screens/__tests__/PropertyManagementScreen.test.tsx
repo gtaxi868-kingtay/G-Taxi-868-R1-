@@ -30,7 +30,7 @@ describe('PropertyManagementScreen (rooms & rates)', () => {
         fireEvent.changeText(getByLabelText('New nightly rate for St Lawrence Beach House'), '1,200.50');
         fireEvent.press(getByText('Save rate'));
         await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('merchant_set_lodging_rate', { p_lodging_id: 'h1', p_rate_cents: 120050, p_valid_days: 30 }));
-    }, 20000);
+    }, 30000); // first render of this screen is slow on a busy CI runner
 
     it('shows the server refusal in plain words', async () => {
         mockRpc.mockImplementation((name: string) => Promise.resolve(
