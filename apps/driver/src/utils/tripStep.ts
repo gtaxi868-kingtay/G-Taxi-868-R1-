@@ -35,3 +35,17 @@ export function tripStep(status: string, isDelivery: boolean, merchantPhotoReady
     }
     return { step: 2, title: 'Trip finished', hint: '', action: null, actionLabel: '', actionIcon: 'flag', actionEnabled: false };
 }
+
+// Why a status change was refused, in plain words. The server says "Too far
+// from dropoff. You are 1240m away (max 150m)."
+export function tripRefusal(message: string | null | undefined): { title: string; body: string } {
+    const m = message || '';
+    const far = /too far from dropoff\. you are (\d+)m away/i.exec(m);
+    if (far) {
+        const metres = Number(far[1]);
+        const away = metres >= 1000 ? `${(metres / 1000).toFixed(1)} km` : `${metres} m`;
+        return { title: 'Not at the drop-off yet', body: `You are ${away} away. Finish the trip once you are within 150 m of the drop-off.` };
+    }
+    if (/non-2xx|failed to send|network|fetch/i.test(m) || !m) return { title: 'Trip not updated', body: 'Check your signal and try again.' };
+    return { title: 'Trip not updated', body: m };
+}

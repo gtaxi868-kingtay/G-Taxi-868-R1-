@@ -170,5 +170,15 @@ async function _updateRideStatusInternal(
         total_fare_cents: rawData.data.total_fare_cents,
     } : null;
 
-    return { data, error };
+    if (!error) return { data, error: null };
+    // A refusal arrives as a FunctionsHttpError whose .message is only "Edge
+    // Function returned a non-2xx status code"; the server's own reason ("Too
+    // far from dropoff...", wrong PIN) is in the response body. Same fix as
+    // accept_ride: without it the driver could not tell why Complete failed.
+    let reason: string | null = null;
+    try {
+        const body = await (error as any)?.context?.json?.();
+        reason = body?.error || body?.message || null;
+    } catch { /* body already read or not JSON */ }
+    return { data, error: reason ? new Error(reason) : error };
 }

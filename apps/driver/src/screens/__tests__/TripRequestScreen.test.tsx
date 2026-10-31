@@ -5,7 +5,8 @@ import { TripRequestScreen } from '../TripRequestScreen';
 jest.mock('@gtaxi/core', () => {
   const result = Promise.resolve({ data: null, error: null });
   const q: any = new Proxy({}, { get: (_t, k) => (k === 'then' ? result.then.bind(result) : k === 'maybeSingle' || k === 'single' ? () => result : () => q) });
-  return { supabase: { from: () => q, functions: { invoke: jest.fn(() => Promise.resolve({ data: null, error: null })) } } };
+  const ch: any = { on: () => ch, subscribe: () => ch, unsubscribe: jest.fn() };
+  return { supabase: { from: () => q, channel: () => ch, removeChannel: jest.fn(), functions: { invoke: jest.fn(() => Promise.resolve({ data: null, error: null })) } } };
 });
 const mockAccept = jest.fn((..._a: any[]) => Promise.resolve({ error: null, statusCode: 200 }));
 jest.mock('../../services/api', () => ({ acceptRide: (...a: any[]) => mockAccept(...a), declineRide: jest.fn(() => Promise.resolve({})) }));

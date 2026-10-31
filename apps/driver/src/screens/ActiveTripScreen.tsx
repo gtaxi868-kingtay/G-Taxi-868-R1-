@@ -31,6 +31,7 @@ import { NavigationAndStatusControl } from '../components/NavigationAndStatusCon
 import { StatusBar } from 'expo-status-bar';
 import { Button, Pop, Txt, FONT, SPACE, useTheme } from '../ui/kit';
 import { DRIVE_COLORS, ttd } from '../theme/drive';
+import { tripRefusal } from '../utils/tripStep';
 
 function decodePolyline(encoded: string) {
     if (!encoded) return [];
@@ -305,7 +306,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
 
             if (error) {
                 // A wrong PIN is shown inside the PIN box instead of a pop-up.
-                if (!pin) Alert.alert('Not updated', error.message || 'Check your signal and try again.');
+                if (!pin) { const r = tripRefusal(error.message); Alert.alert(r.title, r.body); }
                 return false;
             }
 
@@ -348,7 +349,7 @@ export function ActiveTripScreen({ route, navigation }: any) {
                 const lng = (location as any)?.coords?.longitude;
                 if (!lat || !lng) { Alert.alert('No GPS yet', 'Wait a moment for your location, then try again.'); return; }
                 const { data, error } = await updateRideStatus(rideId, 'completed', lat, lng);
-                if (error) Alert.alert('Trip not completed', (error as any)?.message || 'Check your signal and try again.');
+                if (error) { const r = tripRefusal((error as any)?.message); Alert.alert(r.title, r.body); }
                 else if (data) {
                     await AsyncStorage.removeItem('active_ride_id');
                     setRide((prev: any) => ({

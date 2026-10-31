@@ -162,13 +162,16 @@ serve(async (req: Request) => {
 
                 const botDriver = pickClosest(botDrivers);
                 if (botDriver) {
-                    const { error: assignError } = await supabaseAdmin
+                    const { error: assignError, count: assignCount } = await supabaseAdmin
                         .from("rides")
-                        .update({ driver_id: botDriver.id, status: "assigned", updated_at: new Date().toISOString() })
+                        .update(
+                            { driver_id: botDriver.id, status: "assigned", updated_at: new Date().toISOString() },
+                            { count: "exact" }
+                        )
                         .eq("id", ride_id)
                         .in("status", ["requested", "searching", "waiting_queue"]);
 
-                    if (!assignError) {
+                    if (!assignError && assignCount === 1) {
                         await supabaseAdmin.from("drivers").update({ status: "busy" }).eq("id", botDriver.id);
                         console.log(`Bot driver ${botDriver.id} assigned to ride ${ride_id}`);
                         return new Response(JSON.stringify({
@@ -176,6 +179,11 @@ serve(async (req: Request) => {
                             message: `Bot driver ${botDriver.name} assigned`,
                         }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
                     }
+
+                    console.error(
+                        `Bot fallback assignment did not land for ride ${ride_id}:`,
+                        assignError ?? `matched ${assignCount ?? 0} ride rows`
+                    );
                 }
             }
 

@@ -16,6 +16,7 @@ jest.mock('@gtaxi/core', () => {
   return { supabase: { from: (t: string) => builder(t), channel: () => ch, functions: { invoke: jest.fn(() => Promise.resolve({ data: null, error: null })) }, rpc: jest.fn(() => Promise.resolve({ data: null, error: null })) } };
 });
 jest.mock('@react-native-async-storage/async-storage', () => ({ __esModule: true, default: { getItem: jest.fn(async () => null), setItem: jest.fn(async () => {}), removeItem: jest.fn(async () => {}) } }));
+jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ restoreOnlineAfterTrip: jest.fn() }) }));
 jest.mock('@g868/shared/env', () => ({ ENV: { MAPBOX_PUBLIC_TOKEN: '' } }));
 jest.mock('../../hooks/useLocationTracking', () => ({ useLocationTracking: () => ({ location: { coords: { latitude: 10.6, longitude: -61.3 } }, signalStatus: 'lock' }) }));
 jest.mock('../../services/api', () => ({ updateRideStatus: jest.fn(), setLocationTrackingMode: jest.fn() }));
