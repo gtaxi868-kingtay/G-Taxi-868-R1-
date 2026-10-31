@@ -16,7 +16,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>G 868: Rides, Delivery &amp; Shop Pickups in Trinidad and Tobago</title>
-<meta name="description" content="G 868 is the ride and delivery app built in Trinidad and Tobago. Tap a shop counter for a car, get groceries brought to you, and join your area's waitlist.">
+<meta name="description" content="G 868 is the ride app built in Trinidad and Tobago, for the whole day: spas, hotels, restaurants, the airport and the ride home. See the price first, watch your driver come, join your area's waitlist.">
 <link rel="canonical" href="https://g-taxi-868-r1-admin.vercel.app/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="G 868">
@@ -73,6 +73,21 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://ffbbuafgeypvkpcuvdnv.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+/* Day or night look. The visitor's own choice wins, then a ?look= link, then the
+   clock in Trinidad (6am to 6pm is day), whatever time zone they are visiting from. */
+(function(){
+  var look=null;
+  try{look=localStorage.getItem('g868-look')}catch(e){}
+  try{var q=new URLSearchParams(location.search).get('look');if(q==='day'||q==='night')look=q}catch(e){}
+  if(look!=='day'&&look!=='night'){
+    var h=6;
+    try{h=parseInt(new Intl.DateTimeFormat('en-US',{timeZone:'America/Port_of_Spain',hour:'numeric',hour12:false}).format(new Date()),10)%24}catch(e){h=new Date().getHours()}
+    look=(h>=6&&h<18)?'day':'night';
+  }
+  document.documentElement.setAttribute('data-time',look);
+})();
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
@@ -644,6 +659,106 @@ a{color:inherit}
   .film-host .cine-skip{top:84px}
 }
 
+
+/* ===== WHOLE-DAY WORDS: places G goes, and the businesses it serves ===== */
+.places{position:relative;z-index:2;width:min(1080px,calc(100% - 36px));margin:40px auto 0;text-align:center}
+.places .eyebrow{font-family:Manrope,sans-serif;font-weight:800;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:#C4B5FD;margin:0 0 10px}
+.places h2{font-family:Outfit,sans-serif;font-weight:900;font-size:clamp(1.9rem,5vw,3rem);line-height:1.05;letter-spacing:-.02em;color:#fff;margin:0}
+.places .sub{font-size:16px;line-height:1.6;font-weight:500;color:#D6CFF2;max-width:52ch;margin:12px auto 0}
+.places-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:28px;text-align:left}
+.places-grid .dark-card{padding:24px 22px;border-radius:24px}
+.places-grid .when{display:inline-block;font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#67E8F9;margin-bottom:8px}
+.places-grid .dark-card h4{font-size:20px;margin-bottom:6px}
+.places-grid .dark-card p{font-size:15px;line-height:1.55}
+html[data-time="night"] .places-grid .after-dark{order:-1}
+.biz-strip{position:relative;z-index:2;width:min(1080px,calc(100% - 36px));margin:20px auto 0;text-align:left}
+.biz-strip h3{font-family:Outfit,sans-serif;font-weight:800;font-size:clamp(1.3rem,3vw,1.7rem);color:#fff;margin:0 0 6px}
+.biz-strip p{color:#D6CFF2;font-size:15.5px;line-height:1.55;font-weight:500;margin:0 0 16px;max-width:62ch}
+.biz-btns{display:flex;flex-wrap:wrap;gap:10px}
+.biz-btn{font:800 14.5px Manrope,sans-serif;color:#1B073D;background:#C4B5FD;border:0;border-radius:999px;padding:12px 20px;min-height:44px;cursor:pointer;transition:transform .16s ease-out,filter .2s ease}
+.biz-btn:hover{filter:brightness(1.08)}
+.biz-btn:active{transform:scale(.97)}
+
+/* ===== DAY / NIGHT SWITCH ===== */
+.look-switch{display:inline-flex;align-items:center;gap:8px;height:40px;min-width:40px;padding:0 12px;margin-left:auto;margin-right:10px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#E4DEFA;font:700 13px Manrope,sans-serif;cursor:pointer;transition:transform .16s ease-out,background .2s ease}
+.look-switch:active{transform:scale(.96)}
+.look-orb{width:16px;height:16px;border-radius:50%;flex:none;background:transparent;box-shadow:inset -5px -2px 0 0 #C4B5FD;transition:background .3s ease,box-shadow .3s ease}
+html[data-time="day"] .look-orb{background:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.22)}
+
+/* ===== THE SITE IN DAYLIGHT DRESS (from the approved showcase's light site) ===== */
+html[data-time="day"],html[data-time="day"] body{background:#FAFAFC!important;color:var(--ink)}
+html[data-time="day"] .site-dark{color:var(--ink)}
+html[data-time="day"] .car-scene{display:none}
+html[data-time="day"] .cosmic-dark .cosmic-bg,html[data-time="day"] .site-dark.car-live .cosmic-bg{opacity:1;background:radial-gradient(900px 480px at 85% -10%,rgba(139,92,246,.14),transparent 60%),radial-gradient(760px 460px at -10% 24%,rgba(34,211,238,.1),transparent 60%),linear-gradient(180deg,#FFFFFF 0%,#FAFAFC 55%,#F3F0FD 100%)}
+html[data-time="day"] .site-dark.car-live .cosmic-pin{opacity:.05}
+html[data-time="day"] .site-dark.car-live .cosmic-dots{opacity:.7}
+html[data-time="day"] .cosmic-dark .cosmic-dots i{background:#8B5CF6;opacity:.3;box-shadow:0 0 12px rgba(139,92,246,.3)}
+html[data-time="day"] .site-dark.car-live .scene-bubbles,html[data-time="day"] .bubbles{opacity:.45}
+html[data-time="day"] .cine-film,html[data-time="day"] .cine-skip,html[data-time="day"] .btn-replay{display:none!important}
+html[data-time="day"] .header,html[data-time="day"] .header.scrolled{background:rgba(255,255,255,.86);border-color:var(--line);box-shadow:0 14px 34px rgba(18,16,29,.1),inset 0 1px 0 #fff;color:var(--ink)}
+html[data-time="day"] .header .nav-item{color:var(--ink-2)!important}
+html[data-time="day"] .header .nav-item.active{color:#04030a!important}
+html[data-time="day"] .header .nav-item:hover{color:var(--accent-deep)!important}
+html[data-time="day"] #open-waitlist-top{color:#fff!important}
+html[data-time="day"] #mobile-nav-toggle{background:#fff!important;border-color:var(--line)!important;color:var(--ink)!important}
+html[data-time="day"] .look-switch{background:#fff;border-color:var(--line);color:var(--ink-2)}
+html[data-time="day"] .living-hero{--hero-accent:#7C3AED;--hero-accent-deep:#6D28D9;--hero-glow:rgba(139,92,246,.28)}
+html[data-time="day"] .living-hero[data-role="driver"]{--hero-accent:#0E7490;--hero-accent-deep:#0E7490;--hero-glow:rgba(34,211,238,.3)}
+html[data-time="day"] .living-hero[data-role="partner"]{--hero-accent:#B45309;--hero-accent-deep:#B45309;--hero-glow:rgba(245,158,11,.3)}
+html[data-time="day"] .living-hero[data-role="lead"]{--hero-accent:#BE185D;--hero-accent-deep:#BE185D;--hero-glow:rgba(236,72,153,.3)}
+html[data-time="day"] .hero-headline{color:var(--ink)}
+html[data-time="day"] .hero-roleline{color:var(--ink-2)}
+html[data-time="day"] .crystal-base{filter:drop-shadow(0 26px 38px rgba(18,16,29,.17)) drop-shadow(0 0 16px var(--hero-glow))}
+html[data-time="day"] .role-card{background:linear-gradient(180deg,#fff,#F7F5FC);border-color:var(--line);color:var(--ink-2);box-shadow:0 16px 34px rgba(18,16,29,.09)}
+html[data-time="day"] .role-card b{color:var(--ink)}
+html[data-time="day"] .role-card span{color:var(--muted)}
+html[data-time="day"] .role-card .chip-logo{background:var(--accent-soft);border-color:#DDD0FF}
+html[data-time="day"] .btn-ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+html[data-time="day"] .hero-meta{color:var(--ink-2)}
+html[data-time="day"] .hero-meta span{background:#fff;border-color:var(--line)}
+html[data-time="day"] .particles i{background:#C4B5FD}
+html[data-time="day"] .dark-card{background:linear-gradient(180deg,#fff,#FDFCFF);border-color:var(--line);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:0 18px 40px rgba(18,16,29,.07),inset 0 1px 0 #fff}
+html[data-time="day"] .dark-card:hover{border-color:#D8CCFB}
+html[data-time="day"] .dark-card h4{color:var(--ink)}
+html[data-time="day"] .dark-card p{color:var(--ink-2)}
+html[data-time="day"] .dark-card .ic-tile{background:var(--accent-soft);border-color:#DDD0FF;color:var(--accent-deep);box-shadow:inset 0 0 0 1px #DDD0FF,0 10px 22px rgba(139,92,246,.14)}
+html[data-time="day"] .dark-card .go,html[data-time="day"] .dark-card .go-btn:hover{color:var(--accent-deep)}
+html[data-time="day"] .places .eyebrow{color:var(--accent-deep)}
+html[data-time="day"] .places h2,html[data-time="day"] .biz-strip h3{color:var(--ink)}
+html[data-time="day"] .places .sub,html[data-time="day"] .biz-strip p{color:var(--ink-2)}
+html[data-time="day"] .places-grid .when{color:#0E7490}
+html[data-time="day"] .tap-strip:not(.biz-strip){background:var(--ink);border-color:transparent;box-shadow:0 24px 50px rgba(18,16,29,.28)}
+html[data-time="day"] .tap-strip:not(.biz-strip) .pill{color:#fff;background:var(--accent)}
+html[data-time="day"] .tap-strip.biz-strip{background:linear-gradient(120deg,#EFE9FE,#E2F7FB);border-color:#DDD0FF;box-shadow:0 18px 40px rgba(18,16,29,.07)}
+html[data-time="day"] .biz-btn{color:#fff;background:var(--accent-deep)}
+html[data-time="day"] .dark-step{background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:22px;padding:20px}
+html[data-time="day"] .dark-step h5{color:var(--ink)}
+html[data-time="day"] .dark-step p{color:var(--ink-2)}
+html[data-time="day"] .dark-step .n{color:var(--accent-deep)}
+html[data-time="day"] .dark-steps .step-tile{background:var(--accent-soft);border-color:#DDD0FF;color:var(--accent-deep)}
+html[data-time="day"] #trust-split{background:rgba(255,255,255,.82);border-color:var(--line);box-shadow:0 18px 40px rgba(18,16,29,.07),inset 0 1px 0 #fff}
+html[data-time="day"] #trust-split h2{color:var(--ink)!important}
+html[data-time="day"] #trust-split p{color:var(--muted)!important}
+html[data-time="day"] #trust-split .split-card{background:#fff!important;border-color:var(--line)!important}
+html[data-time="day"] #trust-split .split-card div:first-child{color:var(--accent-deep)!important}
+html[data-time="day"] #trust-split .split-card div:nth-child(2){color:var(--ink)!important}
+html[data-time="day"] #trust-split .split-card div:last-child{color:var(--muted)!important}
+html[data-time="day"] .dark-footer{border-top-color:var(--line)}
+html[data-time="day"] .dark-footer .wm{color:var(--ink)}
+html[data-time="day"] .dark-footer .wm span{color:var(--accent-deep)}
+html[data-time="day"] .dark-footer p{color:var(--muted)}
+html[data-time="day"] .foot-links a{color:var(--accent-deep)}
+html[data-time="day"] .foot-links a:hover{color:var(--ink)}
+
+@media (max-width:900px){.places-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){
+  .look-switch .look-word{display:none}
+  .look-switch{padding:0;width:40px;justify-content:center;margin-right:6px}
+  .places-grid{grid-template-columns:1fr;gap:12px}
+  .biz-btn{flex:1 1 auto}
+}
+@media (prefers-reduced-motion:reduce){.look-switch,.look-orb,.biz-btn{transition:none}}
+
 </style>
 </head>
 <body>
@@ -686,6 +801,7 @@ a{color:inherit}
     <a href="#split" class="nav-item" data-panel="split" style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,0.7);font-size:.82rem;font-weight:500;padding:.5rem 1.15rem;border-radius:100px;transition:all .3s ease" style-hover="background:#22d3ee;color:#04030a">The Split</a>
     <a href="#escape" class="nav-item" data-panel="escape" style="font-family:'Manrope',sans-serif;color:rgba(255,255,255,0.7);font-size:.82rem;font-weight:500;padding:.5rem 1.15rem;border-radius:100px;transition:all .3s ease" style-hover="background:#22d3ee;color:#04030a">G Escape</a>
   </nav>
+  <button class="look-switch" id="lookSwitch" type="button"><span class="look-orb" aria-hidden="true"></span><span class="look-word" id="lookWord">Day</span></button>
   <button id="mobile-nav-toggle" aria-label="Menu" style="display:none;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:50%;width:38px;height:38px;align-items:center;justify-content:center;color:#fff;font-size:1.1rem;cursor:pointer;flex-shrink:0">☰</button>
   <button id="open-waitlist-top" style="background:rgba(0,0,0,0.5);color:#fff;border:none;padding:.9rem 1.9rem;border-radius:100px;font-weight:600;font-size:.82rem;cursor:pointer;transition:all .3s ease" style-hover="background:rgba(0,0,0,0.75);transform:translateY(-2px)">Join the waitlist</button>
 </header>
@@ -706,7 +822,7 @@ a{color:inherit}
   <div class="cine-film" id="cineFilm" aria-hidden="true"><div class="film-solids" aria-hidden="true"><i class="s1"></i><i class="s2"></i><i class="s3"></i><i class="s4"></i></div><video class="film-video" id="filmVideo"  poster="film-poster.jpg" muted playsinline preload="auto"></video><div class="pain pain-1">2AM.</div><div class="pain pain-2">SHIFT DONE.</div><div class="pain pain-3">NO RIDE.</div><div class="film-call">CALL A <em>G.</em></div></div>
   <div class="living-wrap">
     <h1 class="hero-headline">Call A G.<br><span class="accent-line" data-role-headline>We Got You.</span></h1>
-    <p class="hero-roleline" data-role-line>For riders — a driver nearby, a price you see before you move, and a record of every trip. Built for Trinidad first.</p>
+    <p class="hero-roleline" data-role-line>For riders — the spa, the airport, the lime or the ride home. A driver nearby, a price you see before you move, and a record of every trip.</p>
     <div class="crystal-stage">
       <img class="backdrop-pin" src="logo.png" alt="" aria-hidden="true">
       <div class="pin-field" data-depth="14"><i style="width:8px;height:8px;left:8%;top:22%"></i><i style="width:5px;height:5px;left:88%;top:30%"></i></div>
@@ -715,9 +831,9 @@ a{color:inherit}
       <div class="crystal-tilt"><div class="crystal-glow"></div><img class="crystal-base" src="logo.png" alt="G 868 crystal logo, large — tilt it with your pointer"><div class="crystal-layer layer-chroma"></div><div class="crystal-layer layer-bevel"></div><div class="crystal-layer layer-specular"></div></div>
     </div><div class="crystal-shadow"></div>
     <div class="role-carousel" role="tablist" aria-label="Choose your role">
-      <button class="role-card active" data-role-btn="rider" data-line="For riders — a driver nearby, a price you see before you move, and a record of every trip. Built for Trinidad first." data-head="We Got You." data-cta="Join the waitlist"><span class="chip-logo"><img src="logo.png" alt=""></span><span><b>Rider</b><span>Call a G in minutes</span></span></button>
+      <button class="role-card active" data-role-btn="rider" data-line="For riders — the spa, the airport, the lime or the ride home. A driver nearby, a price you see before you move, and a record of every trip." data-head="We Got You." data-cta="Join the waitlist"><span class="chip-logo"><img src="logo.png" alt=""></span><span><b>Rider</b><span>Call a G in minutes</span></span></button>
       <button class="role-card" data-role-btn="driver" data-line="For drivers — your car, your hours, up to 80% of every fare in your wallet the moment the trip ends." data-head="Drive. Earn. Repeat." data-cta="Drive with G"><span class="chip-logo"><img src="logo.png" alt=""></span><span><b>Driver</b><span>Your car, your hours</span></span></button>
-      <button class="role-card" data-role-btn="partner" data-line="For partners — your counter becomes a pickup point. Customers already stand at your shop; G brings the movement." data-head="Your Counter Moves." data-cta="Become a G-Partner"><span class="chip-logo"><img src="logo.png" alt=""></span><span><b>G-Partner</b><span>Movement at your counter</span></span></button>
+      <button class="role-card" data-role-btn="partner" data-line="For spas, hotels, restaurants and shops — your counter becomes a pickup point. Your people already come to you; G gets them there and home." data-head="Your Counter Moves." data-cta="Become a G-Partner"><span class="chip-logo"><img src="logo.png" alt=""></span><span><b>G-Partner</b><span>Movement at your counter</span></span></button>
       <button class="role-card" data-role-btn="lead" data-line="For leads — run movement in your area: drivers, partners and tap points, community by community." data-head="Lead Your Area." data-cta="Lead with G"><span class="chip-logo"><img src="logo.png" alt=""></span><span><b>G-Lead</b><span>Unlock your community</span></span></button>
     </div>
     <div class="hero-ctas"><button class="btn btn-hero btn-hero-accent" id="open-waitlist" data-role-cta>Join the waitlist <svg class="ph" width="19" height="19"><use href="#ph-arrow"/></svg></button><button class="btn btn-ghost" id="hero-drive">Drive with G</button><button class="btn btn-replay" id="cineReplay" type="button"><svg class="ph" width="15" height="15"><use href="#ph-replay"/></svg> Replay film</button></div>
@@ -725,10 +841,35 @@ a{color:inherit}
   </div>
 </main>
 
+<section class="places" id="places" aria-labelledby="places-title">
+  <p class="eyebrow">One G, all day</p>
+  <h2 id="places-title">Wherever the day takes you.</h2>
+  <p class="sub">Not just the ride home after a late shift. Same driver on your screen, same price up front, morning to morning.</p>
+  <div class="places-grid">
+    <article class="dark-card"><span class="when">Morning</span><h4>Spa and salon days</h4><p>Dropped at the door, nothing to park. Walk out relaxed and your ride is one tap from reception.</p></article>
+    <article class="dark-card"><span class="when">Midday</span><h4>Town, lunch, errands</h4><p>Bank, market, lunch, back. Add a stop on the way instead of hunting for a car at every one.</p></article>
+    <article class="dark-card"><span class="when">Any time</span><h4>Hotels and guesthouses</h4><p>Guests see the driver, the plate and the price before they leave the lobby.</p></article>
+    <article class="dark-card"><span class="when">Book ahead</span><h4>Airport runs</h4><p>Set the pickup for your flight the day before. No calling around at 4am.</p></article>
+    <article class="dark-card after-dark"><span class="when">Evening</span><h4>Dinner and the lime</h4><p>Nobody has to be the driver tonight. Everybody gets home.</p></article>
+    <article class="dark-card after-dark"><span class="when">2AM</span><h4>Shift done</h4><p>Nurses, security, bar staff, call centres. The people keeping the island open get home too.</p></article>
+  </div>
+</section>
+<div class="tap-strip biz-strip" id="for-business">
+  <div>
+    <h3>Run a spa, a hotel or a restaurant?</h3>
+    <p>Your people need a way to get there and a way home. G 868 puts that on your counter. The G-Touch puck is free, and so are your first 90 days on the map.</p>
+    <div class="biz-btns">
+      <button class="biz-btn" type="button" data-audience="spa">Spas and salons</button>
+      <button class="biz-btn" type="button" data-audience="hotel">Hotels and guesthouses</button>
+      <button class="biz-btn" type="button" data-audience="restaurant">Restaurants and bars</button>
+    </div>
+  </div>
+</div>
+
 <div class="dark-cards">
 <article class="dark-card"><div class="ic-tile"><svg class="ph" width="32" height="32"><use href="#ph-car"/></svg></div><h4>Ride</h4><p>Tap, see your price, watch your driver come to you. Cash or G-Wallet today, every trip recorded.</p><button class="go go-btn" type="button" data-open-panel="role-rider">For riders <svg class="ph" width="15" height="15"><use href="#ph-arrow"/></svg></button></article>
 <article class="dark-card"><div class="ic-tile"><svg class="ph" width="32" height="32"><use href="#ph-steering"/></svg></div><h4>Drive</h4><p>Your car, your hours. Earnings in your wallet the moment the ride ends — up to 80% of every fare is yours.</p><button class="go go-btn" type="button" data-open-panel="role-driver">For drivers <svg class="ph" width="15" height="15"><use href="#ph-arrow"/></svg></button></article>
-<article class="dark-card"><div class="ic-tile"><svg class="ph" width="32" height="32"><use href="#ph-store"/></svg></div><h4>G-Partner</h4><p>Your counter becomes a pickup point. Customers already stand at your shop — G brings them rides and orders.</p><button class="go go-btn" type="button" data-open-panel="role-partner">For businesses <svg class="ph" width="15" height="15"><use href="#ph-arrow"/></svg></button></article>
+<article class="dark-card"><div class="ic-tile"><svg class="ph" width="32" height="32"><use href="#ph-store"/></svg></div><h4>G-Partner</h4><p>Your counter becomes a pickup point. Spa, hotel, restaurant or shop: your people already come to you. G gets them there and home.</p><button class="go go-btn" type="button" data-open-panel="role-partner">For businesses <svg class="ph" width="15" height="15"><use href="#ph-arrow"/></svg></button></article>
 </div>
 <div class="tap-strip"><div class="nfc-tile"><svg class="ph" width="32" height="32" style="color:#EDE9FE"><use href="#ph-nfc"/></svg></div><div><h4>G-Touch Points</h4><p>Tap the mark at a partner counter and a G comes to that exact spot. No address to spell, no corner to describe.</p></div><button class="pill pill-btn" type="button" data-open-panel="tap">COMING WITH AREA 1</button></div>
 <div class="dark-steps">
@@ -862,7 +1003,7 @@ const MERCHANT_CATEGORIES = [
   ['grocery', 'Grocery'], ['restaurant', 'Restaurant'], ['local', 'Local kitchen / lime spot'],
   ['indian', 'Indian'], ['chinese', 'Chinese'], ['american', 'American'], ['pizza', 'Pizza'],
   ['seafood', 'Seafood'], ['bakery', 'Bakery'], ['creole', 'Creole'],
-  ['pharmacy', 'Pharmacy'], ['laundry', 'Laundry'], ['barber', 'Barber'], ['salon', 'Salon'], ['carwash', 'Carwash']
+  ['pharmacy', 'Pharmacy'], ['laundry', 'Laundry'], ['barber', 'Barber'], ['salon', 'Salon / spa'], ['hotel', 'Hotel / guesthouse'], ['carwash', 'Carwash']
 ];
 // Fallback until the live fetch below resolves — kept in sync manually with the 3 seeded-active
 // passenger classes (heavy classes like truck/hiab/wrecker are seeded inactive, see CLAUDE.md).
@@ -891,7 +1032,7 @@ function waitlistExtraHTML(role) {
   if (role === 'G-Partner (merchant)') {
     return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
       <select id="wl-category" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none;cursor:pointer">
-        <option value="">What do you sell?</option>
+        <option value="">What kind of business?</option>
         ${MERCHANT_CATEGORIES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}
       </select>
       <input id="wl-address" type="text" placeholder="Business address (optional)" autocomplete="street-address" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
@@ -1098,7 +1239,7 @@ const ROLE_INFO = {
   partner: {
     label: 'G-Partner', value: 'G-Partner (merchant)', accent: '#f0abfc', tint: 'rgba(240,171,252,',
     signupHref: '/merchant-onboard', signupLabel: 'Register your store now',
-    eyebrow: 'For shops & counters',
+    eyebrow: 'For spas, hotels, restaurants & shops',
     head: 'Your counter starts earning.',
     lede: 'A puck on your counter turns your shop into a taxi stand and a storefront at the same time, and you get paid for the traffic you already have.',
     perks: [
@@ -1341,7 +1482,11 @@ class Component extends DCLogic {
       if (f) {
         const roleSel = root.getElementById('wl-role');
         const extraBox = root.getElementById('wl-extra');
-        const syncExtra = () => { if (extraBox) extraBox.innerHTML = waitlistExtraHTML(roleSel.value); };
+        const syncExtra = () => {
+          if (extraBox) extraBox.innerHTML = waitlistExtraHTML(roleSel.value);
+          const cat = root.getElementById('wl-category');
+          if (cat && window.G868_INVITE && window.G868_INVITE.category) cat.value = window.G868_INVITE.category;
+        };
         if (roleSel && extraBox) { roleSel.addEventListener('change', syncExtra); syncExtra(); }
       }
       if (f) f.addEventListener('submit', async (e) => {
@@ -1389,11 +1534,13 @@ class Component extends DCLogic {
           const cat = root.getElementById('wl-category');
           const addr = root.getElementById('wl-address');
           if (!cat || !cat.value) {
-            msg.textContent = "Let us know what you'll be selling.";
+            msg.textContent = "Let us know what kind of business you run.";
             return;
           }
           details.category = cat.value;
           if (addr && addr.value.trim()) details.address = addr.value.trim();
+          if (window.G868_INVITE && window.G868_INVITE.biz) details.business_name = window.G868_INVITE.biz;
+          if (window.G868_INVITE && window.G868_INVITE.slug) details.partner_slug = window.G868_INVITE.slug;
         }
         const label = btn ? btn.textContent : '';
         if (btn) { btn.disabled = true; btn.textContent = 'Counting you in…'; }
@@ -1547,6 +1694,7 @@ new Component({ tiltStrength: 26, idleSpin: 24, repelRadius: 400, bubbleInterval
 (function(){
  var reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
  var arriving=typeof IS_ARRIVAL!=="undefined"&&IS_ARRIVAL;
+ var invited=false;try{invited=new URLSearchParams(location.search).has("for")}catch(e){}
   function initBubbles(hero){
    var field=hero.querySelector(".bubbles");if(!field||reduce)return;
    var light=hero.classList.contains("light-hero");
@@ -1650,7 +1798,7 @@ new Component({ tiltStrength: 26, idleSpin: 24, repelRadius: 400, bubbleInterval
  function startBleed(){if(!film||dark.classList.contains("film-done")||film.classList.contains("bleed-in"))return;film.classList.add("bleed-in");if(video){try{if(video.readyState>0)video.currentTime=0;var pr=video.play();if(pr&&pr.catch)pr.catch(function(){})}catch(e){}}}
  function playFilm(){dark.classList.remove("film-done");if(darkFrame)darkFrame.classList.remove("car-live");if(skip)skip.style.display="";if(video){try{video.pause();video.currentTime=0}catch(e){}}if(film){film.classList.remove("playing","to-icon","bleed-in");void film.offsetWidth;film.classList.add("playing")}clearTimeout(timer);clearTimeout(bleedTimer);bleedTimer=setTimeout(startBleed,4350);timer=setTimeout(finishFilm,15200)}
  if(video)video.addEventListener("ended",function(){setTimeout(finishFilm,350)});
- if(dark){if(reduce||arriving||location.hash.length>1){finishFilm()}else{playFilm()}if(skip)skip.addEventListener("click",finishFilm);if(replay)replay.addEventListener("click",playFilm)}
+ if(dark){if(reduce||arriving||location.hash.length>1||invited||document.documentElement.getAttribute("data-time")==="day"){finishFilm()}else{playFilm()}if(skip)skip.addEventListener("click",finishFilm);if(replay)replay.addEventListener("click",playFilm)}
  /* Rolling loop pauses while the Dark section is off-screen */
  if(darkFrame&&"IntersectionObserver" in window){new IntersectionObserver(function(es){darkFrame.classList.toggle("car-paused",!es[0].isIntersecting)},{threshold:0}).observe(darkFrame)}
   function initSceneBubbles(frame){
@@ -1705,6 +1853,44 @@ new Component({ tiltStrength: 26, idleSpin: 24, repelRadius: 400, bubbleInterval
      window.addEventListener("scroll",function(){if(vis&&!ticking){ticking=true;requestAnimationFrame(upd)}},{passive:true});
    });
  }
+})();
+
+/* Day / night switch and the business invitation links (?for=spa&biz=Name&slug=name). */
+(function(){
+ var htmlEl=document.documentElement,word=document.getElementById("lookWord"),sw=document.getElementById("lookSwitch"),hero=document.getElementById("darkHero");
+ function paint(){
+   var day=htmlEl.getAttribute("data-time")==="day";
+   if(word)word.textContent=day?"Day":"Night";
+   if(sw)sw.setAttribute("aria-label",day?"Switch to the night look":"Switch to the day look");
+   var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute("content",day?"#FAFAFC":"#04030A");
+ }
+ paint();
+ if(sw)sw.addEventListener("click",function(){
+   var next=htmlEl.getAttribute("data-time")==="day"?"night":"day";
+   htmlEl.setAttribute("data-time",next);
+   try{localStorage.setItem("g868-look",next)}catch(e){}
+   var skip=document.getElementById("cineSkip");
+   if(next==="day"&&skip&&skip.style.display!=="none")skip.click();
+   paint();
+ });
+ var AUDIENCE={
+   spa:{head:"Your Clients Get Home.",line:"For spas and salons — clients book a G from your reception and see the price before they leave.",category:"salon"},
+   salon:{head:"Your Clients Get Home.",line:"For spas and salons — clients book a G from your reception and see the price before they leave.",category:"salon"},
+   hotel:{head:"Your Guests Move.",line:"For hotels and guesthouses — guests book from the front desk or their phone. The driver, plate and price are on screen before they leave the lobby.",category:"hotel"},
+   restaurant:{head:"Last Call. Safe Ride.",line:"For restaurants and bars — nobody has to be the driver tonight. Guests tap at your counter and a G comes to your door.",category:"restaurant"}
+ };
+ function invite(key,biz,slug,move){
+   var a=AUDIENCE[key];if(!a||!hero)return;
+   var btn=hero.querySelector('[data-role-btn="partner"]');if(!btn)return;
+   btn.setAttribute("data-head",a.head);
+   btn.setAttribute("data-line",biz?a.line+" An invitation for "+biz+".":a.line);
+   btn.dispatchEvent(new Event("mouseenter"));
+   window.G868_INVITE={biz:biz||"",slug:slug||"",category:a.category};
+   if(move)hero.scrollIntoView({behavior:"smooth",block:"start"});
+ }
+ document.querySelectorAll("[data-audience]").forEach(function(b){b.addEventListener("click",function(){invite(b.getAttribute("data-audience"),"","",true)})});
+ var q=new URLSearchParams(location.search),key=(q.get("for")||"").toLowerCase();
+ if(AUDIENCE[key])invite(key,(q.get("biz")||"").slice(0,80),(q.get("slug")||"").replace(/[^a-z0-9-]/gi,"").slice(0,40),false);
 })();
 </script>
 </body>
