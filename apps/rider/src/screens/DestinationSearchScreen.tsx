@@ -21,7 +21,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
     const netInfo = useNetInfo();
     // `stop`: a shop the rider wants to stop at on the way (Home shop card);
     // carried through to RideConfirmation once they pick where they're going.
-    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode, saveMode, stop } = route.params || {};
+    const { currentLocation, source, sourceMetadata, kioskId, taxiStandId, editPickupMode, saveMode, stop, pinned } = route.params || {};
 
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
@@ -172,6 +172,29 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
         });
     };
 
+    // Back from PinOnMap with a hand-placed spot: carry on as if search found it.
+    useEffect(() => {
+        if (!pinned) return;
+        navigation.setParams({ pinned: undefined });
+        choose(pinned.latitude, pinned.longitude, pinned.address);
+    }, [pinned]);
+
+    const pinOnMap = () => navigation.navigate('PinOnMap', {
+        near: currentLocation ? { latitude: currentLocation.latitude, longitude: currentLocation.longitude } : undefined,
+        label: query.trim(),
+    });
+    const askG = () => navigation.navigate('Home', { screen: 'Map', params: { askG: query.trim() } } as never);
+
+    // Never a dead end: whatever search says, there is always a next step.
+    const wayOut = (
+        <View style={{ marginTop: SPACE.lg }}>
+            <Button title="Set it on the map" icon="location" variant="secondary" onPress={pinOnMap} />
+            {query.trim().length >= 2 && !saveMode && !editPickupMode
+                ? <Button title="Ask G to find it" icon="sparkles" variant="ghost" onPress={askG} style={{ marginTop: SPACE.sm }} />
+                : null}
+        </View>
+    );
+
     const m = useTheme();
     const placeholder = editPickupMode ? 'Search for your pickup point' : saveMode ? 'Search for a place to save' : 'Where to?';
 
@@ -246,9 +269,10 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
                                 <EmptyState icon="alert-circle-outline" title="Search is not working right now" body="Check your connection and try again."
                                     action={<Button title="Try again" variant="secondary" onPress={() => runSearch(query.trim())} />} />
                             ) : query.trim().length >= 2 ? (
-                                <EmptyState icon="search-outline" title={`No places match "${query.trim()}"`} body="Try a landmark, a shop name or a street." />
+                                <EmptyState icon="search-outline" title={`We can't find "${query.trim()}" yet`} body="Set it on the map, or tell G in your own words." />
                             ) : null
                         }
+                        ListFooterComponent={isLoading ? null : wayOut}
                     />
                 ) : (
                     <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
@@ -274,6 +298,7 @@ export function DestinationSearchScreen({ navigation, route }: AppScreenProps<'D
                         {saved.length === 0 && recents.length === 0 && nearbyPins.length === 0 && (
                             <EmptyState icon="navigate-outline" title="Where are you going?" body="Type a landmark, a shop or an address." />
                         )}
+                        {wayOut}
                     </ScrollView>
                 )}
             </KeyboardAvoidingView>

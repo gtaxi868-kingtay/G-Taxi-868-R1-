@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { View, Pressable, Image, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
 import { decode } from 'base64-arraybuffer';
 import { toast } from '../components/Toast';
-import { BRAND_GRADIENT, Button, Field, Screen, SPACE, Txt, useTheme } from '../ui/kit';
+import { CrystalGradient, BRAND_GRADIENT, Button, Field, Screen, SPACE, Txt, useTheme } from '../ui/kit';
 
 export function EditProfileScreen({ navigation }: any) {
     const { profile, refreshProfile, user } = useAuth();
@@ -81,9 +80,9 @@ export function EditProfileScreen({ navigation }: any) {
                     {avatarUrl ? (
                         <Image source={{ uri: avatarUrl }} style={{ width: 96, height: 96 }} />
                     ) : (
-                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <Txt variant="hero" tone="onBrand">{fullName.charAt(0).toUpperCase() || 'G'}</Txt>
-                        </LinearGradient>
+                        </CrystalGradient>
                     )}
                     {uploading && <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color="#FFFFFF" /></View>}
                 </View>

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Pressable, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
@@ -13,7 +12,7 @@ import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { useInTab } from '../navigation/useInTab';
 import { toast } from '../components/Toast';
-import { BRAND_GRADIENT, BrandBadge, EmptyState, GUTTER, Header, Loading, RADIUS, Row, SPACE, Txt, useTheme } from '../ui/kit';
+import { CrystalFace, CrystalGradient, RAISED, RaisedIcon, BRAND_GRADIENT, BrandBadge, EmptyState, GUTTER, Header, Loading, RADIUS, Row, SPACE, Txt, useTheme } from '../ui/kit';
 
 export function WalletScreen({ navigation }: any) {
     const inTab = useInTab(navigation);
@@ -139,8 +138,9 @@ export function WalletScreen({ navigation }: any) {
         <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={() => { Haptics.selectionAsync(); onPress(); }}
             style={({ pressed }) => ({ flex: 1, alignItems: 'center', opacity: pressed ? 0.75 : 1 })}>
             {primary ? <BrandBadge icon={icon} size={52} round /> : (
-                <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name={icon} size={22} color={m.ink} />
+                <View style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
+                    <CrystalFace color="#6E5BE0" radius={26} />
+                    <RaisedIcon name={icon} size={22} />
                 </View>
             )}
             <Txt variant="label" style={{ marginTop: SPACE.sm }}>{label}</Txt>
@@ -161,19 +161,19 @@ export function WalletScreen({ navigation }: any) {
                     ListHeaderComponent={
                         <>
                             <View style={{ borderRadius: RADIUS.card, overflow: 'hidden', marginTop: SPACE.sm }}>
-                                <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: SPACE.xl }}>
-                                    <Txt variant="label" style={{ color: 'rgba(255,255,255,0.8)' }}>G-Coin balance</Txt>
+                                <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: SPACE.xl }}>
+                                    <Txt variant="label" style={[RAISED, { color: '#FFFFFF' }]}>G-Coin balance</Txt>
                                     {balanceError ? (
                                         <Pressable accessibilityRole="button" onPress={fetchWalletData} style={{ marginTop: SPACE.md }}>
                                             <Txt variant="bodyStrong" tone="onBrand">Balance not available. Tap to try again.</Txt>
                                         </Pressable>
                                     ) : (
                                         <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: SPACE.xs }}>
-                                            <Txt variant="hero" tone="onBrand" numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 44, lineHeight: 50 }}>${balance.toFixed(2)}</Txt>
-                                            <Txt variant="bodyStrong" style={{ color: 'rgba(255,255,255,0.8)', marginLeft: SPACE.sm }}>TTD</Txt>
+                                            <Txt variant="hero" tone="onBrand" numberOfLines={1} adjustsFontSizeToFit style={[RAISED, { fontSize: 44, lineHeight: 50 }]}>${balance.toFixed(2)}</Txt>
+                                            <Txt variant="bodyStrong" style={[RAISED, { color: '#FFFFFF', marginLeft: SPACE.sm }]}>TTD</Txt>
                                         </View>
                                     )}
-                                </LinearGradient>
+                                </CrystalGradient>
                             </View>
 
                             <View style={{ flexDirection: 'row', marginTop: SPACE.xl }}>

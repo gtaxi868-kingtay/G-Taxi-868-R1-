@@ -4,6 +4,7 @@ import {
     StyleProp, StyleSheet, Text as RNText, TextInput, TextInputProps, TextStyle, View, ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { CrystalFace, CrystalGradient, RAISED, RaisedIcon } from '@gtaxi/design-system-native/src/crystal';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -122,6 +123,8 @@ export function shade(hex: string, amt = 0.22): string {
     const r = f((n >> 16) & 255), g = f((n >> 8) & 255), b = f(n & 255);
     return `rgb(${r},${g},${b})`;
 }
+
+export { CrystalFace, CrystalGradient, RAISED, RaisedIcon };
 
 // Bouncy entrance for a block: pops up and settles. Use `delay` to stagger.
 export function Pop({ children, delay = 0, style }: { children: React.ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
@@ -291,15 +294,12 @@ export function Button({
                     borderWidth: variant === 'secondary' || variant === 'ghost' ? 2 : 0,
                     borderColor: variant === 'ghost' ? m.chipBorder : (m.key === 'day' ? '#E7E1F0' : '#3A3049'),
                 }}>
-                    {variant === 'primary' && !color ? (
-                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
-                    ) : null}
-                    {solid ? <View pointerEvents="none" style={{ position: 'absolute', top: 5, left: 14, right: 14, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.22)' }} /> : null}
+                    {solid ? <CrystalFace color={faceColor} radius={radius} /> : null}
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACE.xl }}>
                         {loading ? <ActivityIndicator color={fg} /> : (
                             <>
-                                {icon ? <Ionicons name={icon} size={size === 'sm' ? 16 : 19} color={fg} style={{ marginRight: SPACE.sm }} /> : null}
-                                <RNText numberOfLines={1} style={{ color: fg, fontFamily: FONT.round, fontSize: size === 'sm' ? 14 : 17, letterSpacing: 0.3 }}>{title}</RNText>
+                                {icon ? <View style={{ marginRight: SPACE.sm }}>{solid ? <RaisedIcon name={icon} size={size === 'sm' ? 16 : 19} /> : <Ionicons name={icon} size={size === 'sm' ? 16 : 19} color={fg} />}</View> : null}
+                                <RNText numberOfLines={1} style={{ ...(solid ? RAISED : null), color: fg, fontFamily: FONT.round, fontSize: size === 'sm' ? 14 : 17, letterSpacing: 0.3 }}>{title}</RNText>
                             </>
                         )}
                     </View>
@@ -395,8 +395,9 @@ export function Row({
             })}
         >
             {icon ? (
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center', marginRight: SPACE.md }}>
-                    <Ionicons name={icon} size={19} color={danger ? '#E5484D' : m.accent} />
+                <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: SPACE.md }}>
+                    <CrystalFace color={danger ? '#E5484D' : '#0E9F8E'} radius={20} />
+                    <RaisedIcon name={icon} size={19} />
                 </View>
             ) : null}
             <View style={{ flex: 1 }}>
@@ -456,10 +457,10 @@ export function Divider({ style }: { style?: StyleProp<ViewStyle> }) {
 // Brand gradient square/circle with an icon (service tiles, avatars)
 export function BrandBadge({ icon, size = 56, round }: { icon: IconName; size?: number; round?: boolean }) {
     return (
-        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={{ width: size, height: size, borderRadius: round ? size / 2 : 18, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name={icon} size={size * 0.42} color="#FFFFFF" />
-        </LinearGradient>
+            <RaisedIcon name={icon} size={size * 0.42} />
+        </CrystalGradient>
     );
 }
 

@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
 import { processTip } from '../services/api';
 import { toast } from '../components/Toast';
-import { BRAND_GRADIENT, Button, Chip, Field, Screen, Section, SPACE, Txt } from '../ui/kit';
+import { CrystalGradient, BRAND_GRADIENT, Button, Chip, Field, Screen, Section, SPACE, Txt } from '../ui/kit';
 
 const LABELS = ['', 'Poor', 'Not great', 'Okay', 'Good', 'Excellent'];
 
@@ -62,9 +61,9 @@ export function RatingScreen({ navigation, route }: any) {
         >
             <View style={{ alignItems: 'center', paddingTop: SPACE.xxl }}>
                 <View style={{ width: 88, height: 88, borderRadius: 44, overflow: 'hidden' }}>
-                    <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                         <Txt variant="hero" tone="onBrand">{driver?.name?.charAt(0) || 'G'}</Txt>
-                    </LinearGradient>
+                    </CrystalGradient>
                 </View>
                 <Txt variant="label" tone="accent" style={{ marginTop: SPACE.lg }}>You've arrived</Txt>
                 <Txt variant="hero" style={{ textAlign: 'center', marginTop: SPACE.xs }}>How was your ride{driver?.name ? ` with ${driver.name.split(' ')[0]}` : ''}?</Txt>

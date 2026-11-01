@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import {
   View,
   Text,
@@ -202,6 +203,7 @@ export const RegisterPuckScreen: React.FC<{ navigation: any }> = ({ navigation }
             disabled={isSubmitting}
             activeOpacity={0.85}
           >
+<CrystalFace color={VOICES.admin.accent} radius={12} />
             {isSubmitting ? (
               <ActivityIndicator size="small" color="#FFF" />
             ) : (
@@ -285,7 +287,7 @@ const styles = StyleSheet.create({
   telemetryStatus: { fontSize: 11, color: 'rgba(255,255,255,0.65)' },
   telemetryData: { fontSize: 12, color: '#10B981', fontFamily: 'monospace', marginTop: 2 },
   telemetryWarn: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 2 },
-  submitBtn: {
+  submitBtn: { overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

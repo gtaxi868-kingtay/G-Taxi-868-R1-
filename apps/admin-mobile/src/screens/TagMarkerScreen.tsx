@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   ActivityIndicator, Alert, Platform, ScrollView,
@@ -510,6 +511,7 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
                   disabled={chipStep === 'writing' || chipStep === 'locking'}
                   activeOpacity={0.85}
                 >
+<CrystalFace color={VOICES.admin.accent} radius={12} />
                   {chipStep === 'writing' ? <ActivityIndicator color="#FFF" size="small" /> : (
                     <>
                       <Ionicons name="radio-outline" size={18} color="#FFF" />
@@ -541,6 +543,7 @@ export function TagMarkerScreen({ navigation }: { navigation: TagMarkerNavProp }
             disabled={submitting}
             activeOpacity={0.85}
           >
+<CrystalFace color={VOICES.admin.accent} radius={12} />
             {submitting ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
@@ -661,7 +664,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   mapPickerText: { color: '#F59E0B', fontSize: 12 },
-  submitBtn: {
+  submitBtn: { overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

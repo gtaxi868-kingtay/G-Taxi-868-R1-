@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '@gtaxi/core';
-import { BRAND_GRADIENT, Button, Card, Loading, Row, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
+import { CrystalGradient, BRAND_GRADIENT, Button, Card, Loading, Row, Screen, Section, SPACE, Txt, useTheme } from '../ui/kit';
 import { AppScreenProps, AppStackParamList } from '../navigation/types';
 
 export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
@@ -127,9 +126,9 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
                 <>
                     <View style={{ alignItems: 'center', marginTop: SPACE.sm }}>
                         <View style={{ width: 88, height: 88, borderRadius: 44, overflow: 'hidden' }}>
-                            <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                            <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                                 <Txt variant="hero" tone="onBrand">{displayName.charAt(0).toUpperCase()}</Txt>
-                            </LinearGradient>
+                            </CrystalGradient>
                         </View>
                         <Txt variant="hero" style={{ marginTop: SPACE.md, textAlign: 'center' }}>{displayName}</Txt>
                         <Txt variant="body" tone="dim">{user?.email}</Txt>

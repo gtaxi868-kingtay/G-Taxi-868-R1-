@@ -4,6 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Alert, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { CrystalFace, RaisedIcon } from '@gtaxi/design-system-native/src/crystal';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -244,7 +245,8 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               style={styles.iconBtn}
               accessibilityLabel={viewMode === 'list' ? 'Show map' : 'Show list'}
             >
-              <Ionicons name={viewMode === 'list' ? 'map-outline' : 'list-outline'} size={18} color={ACCENT} />
+              <CrystalFace color={ACCENT} radius={14} />
+              <RaisedIcon name={viewMode === 'list' ? 'map-outline' : 'list-outline'} size={18} />
               <Text style={styles.iconCaption}>{viewMode === 'list' ? 'Map' : 'List'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -252,7 +254,8 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               style={styles.iconBtn}
               accessibilityLabel="Approvals"
             >
-              <Ionicons name="file-tray-full-outline" size={18} color={ACCENT} />
+              <CrystalFace color={ACCENT} radius={14} />
+              <RaisedIcon name="file-tray-full-outline" size={18} />
               <Text style={styles.iconCaption}>Approvals</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -279,7 +282,8 @@ export function DashboardScreen({ navigation }: { navigation: DashboardNavProp }
               style={styles.iconBtn}
               accessibilityLabel="Talk to G"
             >
-              <Ionicons name="chatbubbles-outline" size={18} color={ACCENT} />
+              <CrystalFace color={ACCENT} radius={14} />
+              <RaisedIcon name="chatbubbles-outline" size={18} />
               <Text style={styles.iconCaption}>Talk to G</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -423,7 +427,7 @@ const styles = StyleSheet.create({
   headerMeta: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2, fontWeight: '500' },
   headerActionsScroll: { flexGrow: 0 },
   headerActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  iconBtn: {
+  iconBtn: { overflow: 'hidden',
     minWidth: 68,
     minHeight: 56,
     paddingHorizontal: 8,
@@ -434,7 +438,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
   },
-  iconCaption: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.85)' },
+  iconCaption: { fontSize: 11, fontWeight: '600', color: '#FFFFFF' },
   cardActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   list: { padding: 16, gap: 10 },
   mapWrap: { flex: 1, padding: 16 },

@@ -17,6 +17,7 @@ export type AppStackParamList = {
   EquityProgress: { contract_id?: string };
   Staff: undefined;
   NfcAcceptPayment: undefined;
+  Brand: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;

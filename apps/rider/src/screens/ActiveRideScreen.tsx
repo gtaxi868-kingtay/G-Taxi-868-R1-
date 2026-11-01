@@ -8,7 +8,6 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, UrlTile } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import Reanimated, {
@@ -18,7 +17,7 @@ import Reanimated, {
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { toast } from '../components/Toast';
-import { BRAND_GRADIENT, Button, Card, Field, GUTTER, Loading, RADIUS, Screen, SPACE, Txt, useTheme } from '../ui/kit';
+import { CrystalGradient, BRAND_GRADIENT, Button, Card, Field, GUTTER, Loading, RADIUS, Screen, SPACE, Txt, useTheme } from '../ui/kit';
 import { ENV } from '@g868/shared/env';
 import { supabase, supportWhatsAppLink } from '@gtaxi/core';
 import { useRideSubscription } from '../services/realtime';
@@ -681,9 +680,9 @@ export function ActiveRideScreen({ route, navigation }: { route: { params: Activ
 
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <View style={{ width: 52, height: 52, borderRadius: 26, overflow: 'hidden' }}>
-                        <LinearGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                             <Txt variant="title" tone="onBrand">{driver?.name?.charAt(0) || 'G'}</Txt>
-                        </LinearGradient>
+                        </CrystalGradient>
                     </View>
                     <View style={{ flex: 1, marginLeft: SPACE.md }}>
                         <Txt variant="headline" numberOfLines={1}>{driver?.name || 'Your driver'}</Txt>

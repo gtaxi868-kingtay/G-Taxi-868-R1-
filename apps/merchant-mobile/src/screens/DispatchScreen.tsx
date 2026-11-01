@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, Alert,
@@ -262,6 +263,7 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
               accessibilityLabel="Send a car to the client"
               accessibilityRole="button"
             >
+<CrystalFace color={VOICES.merchant.accent} radius={14} />
               {loading ? (
                 <ActivityIndicator color="#000" />
               ) : (
@@ -341,7 +343,7 @@ const s = StyleSheet.create({
   vehicleChipText: { fontSize: 14, fontWeight: '600', color: VOICES.merchant.textMuted, fontFamily: 'Manrope' },
   vehicleChipTextActive: { color: '#E9F5F3' },
   payNote: { fontSize: 12.5, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', marginBottom: 14, lineHeight: 18 },
-  dispatchBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4 },
+  dispatchBtn: { overflow: 'hidden', backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4 },
   dispatchBtnDisabled: { opacity: 0.5 },
   dispatchBtnText: { fontSize: 16, fontWeight: '700', color: '#000', fontFamily: 'SpaceGrotesk' },
   resultCard: { borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#4ADE8030' },

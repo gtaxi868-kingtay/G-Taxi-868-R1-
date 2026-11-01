@@ -107,7 +107,7 @@ const st = StyleSheet.create({
     body: { color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 6, fontFamily: 'Manrope' },
     muted: { color: '#F59E0B', fontSize: 12, marginTop: 4, fontFamily: 'Manrope' },
     actions: { flexDirection: 'row', gap: 10, marginTop: 12, flexWrap: 'wrap' },
-    primary: { backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
+    primary: { overflow: 'hidden', backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
     primaryText: { color: '#E9F5F3', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
     secondary: { borderRadius: 14, paddingVertical: 12, paddingHorizontal: 16, minHeight: 46, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
     secondaryText: { color: '#E9F5F3', fontWeight: '600', fontFamily: 'Manrope' },

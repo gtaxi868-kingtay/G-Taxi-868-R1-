@@ -41,6 +41,7 @@ import { AnimatedSplash } from './src/components/AnimatedSplash';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { DestinationSearchScreen } from './src/screens/DestinationSearchScreen';
+import { PinOnMapScreen } from './src/screens/PinOnMapScreen';
 import { RideConfirmationScreen } from './src/screens/RideConfirmationScreen';
 import { SearchingDriverScreen } from './src/screens/SearchingDriverScreen';
 import { ActiveRideScreen } from './src/screens/ActiveRideScreen';
@@ -166,6 +167,7 @@ function AppNavigator({ initialRoute }: { initialRoute?: any } = {}) {
                 <AppStack.Screen name="Subscription" component={SubscriptionScreen} initialParams={p("Subscription")} />
                 <AppStack.Screen name="GSpot" component={GSpotScreen} initialParams={p("GSpot")} />
                 <AppStack.Screen name="Notifications" component={NotificationsScreen} initialParams={p("Notifications")} />
+                <AppStack.Screen name="PinOnMap" component={PinOnMapScreen} />
                 <AppStack.Screen name="DestinationSearch" component={DestinationSearchScreen} initialParams={p("DestinationSearch")} />
                 <AppStack.Screen name="RideConfirmation" component={RideConfirmationScreen} initialParams={p("RideConfirmation")} />
                 <AppStack.Screen name="RideReview" component={RideReviewScreen} initialParams={p("RideReview")} />

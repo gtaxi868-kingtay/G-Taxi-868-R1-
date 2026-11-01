@@ -1,7 +1,7 @@
 import React from 'react';
 import { Animated, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LIP, shade, SPACE, tick, Txt, useKeyPress, useTheme } from '../ui/kit';
+import { CrystalFace, LIP, RaisedIcon, shade, SPACE, tick, Txt, useKeyPress, useTheme } from '../ui/kit';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -31,8 +31,8 @@ export function KeyTile({
             <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={press} onPressIn={onPressIn} onPressOut={onPressOut} style={{ alignItems: 'center' }}>
                 <View style={{ alignSelf: 'stretch', borderRadius: 20, backgroundColor: shade(color) }}>
                     <Animated.View style={{ height: 64, borderRadius: 20, backgroundColor: color, alignItems: 'center', justifyContent: 'center', marginBottom: LIP + 1, transform: [{ translateY }] }}>
-                        <View pointerEvents="none" style={{ position: 'absolute', top: 6, left: 12, right: 12, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.28)' }} />
-                        <Ionicons name={locked ? 'lock-closed' : icon} size={26} color="#FFFFFF" />
+                        <CrystalFace color={color} radius={20} />
+                        <RaisedIcon name={locked ? 'lock-closed' : icon} size={26} />
                     </Animated.View>
                 </View>
                 <Txt variant="label" numberOfLines={1} style={{ marginTop: 6 }}>{title}</Txt>
@@ -46,8 +46,9 @@ export function KeyTile({
         <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={press} onPressIn={onPressIn} onPressOut={onPressOut}>
             <View style={{ borderRadius: 20, backgroundColor: edge }}>
                 <Animated.View style={{ minHeight: 104, borderRadius: 20, backgroundColor: face, borderWidth: 2, borderColor: edge, padding: SPACE.md, marginBottom: LIP, transform: [{ translateY }] }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: color, borderBottomWidth: 3, borderColor: shade(color), alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name={locked ? 'lock-closed' : icon} size={20} color="#FFFFFF" />
+                    <View style={{ width: 40, height: 40, borderRadius: 13, overflow: 'hidden', backgroundColor: color, borderBottomWidth: 3, borderBottomColor: shade(color), alignItems: 'center', justifyContent: 'center' }}>
+                        <CrystalFace color={color} radius={13} />
+                        <RaisedIcon name={locked ? 'lock-closed' : icon} size={20} />
                     </View>
                     <Txt variant="headline" numberOfLines={1} style={{ marginTop: SPACE.sm }}>{title}</Txt>
                     {subtitle ? <Txt variant="caption" tone="dim" numberOfLines={1}>{subtitle}</Txt> : null}
