@@ -49,7 +49,7 @@ function App() {
         fetchData(profile.merchant.id);
         setupRealtime(profile.merchant.id);
       } else {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         setView('login');
       }
     }
@@ -199,7 +199,7 @@ function App() {
               SOUND: {soundEnabled ? 'ON' : 'OFF'}
             </button>
             <button 
-              onClick={() => supabase.auth.signOut().then(() => setView('login')).catch(() => alert('Could not sign out. Please try again.'))}
+              onClick={() => supabase.auth.signOut({ scope: 'local' }).then(() => setView('login')).catch(() => alert('Could not sign out. Please try again.'))}
               className="w-full h-14 flex items-center justify-center gap-3 rounded-2xl border border-red-500/20 text-red-400 font-black text-xs uppercase tracking-widest hover:bg-red-500/10 transition-all"
             >
               <LogOut size={18} />

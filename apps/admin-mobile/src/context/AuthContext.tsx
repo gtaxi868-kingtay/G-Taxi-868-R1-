@@ -62,11 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // non-admin session — but that swaps out SignupScreen before its
     // "Account created" confirmation ever renders. Sign back out so the
     // caller's success state actually reaches the user.
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
   };
 
   return (
