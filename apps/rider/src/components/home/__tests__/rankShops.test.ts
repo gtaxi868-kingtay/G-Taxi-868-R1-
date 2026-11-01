@@ -1,4 +1,4 @@
-import { rankShops, type MapShop } from '../rankShops';
+import { attachOffers, rankShops, type MapShop } from '../rankShops';
 
 const shop = (id: string, km: number, featured = false, extra: Partial<MapShop> = {}): MapShop => ({
     id, name: id, lat: 10.6, lng: -61.5, distance_m: km * 1000, is_featured: featured, is_open: true, store_type: 'restaurant', ...extra,
@@ -27,5 +27,16 @@ describe('rankShops (founder: "mix, paid boosted")', () => {
         const copy = JSON.stringify(input);
         rankShops(input);
         expect(JSON.stringify(input)).toBe(copy);
+    });
+});
+
+describe('attachOffers', () => {
+    const offer = { merchant_id: 'a', headline: 'Deal', offer_text: null, image_url: null, accent_color: '#8B5CF6' };
+    const shop = (id: string) => ({ id, name: id, lat: 10.6, lng: -61.5, distance_m: 100, is_featured: false, is_open: true, store_type: 'grocery' });
+
+    it('puts each offer on its own shop only', () => {
+        const [a, b] = attachOffers([shop('a'), shop('b')], [offer]);
+        expect(a.offer).toEqual(offer);
+        expect(b.offer).toBeNull();
     });
 });

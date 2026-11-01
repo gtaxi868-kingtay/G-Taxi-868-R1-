@@ -44,6 +44,13 @@ export function ShopActionSheet({ shop, onClose, onAction }: { shop: MapShop | n
                     </View>
                 </View>
 
+                {shop.offer ? (
+                    <View style={{ marginTop: SPACE.md, padding: SPACE.md, borderRadius: 14, borderLeftWidth: 4, borderLeftColor: shop.offer.accent_color, backgroundColor: `${shop.offer.accent_color}22` }}>
+                        <Txt variant="headline">{shop.offer.headline}</Txt>
+                        {shop.offer.offer_text ? <Txt variant="caption" tone="dim" style={{ marginTop: 2 }}>{shop.offer.offer_text}</Txt> : null}
+                    </View>
+                ) : null}
+
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: SPACE.lg, marginHorizontal: -SPACE.xs }}>
                     <View style={{ width: '50%', paddingHorizontal: SPACE.xs, marginBottom: SPACE.md }}>
                         <KeyTile size="wide" title="Ride there" subtitle="Go to this shop" icon="car-sport" color="#8B7CFF" onPress={() => act('ride')} />

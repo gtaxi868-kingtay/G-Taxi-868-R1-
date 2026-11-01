@@ -38,4 +38,14 @@ describe('ShopActionSheet', () => {
         const { toJSON } = render(<ShopActionSheet shop={null} onClose={jest.fn()} onAction={jest.fn()} />);
         expect(toJSON()).toBeNull();
     });
+
+    it('shows the approved offer, and nothing when there is none', () => {
+        const offer = { merchant_id: 'm1', headline: 'Your full shop', offer_text: 'Ride home', image_url: null, accent_color: '#22D3EE' };
+        const { getByText, unmount } = render(<ShopActionSheet shop={{ ...SHOP, offer } as any} onClose={jest.fn()} onAction={jest.fn()} />);
+        expect(getByText('Your full shop')).toBeTruthy();
+        expect(getByText('Ride home')).toBeTruthy();
+        unmount();
+        const { queryByText } = render(<ShopActionSheet shop={SHOP as any} onClose={jest.fn()} onAction={jest.fn()} />);
+        expect(queryByText('Your full shop')).toBeNull();
+    });
 });
