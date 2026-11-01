@@ -192,6 +192,14 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileDesc}>View & manage bookings</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Brand')} accessibilityLabel="Your brand and map pin" accessibilityRole="button">
+            <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
+              <Ionicons name="sparkles" size={28} color={VOICES.merchant.accent} />
+            </View>
+            <Text style={s.tileLabel}>Your brand</Text>
+            <Text style={s.tileDesc}>Approve your look</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Staff')} accessibilityLabel="Manage your team" accessibilityRole="button">
             <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
               <Ionicons name="people" size={28} color={VOICES.merchant.accent} />

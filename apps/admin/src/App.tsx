@@ -33,9 +33,10 @@ import { Waitlist } from './pages/Waitlist';
 import { SosAlerts } from './pages/SosAlerts';
 import { BusinessPayouts } from './pages/BusinessPayouts';
 import { WhatsAppIntake } from './pages/WhatsAppIntake';
+import { PartnerBrand } from './pages/PartnerBrand';
 import { AirportFlights } from './pages/AirportFlights';
 import { LOGO_B64 } from './logoUrl';
-import { LayoutDashboard, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, AlertOctagon, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain, HeartPulse, ClipboardList, Banknote, MessageCircle, PlaneLanding } from 'lucide-react';
+import { LayoutDashboard, Sparkles, Users, CreditCard, LogOut, ShieldCheck, Activity, UserCheck, Menu, X, ShieldOff, Radio, AlertTriangle, AlertOctagon, Vault, SlidersHorizontal, Plane, Car, Bot, Tag, Store, Flag, TrendingUp, DollarSign, FileCheck, Inbox, KeyRound, Wrench, Wine, Brain, HeartPulse, ClipboardList, Banknote, MessageCircle, PlaneLanding } from 'lucide-react';
 
 function AdminSecurityGate({ children }: { children: React.ReactNode }) {
     const [gateState, setGateState] = useState<'loading' | 'unauthorized' | 'authorized'>('loading');
@@ -97,7 +98,7 @@ function AdminSecurityGate({ children }: { children: React.ReactNode }) {
 }
 
 // ── App ────────────────────────────────────────────────────────────────────────
-type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist' | 'sosalerts' | 'cashout' | 'payouts' | 'intake' | 'airport';
+type AdminView = 'dashboard' | 'fleet' | 'commander' | 'financials' | 'approval' | 'nodes' | 'rescue' | 'warchest' | 'platformcontrol' | 'escape' | 'dealer' | 'intelligence' | 'approvals' | 'gchat' | 'pricing' | 'merchants' | 'support' | 'progression' | 'revshare' | 'compliance' | 'users' | 'ggarage' | 'gspot' | 'gmemory' | 'health' | 'waitlist' | 'sosalerts' | 'cashout' | 'payouts' | 'intake' | 'airport' | 'brand';
 
 const TAB_LABELS: Record<AdminView, string> = {
     dashboard: 'Operations Overview',
@@ -130,6 +131,7 @@ const TAB_LABELS: Record<AdminView, string> = {
     sosalerts: 'SOS & Safety Alerts',
     payouts: 'Business Payouts',
     intake: 'WhatsApp Intake',
+    brand: 'Partner Brand',
     airport: 'Airport Pickups',
 };
 
@@ -242,6 +244,7 @@ function App() {
                         <NavItem active={activeTab === 'approvals'} onClick={() => handleNav('approvals')} icon={<Inbox size={20}/>} label="G Approvals" />
                         <NavItem active={activeTab === 'payouts'} onClick={() => handleNav('payouts')} icon={<Banknote size={20}/>} label="Business Payouts" />
                         <NavItem active={activeTab === 'intake'} onClick={() => handleNav('intake')} icon={<MessageCircle size={20}/>} label="WhatsApp Intake" />
+                        <NavItem active={activeTab === 'brand'} onClick={() => handleNav('brand')} icon={<Sparkles size={20}/>} label="Partner Brand" />
                         <NavItem active={activeTab === 'airport'} onClick={() => handleNav('airport')} icon={<PlaneLanding size={20}/>} label="Airport Pickups" />
                         <NavItem active={activeTab === 'gchat'} onClick={() => handleNav('gchat')} icon={<Bot size={20}/>} label="Talk to G" />
                         <NavItem active={activeTab === 'pricing'} onClick={() => handleNav('pricing')} icon={<Tag size={20}/>} label="Pricing Config" />
@@ -328,6 +331,7 @@ function App() {
                         {activeTab === 'approvals' && <Approvals />}
                         {activeTab === 'payouts' && <BusinessPayouts />}
                         {activeTab === 'intake' && <WhatsAppIntake />}
+                        {activeTab === 'brand' && <PartnerBrand />}
                         {activeTab === 'airport' && <AirportFlights />}
                         {activeTab === 'gchat' && <GChat />}
                         {activeTab === 'pricing' && <Pricing />}
