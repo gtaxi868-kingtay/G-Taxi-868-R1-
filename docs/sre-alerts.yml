@@ -1,0 +1,37 @@
+version: 1
+service: g-taxi
+environment: production
+owner: operations
+rules:
+  - name: edge-function-error-rate
+    severity: page
+    condition: "5xx_rate > 0.02 for 5m"
+    runbook: docs/INCIDENT_RESPONSE.md
+  - name: critical-latency-burn
+    severity: page
+    condition: "p95_latency > 1.5s for 10m on ride/payment functions"
+    runbook: docs/INCIDENT_RESPONSE.md
+  - name: worker-not-ready
+    severity: page
+    condition: "ready_endpoint != 200 for 2 consecutive checks"
+    runbook: docs/INCIDENT_RESPONSE.md
+  - name: redis-failure
+    severity: page
+    condition: "redis_error_rate > 0.05 for 5m or db_fallback_count > 10/min"
+    runbook: docs/INCIDENT_RESPONSE.md
+  - name: database-saturation
+    severity: page
+    condition: "connections > 80% or lock_wait_seconds > 30 for 5m"
+    runbook: docs/DISASTER_RECOVERY.md
+  - name: queue-stuck
+    severity: page
+    condition: "oldest_dispatch_or_event_age > 300s"
+    runbook: docs/INCIDENT_RESPONSE.md
+  - name: payment-integrity
+    severity: page
+    condition: "reconciliation_delta != 0 or duplicate_settlement > 0"
+    runbook: docs/INCIDENT_RESPONSE.md
+  - name: elevated-rate-limit
+    severity: ticket
+    condition: "429_rate > 0.05 for 15m"
+    runbook: docs/RELEASE_RUNBOOK.md

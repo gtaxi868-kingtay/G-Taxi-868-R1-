@@ -1,10 +1,11 @@
-# VPS starter stack for G-Taxi
+# VPS operational stack for G-Taxi
 
-This directory is a minimal operational base for a small VPS before you scale into scraper, forecasting, or AI agent work.
+This directory is an operational base for worker services, monitoring, and controlled HTTP release slots. It is not the hosting layer for Supabase Edge Functions or the mobile apps.
 
 ## What is included
 
 - Caddy for TLS and reverse proxy
+- Caddy blue/green upstream routing under `/ops/*`
 - Uptime Kuma for uptime monitoring
 - Redis for background queues and lightweight caching
 - A minimal Python worker container that can be extended later
@@ -59,6 +60,34 @@ cp .env.example .env
 sudo docker compose up -d --build
 ```
 
+## Blue/green release slots
+
+The `worker-blue` and `worker-green` services are optional release slots. Start
+them with:
+
+```bash
+sudo docker compose --profile release-slots up -d --build worker-blue worker-green caddy
+```
+
+Caddy balances `/ops/*` between `BLUE_UPSTREAM` and `GREEN_UPSTREAM`, performs
+health checks at `/health`, and uses `lb_policy first` so only the first healthy
+slot receives traffic. To promote green, set `BLUE_UPSTREAM` to the green
+service (or swap the two values), then recreate Caddy:
+
+```bash
+sudo docker compose up -d --no-deps caddy
+```
+
+Or use the helper, which creates a timestamped `.env` backup:
+
+```bash
+./promote-slot.sh green
+```
+
+This only applies to HTTP services hosted on this VPS. Supabase Edge Functions
+are promoted through the GitHub workflows in `.github/workflows/`; they are not
+behind this Caddy instance.
+
 ## Useful access points
 
 - Caddy: `https://your-domain.com`
@@ -73,8 +102,9 @@ sudo docker compose logs -f worker
 
 - Keep Supabase as the main data and auth layer.
 - Keep this VPS for operational/background tasks, not for user-facing business logic at first.
-- Add Redis or worker jobs only when there is a real task to run.
-- Add Prometheus/Grafana later if you actually need deeper system metrics.
+- Do not expose Redis, Uptime Kuma admin, or service-role credentials publicly.
+- Add a second VPS or managed service before treating this as high availability.
+- Add Prometheus/Grafana when deeper capacity metrics are required.
 
 ## Recommended next use cases
 
@@ -89,3 +119,4 @@ sudo docker compose logs -f worker
 - Keep secrets in `.env` and never commit them
 - Use a firewall and fail2ban on the host
 - Do not expose raw DB credentials or service-role keys in the VPS app layer
+- Restrict `/ops/*` to an authenticated gateway before exposing any non-health endpoint

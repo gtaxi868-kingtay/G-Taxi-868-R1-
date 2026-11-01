@@ -15,6 +15,8 @@ services:
     environment:
       DOMAIN: ${DOMAIN:-localhost}
       CADDY_EMAIL: ${CADDY_EMAIL:-admin@example.com}
+      BLUE_UPSTREAM: ${BLUE_UPSTREAM:-worker-blue:8080}
+      GREEN_UPSTREAM: ${GREEN_UPSTREAM:-worker-green:8080}
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
@@ -50,6 +52,61 @@ services:
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       DOMAIN: ${DOMAIN:-localhost}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/ready', timeout=2)"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      - redis
+    networks:
+      - appnet
+
+  # Keep the two release slots separate so an HTTP worker can be promoted by
+  # changing BLUE_UPSTREAM/GREEN_UPSTREAM without rebuilding the proxy.
+  worker-blue:
+    profiles: [release-slots]
+    build:
+      context: ./worker
+    container_name: g-taxi-worker-blue
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      WORKER_TICK_SECONDS: ${WORKER_TICK_SECONDS:-60}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      HTTP_PORT: 8080
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/ready', timeout=2)"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      - redis
+    networks:
+      - appnet
+
+  worker-green:
+    profiles: [release-slots]
+    build:
+      context: ./worker
+    container_name: g-taxi-worker-green
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      WORKER_TICK_SECONDS: ${WORKER_TICK_SECONDS:-60}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      HTTP_PORT: 8080
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/ready', timeout=2)"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
     depends_on:
       - redis
     networks:
