@@ -8,7 +8,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#07070F">
-    <title>Register Your Store with G 868 | Trinidad and Tobago</title>
+    <title>Register Your Business with G 868 | Trinidad and Tobago</title>
     <meta name="description" content="Register your shop with G 868 in Trinidad and Tobago. Turn your counter into a taxi stand, earn on every ride that starts there, and go live once HQ approves.">
     <link rel="canonical" href="https://g-taxi-868-r1-admin.vercel.app/merchant-onboard">
     <meta property="og:type" content="website">
@@ -47,6 +47,8 @@
  }
 }
     </script>
+    <script src="/look-v1.js"></script>
+<link rel="stylesheet" href="/pages-v1.css">
     <link rel="icon" href="logo.png">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,19 +57,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --base: #07070F;
-            --ice: #EAF3F6;
-            --cyan: #34E6EC;
-            --violet: #6D28D9;
-            --platinum: #CBD6DE;
+            --base: var(--bg); --ice: var(--t1); --cyan: var(--acc2); --violet: #7C3AED; --platinum: var(--t1);
             --ink-on-cyan: #06131A;
             --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { height: 100%; }
+        
         body {
             font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--base);
+            background: transparent;
             min-height: 100vh;
             min-height: 100dvh;
             color: var(--ice);
@@ -76,7 +74,7 @@
         }
 
         /* ── Ambient field — same signature as the tap landing page ────────── */
-        .field { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+        .field { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 0; }
         .field::before {
             content: '';
             position: absolute; inset: 0;
@@ -99,9 +97,15 @@
         .wrap {
             position: relative;
             z-index: 1;
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 32px 22px 60px;
+            max-width: 500px;
+            margin: 28px auto 0;
+            padding: clamp(24px,5vw,40px);
+            border-radius: 28px;
+            background: var(--glass);
+            border: 1px solid var(--rule);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
         }
 
         .rise {
@@ -110,11 +114,11 @@
         }
         @starting-style { .rise { opacity: 0; transform: translateY(8px); } }
 
-        .logo-mark { width: 44px; height: 44px; margin: 0 auto 22px; display: block; filter: drop-shadow(0 6px 18px rgba(52,230,236,0.25)); }
+        .logo-mark { width: 72px; height: 72px; margin: 0 auto 18px; display: block; filter: drop-shadow(0 6px 18px rgba(52,230,236,0.25)); }
 
         /* ── Invite context banner ─────────────────────────────────────── */
         .invite-banner {
-            background: rgba(255,255,255,0.03);
+            background: var(--field);
             border: 0.5px solid rgba(52,230,236,0.22);
             border-radius: 16px;
             padding: 16px 18px;
@@ -125,7 +129,7 @@
         }
         .invite-banner .label { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan); }
         .invite-banner .name { font-family: 'Outfit', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin-top: 6px; margin-bottom: 0; line-height: 1.25; }
-        .invite-banner .addr { font-size: 12.5px; color: rgba(234,243,246,0.7); margin-top: 3px; }
+        .invite-banner .addr { font-size: 12.5px; color: var(--t2); margin-top: 3px; }
         .invite-error {
             background: rgba(239,68,68,0.06); border: 0.5px solid rgba(239,68,68,0.28);
             border-radius: 16px; padding: 18px; text-align: center; font-size: 14px; color: #FCA5A5;
@@ -133,26 +137,26 @@
 
         /* ── Progress ──────────────────────────────────────────────────── */
         .progress { display: flex; gap: 6px; margin-bottom: 26px; }
-        .progress .seg { flex: 1; height: 2px; border-radius: 2px; background: rgba(255,255,255,0.08); transition: background 300ms var(--ease-out); }
+        .progress .seg { flex: 1; height: 2px; border-radius: 2px; background: var(--field); transition: background 300ms var(--ease-out); }
         .progress .seg.done { background: linear-gradient(90deg, var(--violet), var(--cyan)); }
-        .step-label { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: rgba(234,243,246,0.72); margin-bottom: 8px; }
+        .step-label { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--t2); margin-bottom: 8px; }
 
         h1, h2.step-title {
             font-family: 'Outfit', sans-serif;
-            font-weight: 800; font-size: 28px; line-height: 1.1; letter-spacing: -0.02em;
+            font-weight: 800; font-size: 30px; line-height: 1.1; letter-spacing: -0.02em;
             margin-bottom: 8px; text-wrap: balance;
         }
-        .sub { font-size: 14px; color: rgba(234,243,246,0.72); margin-bottom: 26px; line-height: 1.55; }
+        .sub { font-size: 14px; color: var(--t2); margin-bottom: 26px; line-height: 1.55; }
 
         .field-group { margin-bottom: 16px; }
-        .field-group label { display: block; font-size: 13px; font-weight: 700; letter-spacing: 0.01em; color: rgba(234,243,246,0.82); margin-bottom: 7px; }
+        .field-group label { display: block; font-size: 13px; font-weight: 700; letter-spacing: 0.01em; color: var(--t2); margin-bottom: 7px; }
         .field-group input, .field-group select {
             width: 100%; padding: 14px 15px; border-radius: 12px;
-            background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.12);
+            background: var(--field); border: 1px solid var(--rule);
             color: var(--ice); font-size: 15px; font-family: inherit;
             transition: border-color 140ms var(--ease-out);
         }
-        .field-group input::placeholder { color: rgba(234,243,246,0.5); }
+        .field-group input::placeholder { color: var(--t2); }
         .field-group input:focus, .field-group select:focus { outline: none; border-color: var(--cyan); }
 
         .btn {
@@ -162,19 +166,19 @@
             transition: transform 140ms var(--ease-out), border-color 140ms var(--ease-out);
         }
         .btn:active { transform: scale(0.97); }
-        .btn-primary { background: var(--cyan); color: var(--ink-on-cyan); box-shadow: 0 12px 32px rgba(52,230,236,0.24), inset 0 1px 0 rgba(255,255,255,0.5); }
-        .btn-secondary { background: rgba(255,255,255,0.04); color: rgba(234,243,246,0.75); border: 0.5px solid rgba(255,255,255,0.11); }
-        .btn-skip { background: none; border: none; color: rgba(234,243,246,0.7); font-weight: 600; font-size: 12.5px; text-decoration: underline; margin-top: 14px; cursor: pointer; }
+        .btn-primary { background: linear-gradient(135deg,#A78BFA,#7C3AED); color: #fff; font-weight: 800; border-radius: 999px; box-shadow: 0 12px 28px rgba(124,58,237,.42); }
+        .btn-secondary { background: var(--field); color: var(--t2); border: 1px solid var(--rule); }
+        .btn-skip { background: none; border: none; color: var(--t2); font-weight: 600; font-size: 12.5px; text-decoration: underline; margin-top: 14px; cursor: pointer; }
         .btn-row { display: flex; gap: 10px; margin-top: 6px; }
         .btn-row .btn { margin-top: 0; }
 
         .summary-block {
-            background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.1);
+            background: var(--field); border: 1px solid var(--rule);
             border-radius: 16px; padding: 6px 18px; margin-bottom: 20px;
         }
-        .summary-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 0.5px solid rgba(255,255,255,0.07); font-size: 13px; }
+        .summary-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
         .summary-row:last-child { border-bottom: none; }
-        .summary-row .k { color: rgba(234,243,246,0.68); }
+        .summary-row .k { color: var(--t2); }
         .summary-row .v { font-weight: 600; color: var(--platinum); font-variant-numeric: tabular-nums; }
 
         .error-text { color: #FCA5A5; font-size: 13px; margin-top: 12px; text-align: center; }
@@ -193,23 +197,26 @@
             background: linear-gradient(90deg, transparent, var(--violet) 24%, var(--cyan) 76%, transparent);
         }
         .success-note {
-            background: rgba(255,255,255,0.03); border: 0.5px solid rgba(255,255,255,0.09);
-            border-radius: 14px; padding: 18px; font-size: 13px; color: rgba(234,243,246,0.75);
+            background: var(--field); border: 1px solid var(--rule);
+            border-radius: 14px; padding: 18px; font-size: 13px; color: var(--t2);
             line-height: 1.6; margin-top: 20px; text-align: left;
         }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
             @starting-style { .rise { opacity: 1; transform: none; } }
         }
-    </style>
+    
+        @media (max-width: 540px) { .wrap { margin: 18px 12px 0; } }
+        </style>
 </head>
 <body>
-    <div class="field"></div>
+    <div class="page-scene" aria-hidden="true"><img src="/car-night.jpg" alt=""></div>
+<nav class="page-nav" aria-label="Main"><a class="lockup" href="/" aria-label="G 868 home"><img src="/logo.png" alt="" width="30" height="30"><span>G 868</span></a><div class="links"><a href="/">Home</a><a href="/merchant-onboard" aria-current="page">Partners</a><a href="/legal/privacy">Privacy</a><a href="/legal/terms">Terms</a></div><button class="look-switch" id="lookSwitch" type="button"><span class="look-orb" aria-hidden="true"></span><span class="look-word" id="lookWord">Day</span></button></nav>
     <div class="wrap">
         <img class="logo-mark" src="logo.png" alt="G 868" width="44" height="44">
 
         <div id="loadingState">
-            <p style="text-align:center; color:rgba(234,243,246,0.7); font-size:13px; letter-spacing:0.05em;">Loading…</p>
+            <p style="text-align:center; color:var(--t2); font-size:13px; letter-spacing:0.05em;">Loading…</p>
         </div>
 
         <div id="inviteErrorState" class="hidden rise">
@@ -311,7 +318,7 @@
             <p class="sub">Your business and spot have been sent to G 868 HQ.</p>
             <div class="lit-edge" aria-hidden="true"></div>
             <div class="success-note" id="successNote">
-                HQ reviews new spots before they go live. You'll be notified once your store is active on the grid.
+                HQ reviews new spots before they go live. You'll be notified once your business is active on the map.
             </div>
         </div>
     </div>
@@ -441,8 +448,8 @@
                 // until G-Taxi HQ approves it. An invite link additionally ties
                 // the store to the counter tag a G-Lead registered.
                 document.getElementById('inviteLabel').textContent = 'New G-Partner';
-                document.getElementById('inviteLocationName').textContent = 'Register your store';
-                document.getElementById('inviteAddress').textContent = 'G 868 HQ reviews every store before it goes live.';
+                document.getElementById('inviteLocationName').textContent = 'Register your business';
+                document.getElementById('inviteAddress').textContent = 'G 868 HQ reviews every business before it goes live.';
                 document.getElementById('fPhoneLabel').textContent = 'WhatsApp Number';
                 document.getElementById('successNote').textContent =
                     'G 868 HQ reviews new stores before they go live. We will contact you on WhatsApp to set up your counter tag.';
@@ -534,5 +541,6 @@
       }
     })();
     </script>
+<footer class="page-foot"><span>Your ride. Your island. · Pre-launch.</span><nav aria-label="Footer"><a href="/">Home</a><a href="/legal/privacy">Privacy</a><a href="/legal/terms">Terms</a><a href="/merchant-onboard">Partner sign-up</a></nav></footer>
 </body>
 </html>

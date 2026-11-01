@@ -19,40 +19,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Privacy Policy | G 868</title>
+<script src="/look-v1.js"></script>
+<link rel="stylesheet" href="/pages-v1.css">
+
 <meta name="description" content="How G-Taxi (G 868) collects, uses, shares and deletes personal information across the website and the Rider, Driver, Merchant and Admin apps.">
 <link rel="canonical" href="https://g-taxi-868-r1-admin.vercel.app/legal/privacy">
-<meta name="theme-color" content="#07070F">
 <link rel="icon" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800&family=Manrope:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#07070F;
-  --ink:#EAF3F6;
-  --ink-2:rgba(234,243,246,.82);
-  --muted:rgba(234,243,246,.64);
-  --line:rgba(255,255,255,.11);
-  --panel:rgba(255,255,255,.035);
-  --cyan:#34E6EC;
-  --violet:#7c3aed;
-}
+:root{--ink:var(--t1);--ink-2:var(--t2);--muted:var(--t3);--line:var(--rule);--panel:var(--glass);--cyan:var(--acc);--violet:#7c3aed}
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 body{
-  background:var(--bg);
-  background-image:
-    radial-gradient(900px 520px at 12% -8%,rgba(124,58,237,.22),transparent 62%),
-    radial-gradient(760px 480px at 100% 0%,rgba(52,230,236,.07),transparent 60%);
-  background-repeat:no-repeat;
+  background:transparent;
   color:var(--ink-2);
-  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   font-size:1.0625rem;line-height:1.72;
   -webkit-font-smoothing:antialiased;
 }
 a{color:var(--cyan);text-underline-offset:3px;text-decoration-thickness:1px}
-a:hover{color:#fff}
+a:hover{color:var(--t1)}
 a:focus-visible,summary:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:4px}
 .skip{position:absolute;left:-9999px;top:0;background:var(--cyan);color:#06131A;padding:.6rem 1rem;border-radius:0 0 10px 0;font-weight:600;z-index:10}
 .skip:focus{left:0}
@@ -109,23 +98,17 @@ td:first-child{color:var(--ink);font-weight:500}
   .site-header,.site-footer,.skip,.lit{display:none}
   .card,.table-wrap{border-color:#bbb}
 }
+main{position:relative;z-index:2;max-width:820px;margin:28px auto 0;padding:clamp(1.5rem,5vw,3rem);border-radius:28px;background:var(--glass);border:1px solid var(--rule);box-shadow:var(--shadow);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+h1{font-weight:900}
+.card{background:transparent}
+@media (max-width:640px){main{margin:18px 12px 0}}
 </style>
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
 
-<header class="site-header">
-  <div class="inner">
-    <a class="brand" href="/" aria-label="G 868 home">
-      <img src="/logo.png" alt="" width="32" height="32">
-      <span>G 868</span>
-    </a>
-    <nav class="header-links" aria-label="Legal">
-      <a href="/legal/privacy" aria-current="page">Privacy</a>
-      <a href="/legal/terms">Terms</a>
-    </nav>
-  </div>
-</header>
+<div class="page-scene" aria-hidden="true"><img src="/car-night.jpg" alt=""></div>
+<nav class="page-nav" aria-label="Main"><a class="lockup" href="/" aria-label="G 868 home"><img src="/logo.png" alt="" width="30" height="30"><span>G 868</span></a><div class="links"><a href="/">Home</a><a href="/merchant-onboard">Partners</a><a href="/legal/privacy" aria-current="page">Privacy</a><a href="/legal/terms">Terms</a></div><button class="look-switch" id="lookSwitch" type="button"><span class="look-orb" aria-hidden="true"></span><span class="look-word" id="lookWord">Day</span></button></nav>
 
 <main id="content">
   <p class="eyebrow">Legal</p>
@@ -133,7 +116,7 @@ td:first-child{color:var(--ink);font-weight:500}
   <div class="lit" aria-hidden="true"></div>
   <p class="meta">Draft &mdash; not yet in effect (pre-launch)</p>
 
-  <p class="lede">This policy explains what personal information G-Taxi (“G 868”, “we”, “us”) collects through the website at gtaxi.tt and the G-Taxi Rider, Driver, Merchant and Admin apps. It covers what we do with that information, who else receives it, how long we keep it, and the choices you have.</p>
+  <p class="lede">This policy explains what personal information G-Taxi (“G 868”, “we”, “us”) collects through the G 868 website and the G-Taxi Rider, Driver, Merchant and Admin apps. It covers what we do with that information, who else receives it, how long we keep it, and the choices you have.</p>
 
   <section class="card" aria-labelledby="summary">
     <h2 id="summary">The short version</h2>
@@ -177,7 +160,7 @@ td:first-child{color:var(--ink);font-weight:500}
   <p>What we collect depends on how you use G-Taxi. Most of it comes from you. Some is created as you use the service, such as ride records and location, and some comes from other users, such as a rating a driver gives you.</p>
 
   <h3 id="collect-website">2.1 Visiting the website</h3>
-  <p>When you load gtaxi.tt, your browser connects to our website host (Vercel) and to Google Fonts, which supplies the typefaces. On the home page it also connects to jsDelivr, which supplies an animation library. Each of these receives your IP address and standard browser information, such as browser type and the page requested.</p>
+  <p>When you load the G 868 website, your browser connects to our website host (Vercel) and to Google Fonts, which supplies the typefaces. On the home page it also connects to jsDelivr, which supplies an animation library. Each of these receives your IP address and standard browser information, such as browser type and the page requested.</p>
   <p>The home page also contacts our backend (Supabase) to load our support WhatsApp number. If you arrived by scanning a G-Taxi QR code or tapping an NFC tag, the tag or location code in the link is sent too, so we can show you the right place. Website analytics are covered in <a href="#cookies">section 8</a>.</p>
 
   <h3 id="collect-waitlist">2.2 Joining the waitlist</h3>
@@ -341,7 +324,7 @@ td:first-child{color:var(--ink);font-weight:500}
       </thead>
       <tbody>
         <tr><td>Supabase</td><td>Database, sign-in, file storage and server functions</td><td>All account, ride, order, booking, wallet, location and uploaded-file data described above. Hosted in the United States.</td></tr>
-        <tr><td>Vercel</td><td>Hosts the gtaxi.tt website</td><td>IP address, browser details and pages requested</td></tr>
+        <tr><td>Vercel</td><td>Hosts the G 868 website</td><td>IP address, browser details and pages requested</td></tr>
         <tr><td>Google (Analytics)</td><td>Website analytics, only if you accept</td><td>IP address, browser and device details, pages viewed and actions taken on the website; a cookie identifying your browser across visits, if you accept</td></tr>
         <tr><td>Google Fonts</td><td>Typefaces on the website</td><td>IP address and browser details when a page loads</td></tr>
         <tr><td>jsDelivr</td><td>Animation library on the home page</td><td>IP address and browser details when the page loads</td></tr>
@@ -366,7 +349,7 @@ td:first-child{color:var(--ink);font-weight:500}
 
   <!-- ─────────────────────────────────────────────────────────── -->
   <h2 id="cookies">8. Cookies and website storage</h2>
-  <p>The gtaxi.tt website does not set cookies or store information in your browser's local storage for tracking unless you accept analytics below. We do store your accept/decline choice itself in local storage, so we do not ask on every visit.</p>
+  <p>The G 868 website does not set cookies or store information in your browser's local storage for tracking unless you accept analytics below. We do store your accept/decline choice itself in local storage, so we do not ask on every visit.</p>
   <p><strong>Analytics only with your permission.</strong> We use Google Analytics to count visits and see which pages are used. It loads only after you accept analytics in the cookie banner, and it sets cookies in your browser once it does. If you decline, or ignore the banner, nothing loads and no analytics cookie is set. Your choice is remembered on your device, and you can change it at any time.</p>
   <p><strong>Fonts and libraries.</strong> Whatever you choose, loading the site sends your IP address to Google Fonts and, on the home page, jsDelivr, as described in <a href="#collect-website">2.1</a>.</p>
   <p><strong>In the apps.</strong> The mobile apps keep your sign-in session in your phone’s secure storage. The Rider app also stores small settings on the device, such as whether the device has been verified.</p>
@@ -456,15 +439,6 @@ td:first-child{color:var(--ink);font-weight:500}
   <p>See also our <a href="/legal/terms">Terms &amp; Conditions</a>.</p>
 </main>
 
-<footer class="site-footer">
-  <div class="inner">
-    <span>© G-Taxi (G 868)</span>
-    <nav aria-label="Footer">
-      <a href="/">Home</a>
-      <a href="/legal/privacy" aria-current="page">Privacy Policy</a>
-      <a href="/legal/terms">Terms &amp; Conditions</a>
-    </nav>
-  </div>
-</footer>
+<footer class="page-foot"><span>Your ride. Your island. · Pre-launch.</span><nav aria-label="Footer"><a href="/">Home</a><a href="/legal/privacy">Privacy</a><a href="/legal/terms">Terms</a><a href="/merchant-onboard">Partner sign-up</a></nav></footer>
 </body>
 </html>
