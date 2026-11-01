@@ -28,7 +28,7 @@ export default {
       // Android push (Expo push tokens go through FCM). Without this the app
       // could never get a push token, so no notification or SOS reached it.
       googleServicesFile: "./google-services.json",
-      permissions: ["android.permission.NFC", "android.permission.POST_NOTIFICATIONS"],
+      permissions: ["android.permission.NFC", "android.permission.POST_NOTIFICATIONS", "android.permission.RECORD_AUDIO"],
     },
     plugins: [
       [

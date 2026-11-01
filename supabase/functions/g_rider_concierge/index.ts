@@ -55,10 +55,11 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const MAX_ITERATIONS = 4;
-const PER_CALLER_DAILY_CALLS = 5;
+// A person leans on G all day. The real limit is the daily budget in _shared/llm.ts.
+const PER_CALLER_DAILY_CALLS = 40;
 const PER_RIDER_DAILY_PROACTIVE_CALLS = 2;
 
-type Role = "rider" | "driver";
+type Role = "rider" | "driver" | "merchant";
 
 // deno-lint-ignore no-explicit-any
 type Svc = any;
@@ -69,11 +70,61 @@ interface Ctx {
     memoryOn: boolean;
     lat: number | null;
     lng: number | null;
+    merchantId: string | null;
 }
+
+// Screens G may open. The tool only names one; each app owns where it goes.
+const SCREENS: Record<Role, string[]> = {
+    rider: ["wallet", "trips", "grocery", "food", "laundry", "escape", "saved_places", "referrals", "help"],
+    driver: ["earnings", "wallet", "scheduled_rides", "referrals", "profile", "help"],
+    merchant: ["orders", "catalog", "money", "promotions", "brand", "staff"],
+};
+
+const openScreenTool = (role: Role): LlmTool => ({
+    type: "function",
+    function: {
+        name: "open_app_screen",
+        description: "Offer to take the person to a screen in the app when they want to do something there.",
+        parameters: {
+            type: "object",
+            properties: {
+                screen: { type: "string", enum: SCREENS[role] },
+                label: { type: "string", description: "short button text, e.g. Open your wallet" },
+            },
+            required: ["screen", "label"],
+        },
+    },
+});
+
+const screenIcon: Record<string, string> = {
+    wallet: "wallet", money: "wallet", earnings: "cash", trips: "time", grocery: "basket", food: "restaurant",
+    laundry: "water", escape: "airplane", orders: "receipt", catalog: "pricetags", promotions: "megaphone",
+};
 
 // ── Tools ──────────────────────────────────────────────────────────────────────
 
 const RIDER_TOOLS: LlmTool[] = [
+    {
+        type: "function",
+        function: {
+            name: "find_place",
+            description: "Find a road, town or business in Trinidad and Tobago when the rider wants to go somewhere. Gives them a button to book it.",
+            parameters: {
+                type: "object",
+                properties: { query: { type: "string", description: "the place, as they said it" } },
+                required: ["query"],
+            },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "wallet_balance",
+            description: "The rider's real wallet balance.",
+            parameters: { type: "object", properties: {} },
+        },
+    },
+    openScreenTool("rider"),
     {
         type: "function",
         function: {
@@ -211,6 +262,40 @@ const DRIVER_TOOLS: LlmTool[] = [
     },
 ];
 
+DRIVER_TOOLS.push(openScreenTool("driver"));
+
+const MERCHANT_TOOLS: LlmTool[] = [
+    {
+        type: "function",
+        function: {
+            name: "today_summary",
+            description: "Today's real numbers for this business: orders waiting, orders finished, and sales.",
+            parameters: { type: "object", properties: {} },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "best_sellers",
+            description: "What this business sold most in the last 30 days.",
+            parameters: { type: "object", properties: {} },
+        },
+    },
+    {
+        type: "function",
+        function: {
+            name: "offer_open_or_close",
+            description: "Give the owner a button to open or close the storefront. It does not change anything until they press it.",
+            parameters: {
+                type: "object",
+                properties: { open: { type: "boolean" } },
+                required: ["open"],
+            },
+        },
+    },
+    openScreenTool("merchant"),
+];
+
 async function executeTool(
     name: string, input: Record<string, unknown>, supabase: Svc, ctx: Ctx,
 ): Promise<unknown> {
@@ -240,8 +325,8 @@ async function executeTool(
                 .order("visit_count", { ascending: false }).limit(1).maybeSingle();
             if (!usual) return { error: "no order history yet" };
             const { data: lastOrder } = await supabase.from("orders")
-                .select("id, total_cents, order_items(name, quantity, price_cents)")
-                .eq("user_id", ctx.userId).eq("merchant_id", usual.merchant_id)
+                .select("id, total_cents, order_items(quantity, unit_price_cents, products(name))")
+                .eq("rider_id", ctx.userId).eq("merchant_id", usual.merchant_id)
                 .order("created_at", { ascending: false }).limit(1).maybeSingle();
             return {
                 draft: true,
@@ -401,6 +486,73 @@ async function executeTool(
             return error ? { error: error.message } : { success: true, admin_notified: true };
         }
 
+        case "find_place": {
+            const { data: hits, error } = await supabase.rpc("search_tt_places", {
+                p_query: String(input.query ?? "").slice(0, 120), p_lat: ctx.lat, p_lng: ctx.lng, p_limit: 3,
+            });
+            if (error) return { error: error.message };
+            const found = (hits ?? []).filter((h: { score: number }) => Number(h.score) >= 60);
+            if (!found.length) return { found: false, note: "Not in the place list. Ask them to pick it from search." };
+            return {
+                found: true,
+                places: found.map((h: { name: string; area: string | null }) => [h.name, h.area].filter(Boolean).join(", ")),
+                actions: found.map((h: { id: number; name: string; area: string | null; lat: number; lng: number }) => ({
+                    id: `ride:${h.id}`, label: `Ride to ${h.name}`, icon: "car",
+                    payload: { type: "ride", lat: h.lat, lng: h.lng, address: [h.name, h.area].filter(Boolean).join(", ") },
+                })),
+            };
+        }
+
+        case "wallet_balance": {
+            const { data, error } = await supabase.rpc("get_wallet_balance", { p_user_id: ctx.userId });
+            return error ? { error: error.message } : { balance_ttd: Number(data ?? 0) / 100 };
+        }
+
+        case "open_app_screen": {
+            const screen = String(input.screen ?? "");
+            if (!SCREENS[ctx.role].includes(screen)) return { error: "no such screen" };
+            return {
+                offered: true,
+                actions: [{ id: `screen:${screen}`, label: String(input.label ?? "Open").slice(0, 40), icon: screenIcon[screen] ?? "arrow-forward", payload: { type: "screen", screen } }],
+            };
+        }
+
+        case "today_summary": {
+            const start = new Date(); start.setUTCHours(4, 0, 0, 0);
+            if (start.getTime() > Date.now()) start.setUTCDate(start.getUTCDate() - 1);
+            const { data, error } = await supabase.from("orders")
+                .select("status, total_cents").eq("merchant_id", ctx.merchantId).gte("created_at", start.toISOString());
+            if (error) return { error: error.message };
+            const rows = (data ?? []) as Array<{ status: string; total_cents: number | null }>;
+            return {
+                waiting: rows.filter((o) => ["pending", "confirmed", "preparing"].includes(o.status)).length,
+                finished: rows.filter((o) => o.status === "delivered").length,
+                sales_ttd: rows.filter((o) => o.status === "delivered").reduce((n, o) => n + (o.total_cents ?? 0), 0) / 100,
+            };
+        }
+
+        case "best_sellers": {
+            const since = new Date(Date.now() - 30 * 86400000).toISOString();
+            const { data, error } = await supabase.from("order_items")
+                .select("quantity, products(name), orders!inner(merchant_id, created_at)")
+                .eq("orders.merchant_id", ctx.merchantId).gte("orders.created_at", since).limit(500);
+            if (error) return { error: error.message };
+            const totals: Record<string, number> = {};
+            (data ?? []).forEach((l: { quantity: number; products: { name: string } | null }) => {
+                const n = l.products?.name ?? "Item";
+                totals[n] = (totals[n] ?? 0) + l.quantity;
+            });
+            return { top: Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, sold]) => ({ name, sold })) };
+        }
+
+        case "offer_open_or_close": {
+            const open = input.open === true;
+            return {
+                offered: true,
+                actions: [{ id: "store_open", label: open ? "Open my store" : "Close my store", icon: open ? "storefront" : "moon", payload: { type: "store_open", open } }],
+            };
+        }
+
         default:
             return { error: `unknown tool ${name}` };
     }
@@ -429,23 +581,28 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Role is resolved server-side, never trusted from the request: a
-    // `drivers` row for this auth id means driver, anything else is treated
-    // as rider. This is the whole "one shared AI connection" -- the caller
-    // never declares who they are, the backend already knows.
-    const { data: driverRow } = await supabase.from("drivers")
-        .select("id").eq("user_id", user.id).maybeSingle();
-    const role: Role = driverRow ? "driver" : "rider";
-
     let body: {
         message?: string; lat?: number; lng?: number; action?: string;
-        mode?: string; hour?: number; is_rush_hour?: boolean; is_home_mode?: boolean;
+        mode?: string; as?: string; hour?: number; is_rush_hour?: boolean; is_home_mode?: boolean;
         destination_name?: string; poi_data?: Array<Record<string, unknown>>;
     } = {};
     try { body = await req.json(); } catch { /* empty */ }
 
+    // Each app says who it is, and the database decides whether that is true.
+    // One account can be a rider, a driver and a shop owner: the asking app sets
+    // the role, but only a real row grants it.
+    const [{ data: driverRow }, { data: ownedShop }, { data: staffShop }] = await Promise.all([
+        supabase.from("drivers").select("id").eq("user_id", user.id).maybeSingle(),
+        supabase.from("merchants").select("id").eq("created_by", user.id).maybeSingle(),
+        supabase.from("merchant_staff").select("merchant_id").eq("user_id", user.id).maybeSingle(),
+    ]);
+    const merchantId: string | null = ownedShop?.id ?? staffShop?.merchant_id ?? null;
+    const role: Role = body.as === "merchant" && merchantId ? "merchant"
+        : body.as === "rider" ? "rider"
+        : driverRow ? "driver" : "rider";
+
     const prefsTable = role === "driver" ? "driver_ai_preferences" : "rider_ai_preferences";
-    const { data: prefs } = await supabase.from(prefsTable)
+    const { data: prefs } = role === "merchant" ? { data: null } : await supabase.from(prefsTable)
         .select("ai_suggestions_enabled, memory_enabled")
         .eq("user_id", user.id).maybeSingle();
     const suggestionsOn = prefs?.ai_suggestions_enabled === true;
@@ -502,6 +659,7 @@ serve(async (req) => {
         memoryOn,
         lat: typeof body.lat === "number" ? body.lat : null,
         lng: typeof body.lng === "number" ? body.lng : null,
+        merchantId,
     };
 
     // Personal context — ONLY with consent.
@@ -533,7 +691,16 @@ serve(async (req) => {
     const platformIdentity = await getPlatformIdentity(supabase);
 
     let system: string;
-    if (role === "driver") {
+    if (role === "merchant") {
+        const { data: shop } = await supabase.from("merchants").select("name, category").eq("id", merchantId).maybeSingle();
+        system = `You are G, the business partner of ${shop?.name ?? "this business"} inside the ${platformIdentity.name} merchant app.
+Warm, sharp, practical, like a good manager. You know their numbers and help them run the day.
+Hard rules:
+- Only state numbers that came from a tool. Never guess sales.
+- You cannot spend money or change prices. offer_open_or_close only gives them a button.
+- Use open_app_screen when they want to do something on a screen.
+- Keep replies under 60 words. They are spoken aloud. TTD currency.`;
+    } else if (role === "driver") {
         system = `You are G, this driver's assistant inside the ${platformIdentity.name} driver app (${platformIdentity.market}).
 Direct, respectful, useful. You help with pay questions, safety, and being heard -- never chatty for its own sake.
 ${memoryBlock}
@@ -542,7 +709,8 @@ Hard rules:
 - flag_concern sends something to admin for manual review -- it does not resolve anything itself; say so.
 - Use emergency_checkin IMMEDIATELY if the driver signals they are unsafe or in danger right now -- do not hesitate or ask clarifying questions first.
 - Only call remember_fact for things the driver clearly stated${memoryOn ? "" : " (memory is OFF — never call it)"}.
-- Keep replies under 80 words. TTD currency.`;
+- Use open_app_screen when they want to do something on a screen.
+- Keep replies under 60 words. They are spoken aloud. TTD currency.`;
     } else {
         const proactiveGuidance = isProactive
             ? `\nThis is an UNSOLICITED proactive check-in, not a reply to something the rider said -- keep it to one short, warm suggestion (10-15 words, one emoji), not a full conversation.
@@ -554,7 +722,9 @@ ${memoryBlock}${proactiveGuidance}
 Hard rules:
 - You cannot spend money. Order tools return DRAFTS the rider confirms in the app — say so naturally. initiate_lime_fleet only files a request for admin approval -- never claim a Lime Fleet is confirmed.
 - Only call remember_fact for things the rider clearly stated or asked you to remember${memoryOn ? "" : " (memory is OFF — never call it)"}.
-- Keep replies under 80 words. TTD currency. If you used a tool, weave the result in naturally.`;
+- When they want to go somewhere, always call find_place so they get a button. Booking only happens when they press it.
+- Use open_app_screen when they want to do something on a screen.
+- Keep replies under 60 words. They are spoken aloud. TTD currency. If you used a tool, weave the result in naturally.`;
     }
 
     const userContent = isProactive
@@ -562,7 +732,7 @@ Hard rules:
         : message;
 
     const messages: LlmMessage[] = [{ role: "user", content: userContent }];
-    const roleTools = role === "driver" ? DRIVER_TOOLS : RIDER_TOOLS;
+    const roleTools = role === "merchant" ? MERCHANT_TOOLS : role === "driver" ? DRIVER_TOOLS : RIDER_TOOLS;
     const tools = roleTools.filter((t) => memoryOn ? true : t.function.name !== "remember_fact");
     const toolResults: Array<{ tool: string; result: unknown }> = [];
 
@@ -572,10 +742,10 @@ Hard rules:
         while (iterations < MAX_ITERATIONS) {
             iterations++;
             const res = await chat(supabase, {
-                department: role === "driver" ? "driver_concierge" : "rider_concierge",
+                department: `${role}_concierge`,
                 system,
                 messages,
-                tools: suggestionsOn ? tools : undefined,
+                tools,
                 maxTokens: 700,
                 temperature: role === "driver" ? 0.4 : 0.5,
             });
@@ -596,7 +766,7 @@ Hard rules:
                 messages.push({ role: "tool", tool_call_id: toolCall.id, content: JSON.stringify(result) });
             }
         }
-        return json({ success: true, reply: reply || (isProactive ? null : "Done."), tool_results: toolResults });
+        return json({ success: true, reply: reply || (isProactive ? null : "Done."), actions: toolResults.flatMap((t) => (t.result as { actions?: unknown[] })?.actions ?? []).slice(0, 4), tool_results: toolResults });
     } catch (err) {
         if (err instanceof BudgetExceededError) {
             return isProactive

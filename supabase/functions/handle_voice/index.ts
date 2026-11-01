@@ -85,6 +85,10 @@ serve(async (req: Request) => {
       if (!text) {
         return new Response(JSON.stringify({ success: false, code: "no_speech", error: "Could not understand the recording" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      // G's full screen sends the words on to the concierge itself.
+      if (form.get("transcribe_only")) {
+        return new Response(JSON.stringify({ success: true, transcript: text }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     } else {
       const body = await req.json();
       text = body.text;

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { useMerchant } from '../context/MerchantContext';
 import { BusinessTypePicker } from '../components/BusinessTypePicker';
+import { GButton } from '../components/GButton';
 import { Card, GoldKey } from '../ui/kit';
 import { Mood, SERIF, type as T, useMood, useStyles } from '../ui/mood';
 
@@ -90,6 +91,8 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
     const heroIcon = type?.icon ?? 'storefront-outline';
 
     return (
+        <View style={s.root}>
+        <GButton />
         <ScrollView style={s.root} contentContainerStyle={{ paddingBottom: 28 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={m.gold} />}>
             <View style={[s.hero, { paddingTop: insets.top + 22 }]}>
                 {merchant.cover_image_url ? (
@@ -195,6 +198,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
                 )}
             </View>
         </ScrollView>
+        </View>
     );
 }
 

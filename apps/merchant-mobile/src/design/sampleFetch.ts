@@ -45,6 +45,9 @@ const TABLES: Record<string, unknown[]> = {
 
 function respond(url: string, init?: RequestInit): Response {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (url.includes('/functions/v1/g_rider_concierge')) {
+        return new Response(JSON.stringify({ success: true, reply: 'Good day so far. Sixty-one dollars in sales, two orders waiting, and buss-up shot is your best seller. Want to see the orders?', actions: [{ id: 'screen:orders', label: 'Open orders', icon: 'receipt', payload: { type: 'screen', screen: 'orders' } }] }), { headers });
+    }
     if (url.includes('/functions/v1/merchant')) {
         const action = init?.body ? JSON.parse(String(init.body)).action : '';
         if (action === 'list_promotions') return new Response(JSON.stringify({ success: true, promotions: PROMOTIONS }), { headers });
