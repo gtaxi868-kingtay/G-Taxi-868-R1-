@@ -11,8 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 type IconName = keyof typeof Ionicons.glyphMap;
 
 function mix(hex: string, toward: number, amt: number): string {
-    const h = hex.replace('#', '');
-    if (h.length !== 6) return hex;
+    const h = (hex || '').replace('#', '');
+    if (h.length !== 6) return hex || '#8B7CFF';
     const n = parseInt(h, 16);
     const f = (c: number) => Math.max(0, Math.min(255, Math.round(c + (toward - c) * amt)));
     return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;

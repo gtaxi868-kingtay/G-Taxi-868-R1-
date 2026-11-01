@@ -73,7 +73,7 @@ export function BrandScreen({ navigation }: { navigation: NativeStackNavigationP
       setRows((data as Campaign[]) || []);
     }
     setLoading(false);
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => { load(); }, [load]);
 

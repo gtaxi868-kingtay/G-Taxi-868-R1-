@@ -8,7 +8,8 @@ const mockRows = [
   { id: 'c2', headline: 'On the pin', offer_text: null, accent_color: '#8B5CF6', audience: 'my_clients', ends_on: null, status: 'live', paused_by_side: null, change_note: null },
 ];
 
-jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u-1' } }) }));
+const mockAuth = { user: { id: 'u-1' } };
+jest.mock('../../context/AuthContext', () => ({ useAuth: () => mockAuth }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 jest.mock('@gtaxi/design-system', () => ({ SURFACE: { base: '#141122' }, VOICES: { merchant: { accent: '#2DD4BF', textMuted: '#999' } } }));
@@ -43,12 +44,12 @@ describe('BrandScreen', () => {
   });
 
   it('needs a note before asking for a change', async () => {
-    const { findByText, getByLabelText, getByText } = render(<BrandScreen navigation={navigation} />);
+    const { findByText, getByLabelText, getAllByText } = render(<BrandScreen navigation={navigation} />);
     fireEvent.press(await findByText('Ask for a change'));
-    fireEvent.press(getByText('Send to G 868', { exact: true }));
+    fireEvent.press(getAllByText('Send to G 868')[0]);
     expect(mockRpc).not.toHaveBeenCalled();
     fireEvent.changeText(getByLabelText('What should we change?'), 'Use our green');
-    fireEvent.press(getByText('Send to G 868', { exact: true }));
+    fireEvent.press(getAllByText('Send to G 868')[0]);
     await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('partner_campaign_decide', { p_id: 'c1', p_decision: 'request_changes', p_note: 'Use our green' }));
   });
 
