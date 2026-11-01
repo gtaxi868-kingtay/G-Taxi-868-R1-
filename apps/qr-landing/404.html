@@ -11,27 +11,23 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@800;900&family=Manrope:wght@500;600&display=swap" rel="stylesheet">
+<script src="/look-v1.js"></script>
+<link rel="stylesheet" href="/pages-v1.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%}
-body{
-  background:radial-gradient(circle at center,#3b0f6e 0%,#14062c 50%,#04030a 100%);
-  color:#fff;font-family:'Manrope',sans-serif;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:100vh;min-height:100dvh;text-align:center;padding:2rem;
-  -webkit-font-smoothing:antialiased;
-}
-img{width:72px;height:72px;margin-bottom:1.5rem;filter:drop-shadow(0 0 20px rgba(34,211,238,.4))}
-h1{font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(2.5rem,10vw,4rem);letter-spacing:-.03em;line-height:1}
-p{color:rgba(255,255,255,.7);margin:1rem 0 2rem;max-width:420px;line-height:1.6}
-a{display:inline-flex;align-items:center;gap:.6rem;background:rgba(0,0,0,.5);color:#fff;text-decoration:none;padding:.9rem 1.9rem;border-radius:100px;font-weight:600;font-size:.9rem;transition:background .3s ease}
-a:hover{background:rgba(0,0,0,.75)}
+body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;color:var(--t1);font-family:Manrope,sans-serif}
+.lost{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px}
+.lost img{width:clamp(120px,22vw,180px);height:auto;filter:drop-shadow(0 18px 40px rgba(124,58,237,.5));margin-bottom:22px}
+.lost small{font:800 12.5px Manrope,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--acc2)}
+.lost h1{font:900 clamp(2.8rem,9vw,5rem)/1 Outfit,sans-serif;letter-spacing:-.02em;margin:10px 0 12px}
+.lost h1 span{display:block;color:var(--acc)}
+.lost p{font-size:17px;line-height:1.6;color:var(--t2);max-width:40ch;margin-bottom:24px}
 </style>
 </head>
 <body>
-  <img src="logo.png" alt="G 868">
-  <h1>404</h1>
-  <p>This page doesn't exist. Let's get you back to the network.</p>
-  <a href="/">Back to G 868 →</a>
+<div class="page-scene" aria-hidden="true"><img src="/car-night.jpg" alt=""></div>
+<nav class="page-nav" aria-label="Main"><a class="lockup" href="/" aria-label="G 868 home"><img src="/logo.png" alt="" width="30" height="30"><span>G 868</span></a><div class="links"><a href="/">Home</a><a href="/merchant-onboard">Partners</a><a href="/legal/privacy">Privacy</a><a href="/legal/terms">Terms</a></div><button class="look-switch" id="lookSwitch" type="button"><span class="look-orb" aria-hidden="true"></span><span class="look-word" id="lookWord">Day</span></button></nav>
+<main class="lost"><img src="/logo.png" alt="G 868" width="180" height="180"><small>Page not found</small><h1>Wrong turn.<span>We got you.</span></h1><p>This page isn't on the map. Let's get you back.</p><a class="cta-pill" href="/">Back to G 868</a></main>
+<footer class="page-foot"><span>Your ride. Your island. · Pre-launch.</span><nav aria-label="Footer"><a href="/">Home</a><a href="/legal/privacy">Privacy</a><a href="/legal/terms">Terms</a><a href="/merchant-onboard">Partner sign-up</a></nav></footer>
 </body>
 </html>

@@ -759,6 +759,32 @@ html[data-time="day"] .foot-links a:hover{color:var(--ink)}
 }
 @media (prefers-reduced-motion:reduce){.look-switch,.look-orb,.biz-btn{transition:none}}
 
+
+/* ===== POP-UP PAGES: same scene and glass as the home page, day and night ===== */
+:root{--p1:#fff;--p2:#D6CFF2;--p3:#A9A2C9;--p-card:rgba(255,255,255,.07);--p-field:rgba(0,0,0,.42);--p-line:rgba(255,255,255,.16);--p-wash:rgba(4,3,10,.3);--p-mix:100%}
+html[data-time="day"]{--p1:#12101D;--p2:#3E3A52;--p3:#6E6A85;--p-card:#fff;--p-field:#fff;--p-line:#E4E1EE;--p-wash:rgba(255,255,255,.75);--p-mix:52%}
+#panel-layer{background:rgba(4,3,10,.74)!important}
+html[data-time="day"] #panel-layer{background:rgba(243,240,253,.8)!important}
+#panel-card{padding:0!important;color:var(--p1);background:linear-gradient(180deg,#160B30,#0C0719)!important;border-color:var(--p-line)!important;scrollbar-width:thin;animation:panelIn .24s cubic-bezier(.23,1,.32,1) both}
+html[data-time="day"] #panel-card{background:linear-gradient(180deg,#fff,#FAFAFC 60%,#F3F0FD)!important;box-shadow:0 28px 70px rgba(18,16,29,.2)!important}
+#panel-body{padding:0 clamp(1.25rem,3.5vw,3rem) clamp(1.75rem,3.5vw,3rem)}
+.p-banner{position:relative;height:clamp(120px,20vw,190px);margin:0 calc(-1 * clamp(1.25rem,3.5vw,3rem)) 1.4rem;background:#0A0418 url(car-night.jpg) 60% 62%/cover no-repeat;overflow:hidden}
+.p-banner:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,4,24,.1) 30%,#160B30 100%)}
+.p-banner img{position:absolute;left:clamp(1.25rem,3.5vw,3rem);bottom:14px;width:62px;height:62px;z-index:1;filter:drop-shadow(0 8px 20px rgba(124,58,237,.6))}
+html[data-time="day"] .p-banner{background:radial-gradient(500px 240px at 85% -20%,rgba(139,92,246,.3),transparent 70%),radial-gradient(500px 260px at 0% 0%,rgba(34,211,238,.22),transparent 70%),#fff}
+html[data-time="day"] .p-banner:after{background:linear-gradient(180deg,transparent 40%,#fff 100%)}
+#panel-close{z-index:3;background:rgba(10,4,24,.6)!important;color:#fff!important}
+#panel-body h3{color:var(--p1)}
+#panel-body input::placeholder{color:var(--p3)}
+#panel-body [style*="border-radius:22px"]{transition:transform .2s ease-out,box-shadow .2s ease-out;box-shadow:0 14px 30px rgba(10,4,30,.14)}
+@media (hover:hover){#panel-body [style*="border-radius:22px"]:hover{transform:translateY(-4px)}}
+@keyframes panelIn{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+@media (max-width:640px){
+  #panel-layer{padding:0!important;align-items:flex-end!important}
+  #panel-card{border-radius:26px 26px 0 0!important;max-height:94dvh!important}
+}
+@media (prefers-reduced-motion:reduce){#panel-card{animation:none}}
+
 </style>
 </head>
 <body>
@@ -1023,19 +1049,19 @@ loadVehicleTypes();
 function waitlistExtraHTML(role) {
   if (role === 'Driver') {
     return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-      <select id="wl-vehicle-type" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none;cursor:pointer">
+      <select id="wl-vehicle-type" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
         ${VEHICLE_TYPES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}
       </select>
-      <input id="wl-plate" type="text" placeholder="Plate number (optional)" autocomplete="off" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
+      <input id="wl-plate" type="text" placeholder="Plate number (optional)" autocomplete="off" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
     </div>`;
   }
   if (role === 'G-Partner (merchant)') {
     return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-      <select id="wl-category" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none;cursor:pointer">
+      <select id="wl-category" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
         <option value="">What kind of business?</option>
         ${MERCHANT_CATEGORIES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}
       </select>
-      <input id="wl-address" type="text" placeholder="Business address (optional)" autocomplete="street-address" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
+      <input id="wl-address" type="text" placeholder="Business address (optional)" autocomplete="street-address" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
     </div>`;
   }
   return '';
@@ -1171,29 +1197,29 @@ const arrivalPanelHTML = () => {
     <div style="display:flex;align-items:center;gap:.6rem;font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:${a.accent}">
       <span style="width:7px;height:7px;border-radius:50%;background:${a.accent};box-shadow:0 0 12px ${a.accent};display:block"></span>
       ${a.eyebrow}
-      <span id="arr-where" style="display:none;align-items:center;padding:.25rem .7rem;border-radius:100px;border:1px solid rgba(255,255,255,.2);letter-spacing:.08em;color:rgba(255,255,255,.85);text-transform:none;font-size:.72rem"></span>
+      <span id="arr-where" style="display:none;align-items:center;padding:.25rem .7rem;border-radius:100px;border:1px solid var(--p-line);letter-spacing:.08em;color:var(--p2);text-transform:none;font-size:.72rem"></span>
     </div>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(2rem,4vw,3.2rem);line-height:.95;letter-spacing:-.03em;margin:.7rem 0 .8rem">${a.head}</h3>
-    <p id="arr-sub" style="color:rgba(255,255,255,.72);line-height:1.65;max-width:560px;margin-bottom:1.8rem">${a.sub}</p>
-    ${QR_TYPE === 'ride_with' && QR_DATA ? `<div style="display:inline-block;margin:-.6rem 0 1.6rem;padding:.9rem 1.4rem;border-radius:16px;border:1px solid rgba(192,132,252,.5);background:rgba(192,132,252,.12)"><div style="font-size:.75rem;color:rgba(255,255,255,.7);margin-bottom:.3rem">Your driver's code</div><div id="arr-code" style="font-family:'Outfit',sans-serif;font-weight:900;font-size:2rem;letter-spacing:.18em;color:#fff">${QR_DATA}</div></div>` : ''}
+    <p id="arr-sub" style="color:var(--p2);line-height:1.65;max-width:560px;margin-bottom:1.8rem">${a.sub}</p>
+    ${QR_TYPE === 'ride_with' && QR_DATA ? `<div style="display:inline-block;margin:-.6rem 0 1.6rem;padding:.9rem 1.4rem;border-radius:16px;border:1px solid rgba(192,132,252,.5);background:rgba(192,132,252,.12)"><div style="font-size:.75rem;color:var(--p2);margin-bottom:.3rem">Your driver's code</div><div id="arr-code" style="font-family:'Outfit',sans-serif;font-weight:900;font-size:2rem;letter-spacing:.18em;color:var(--p1)">${QR_DATA}</div></div>` : ''}
     <div style="display:flex;flex-wrap:wrap;gap:.75rem">
       <button id="arr-cta" style="display:flex;align-items:center;gap:1rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;border:none;padding:.55rem .55rem .55rem 1.4rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:800;font-size:.95rem;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,.42)">
         ${a.cta}
-        <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:#22d3ee;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
+        <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:color-mix(in srgb,#22d3ee var(--p-mix),var(--p1));display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
       </button>
-      <button id="arr-join" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);color:#fff;padding:.85rem 1.4rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem;cursor:pointer">Join the waitlist instead</button>
+      <button id="arr-join" style="background:var(--p-card);border:1px solid var(--p-line);color:var(--p1);padding:.85rem 1.4rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem;cursor:pointer">Join the waitlist instead</button>
     </div>
-    ${QR_TYPE === 'ride_with' ? '<div style="height:1.4rem"></div>' : `<p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5;margin:1.1rem 0 1.4rem">WhatsApp is the fastest path. Nothing to install.</p>`}
-    <div style="display:flex;flex-direction:column;gap:.9rem;padding-top:1.3rem;border-top:1px solid rgba(255,255,255,.12)">
-      <div style="display:flex;align-items:center;gap:.6rem;font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.5)">Or use the G app</div>
+    ${QR_TYPE === 'ride_with' ? '<div style="height:1.4rem"></div>' : `<p style="font-size:.78rem;color:var(--p3);line-height:1.5;margin:1.1rem 0 1.4rem">WhatsApp is the fastest path. Nothing to install.</p>`}
+    <div style="display:flex;flex-direction:column;gap:.9rem;padding-top:1.3rem;border-top:1px solid var(--p-line)">
+      <div style="display:flex;align-items:center;gap:.6rem;font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--p3)">Or use the G app</div>
       <div style="display:flex;flex-wrap:wrap;gap:.6rem">
-        <button id="arr-app-open" style="display:flex;align-items:center;gap:.7rem;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.45);color:#22d3ee;padding:.8rem 1.3rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:800;font-size:.9rem;cursor:pointer">
+        <button id="arr-app-open" style="display:flex;align-items:center;gap:.7rem;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.45);color:color-mix(in srgb,#22d3ee var(--p-mix),var(--p1));padding:.8rem 1.3rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:800;font-size:.9rem;cursor:pointer">
           <span style="width:7px;height:7px;border-radius:50%;background:#22d3ee;box-shadow:0 0 12px #22d3ee;display:block"></span>
           Open in the app
         </button>
-        ${APP.android ? `<a id="arr-app-android" href="${APP.android}" style="display:flex;align-items:center;gap:.6rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);color:#fff;padding:.8rem 1.3rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem;text-decoration:none">Download for Android</a>` : ''}
+        ${APP.android ? `<a id="arr-app-android" href="${APP.android}" style="display:flex;align-items:center;gap:.6rem;background:var(--p-card);border:1px solid var(--p-line);color:var(--p1);padding:.8rem 1.3rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:600;font-size:.9rem;text-decoration:none">Download for Android</a>` : ''}
       </div>
-      <p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5">Already installed? <span style="color:rgba(255,255,255,.7)">Open in the app</span> carries this touchpoint straight into your ride.</p>
+      <p style="font-size:.78rem;color:var(--p3);line-height:1.5">Already installed? <span style="color:var(--p2)">Open in the app</span> carries this touchpoint straight into your ride.</p>
     </div>`;
 };
 
@@ -1285,52 +1311,52 @@ const ROLE_INFO = {
 const roleFormHTML = (r) => `
     <form id="wl-form" style="display:grid;gap:.75rem;max-width:620px;margin-top:1.6rem">
       <input id="wl-hp" name="wl_hp_website" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
-      <input id="wl-name" type="text" required placeholder="Your name" autocomplete="name" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
-      <input id="wl-phone" type="tel" required placeholder="WhatsApp number, e.g. 868 712 3456" autocomplete="tel" inputmode="tel" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
+      <input id="wl-name" type="text" required placeholder="Your name" autocomplete="name" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
+      <input id="wl-phone" type="tel" required placeholder="WhatsApp number, e.g. 868 712 3456" autocomplete="tel" inputmode="tel" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-        <select id="wl-area" required style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none;cursor:pointer">
+        <select id="wl-area" required style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
           <option value="">Your community…</option>
           <option>Port of Spain</option><option>San Fernando</option><option>Chaguanas</option>
           <option>Arima</option><option>Diego Martin / Westmoorings</option><option>Tunapuna / St. Augustine</option>
           <option>Couva / Point Lisas</option><option>Sangre Grande</option><option>Princes Town / Debe</option><option>Tobago</option>
         </select>
-        <select id="wl-role" required style="background:rgba(0,0,0,.45);border:1px solid ${r.tint}.45);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none;cursor:pointer">
+        <select id="wl-role" required style="background:var(--p-field);border:1px solid ${r.tint}.45);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
           ${['Rider', 'Driver', 'G-Partner (merchant)', 'G-Lead (territory)'].map(o => `<option${o === r.value ? ' selected' : ''}>${o}</option>`).join('')}
         </select>
       </div>
       <div id="wl-extra">${waitlistExtraHTML(r.value)}</div>
       <button type="submit" id="wl-submit" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;border:none;padding:.55rem .55rem .55rem 1.4rem;border-radius:100px;font-weight:800;font-size:.95rem;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,.42)">
         Join as ${r.label}
-        <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:#22d3ee;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
+        <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:color-mix(in srgb,#22d3ee var(--p-mix),var(--p1));display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
       </button>
-      <p style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5">Nothing to pay and nothing to install. We're simply counting who's ready, area by area.</p>
+      <p style="font-size:.78rem;color:var(--p3);line-height:1.5">Nothing to pay and nothing to install. We're simply counting who's ready, area by area.</p>
     </form>`;
 
 const rolePanelHTML = (r) => `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:${r.accent}">${r.eyebrow}</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:color-mix(in srgb,${r.accent} var(--p-mix),var(--p1))">${r.eyebrow}</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">${r.head}</h3>
-    <p style="color:rgba(255,255,255,.7);line-height:1.65;max-width:640px;margin-bottom:1.6rem">${r.lede}</p>
+    <p style="color:var(--p2);line-height:1.65;max-width:640px;margin-bottom:1.6rem">${r.lede}</p>
     ${r.signupHref ? `<a href="${r.signupHref}" style="display:inline-flex;align-items:center;gap:.5rem;margin:-.4rem 0 1.6rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;text-decoration:none;padding:.8rem 1.3rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:800;font-size:.88rem">${r.signupLabel} &rarr;</a>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem">
       ${r.perks.map((p, i) => `
-      <div style="padding:1.6rem;border-radius:22px;${i > 2 ? 'grid-column:1 / -1;' : ''}background:${i === 0 || i > 2 ? `linear-gradient(150deg,${r.tint}.20),rgba(4,3,10,.35))` : 'rgba(255,255,255,.05)'};border:1px solid ${i === 0 || i > 2 ? `${r.tint}.32)` : 'rgba(255,255,255,.12)'}">
-        <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.15rem;line-height:1.25;color:${r.accent};margin-bottom:.5rem">${p[0]}</div>
-        <p style="color:rgba(255,255,255,.7);line-height:1.55;font-size:.92rem">${p[1]}</p>
+      <div style="padding:1.6rem;border-radius:22px;${i > 2 ? 'grid-column:1 / -1;' : ''}background:${i === 0 || i > 2 ? `linear-gradient(150deg,${r.tint}.20),var(--p-wash))` : 'rgba(255,255,255,.05)'};border:1px solid ${i === 0 || i > 2 ? `${r.tint}.32)` : 'rgba(255,255,255,.12)'}">
+        <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.15rem;line-height:1.25;color:color-mix(in srgb,${r.accent} var(--p-mix),var(--p1));margin-bottom:.5rem">${p[0]}</div>
+        <p style="color:var(--p2);line-height:1.55;font-size:.92rem">${p[1]}</p>
       </div>`).join('')}
     </div>
-    <div style="margin-top:1.6rem;padding:1.5rem 1.6rem;border-radius:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)">
-      <span style="font-family:'Manrope',sans-serif;font-size:.85rem;font-weight:600;color:rgba(255,255,255,.7)">Progression</span>
+    <div style="margin-top:1.6rem;padding:1.5rem 1.6rem;border-radius:24px;background:var(--p-card);border:1px solid var(--p-line)">
+      <span style="font-family:'Manrope',sans-serif;font-size:.85rem;font-weight:600;color:var(--p2)">Progression</span>
       <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.35rem;letter-spacing:-.01em;margin:.35rem 0 1rem">${r.ladderTitle}</div>
       <div style="display:grid;gap:.4rem">
         ${r.ladder.map((s, i) => `
-        <div style="display:grid;grid-template-columns:minmax(96px,.65fr) 1.35fr;gap:1rem;align-items:baseline;padding:.7rem 1.1rem;border-radius:14px;background:${i === r.ladder.length - 1 ? `linear-gradient(100deg,${r.tint}.22),rgba(4,3,10,.2))` : 'rgba(255,255,255,.05)'};border-left:2px solid ${i === r.ladder.length - 1 ? r.accent : `${r.tint}${(0.25 + i * 0.15).toFixed(2)})`}">
-          <span style="font-size:.8rem;color:rgba(255,255,255,.6)">${s[0]}</span>
-          <span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.95rem;color:rgba(255,255,255,.95)">${s[1]}</span>
+        <div style="display:grid;grid-template-columns:minmax(96px,.65fr) 1.35fr;gap:1rem;align-items:baseline;padding:.7rem 1.1rem;border-radius:14px;background:${i === r.ladder.length - 1 ? `linear-gradient(100deg,${r.tint}.22),var(--p-wash))` : 'rgba(255,255,255,.05)'};border-left:2px solid ${i === r.ladder.length - 1 ? r.accent : `${r.tint}${(0.25 + i * 0.15).toFixed(2)})`}">
+          <span style="font-size:.8rem;color:var(--p3)">${s[0]}</span>
+          <span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.95rem;color:var(--p2)">${s[1]}</span>
         </div>`).join('')}
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin-top:1.1rem">
-        <span style="font-family:'Manrope',sans-serif;font-size:.85rem;font-weight:600;color:rgba(255,255,255,.7)">Your standing</span>
-        ${r.tiers.map((t, i) => `<span style="padding:.4rem .85rem;border-radius:100px;font-size:.8rem;${i === r.tiers.length - 1 ? `background:${r.accent};color:#04030a;font-weight:700` : 'border:1px solid rgba(255,255,255,.16);color:rgba(255,255,255,.8)'}">${t}</span>`).join('')}
+        <span style="font-family:'Manrope',sans-serif;font-size:.85rem;font-weight:600;color:var(--p2)">Your standing</span>
+        ${r.tiers.map((t, i) => `<span style="padding:.4rem .85rem;border-radius:100px;font-size:.8rem;${i === r.tiers.length - 1 ? `background:${r.accent};color:color-mix(in srgb,#04030a var(--p-mix),var(--p1));font-weight:700` : 'border:1px solid var(--p-line);color:var(--p2)'}">${t}</span>`).join('')}
       </div>
     </div>
     ${r.signupHref ? `<a href="${r.signupHref}" style="display:inline-flex;align-items:center;gap:.6rem;margin-top:1.6rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;text-decoration:none;padding:1rem 1.6rem;border-radius:100px;font-family:'Manrope',sans-serif;font-weight:800;font-size:.95rem">${r.signupLabel || 'Sign up'}</a>` : ''}
@@ -1338,21 +1364,21 @@ const rolePanelHTML = (r) => `
 
 const PANELS = {
   waitlist: `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">Put your hand up</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:color-mix(in srgb,#5eead4 var(--p-mix),var(--p1))">Put your hand up</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">Help us open<br>your area first.</h3>
-    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:560px;margin-bottom:1.6rem">A community comes alive when there are enough drivers to answer and enough shops worth opening. Tell us where you are and how you'd like to join. Every hand counts toward switching your area on.</p>
+    <p style="color:var(--p2);line-height:1.6;max-width:560px;margin-bottom:1.6rem">A community comes alive when there are enough drivers to answer and enough shops worth opening. Tell us where you are and how you'd like to join. Every hand counts toward switching your area on.</p>
     <form id="wl-form" style="display:grid;gap:.75rem;max-width:620px">
       <input id="wl-hp" name="wl_hp_website" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
-      <input id="wl-name" type="text" required placeholder="Your name" autocomplete="name" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
-      <input id="wl-phone" type="tel" required placeholder="WhatsApp number, e.g. 868 712 3456" autocomplete="tel" inputmode="tel" style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none">
+      <input id="wl-name" type="text" required placeholder="Your name" autocomplete="name" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
+      <input id="wl-phone" type="tel" required placeholder="WhatsApp number, e.g. 868 712 3456" autocomplete="tel" inputmode="tel" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-        <select id="wl-area" required style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none;cursor:pointer">
+        <select id="wl-area" required style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
           <option value="">Your community…</option>
           <option>Port of Spain</option><option>San Fernando</option><option>Chaguanas</option>
           <option>Arima</option><option>Diego Martin / Westmoorings</option><option>Tunapuna / St. Augustine</option>
           <option>Couva / Point Lisas</option><option>Sangre Grande</option><option>Princes Town / Debe</option><option>Tobago</option>
         </select>
-        <select id="wl-role" required style="background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.16);border-radius:14px;padding:.95rem 1.1rem;color:#fff;font-size:.95rem;outline:none;cursor:pointer">
+        <select id="wl-role" required style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
           <option value="">I'm joining as…</option>
           <option>Rider</option><option>Driver</option><option>G-Partner (merchant)</option><option>G-Lead (territory)</option>
         </select>
@@ -1360,76 +1386,76 @@ const PANELS = {
       <div id="wl-extra"></div>
       <button type="submit" id="wl-submit" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;border:none;padding:.55rem .55rem .55rem 1.4rem;border-radius:100px;font-weight:800;font-size:.95rem;cursor:pointer;box-shadow:0 8px 30px rgba(124,58,237,.42)">
         Count me in
-        <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:#22d3ee;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
+        <span style="width:38px;height:38px;border-radius:50%;background:#04030a;color:color-mix(in srgb,#22d3ee var(--p-mix),var(--p1));display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;line-height:1">→</span>
       </button>
-      <p id="wl-note" style="font-size:.78rem;color:rgba(255,255,255,.6);line-height:1.5">Nothing to pay and nothing to install yet. We're simply counting who's ready, area by area. Your details stay with us.</p>
+      <p id="wl-note" style="font-size:.78rem;color:var(--p3);line-height:1.5">Nothing to pay and nothing to install yet. We're simply counting who's ready, area by area. Your details stay with us.</p>
     </form>`,
 
   tap: `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">The Tap</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:color-mix(in srgb,#5eead4 var(--p-mix),var(--p1))">The Tap</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">No app needed<br>to get moving.</h3>
-    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:640px;margin-bottom:1.6rem">G-Touch Points are small NFC pucks sitting on shop counters and taxi stands across the island. Anyone can build an app in a weekend, but trust is built one counter at a time, and that's what these are.</p>
+    <p style="color:var(--p2);line-height:1.6;max-width:640px;margin-bottom:1.6rem">G-Touch Points are small NFC pucks sitting on shop counters and taxi stands across the island. Anyone can build an app in a weekend, but trust is built one counter at a time, and that's what these are.</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem">
-      <div style="padding:1.6rem;border-radius:22px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)">
-        <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;color:#22d3ee;margin-bottom:.5rem">Tap at a stand</div>
-        <p style="color:rgba(255,255,255,.66);line-height:1.55;font-size:.92rem">Books a ride from exactly where you're standing. No address to type, nothing to explain.</p>
+      <div style="padding:1.6rem;border-radius:22px;background:var(--p-card);border:1px solid var(--p-line)">
+        <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;color:color-mix(in srgb,#22d3ee var(--p-mix),var(--p1));margin-bottom:.5rem">Tap at a stand</div>
+        <p style="color:var(--p2);line-height:1.55;font-size:.92rem">Books a ride from exactly where you're standing. No address to type, nothing to explain.</p>
       </div>
-      <div style="padding:1.6rem;border-radius:22px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)">
-        <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;color:#c084fc;margin-bottom:.5rem">Tap at a shop</div>
-        <p style="color:rgba(255,255,255,.66);line-height:1.55;font-size:.92rem">Opens that shop's services, or pays straight from your wallet. People trust their shopkeeper, so the shopkeeper is the welcome.</p>
+      <div style="padding:1.6rem;border-radius:22px;background:var(--p-card);border:1px solid var(--p-line)">
+        <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;color:color-mix(in srgb,#c084fc var(--p-mix),var(--p1));margin-bottom:.5rem">Tap at a shop</div>
+        <p style="color:var(--p2);line-height:1.55;font-size:.92rem">Opens that shop's services, or pays straight from your wallet. People trust their shopkeeper, so the shopkeeper is the welcome.</p>
       </div>
       <div style="padding:1.6rem;border-radius:22px;background:linear-gradient(150deg,rgba(124,58,237,.3),rgba(34,211,238,.12));border:1px solid rgba(34,211,238,.3)">
         <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;margin-bottom:.5rem">The counter earns</div>
-        <p style="color:rgba(255,255,255,.78);line-height:1.55;font-size:.92rem">A G-Partner earns a share of every ride that starts at their shop. The counter they already stand behind becomes a taxi stand too.</p>
+        <p style="color:var(--p2);line-height:1.55;font-size:.92rem">A G-Partner earns a share of every ride that starts at their shop. The counter they already stand behind becomes a taxi stand too.</p>
       </div>
     </div>`,
 
   ladder: `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">Progression</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:color-mix(in srgb,#5eead4 var(--p-mix),var(--p1))">Progression</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">You earn the island.</h3>
-    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:640px;margin-bottom:1.5rem">Most apps hand you eleven services on day one and you end up using one. G starts with a ride, and opens up as you go, so it grows at your pace, and every step is one you've already earned.</p>
+    <p style="color:var(--p2);line-height:1.6;max-width:640px;margin-bottom:1.5rem">Most apps hand you eleven services on day one and you end up using one. G starts with a ride, and opens up as you go, so it grows at your pace, and every step is one you've already earned.</p>
     <div style="display:grid;gap:.5rem;margin-bottom:1.4rem">
-      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #22d3ee"><span style="color:rgba(255,255,255,.6)">Start</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Ride</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #38bdf8"><span style="color:rgba(255,255,255,.6)">5 rides</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Market: groceries delivered</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:rgba(255,255,255,.05);border-left:2px solid #818cf8"><span style="color:rgba(255,255,255,.6)">2 Market orders</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Laundry + Tap</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:linear-gradient(100deg,rgba(124,58,237,.3),rgba(34,211,238,.12));border-left:2px solid #c084fc"><span style="color:rgba(255,255,255,.75)">Fund your wallet</span><span style="font-family:'Outfit',sans-serif;font-weight:800">G-Escape</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:var(--p-card);border-left:2px solid #22d3ee"><span style="color:var(--p3)">Start</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Ride</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:var(--p-card);border-left:2px solid #38bdf8"><span style="color:var(--p3)">5 rides</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Market: groceries delivered</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:var(--p-card);border-left:2px solid #818cf8"><span style="color:var(--p3)">2 Market orders</span><span style="font-family:'Outfit',sans-serif;font-weight:800">Laundry + Tap</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:1rem;padding:.95rem 1.3rem;border-radius:16px;background:linear-gradient(100deg,rgba(124,58,237,.3),rgba(34,211,238,.12));border-left:2px solid #c084fc"><span style="color:var(--p2)">Fund your wallet</span><span style="font-family:'Outfit',sans-serif;font-weight:800">G-Escape</span></div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
-      <span style="font-family:'Manrope',sans-serif;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.6)">And you climb</span>
-      <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid rgba(255,255,255,.14);font-size:.82rem">New Rider</span>
-      <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid rgba(255,255,255,.14);font-size:.82rem">Regular · 5%</span>
-      <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid rgba(255,255,255,.18);font-size:.82rem">Loyal · 8%</span>
+      <span style="font-family:'Manrope',sans-serif;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--p3)">And you climb</span>
+      <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid var(--p-line);font-size:.82rem">New Rider</span>
+      <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid var(--p-line);font-size:.82rem">Regular · 5%</span>
+      <span style="padding:.45rem .9rem;border-radius:100px;border:1px solid var(--p-line);font-size:.82rem">Loyal · 8%</span>
       <span style="padding:.45rem .9rem;border-radius:100px;background:linear-gradient(100deg,#7c3aed,#22d3ee);color:#04030a;font-weight:700;font-size:.82rem">Elite · 10% + priority</span>
     </div>`,
 
   split: `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">The Split</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:color-mix(in srgb,#5eead4 var(--p-mix),var(--p1))">The Split</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">Where the money goes<br>is the whole point.</h3>
-    <p style="color:rgba(255,255,255,.68);line-height:1.6;max-width:640px;margin-bottom:1.5rem">Every G ride pays a Trinidadian driver, a Trinidadian shopkeeper and a Trinidadian territory operator, and sets a slice aside to help open the next community. Here's exactly how it splits.</p>
+    <p style="color:var(--p2);line-height:1.6;max-width:640px;margin-bottom:1.5rem">Every G ride pays a Trinidadian driver, a Trinidadian shopkeeper and a Trinidadian territory operator, and sets a slice aside to help open the next community. Here's exactly how it splits.</p>
     <div style="display:grid;gap:1rem;max-width:620px">
       <div>
         <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">Driver</span><span style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem">80%</span></div>
-        <div style="height:8px;border-radius:100px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:.4rem"><div style="width:80%;height:100%;background:linear-gradient(90deg,#22d3ee,#7c3aed)"></div></div>
-        <span style="font-size:.75rem;color:rgba(255,255,255,.6)">78% when a G-Lead or a G-Partner shop brought the driver in</span>
+        <div style="height:8px;border-radius:100px;background:var(--p-card);overflow:hidden;margin-top:.4rem"><div style="width:80%;height:100%;background:linear-gradient(90deg,#22d3ee,#7c3aed)"></div></div>
+        <span style="font-size:.75rem;color:var(--p3)">78% when a G-Lead or a G-Partner shop brought the driver in</span>
       </div>
       <div>
         <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">G-Lead override</span><span style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem">2%</span></div>
-        <div style="height:8px;border-radius:100px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:.4rem"><div style="width:14%;height:100%;background:linear-gradient(90deg,#a855f7,#c084fc)"></div></div>
+        <div style="height:8px;border-radius:100px;background:var(--p-card);overflow:hidden;margin-top:.4rem"><div style="width:14%;height:100%;background:linear-gradient(90deg,#a855f7,#c084fc)"></div></div>
       </div>
       <div>
         <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-weight:600">Capital reserve</span><span style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem">1.5%</span></div>
-        <div style="height:8px;border-radius:100px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:.4rem"><div style="width:11%;height:100%;background:linear-gradient(90deg,#5eead4,#22d3ee)"></div></div>
+        <div style="height:8px;border-radius:100px;background:var(--p-card);overflow:hidden;margin-top:.4rem"><div style="width:11%;height:100%;background:linear-gradient(90deg,#5eead4,#22d3ee)"></div></div>
       </div>
-      <div style="display:flex;justify-content:space-between;gap:1rem;padding-top:.6rem;border-top:1px solid rgba(255,255,255,.1)"><span style="font-weight:600">G-Partner counter share</span><span style="font-size:.85rem;color:rgba(255,255,255,.6);text-align:right">a share of the platform's own take</span></div>
-      <p style="font-size:.9rem;line-height:1.6;color:rgba(255,255,255,.5);border-left:2px solid rgba(34,211,238,.5);padding-left:1rem">The reserve is what pays for referrals, so growth never comes quietly out of a driver's earnings. If the reserve is empty, the payout waits. We'd rather be honest about the limit than invent money we don't have.</p>
+      <div style="display:flex;justify-content:space-between;gap:1rem;padding-top:.6rem;border-top:1px solid var(--p-line)"><span style="font-weight:600">G-Partner counter share</span><span style="font-size:.85rem;color:var(--p3);text-align:right">a share of the platform's own take</span></div>
+      <p style="font-size:.9rem;line-height:1.6;color:var(--p3);border-left:2px solid rgba(34,211,238,.5);padding-left:1rem">The reserve is what pays for referrals, so growth never comes quietly out of a driver's earnings. If the reserve is empty, the payout waits. We'd rather be honest about the limit than invent money we don't have.</p>
     </div>`,
 
   escape: `
-    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:#5eead4">G-Escape</span>
+    <span style="font-family:'Manrope',sans-serif;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:color-mix(in srgb,#5eead4 var(--p-mix),var(--p1))">G-Escape</span>
     <h3 style="font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(1.8rem,3.6vw,2.8rem);line-height:1;letter-spacing:-.02em;margin:.6rem 0 .9rem">The Caribbean deserves<br>better ways home.</h3>
-    <p style="color:rgba(255,255,255,.7);line-height:1.65;max-width:700px;margin-bottom:1.2rem">Routes get cut because no airline can see enough demand to justify them, then nobody flies them, which proves the airline right. G-Escape aggregates the demand instead: groups pool into flight-plus-lodging packages with a tipping point, and riders can <strong style="color:#fff">open a lane</strong>: pick a destination and a month, and if enough hands go up it becomes a real demand case with real names attached.</p>
-    <p style="font-family:'Outfit',sans-serif;font-weight:800;font-size:clamp(1.1rem,2.2vw,1.6rem);line-height:1.35;max-width:760px">Not "we think people want to fly Port of Spain to St. Vincent." <span style="color:#22d3ee">Here are 180 people who put their hands up for March.</span></p>
-    <p style="font-size:.9rem;color:rgba(255,255,255,.6);margin-top:1rem">Rides fund the network. Escape is what makes it regional. Currently switched off.</p>`,
+    <p style="color:var(--p2);line-height:1.65;max-width:700px;margin-bottom:1.2rem">Routes get cut because no airline can see enough demand to justify them, then nobody flies them, which proves the airline right. G-Escape aggregates the demand instead: groups pool into flight-plus-lodging packages with a tipping point, and riders can <strong style="color:var(--p1)">open a lane</strong>: pick a destination and a month, and if enough hands go up it becomes a real demand case with real names attached.</p>
+    <p style="font-family:'Outfit',sans-serif;font-weight:800;font-size:clamp(1.1rem,2.2vw,1.6rem);line-height:1.35;max-width:760px">Not "we think people want to fly Port of Spain to St. Vincent." <span style="color:color-mix(in srgb,#22d3ee var(--p-mix),var(--p1))">Here are 180 people who put their hands up for March.</span></p>
+    <p style="font-size:.9rem;color:var(--p3);margin-top:1rem">Rides fund the network. Escape is what makes it regional. Currently switched off.</p>`,
 
   home: null
 };
@@ -1476,7 +1502,7 @@ class Component extends DCLogic {
     const body = root.getElementById('panel-body');
     const openPanel = (key) => {
       if (!PANELS[key]) return;
-      body.innerHTML = PANELS[key];
+      body.innerHTML = '<div class="p-banner" aria-hidden="true"><img src="logo.png" alt=""></div>' + PANELS[key];
       layer.style.display = 'flex';
       const f = root.getElementById('wl-form');
       if (f) {
@@ -1564,7 +1590,7 @@ class Component extends DCLogic {
           }
           f.innerHTML = `<div style="padding:1.6rem;border-radius:22px;background:linear-gradient(140deg,rgba(124,58,237,.35),rgba(34,211,238,.16));border:1px solid rgba(34,211,238,.35)">
             <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;margin-bottom:.5rem">You're in. Thank you.</div>
-            <p style="color:rgba(255,255,255,.78);line-height:1.6">${role || 'Your hand is up'}${area ? ' · ' + area : ''}. We'll reach you on WhatsApp the moment your area has enough drivers to answer and enough counters worth opening.</p>
+            <p style="color:var(--p2);line-height:1.6">${role || 'Your hand is up'}${area ? ' · ' + area : ''}. We'll reach you on WhatsApp the moment your area has enough drivers to answer and enough counters worth opening.</p>
           </div>`;
         } catch (err) {
           msg.textContent = err.message || 'Could not save. Check your connection and try again.';
