@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -150,6 +151,7 @@ export function StaffScreen({ navigation }: { navigation: NativeStackNavigationP
         </TouchableOpacity>
         <Text style={s.title}>Staff</Text>
         <TouchableOpacity onPress={() => setModalVisible(true)} style={s.addBtn}>
+<CrystalFace color={VOICES.merchant.accent} radius={22} />
           <Ionicons name="add" size={22} color="#000" />
         </TouchableOpacity>
       </View>
@@ -197,6 +199,7 @@ export function StaffScreen({ navigation }: { navigation: NativeStackNavigationP
             <TextInput style={s.input} value={inviteRole} onChangeText={setInviteRole} placeholder="e.g. Cashier, Barber, Manager" placeholderTextColor="rgba(255,255,255,0.2)" />
 
             <TouchableOpacity style={[s.saveBtn, sending && s.saveBtnDisabled]} onPress={handleInvite} disabled={sending}>
+<CrystalFace color={VOICES.merchant.accent} radius={16} />
               {sending ? (
                 <ActivityIndicator size="small" color="#000" />
               ) : (
@@ -215,7 +218,7 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
   title: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
-  addBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center' },
+  addBtn: { overflow: 'hidden', width: 44, height: 44, borderRadius: 22, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center' },
   list: { padding: 20, paddingBottom: 48 },
   staffRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 16, marginBottom: 10, gap: 12 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: VOICES.merchant.accent + '26', justifyContent: 'center', alignItems: 'center' },
@@ -238,7 +241,7 @@ const s = StyleSheet.create({
   modalScroll: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
   fieldLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 20, fontFamily: 'Manrope' },
   input: { backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, color: '#E9F5F3', fontSize: 15, fontFamily: 'Manrope' },
-  saveBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 16, height: 52, justifyContent: 'center', alignItems: 'center', marginTop: 32 },
+  saveBtn: { overflow: 'hidden', backgroundColor: VOICES.merchant.accent, borderRadius: 16, height: 52, justifyContent: 'center', alignItems: 'center', marginTop: 32 },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { fontSize: 15, fontWeight: '800', color: '#000', fontFamily: 'SpaceGrotesk' },
 });

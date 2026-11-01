@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
   KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -138,6 +139,7 @@ export function IntelligenceScreen({ navigation }: { navigation: IntelligenceNav
           accessibilityLabel="Send message to G"
           accessibilityRole="button"
         >
+<CrystalFace color={VOICES.admin.accent} radius={20} />
           <Ionicons name="arrow-up" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -194,7 +196,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 10,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
   },
-  sendBtn: {
+  sendBtn: { overflow: 'hidden',
     width: 40, height: 40, borderRadius: 20, backgroundColor: ACCENT,
     alignItems: 'center', justifyContent: 'center',
   },

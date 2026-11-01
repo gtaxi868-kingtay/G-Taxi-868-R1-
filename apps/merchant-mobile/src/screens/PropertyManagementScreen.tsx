@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import {
     View, Text, StyleSheet, TouchableOpacity, ScrollView,
     TextInput, ActivityIndicator, RefreshControl,
@@ -156,6 +157,7 @@ export function PropertyManagementScreen({ navigation }: any) {
                     <Ionicons name="cloud-offline-outline" size={44} color="rgba(255,255,255,0.2)" />
                     <Text style={styles.emptySub}>{loadError}</Text>
                     <TouchableOpacity style={styles.primaryBtn} onPress={() => { setLoading(true); load(); }}>
+<CrystalFace color={VOICES.merchant.accent} radius={14} />
                         <Text style={styles.primaryBtnText}>Try again</Text>
                     </TouchableOpacity>
                 </View>
@@ -215,6 +217,7 @@ export function PropertyManagementScreen({ navigation }: any) {
                                     ))}
                                 </View>
                                 <TouchableOpacity style={[styles.primaryBtn, saving && { opacity: 0.5 }]} onPress={() => save(row)} disabled={saving} accessibilityRole="button">
+<CrystalFace color={VOICES.merchant.accent} radius={14} />
                                     {saving ? <ActivityIndicator color="#E9F5F3" /> : <Text style={styles.primaryBtnText}>Save rate</Text>}
                                 </TouchableOpacity>
                                 {(row.periods || []).length > 0 && (
@@ -308,7 +311,7 @@ const styles = StyleSheet.create({
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
     chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.06)', minHeight: 40, justifyContent: 'center' },
     chipText: { color: '#E9F5F3', fontWeight: '600', fontSize: 13, fontFamily: 'Manrope' },
-    primaryBtn: { backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 14, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
+    primaryBtn: { overflow: 'hidden', backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 14, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
     primaryBtnText: { color: '#E9F5F3', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
     note: { fontSize: 12, marginTop: 10, fontFamily: 'Manrope' },
     periodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },

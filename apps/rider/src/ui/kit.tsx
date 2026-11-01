@@ -4,6 +4,7 @@ import {
     StyleProp, StyleSheet, Text as RNText, TextInput, TextInputProps, TextStyle, View, ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { CrystalFace, CrystalGradient, RAISED, RaisedIcon } from '@gtaxi/design-system-native/src/crystal';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -122,68 +123,7 @@ export function shade(hex: string, amt = 0.22): string {
     return `rgb(${r},${g},${b})`;
 }
 
-// Lift a #RRGGBB colour toward white for the lit side of a crystal face.
-export function lighten(hex: string, amt = 0.35): string {
-    const h = hex.replace('#', '');
-    if (h.length !== 6) return 'rgba(255,255,255,0.5)';
-    const n = parseInt(h, 16);
-    const f = (c: number) => Math.min(255, Math.round(c + (255 - c) * amt));
-    const r = f((n >> 16) & 255), g = f((n >> 8) & 255), b = f(n & 255);
-    return `rgb(${r},${g},${b})`;
-}
-
-// The G 868 crystal, cut for a key: a lit-to-deep body, one angled facet, a
-// cyan-violet rim and a specular glint, the same layers as the logo on the
-// site. It sits behind the label and keeps the Duolingo lip and press.
-function Facets({ radius }: { radius: number }) {
-    return (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]}>
-            <LinearGradient colors={['rgba(103,232,249,0.34)', 'rgba(103,232,249,0)', 'rgba(192,132,252,0.36)']}
-                start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFillObject} />
-            <View style={{ position: 'absolute', top: '-70%', left: '12%', width: '26%', height: '240%', backgroundColor: 'rgba(255,255,255,0.14)', transform: [{ rotate: '24deg' }] }} />
-            <View style={{ position: 'absolute', top: '-70%', left: '46%', width: '9%', height: '240%', backgroundColor: 'rgba(255,255,255,0.10)', transform: [{ rotate: '24deg' }] }} />
-            <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: radius, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.42)' }} />
-            <View style={{ position: 'absolute', top: 5, left: '14%', right: '40%', height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.72)' }} />
-        </View>
-    );
-}
-
-export function CrystalFace({ color, radius }: { color: string; radius: number }) {
-    return (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]}>
-            <LinearGradient colors={[lighten(color, 0.3), color, shade(color, 0.28)]} locations={[0, 0.5, 1]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFillObject} />
-            <Facets radius={radius} />
-        </View>
-    );
-}
-
-// Text and icons on crystal stand proud of the surface, like the logo's G.
-export const RAISED: TextStyle = {
-    textShadowColor: 'rgba(32,18,96,0.6)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 1,
-};
-
-export function RaisedIcon({ name, size, color = '#FFFFFF' }: { name: IconName; size: number; color?: string }) {
-    return (
-        <View style={{ width: size, height: size }}>
-            <Ionicons name={name} size={size} color="rgba(32,18,96,0.6)" style={{ position: 'absolute', top: 2, left: 0 }} />
-            <Ionicons name={name} size={size} color={color} style={{ position: 'absolute', top: 0, left: 0 }} />
-        </View>
-    );
-}
-
-// The brand gradient cut as crystal: use it anywhere a violet-to-cyan surface
-// is something you press or a card you read from.
-export function CrystalGradient({ children, ...props }: React.ComponentProps<typeof LinearGradient>) {
-    const flat = StyleSheet.flatten(props.style) as ViewStyle | undefined;
-    const radius = typeof flat?.borderRadius === 'number' ? flat.borderRadius : 0;
-    return (
-        <LinearGradient {...props} style={[props.style, { overflow: 'hidden' }]}>
-            <Facets radius={radius} />
-            {children}
-        </LinearGradient>
-    );
-}
+export { CrystalFace, CrystalGradient, RAISED, RaisedIcon };
 
 // Bouncy entrance for a block: pops up and settles. Use `delay` to stagger.
 export function Pop({ children, delay = 0, style }: { children: React.ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, ScrollView, Alert } from 'react-native';
+import { CrystalFace, RaisedIcon } from '@gtaxi/design-system-native/src/crystal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -142,8 +143,9 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
         <Text style={s.sectionTitle}>Quick Actions</Text>
         <View style={s.tileGrid}>
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Orders')} accessibilityLabel="Manage incoming orders" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
-              <Ionicons name="receipt" size={28} color={VOICES.merchant.accent} />
+            <View style={s.tileIcon}>
+              <CrystalFace color={VOICES.merchant.accent} radius={14} />
+              <RaisedIcon name="receipt" size={26} />
             </View>
             <Text style={s.tileLabel}>Orders</Text>
             <Text style={s.tileDesc}>Manage incoming orders</Text>
@@ -153,64 +155,72 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
               (keychain tap, QR or code) via merchant_nfc_charge. It is not a
               card payment, so the tile must not say "card". */}
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('NfcAcceptPayment')} accessibilityLabel="Take a G-Coin wallet payment from a rider" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
-              <Ionicons name="wifi" size={28} color={VOICES.merchant.accent} />
+            <View style={s.tileIcon}>
+              <CrystalFace color={VOICES.merchant.accent} radius={14} />
+              <RaisedIcon name="wifi" size={26} />
             </View>
             <Text style={s.tileLabel}>Tap to Pay</Text>
             <Text style={s.tileDesc}>Rider pays from G-Coin wallet</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Dispatch')} accessibilityLabel="Dispatch a car for a client" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: '#4ADE8026' }]}>
-              <Ionicons name="car-sport" size={28} color="#4ADE80" />
+            <View style={s.tileIcon}>
+              <CrystalFace color={VOICES.merchant.accent} radius={14} />
+              <RaisedIcon name="car-sport" size={26} />
             </View>
             <Text style={s.tileLabel}>Dispatch</Text>
             <Text style={s.tileDesc}>Send car for a client</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Earnings')} accessibilityLabel="View commissions and payouts" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(129,140,248,0.15)' }]}>
-              <Ionicons name="trending-up" size={28} color="#818CF8" />
+            <View style={s.tileIcon}>
+              <CrystalFace color={VOICES.merchant.copper} radius={14} />
+              <RaisedIcon name="trending-up" size={26} />
             </View>
             <Text style={s.tileLabel}>Earnings</Text>
             <Text style={s.tileDesc}>Commissions & payouts</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('ProductCatalog')} accessibilityLabel="Add and manage products" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
-              <Ionicons name="storefront" size={28} color="#10B981" />
+            <View style={s.tileIcon}>
+              <CrystalFace color={VOICES.merchant.accent} radius={14} />
+              <RaisedIcon name="storefront" size={26} />
             </View>
             <Text style={s.tileLabel}>Catalog</Text>
             <Text style={s.tileDesc}>Add & manage products</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Appointments')} accessibilityLabel="View and manage appointments" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: '#F59E0B26' }]}>
-              <Ionicons name="calendar" size={28} color="#F59E0B" />
+            <View style={s.tileIcon}>
+              <CrystalFace color={VOICES.merchant.copper} radius={14} />
+              <RaisedIcon name="calendar" size={26} />
             </View>
             <Text style={s.tileLabel}>Appointments</Text>
             <Text style={s.tileDesc}>View & manage bookings</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('Staff')} accessibilityLabel="Manage your team" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: VOICES.merchant.accent + '26' }]}>
-              <Ionicons name="people" size={28} color={VOICES.merchant.accent} />
+            <View style={s.tileIcon}>
+              <CrystalFace color={VOICES.merchant.accent} radius={14} />
+              <RaisedIcon name="people" size={26} />
             </View>
             <Text style={s.tileLabel}>Staff</Text>
             <Text style={s.tileDesc}>Manage your team</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('PropertyManagement', {})} accessibilityLabel="Rooms and nightly rates" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
-              <Ionicons name="home" size={28} color="#3B82F6" />
+            <View style={s.tileIcon}>
+              <CrystalFace color={VOICES.merchant.accent} radius={14} />
+              <RaisedIcon name="home" size={26} />
             </View>
             <Text style={s.tileLabel}>Rooms</Text>
             <Text style={s.tileDesc}>Nightly rates</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('EquityProgress', {})} accessibilityLabel="View equity ownership milestones" accessibilityRole="button">
-            <View style={[s.tileIcon, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
-              <Ionicons name="trending-up" size={28} color="#F59E0B" />
+            <View style={s.tileIcon}>
+              <CrystalFace color={VOICES.merchant.copper} radius={14} />
+              <RaisedIcon name="trending-up" size={26} />
             </View>
             <Text style={s.tileLabel}>Equity</Text>
             <Text style={s.tileDesc}>Ownership milestones</Text>
@@ -294,7 +304,7 @@ const s = StyleSheet.create({
   insightBody: { fontSize: 15, color: '#E9F5F3', lineHeight: 22, fontFamily: 'Manrope' },
   tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: { borderRadius: 20, padding: 20 },
-  tileIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  tileIcon: { overflow: 'hidden', width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   tileLabel: { fontSize: 16, fontWeight: '700', color: '#E9F5F3', marginBottom: 4, fontFamily: 'SpaceGrotesk' },
   tileDesc: { fontSize: 12, color: VOICES.merchant.textMuted, lineHeight: 16, fontFamily: 'Manrope' },
 });

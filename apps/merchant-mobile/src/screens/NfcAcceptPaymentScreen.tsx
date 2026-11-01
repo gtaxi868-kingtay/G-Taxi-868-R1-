@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   useWindowDimensions, ScrollView, ActivityIndicator, Platform,
@@ -228,6 +229,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
           </View>
           <TouchableOpacity style={s.doneBtn} onPress={handleCharge} activeOpacity={0.85}
             accessibilityRole="button" accessibilityLabel={`Yes, charge ${ttd(amountCents)}`}>
+<CrystalFace color={VOICES.merchant.accent} radius={14} />
             <Text style={s.doneBtnText}>YES, CHARGE {ttd(amountCents)}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.backBtn} onPress={() => setPhase('confirm')} activeOpacity={0.85}
@@ -257,6 +259,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
             </Text>
           </View>
           <TouchableOpacity style={s.doneBtn} onPress={handleDone} activeOpacity={0.85}>
+<CrystalFace color={VOICES.merchant.accent} radius={14} />
             <Text style={s.doneBtnText}>NEW PAYMENT</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
@@ -318,6 +321,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
                   </Text>
                 </View>
                 <TouchableOpacity style={s.nfcScanBtn} onPress={readNfc} activeOpacity={0.85}>
+<CrystalFace color={VOICES.merchant.accent} radius={14} />
                   <Ionicons name="scan-outline" size={22} color="#0A0F0E" />
                   <Text style={s.nfcScanBtnText}>TAP TO SCAN</Text>
                 </TouchableOpacity>
@@ -361,6 +365,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
                     <Ionicons name="camera-outline" size={48} color="rgba(255,255,255,0.3)" />
                     <Text style={s.cameraPromptText}>Camera permission needed to scan QR codes</Text>
                     <TouchableOpacity style={s.permissionBtn} onPress={requestCameraPermission} activeOpacity={0.85}>
+<CrystalFace color={VOICES.merchant.accent} radius={10} />
                       <Text style={s.permissionBtnText}>ENABLE CAMERA</Text>
                     </TouchableOpacity>
                   </View>
@@ -396,6 +401,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
                     disabled={!manualTag.trim() || loading}
                     activeOpacity={0.85}
                   >
+<CrystalFace color={VOICES.merchant.accent} radius={14} />
                     {loading ? (
                       <ActivityIndicator size="small" color="#0A0F0E" />
                     ) : (
@@ -466,6 +472,7 @@ export function NfcAcceptPaymentScreen({ navigation }: AppScreenProps<'NfcAccept
                 disabled={amountCents < 100 || amountCents > riderBalanceCents || loading}
                 activeOpacity={0.85}
               >
+<CrystalFace color={VOICES.merchant.accent} radius={16} />
                 <Text style={s.chargeBtnText}>
                   REVIEW CHARGE {ttd(amountCents)}
                 </Text>
@@ -516,7 +523,7 @@ const s = StyleSheet.create({
   },
   scanTitle: { fontSize: 22, fontWeight: '700', color: '#E9F5F3', marginBottom: 8, fontFamily: 'SpaceGrotesk' },
   scanSubtitle: { fontSize: 14, color: VOICES.merchant.textMuted, textAlign: 'center', lineHeight: 20, paddingHorizontal: 16 },
-  nfcScanBtn: {
+  nfcScanBtn: { overflow: 'hidden',
     flexDirection: 'row', height: 52, borderRadius: 14, backgroundColor: VOICES.merchant.accent,
     justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 8,
   },
@@ -534,7 +541,7 @@ const s = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', gap: 12, marginBottom: 16,
   },
   cameraPromptText: { fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', paddingHorizontal: 32, fontFamily: 'Manrope' },
-  permissionBtn: { height: 44, borderRadius: 10, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  permissionBtn: { overflow: 'hidden', height: 44, borderRadius: 10, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   permissionBtnText: { fontSize: 13, fontWeight: '800', color: '#0A0F0E', letterSpacing: 1, fontFamily: 'SpaceGrotesk' },
   inputCard: { borderRadius: 20, padding: 20 },
   inputLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.5)', marginBottom: 8, letterSpacing: 1.5, fontFamily: 'Manrope' },
@@ -542,7 +549,7 @@ const s = StyleSheet.create({
     height: 52, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)',
     paddingHorizontal: 16, fontSize: 16, color: '#E9F5F3', fontFamily: 'SpaceGrotesk',
   },
-  submitBtn: { height: 52, borderRadius: 14, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
+  submitBtn: { overflow: 'hidden', height: 52, borderRadius: 14, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   btnDisabled: { opacity: 0.4 },
   submitBtnText: { fontSize: 15, fontWeight: '800', color: '#0A0F0E', letterSpacing: 1, fontFamily: 'SpaceGrotesk' },
   errorText: { fontSize: 13, color: '#EF4444', marginTop: 12, textAlign: 'center', fontFamily: 'Manrope' },
@@ -558,7 +565,7 @@ const s = StyleSheet.create({
   amountInput: { flex: 1, height: 60, fontSize: 32, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
   balanceHint: { fontSize: 12, color: '#F59E0B', marginTop: 8, fontFamily: 'Manrope' },
   balanceHintError: { color: '#EF4444' },
-  chargeBtn: { height: 56, borderRadius: 16, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', marginTop: 20 },
+  chargeBtn: { overflow: 'hidden', height: 56, borderRadius: 16, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', marginTop: 20 },
   chargeBtnText: { fontSize: 16, fontWeight: '800', color: '#0A0F0E', letterSpacing: 1, fontFamily: 'SpaceGrotesk' },
   processingText: { fontSize: 20, fontWeight: '700', color: '#E9F5F3', marginTop: 24, fontFamily: 'SpaceGrotesk' },
   processingSubtext: { fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 8, fontFamily: 'Manrope' },
@@ -569,7 +576,7 @@ const s = StyleSheet.create({
   balanceRow: { flexDirection: 'row', gap: 8, marginTop: 24, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)' },
   balanceLabel: { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontFamily: 'Manrope' },
   balanceValue: { fontSize: 14, fontWeight: '700', color: '#10B981', fontFamily: 'SpaceGrotesk' },
-  doneBtn: { height: 52, borderRadius: 14, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center', marginTop: 32, paddingHorizontal: 32 },
+  doneBtn: { overflow: 'hidden', height: 52, borderRadius: 14, backgroundColor: VOICES.merchant.accent, justifyContent: 'center', alignItems: 'center', marginTop: 32, paddingHorizontal: 32 },
   doneBtnText: { fontSize: 15, fontWeight: '800', color: '#0A0F0E', letterSpacing: 1, fontFamily: 'SpaceGrotesk' },
   backBtn: { marginTop: 12 },
   backBtnText: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.4)', textAlign: 'center', letterSpacing: 1, fontFamily: 'Manrope' },

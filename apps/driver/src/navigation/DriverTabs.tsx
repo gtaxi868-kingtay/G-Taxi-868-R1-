@@ -7,7 +7,7 @@ import { DashboardScreen } from '../screens/DashboardScreen';
 import { EarningsScreen } from '../screens/EarningsScreen';
 import { WalletScreen } from '../screens/WalletScreen';
 import { YouScreen } from '../screens/YouScreen';
-import { FONT, tick, useTheme, IconName } from '../ui/kit';
+import { CrystalFace, FONT, RaisedIcon, tick, useTheme, IconName } from '../ui/kit';
 import { DRIVE_COLORS } from '../theme/drive';
 
 // Bottom tabs replace the hamburger menu (founder, 2026-10-27), the same
@@ -49,8 +49,9 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
                         }}
                         style={st.item}
                     >
-                        <View style={[st.pill, focused && { backgroundColor: `${t.color}22`, borderColor: `${t.color}66` }]}>
-                            <Ionicons name={focused ? t.iconOn : t.icon} size={22} color={focused ? t.color : m.faint} />
+                        <View style={[st.pill, focused && { borderColor: 'transparent', overflow: 'hidden' }]}>
+                            {focused ? <CrystalFace color={t.color} radius={st.pill.borderRadius as number} /> : null}
+                            {focused ? <RaisedIcon name={t.iconOn} size={22} /> : <Ionicons name={t.icon} size={22} color={m.faint} />}
                         </View>
                         <Text style={[st.label, { color: focused ? m.ink : m.faint }]}>{t.label}</Text>
                     </Pressable>

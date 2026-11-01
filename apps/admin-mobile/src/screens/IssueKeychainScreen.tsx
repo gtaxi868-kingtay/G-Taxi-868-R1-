@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ActivityIndicator, Alert, ScrollView, FlatList,
@@ -316,6 +317,7 @@ export function IssueKeychainScreen({ navigation }: { navigation: NavProp }) {
           disabled={!canSubmit}
           activeOpacity={0.85}
         >
+<CrystalFace color={VOICES.admin.accent} radius={12} />
           {submitting ? (
             <ActivityIndicator color="#FFF" size="small" />
           ) : (
@@ -376,7 +378,7 @@ const styles = StyleSheet.create({
   selectedName: { color: '#F1F5F9', fontSize: 15, fontWeight: '700' },
   selectedMeta: { color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 2 },
   clearBtn: { padding: 4 },
-  submitBtn: {
+  submitBtn: { overflow: 'hidden',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     height: 48, borderRadius: 12, backgroundColor: ACCENT, marginTop: 24,
   },

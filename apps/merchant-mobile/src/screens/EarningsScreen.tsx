@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import { BusinessPayoutCard } from '../components/BusinessPayoutCard';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Share,
@@ -357,6 +358,7 @@ export function EarningsScreen({ navigation }: { navigation: NativeStackNavigati
                               </TouchableOpacity>
                               <TouchableOpacity style={s.approveBtn} disabled={decidingId === r.request_id}
                                 onPress={() => decideRequest(r.request_id, true)} accessibilityRole="button">
+<CrystalFace color={VOICES.merchant.accent} radius={12} />
                                 {decidingId === r.request_id
                                   ? <ActivityIndicator color="#000" size="small" />
                                   : <Text style={s.approveText}>Vouch for them</Text>}
@@ -494,12 +496,12 @@ const s = StyleSheet.create({
   requestActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
   declineBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.07)' },
   declineText: { fontSize: 13, fontWeight: '700', color: '#E9F5F3', fontFamily: 'Manrope' },
-  approveBtn: { flex: 1.4, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: VOICES.merchant.accent },
+  approveBtn: { overflow: 'hidden', flex: 1.4, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: VOICES.merchant.accent },
   approveText: { fontSize: 13, fontWeight: '800', color: '#000', fontFamily: 'Manrope' },
   codeRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14, backgroundColor: 'rgba(255,255,255,0.05)' },
   codeLabel: { fontSize: 11, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', textTransform: 'uppercase', letterSpacing: 0.5 },
   codeValue: { fontSize: 20, fontWeight: '800', color: '#E9F5F3', fontFamily: 'SpaceGrotesk', letterSpacing: 2, marginTop: 2 },
-  shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: VOICES.merchant.accent, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
+  shareBtn: { overflow: 'hidden', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: VOICES.merchant.accent, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
   shareBtnText: { fontSize: 13, fontWeight: '700', color: '#000', fontFamily: 'Manrope' },
   infoCard: { flexDirection: 'row', borderRadius: 14, padding: 14, marginBottom: 10, alignItems: 'center' },
   infoText: { flex: 1, fontSize: 13, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', lineHeight: 18 },
