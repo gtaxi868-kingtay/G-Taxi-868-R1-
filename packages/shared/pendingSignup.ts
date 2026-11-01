@@ -22,6 +22,8 @@ export interface PendingSignup {
   commanderCode?: string;
   /** Code of the G-Partner shop that onboarded this driver (driver_join_shop). */
   shopCode?: string;
+  /** The rider's town, set through rider_set_home_town once signed in. */
+  homeTown?: { name: string; lat: number; lng: number };
   /** Guards against replaying someone else's parked intent if a different
    *  account signs in on the same device. */
   forUserId?: string;
@@ -115,6 +117,14 @@ export async function flushPendingSignup(
     // raising; either way it is not retried on every app open.
     const { error } = await supabase.rpc('driver_join_shop', { p_code: parked.shopCode });
     if (!error) result.shopJoined = true;
+  }
+
+  if (parked.homeTown) {
+    await supabase.rpc('rider_set_home_town', {
+      p_town: parked.homeTown.name,
+      p_lat: parked.homeTown.lat,
+      p_lng: parked.homeTown.lng,
+    });
   }
 
   // Clear only when every consent (the part that matters legally) landed, or

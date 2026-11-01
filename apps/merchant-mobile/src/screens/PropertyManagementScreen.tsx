@@ -150,7 +150,7 @@ export function PropertyManagementScreen({ navigation }: any) {
 
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
-            <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+            <LinearGradient colors={[VOICES.merchant.bg, VOICES.merchant.bg]} style={StyleSheet.absoluteFillObject} />
             {header}
             {loadError ? (
                 <View style={styles.center}>
@@ -290,32 +290,32 @@ export function PropertyManagementScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
+    root: { flex: 1, backgroundColor: VOICES.merchant.bg },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 14, gap: 8 },
     backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#E9F5F3', fontWeight: '800', fontSize: 17, fontFamily: 'SpaceGrotesk' },
+    headerTitle: { color: VOICES.merchant.text, fontWeight: '800', fontSize: 17, fontFamily: 'SpaceGrotesk' },
     headerSub: { color: VOICES.merchant.textMuted, fontSize: 12, fontFamily: 'Manrope' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
-    emptyTitle: { color: '#E9F5F3', fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
+    emptyTitle: { color: VOICES.merchant.text, fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
     emptySub: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center', fontFamily: 'Manrope' },
     scroll: { paddingTop: 8, paddingHorizontal: 20, gap: 16 },
     card: { borderRadius: 18, padding: 16 },
     cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
-    cardTitle: { color: '#E9F5F3', fontWeight: '700', fontSize: 15, fontFamily: 'SpaceGrotesk' },
+    cardTitle: { color: VOICES.merchant.text, fontWeight: '700', fontSize: 15, fontFamily: 'SpaceGrotesk' },
     cardMeta: { color: VOICES.merchant.textMuted, fontSize: 12, marginTop: 2, fontFamily: 'Manrope' },
     status: { fontSize: 11, fontWeight: '700', fontFamily: 'SpaceGrotesk' },
     current: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 12, fontFamily: 'Manrope' },
-    currentStrong: { color: '#E9F5F3', fontWeight: '700' },
+    currentStrong: { color: VOICES.merchant.text, fontWeight: '700' },
     label: { color: 'rgba(255,255,255,0.55)', fontWeight: '700', fontSize: 11, letterSpacing: 1.5, marginBottom: 6, marginTop: 4, fontFamily: 'SpaceGrotesk' },
-    input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: '#E9F5F3', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 10, fontFamily: 'Manrope' },
+    input: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: VOICES.merchant.text, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 10, fontFamily: 'Manrope' },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
     chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 99, backgroundColor: 'rgba(255,255,255,0.06)', minHeight: 40, justifyContent: 'center' },
-    chipText: { color: '#E9F5F3', fontWeight: '600', fontSize: 13, fontFamily: 'Manrope' },
+    chipText: { color: VOICES.merchant.text, fontWeight: '600', fontSize: 13, fontFamily: 'Manrope' },
     primaryBtn: { overflow: 'hidden', backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 14, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
-    primaryBtnText: { color: '#E9F5F3', fontWeight: '700', fontFamily: 'SpaceGrotesk' },
+    primaryBtnText: { color: VOICES.merchant.text, fontWeight: '700', fontFamily: 'SpaceGrotesk' },
     note: { fontSize: 12, marginTop: 10, fontFamily: 'Manrope' },
     periodRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
-    periodText: { color: '#E9F5F3', fontSize: 13, fontFamily: 'Manrope' },
+    periodText: { color: VOICES.merchant.text, fontSize: 13, fontFamily: 'Manrope' },
     cancelText: { color: '#EF4444', fontWeight: '700', fontSize: 12, fontFamily: 'SpaceGrotesk', padding: 8 },
     suggestion: { marginTop: 4, marginBottom: 6, padding: 12, borderRadius: 14, backgroundColor: 'rgba(34,197,94,0.06)', borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)' },
 });

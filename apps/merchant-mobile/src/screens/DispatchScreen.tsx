@@ -169,7 +169,7 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[s.container, { paddingTop: insets.top }]}>
-        <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+        <LinearGradient colors={[VOICES.merchant.bg, VOICES.merchant.bg]} style={StyleSheet.absoluteFillObject} />
 
         <View style={s.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
@@ -327,21 +327,21 @@ export function DispatchScreen({ navigation }: { navigation: NativeStackNavigati
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SURFACE.base },
+  container: { flex: 1, backgroundColor: VOICES.merchant.bg },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.06)', justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 18, fontWeight: '700', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
+  title: { fontSize: 18, fontWeight: '700', color: VOICES.merchant.text, fontFamily: 'SpaceGrotesk' },
   scrollContent: { padding: 20, paddingBottom: 60 },
   card: { borderRadius: 20, padding: 20, marginBottom: 20 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#E9F5F3', marginBottom: 16, fontFamily: 'SpaceGrotesk' },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: VOICES.merchant.text, marginBottom: 16, fontFamily: 'SpaceGrotesk' },
   label: { fontSize: 12, color: VOICES.merchant.textMuted, marginBottom: 6, fontFamily: 'Manrope', letterSpacing: 0.5, textTransform: 'uppercase' },
   inputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.05)', marginBottom: 16 },
-  input: { flex: 1, fontSize: 15, color: '#E9F5F3', fontFamily: 'Manrope' },
+  input: { flex: 1, fontSize: 15, color: VOICES.merchant.text, fontFamily: 'Manrope' },
   vehicleRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   vehicleChip: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   vehicleChipActive: { backgroundColor: VOICES.merchant.accent + '26', borderColor: VOICES.merchant.accent },
   vehicleChipText: { fontSize: 14, fontWeight: '600', color: VOICES.merchant.textMuted, fontFamily: 'Manrope' },
-  vehicleChipTextActive: { color: '#E9F5F3' },
+  vehicleChipTextActive: { color: VOICES.merchant.text },
   payNote: { fontSize: 12.5, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', marginBottom: 14, lineHeight: 18 },
   dispatchBtn: { overflow: 'hidden', backgroundColor: VOICES.merchant.accent, borderRadius: 14, paddingVertical: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4 },
   dispatchBtnDisabled: { opacity: 0.5 },
@@ -350,15 +350,15 @@ const s = StyleSheet.create({
   resultHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
   resultTitle: { fontSize: 18, fontWeight: '700', color: '#4ADE80', fontFamily: 'SpaceGrotesk' },
   resultLine: { fontSize: 14, color: VOICES.merchant.textMuted, marginBottom: 4, fontFamily: 'Manrope' },
-  resultValue: { color: '#E9F5F3', fontWeight: '600' },
+  resultValue: { color: VOICES.merchant.text, fontWeight: '600' },
   pinRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   pinBadge: { backgroundColor: VOICES.merchant.accent + '26', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   pinText: { fontSize: 18, fontWeight: '800', color: VOICES.merchant.accent, fontFamily: 'SpaceGrotesk', letterSpacing: 2 },
   resultNote: { fontSize: 13, color: VOICES.merchant.textMuted, marginTop: 8, fontFamily: 'Manrope' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#E9F5F3', marginBottom: 12, fontFamily: 'SpaceGrotesk' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: VOICES.merchant.text, marginBottom: 12, fontFamily: 'SpaceGrotesk' },
   emptyText: { fontSize: 14, color: VOICES.merchant.textMuted, fontFamily: 'Manrope', textAlign: 'center', marginTop: 16 },
   recentRow: { flexDirection: 'row', borderRadius: 14, padding: 14, marginBottom: 8 },
-  recentName: { fontSize: 14, fontWeight: '600', color: '#E9F5F3', fontFamily: 'SpaceGrotesk' },
+  recentName: { fontSize: 14, fontWeight: '600', color: VOICES.merchant.text, fontFamily: 'SpaceGrotesk' },
   recentTime: { fontSize: 12, color: VOICES.merchant.textMuted, marginTop: 2, fontFamily: 'Manrope' },
   statusBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { fontSize: 11, fontWeight: '700', fontFamily: 'Manrope', textTransform: 'capitalize' },

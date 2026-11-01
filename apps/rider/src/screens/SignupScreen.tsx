@@ -12,12 +12,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@gtaxi/core';
 import { toast } from '../components/Toast';
 import { Checkbox, MoodProvider, Toggle } from '../ui/kit';
+import { TownField } from '../components/TownField';
+import type { Town } from '../data/towns';
 
 export function SignupScreen({ navigation }: any) {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [showMore, setShowMore] = useState(false);
+    const [town, setTown] = useState<Town | null>(null);
     const [checkEmail, setCheckEmail] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -43,6 +46,10 @@ export function SignupScreen({ navigation }: any) {
         }
         if (formData.password.length < 6) {
             setError('Password must be at least 6 characters.');
+            return;
+        }
+        if (!town) {
+            setError('Pick your town from the list so drivers near you can get ready.');
             return;
         }
 
@@ -85,6 +92,11 @@ export function SignupScreen({ navigation }: any) {
                     .from('profiles')
                     .update({ phone_number: formData.phone.trim() })
                     .eq('id', authData.user.id);
+            }
+
+            if (authData.session) {
+                await supabase.rpc('rider_set_home_town', { p_town: town.name, p_lat: town.lat, p_lng: town.lng })
+                    .then(null, (e: unknown) => console.warn('[Signup] town not saved:', e));
             }
 
             // Step 2b: Record every document a rider is asked to accept as
@@ -132,6 +144,7 @@ export function SignupScreen({ navigation }: any) {
                         userAgent: Platform.OS,
                     })),
                     commanderCode: formData.commanderCode.trim() || undefined,
+                    homeTown: town,
                 });
             }
 
@@ -238,6 +251,7 @@ export function SignupScreen({ navigation }: any) {
                 <CrystalInput label="Full name" voice="rider" placeholder="Your name" value={formData.name} onChangeText={set('name')} autoCapitalize="words" />
                 <CrystalInput label="Email" voice="rider" placeholder="you@email.com" value={formData.email} onChangeText={set('email')} keyboardType="email-address" />
                 <CrystalInput label="Phone (optional)" voice="rider" placeholder="+1 868 000 0000" value={formData.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
+                <TownField value={town} onChange={setTown} />
                 <CrystalInput label="Password" voice="rider" placeholder="At least 6 characters" value={formData.password} onChangeText={set('password')} secureTextEntry />
 
                 {showMore ? (

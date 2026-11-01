@@ -16,4 +16,10 @@ describe('SignupScreen', () => {
     const { getByText } = render(<SignupScreen navigation={navigation as any} route={{} as any} />);
     expect(getByText(/Create Account/i)).toBeTruthy();
   });
+
+  it('finds a town and picks it', () => {
+    const { searchTowns } = require('../../data/towns');
+    expect(searchTowns('st aug')[0].name).toBe('Saint Augustine');
+    expect(searchTowns('zzqq')).toEqual([]);
+  });
 });

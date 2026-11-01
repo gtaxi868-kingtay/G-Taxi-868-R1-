@@ -69,7 +69,7 @@ export function EquityProgressScreen({ navigation, route }: any) {
 
     return (
         <View style={[styles.root, { paddingTop: insets.top }]}>
-            <LinearGradient colors={[SURFACE.base, '#1C1510']} style={StyleSheet.absoluteFillObject} />
+            <LinearGradient colors={[VOICES.merchant.bg, VOICES.merchant.bg]} style={StyleSheet.absoluteFillObject} />
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <Ionicons name="chevron-back" size={22} color="#E9F5F3" />
@@ -193,18 +193,18 @@ export function EquityProgressScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
+    root: { flex: 1, backgroundColor: VOICES.merchant.bg },
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 14, gap: 10 },
     backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
-    headerTitle: { color: '#E9F5F3', fontWeight: '800', fontSize: 20, fontFamily: 'SpaceGrotesk' },
+    headerTitle: { color: VOICES.merchant.text, fontWeight: '800', fontSize: 20, fontFamily: 'SpaceGrotesk' },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
-    emptyTitle: { color: '#E9F5F3', fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
+    emptyTitle: { color: VOICES.merchant.text, fontWeight: '700', fontSize: 18, textAlign: 'center', fontFamily: 'SpaceGrotesk' },
     emptySub: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center', fontFamily: 'Manrope' },
     scroll: { padding: 20, gap: 20 },
     contractCard: { borderRadius: 24, overflow: 'hidden', borderColor: 'rgba(245,158,11,0.15)' },
     contractGrad: { padding: 22, gap: 16 },
     contractHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-    propName: { color: '#E9F5F3', fontWeight: '800', fontSize: 18, fontFamily: 'SpaceGrotesk' },
+    propName: { color: VOICES.merchant.text, fontWeight: '800', fontSize: 18, fontFamily: 'SpaceGrotesk' },
     statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
     statusText: { fontWeight: '700', fontSize: 11, textTransform: 'capitalize', fontFamily: 'SpaceGrotesk' },
     nightsRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
@@ -223,6 +223,6 @@ const styles = StyleSheet.create({
     legalBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(45,212,191,0.08)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(45,212,191,0.15)' },
     legalBtnText: { color: VOICES.merchant.accent, fontWeight: '600', fontSize: 13, fontFamily: 'Manrope' },
     explainer: { borderRadius: 20, padding: 20 },
-    explainerTitle: { color: '#E9F5F3', fontWeight: '700', fontSize: 15, marginBottom: 10, fontFamily: 'SpaceGrotesk' },
+    explainerTitle: { color: VOICES.merchant.text, fontWeight: '700', fontSize: 15, marginBottom: 10, fontFamily: 'SpaceGrotesk' },
     explainerBody: { color: VOICES.merchant.textMuted, fontSize: 13, lineHeight: 20, fontFamily: 'Manrope' },
 });
