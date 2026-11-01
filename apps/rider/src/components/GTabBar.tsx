@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { CrystalFace, LIP, shade, SPACE, tick, Txt, useKeyPress, useTheme } from '../ui/kit';
+import { CrystalFace, LIP, RaisedIcon, shade, SPACE, tick, Txt, useKeyPress, useTheme } from '../ui/kit';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -78,7 +78,7 @@ function TabKey({ label, icon, color, focused, onPress }: { label: string; icon:
                         transform: [{ translateY: focused ? translateY : 0 }],
                     }}>
                         {focused ? <CrystalFace color={color} radius={16} /> : null}
-                        <Ionicons name={focused ? icon : (`${icon}-outline` as IconName)} size={22} color={focused ? '#FFFFFF' : m.faint} />
+                        {focused ? <RaisedIcon name={icon} size={22} /> : <Ionicons name={`${icon}-outline` as IconName} size={22} color={m.faint} />}
                     </Animated.View>
                 </View>
             </Animated.View>

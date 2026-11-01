@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import { DestinationSearchScreen } from '../DestinationSearchScreen';
 
 // @gtaxi/core is mocked completely in jest.setup.js (chainable builder + rpc + ENV)
@@ -15,5 +15,22 @@ describe('DestinationSearchScreen', () => {
     const route = { params: { currentLocation: { latitude: 10.69, longitude: -61.22 } } };
     const _smoke = render(<DestinationSearchScreen navigation={navigation as any} route={route as any} />);
     expect(_smoke.toJSON()).toBeTruthy();
+  });
+
+  it('always offers a way out, even before anything is typed', () => {
+    const navigation = { navigate: jest.fn(), goBack: jest.fn(), setParams: jest.fn() };
+    const route = { params: { currentLocation: { latitude: 10.69, longitude: -61.22 } } };
+    const { getByLabelText } = render(<DestinationSearchScreen navigation={navigation as any} route={route as any} />);
+    fireEvent.press(getByLabelText('Set it on the map'));
+    expect(navigation.navigate).toHaveBeenCalledWith('PinOnMap', { near: { latitude: 10.69, longitude: -61.22 }, label: '' });
+  });
+
+  it('carries a hand-placed pin through to booking', () => {
+    const navigation = { navigate: jest.fn(), goBack: jest.fn(), setParams: jest.fn() };
+    const route = { params: { currentLocation: { latitude: 10.69, longitude: -61.22 }, pinned: { latitude: 10.6, longitude: -61.3, address: 'Blue gate' } } };
+    render(<DestinationSearchScreen navigation={navigation as any} route={route as any} />);
+    expect(navigation.navigate).toHaveBeenCalledWith('RideConfirmation', expect.objectContaining({
+      destination: { latitude: 10.6, longitude: -61.3, address: 'Blue gate' },
+    }));
   });
 });

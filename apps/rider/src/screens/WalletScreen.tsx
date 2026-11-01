@@ -12,7 +12,7 @@ import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 import { useInTab } from '../navigation/useInTab';
 import { toast } from '../components/Toast';
-import { CrystalFace, CrystalGradient, BRAND_GRADIENT, BrandBadge, EmptyState, GUTTER, Header, Loading, RADIUS, Row, SPACE, Txt, useTheme } from '../ui/kit';
+import { CrystalFace, CrystalGradient, RAISED, RaisedIcon, BRAND_GRADIENT, BrandBadge, EmptyState, GUTTER, Header, Loading, RADIUS, Row, SPACE, Txt, useTheme } from '../ui/kit';
 
 export function WalletScreen({ navigation }: any) {
     const inTab = useInTab(navigation);
@@ -140,7 +140,7 @@ export function WalletScreen({ navigation }: any) {
             {primary ? <BrandBadge icon={icon} size={52} round /> : (
                 <View style={{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' }}>
                     <CrystalFace color="#6E5BE0" radius={26} />
-                    <Ionicons name={icon} size={22} color="#FFFFFF" />
+                    <RaisedIcon name={icon} size={22} />
                 </View>
             )}
             <Txt variant="label" style={{ marginTop: SPACE.sm }}>{label}</Txt>
@@ -162,15 +162,15 @@ export function WalletScreen({ navigation }: any) {
                         <>
                             <View style={{ borderRadius: RADIUS.card, overflow: 'hidden', marginTop: SPACE.sm }}>
                                 <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: SPACE.xl }}>
-                                    <Txt variant="label" style={{ color: 'rgba(255,255,255,0.8)' }}>G-Coin balance</Txt>
+                                    <Txt variant="label" style={[RAISED, { color: '#FFFFFF' }]}>G-Coin balance</Txt>
                                     {balanceError ? (
                                         <Pressable accessibilityRole="button" onPress={fetchWalletData} style={{ marginTop: SPACE.md }}>
                                             <Txt variant="bodyStrong" tone="onBrand">Balance not available. Tap to try again.</Txt>
                                         </Pressable>
                                     ) : (
                                         <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: SPACE.xs }}>
-                                            <Txt variant="hero" tone="onBrand" numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 44, lineHeight: 50 }}>${balance.toFixed(2)}</Txt>
-                                            <Txt variant="bodyStrong" style={{ color: 'rgba(255,255,255,0.8)', marginLeft: SPACE.sm }}>TTD</Txt>
+                                            <Txt variant="hero" tone="onBrand" numberOfLines={1} adjustsFontSizeToFit style={[RAISED, { fontSize: 44, lineHeight: 50 }]}>${balance.toFixed(2)}</Txt>
+                                            <Txt variant="bodyStrong" style={[RAISED, { color: '#FFFFFF', marginLeft: SPACE.sm }]}>TTD</Txt>
                                         </View>
                                     )}
                                 </CrystalGradient>

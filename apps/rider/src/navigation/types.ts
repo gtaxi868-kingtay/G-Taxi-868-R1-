@@ -94,6 +94,8 @@ export type TagMarkerParams = {
 // Params the Map tab (the old Home screen) accepts: QR taxi-stand deep links
 // and NFC taps.
 export type MapParams = {
+  // Text to send straight to G (search could not find it).
+  askG?: string;
   lat?: string;
   lng?: string;
   stand?: string;
@@ -131,7 +133,10 @@ export type AppStackParamList = {
     saveMode?: boolean;
     // A shop to stop at on the way (Home shop card "Stop on my way").
     stop?: RideConfirmationParams['stop'];
+    // Set by PinOnMap: the spot the rider placed by hand.
+    pinned?: { latitude: number; longitude: number; address: string };
   };
+  PinOnMap: { near?: { latitude: number; longitude: number }; label?: string } | undefined;
   RideConfirmation: RideConfirmationParams;
   RideReview: {
     stops: Array<{ type: 'pickup' | 'stop' | 'dropoff'; address: string; lat: number; lng: number }>;

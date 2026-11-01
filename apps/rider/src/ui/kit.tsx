@@ -158,6 +158,20 @@ export function CrystalFace({ color, radius }: { color: string; radius: number }
     );
 }
 
+// Text and icons on crystal stand proud of the surface, like the logo's G.
+export const RAISED: TextStyle = {
+    textShadowColor: 'rgba(32,18,96,0.6)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 1,
+};
+
+export function RaisedIcon({ name, size, color = '#FFFFFF' }: { name: IconName; size: number; color?: string }) {
+    return (
+        <View style={{ width: size, height: size }}>
+            <Ionicons name={name} size={size} color="rgba(32,18,96,0.6)" style={{ position: 'absolute', top: 2, left: 0 }} />
+            <Ionicons name={name} size={size} color={color} style={{ position: 'absolute', top: 0, left: 0 }} />
+        </View>
+    );
+}
+
 // The brand gradient cut as crystal: use it anywhere a violet-to-cyan surface
 // is something you press or a card you read from.
 export function CrystalGradient({ children, ...props }: React.ComponentProps<typeof LinearGradient>) {
@@ -343,8 +357,8 @@ export function Button({
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACE.xl }}>
                         {loading ? <ActivityIndicator color={fg} /> : (
                             <>
-                                {icon ? <Ionicons name={icon} size={size === 'sm' ? 16 : 19} color={fg} style={{ marginRight: SPACE.sm }} /> : null}
-                                <RNText numberOfLines={1} style={{ color: fg, fontFamily: FONT.round, fontSize: size === 'sm' ? 14 : 17, letterSpacing: 0.3 }}>{title}</RNText>
+                                {icon ? <View style={{ marginRight: SPACE.sm }}>{solid ? <RaisedIcon name={icon} size={size === 'sm' ? 16 : 19} /> : <Ionicons name={icon} size={size === 'sm' ? 16 : 19} color={fg} />}</View> : null}
+                                <RNText numberOfLines={1} style={{ ...(solid ? RAISED : null), color: fg, fontFamily: FONT.round, fontSize: size === 'sm' ? 14 : 17, letterSpacing: 0.3 }}>{title}</RNText>
                             </>
                         )}
                     </View>
@@ -440,8 +454,9 @@ export function Row({
             })}
         >
             {icon ? (
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: m.field, alignItems: 'center', justifyContent: 'center', marginRight: SPACE.md }}>
-                    <Ionicons name={icon} size={19} color={danger ? '#E5484D' : m.accent} />
+                <View style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: SPACE.md }}>
+                    <CrystalFace color={danger ? '#E5484D' : '#6E5BE0'} radius={20} />
+                    <RaisedIcon name={icon} size={19} />
                 </View>
             ) : null}
             <View style={{ flex: 1 }}>
@@ -503,7 +518,7 @@ export function BrandBadge({ icon, size = 56, round }: { icon: IconName; size?: 
     return (
         <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={{ width: size, height: size, borderRadius: round ? size / 2 : 18, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name={icon} size={size * 0.42} color="#FFFFFF" />
+            <RaisedIcon name={icon} size={size * 0.42} />
         </CrystalGradient>
     );
 }

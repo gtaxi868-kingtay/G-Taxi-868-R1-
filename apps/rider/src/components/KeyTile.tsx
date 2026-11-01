@@ -1,7 +1,7 @@
 import React from 'react';
 import { Animated, Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CrystalFace, LIP, shade, SPACE, tick, Txt, useKeyPress, useTheme } from '../ui/kit';
+import { CrystalFace, LIP, RaisedIcon, shade, SPACE, tick, Txt, useKeyPress, useTheme } from '../ui/kit';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -32,7 +32,7 @@ export function KeyTile({
                 <View style={{ alignSelf: 'stretch', borderRadius: 20, backgroundColor: shade(color) }}>
                     <Animated.View style={{ height: 64, borderRadius: 20, backgroundColor: color, alignItems: 'center', justifyContent: 'center', marginBottom: LIP + 1, transform: [{ translateY }] }}>
                         <CrystalFace color={color} radius={20} />
-                        <Ionicons name={locked ? 'lock-closed' : icon} size={26} color="#FFFFFF" />
+                        <RaisedIcon name={locked ? 'lock-closed' : icon} size={26} />
                     </Animated.View>
                 </View>
                 <Txt variant="label" numberOfLines={1} style={{ marginTop: 6 }}>{title}</Txt>
@@ -48,7 +48,7 @@ export function KeyTile({
                 <Animated.View style={{ minHeight: 104, borderRadius: 20, backgroundColor: face, borderWidth: 2, borderColor: edge, padding: SPACE.md, marginBottom: LIP, transform: [{ translateY }] }}>
                     <View style={{ width: 40, height: 40, borderRadius: 13, overflow: 'hidden', backgroundColor: color, borderBottomWidth: 3, borderBottomColor: shade(color), alignItems: 'center', justifyContent: 'center' }}>
                         <CrystalFace color={color} radius={13} />
-                        <Ionicons name={locked ? 'lock-closed' : icon} size={20} color="#FFFFFF" />
+                        <RaisedIcon name={locked ? 'lock-closed' : icon} size={20} />
                     </View>
                     <Txt variant="headline" numberOfLines={1} style={{ marginTop: SPACE.sm }}>{title}</Txt>
                     {subtitle ? <Txt variant="caption" tone="dim" numberOfLines={1}>{subtitle}</Txt> : null}

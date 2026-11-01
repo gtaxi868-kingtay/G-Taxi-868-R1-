@@ -33,7 +33,7 @@ import { KeyTile } from '../components/KeyTile';
 import { useServices, SERVICE_ROUTES, SERVICE_COLORS } from '../hooks/useServices';
 import type { Layer } from '../components/home/LayerDeck';
 import { greetingFor } from '../theme/mood';
-import { CrystalGradient,
+import { CrystalGradient, RaisedIcon,
     BRAND_GRADIENT, BrandBadge, Button, Card, Chip, EmptyState, Field, GUTTER, IconButton,
     Pop, Progress, RADIUS, Section, shade, SPACE, Txt, useTheme,
 } from '../ui/kit';
@@ -502,6 +502,14 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
         }
     };
 
+    // Search sends a rider here when it can't find what they typed.
+    useEffect(() => {
+        const text = route?.params?.askG;
+        if (!text || !profile?.id) return;
+        navigation.setParams({ askG: undefined });
+        handleVoiceComplete(text);
+    }, [route?.params?.askG, profile?.id]);
+
     const [isRecordingVoice, setIsRecordingVoice] = useState(false);
     const voiceRecordingRef = useRef<Audio.Recording | null>(null);
 
@@ -900,7 +908,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                                 <Animated.View style={{ height: 60, borderRadius: 20, overflow: 'hidden', flexDirection: 'row', alignItems: 'center',
                                     paddingLeft: SPACE.lg, paddingRight: 8, transform: [{ translateY: searchDown }], marginBottom: 5 }}>
                                     <CrystalGradient colors={BRAND_GRADIENT} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={StyleSheet.absoluteFillObject} />
-                                    <Ionicons name="search" size={22} color="#FFFFFF" />
+                                    <RaisedIcon name="search" size={22} />
                                     <Txt variant="headline" tone="onBrand" style={{ flex: 1, marginLeft: SPACE.md, fontSize: 19 }} numberOfLines={1}>{homeSuggestion || 'Where to?'}</Txt>
                                     {platformFlags.aiAssistant && (
                                         <Pressable
@@ -909,7 +917,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                                             hitSlop={6}
                                             style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', marginRight: 6 }}
                                         >
-                                            <Ionicons name="mic" size={20} color="#FFFFFF" />
+                                            <RaisedIcon name="mic" size={20} />
                                         </Pressable>
                                     )}
                                     <Pressable
@@ -917,7 +925,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
                                         onPress={handleVisionSighting} hitSlop={6}
                                         style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center' }}
                                     >
-                                        <Ionicons name="camera" size={20} color="#FFFFFF" />
+                                        <RaisedIcon name="camera" size={20} />
                                     </Pressable>
                                 </Animated.View>
                             </View>
