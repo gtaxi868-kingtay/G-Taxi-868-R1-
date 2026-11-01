@@ -13,6 +13,10 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+// Watchman does not index this monorepo reliably (hoisted packages such as
+// @babel/runtime went missing); the rider app turns it off for the same reason.
+config.resolver.useWatchman = false;
+
 config.resolver.extraNodeModules = {
   'react': path.resolve(projectRoot, 'node_modules/react') || path.resolve(workspaceRoot, 'node_modules/react'),
   'react-native': path.resolve(projectRoot, 'node_modules/react-native') || path.resolve(workspaceRoot, 'node_modules/react-native'),
