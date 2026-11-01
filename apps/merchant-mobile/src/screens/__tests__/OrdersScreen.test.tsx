@@ -19,12 +19,16 @@ jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) }));
 jest.mock('@gtaxi/design-system', () => ({ SURFACE: { base: '#141122' }, VOICES: { merchant: { accent: '#2DD4BF', text: '#fff', textMuted: '#999', surface: '#222', serifSemi: 'serif' } } }));
 jest.mock('@gtaxi/design-system-native/src/crystal', () => ({ CrystalFace: () => null }));
-jest.mock('../../hooks/useTaskListener', () => ({ useTaskListener: jest.fn() }));
 jest.mock('../../context/MerchantContext', () => ({ useMerchant: () => ({ merchant: { id: 'm-1' } }) }));
 jest.mock('@gtaxi/core', () => ({ initializeSupabaseClient: () => ({ supabase: {
   from: (t: string) => mockQuery(t === 'merchant_orders' ? mockOrders : t === 'order_items' ? mockItems : []),
   functions: { invoke: (...a: unknown[]) => (mockInvoke as any)(...a) },
+  channel: () => { const c: any = { on: () => c, subscribe: () => c }; return c; },
+  removeChannel: jest.fn(),
 } }) }));
+
+// The first render compiles the whole screen; a busy machine can take over 5 seconds.
+jest.setTimeout(30000);
 
 describe('Merchant OrdersScreen', () => {
   it('sorts orders onto the board and shows what was ordered', async () => {

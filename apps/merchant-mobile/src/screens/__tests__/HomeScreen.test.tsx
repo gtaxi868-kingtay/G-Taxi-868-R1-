@@ -6,7 +6,7 @@ import { businessTypeFor } from '../../business/businessTypes';
 const mockSetOpen = jest.fn(() => Promise.resolve(true));
 const mockState: any = {};
 const mockQuery = (result: unknown) => {
-  const q: any = { select: () => q, eq: () => q, gte: () => q, then: (ok: (v: unknown) => unknown) => Promise.resolve(result).then(ok) };
+  const q: any = { select: () => q, eq: () => q, gte: () => q, order: () => q, limit: () => q, then: (ok: (v: unknown) => unknown) => Promise.resolve(result).then(ok) };
   return q;
 };
 const mockTables: Record<string, unknown> = {};
@@ -28,6 +28,9 @@ beforeEach(() => {
   Object.assign(mockState, { merchant, type: businessTypeFor(merchant), isOwner: true, loading: false, failed: false, reload: jest.fn(), setOpen: mockSetOpen, setBusinessType: jest.fn() });
 });
 
+// The first render compiles the whole screen; a busy machine can take over 5 seconds.
+jest.setTimeout(30000);
+
 describe('Merchant HomeScreen', () => {
   it('leads with the storefront and the work for this type of business', async () => {
     mockTables.merchant_orders = { data: [{ status: 'pending', total_cents: 5000, created_at: new Date().toISOString() }, { status: 'confirmed', total_cents: 1000, created_at: new Date().toISOString() }] };
@@ -36,6 +39,14 @@ describe('Merchant HomeScreen', () => {
     expect(getByText('Food · Chaguanas')).toBeTruthy();
     fireEvent.press(await findByText('2 orders'));
     expect(navigation.navigate).toHaveBeenCalledWith('Work');
+  });
+
+  it('shows the shelf customers will see', async () => {
+    mockTables.products = { data: [{ id: 'p1', name: 'Doubles', price_cents: 800, image_url: null, is_available: true }], count: 1 };
+    const { findByText, getByText } = render(<HomeScreen navigation={navigation} />);
+    expect(await findByText('Doubles')).toBeTruthy();
+    expect(getByText('Your menu')).toBeTruthy();
+    expect(getByText('$8.00')).toBeTruthy();
   });
 
   it('opens the storefront', () => {

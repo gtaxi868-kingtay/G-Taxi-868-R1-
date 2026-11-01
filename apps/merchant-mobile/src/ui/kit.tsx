@@ -6,6 +6,8 @@ import { CrystalFace } from '@gtaxi/design-system-native/src/crystal';
 import { VOICES } from '@gtaxi/design-system';
 
 const V = VOICES.merchant;
+// Deep enough that white text on it stays easy to read.
+export const CRYSTAL = '#0D9488';
 
 export function PageHeader({ title, sub, onBack, right }: { title: string; sub?: string; onBack?: () => void; right?: React.ReactNode }) {
     const insets = useSafeAreaInsets();
@@ -25,7 +27,7 @@ export function PageHeader({ title, sub, onBack, right }: { title: string; sub?:
     );
 }
 
-export function CrystalAction({ label, onPress, busy, disabled, color = V.accent }: { label: string; onPress: () => void; busy?: boolean; disabled?: boolean; color?: string }) {
+export function CrystalAction({ label, onPress, busy, disabled, color = CRYSTAL }: { label: string; onPress: () => void; busy?: boolean; disabled?: boolean; color?: string }) {
     const off = busy || disabled;
     return (
         <TouchableOpacity style={[s.action, off && { opacity: 0.5 }]} onPress={onPress} disabled={off} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!off, busy: !!busy }}>

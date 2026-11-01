@@ -517,18 +517,8 @@ const s = StyleSheet.create({
         paddingHorizontal: 24,
         paddingVertical: 16,
     },
-    screenTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#E9F5F3',
-        fontFamily: 'SpaceGrotesk',
-    },
-    productCount: {
-        fontSize: 12,
-        color: VOICES.merchant.textMuted,
-        marginTop: 2,
-        fontFamily: 'Manrope',
-    },
+    screenTitle: { fontFamily: VOICES.merchant.serifSemi, fontSize: 32, lineHeight: 38, color: VOICES.merchant.text },
+    productCount: { fontSize: 13.5, color: VOICES.merchant.textMuted, marginTop: 1 },
     addBtn: {
         width: 44,
         height: 44,

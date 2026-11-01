@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { initializeSupabaseClient } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { useTaskListener } from '../hooks/useTaskListener';
 import { useMerchant } from '../context/MerchantContext';
 import { CrystalAction, Empty, PageHeader } from '../ui/kit';
 
@@ -35,17 +34,13 @@ const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toD
 const how = (o: Order) => (o.delivery_method === 'pickup' ? 'Pickup' : o.delivery_method ? 'Delivery' : 'Order');
 const paid = (o: Order) => (o.payment_status === 'cash_on_delivery' ? 'Cash on delivery' : o.payment_status === 'captured' ? 'Paid' : null);
 
-export function OrdersScreen({ navigation }: { navigation: { canGoBack?: () => boolean; goBack: () => void } }) {
+export function OrdersScreen(_props: { navigation?: unknown }) {
     const { merchant } = useMerchant();
     const [orders, setOrders] = useState<Order[]>([]);
     const [items, setItems] = useState<Record<string, Item[]>>({});
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [acting, setActing] = useState<string | null>(null);
-    const [puckId, setPuckId] = useState<string | null>(null);
-
-    useTaskListener(puckId, () => { load(); });
-
     const load = useCallback(async () => {
         if (!merchant) { setLoading(false); return; }
         const { data, error } = await supabase
@@ -74,11 +69,19 @@ export function OrdersScreen({ navigation }: { navigation: { canGoBack?: () => b
 
     useEffect(() => { load(); }, [load]);
 
+    // Live board: a new order, or a change from a driver or customer, lands here
+    // straight away. This used to listen to a physical tag, and no shop has one.
     useEffect(() => {
         if (!merchant) return;
-        supabase.from('kiosk_nodes').select('tag_uid').eq('merchant_id', merchant.id).eq('is_active', true)
-            .then(({ data }: { data: { tag_uid: string }[] | null }) => { if (data?.[0]) setPuckId(data[0].tag_uid); });
-    }, [merchant?.id]);
+        const channel = supabase
+            .channel(`merchant_orders_${merchant.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `merchant_id=eq.${merchant.id}` }, (change: { eventType: string }) => {
+                if (change.eventType === 'INSERT') Vibration.vibrate([0, 300, 150, 300]);
+                load();
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [merchant?.id, load]);
 
     const update = async (id: string, next: string) => {
         setActing(id);
@@ -108,16 +111,12 @@ export function OrdersScreen({ navigation }: { navigation: { canGoBack?: () => b
 
     return (
         <View style={s.root}>
-            <PageHeader
-                title="Orders"
-                sub={waiting ? `${waiting} new, waiting on you` : 'Your order board'}
-                onBack={navigation.canGoBack?.() ? navigation.goBack : undefined}
-            />
+            <PageHeader title="Orders" sub={waiting ? `${waiting} new, waiting on you` : 'Your order board'} />
             {loading ? (
                 <ActivityIndicator size="large" color={V.accent} style={{ marginTop: 40 }} />
             ) : (
                 <ScrollView contentContainerStyle={s.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={V.accent} />}>
-                    {sections.length === 0 && <Empty icon="receipt-outline" title="No orders yet" body="New orders land here with a sound on your phone." />}
+                    {sections.length === 0 && <Empty icon="receipt-outline" title="No orders yet" body="New orders appear here the moment they come in." />}
                     {sections.map((sec) => (
                         <View key={sec.title}>
                             <Text style={s.section}>{sec.title} · {sec.rows.length}</Text>

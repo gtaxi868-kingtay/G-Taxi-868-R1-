@@ -1,3 +1,4 @@
+import './src/design/sampleFetch';
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -91,6 +92,11 @@ export default function App() {
   // a short timeout so the app doesn't sit behind a blank screen forever.
   if (!fontsLoaded && !fontError && !fontTimedOut) {
     return <View style={{ flex: 1, backgroundColor: '#070C0B' }} />;
+  }
+  // Design review (web only): /design-preview?type=food
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.pathname.startsWith('/design-preview')) {
+    const { MerchantGallery } = require('./src/design/Gallery');
+    return <SafeAreaProvider><MerchantGallery /></SafeAreaProvider>;
   }
   return (
     <ErrorBoundary moduleName="MerchantMobile">

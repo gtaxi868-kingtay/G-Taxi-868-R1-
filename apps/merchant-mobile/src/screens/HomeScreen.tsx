@@ -8,10 +8,12 @@ import { initializeSupabaseClient } from '@gtaxi/core';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { useMerchant } from '../context/MerchantContext';
 import { BusinessTypePicker } from '../components/BusinessTypePicker';
+import { CRYSTAL } from '../ui/kit';
 
 const { supabase } = initializeSupabaseClient('native');
 const V = VOICES.merchant;
 
+type ShelfItem = { id: string; name: string; price_cents: number; image_url: string | null; is_available: boolean };
 type Today = { waiting: number; salesCents: number; earningsCents: number; items: number | null; ordersWeek: number; busiestHour: number | null };
 
 const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -23,20 +25,23 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
     const insets = useSafeAreaInsets();
     const { merchant, type, isOwner, loading, failed, reload, setOpen } = useMerchant();
     const [today, setToday] = useState<Today | null>(null);
+    const [shelf, setShelf] = useState<ShelfItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
 
     const loadToday = useCallback(async () => {
         if (!merchant) return;
         const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
         const weekAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-        const [week, commissions, products, appointments] = await Promise.all([
+        const [week, commissions, products, appointments, shelfRows] = await Promise.all([
             supabase.from('merchant_orders').select('status, total_cents, created_at').eq('merchant_id', merchant.id).gte('created_at', weekAgo),
             supabase.from('vendor_commissions').select('commission_cents').eq('merchant_id', merchant.id).eq('status', 'pending'),
             supabase.from('products').select('id', { count: 'exact', head: true }).eq('merchant_id', merchant.id),
             type?.work.route === 'Appointments'
                 ? supabase.from('merchant_appointments').select('id', { count: 'exact', head: true }).eq('merchant_id', merchant.id).gte('scheduled_at', dayStart.toISOString())
                 : Promise.resolve({ count: null }),
+            supabase.from('products').select('id, name, price_cents, image_url, is_available').eq('merchant_id', merchant.id).order('sort_order', { ascending: true }).limit(8),
         ]);
+        setShelf((shelfRows.data ?? []) as ShelfItem[]);
         const rows = (week.data ?? []) as { status: string; total_cents: number | null; created_at: string }[];
         const hours: Record<number, number> = {};
         rows.forEach((o) => { const h = new Date(o.created_at).getHours(); hours[h] = (hours[h] || 0) + 1; });
@@ -120,7 +125,7 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
                 ) : (
                     <>
                         <TouchableOpacity style={s.primary} onPress={() => navigation.navigate('Work')} accessibilityRole="button" accessibilityLabel={`Open ${type.work.label}`}>
-                            <CrystalFace color={V.accent} radius={22} />
+                            <CrystalFace color={CRYSTAL} radius={22} />
                             <RaisedIcon name={type.work.icon} size={26} />
                             <View style={{ flex: 1, marginLeft: 14 }}>
                                 <Text style={s.primaryTitle}>{today && today.waiting > 0 ? `${today.waiting} ${type.work.label.toLowerCase()}` : type.work.empty}</Text>
@@ -139,6 +144,28 @@ export function HomeScreen({ navigation }: { navigation: { navigate: (route: str
                                 <Text style={s.statLabel}>Pending earnings</Text>
                             </View>
                         </View>
+
+                        {type.catalog && shelf.length > 0 && (
+                            <View>
+                                <View style={s.shelfHead}>
+                                    <Text style={s.shelfTitle}>Your {type.catalog.label.toLowerCase()}</Text>
+                                    <TouchableOpacity onPress={() => navigation.navigate('Catalog')} accessibilityRole="button" accessibilityLabel={`See all ${type.catalog.label}`}>
+                                        <Text style={s.shelfAll}>See all</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.shelf}>
+                                    {shelf.map((p) => (
+                                        <TouchableOpacity key={p.id} style={[s.shelfCard, !p.is_available && { opacity: 0.5 }]} onPress={() => navigation.navigate('Catalog')} accessibilityRole="button" accessibilityLabel={p.name}>
+                                            {p.image_url ? <Image source={{ uri: p.image_url }} style={s.shelfPhoto} accessibilityIgnoresInvertColors /> : (
+                                                <View style={[s.shelfPhoto, s.shelfBlank]}><Ionicons name="image-outline" size={22} color={V.textMuted} /></View>
+                                            )}
+                                            <Text style={s.shelfName} numberOfLines={1}>{p.name}</Text>
+                                            <Text style={s.shelfPrice}>{money(p.price_cents)}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
 
                         {type.catalog && today?.items === 0 && (
                             <TouchableOpacity style={s.task} onPress={() => navigation.navigate('Catalog')} accessibilityRole="button">
@@ -190,6 +217,15 @@ const s = StyleSheet.create({
     stat: { flex: 1, padding: 16, borderRadius: 20, backgroundColor: V.surface, borderWidth: 1, borderColor: 'rgba(233,245,243,0.08)' },
     statValue: { fontSize: 22, fontWeight: '800', color: V.text },
     statLabel: { marginTop: 3, fontSize: 12, color: V.textMuted },
+    shelfHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4, marginBottom: 8 },
+    shelfTitle: { fontSize: 17, fontWeight: '700', color: V.text },
+    shelfAll: { fontSize: 14, fontWeight: '600', color: V.accent },
+    shelf: { gap: 10, paddingRight: 18 },
+    shelfCard: { width: 128 },
+    shelfPhoto: { width: 128, height: 128, borderRadius: 16 },
+    shelfBlank: { alignItems: 'center', justifyContent: 'center', backgroundColor: V.surface },
+    shelfName: { marginTop: 6, fontSize: 13.5, fontWeight: '600', color: V.text },
+    shelfPrice: { marginTop: 1, fontSize: 13.5, fontWeight: '800', color: V.text },
     task: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, backgroundColor: 'rgba(192,133,82,0.12)' },
     taskTitle: { fontSize: 15, fontWeight: '700', color: V.text },
     taskSub: { marginTop: 2, fontSize: 13, lineHeight: 18, color: V.textMuted },

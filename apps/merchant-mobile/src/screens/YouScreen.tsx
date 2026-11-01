@@ -8,6 +8,7 @@ import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { useAuth } from '../context/AuthContext';
 import { useMerchant } from '../context/MerchantContext';
 import { BusinessTypePicker } from '../components/BusinessTypePicker';
+import { CRYSTAL } from '../ui/kit';
 
 const { supabase } = initializeSupabaseClient('native');
 const V = VOICES.merchant;
@@ -62,7 +63,7 @@ export function YouScreen({ navigation }: { navigation: { navigate: (route: stri
             {rows.map((r) => (
                 <TouchableOpacity key={r.route} style={s.row} onPress={() => navigation.navigate(r.route)} accessibilityRole="button" accessibilityLabel={r.label}>
                     <View style={s.icon}>
-                        <CrystalFace color={V.accent} radius={14} />
+                        <CrystalFace color={CRYSTAL} radius={14} />
                         <RaisedIcon name={r.icon} size={20} />
                     </View>
                     <View style={{ flex: 1 }}>

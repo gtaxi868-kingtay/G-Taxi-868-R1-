@@ -13,6 +13,7 @@ import { AppointmentsScreen } from '../screens/AppointmentsScreen';
 import { PropertyManagementScreen } from '../screens/PropertyManagementScreen';
 import { ProductCatalogScreen } from '../screens/ProductCatalogScreen';
 import { EarningsScreen } from '../screens/EarningsScreen';
+import { CRYSTAL } from '../ui/kit';
 import type { MainTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -24,7 +25,7 @@ function TabIcon({ name, focused, label }: { name: IconName; focused: boolean; l
     return (
         <View style={s.tab}>
             <View style={s.iconWrap}>
-                {focused ? <CrystalFace color={VOICES.merchant.accent} radius={14} /> : null}
+                {focused ? <CrystalFace color={CRYSTAL} radius={14} /> : null}
                 {focused ? <RaisedIcon name={name} size={20} /> : <Ionicons name={name} size={20} color={VOICES.merchant.textMuted} />}
             </View>
             <Text numberOfLines={1} style={[s.label, focused && s.labelOn]}>{label}</Text>
@@ -47,7 +48,7 @@ export function MainTabs() {
             screenOptions={{
                 headerShown: false,
                 tabBarShowLabel: false,
-                tabBarStyle: [s.bar, { height: 66 + insets.bottom, paddingBottom: insets.bottom }],
+                tabBarStyle: { ...s.bar, height: 66 + insets.bottom, paddingBottom: insets.bottom },
             }}
         >
             <Tab.Screen name="Home" component={HomeScreen} options={icon('storefront-outline', 'Home')} />

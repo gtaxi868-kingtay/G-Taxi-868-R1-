@@ -29,7 +29,7 @@ type MerchantState = {
     setBusinessType: (key: BusinessTypeKey) => Promise<boolean>;
 };
 
-const MerchantContext = createContext<MerchantState | null>(null);
+export const MerchantContext = createContext<MerchantState | null>(null);
 
 const COLUMNS = 'id, name, category, business_type, address, cover_image_url, is_open, is_active, activation_status, created_by';
 
