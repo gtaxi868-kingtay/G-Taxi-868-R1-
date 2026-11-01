@@ -54,7 +54,7 @@ interface PinnedResult {
     latitude: number;
     longitude: number;
     category: string;
-    source?: "verified_pins" | "mapbox" | "google";
+    source?: "verified_pins" | "places" | "mapbox" | "google";
 }
 
 // Real street/address/POI matches from Mapbox, bounded to T&T. Graceful
@@ -381,22 +381,42 @@ serve(async (req: Request) => {
             source: 'verified_pins',
         }));
 
-        // Verified pins first (admin-curated, always shown when they match),
-        // then real Mapbox street/address/POI matches — this is what actually
-        // closes the "my address isn't a merchant pin" dead end. Deduping on
-        // near-identical coordinates would need a distance check; skipped for
-        // now since verified pins and Mapbox results are visually labeled
-        // (`source`) and a rider can tell them apart in the list.
+        // Our own T&T roads and places (OpenStreetMap, tt_places). A failure here
+        // must never break search, so an error just means no rows from it.
+        const { data: placeRows } = await adminClient.rpc("search_tt_places", {
+            p_query: sanitizedQuery,
+            p_lat: typeof lat === "number" ? lat : null,
+            p_lng: typeof lng === "number" ? lng : null,
+            p_limit: limit,
+        });
+        const seen = new Set<string>();
         const verifiedCombined = [...formattedMerchants, ...formattedLocations];
-        const mapboxResults = await placesSearch(adminClient, user.id, sanitizedQuery,
+        verifiedCombined.forEach((r) => seen.add(r.name.toLowerCase()));
+        const placeResults: PinnedResult[] = (placeRows || [])
+            .filter((p: any) => !seen.has(String(p.name).toLowerCase()) || p.kind === "road")
+            .map((p: any) => ({
+                id: "place_" + p.id,
+                name: p.name,
+                address: p.area ? `${p.name}, ${p.area}` : p.name,
+                latitude: p.lat,
+                longitude: p.lng,
+                category: p.category || p.kind,
+                source: "places" as const,
+            }));
+
+        // Verified pins first, then our own list. Paid providers only fill in
+        // when those are thin: this is what finds a small shop OSM has never
+        // heard of, and it keeps Google's bill down for every road search.
+        const known = [...verifiedCombined, ...placeResults];
+        const mapboxResults = known.length >= 5 ? [] : await placesSearch(adminClient, user.id, sanitizedQuery,
             typeof lat === 'number' ? lat : undefined, typeof lng === 'number' ? lng : undefined, limit);
-        const combined = [...verifiedCombined, ...mapboxResults];
+        const combined = [...known, ...mapboxResults];
 
         return new Response(
             JSON.stringify({
                 success: true,
                 data: combined.slice(0, limit),
-                source: mapboxResults.length ? `verified_pins+${mapboxResults[0].source ?? "mapbox"}` : "verified_pins",
+                source: mapboxResults.length ? `verified_pins+${mapboxResults[0].source ?? "mapbox"}` : placeResults.length ? "verified_pins+places" : "verified_pins",
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
