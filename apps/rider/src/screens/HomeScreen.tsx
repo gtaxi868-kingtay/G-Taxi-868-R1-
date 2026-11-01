@@ -458,7 +458,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
     const processVoiceResult = async (data: any, fallbackText: string) => {
         if (data.intent === 'need_destination') {
             setAiGreeting(data.reply || "I couldn't place that. Pick it from the list.");
-            openDestinationSearch(data.destination?.label || fallbackText);
+            searchForPlace(data.destination?.label || fallbackText);
             return;
         }
         if (data.intent === 'book_ride' && hasRealPlace(data.destination)) {
@@ -490,7 +490,7 @@ export function HomeScreen({ navigation, route }: TabScreenProps<'Map'>) {
         else setAiGreeting(data.reply || "I'm here. Tell me where you're going.");
     };
 
-    const openDestinationSearch = (query: string) => {
+    const searchForPlace = (query: string) => {
         navigation.navigate('DestinationSearch', {
             currentLocation: { latitude: currentLat, longitude: currentLng, address: 'Your Location' },
             initialQuery: query,
