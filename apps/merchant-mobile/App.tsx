@@ -23,6 +23,9 @@ import { AppointmentsScreen } from './src/screens/AppointmentsScreen';
 import { StaffScreen } from './src/screens/StaffScreen';
 import { NfcAcceptPaymentScreen } from './src/screens/NfcAcceptPaymentScreen';
 import { BrandScreen } from './src/screens/BrandScreen';
+import { PromotionsScreen } from './src/screens/PromotionsScreen';
+import { AirportPickupsScreen } from './src/screens/AirportPickupsScreen';
+import { GSpotScreen } from './src/screens/GSpotScreen';
 import type { AuthStackParamList, AppStackParamList } from './src/navigation/types';
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -52,6 +55,9 @@ function AppNavigator() {
       <AppStack.Screen name="Staff" component={StaffScreen} />
       <AppStack.Screen name="NfcAcceptPayment" component={NfcAcceptPaymentScreen} />
       <AppStack.Screen name="Brand" component={BrandScreen} />
+      <AppStack.Screen name="Promotions" component={PromotionsScreen} />
+      <AppStack.Screen name="AirportPickups" component={AirportPickupsScreen} />
+      <AppStack.Screen name="GSpot" component={GSpotScreen} />
     </AppStack.Navigator>
   );
 }

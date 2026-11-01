@@ -22,6 +22,9 @@ export function YouScreen({ navigation }: { navigation: { navigate: (route: stri
 
     const rows: { icon: IconName; label: string; sub: string; route: string }[] = [
         { icon: 'sparkles-outline', label: 'Your brand', sub: 'Your look and offers on the map', route: 'Brand' },
+        { icon: 'megaphone-outline', label: 'Promotions', sub: 'Boost your business to nearby riders', route: 'Promotions' },
+        ...(type?.key === 'stays' ? [{ icon: 'airplane-outline' as IconName, label: 'Airport pickups', sub: 'Book a ride for an arriving guest', route: 'AirportPickups' }] : []),
+        ...(type?.key === 'drinks' ? [{ icon: 'wine-outline' as IconName, label: 'G Spot', sub: 'Members and drink codes', route: 'GSpot' }] : []),
         { icon: 'wifi-outline', label: 'Tap to Pay', sub: 'Customer pays from their G-Coin wallet', route: 'NfcAcceptPayment' },
         { icon: 'car-sport-outline', label: 'Send a car', sub: type?.dispatchLabel ?? 'Send a car for a customer', route: 'Dispatch' },
         ...(type?.bookings && type.work.route !== 'Appointments' ? [{ icon: 'calendar-outline' as IconName, label: 'Appointments', sub: 'View and manage bookings', route: 'Appointments' }] : []),

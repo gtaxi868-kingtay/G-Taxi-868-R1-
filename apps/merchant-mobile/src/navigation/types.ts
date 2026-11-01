@@ -26,6 +26,9 @@ export type AppStackParamList = {
   Staff: undefined;
   NfcAcceptPayment: undefined;
   Brand: undefined;
+  Promotions: undefined;
+  AirportPickups: undefined;
+  GSpot: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> = NativeStackScreenProps<AuthStackParamList, T>;
