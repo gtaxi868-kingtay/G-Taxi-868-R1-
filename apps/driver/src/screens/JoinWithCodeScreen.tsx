@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@gtaxi/core';
+import { isAlreadyRegistered, friendlySignupError } from '../utils/driverSignup';
 import { VOICES } from '@gtaxi/design-system';
 import { ghostBorder } from '@gtaxi/design-system/utils/style-rules';
 
@@ -49,12 +50,22 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
         setLoading(true);
         try {
             // 1. Create the account (needed: register_driver_with_code is auth-gated).
-            const { data: authData, error: authError } = await supabase.auth.signUp({
+            const signUpRes = await supabase.auth.signUp({
                 email: email.trim().toLowerCase(),
                 password,
                 options: { data: { role: 'driver' } },
             });
-            if (authError) throw authError;
+            let authData = signUpRes.data;
+            // Second tap after a wrong code or dropped signal: the account
+            // already exists, so sign in with the same details and finish
+            // joining instead of dead-ending on "User already registered".
+            if (signUpRes.error && isAlreadyRegistered(signUpRes.error.message)) {
+                const signIn = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+                if (signIn.error) throw signIn.error;
+                authData = { user: signIn.data.user, session: signIn.data.session };
+            } else if (signUpRes.error) {
+                throw signUpRes.error;
+            }
             if (!authData.user) throw new Error('Signup failed');
 
             // If the project requires email confirmation there is no session yet,
@@ -63,7 +74,7 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 Alert.alert(
                     'Confirm Your Email',
-                    'Your account was created. Please verify your email, then sign in to finish joining your G-Lead\'s territory.',
+                    'Your account was created. Tap the link in the email we sent, then come back here and tap Join again to finish joining your G-Lead\'s territory.',
                     [{ text: 'OK', onPress: goBack }]
                 );
                 return;
@@ -92,7 +103,9 @@ export function JoinWithCodeScreen({ navigation, onBack }: { navigation?: Naviga
             );
         } catch (err) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            Alert.alert('Could Not Join', err instanceof Error ? err.message : String(err));
+            const message = err instanceof Error ? err.message : String(err);
+            const { title, body } = friendlySignupError(message);
+            Alert.alert(title === 'Could Not Submit' ? 'Could Not Join' : title, title === 'Could Not Submit' ? `${message}\n\nCheck the code and tap Join again.` : body);
         } finally {
             setLoading(false);
         }

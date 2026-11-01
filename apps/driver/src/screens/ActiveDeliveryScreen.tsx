@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { SURFACE, VOICES } from '@gtaxi/design-system';
 import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { supabase } from '@gtaxi/core';
+import { photoBytes } from '../utils/driverSignup';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -110,19 +111,15 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
         fetchOrder();
     }, [orderId]);
 
-    const uploadProofPhoto = async (uri: string): Promise<string | null> => {
+    const uploadProofPhoto = async (base64: string): Promise<string | null> => {
         try {
             const { data: userData } = await supabase.auth.getUser();
             const userId = userData.user?.id;
             if (!userId) return null;
 
-            const response = await fetch(uri);
-            const blob = await response.blob();
-            const arrayBuffer = await new Promise<ArrayBuffer>((resolve) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result as ArrayBuffer);
-                reader.readAsArrayBuffer(blob);
-            });
+            // base64 from the camera, not fetch(uri).blob(): the blob read
+            // fails on many Android phones.
+            const arrayBuffer = photoBytes(base64);
 
             // storage_insert_owner_only requires the first folder segment to
             // be the uploader's auth uid.
@@ -182,9 +179,10 @@ export function ActiveDeliveryScreen({ navigation, route }: any) {
     const captureProofAndConfirm = async () => {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (perm.granted) {
-            const result = await ImagePicker.launchCameraAsync({ quality: 0.6, allowsEditing: false });
-            if (!result.canceled && result.assets?.[0]?.uri) {
-                const path = await uploadProofPhoto(result.assets[0].uri);
+            const result = await ImagePicker.launchCameraAsync({ quality: 0.6, allowsEditing: false, base64: true });
+            if (!result.canceled && result.assets?.[0]) {
+                const b64 = result.assets[0].base64;
+                const path = b64 ? await uploadProofPhoto(b64) : null;
                 if (path) {
                     await confirmDelivery(path);
                     return;

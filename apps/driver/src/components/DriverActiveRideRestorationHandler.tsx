@@ -6,8 +6,13 @@ import { supabase } from '@gtaxi/core';
 import { useAuth } from '../context/AuthContext';
 
 const ACTIVE_STATES = ['assigned', 'arrived', 'in_progress'];
-const RIDE_TTL_MINUTES = 30;
 
+// Brings the driver back to a live trip when the app returns to the front,
+// and once when this mounts. Same rules as the start-up check in App.tsx:
+// any live trip is restored no matter how old it is (a driver whose phone
+// died overnight still has a trip to finish or close), newest first, never
+// maybeSingle. If this layer fails, the home screen's trip card is the
+// visible way back — nothing here is the only door.
 export function DriverActiveRideRestorationHandler() {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
@@ -34,25 +39,16 @@ export function DriverActiveRideRestorationHandler() {
 
         if (!driverRecord) return;
 
-        const { data: ride } = await supabase
+        const { data: rides } = await supabase
           .from('rides')
           .select('id, status, updated_at')
           .eq('driver_id', driverRecord.id)
           .in('status', ACTIVE_STATES)
           .order('updated_at', { ascending: false })
-          .maybeSingle();
+          .limit(1);
 
+        const ride = rides?.[0];
         if (!ride) return;
-
-        if (ride.status !== 'in_progress') {
-          const updatedAt = new Date(ride.updated_at);
-          const now = new Date();
-          const minutesSinceUpdate = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
-
-          if (minutesSinceUpdate > RIDE_TTL_MINUTES) {
-            return;
-          }
-        }
 
         const currentRoute = navigation.getState()?.routes[navigation.getState()?.index];
         if (
@@ -72,9 +68,11 @@ export function DriverActiveRideRestorationHandler() {
           ],
         });
       } catch {
-        // Silent fallback — offline or query error
+        // Silent fallback — the home screen trip card covers failures here.
       }
     };
+
+    restoreActiveRide();
 
     const appStateSub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
