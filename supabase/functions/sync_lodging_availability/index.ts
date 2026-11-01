@@ -1,125 +1,69 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders } from '../_shared/cors.ts'
+import { bookingConfigured, fetchBookingNightlyRate } from '../_shared/bookingCom.ts'
+
+// Booking.com -> hotel rate SUGGESTIONS (founder, 2026-10-26: rates from
+// Booking.com "built but inactive"). For every claimed hotel with a
+// booking_hotel_id, asks Booking.com for tonight-plus-stay pricing and files
+// a lodging_rate_suggestions row the hotel accepts or dismisses in its app.
+// Nothing here ever changes a live rate.
+//
+// The previous version of this function queried a retired endpoint with
+// country codes as hotel ids and wrote columns lodging_cache does not have,
+// so it could never have worked; it is replaced, not patched.
+//
+// INACTIVE: returns not_configured until BOOKING_API_KEY and
+// BOOKING_AFFILIATE_ID are set, and has no cron job yet. To switch on after
+// Booking.com approval: set both secrets, then schedule this daily with the
+// cron secret (see .scratch/business-console/tasks.md).
+
 const CRON_SECRET = Deno.env.get('PLATFORM_CRON_SECRET') ?? ''
 
-
-const LOCATIONS = [
-  { id: 'TAB', name: 'Tobago', country: 'TT' },
-  { id: 'BGI', name: 'Barbados', country: 'BB' },
-  { id: 'GND', name: 'Grenada', country: 'GD' },
-  { id: 'ANU', name: 'Antigua', country: 'AG' },
-]
-
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
+  const corsHeaders = getCorsHeaders(req)
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return json({ error: 'Unauthorized' }, 401)
+  }
+  if (!bookingConfigured()) {
+    return json({ success: false, status: 'api_not_configured', error: 'Booking.com is not switched on: needs partner approval, then BOOKING_API_KEY and BOOKING_AFFILIATE_ID.' }, 503)
+  }
+
+  const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+  const { data: hotels, error } = await supabase
+    .from('lodging_nodes')
+    .select('id, name, merchant_id, booking_hotel_id, nights, max_guests')
+    .not('booking_hotel_id', 'is', null)
+    .not('merchant_id', 'is', null)
+  if (error) return json({ success: false, error: error.message }, 500)
+
+  // Price a stay starting two weeks out: close enough to be real, far enough
+  // that it is not a last-minute rate.
+  const start = new Date(Date.now() - 4 * 3_600_000 + 14 * 86_400_000).toISOString().slice(0, 10)
+  const results: Record<string, unknown>[] = []
+  for (const h of hotels || []) {
+    const nights = Math.max(1, h.nights || 1)
+    const checkout = new Date(Date.parse(`${start}T12:00:00Z`) + nights * 86_400_000).toISOString().slice(0, 10)
+    const res = await fetchBookingNightlyRate(String(h.booking_hotel_id), start, checkout, Math.min(2, h.max_guests || 2))
+    if (!res.ok) { results.push({ hotel: h.name, error: res.error }); continue }
+    if (!res.rate) { results.push({ hotel: h.name, found: false }); continue }
+
+    await supabase.from('lodging_rate_suggestions').update({ status: 'superseded' })
+      .eq('lodging_id', h.id).eq('source', 'booking_com').eq('status', 'pending')
+    const { error: insErr } = await supabase.from('lodging_rate_suggestions').insert({
+      lodging_id: h.id, source: 'booking_com',
+      rate_cents: res.rate.rate_cents, currency: res.rate.currency, amount_text: res.rate.amount_text,
+      excerpt: `Booking.com price for ${nights} night(s) from ${start}`,
     })
-  }
-
-  const BOOKING_API_KEY = Deno.env.get('BOOKING_API_KEY')
-
-  if (!BOOKING_API_KEY) {
-    return new Response(JSON.stringify({
-      success: false,
-      status: 'api_not_configured',
-      error: 'Booking.com API key not configured. Set BOOKING_API_KEY.',
-    }), {
-      status: 503,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    await supabase.from('business_audit_log').insert({
+      merchant_id: h.merchant_id, lodging_id: h.id, action: 'booking_com_read',
+      detail: { found: res.rate.amount_text, insert_error: insErr?.message ?? null },
     })
+    results.push({ hotel: h.name, suggested: res.rate.amount_text })
   }
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-
-  const next90Days: string[] = []
-  const today = new Date()
-  for (let i = 0; i < 90; i++) {
-    const d = new Date(today)
-    d.setDate(today.getDate() + i)
-    next90Days.push(d.toISOString().split('T')[0])
-  }
-
-  const results: any[] = []
-
-  for (const loc of LOCATIONS) {
-    await new Promise(r => setTimeout(r, 200))
-
-    try {
-      const url = new URL('https://distribution-xml.booking.com/2.0/json/hotelAvailability')
-      url.searchParams.set('hotel_ids', loc.country)
-      url.searchParams.set('checkin', next90Days[0])
-      url.searchParams.set('checkout', next90Days[next90Days.length - 1])
-      url.searchParams.set('currency', 'TTD')
-
-      const resp = await fetch(url.toString(), {
-        headers: {
-          Authorization: `Basic ${btoa(`${BOOKING_API_KEY}:`)}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!resp.ok) {
-        results.push({
-          location: loc.name, error: `Booking.com API HTTP ${resp.status}`,
-        })
-        continue
-      }
-
-      const body = await resp.json()
-
-      const lodgingData = {
-        location_id: loc.id,
-        location_name: loc.name,
-        raw_response: body,
-        synced_at: new Date().toISOString(),
-        source: 'booking_com',
-        available_rooms: body?.hotelAvailability?.length ?? 0,
-        lowest_rate_cents: 0,
-      }
-
-      if (body?.hotelAvailability?.length) {
-        const rates = body.hotelAvailability
-          .flatMap((h: any) => h.roomAvailability ?? [])
-          .map((r: any) => r.totalPrice?.amount ? Math.round(parseFloat(r.totalPrice.amount) * 100) : Infinity)
-          .filter((c: number) => c > 0 && isFinite(c))
-        if (rates.length) lodgingData.lowest_rate_cents = Math.min(...rates)
-      }
-
-      await fetch(
-        `${supabaseUrl}/rest/v1/lodging_cache`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${serviceKey}`,
-            'Prefer': 'resolution=merge-duplicates',
-          },
-          body: JSON.stringify(lodgingData),
-        }
-      )
-
-      results.push({
-        location: loc.name,
-        hotels_found: body?.hotelAvailability?.length ?? 0,
-      })
-    } catch (err: any) {
-      results.push({
-        location: loc.name, error: err.message,
-      })
-    }
-  }
-
-  return new Response(JSON.stringify({
-    success: true,
-    locations_scanned: LOCATIONS.length,
-    results,
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  })
+  return json({ success: true, hotels: (hotels || []).length, results })
 })

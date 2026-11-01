@@ -7,7 +7,13 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CRON_SECRET = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
 
 const RIDE_MATCH_RADIUS_KM = 15;
-const RIDE_OFFER_SECONDS = 15;
+// 30 s (was 15): a driver needs time to hear the alert, switch to the app
+// and read the trip. At 15 s the founder's first real-phone test expired
+// before he could tap Accept (2026-10-27).
+const RIDE_OFFER_SECONDS = 30;
+// A driver who let an offer run out (did not decline) may be offered the
+// same ride again when nobody else is free, up to this many times.
+const MAX_OFFERS_PER_DRIVER = 2;
 const MATCHABLE_RIDE_STATUSES = ["requested", "searching", "waiting_queue", "scheduled"];
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -52,11 +58,15 @@ async function dispatchRideRound(supabaseAdmin: any, item: any, now: Date) {
 
   const { data: offers } = await supabaseAdmin
     .from("ride_offers")
-    .select("driver_id, status, expires_at")
+    .select("id, driver_id, status, expires_at")
     .eq("ride_id", ride.id);
   const live = (offers || []).some((o: any) => o.status === "pending" && new Date(o.expires_at) > now);
   if (live) return { task_id: item.id, task_type: "RIDE", status: "offer_outstanding" };
-  const excluded = new Set((offers || []).map((o: any) => o.driver_id));
+  // A decline is final. An offer that simply ran out is not: with few
+  // drivers online, never re-offering left the rider in 'searching' for good.
+  const declined = new Set((offers || []).filter((o: any) => o.status === "declined").map((o: any) => o.driver_id));
+  const offeredCount = new Map<string, number>();
+  for (const o of offers || []) offeredCount.set(o.driver_id, (offeredCount.get(o.driver_id) ?? 0) + 1);
 
   const pickupLat = ride.pickup_lat ?? item.pickup_lat;
   const pickupLng = ride.pickup_lng ?? item.pickup_lng;
@@ -65,15 +75,23 @@ async function dispatchRideRound(supabaseAdmin: any, item: any, now: Date) {
 
   const { data: nearby } = await supabaseAdmin
     .from("drivers")
-    .select("id, lat, lng, push_token, recruited_by_commander_user_id")
+    .select("id, user_id, lat, lng, push_token, recruited_by_commander_user_id")
     .eq("is_online", true)
     .is("active_ride_id", null)
     .gte("lat", pickupLat - latSpan).lte("lat", pickupLat + latSpan)
     .gte("lng", pickupLng - lngSpan).lte("lng", pickupLng + lngSpan);
 
-  const pool = (nearby || []).filter((d: any) =>
-    !excluded.has(d.id) && d.lat != null && d.lng != null &&
+  const eligible = (nearby || []).filter((d: any) =>
+    !declined.has(d.id) &&
+    // Never offer a ride to the rider's own driver account: accept_ride
+    // refuses it anyway ("Cannot accept your own ride request").
+    d.user_id !== ride.rider_id &&
+    (offeredCount.get(d.id) ?? 0) < MAX_OFFERS_PER_DRIVER &&
+    d.lat != null && d.lng != null &&
     haversineKm(pickupLat, pickupLng, d.lat, d.lng) <= RIDE_MATCH_RADIUS_KM);
+  // Drivers not yet asked go first; a second chance only when none are left.
+  const fresh = eligible.filter((d: any) => !offeredCount.has(d.id));
+  const pool = fresh.length > 0 ? fresh : eligible;
 
   // Whose network gets first refusal, if anyone's.
   let networkOwner: string | null = null;
@@ -136,14 +154,23 @@ async function dispatchRideRound(supabaseAdmin: any, item: any, now: Date) {
     : Math.round(fareCents * 0.78);
 
   const offerExpiresAt = new Date(Date.now() + RIDE_OFFER_SECONDS * 1000).toISOString();
-  const { error: offerErr } = await supabaseAdmin.from("ride_offers").insert({
-    ride_id: ride.id,
-    driver_id: claimed.driver_id,
+  const offerFields = {
     status: "pending",
     distance_meters: Math.round((claimed.distance_km ?? 0) * 1000),
     driver_payout_cents: driverPayout,
     expires_at: offerExpiresAt,
-  });
+  };
+  // ride_offers is UNIQUE (ride_id, driver_id), so a second chance must
+  // re-open the driver's lapsed offer rather than insert another (an insert
+  // failed on the constraint and the round was silently skipped). The
+  // driver app listens for UPDATEs too, so the reopened offer pops up the
+  // same way; accept_ride checks status 'pending' + expires_at, both fresh.
+  const lapsed = (offers || []).find((o: any) => o.driver_id === claimed.driver_id && o.status !== "declined");
+  const { error: offerErr } = lapsed
+    ? await supabaseAdmin.from("ride_offers")
+        .update({ ...offerFields, created_at: now.toISOString() })
+        .eq("id", lapsed.id).neq("status", "declined")
+    : await supabaseAdmin.from("ride_offers").insert({ ride_id: ride.id, driver_id: claimed.driver_id, ...offerFields });
   if (offerErr) throw offerErr;
 
   await supabaseAdmin.from("rides").update({ status: "searching" }).eq("id", ride.id).in("status", MATCHABLE_RIDE_STATUSES);
@@ -157,7 +184,10 @@ async function dispatchRideRound(supabaseAdmin: any, item: any, now: Date) {
 
   if (driver?.push_token) {
     const fromNetwork = tierUsed === "network" && ride.metadata?.merchant_name;
-    sendPushNotification(
+    // Awaited: a fire-and-forget push can be cut off when the function
+    // returns, and the push is how a driver with the app in the background
+    // finds out at all.
+    await sendPushNotification(
       driver.push_token,
       fromNetwork ? `${ride.metadata.merchant_name} has a ride for you` : "New ride request",
       fromNetwork ? "A client from your network business is waiting. Tap to view the offer." : "A rider is waiting nearby. Tap to view the offer.",
@@ -176,8 +206,14 @@ serve(async (req: Request) => {
   }
   try {
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    // create_ride calls this straight after queueing a ride, with its id, so
+    // the first offer goes out in about a second instead of waiting for the
+    // next cron tick (up to a minute). The cron call has no ride_id and
+    // sweeps everything as before.
+    let onlyRideId: string | null = null;
+    try { onlyRideId = (await req.json())?.ride_id ?? null; } catch { /* cron: no body */ }
 
-    const { data: queueItems, error: queueErr } = await supabaseAdmin
+    let queueQuery = supabaseAdmin
       .from("dispatch_queue")
       // merchants has no business_name column — it is `name`. This one wrong
       // word made the whole dispatch sweep 500 on its very first query, once
@@ -187,6 +223,8 @@ serve(async (req: Request) => {
       .lt("attempts", 5)
       .order("priority", { ascending: false })
       .order("created_at", { ascending: true });
+    if (onlyRideId) queueQuery = queueQuery.eq("ride_id", onlyRideId);
+    const { data: queueItems, error: queueErr } = await queueQuery;
 
     if (queueErr) throw queueErr;
 

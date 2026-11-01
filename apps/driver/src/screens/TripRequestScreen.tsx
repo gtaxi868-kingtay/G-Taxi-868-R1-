@@ -1,44 +1,44 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {
-    View, Text, StyleSheet, TouchableOpacity,
-    ActivityIndicator, useWindowDimensions, Alert, Image
-} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Alert, Animated, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import Reanimated, {
-    useSharedValue, withSpring, withTiming, withSequence,
-    useAnimatedStyle, Easing, useReducedMotion,
-} from 'react-native-reanimated';
-import { SURFACE, VOICES, ANIMATION } from '@gtaxi/design-system';
-import { LiquidGlass } from '@gtaxi/design-system/native';
-import { ghostBorder, elevationGlow } from '@gtaxi/design-system/utils/style-rules';
 import { useAuth } from '../context/AuthContext';
 import { acceptRide, declineRide } from '../services/api';
 import { supabase } from '@gtaxi/core';
-import { Ionicons } from '@expo/vector-icons';
-import { Ride } from '@gtaxi/core';
+import { Button, Pop, Txt, FONT, SPACE, GUTTER, useTheme, IconName } from '../ui/kit';
+import { DRIVE_COLORS, ttd } from '../theme/drive';
 
-const CYAN = '#00E5FF';
-const WARNING = '#E6B450';
-const ERROR = '#EF4444';
-const SUCCESS = '#00FF94';
+// A new trip offer. The driver has seconds to decide, so the screen answers
+// three questions in order, big to small: what do I earn, how long have I
+// got, where is it. Everything else is a small badge.
 
 // Only used if an offer arrives without driver_payout_cents. The real share
 // is 80% (78% while the driver's recruiter is an active commander); use the
 // lowest so the screen can never promise more than the payout.
 const DEFAULT_DRIVER_SHARE = 0.78;
-const ARC_SIZE = 180;
 
-function paymentLabel(method: string | null): string {
-    if (method === 'card') return 'CARD';
-    if (method === 'wallet') return 'WALLET';
-    return 'CASH';
+// Turn the server's refusal into a plain sentence. It used to say "Trip
+// taken" for every failure, which hid the real cause (an expired offer, or
+// a driver testing with the same account that booked the ride).
+export function acceptFailure(statusCode: number | undefined, reason: string | null): { title: string; body: string } {
+    const r = reason || '';
+    if (statusCode === 429) return { title: 'Slow down a moment', body: 'Too many taps. Try again in a few seconds.' };
+    if (statusCode === 401) return { title: 'Signed out', body: 'Please sign in again.' };
+    if (/own ride/i.test(r)) return { title: 'This is your own ride', body: 'You booked this ride with the same account. Use a different rider account to test.' };
+    if (/expired|no longer available/i.test(r)) return { title: 'Offer ran out', body: 'The time to accept this trip ended. New trips will keep coming while you are online.' };
+    if (/already taken|unavailable/i.test(r)) return { title: 'Trip taken', body: 'Another driver got this one first. More trips are coming.' };
+    if (/pending approval/i.test(r)) return { title: 'Not approved yet', body: 'Your driver account is still being reviewed.' };
+    if (/active ride/i.test(r)) return { title: 'Finish your current trip first', body: r };
+    if (/debt|balance/i.test(r)) return { title: 'Wallet too low', body: 'Settle what you owe in Wallet to accept trips.' };
+    return { title: 'Could not accept', body: r || 'Check your signal and try again.' };
 }
-function paymentIcon(method: string | null): string {
-    if (method === 'card') return 'card-outline';
-    if (method === 'wallet') return 'wallet-outline';
-    return 'cash-outline';
+
+function paymentLabel(method: string | null): { label: string; icon: IconName } {
+    if (method === 'card') return { label: 'Card', icon: 'card-outline' };
+    if (method === 'wallet') return { label: 'Wallet', icon: 'wallet-outline' };
+    return { label: 'Cash', icon: 'cash-outline' };
 }
 
 interface RideDetail {
@@ -48,512 +48,244 @@ interface RideDetail {
     payment_method: string | null;
     vehicle_type: string | null;
     rider_id: string | null;
+    metadata?: Record<string, any> | null;
 }
 
 export function TripRequestScreen({ navigation, route }: any) {
-    const { height } = useWindowDimensions();
+    const m = useTheme();
+    const insets = useSafeAreaInsets();
     const { offer } = route.params || {};
     const { driver } = useAuth();
-    const insets = useSafeAreaInsets();
 
-    const [timeLeft, setTimeLeft] = useState(offer?.timeout_seconds ?? 15);
+    const totalSeconds = offer?.timeout_seconds ?? 15;
+    const [timeLeft, setTimeLeft] = useState<number>(totalSeconds);
     const [isHandling, setIsHandling] = useState(false);
+    const handling = useRef(false);
     const [rideDetail, setRideDetail] = useState<RideDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(true);
     const [isPreferred, setIsPreferred] = useState(false);
-    const [stops, setStops] = useState<any[]>([]);
+    const [stopCount, setStopCount] = useState(0);
     const [hasNode, setHasNode] = useState(false);
-    const [identityVerified, setIdentityVerified] = useState(false);
-    const [trustScore, setTrustScore] = useState<number>(0);
-    const [trustBadge, setTrustBadge] = useState<string>('STANDARD');
+    const [photoOnFile, setPhotoOnFile] = useState(false);
+    const [trust, setTrust] = useState<{ score: number; badge: string } | null>(null);
 
-    const totalSeconds = offer?.timeout_seconds ?? 15;
-
-    const reducedMotion = useReducedMotion();
-    const sheetY = useSharedValue(reducedMotion ? 0 : height);
-    const fareScale = useSharedValue(1);
-    const shakeX = useSharedValue(0);
-    const pickupX = useSharedValue(reducedMotion ? 0 : 40);
-    const dropoffX = useSharedValue(reducedMotion ? 0 : 40);
-    const pickupOp = useSharedValue(reducedMotion ? 1 : 0);
-    const dropoffOp = useSharedValue(reducedMotion ? 1 : 0);
+    // Countdown bar drains smoothly from full to empty.
+    const drain = useRef(new Animated.Value(1)).current;
+    useEffect(() => {
+        const start = offer?.expires_at ? Math.max(0, (new Date(offer.expires_at).getTime() - Date.now()) / 1000) : totalSeconds;
+        drain.setValue(Math.min(1, start / Math.max(1, totalSeconds)));
+        Animated.timing(drain, { toValue: 0, duration: start * 1000, easing: Easing.linear, useNativeDriver: false }).start();
+    }, [offer?.expires_at]);
 
     useEffect(() => {
-        if (reducedMotion) return;
-        sheetY.value = withSpring(0, { damping: 18, stiffness: 120 });
-        fareScale.value = withSequence(
-            withSpring(1.12, { damping: 6, stiffness: 300 }),
-            withSpring(1.0, { damping: 10, stiffness: 200 })
-        );
-        pickupX.value = withSpring(0, { damping: 14, stiffness: 120 });
-        pickupOp.value = withTiming(1, { duration: 300 });
-        const dropoffTimer = setTimeout(() => {
-            dropoffX.value = withSpring(0, { damping: 14, stiffness: 120 });
-            dropoffOp.value = withTiming(1, { duration: 300 });
-        }, 120);
-        return () => clearTimeout(dropoffTimer);
-    }, []);
-
-    useEffect(() => {
-        const beforeRemoveListener = navigation.addListener('beforeRemove', (e: any) => {
-            if (isHandling || timeLeft <= 0) return;
+        const unsub = navigation.addListener('beforeRemove', (e: any) => {
+            if (handling.current) return;
             e.preventDefault();
-            Alert.alert('Discard Offer?', 'Leaving this screen will ignore the current trip offer. Are you sure?', [
-                { text: 'Keep Offer', style: 'cancel' },
-                { text: 'Discard', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) }
+            Alert.alert('Skip this trip?', 'Leaving now passes the trip to another driver.', [
+                { text: 'Keep it', style: 'cancel' },
+                { text: 'Skip trip', style: 'destructive', onPress: () => { handleDecline(false); } },
             ]);
         });
+        return unsub;
+    }, [navigation]);
 
-        if (!offer?.ride_id) {
-            setDetailLoading(false);
-            return () => beforeRemoveListener();
-        }
-        const fetchDetails = async () => {
-            const { data } = await supabase.from('rides')
-                .select('pickup_address, dropoff_address, total_fare_cents, payment_method, vehicle_type, rider_id, metadata')
-                .eq('id', offer.ride_id).single();
-            if (data) {
+    useEffect(() => {
+        if (!offer?.ride_id) { setDetailLoading(false); return; }
+        let alive = true;
+        (async () => {
+            try {
+                const { data } = await supabase.from('rides')
+                    .select('pickup_address, dropoff_address, total_fare_cents, payment_method, vehicle_type, rider_id, metadata')
+                    .eq('id', offer.ride_id).maybeSingle();
+                if (!alive || !data) return;
                 setRideDetail(data);
                 const meta = data.metadata || {};
-                const hasNodeId = !!(meta.kiosk_id || meta.node_id || meta.revenue_split?.node_present);
-                setHasNode(hasNodeId);
-                // Set by create_ride from the rider's stored photos (not the
-                // rider app's own flag). A photo on file, not a face/ID check.
-                setIdentityVerified(meta.selfie_photo_on_file === true);
+                setHasNode(!!(meta.kiosk_id || meta.node_id || meta.revenue_split?.node_present));
+                // Set by create_ride from the rider's stored photos: a photo on
+                // file, not a face or ID check.
+                setPhotoOnFile(meta.selfie_photo_on_file === true);
                 const { data: stps } = await supabase.from('ride_stops').select('stop_type').eq('ride_id', offer.ride_id);
-                if (stps) setStops(stps);
+                if (alive && Array.isArray(stps)) setStopCount(stps.filter((x: any) => x.stop_type !== 'pickup' && x.stop_type !== 'dropoff').length);
                 if (data.rider_id && driver?.id) {
                     const { data: pref } = await supabase.from('rider_preferences').select('id')
-                        .eq('rider_id', data.rider_id).eq('favored_driver_id', driver.id).single();
-                    if (pref) setIsPreferred(true);
+                        .eq('rider_id', data.rider_id).eq('favored_driver_id', driver.id).maybeSingle();
+                    if (alive && pref) setIsPreferred(true);
                 }
-                if (offer?.ride_id) {
-                    const { data: ts } = await supabase.functions.invoke('calculate_ride_trust_score', {
-                        body: { ride_id: offer.ride_id }
-                    }).catch(() => ({ data: null }));
-                    if (ts?.success && ts?.data) {
-                        setTrustScore(ts.data.final_score || ts.data.score || 0);
-                        setTrustBadge(ts.data.badge || 'STANDARD');
-                    }
-                }
-            }
-            setDetailLoading(false);
-        };
-        fetchDetails();
+                const ts = await supabase.functions.invoke('calculate_ride_trust_score', { body: { ride_id: offer.ride_id } }).catch(() => ({ data: null }));
+                const d = (ts as any)?.data;
+                if (alive && d?.success && d?.data) setTrust({ score: d.data.final_score || d.data.score || 0, badge: d.data.badge || 'STANDARD' });
+            } catch { /* details are extra; the offer itself still shows */ }
+            finally { if (alive) setDetailLoading(false); }
+        })();
+        return () => { alive = false; };
+    }, [offer?.ride_id]);
 
-        return () => beforeRemoveListener();
+    // If the rider cancels while this offer is on screen, leave at once
+    // with the reason stated — never sit out the countdown on a dead trip
+    // or let an Accept tap land on a ride that no longer exists.
+    useEffect(() => {
+        if (!offer?.ride_id) return;
+        let gone = false;
+        const leaveCancelled = () => {
+            if (gone || handling.current) return;
+            gone = true;
+            handling.current = true;
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert('Trip cancelled', 'The rider cancelled this trip. You are still online — the next trip will come to you here.');
+            navigation.goBack();
+        };
+        const checkRide = async () => {
+            const { data } = await supabase.from('rides').select('status').eq('id', offer.ride_id).maybeSingle();
+            if (data?.status === 'cancelled') leaveCancelled();
+        };
+        const ch = supabase.channel(`trip_request_ride_${offer.ride_id}`)
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rides', filter: `id=eq.${offer.ride_id}` }, (payload: any) => {
+                if (payload.new?.status === 'cancelled') leaveCancelled();
+            })
+            .subscribe((status) => { if (status === 'SUBSCRIBED') checkRide(); });
+        const poll = setInterval(checkRide, 5000);
+        return () => { gone = true; clearInterval(poll); ch.unsubscribe(); };
     }, [offer?.ride_id]);
 
     useEffect(() => {
         if (!offer?.expires_at) return;
-        const tick = () => {
+        const t = setInterval(() => {
             const left = Math.max(0, Math.floor((new Date(offer.expires_at).getTime() - Date.now()) / 1000));
             setTimeLeft(left);
-            if (left <= 0 && !isHandling) handleDecline(true);
-        };
-        const timer = setInterval(tick, 500);
-        return () => clearInterval(timer);
+            if (left <= 3 && left > 0) Haptics.selectionAsync().catch(() => {});
+            if (left <= 0) { clearInterval(t); handleDecline(true); }
+        }, 1000);
+        return () => clearInterval(t);
     }, [offer?.expires_at]);
 
     const handleAccept = async () => {
-        if (!offer?.ride_id || !driver?.id || isHandling) return;
+        if (!offer?.ride_id || !driver?.id || handling.current) return;
+        handling.current = true;
         setIsHandling(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const { error, statusCode } = await acceptRide(offer?.ride_id, driver?.id);
+        const { error, statusCode, reason } = await acceptRide(offer.ride_id, driver.id);
         if (error) {
-            if (statusCode === 429) Alert.alert('Too Many Requests', 'Please slow down and try again.');
-            else if (statusCode === 401) Alert.alert('Session Expired', 'Please log in again.');
-            else Alert.alert('Offer Expired', 'This trip is no longer available.');
+            const { title, body } = acceptFailure(statusCode, reason);
+            Alert.alert(title, body);
             navigation.goBack();
-        } else navigation.replace('ActiveTrip', { rideId: offer?.ride_id });
+        } else navigation.replace('ActiveTrip', { rideId: offer.ride_id });
     };
 
-    const handleDecline = async (auto = false) => {
-        if (isHandling) return;
+    const handleDecline = async (auto: boolean) => {
+        if (handling.current) return;
+        handling.current = true;
         setIsHandling(true);
-        if (auto) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            if (!reducedMotion) shakeX.value = withSequence(withTiming(-10, { duration: 60 }), withTiming(0, { duration: 60 }));
-        }
-        await declineRide(offer?.id);
+        if (auto) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        try { if (offer?.id) await declineRide(offer.id); } catch { /* the offer expires on the server anyway */ }
         navigation.goBack();
     };
 
-    const driverEarnings = offer?.driver_payout_cents
-        ? (offer.driver_payout_cents / 100)
-        : (rideDetail?.total_fare_cents || offer?.fare_cents || 0) * DEFAULT_DRIVER_SHARE / 100;
-    const distanceKm = offer?.distance_meters ? (offer.distance_meters / 1000).toFixed(1) : '?';
-    const arcColor = timeLeft > 5 ? VOICES.driver.accent : timeLeft > 2 ? WARNING : ERROR;
+    const earnCents = offer?.driver_payout_cents
+        ?? Math.round((rideDetail?.total_fare_cents || offer?.fare_cents || 0) * DEFAULT_DRIVER_SHARE);
+    const km = offer?.distance_meters ? (offer.distance_meters / 1000).toFixed(1) : null;
+    const pay = paymentLabel(rideDetail?.payment_method || offer?.payment_method || 'cash');
+    const urgency = timeLeft > 5 ? DRIVE_COLORS.cyan : timeLeft > 2 ? DRIVE_COLORS.warn : DRIVE_COLORS.danger;
+    const pickup = rideDetail?.pickup_address || offer?.pickup_address || 'Pickup near you';
+    const dropoff = rideDetail?.dropoff_address || offer?.dropoff_address || 'Destination';
 
-    const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetY.value }, { translateX: shakeX.value }] }));
-    const fareStyle = useAnimatedStyle(() => ({ transform: [{ scale: fareScale.value }] }));
+    const badges: { icon: IconName; label: string; color: string }[] = [];
+    if (isPreferred) badges.push({ icon: 'star', label: 'Rider picked you before', color: DRIVE_COLORS.money });
+    if (hasNode) badges.push({ icon: 'storefront', label: 'Shop pickup', color: DRIVE_COLORS.violet });
+    if (photoOnFile) badges.push({ icon: 'person-circle', label: 'Rider photo on file', color: DRIVE_COLORS.online });
+    if (trust?.badge === 'VERIFIED_SAFE') badges.push({ icon: 'shield-checkmark', label: `Trusted rider ${trust.score}`, color: DRIVE_COLORS.online });
+    if (trust?.badge === 'SAFE_ROUTE') badges.push({ icon: 'shield-outline', label: `Safe route ${trust.score}`, color: DRIVE_COLORS.cyan });
 
     return (
-        <View style={s.root} pointerEvents="box-none">
-            <LinearGradient colors={[SURFACE.containerLow, SURFACE.base]} style={StyleSheet.absoluteFillObject} />
-            <Reanimated.View style={[s.sheet, { paddingBottom: insets.bottom + 20 }, sheetStyle]}>
-                <LiquidGlass voice="driver" style={s.cardBlur} tier="chrome">
-                    <View style={s.cardInner}>
-                        <View style={s.handle} />
+        <View style={[s.root, { backgroundColor: m.page, paddingTop: insets.top + SPACE.lg, paddingBottom: Math.max(insets.bottom, SPACE.lg) }]}>
+            <StatusBar style="light" />
 
-                        <View style={s.headerRow}>
-                            <Image
-                                source={require('../../assets/logo.png')}
-                                style={s.headerLogo}
-                                resizeMode="contain"
-                            />
-                            <View style={s.badgeRow}>
-                                {isPreferred && (
-                                    <View style={s.prefBadge}>
-                                        <Ionicons name="star" size={12} color={VOICES.driver.accent} />
-                                        <Text style={s.prefBadgeText}>PREFERRED</Text>
-                                    </View>
-                                )}
-                                {hasNode && (
-                                    <View style={s.premiumBadge}>
-                                        <Ionicons name="storefront" size={12} color="#EAF3F6" />
-                                        <Text style={s.premiumBadgeText}>MERCHANT PICKUP</Text>
-                                    </View>
-                                )}
-                                {identityVerified && (
-                                    <View style={s.verifiedBadge}>
-                                        <Ionicons name="shield-checkmark" size={12} color={SUCCESS} />
-                                        <Text style={s.verifiedBadgeText}>PHOTO ON FILE</Text>
-                                    </View>
-                                )}
-                                {trustBadge === 'VERIFIED_SAFE' && (
-                                    <View style={[s.verifiedBadge, { borderColor: SUCCESS, backgroundColor: 'rgba(0,255,148,0.15)' }]}>
-                                        <Ionicons name="shield" size={12} color={SUCCESS} />
-                                        <Text style={[s.verifiedBadgeText, { color: SUCCESS }]}>TRUSTED {trustScore}</Text>
-                                    </View>
-                                )}
-                                {trustBadge === 'SAFE_ROUTE' && (
-                                    <View style={[s.prefBadge, { borderColor: CYAN, backgroundColor: 'rgba(0,229,255,0.1)' }]}>
-                                        <Ionicons name="shield-outline" size={12} color={CYAN} />
-                                        <Text style={[s.prefBadgeText, { color: CYAN }]}>SAFE {trustScore}</Text>
-                                    </View>
-                                )}
-                            </View>
-                        </View>
+            {/* Countdown */}
+            <View style={s.timerRow}>
+                <Txt variant="overline" tone="dim">NEW TRIP</Txt>
+                <Text style={[s.seconds, { color: urgency }]}>{timeLeft}s</Text>
+            </View>
+            <View style={[s.track, { backgroundColor: m.field }]}>
+                <Animated.View style={[s.fill, { backgroundColor: urgency, width: drain.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
+            </View>
 
-                        <View style={s.timerOuter}>
-                            <LinearGradient
-                                colors={[VOICES.driver.accent + '08', 'transparent']}
-                                style={[s.arc, { borderColor: arcColor }]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <Reanimated.View style={[s.fareBox, fareStyle]}>
-                                    <Text style={s.earningsLabel}>EARNINGS</Text>
-                                    <Text style={s.earningsValue}>${driverEarnings.toFixed(2)}</Text>
-                                    <Text style={[s.countdownText, { color: arcColor }]}>{timeLeft}S REMAINING</Text>
-                                </Reanimated.View>
-                            </LinearGradient>
-                        </View>
+            {/* What you earn */}
+            <Pop style={s.earnBlock}>
+                <Txt variant="label" tone="dim">You earn</Txt>
+                <Text style={[s.earn, { color: DRIVE_COLORS.money }]} numberOfLines={1} adjustsFontSizeToFit>{ttd(earnCents)}</Text>
+                <View style={s.statsRow}>
+                    {km ? <Stat icon="navigate-outline" label={`${km} km`} /> : null}
+                    {offer?.duration_min ? <Stat icon="time-outline" label={`${offer.duration_min} min`} /> : null}
+                    <Stat icon={pay.icon} label={pay.label} />
+                    {stopCount > 0 ? <Stat icon="git-commit-outline" label={`+${stopCount} stop${stopCount > 1 ? 's' : ''}`} /> : null}
+                </View>
+            </Pop>
 
-                        {detailLoading ? (
-                            <ActivityIndicator color={VOICES.driver.accent} style={{ marginVertical: 40 }} />
-                        ) : (
-                            <LiquidGlass voice="driver" style={s.addressLayer} tier="inlay">
-                                <Reanimated.View style={[s.addrRow, useAnimatedStyle(() => ({ transform: [{ translateX: pickupX.value }], opacity: pickupOp.value }))]}>
-                                    <View style={s.dot} />
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={s.addrLabel}>PICKUP</Text>
-                                        <Text style={s.addrText} numberOfLines={1}>{rideDetail?.pickup_address || offer?.pickup_address || 'Current Location'}</Text>
-                                    </View>
-                                </Reanimated.View>
-                                <View style={s.line} />
-                                <Reanimated.View style={[s.addrRow, useAnimatedStyle(() => ({ transform: [{ translateX: dropoffX.value }], opacity: dropoffOp.value }))]}>
-                                    <View style={s.square} />
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={s.addrLabel}>DROPOFF</Text>
-                                        <Text style={s.addrText} numberOfLines={1}>{rideDetail?.dropoff_address || offer?.dropoff_address || 'Destination'}</Text>
-                                    </View>
-                                </Reanimated.View>
-                            </LiquidGlass>
-                        )}
-
-                        <View style={s.statsGrid}>
-                            <View style={s.statPill}>
-                                <Ionicons name="navigate-outline" size={16} color={VOICES.driver.accent} />
-                                <Text style={s.statPillText}>{distanceKm} KM</Text>
-                            </View>
-                            <View style={s.statPill}>
-                                <Ionicons name="time-outline" size={16} color={VOICES.driver.accent} />
-                                <Text style={s.statPillText}>{offer?.duration_min || '?'} MIN</Text>
-                            </View>
-                            <View style={s.statPill}>
-                                <Ionicons name={paymentIcon(rideDetail?.payment_method || 'cash') as any} size={16} color={VOICES.driver.accent} />
-                                <Text style={s.statPillText}>{paymentLabel(rideDetail?.payment_method || 'cash')}</Text>
-                            </View>
-                        </View>
-
-                        <View style={s.actionRow}>
-                            <TouchableOpacity style={s.declineBtn} onPress={() => handleDecline(false)} disabled={isHandling} accessibilityLabel="Decline trip" accessibilityRole="button">
-                                <Text style={s.declineText}>DECLINE</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={s.acceptBtn} onPress={handleAccept} disabled={isHandling} activeOpacity={0.9} accessibilityLabel="Accept trip" accessibilityRole="button">
-                                <LinearGradient
-                                    colors={[VOICES.driver.accent, VOICES.driver.accentDark]}
-                                    style={s.acceptGradient}
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                >
-                                    {isHandling ? <ActivityIndicator color={SURFACE.base} /> : (
-                                        <>
-                                            <Ionicons name="flash" size={20} color={SURFACE.base} />
-                                            <Text style={s.acceptText}>ACCEPT TRIP</Text>
-                                        </>
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
+            {/* Where */}
+            <Pop delay={80} style={[s.route, { backgroundColor: m.tile, borderColor: m.chipBorder }]}>
+                <View style={s.addrRow}>
+                    <View style={[s.dot, { backgroundColor: DRIVE_COLORS.online }]} />
+                    <View style={{ flex: 1 }}>
+                        <Txt variant="caption" tone="faint">Pick up</Txt>
+                        <Txt variant="bodyStrong" numberOfLines={2}>{detailLoading && !offer?.pickup_address ? 'Loading…' : pickup}</Txt>
                     </View>
-                </LiquidGlass>
-            </Reanimated.View>
+                </View>
+                <View style={[s.connector, { backgroundColor: m.chipBorder }]} />
+                <View style={s.addrRow}>
+                    <View style={[s.square, { backgroundColor: DRIVE_COLORS.money }]} />
+                    <View style={{ flex: 1 }}>
+                        <Txt variant="caption" tone="faint">Drop off</Txt>
+                        <Txt variant="bodyStrong" numberOfLines={2}>{detailLoading && !offer?.dropoff_address ? 'Loading…' : dropoff}</Txt>
+                    </View>
+                </View>
+            </Pop>
+
+            {badges.length > 0 ? (
+                <View style={s.badges}>
+                    {badges.map((b) => (
+                        <View key={b.label} style={[s.badge, { borderColor: `${b.color}55`, backgroundColor: `${b.color}18` }]}>
+                            <Ionicons name={b.icon} size={13} color={b.color} />
+                            <Txt variant="label" style={{ color: b.color, marginLeft: 5 }}>{b.label}</Txt>
+                        </View>
+                    ))}
+                </View>
+            ) : null}
+
+            <View style={{ flex: 1 }} />
+
+            <View style={s.actions}>
+                <Button title="Skip" variant="secondary" onPress={() => handleDecline(false)} disabled={isHandling} style={{ flex: 1 }} />
+                <Button title="Accept" icon="checkmark-circle" color={DRIVE_COLORS.online} onPress={handleAccept} loading={isHandling} style={{ flex: 2 }} />
+            </View>
+        </View>
+    );
+}
+
+function Stat({ icon, label }: { icon: IconName; label: string }) {
+    const m = useTheme();
+    return (
+        <View style={[s.stat, { backgroundColor: m.field }]}>
+            <Ionicons name={icon} size={15} color={m.dim} />
+            <Txt variant="label" style={{ marginLeft: 5 }}>{label}</Txt>
         </View>
     );
 }
 
 const s = StyleSheet.create({
-    root: {
-        flex: 1,
-        backgroundColor: SURFACE.base,
-        justifyContent: 'flex-end',
-    },
-    sheet: {
-        paddingHorizontal: 16,
-    },
-    cardBlur: {
-        borderWidth: 0,
-    },
-    cardInner: {
-        padding: 24,
-    },
-    handle: {
-        width: 44,
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        alignSelf: 'center',
-        marginBottom: 24,
-    },
-    headerRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 28,
-    },
-    headerLogo: {
-        width: 48,
-        height: 48,
-    },
-    badgeRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 6,
-    },
-    prefBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(139,92,246,0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(139,92,246,0.2)',
-        gap: 6,
-    },
-    prefBadgeText: {
-        fontSize: 11,
-        fontWeight: '800',
-        color: VOICES.driver.accent,
-        letterSpacing: 0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    premiumBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(139,92,246,0.15)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(139,92,246,0.3)',
-        gap: 6,
-    },
-    premiumBadgeText: {
-        fontSize: 10,
-        fontWeight: '800',
-        color: '#EAF3F6',
-        letterSpacing: 0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    verifiedBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,255,148,0.1)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(0,255,148,0.25)',
-        gap: 6,
-    },
-    verifiedBadgeText: {
-        fontSize: 10,
-        fontWeight: '800',
-        color: SUCCESS,
-        letterSpacing: 0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    timerOuter: {
-        alignItems: 'center',
-        marginBottom: 32,
-        ...elevationGlow(20),
-    },
-    arc: {
-        width: ARC_SIZE,
-        height: ARC_SIZE,
-        borderRadius: ARC_SIZE / 2,
-        borderWidth: 3,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderStyle: 'solid',
-        backgroundColor: 'rgba(139,92,246,0.05)',
-    },
-    fareBox: {
-        alignItems: 'center',
-    },
-    earningsLabel: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: VOICES.driver.textMuted,
-        letterSpacing: 1.5,
-        marginBottom: 4,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    earningsValue: {
-        fontSize: 42,
-        fontWeight: '800',
-        color: VOICES.driver.gold,
-        letterSpacing: -1,
-        marginBottom: 4,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    countdownText: {
-        fontSize: 13,
-        fontWeight: '800',
-        letterSpacing: 1,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    addressLayer: {
-        marginBottom: 28,
-        padding: 20,
-    },
-    addrRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    addrLabel: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: VOICES.driver.textMuted,
-        letterSpacing: 0.5,
-        marginBottom: 2,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    addrText: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#EAF3F6',
-        fontFamily: 'Manrope-Medium',
-    },
-    dot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: VOICES.driver.accent,
-        marginRight: 14,
-    },
-    square: {
-        width: 12,
-        height: 12,
-        borderRadius: 3,
-        backgroundColor: WARNING,
-        marginRight: 14,
-    },
-    line: {
-        width: 2,
-        height: 28,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        marginLeft: 5,
-        marginVertical: 4,
-    },
-    statsGrid: {
-        flexDirection: 'row',
-        gap: 10,
-        marginBottom: 28,
-    },
-    statPill: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'rgba(139,92,246,0.06)',
-        paddingVertical: 12,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-        gap: 6,
-    },
-    statPillText: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#EAF3F6',
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    actionRow: {
-        flexDirection: 'row',
-        gap: 12,
-    },
-    declineBtn: {
-        flex: 1,
-        height: 56,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(239,68,68,0.3)',
-        backgroundColor: 'rgba(239,68,68,0.08)',
-    },
-    declineText: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: ERROR,
-        letterSpacing: 0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
-    acceptBtn: {
-        flex: 2,
-        height: 56,
-        borderRadius: 16,
-        overflow: 'hidden',
-        ...elevationGlow(6),
-    },
-    acceptGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-    },
-    acceptText: {
-        fontSize: 15,
-        fontWeight: '800',
-        color: SURFACE.base,
-        letterSpacing: 0.5,
-        fontFamily: 'SpaceGrotesk-Bold',
-    },
+    root: { flex: 1, paddingHorizontal: GUTTER },
+    timerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+    seconds: { fontFamily: FONT.roundBlack, fontSize: 28 },
+    track: { height: 10, borderRadius: 5, overflow: 'hidden', marginTop: SPACE.sm },
+    fill: { height: 10, borderRadius: 5 },
+    earnBlock: { marginTop: SPACE.xxl },
+    earn: { fontFamily: FONT.roundBlack, fontSize: 60, lineHeight: 68, fontVariant: ['tabular-nums'] },
+    statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.sm, marginTop: SPACE.sm },
+    stat: { flexDirection: 'row', alignItems: 'center', height: 34, paddingHorizontal: 12, borderRadius: 17 },
+    route: { marginTop: SPACE.xl, borderRadius: 20, borderWidth: 2, padding: SPACE.lg },
+    addrRow: { flexDirection: 'row', alignItems: 'center' },
+    dot: { width: 14, height: 14, borderRadius: 7, marginRight: SPACE.md },
+    square: { width: 14, height: 14, borderRadius: 4, marginRight: SPACE.md },
+    connector: { width: 2, height: 22, marginLeft: 6, marginVertical: 4 },
+    badges: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACE.sm, marginTop: SPACE.lg },
+    badge: { flexDirection: 'row', alignItems: 'center', height: 30, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1 },
+    actions: { flexDirection: 'row', gap: SPACE.md },
 });

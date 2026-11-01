@@ -1,24 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-    View, StyleSheet, ScrollView, TouchableOpacity,
-    ActivityIndicator, Linking, Text, Alert, RefreshControl,
-    Modal, TextInput, KeyboardAvoidingView, Platform
+    View, StyleSheet, Linking, Text, Alert, RefreshControl,
+    Modal, KeyboardAvoidingView, Platform
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import Reanimated, {
-    useSharedValue, withTiming, useDerivedValue,
-} from 'react-native-reanimated';
 import { supabase } from '@gtaxi/core';
+import { photoBytes } from '../utils/driverSignup';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useStripe } from '@stripe/stripe-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ENV } from '@g868/shared/env';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SURFACE, VOICES } from '@gtaxi/design-system';
-import { elevationGlow, ghostBorder, glassSurface } from '@gtaxi/design-system/utils/style-rules';
+import { Screen, Txt, Card, Section, Row, Pop, Button, Field, EmptyState, Loading, FONT, SPACE, useTheme, IconName } from '../ui/kit';
+import { DRIVE_COLORS, ttd } from '../theme/drive';
 
 interface Transaction {
     id: string;
@@ -30,36 +24,32 @@ interface Transaction {
     ride_id: string | null;
 }
 
-const INFO_ROWS = [
+// Plain explanation of the ledger. The platform has no fixed percentage (it
+// keeps what is left after driver, G-Lead, reserve and shop are paid), so
+// never state one here.
+const INFO_ROWS: { icon: IconName; color: string; title: string; body: string }[] = [
     {
-        // The real split (driver 80%, platform 15%, reserve 1.5%, driver
-        // drops to 78% with an active territory commander) lives in
-        // pricing_config, not here -- these numbers previously read
-        // 15%+3%/82%, an old figure that CLAUDE.md flags as wrong and
-        // never correct. Kept as static copy (not a live pricing_config
-        // fetch) since this is informational tooltip text, not a
-        // money-moving calculation.
-        icon: 'cash-outline' as const,
-        color: '#10B981',
-        title: 'Cash Trips',
-        body: 'You collect & keep all cash. G-Taxi debits our 15% + 1.5% reserve from this ledger.',
+        icon: 'cash-outline',
+        color: DRIVE_COLORS.money,
+        title: 'Cash trips',
+        body: 'You keep the cash. G868\'s part of the fare (including the 1.5% safety reserve) is recorded here as money you owe.',
     },
     {
-        icon: 'card-outline' as const,
-        color: VOICES.driver.accent,
-        title: 'Card / Wallet Trips',
-        body: 'We collect the payment. Your 80% share is credited to this ledger.',
+        icon: 'card-outline',
+        color: DRIVE_COLORS.cyan,
+        title: 'Card and wallet trips',
+        body: 'The rider pays in the app. Your share (80% of the fare, 78% if you joined through a G-Lead) is credited here.',
     },
     {
-        icon: 'lock-closed-outline' as const,
-        color: '#EF4444',
-        title: 'The $600 Cap',
-        body: 'If your balance hits -$600 TTD you cannot accept new rides until you settle.',
+        icon: 'lock-closed-outline',
+        color: DRIVE_COLORS.danger,
+        title: 'The -TT$600 limit',
+        body: 'If you owe more than TT$600 you cannot go online until you settle.',
     },
 ];
 
 export function WalletScreen({ navigation }: { navigation: { navigate: (screen: string, params?: object) => void; goBack: () => void } }) {
-    const insets = useSafeAreaInsets();
+    const m = useTheme();
     const { driver, user } = useAuth();
 
     const { initPaymentSheet, presentPaymentSheet } = useStripe();
@@ -68,11 +58,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
 
-    const balanceAnim = useSharedValue(0);
-    const balanceDisplay = useDerivedValue(() =>
-        `$${Math.abs(balanceAnim.value).toFixed(2)}`
-    );
-
+    const [loadError, setLoadError] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
     const [bankModalVisible, setBankModalVisible] = useState(false);
@@ -108,8 +94,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
         // settlement engine, so reads must use the same key.
         const { data: balanceCents, error: balanceError } = await supabase.rpc('get_wallet_balance', { p_user_id: user.id });
         const dollars = (balanceCents || 0) / 100;
-        setBalance(dollars);
-        balanceAnim.value = withTiming(dollars, { duration: 900 });
+        if (!balanceError) setBalance(dollars);
 
         // Driver earnings live in wallet_transactions (Sum(amount) = truth),
         // not payment_ledger — that table only records what RIDERS paid in.
@@ -120,14 +105,12 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
             .order('created_at', { ascending: false })
             .limit(30);
 
-        if (balanceError) {
-             Alert.alert("Sync Issue", "Failed to retrieve the latest wallet balance. Please pull down to refresh.");
-        }
+        setLoadError(!!balanceError);
 
         if (txs) setTransactions(txs);
         setLoading(false);
         setRefreshing(false);
-    }, [driver?.id, user?.id, balanceAnim]);
+    }, [driver?.id, user?.id]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -258,6 +241,7 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
                 quality: 0.7,
+                base64: true,
             });
             if (result.canceled || !result.assets[0]) return;
 
@@ -267,14 +251,16 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
             const uid = session.user.id;
 
             const asset = result.assets[0];
-            const fileExt = asset.uri.split('.').pop();
+            if (!asset.base64) throw new Error('That photo could not be read. Please choose it again.');
+            const mime = asset.mimeType || 'image/jpeg';
+            const fileExt = mime.split('/')[1] === 'png' ? 'png' : 'jpg';
             const receiptPath = `${uid}/${kind}-${Date.now()}.${fileExt}`;
 
-            const imgRes = await fetch(asset.uri);
-            const blob = await imgRes.blob();
+            // base64 bytes, not fetch(uri).blob(): the blob read fails on
+            // many Android phones.
             const { error: uploadError } = await supabase.storage
                 .from('receipts')
-                .upload(receiptPath, blob);
+                .upload(receiptPath, photoBytes(asset.base64), { contentType: mime });
             if (uploadError) throw uploadError;
 
             // OCR is best-effort; admin checks the photo either way.
@@ -342,437 +328,143 @@ export function WalletScreen({ navigation }: { navigation: { navigate: (screen: 
     const handleSettlePress = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         Alert.alert(
-            "Settle Balance",
-            "How would you like to top up your wallet?",
+            "Settle what you owe",
+            "How did you pay? Send the receipt and we credit your wallet after a quick check.",
+            // Card top-up (handleCardTopUp) is hidden: Stripe has no keys
+            // and does not serve Trinidad and Tobago businesses, so it can
+            // only fail. Put it back here once a card processor is live.
             [
-                { text: "$100 Top Up (Card)", onPress: () => handleCardTopUp(100) },
-                { text: "Smart ATM Deposit", onPress: handleSmartAtmDeposit },
-                { text: "Upload Bank Receipt", onPress: handleManualDeposit },
-                { text: "Contact Support (WA)", onPress: () => Linking.openURL('https://wa.me/18687031000?text=I need to settle my G-Taxi commission balance.') },
+                { text: "Smart ATM deposit", onPress: handleSmartAtmDeposit },
+                { text: "Upload bank receipt", onPress: handleManualDeposit },
+                { text: "WhatsApp support", onPress: () => Linking.openURL('https://wa.me/18687031000?text=I need to settle my G-Taxi commission balance.') },
                 { text: "Cancel", style: "cancel" }
             ]
         );
     };
 
     const isOwed = balance !== null && balance < 0;
-    const isGood = balance !== null && balance >= 0;
+    const isLocked = isOwed && (balance || 0) <= -600;
+    const refresh = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={m.accent} colors={[m.accent]} />;
 
-    if (loading) {
-        return (
-            <View style={[s.root, s.center]}>
-                <ActivityIndicator color={VOICES.driver.accent} size="large" />
-            </View>
-        );
-    }
+    if (loading) return <Screen title="Wallet"><Loading /></Screen>;
 
-    const heroGradient: readonly [string, string] = isOwed
-        ? [SURFACE.base, '#2A0A0A']
-        : [SURFACE.base, '#0A2A1A'];
-    const heroStatusColor = isOwed ? '#FF4D4D' : '#10B981';
-    // Commission debt rows (recorded by settle_cash_ride via
-    // compute_ride_split) already store the exact cents owed to the
-    // platform -- balance IS the amount owed, not 18% of some larger
-    // figure to back-calculate. The previous *0.18/0.82 factor didn't
-    // correspond to any real rate and inflated what was shown.
-    const heroStatusLabel = isOwed
-        ? `You owe the platform TTD ${Math.abs(balance || 0).toFixed(0)}`
-        : 'Balance all clear ✓';
+    const tone = balance === null ? m.dim : isOwed ? DRIVE_COLORS.danger : DRIVE_COLORS.online;
 
     return (
-        <View style={s.root}>
-            <BlurView tint="dark" intensity={80} style={[s.headerBlur, { paddingTop: insets.top + 8 }, glassSurface(80, 0.2)]}>
-                <View style={s.headerInner}>
-                    <TouchableOpacity
-                        style={s.backBtn}
-                        onPress={() => {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                            navigation.goBack();
-                        }}
-                        activeOpacity={0.8}
-                    >
-                        <Ionicons name="chevron-back" size={22} color="#EAF3F6" />
-                    </TouchableOpacity>
+        <Screen title="Wallet" refreshControl={refresh}>
+            {loadError ? (
+                <Txt variant="caption" tone="danger" style={{ marginBottom: SPACE.md }}>
+                    Couldn't load your latest balance. Pull down to try again.
+                </Txt>
+            ) : null}
 
-                    <Text style={{fontSize: 20, fontWeight: '700', color: '#EAF3F6'}}>Wallet</Text>
-
-                    <View style={s.backBtn} pointerEvents="none" />
-                </View>
-            </BlurView>
-
-            <ScrollView
-                contentContainerStyle={[s.scroll, { paddingTop: insets.top + 64 }]}
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={VOICES.driver.accent} colors={[VOICES.driver.accent]} />
-                }
-            >
-                <LinearGradient
-                    colors={heroGradient}
-                    style={[s.heroCard, elevationGlow(0.12)]}
-                >
-                    <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 6 }}>
-                        Commission balance
+            <Pop>
+                <Card style={[st.hero, { borderColor: `${tone}66` }]}>
+                    <Txt variant="overline" tone="faint">{isOwed ? 'YOU OWE G868' : 'YOUR BALANCE'}</Txt>
+                    <Text style={[st.big, { color: tone }]} numberOfLines={1} adjustsFontSizeToFit>
+                        {balance === null ? '—' : ttd(Math.round(Math.abs(balance) * 100))}
                     </Text>
-
-                    <Reanimated.Text style={[s.balanceNum, { color: isOwed ? '#FF4D4D' : VOICES.driver.accent }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
-                        {isOwed ? '-' : ''}{balanceDisplay.value}
-                    </Reanimated.Text>
-
-                    <Text style={{fontSize: 10, color: heroStatusColor, marginTop: 6, fontWeight: '600' }}>
-                        {heroStatusLabel}
-                    </Text>
-
-                    {isOwed && (balance || 0) <= -600 && (
-                        <View style={s.lockBadge}>
-                            <Ionicons name="lock-closed" size={14} color="#EAF3F6" />
-                            <Text style={{fontSize: 11, fontWeight: '700', color: '#EAF3F6', marginLeft: 6 }}>
-                                ACCOUNT RESTRICTED — CAP REACHED
-                            </Text>
+                    <Txt tone="dim" style={{ textAlign: 'center' }}>
+                        {balance === null ? 'Balance unavailable right now'
+                            : isLocked ? 'Over the TT$600 limit. Settle to go online again.'
+                            : isOwed ? 'From cash trips. Settle any time; the limit is TT$600.'
+                            : balance > 0 ? 'Yours to cash out.' : 'All clear. Nothing owed.'}
+                    </Txt>
+                    {isLocked ? (
+                        <View style={st.lock}>
+                            <Ionicons name="lock-closed" size={14} color="#FFFFFF" />
+                            <Txt variant="label" style={{ color: '#FFFFFF', marginLeft: 6 }}>Can't go online until settled</Txt>
                         </View>
-                    )}
-
-                    {isOwed && (
-                        <TouchableOpacity
-                            style={s.settleBtn}
-                            onPress={handleSettlePress}
-                            activeOpacity={0.85}
-                        >
-                            <Ionicons name="logo-whatsapp" size={16} color="#EAF3F6" />
-                            <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6', marginLeft: 8 }}>
-                                Settle Balance via Transfer
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-                    {isGood && balance > 0 && (
-                        <TouchableOpacity
-                            style={[s.settleBtn, { backgroundColor: VOICES.driver.accent }]}
-                            onPress={handlePayoutRequest}
-                            activeOpacity={0.85}
-                        >
-                            <Ionicons name="cash-outline" size={16} color={SURFACE.base} />
-                            <Text style={{fontSize: 14, fontWeight: '700', color: SURFACE.base, marginLeft: 8 }}>
-                                Request Payout
-                            </Text>
-                        </TouchableOpacity>
-                    )}
-
-                    <TouchableOpacity
-                        style={s.bankLink}
-                        onPress={() => setBankModalVisible(true)}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="business-outline" size={14} color="rgba(255,255,255,0.7)" />
-                        <Text style={s.bankLinkText}>
-                            {hasBankDetails
-                                ? `Payout account: ${bankName} ····${accountNumber.slice(-4)}`
-                                : 'Add bank details for payouts'}
-                        </Text>
-                    </TouchableOpacity>
-                </LinearGradient>
-
-                <TouchableOpacity
-                    style={s.cashCard}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        navigation.navigate('CashWithdrawal');
-                    }}
-                    activeOpacity={0.75}
-                >
-                    <View style={[s.txIcon, { backgroundColor: 'rgba(29, 224, 230, 0.1)' }]}>
-                        <Ionicons name="cash-outline" size={20} color="#1DE0E6" />
+                    ) : null}
+                    <View style={{ alignSelf: 'stretch', marginTop: SPACE.lg }}>
+                        {isOwed ? (
+                            <Button title="Settle what I owe" icon="checkmark-done" color={DRIVE_COLORS.online} onPress={handleSettlePress} loading={processing} />
+                        ) : balance !== null && balance > 0 ? (
+                            <Button title="Cash out to my bank" icon="arrow-down-circle" color={DRIVE_COLORS.online} onPress={handlePayoutRequest} />
+                        ) : null}
                     </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>Cash Withdrawal</Text>
-                        <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2}}>Cardless cash via Republic Bank SMS</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
-                </TouchableOpacity>
+                </Card>
+            </Pop>
 
-                <TouchableOpacity
-                    style={[s.cashCard, { marginTop: 0 }]}
-                    onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        navigation.navigate('RedeemCashCode');
-                    }}
-                    activeOpacity={0.75}
-                >
-                    <View style={[s.txIcon, { backgroundColor: 'rgba(251, 191, 36, 0.1)' }]}>
-                        <Ionicons name="key-outline" size={20} color="#FBBF24" />
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>Redeem Cash Code</Text>
-                        <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2}}>Enter a code from a rider to receive cash</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
-                </TouchableOpacity>
+            <Section title="Get cash">
+                <Card style={{ paddingVertical: 0 }}>
+                    <Row icon="business-outline" title={hasBankDetails ? `${bankName} ····${accountNumber.slice(-4)}` : 'Add your bank account'}
+                        subtitle={hasBankDetails ? 'Where your payouts go. Tap to change.' : 'Needed before you can cash out'}
+                        onPress={() => setBankModalVisible(true)} />
+                    <Row icon="cash-outline" title="Cash withdrawal" subtitle="Cardless cash via Republic Bank SMS" onPress={() => navigation.navigate('CashWithdrawal')} />
+                    <Row icon="key-outline" title="Redeem a cash code" subtitle="A code a rider gave you" onPress={() => navigation.navigate('RedeemCashCode')} last />
+                </Card>
+            </Section>
 
-                <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginBottom: 12 }}>
-                    TRANSACTION HISTORY
-                </Text>
-
+            <Section title="History">
                 {transactions.length === 0 ? (
-                    <View style={s.emptyWrap}>
-                        <Ionicons name="receipt-outline" size={36} color="rgba(255,255,255,0.6)" />
-                        <Text style={{fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 12, textAlign: 'center' }}>
-                            No transactions yet.
-                        </Text>
-                    </View>
+                    <EmptyState icon="receipt-outline" title="Nothing here yet" body="Each trip's pay, and anything you owe or settle, shows up here." />
                 ) : (
-                    <View style={s.txList}>
+                    <Card style={{ paddingVertical: 0 }}>
                         {transactions.map((tx, idx) => {
                             const isCredit = tx.amount >= 0;
-                            const amount = (Math.abs(tx.amount) / 100).toFixed(2);
-                            const date = new Date(tx.created_at);
-                            const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                            const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            const isLast = idx === transactions.length - 1;
-
-                            const txIcon = isCredit ? 'arrow-down-outline' : 'arrow-up-outline';
-                            const txColor = isCredit ? '#10B981' : '#FF4D4D';
-                            const txBg = isCredit ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
-
+                            const when = new Date(tx.created_at).toLocaleString('en-TT', { timeZone: 'America/Port_of_Spain', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
                             return (
-                                <TouchableOpacity
-                                    key={tx.id}
-                                    style={[s.txRow, isLast && { borderBottomWidth: 0 }]}
-                                    onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-                                    activeOpacity={0.75}
-                                >
-                                    <View style={[s.txIcon, { backgroundColor: txBg }]}>
-                                        <Ionicons name={txIcon as 'arrow-down-outline' | 'arrow-up-outline'} size={18} color={txColor} />
+                                <View key={tx.id} style={[st.tx, { borderBottomColor: m.chipBorder, borderBottomWidth: idx === transactions.length - 1 ? 0 : 1 }]}>
+                                    <View style={[st.txIcon, { backgroundColor: isCredit ? 'rgba(47,208,138,0.14)' : 'rgba(255,90,95,0.14)' }]}>
+                                        <Ionicons name={isCredit ? 'arrow-down' : 'arrow-up'} size={16} color={isCredit ? DRIVE_COLORS.online : DRIVE_COLORS.danger} />
                                     </View>
-
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}} numberOfLines={1}>
-                                            {tx.description || (isCredit ? 'Commission Credit' : 'Commission Debit')}
-                                        </Text>
-                                        <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>
-                                            {dateStr} · {timeStr}
-                                        </Text>
+                                    <View style={{ flex: 1, marginHorizontal: SPACE.md }}>
+                                        <Txt variant="bodyStrong" numberOfLines={1}>{tx.description || (isCredit ? 'Money in' : 'Money out')}</Txt>
+                                        <Txt variant="caption" tone="faint">{when}{tx.status && tx.status !== 'completed' ? ` · ${tx.status}` : ''}</Txt>
                                     </View>
-
-                                    <Text style={{fontSize: 14, fontWeight: '700', color: txColor}}>
-                                        {isCredit ? '+' : '-'}${amount}
-                                    </Text>
-                                </TouchableOpacity>
+                                    <Txt variant="bodyStrong" style={{ color: isCredit ? DRIVE_COLORS.online : DRIVE_COLORS.danger }}>
+                                        {isCredit ? '+' : '−'}{ttd(Math.abs(tx.amount))}
+                                    </Txt>
+                                </View>
                             );
                         })}
-                    </View>
+                    </Card>
                 )}
+            </Section>
 
-                <Text style={{fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)', letterSpacing: 1, marginTop: 28, marginBottom: 12 }}>
-                    HOW IT WORKS
-                </Text>
-
-                <View style={s.infoCard}>
+            <Section title="How it works">
+                <Card>
                     {INFO_ROWS.map((row, i) => (
-                        <View key={row.title}>
-                            <View style={s.infoRow}>
-                                <View style={[s.infoIconWrap, { backgroundColor: `${row.color}18` }]}>
-                                    <Ionicons name={row.icon} size={20} color={row.color} />
-                                </View>
-                                <View style={{ flex: 1, gap: 3 }}>
-                                    <Text style={{fontSize: 14, fontWeight: '700', color: '#EAF3F6'}}>{row.title}</Text>
-                                    <Text style={{fontSize: 10, color: 'rgba(255,255,255,0.6)'}}>{row.body}</Text>
-                                </View>
+                        <View key={row.title} style={[st.info, i > 0 && { marginTop: SPACE.lg }]}>
+                            <View style={[st.txIcon, { backgroundColor: `${row.color}22` }]}>
+                                <Ionicons name={row.icon} size={18} color={row.color} />
                             </View>
-                            {i < INFO_ROWS.length - 1 && <View style={s.infoDivider} />}
+                            <View style={{ flex: 1, marginLeft: SPACE.md }}>
+                                <Txt variant="bodyStrong">{row.title}</Txt>
+                                <Txt variant="caption" tone="dim" style={{ marginTop: 2 }}>{row.body}</Txt>
+                            </View>
                         </View>
                     ))}
-                </View>
+                </Card>
+            </Section>
 
-                <View style={{ height: insets.bottom + 32 }} />
-            </ScrollView>
-
-            <Modal
-                visible={bankModalVisible}
-                transparent
-                animationType="slide"
-                onRequestClose={() => setBankModalVisible(false)}
-            >
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={s.modalOverlay}
-                >
-                    <View style={s.modalCard}>
-                        <Text style={s.modalTitle}>Payout Bank Account</Text>
-                        <Text style={s.modalSubtitle}>
-                            Local T&T bank transfers. Payouts are sent to this account after admin approval.
-                        </Text>
-
-                        <TextInput
-                            style={s.modalInput}
-                            placeholder="Bank name (e.g. Republic Bank)"
-                            placeholderTextColor="rgba(255,255,255,0.4)"
-                            value={bankName}
-                            onChangeText={setBankName}
-                        />
-                        <TextInput
-                            style={s.modalInput}
-                            placeholder="Account holder name"
-                            placeholderTextColor="rgba(255,255,255,0.4)"
-                            value={accountHolder}
-                            onChangeText={setAccountHolder}
-                        />
-                        <TextInput
-                            style={s.modalInput}
-                            placeholder="Account number"
-                            placeholderTextColor="rgba(255,255,255,0.4)"
-                            value={accountNumber}
-                            onChangeText={setAccountNumber}
-                            keyboardType="number-pad"
-                        />
-
-                        <TouchableOpacity
-                            style={[s.settleBtn, { backgroundColor: VOICES.driver.accent, marginTop: 16 }]}
-                            onPress={handleSaveBankDetails}
-                            disabled={savingBank}
-                            activeOpacity={0.85}
-                        >
-                            {savingBank ? (
-                                <ActivityIndicator size="small" color={SURFACE.base} />
-                            ) : (
-                                <Text style={{ fontSize: 14, fontWeight: '700', color: SURFACE.base }}>
-                                    Save Bank Details
-                                </Text>
-                            )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={{ alignItems: 'center', paddingVertical: 14 }}
-                            onPress={() => setBankModalVisible(false)}
-                        >
-                            <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Cancel</Text>
-                        </TouchableOpacity>
+            <Modal visible={bankModalVisible} transparent animationType="slide" onRequestClose={() => setBankModalVisible(false)}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={st.overlay}>
+                    <View style={[st.sheet, { backgroundColor: m.tile, borderColor: m.chipBorder }]}>
+                        <Txt variant="title">Payout bank account</Txt>
+                        <Txt tone="dim" style={{ marginTop: 4, marginBottom: SPACE.lg }}>
+                            A local T&T bank. Payouts go here after a quick check by G868.
+                        </Txt>
+                        <Field label="Bank" placeholder="e.g. Republic Bank" value={bankName} onChangeText={setBankName} />
+                        <Field label="Name on the account" value={accountHolder} onChangeText={setAccountHolder} />
+                        <Field label="Account number" value={accountNumber} onChangeText={setAccountNumber} keyboardType="number-pad" />
+                        <Button title="Save bank account" color={DRIVE_COLORS.online} onPress={handleSaveBankDetails} loading={savingBank} />
+                        <Button title="Cancel" variant="ghost" onPress={() => setBankModalVisible(false)} style={{ marginTop: SPACE.sm }} />
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
-        </View>
+        </Screen>
     );
 }
 
-const s = StyleSheet.create({
-    root: { flex: 1, backgroundColor: SURFACE.base },
-    center: { justifyContent: 'center', alignItems: 'center' },
-    scroll: { paddingHorizontal: 20 },
-
-    headerBlur: {
-        position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 20, ...ghostBorder(0.15),
-    },
-    headerInner: {
-        flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20, paddingBottom: 12,
-    },
-    backBtn: {
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-
-    heroCard: {
-        borderRadius: 24, padding: 24,
-        alignItems: 'center',
-        marginBottom: 28,
-    },
-    balanceNum: {
-        fontSize: 48, fontWeight: '800',
-        letterSpacing: -1,
-    },
-    lockBadge: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#FF4D4D',
-        paddingHorizontal: 14, paddingVertical: 7,
-        borderRadius: 20, marginTop: 14,
-    },
-    settleBtn: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#25D366',
-        paddingHorizontal: 22, paddingVertical: 12,
-        borderRadius: 50, marginTop: 18, gap: 6,
-    },
-
-    bankLink: {
-        flexDirection: 'row', alignItems: 'center',
-        marginTop: 14, gap: 6,
-    },
-    bankLinkText: {
-        fontSize: 12, fontWeight: '600',
-        color: 'rgba(255,255,255,0.7)',
-        textDecorationLine: 'underline',
-    },
-
-    modalOverlay: {
-        flex: 1, justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-    },
-    modalCard: {
-        backgroundColor: SURFACE.containerLow,
-        borderTopLeftRadius: 28, borderTopRightRadius: 28,
-        padding: 24, paddingBottom: 40,
-        ...ghostBorder(0.15),
-    },
-    modalTitle: {
-        fontSize: 18, fontWeight: '800', color: '#EAF3F6',
-        marginBottom: 6,
-    },
-    modalSubtitle: {
-        fontSize: 13, color: 'rgba(255,255,255,0.6)',
-        marginBottom: 18, lineHeight: 18,
-    },
-    modalInput: {
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-        fontSize: 15, color: '#EAF3F6', marginBottom: 12,
-        ...ghostBorder(0.12),
-    },
-
-    txList: {
-        backgroundColor: SURFACE.containerLow,
-        borderRadius: 20, ...ghostBorder(0.15), overflow: 'hidden',
-        marginBottom: 28,
-    },
-    txRow: {
-        flexDirection: 'row', alignItems: 'center',
-        gap: 14, paddingHorizontal: 16, paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.04)',
-    },
-    txIcon: {
-        width: 40, height: 40, borderRadius: 12,
-        alignItems: 'center', justifyContent: 'center',
-    },
-
-    emptyWrap: {
-        paddingVertical: 40, alignItems: 'center',
-        ...ghostBorder(0.15),
-        borderRadius: 20, borderStyle: 'dashed',
-        marginBottom: 28,
-    },
-
-    infoCard: {
-        backgroundColor: SURFACE.containerLow,
-        borderRadius: 20, ...ghostBorder(0.15), overflow: 'hidden',
-    },
-    infoRow: {
-        flexDirection: 'row', alignItems: 'flex-start',
-        gap: 14, padding: 18,
-    },
-    infoIconWrap: {
-        width: 40, height: 40, borderRadius: 12,
-        alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
-    },
-    infoDivider: {
-        height: 1, backgroundColor: 'rgba(255,255,255,0.05)',
-        marginHorizontal: 16,
-    },
-    cashCard: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: SURFACE.containerLow,
-        paddingHorizontal: 16, paddingVertical: 14,
-        borderRadius: 20, marginBottom: 20,
-        ...ghostBorder(0.15),
-    },
+const st = StyleSheet.create({
+    hero: { alignItems: 'center', borderWidth: 2 },
+    big: { fontFamily: FONT.roundBlack, fontSize: 48, lineHeight: 56, marginVertical: SPACE.xs, fontVariant: ['tabular-nums'] },
+    lock: { flexDirection: 'row', alignItems: 'center', backgroundColor: DRIVE_COLORS.danger, height: 30, paddingHorizontal: 12, borderRadius: 15, marginTop: SPACE.md },
+    tx: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACE.md },
+    txIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    info: { flexDirection: 'row', alignItems: 'flex-start' },
+    overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(8,9,13,0.7)' },
+    sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 2, borderBottomWidth: 0, padding: SPACE.xl, paddingBottom: 36 },
 });

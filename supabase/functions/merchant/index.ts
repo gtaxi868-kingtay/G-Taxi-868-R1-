@@ -5,6 +5,10 @@ import { sendPushNotification } from "../_shared/push.ts";
 import { sendWhatsApp, getDeepLink } from "../_shared/sms.ts";
 import { calculateFare, fetchVehicleClass } from "../_shared/pricing.ts";
 import { secureFetch } from "../_shared/networkUtility.ts";
+import { AIRPORTS, exitBufferMinutes, fetchFlightStatus, normaliseFlightNumber, pickupTimeFor } from "../_shared/flightaware.ts";
+import { cacheFlight } from "../_shared/flightPickups.ts";
+import { bestRate, extractRateCandidates, fetchPageText } from "../_shared/hotelRates.ts";
+import { chat, BudgetExceededError, RateLimitedError } from "../_shared/llm.ts";
 
 import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -552,6 +556,224 @@ serve(async (req) => {
             ? `${vehicleClass.label} on the way. ${clientName} has been notified — about ${fareText}, paid to the driver.`
             : `${vehicleClass.label} on the way. About ${fareText}, paid to the driver. Give your client PIN ${pin}.`,
         });
+      }
+
+      // ── Hotel rates from the hotel's own website ─────────────────────────
+      // Reads the hotel's rates page and files a SUGGESTION. Nothing goes
+      // live until the hotel accepts it (merchant_decide_rate_suggestion).
+      case "read_hotel_rate": {
+        const lodgingId = String(body.lodging_id || "");
+        const { data: profile } = await supabase.from("profiles").select("merchant_id").eq("id", user.id).maybeSingle();
+        const { data: lodging } = await supabase.from("lodging_nodes")
+          .select("id, name, merchant_id, rate_source_url").eq("id", lodgingId).maybeSingle();
+        if (!lodging || !profile?.merchant_id || lodging.merchant_id !== profile.merchant_id) {
+          return json({ success: false, error: "This property is not on your account." }, 403);
+        }
+        if (!lodging.rate_source_url) return json({ success: false, error: "Add the web address of your rates page first." }, 400);
+
+        // Each read hits the hotel's site (and maybe the AI): 5 an hour is plenty.
+        const { count: recent } = await supabase.from("lodging_rate_suggestions").select("id", { count: "exact", head: true })
+          .eq("lodging_id", lodging.id).eq("source", "website").gte("created_at", new Date(Date.now() - 3_600_000).toISOString());
+        if ((recent ?? 0) >= 5) return json({ success: false, error: "You've checked your website 5 times this hour. Try again later." }, 429);
+
+        const page = await fetchPageText(lodging.rate_source_url);
+        if (!page.ok) return json({ success: false, error: page.error }, 422);
+
+        let found = bestRate(page.text);
+        if (!found) {
+          // One AI attempt, through the budgeted gateway. Its answer is only
+          // used if that exact amount appears on the page: no invented prices.
+          try {
+            const ai = await chat(supabase, {
+              department: "hotel_rate_reader",
+              system: "You read hotel web pages. Reply with JSON only.",
+              messages: [{ role: "user", content: `From this hotel page text, find the standard nightly room rate. Reply {"amount_text": "<exactly as written on the page, with its currency symbol>"} or {"amount_text": null} if there is no nightly rate.\n\n${page.text.slice(0, 6000)}` }],
+              temperature: 0,
+              maxTokens: 80,
+            });
+            const raw = String(ai?.choices?.[0]?.message?.content || "").replace(/```(?:json)?/g, "").trim();
+            const amountText = JSON.parse(raw)?.amount_text;
+            if (typeof amountText === "string" && amountText && page.text.includes(amountText)) {
+              found = extractRateCandidates(amountText + " per night")[0] ?? null;
+            }
+          } catch (e) {
+            if (!(e instanceof BudgetExceededError || e instanceof RateLimitedError)) console.error("read_hotel_rate AI fallback failed:", e);
+          }
+        }
+
+        await supabase.from("lodging_rate_suggestions").update({ status: "superseded" })
+          .eq("lodging_id", lodging.id).eq("source", "website").eq("status", "pending");
+        await supabase.from("business_audit_log").insert({
+          merchant_id: lodging.merchant_id, lodging_id: lodging.id, actor: user.id, action: "website_read",
+          detail: { url: page.finalUrl, found: found ? found.amount_text : null },
+        });
+        if (!found) {
+          return json({ success: true, found: false, message: "We read your page but couldn't see a nightly room rate on it. Enter your rate below instead." });
+        }
+        const { data: suggestion, error: sErr } = await supabase.from("lodging_rate_suggestions").insert({
+          lodging_id: lodging.id, source: "website", source_url: page.finalUrl,
+          rate_cents: found.rate_cents, currency: found.currency, amount_text: found.amount_text,
+          excerpt: found.excerpt.slice(0, 300),
+        }).select("id, rate_cents, currency, amount_text, excerpt").single();
+        if (sErr) throw sErr;
+        return json({ success: true, found: true, suggestion });
+      }
+
+      // ── Airport pickups that follow the flight ───────────────────────────
+      // A hotel books its guest's Piarco/Tobago arrival. The pickup is
+      // scheduled for the real arrival (FlightAware) plus time to clear the
+      // airport, and the 10-minute cron (sync_flight_availability mode
+      // refresh_flight_pickups) moves it if the flight runs early or late.
+      case "flight_status": {
+        const airport = String(body.airport || "POS").toUpperCase();
+        const res = await fetchFlightStatus(String(body.flight_number || ""), String(body.flight_date || ""), AIRPORTS[airport] ? airport : undefined);
+        if (!res.configured) return json({ success: true, tracked: false, message: "Live flight tracking is not switched on yet. Enter the arrival time yourself." });
+        if (!res.flight) return json({ success: false, tracked: true, error: res.error || "No flight with that number lands there that day." }, 404);
+        await cacheFlight(supabase, res.flight);
+        return json({ success: true, tracked: true, flight: res.flight, pickup_at: pickupTimeFor(res.flight) });
+      }
+
+      case "book_airport_pickup": {
+        const airport = String(body.airport || "POS").toUpperCase();
+        const ap = AIRPORTS[airport];
+        if (!ap) return json({ success: false, error: "Choose Piarco (POS) or Tobago (TAB)." }, 400);
+        const guestName = String(body.guest_name || "").trim();
+        const local = ttLocalDigits(String(body.guest_phone || ""));
+        const intlPhone = String(body.guest_phone || "").replace(/[^\d+]/g, "");
+        if (!guestName) return json({ success: false, error: "Add the guest's name for the driver's sign." }, 400);
+        if (local.length !== 7 && intlPhone.replace(/\D/g, "").length < 8) {
+          return json({ success: false, error: "Add the guest's phone number so the driver can reach them." }, 400);
+        }
+        const flightNumber = normaliseFlightNumber(String(body.flight_number || ""));
+        const flightDate = String(body.flight_date || "");
+        if (!flightNumber || !/^\d{4}-\d{2}-\d{2}$/.test(flightDate)) {
+          return json({ success: false, error: "Enter the flight number (e.g. BW484) and the arrival date." }, 400);
+        }
+
+        const { data: profile } = await supabase.from("profiles").select("merchant_id").eq("id", user.id).maybeSingle();
+        const merchantId = profile?.merchant_id ?? null;
+        if (!(await isMerchantMember(supabase, user.id, merchantId))) {
+          return json({ success: false, error: "This account is not linked to a business." }, 403);
+        }
+        const { data: merchant } = await supabase.from("merchants")
+          .select("id, name, address, lat, lng, is_active, billing_type, credit_limit_cents, current_debt_cents")
+          .eq("id", merchantId).maybeSingle();
+        if (!merchant?.is_active) return json({ success: false, error: "Your business is not active yet. G868 activates it after review." }, 403);
+        if (merchant.lat == null || merchant.lng == null) return json({ success: false, error: "Set your business location first: the guest is driven there." }, 422);
+
+        // Pickup time: the live flight when tracking is on, otherwise the
+        // arrival time the hotel typed (local Trinidad time).
+        const res = await fetchFlightStatus(flightNumber, flightDate, airport);
+        let flight = res.configured ? res.flight : null;
+        if (res.configured && !flight) return json({ success: false, error: res.error || `No ${flightNumber} lands at ${ap.name} on that date.` }, 404);
+        let pickupAt: string | null = flight ? pickupTimeFor(flight) : null;
+        if (!pickupAt) {
+          const typed = String(body.arrival_time || "");
+          if (!/^\d{2}:\d{2}$/.test(typed)) {
+            return json({ success: false, error: "Live flight tracking is off: enter the landing time (HH:MM, Trinidad time)." }, 400);
+          }
+          const landed = new Date(`${flightDate}T${typed}:00-04:00`).getTime();
+          pickupAt = new Date(landed + exitBufferMinutes(null, airport) * 60_000).toISOString();
+        }
+        if (new Date(pickupAt).getTime() < Date.now() - 30 * 60_000) {
+          return json({ success: false, error: "That flight has already landed. Use Send a ride for a guest who is waiting now." }, 400);
+        }
+        if (flight) await cacheFlight(supabase, flight);
+
+        const vehicleClass = await fetchVehicleClass(supabase, String(body.vehicle_type || "standard").trim().toLowerCase());
+        if (!vehicleClass?.is_active) return json({ success: false, error: "That vehicle type is not available yet." }, 400);
+
+        let distanceMeters = Math.round(haversineMeters(ap.lat, ap.lng, merchant.lat, merchant.lng) * 1.3);
+        let durationSeconds = Math.round((distanceMeters / 1000 / 40) * 3600);
+        let routePolyline = "";
+        if (MAPBOX_TOKEN) {
+          try {
+            const dir = await (await secureFetch(
+              `https://api.mapbox.com/directions/v5/mapbox/driving/${ap.lng},${ap.lat};${merchant.lng},${merchant.lat}?access_token=${MAPBOX_TOKEN}&geometries=polyline&overview=full`,
+            )).json();
+            const route = dir?.routes?.[0];
+            if (route) { distanceMeters = Math.round(route.distance); durationSeconds = Math.round(route.duration); routePolyline = route.geometry || ""; }
+          } catch (e) { console.error("book_airport_pickup directions failed, using estimate:", e); }
+        }
+        let fareCents = calculateFare(distanceMeters, durationSeconds, vehicleClass.key, 1.0, 0, vehicleClass.multiplier_x100 / 100);
+        if (vehicleClass.min_fare_cents) fareCents = Math.max(fareCents, vehicleClass.min_fare_cents);
+
+        // Monthly-billed hotels pay on their invoice; otherwise the guest
+        // pays the driver in cash, as with any business-sent ride.
+        const billMonthly = merchant.billing_type === "net-30";
+        if (billMonthly && (merchant.current_debt_cents ?? 0) + fareCents > (merchant.credit_limit_cents ?? 0)) {
+          return json({ success: false, error: "This would go over your monthly credit limit. Settle your balance or ask G868 to raise it." }, 402);
+        }
+
+        let clientProfile: any = null;
+        if (local.length === 7) {
+          const { data: candidates } = await supabase.from("profiles").select("id, full_name, phone_number").ilike("phone_number", `%${local}`).limit(5);
+          clientProfile = (candidates || []).find((p: any) => ttLocalDigits(p.phone_number) === local) ?? null;
+        }
+        const pin = generatePin();
+        const { data: ride, error: rideErr } = await supabase.from("rides").insert({
+          rider_id: clientProfile?.id ?? user.id,
+          pickup_lat: ap.lat, pickup_lng: ap.lng,
+          pickup_address: `${ap.pickupNote} (flight ${flightNumber})`,
+          dropoff_lat: merchant.lat, dropoff_lng: merchant.lng,
+          dropoff_address: `${merchant.name}${merchant.address ? ` — ${merchant.address}` : ""}`,
+          distance_meters: distanceMeters, duration_seconds: durationSeconds, route_polyline: routePolyline,
+          status: "scheduled",
+          scheduled_for: pickupAt,
+          payment_method: billMonthly ? "corporate_billing" : "cash",
+          billed_to_merchant_id: billMonthly ? merchant.id : null,
+          vehicle_type: vehicleClass.key,
+          ride_pin: pin,
+          total_fare_cents: fareCents,
+          is_merchant_ride: true,
+          metadata: {
+            is_merchant_dispatch: true,
+            is_airport_pickup: true,
+            dispatched_by_merchant_id: merchant.id,
+            merchant_name: merchant.name,
+            client_name: guestName,
+            client_phone: local.length === 7 ? local : intlPhone,
+            client_has_account: !!clientProfile,
+            flight_number: flightNumber,
+            flight_date: flightDate,
+            airport,
+            flight_tracked: !!flight,
+            flight_status: flight?.status ?? null,
+            flight_eta: flight ? (flight.actual_in || flight.estimated_in || flight.scheduled_in) : null,
+            child_seat: body.child_seat === true,
+            wheelchair: body.wheelchair === true,
+            note: [`Name sign: ${guestName}`, `Flight ${flightNumber}`, body.child_seat === true ? "Child seat needed" : null, body.wheelchair === true ? "Wheelchair access needed" : null, body.note ? String(body.note).slice(0, 200) : null].filter(Boolean).join(" · "),
+            dispatched_by: user.id,
+          },
+        }).select("id, ride_pin, scheduled_for").single();
+        if (rideErr) throw rideErr;
+
+        const when = new Date(pickupAt).toLocaleString("en-TT", { timeZone: "America/Port_of_Spain", weekday: "short", hour: "numeric", minute: "2-digit" });
+        if (local.length === 7 || intlPhone) {
+          sendWhatsApp(local.length === 7 ? local : intlPhone,
+            `${merchant.name} has booked your G868 airport pickup. Flight ${flightNumber}: your driver will meet you at the ${ap.pickupNote} around ${when}${flight ? " and follows your flight if it is early or late" : ""}. Your pickup PIN is ${pin}.`,
+          ).catch(() => {});
+        }
+        return json({
+          success: true, ride_id: ride.id, ride_pin: ride.ride_pin, pickup_at: ride.scheduled_for,
+          flight_tracked: !!flight, flight: flight ?? null, fare_cents: fareCents,
+          billed_monthly: billMonthly,
+          message: `Pickup booked for ${guestName}, ${when}. ${flight ? "It follows the flight automatically." : "Live flight tracking is off, so check the flight yourself."}`,
+        });
+      }
+
+      case "list_airport_pickups": {
+        const { data: profile } = await supabase.from("profiles").select("merchant_id").eq("id", user.id).maybeSingle();
+        const merchantId = profile?.merchant_id ?? null;
+        if (!(await isMerchantMember(supabase, user.id, merchantId))) return json({ success: false, error: "This account is not linked to a business." }, 403);
+        const { data: rows, error } = await supabase.from("rides")
+          .select("id, status, scheduled_for, pickup_address, dropoff_address, total_fare_cents, payment_method, ride_pin, metadata, created_at, cancellation_reason")
+          .eq("metadata->>dispatched_by_merchant_id", merchantId)
+          .eq("metadata->>is_airport_pickup", "true")
+          .order("scheduled_for", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        return json({ success: true, pickups: rows || [] });
       }
 
       // Dispatch history for this business. rides RLS only lets a user read

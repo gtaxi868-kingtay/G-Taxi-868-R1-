@@ -200,12 +200,12 @@ export function DashboardScreen({ navigation }: { navigation: NativeStackNavigat
             <Text style={s.tileDesc}>Manage your team</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('PropertyManagement', {})} accessibilityLabel="Manage property iCal sync and availability" accessibilityRole="button">
+          <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('PropertyManagement', {})} accessibilityLabel="Rooms and nightly rates" accessibilityRole="button">
             <View style={[s.tileIcon, { backgroundColor: 'rgba(59,130,246,0.15)' }]}>
               <Ionicons name="home" size={28} color="#3B82F6" />
             </View>
-            <Text style={s.tileLabel}>Property</Text>
-            <Text style={s.tileDesc}>iCal sync & availability</Text>
+            <Text style={s.tileLabel}>Rooms</Text>
+            <Text style={s.tileDesc}>Nightly rates</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[s.tile, glassSurface(0.15), { width: tileWidth }]} onPress={() => navigation.navigate('EquityProgress', {})} accessibilityLabel="View equity ownership milestones" accessibilityRole="button">

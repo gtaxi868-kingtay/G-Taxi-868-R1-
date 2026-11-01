@@ -4,6 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond';
+import { Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
+import { Nunito_800ExtraBold, Nunito_900Black } from '@expo-google-fonts/nunito';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { ActivityIndicator, View, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,13 +17,12 @@ import { OutboxService } from '@g868/shared/OutboxService';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
-import { DashboardScreen } from './src/screens/DashboardScreen';
+import { DriverTabs } from './src/navigation/DriverTabs';
+import { MoodProvider } from './src/ui/kit';
 import { TripRequestScreen } from './src/screens/TripRequestScreen';
 import { ActiveTripScreen } from './src/screens/ActiveTripScreen';
 import { DeliveryRequestScreen } from './src/screens/DeliveryRequestScreen';
 import { ActiveDeliveryScreen } from './src/screens/ActiveDeliveryScreen';
-import { EarningsScreen } from './src/screens/EarningsScreen';
-import { WalletScreen } from './src/screens/WalletScreen';
 import { ScheduledRidesScreen } from './src/screens/ScheduledRidesScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { PendingApprovalScreen } from './src/screens/PendingApprovalScreen';
@@ -107,6 +108,38 @@ function AppNavigator() {
                 return;
             }
 
+            // A live trip outranks everything else here, including the
+            // approval gate: a driver mid-trip must always land back on the
+            // trip screen. Newest first, never maybeSingle — with two active
+            // rows maybeSingle errors and the trip reads as "no trip".
+            const { data: activeRides, error: rideError } = await supabase
+                .from('rides')
+                .select('id')
+                .eq('driver_id', driverRecord.id)
+                .in('status', ['assigned', 'arrived', 'in_progress'])
+                .order('updated_at', { ascending: false })
+                .limit(1);
+
+            if (!rideError && activeRides && activeRides.length > 0) {
+                setActiveRideId(activeRides[0].id);
+                await AsyncStorage.setItem('active_ride_id', activeRides[0].id);
+                setInitialRoute('ActiveTrip');
+                return;
+            }
+
+            if (rideError) {
+                // The check itself failed (signal, server). Fall back to the
+                // last trip this phone knew about — the trip screen verifies
+                // the ride and leaves on its own if it is finished. A failed
+                // check must never erase the saved trip.
+                const savedRideId = await AsyncStorage.getItem('active_ride_id').catch(() => null);
+                if (savedRideId) {
+                    setActiveRideId(savedRideId);
+                    setInitialRoute('ActiveTrip');
+                    return;
+                }
+            }
+
             // Approval lives in verified_status. drivers.status is only
             // online/offline/busy (CHECK), so the old status === 'pending'
             // test never matched and new drivers landed on the dashboard.
@@ -115,24 +148,18 @@ function AppNavigator() {
                 return;
             }
 
-            const { data } = await supabase
-                .from('rides')
-                .select('id')
-                .eq('driver_id', driverRecord.id)
-                .in('status', ['assigned', 'arrived', 'in_progress'])
-                .maybeSingle();
-
-            if (data) {
-                setActiveRideId(data.id);
-                await AsyncStorage.setItem('active_ride_id', data.id);
-                setInitialRoute('ActiveTrip');
-            } else {
-                await AsyncStorage.removeItem('active_ride_id');
-                setInitialRoute('Dashboard');
-            }
-        } catch (_err) {
             await AsyncStorage.removeItem('active_ride_id');
             setInitialRoute('Dashboard');
+        } catch (_err) {
+            // Same rule as a failed ride check: a saved trip beats a blank
+            // dashboard. Land on Dashboard only when nothing is saved.
+            const savedRideId = await AsyncStorage.getItem('active_ride_id').catch(() => null);
+            if (savedRideId) {
+                setActiveRideId(savedRideId);
+                setInitialRoute('ActiveTrip');
+            } else {
+                setInitialRoute('Dashboard');
+            }
         }
     }, [user]);
 
@@ -162,7 +189,8 @@ function AppNavigator() {
         <>
             <DriverActiveRideRestorationHandler />
             <AppStack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-            <AppStack.Screen name="Dashboard" component={DashboardScreen} />
+            {/* Dashboard is the tab home: Drive · Earnings · Wallet · You */}
+            <AppStack.Screen name="Dashboard" component={DriverTabs} />
             <AppStack.Screen name="PendingApproval" component={PendingApprovalScreen} />
             <AppStack.Screen name="TripRequest" component={TripRequestScreen} />
             <AppStack.Screen
@@ -172,8 +200,6 @@ function AppNavigator() {
             />
             <AppStack.Screen name="DeliveryRequest" component={DeliveryRequestScreen} />
             <AppStack.Screen name="ActiveDelivery" component={ActiveDeliveryScreen} />
-            <AppStack.Screen name="Earnings" component={EarningsScreen} />
-            <AppStack.Screen name="Wallet" component={WalletScreen} />
             <AppStack.Screen name="ScheduledRides" component={ScheduledRidesScreen} />
             <AppStack.Screen name="Profile" component={ProfileScreen} />
             <AppStack.Screen name="Chat" component={ChatScreen} />
@@ -209,6 +235,8 @@ function App() {
     const [fontsLoaded, fontError] = useFonts({
         CormorantGaramond_500Medium,
         CormorantGaramond_600SemiBold,
+        Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
+        Nunito_800ExtraBold, Nunito_900Black,
     });
     const [fontTimedOut, setFontTimedOut] = useState(false);
 
@@ -234,6 +262,7 @@ function App() {
             <SafeAreaProvider>
                 <ErrorBoundary>
                     <AuthProvider>
+                        <MoodProvider>
                         <View style={{ flex: 1 }}>
                             <OfflineBanner />
                             <NavigationContainer linking={{
@@ -250,6 +279,7 @@ function App() {
                                 <RootNavigator />
                             </NavigationContainer>
                         </View>
+                        </MoodProvider>
                     </AuthProvider>
                 </ErrorBoundary>
             </SafeAreaProvider>

@@ -731,6 +731,27 @@ serve(async (req: Request) => {
             console.error("Failed to enqueue dispatch task (non-fatal):", err);
         }
 
+        // ── Dispatch now, not on the next cron tick ──────────────────────
+        // Queueing alone left the rider waiting up to a minute (47 s in the
+        // founder's 2026-10-27 test) for the once-a-minute sweep to send the
+        // first offer. Run this ride's first round immediately; the sweep
+        // (every 20 s) handles every later round. It runs in the background
+        // (EdgeRuntime.waitUntil) so the rider's booking returns ~2 s sooner;
+        // it never blocks or fails the booking.
+        const cronSecret = Deno.env.get("PLATFORM_CRON_SECRET") ?? "";
+        if (cronSecret) {
+            const dispatchNow = fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/process_dispatch_queue`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-cron-secret": cronSecret },
+                body: JSON.stringify({ ride_id: newRideId }),
+                signal: AbortSignal.timeout(15000),
+            }).then(() => {}, (e) => console.error("Immediate dispatch failed (sweep will retry):", e?.message ?? e));
+            // deno-lint-ignore no-explicit-any
+            const rt = (globalThis as any).EdgeRuntime;
+            if (rt?.waitUntil) rt.waitUntil(dispatchNow);
+            else await dispatchNow;
+        }
+
         // ── Push Notification to Rider ─────────────────────────────────────
         try {
             const { data: riderProfile } = await adminClient

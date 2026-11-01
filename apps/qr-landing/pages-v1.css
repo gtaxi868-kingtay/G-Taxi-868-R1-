@@ -1,0 +1,27 @@
+/* The shared G 868 page shell: same scene, type, glass and day/night look as
+   the home page. Long-cached, so a change needs a new file name. */
+:root{--bg:#04030A;--t1:#fff;--t2:#D6CFF2;--t3:#A9A2C9;--rule:rgba(255,255,255,.15);--glass:linear-gradient(180deg,rgba(26,16,50,.86),rgba(12,7,26,.8));--field:rgba(0,0,0,.4);--acc:#C4B5FD;--acc2:#67E8F9;--danger:#FCA5A5;--shadow:0 24px 50px rgba(0,0,0,.4)}
+html[data-time="day"]{--bg:#FAFAFC;--t1:#12101D;--t2:#3E3A52;--t3:#6E6A85;--rule:#E4E1EE;--glass:rgba(255,255,255,.88);--field:#fff;--acc:#7C3AED;--acc2:#0E7490;--danger:#B91C1C;--shadow:0 18px 40px rgba(18,16,29,.08)}
+html,body{background:var(--bg)}
+.page-scene{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;background:var(--bg)}
+.page-scene img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 60%}
+.page-scene:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,2,14,.74),rgba(5,2,14,.56) 40%,rgba(4,2,10,.84))}
+html[data-time="day"] .page-scene img{display:none}
+html[data-time="day"] .page-scene:after{background:radial-gradient(900px 480px at 85% -10%,rgba(139,92,246,.16),transparent 60%),radial-gradient(760px 460px at -10% 24%,rgba(34,211,238,.12),transparent 60%),linear-gradient(180deg,#fff 0%,#FAFAFC 55%,#F3F0FD 100%)}
+.page-nav{position:sticky;top:14px;z-index:20;width:min(1080px,calc(100% - 28px));margin:14px auto 0;display:flex;align-items:center;gap:12px;padding:8px 10px 8px 18px;border-radius:999px;background:var(--glass);border:1px solid var(--rule);box-shadow:var(--shadow);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.page-nav .lockup{display:flex;align-items:center;gap:9px;color:var(--t1);text-decoration:none;font:800 15px Outfit,sans-serif;letter-spacing:.14em}
+.page-nav .lockup img{width:30px;height:30px;object-fit:contain}
+.page-nav .links{display:flex;gap:18px;margin-left:auto;font:700 14px Manrope,sans-serif}
+.page-nav .links a{color:var(--t2);text-decoration:none;padding:6px 0}
+.page-nav .links a:hover,.page-nav .links a[aria-current="page"]{color:var(--acc)}
+.look-switch{display:inline-flex;align-items:center;gap:8px;height:40px;min-width:40px;padding:0 12px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--t2);font:700 13px Manrope,sans-serif;cursor:pointer;transition:transform .16s ease-out}
+.look-switch:active{transform:scale(.96)}
+.look-orb{width:16px;height:16px;border-radius:50%;flex:none;box-shadow:inset -5px -2px 0 0 #C4B5FD}
+html[data-time="day"] .look-orb{background:#F59E0B;box-shadow:0 0 0 3px rgba(245,158,11,.22)}
+.page-foot{position:relative;z-index:2;width:min(1080px,calc(100% - 36px));margin:48px auto 0;padding:24px 0 32px;border-top:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;font:600 13.5px Manrope,sans-serif;color:var(--t3)}
+.page-foot nav{display:flex;flex-wrap:wrap;gap:18px}
+.page-foot a{color:var(--acc);text-decoration:none}
+.page-foot a:hover{text-decoration:underline}
+.cta-pill{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:0 26px;border-radius:999px;border:0;background:linear-gradient(135deg,#A78BFA,#7C3AED);color:#fff;font:800 15px Manrope,sans-serif;text-decoration:none;cursor:pointer;box-shadow:0 12px 28px rgba(124,58,237,.42);transition:transform .16s ease-out}
+.cta-pill:active{transform:scale(.97)}
+@media (max-width:640px){.page-nav .links{gap:12px;font-size:13px}.look-switch .look-word{display:none}.look-switch{padding:0;width:40px;justify-content:center}.page-nav .lockup span{display:none}}

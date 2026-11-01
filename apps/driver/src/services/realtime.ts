@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { supabase } from '@gtaxi/core';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import * as Notifications from 'expo-notifications';
 
 export interface RideOffer {
     id: string; // offer id
@@ -93,11 +94,23 @@ function useOfferChannel<T extends { id: string; status: string; expires_at: str
         const appSub = AppState.addEventListener('change', (next) => {
             if (next === 'active') readPending();
         });
+        // A trip push is a second, independent signal: when one arrives (or
+        // is tapped) read the offer straight away instead of waiting for the
+        // live channel, which can be asleep while another app is in front.
+        const isOfferPush = (data: any) => !!data && (data.type === 'RIDE_OFFER' || data.type === 'DELIVERY_OFFER' || data.ride_id || data.order_id);
+        const pushIn = Notifications.addNotificationReceivedListener((n) => {
+            if (isOfferPush(n.request.content.data)) readPending();
+        });
+        const pushTap = Notifications.addNotificationResponseReceivedListener((r) => {
+            if (isOfferPush(r.notification.request.content.data)) readPending();
+        });
 
         return () => {
             mounted = false;
             clearTimeout(retryTimer);
             appSub.remove();
+            pushIn.remove();
+            pushTap.remove();
             if (channel) supabase.removeChannel(channel);
         };
     }, [table, driverId]);

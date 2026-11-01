@@ -8,7 +8,8 @@ import { RegisterScreen } from './RegisterScreen';
 import { JoinWithCodeScreen } from './JoinWithCodeScreen';
 import { supabase } from '@gtaxi/core';
 import { VOICES } from '@gtaxi/design-system';
-import { RainLogin, CrystalInput, CrystalButton } from '@gtaxi/design-system/native';
+import { RainLogin, CrystalInput, CrystalButton, ForgotPasswordFlow } from '@gtaxi/design-system/native';
+import { requestPasswordReset, completePasswordReset, friendlySignInError } from '@g868/shared/passwordReset';
 
 export function LoginScreen() {
     const [email, setEmail] = useState('');
@@ -18,6 +19,7 @@ export function LoginScreen() {
     const [registrationActive, setRegistrationActive] = useState(false);
     const [showRegister, setShowRegister] = useState(false);
     const [showJoinCode, setShowJoinCode] = useState(false);
+    const [showForgot, setShowForgot] = useState(false);
     const { signIn } = useAuth();
 
     useEffect(() => {
@@ -44,7 +46,10 @@ export function LoginScreen() {
 
         if (error) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            Alert.alert('Login Failed', error.message);
+            const f = friendlySignInError(error.message);
+            Alert.alert(f.title, f.body, f.offerReset
+                ? [{ text: 'Try again', style: 'cancel' }, { text: 'Reset password', onPress: () => setShowForgot(true) }]
+                : [{ text: 'OK' }]);
         }
     };
 
@@ -53,6 +58,21 @@ export function LoginScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setShowRegister(false);
         }} />;
+    }
+
+    if (showForgot) {
+        // Code-based reset (works in any mail app). After a successful reset
+        // the person is already signed in, so the app moves on by itself.
+        return (
+            <ForgotPasswordFlow
+                voice="driver"
+                logoSource={require('../../assets/logo.png')}
+                initialEmail={email}
+                onBack={() => setShowForgot(false)}
+                onRequestCode={(e: string) => requestPasswordReset(supabase as any, e)}
+                onSetPassword={(e: string, c: string, p: string, p2: string) => completePasswordReset(supabase as any, e, c, p, p2)}
+            />
+        );
     }
 
     if (showJoinCode) {
@@ -105,6 +125,9 @@ export function LoginScreen() {
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="email"
                 />
                 <CrystalInput
                     label="Security Access"
@@ -124,6 +147,14 @@ export function LoginScreen() {
                     }
                 />
                 <CrystalButton title="Authorize Device" voice="driver" onPress={handleLogin} loading={loading} />
+                <TouchableOpacity
+                    style={s.forgotLink}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowForgot(true); }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Forgot password"
+                >
+                    <Text style={s.forgotText}>Forgot password?</Text>
+                </TouchableOpacity>
             </RainLogin>
         </View>
     );
@@ -132,6 +163,8 @@ export function LoginScreen() {
 const s = StyleSheet.create({
     root: { flex: 1 },
     registerLink: { paddingVertical: 8 },
+    forgotLink: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 16 },
+    forgotText: { fontSize: 14, fontWeight: '700', color: VOICES.driver.accent },
     registerText: { fontSize: 14, fontWeight: '500', color: 'rgba(234,243,246,0.55)' },
     registerHighlight: { fontSize: 14, fontWeight: '800', color: VOICES.driver.gold },
 });
