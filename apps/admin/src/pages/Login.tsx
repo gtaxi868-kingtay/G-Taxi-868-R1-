@@ -102,7 +102,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         // directly in case this instance is still the one that's mounted.
         const noticeText = "Account created. You'll see \"Access Denied\" until an existing admin grants you access — that's expected, not an error.";
         sessionStorage.setItem('gtaxi_admin_signup_notice', noticeText);
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         setLoading(false);
         setNotice(noticeText);
         setMode('login');

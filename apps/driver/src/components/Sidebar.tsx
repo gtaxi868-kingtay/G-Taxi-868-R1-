@@ -91,7 +91,7 @@ export function Sidebar({ visible, onClose, user, navigation }: SidebarProps) {
                     style: 'destructive',
                     onPress: async () => {
                         onClose();
-                        await supabase.auth.signOut();
+                        await supabase.auth.signOut({ scope: 'local' });
                     },
                 },
             ]

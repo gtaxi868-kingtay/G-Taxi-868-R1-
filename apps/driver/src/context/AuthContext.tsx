@@ -187,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.error('Error fetching driver profile:', error);
                 if (error.code === 'PGRST116') {
                     Alert.alert('Access Denied', 'You are not registered as a driver.');
-                    await supabase.auth.signOut();
+                    await supabase.auth.signOut({ scope: 'local' });
                 }
             } else {
                 setDriver(data as DriverProfile);
@@ -222,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (driver?.is_online) {
             await supabase.from('drivers').update({ is_online: false, status: 'offline' }).eq('user_id', user?.id);
         }
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         setDriver(null);
         setUser(null);
         setSession(null);

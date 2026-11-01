@@ -274,7 +274,7 @@ function App() {
                             <p className="text-[11px] font-bold leading-relaxed" style={{ color: 'var(--ink-muted)' }}>All systems nominal</p>
                         </div>
                         <button
-                            onClick={() => supabase.auth.signOut()}
+                            onClick={() => supabase.auth.signOut({ scope: 'local' })}
                             className="glass-btn glass-btn-ghost w-full mt-4 h-11"
                         >
                             <LogOut size={16} />
@@ -286,7 +286,7 @@ function App() {
                                 try {
                                     const { error } = await supabase.functions.invoke('delete_account');
                                     if (error) throw error;
-                                    await supabase.auth.signOut();
+                                    await supabase.auth.signOut({ scope: 'local' });
                                 } catch (err: any) {
                                     alert('Could not delete account: ' + (err?.message || 'unknown error'));
                                 }
