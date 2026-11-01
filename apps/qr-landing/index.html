@@ -73,6 +73,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://ffbbuafgeypvkpcuvdnv.supabase.co">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="towns-v1.js"></script>
 <script>
 /* Day or night look. The visitor's own choice wins, then a ?look= link, then the
    clock in Trinidad (6am to 6pm is day), whatever time zone they are visiting from. */
@@ -761,8 +762,8 @@ html[data-time="day"] .foot-links a:hover{color:var(--ink)}
 
 
 /* ===== POP-UP PAGES: same scene and glass as the home page, day and night ===== */
-:root{--p1:#fff;--p2:#D6CFF2;--p3:#A9A2C9;--p-card:rgba(255,255,255,.07);--p-field:rgba(0,0,0,.42);--p-line:rgba(255,255,255,.16);--p-wash:rgba(4,3,10,.3);--p-mix:100%}
-html[data-time="day"]{--p1:#12101D;--p2:#3E3A52;--p3:#6E6A85;--p-card:#fff;--p-field:#fff;--p-line:#E4E1EE;--p-wash:rgba(255,255,255,.75);--p-mix:52%}
+:root{--p-menu:#1b1630;--p1:#fff;--p2:#D6CFF2;--p3:#A9A2C9;--p-card:rgba(255,255,255,.07);--p-field:rgba(0,0,0,.42);--p-line:rgba(255,255,255,.16);--p-wash:rgba(4,3,10,.3);--p-mix:100%}
+html[data-time="day"]{--p-menu:#fff;--p1:#12101D;--p2:#3E3A52;--p3:#6E6A85;--p-card:#fff;--p-field:#fff;--p-line:#E4E1EE;--p-wash:rgba(255,255,255,.75);--p-mix:52%}
 #panel-layer{background:rgba(4,3,10,.74)!important}
 html[data-time="day"] #panel-layer{background:rgba(243,240,253,.8)!important}
 #panel-card{padding:0!important;color:var(--p1);background:linear-gradient(180deg,#160B30,#0C0719)!important;border-color:var(--p-line)!important;scrollbar-width:thin;animation:panelIn .24s cubic-bezier(.23,1,.32,1) both}
@@ -1044,6 +1045,95 @@ async function loadVehicleTypes() {
 }
 loadVehicleTypes();
 
+// The waitlist town search. community stays one of the ten areas so sign-ups still
+// count area by area; the exact town goes in details.town. Location is read in the
+// browser only: the page keeps the nearest town's name and sends no coordinates.
+const WAITLIST_AREAS = ['Port of Spain', 'San Fernando', 'Chaguanas', 'Arima', 'Diego Martin / Westmoorings',
+  'Tunapuna / St. Augustine', 'Couva / Point Lisas', 'Sangre Grande', 'Princes Town / Debe', 'Tobago'];
+const TOWN_FIELD_HTML = `<div style="position:relative;display:grid;gap:.45rem;min-width:0">
+          <input id="wl-town" type="text" placeholder="Search your town" autocomplete="off" role="combobox" aria-label="Search your town or village" aria-autocomplete="list" aria-expanded="false" aria-controls="wl-town-list" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;width:100%;box-sizing:border-box">
+          <input id="wl-area" type="hidden" value="">
+          <div id="wl-town-list" role="listbox" aria-label="Towns" style="display:none;position:absolute;top:3.25rem;left:0;width:min(320px,calc(100vw - 72px));z-index:5;background:var(--p-menu);border:1px solid var(--p-line);border-radius:14px;overflow:auto;max-height:260px;box-shadow:0 14px 34px rgba(0,0,0,.28)"></div>
+          <button type="button" id="wl-locate" style="justify-self:start;background:none;border:none;padding:.2rem 0;color:var(--p2);font-size:.82rem;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer">Use my location</button>
+        </div>`;
+
+function wireTownField(root) {
+  const input = root.getElementById('wl-town');
+  const hidden = root.getElementById('wl-area');
+  const list = root.getElementById('wl-town-list');
+  const locate = root.getElementById('wl-locate');
+  if (!input || !hidden || !list || !locate) return;
+  const towns = window.G868_TOWNS || [];
+  const norm = (v) => v.toLowerCase().replace(/['’.]/g, '').replace(/\bst\b/g, 'saint').replace(/\s+/g, ' ').trim();
+  const open = (on) => { list.style.display = on ? 'block' : 'none'; input.setAttribute('aria-expanded', on ? 'true' : 'false'); };
+  const choose = (town, area) => {
+    input.value = town || area;
+    input.dataset.town = town || '';
+    hidden.value = area;
+    open(false);
+  };
+  const row = (label, sub, town, area) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'option');
+    b.style.cssText = 'display:block;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--p-line);padding:.7rem .95rem;color:var(--p1);font-size:.92rem;cursor:pointer';
+    b.textContent = label;
+    if (sub) {
+      const s = document.createElement('span');
+      s.style.cssText = 'display:block;color:var(--p3);font-size:.76rem;margin-top:.1rem';
+      s.textContent = sub;
+      b.appendChild(s);
+    }
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', () => choose(town, area));
+    return b;
+  };
+  const show = () => {
+    const q = norm(input.value);
+    hidden.value = '';
+    input.dataset.town = '';
+    list.replaceChildren();
+    if (q.length < 2) { open(false); return; }
+    const hits = towns
+      .map((t) => { const n = norm(t[0]); return { t, n, at: n.startsWith(q) ? 0 : n.includes(' ' + q) ? 1 : n.includes(q) ? 2 : 3 }; })
+      .filter((h) => h.at < 3)
+      .sort((a, b) => a.at - b.at || a.n.length - b.n.length)
+      .slice(0, 7);
+    const exact = hits.filter((h) => h.n === q);
+    if (exact.length === 1) { hidden.value = WAITLIST_AREAS[exact[0].t[3]]; input.dataset.town = exact[0].t[0]; }
+    hits.forEach((h) => list.appendChild(row(h.t[0], WAITLIST_AREAS[h.t[3]], h.t[0], WAITLIST_AREAS[h.t[3]])));
+    if (!hits.length) {
+      const head = document.createElement('div');
+      head.style.cssText = 'padding:.65rem .95rem;color:var(--p3);font-size:.78rem';
+      head.textContent = 'Not listed yet. Pick your nearest area:';
+      list.appendChild(head);
+      WAITLIST_AREAS.forEach((a) => list.appendChild(row(a, '', '', a)));
+    }
+    open(true);
+  };
+  input.addEventListener('input', show);
+  input.addEventListener('blur', () => open(false));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') open(false);
+    if (e.key === 'Enter' && list.style.display === 'block' && !hidden.value) {
+      const first = list.querySelector('[role="option"]');
+      if (first) { e.preventDefault(); first.click(); }
+    }
+  });
+  locate.addEventListener('click', () => {
+    if (!navigator.geolocation) { locate.textContent = 'Location is not available here. Search instead.'; return; }
+    locate.textContent = 'Finding you…';
+    navigator.geolocation.getCurrentPosition((p) => {
+      const { latitude: la, longitude: ln } = p.coords;
+      const km = (t) => Math.hypot(t[1] - la, (t[2] - ln) * Math.cos(la * Math.PI / 180)) * 111;
+      const best = towns.reduce((m, t) => (!m || km(t) < km(m) ? t : m), null);
+      if (!best || km(best) > 25) { locate.textContent = 'You look outside T&T. Search your town instead.'; return; }
+      choose(best[0], WAITLIST_AREAS[best[3]]);
+      locate.textContent = 'Not right? Search your town.';
+    }, () => { locate.textContent = 'Could not get your location. Search instead.'; }, { timeout: 10000, maximumAge: 60000 });
+  });
+}
+
 // Role-specific extra fields shown under the community/role row on the waitlist form.
 // These map straight into waitlist.details (JSONB) — see the 2026-09-07 migration.
 function waitlistExtraHTML(role) {
@@ -1313,13 +1403,8 @@ const roleFormHTML = (r) => `
       <input id="wl-hp" name="wl_hp_website" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
       <input id="wl-name" type="text" required placeholder="Your name" autocomplete="name" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
       <input id="wl-phone" type="tel" required placeholder="WhatsApp number, e.g. 868 712 3456" autocomplete="tel" inputmode="tel" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-        <select id="wl-area" required style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
-          <option value="">Your community…</option>
-          <option>Port of Spain</option><option>San Fernando</option><option>Chaguanas</option>
-          <option>Arima</option><option>Diego Martin / Westmoorings</option><option>Tunapuna / St. Augustine</option>
-          <option>Couva / Point Lisas</option><option>Sangre Grande</option><option>Princes Town / Debe</option><option>Tobago</option>
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;align-items:start">
+        ${TOWN_FIELD_HTML}
         <select id="wl-role" required style="background:var(--p-field);border:1px solid ${r.tint}.45);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
           ${['Rider', 'Driver', 'G-Partner (merchant)', 'G-Lead (territory)'].map(o => `<option${o === r.value ? ' selected' : ''}>${o}</option>`).join('')}
         </select>
@@ -1371,13 +1456,8 @@ const PANELS = {
       <input id="wl-hp" name="wl_hp_website" type="text" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
       <input id="wl-name" type="text" required placeholder="Your name" autocomplete="name" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
       <input id="wl-phone" type="tel" required placeholder="WhatsApp number, e.g. 868 712 3456" autocomplete="tel" inputmode="tel" style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-        <select id="wl-area" required style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
-          <option value="">Your community…</option>
-          <option>Port of Spain</option><option>San Fernando</option><option>Chaguanas</option>
-          <option>Arima</option><option>Diego Martin / Westmoorings</option><option>Tunapuna / St. Augustine</option>
-          <option>Couva / Point Lisas</option><option>Sangre Grande</option><option>Princes Town / Debe</option><option>Tobago</option>
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;align-items:start">
+        ${TOWN_FIELD_HTML}
         <select id="wl-role" required style="background:var(--p-field);border:1px solid var(--p-line);border-radius:14px;padding:.95rem 1.1rem;color:var(--p1);font-size:.95rem;outline:none;cursor:pointer">
           <option value="">I'm joining as…</option>
           <option>Rider</option><option>Driver</option><option>G-Partner (merchant)</option><option>G-Lead (territory)</option>
@@ -1505,6 +1585,7 @@ class Component extends DCLogic {
       layer.style.display = 'flex';
       const f = root.getElementById('wl-form');
       if (f) {
+        wireTownField(root);
         const roleSel = root.getElementById('wl-role');
         const extraBox = root.getElementById('wl-extra');
         const syncExtra = () => {
@@ -1542,14 +1623,15 @@ class Component extends DCLogic {
           return;
         }
         if (!area) {
-          msg.textContent = 'Pick the community closest to you.';
+          msg.textContent = 'Pick your town from the list, or your nearest area.';
           return;
         }
         if (!role) {
           msg.textContent = 'Tell us how you’d like to join.';
           return;
         }
-        let details = {};
+        const town = root.getElementById('wl-town').dataset.town;
+        let details = town ? { town } : {};
         if (role === 'Driver') {
           const vt = root.getElementById('wl-vehicle-type');
           const plate = root.getElementById('wl-plate');
@@ -1589,7 +1671,7 @@ class Component extends DCLogic {
           }
           f.innerHTML = `<div style="padding:1.6rem;border-radius:22px;background:linear-gradient(140deg,rgba(124,58,237,.35),rgba(34,211,238,.16));border:1px solid rgba(34,211,238,.35)">
             <div style="font-family:'Outfit',sans-serif;font-weight:900;font-size:1.5rem;margin-bottom:.5rem">You're in. Thank you.</div>
-            <p style="color:var(--p2);line-height:1.6">${role || 'Your hand is up'}${area ? ' · ' + area : ''}. We'll reach you on WhatsApp the moment your area has enough drivers to answer and enough counters worth opening.</p>
+            <p style="color:var(--p2);line-height:1.6">${role || 'Your hand is up'} · ${town || area}. We'll reach you on WhatsApp the moment your area has enough drivers to answer and enough counters worth opening.</p>
           </div>`;
         } catch (err) {
           msg.textContent = err.message || 'Could not save. Check your connection and try again.';
