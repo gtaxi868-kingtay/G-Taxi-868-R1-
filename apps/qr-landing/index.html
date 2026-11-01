@@ -1045,9 +1045,9 @@ async function loadVehicleTypes() {
 }
 loadVehicleTypes();
 
-// The waitlist town search. community stays one of the ten areas so sign-ups still
-// count area by area; the exact town goes in details.town. Location is read in the
-// browser only: the page keeps the nearest town's name and sends no coordinates.
+// The waitlist town search. community holds the exact town, and details.town_lat and
+// town_lng hold that town's centre, so the drivers closest to it can be found. Location
+// is read in the browser only: it picks the nearest town and is never sent.
 const WAITLIST_AREAS = ['Port of Spain', 'San Fernando', 'Chaguanas', 'Arima', 'Diego Martin / Westmoorings',
   'Tunapuna / St. Augustine', 'Couva / Point Lisas', 'Sangre Grande', 'Princes Town / Debe', 'Tobago'];
 const TOWN_FIELD_HTML = `<div style="position:relative;display:grid;gap:.45rem;min-width:0">
@@ -1066,13 +1066,21 @@ function wireTownField(root) {
   const towns = window.G868_TOWNS || [];
   const norm = (v) => v.toLowerCase().replace(/['’.]/g, '').replace(/\bst\b/g, 'saint').replace(/\s+/g, ' ').trim();
   const open = (on) => { list.style.display = on ? 'block' : 'none'; input.setAttribute('aria-expanded', on ? 'true' : 'false'); };
-  const choose = (town, area) => {
-    input.value = town || area;
-    input.dataset.town = town || '';
-    hidden.value = area;
-    open(false);
+  const setTown = (t) => {
+    hidden.value = WAITLIST_AREAS[t[3]];
+    input.dataset.town = t[0];
+    input.dataset.lat = t[1];
+    input.dataset.lng = t[2];
   };
-  const row = (label, sub, town, area) => {
+  const clearTown = () => {
+    hidden.value = '';
+    input.dataset.town = '';
+    input.dataset.lat = '';
+    input.dataset.lng = '';
+  };
+  const choose = (t) => { input.value = t[0]; setTown(t); open(false); };
+  const chooseArea = (area) => { input.value = area; clearTown(); hidden.value = area; open(false); };
+  const row = (label, sub, onPick) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.setAttribute('role', 'option');
@@ -1085,13 +1093,12 @@ function wireTownField(root) {
       b.appendChild(s);
     }
     b.addEventListener('mousedown', (e) => e.preventDefault());
-    b.addEventListener('click', () => choose(town, area));
+    b.addEventListener('click', onPick);
     return b;
   };
   const show = () => {
     const q = norm(input.value);
-    hidden.value = '';
-    input.dataset.town = '';
+    clearTown();
     list.replaceChildren();
     if (q.length < 2) { open(false); return; }
     const hits = towns
@@ -1100,14 +1107,14 @@ function wireTownField(root) {
       .sort((a, b) => a.at - b.at || a.n.length - b.n.length)
       .slice(0, 7);
     const exact = hits.filter((h) => h.n === q);
-    if (exact.length === 1) { hidden.value = WAITLIST_AREAS[exact[0].t[3]]; input.dataset.town = exact[0].t[0]; }
-    hits.forEach((h) => list.appendChild(row(h.t[0], WAITLIST_AREAS[h.t[3]], h.t[0], WAITLIST_AREAS[h.t[3]])));
+    if (exact.length === 1) setTown(exact[0].t);
+    hits.forEach((h) => list.appendChild(row(h.t[0], WAITLIST_AREAS[h.t[3]], () => choose(h.t))));
     if (!hits.length) {
       const head = document.createElement('div');
       head.style.cssText = 'padding:.65rem .95rem;color:var(--p3);font-size:.78rem';
       head.textContent = 'Not listed yet. Pick your nearest area:';
       list.appendChild(head);
-      WAITLIST_AREAS.forEach((a) => list.appendChild(row(a, '', '', a)));
+      WAITLIST_AREAS.forEach((a) => list.appendChild(row(a, '', () => chooseArea(a))));
     }
     open(true);
   };
@@ -1128,7 +1135,7 @@ function wireTownField(root) {
       const km = (t) => Math.hypot(t[1] - la, (t[2] - ln) * Math.cos(la * Math.PI / 180)) * 111;
       const best = towns.reduce((m, t) => (!m || km(t) < km(m) ? t : m), null);
       if (!best || km(best) > 25) { locate.textContent = 'You look outside T&T. Search your town instead.'; return; }
-      choose(best[0], WAITLIST_AREAS[best[3]]);
+      choose(best);
       locate.textContent = 'Not right? Search your town.';
     }, () => { locate.textContent = 'Could not get your location. Search instead.'; }, { timeout: 10000, maximumAge: 60000 });
   });
@@ -1630,8 +1637,11 @@ class Component extends DCLogic {
           msg.textContent = 'Tell us how you’d like to join.';
           return;
         }
-        const town = root.getElementById('wl-town').dataset.town;
-        let details = town ? { town } : {};
+        const townField = root.getElementById('wl-town');
+        const town = townField.dataset.town;
+        let details = town
+          ? { area, town_lat: Number(townField.dataset.lat), town_lng: Number(townField.dataset.lng) }
+          : {};
         if (role === 'Driver') {
           const vt = root.getElementById('wl-vehicle-type');
           const plate = root.getElementById('wl-plate');
@@ -1658,7 +1668,7 @@ class Component extends DCLogic {
             body: JSON.stringify({
               full_name: name,
               phone: phone,
-              community: area || null,
+              community: town || area || null,
               user_type: ROLE_TO_TYPE[role] || 'ride',
               source: `g868:${role || 'unspecified'}`,
               details
